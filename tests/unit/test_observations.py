@@ -50,6 +50,7 @@ from kiwi.sim.observations import (
     observation_runtime_value,
 )
 from kiwi.sim.state import MissionState, add_entity
+from kiwi.sim.weapons import AimState, AimStore, SuppressionState, SuppressionStore
 
 
 def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> None:
@@ -60,7 +61,7 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 5
+    assert OBSERVATION_SCHEMA_VERSION == 6
     assert value.type_name == OBSERVATION_RECORD_TYPE
     assert value.field_names == (
         "inbox",
@@ -81,7 +82,15 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
     self_value = value.field_value("self")
     assert isinstance(self_value, RecordValue)
     assert self_value.type_name == SELF_OBSERVATION_RECORD_TYPE
-    assert self_value.field_names == ("entity_id", "position")
+    assert self_value.field_names == (
+        "aim_ceiling_basis_points",
+        "aim_quality_basis_points",
+        "entity_id",
+        "position",
+        "suppression_basis_points",
+    )
+    assert self_value.field_value("aim_ceiling_basis_points") == IntegerValue(10_000)
+    assert self_value.field_value("aim_quality_basis_points") == IntegerValue(0)
     assert self_value.field_value("entity_id") == IntegerValue(4)
     position_value = self_value.field_value("position")
     assert isinstance(position_value, RecordValue)
@@ -94,6 +103,27 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
         distance_from_world_subunits(WorldSubunits(500))
     )
     assert value.field_value("tick") == IntegerValue(9)
+
+
+def test_runtime_observations_project_exact_aim_and_suppression_values() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(0), WorldSubunits(0)))
+    state = replace(
+        state,
+        aim_states=AimStore((AimState(entity.entity_id, 4_000),)),
+        suppressions=SuppressionStore((SuppressionState(entity.entity_id, 2_500),)),
+    )
+
+    observation = build_runtime_observations(state)[0]
+    value = observation_runtime_value(observation)
+    self_value = value.field_value("self")
+
+    assert observation.self_observation.aim_quality_basis_points == 4_000
+    assert observation.self_observation.aim_ceiling_basis_points == 7_500
+    assert observation.self_observation.suppression_basis_points == 2_500
+    assert isinstance(self_value, RecordValue)
+    assert self_value.field_value("aim_quality_basis_points") == IntegerValue(4_000)
+    assert self_value.field_value("aim_ceiling_basis_points") == IntegerValue(7_500)
+    assert self_value.field_value("suppression_basis_points") == IntegerValue(2_500)
 
 
 def test_runtime_observations_project_visible_cover_records() -> None:

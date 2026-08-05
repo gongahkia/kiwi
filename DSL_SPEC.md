@@ -510,10 +510,11 @@ Fields must encode uncertainty explicitly. A missing value is `None`, not a sent
 
 Observation reads are instrumented. The VM trace can record that a branch depended on `target.confidence`, `view.self.suppression`, or `cover.exposure`.
 
-The current runtime observation ABI is version `5`. It exposes
+The current runtime observation ABI is version `6`. It exposes
 `Observation { inbox, nearest_contact, self, signals, tick, visible_covers }`, where `self` is
-`SelfObservation { entity_id, position }`, `position` is the existing
-`Position { x: Distance, y: Distance }` record, and `inbox` is
+`SelfObservation { aim_ceiling_basis_points, aim_quality_basis_points, entity_id,
+position, suppression_basis_points }`, `position` is the existing `Position {
+x: Distance, y: Distance }` record, and `inbox` is
 `InboxObservation { messages: List<Message> }`. The observation builder derives
 this inbox from the authoritative delivered-message ledger and never exposes
 another entity's inbox. `signals` is the owner-local current-tick

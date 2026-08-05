@@ -105,8 +105,9 @@ def reduce_one_tick(
         next_state, policy_events = _reduce_policies(next_state, policy_bindings)
         emitted.extend(policy_events)
     if next_state.phase is MissionPhase.ACTIVE:
-        movement = emit_movement_events(resolve_movement_actions(next_state))
-        aim = resolve_aim_progression(next_state, clock, movement.resolutions)
+        movement_phase = resolve_movement_actions(next_state)
+        movement = emit_movement_events(movement_phase)
+        aim = resolve_aim_progression(movement.state, clock, movement_phase.resolutions)
         next_state = aim.state
         emitted.extend(movement.events)
 

@@ -45,10 +45,10 @@ class AimProgression:
             raise ValueError("aim progression gain must be non-negative")
         if not isinstance(self.moved, bool):
             raise ValueError("aim progression movement flag must be boolean")
+        if self.moved and self.base_gain != 0:
+            raise ValueError("moving aim progressions must not gain quality")
         expected_quality = (
-            0
-            if self.moved
-            else min(self.quality_ceiling, self.quality_before + self.base_gain)
+            0 if self.moved else min(self.quality_ceiling, self.quality_before + self.base_gain)
         )
         if self.quality_after != expected_quality:
             raise ValueError("aim progression result does not match its modifiers")
@@ -73,6 +73,10 @@ class AimProgressionPhase:
             if progression.entity_id.value <= previous_entity_id:
                 raise ValueError("aim progression results must be entity-ID ordered")
             previous_entity_id = progression.entity_id.value
+        if tuple(progression.entity_id for progression in self.progressions) != tuple(
+            entity.entity_id for entity in self.state.entities
+        ):
+            raise ValueError("aim progression results must cover every mission entity")
 
 
 def progress_aim_states(
@@ -136,6 +140,5 @@ def resolve_aim_progression(
 
 def _aim_gain_for_tick(tick: int, tick_rate: int) -> int:
     return (
-        (tick + 1) * MAX_AIM_QUALITY_BASIS_POINTS // tick_rate
-        - tick * MAX_AIM_QUALITY_BASIS_POINTS // tick_rate
-    )
+        tick + 1
+    ) * MAX_AIM_QUALITY_BASIS_POINTS // tick_rate - tick * MAX_AIM_QUALITY_BASIS_POINTS // tick_rate
