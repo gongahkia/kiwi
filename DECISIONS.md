@@ -763,6 +763,23 @@ headlessly advances the remaining fixed ticks. `.dseek` preserves the
 user-approved strict `.drun` v1 policy: it introduces no `.drun` field,
 migration, or compatibility runner. Only sidecar version `1` is accepted.
 
+### D-069: Historical source uses replay-bound strict sidecars
+
+`KWI-SOURCE\0` version `1` is an optional bounded binary `.dsrc` sidecar. It
+contains the BLAKE2b-256 identity of one canonical `.drun`, exact UTF-8 source
+text with its source-language version and content hash, and each deployed
+entity's selected entry function plus canonical bytecode. The bytecode's
+existing source map is retained without projection; source text reconstructs
+the line index needed to navigate each span. Every source-map span must be
+valid against its retained text, and retained sources must exactly match the
+bytecode headers.
+
+Consumers require both the replay hash and entity-ID-ordered policy-version
+manifest to match before resolving historical source. Only sidecar version `1`
+is accepted. `.dsrc` introduces no `.drun` field, migration, compatibility
+runner, or authority dependency, preserving the user-approved strict replay
+v1 policy.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
