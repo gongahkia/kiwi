@@ -1,150 +1,114 @@
-# Kiwi — Python Project Documentation
+# Stanczyk
 
-> Working title. Rename freely before public release.
+Stanczyk is a programmable terminal runtime and visual laboratory built around LÖVE.
 
-Kiwi is a real-time, physics-aware squad tactics game in which the player does not directly command individual operatives. The player writes a small functional program that turns incomplete observations into tactical intentions. A mission then runs in real time, and an integrated causal debugger explains how battlefield consequences arose from specific expressions, data, decisions, and physical events.
+It is not a fake hacking terminal, a browser engine, or an attempt to replace mature daily-driver terminals in its first releases. Its core is a deterministic terminal state machine that can consume recorded output, a sandboxed command environment, or a real pseudo-terminal stream. Its renderer treats terminal cells as programmable scene data rather than a fixed text surface.
 
-The project is implemented in Python. `pygame-ce` provides the desktop application shell, rendering, input, audio, and bitmap-font presentation. The authoritative simulation, functional language toolchain, deterministic virtual machine, replay system, and causal-debugger model are project-owned Python modules and must run headlessly.
+The project exists at the intersection of terminal emulation, deterministic replay, creative coding, game tooling, protocol debugging, and procedural rendering.
 
-The player-facing language is **not Python**. It is a separate functional DSL with its own syntax, type system, compiler, bytecode, runtime limits, source maps, and versioning. Python is the implementation language because it supports rapid iteration on compiler architecture, simulation models, diagnostic tooling, trace analysis, and automated testing.
+## Product thesis
 
-## Product promise
+Most terminal emulators treat rendering as the final presentation layer. Stanczyk treats rendering as an extensible runtime boundary.
 
-**Program the kiwi. Deploy the squad. Debug the consequences.**
+The project should make it possible to:
 
-The defining loop is:
+- replay terminal sessions deterministically;
+- inspect each escape sequence and resulting state transition;
+- embed a terminal in a LÖVE application or game;
+- run a real shell through an optional native PTY helper;
+- implement effects as code without modifying the terminal parser;
+- build visual terminal experiences without sacrificing a correct state model.
 
-1. Receive an incomplete mission briefing.
-2. Select and equip a persistent squad.
-3. Edit squad and operative policies in the in-game workbench.
-4. Compile and validate those policies.
-5. Run the mission in real time with only limited high-level signals.
-6. Inspect a causal trace linking outcomes back to code and observed data.
-7. Revise the kiwi and rerun or continue the campaign.
+The visual effects are a supported product surface, not the definition of the project. Generated art assets are optional and non-essential. The core value is the reusable runtime, event model, renderer architecture, and debugging surface.
 
-## Non-negotiable pillars
+## Target users
 
-1. **Autonomous execution** — no ordinary select-and-right-click control.
-2. **Functional programming** — user programs are pure transformations over immutable observations and explicit memory.
-3. **Intent, not mutation** — programs request actions; the simulation resolves outcomes.
-4. **Deterministic authority** — identical inputs, build, seed, and content produce identical state hashes.
-5. **Causal legibility** — important outcomes can be traced back to program evaluations and world events.
-6. **Small language core** — complexity is introduced through composition and libraries rather than dozens of primitive commands.
-7. **Headless-first engineering** — the compiler, VM, simulation, replay, and explanation engine do not depend on pygame.
+1. Creative coders and game developers who want an embeddable terminal component.
+2. TUI authors who need to inspect terminal control sequences and state changes.
+3. Terminal enthusiasts who want programmable rendering and replay.
+4. Developers producing deterministic terminal demos, tutorials, or recordings.
 
-## Host stack
+## Repository documentation
 
-- Python 3.12 or later
-- pygame-ce for rendering, input, audio, and window management
-- project-owned fixed-step simulation
-- project-owned functional DSL compiler and VM
-- pytest for testing
-- Hypothesis for property tests once the foundational representations stabilise
-- Ruff for formatting and linting
-- static type checking with mypy or Pyright, selected and pinned during Milestone 0
+Read these documents in order before implementation:
 
-Pymunk, Box2D, or another external physics engine is **not** part of the MVP authority. It may later be used for non-authoritative debris or isolated experiments only after deterministic requirements are measured and documented.
+1. [`PRD.md`](PRD.md)
+2. [`TODO.md`](TODO.md)
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+4. [`docs/TERMINAL_COMPATIBILITY.md`](docs/TERMINAL_COMPATIBILITY.md)
+5. [`docs/RECORDING_FORMAT.md`](docs/RECORDING_FORMAT.md)
+6. [`docs/RENDERER_AND_EFFECTS.md`](docs/RENDERER_AND_EFFECTS.md)
+7. [`docs/BACKENDS.md`](docs/BACKENDS.md)
+8. [`docs/PLUGIN_API.md`](docs/PLUGIN_API.md)
+9. [`docs/TESTING.md`](docs/TESTING.md)
+10. [`docs/SECURITY.md`](docs/SECURITY.md)
+11. [`docs/RELEASE_CRITERIA.md`](docs/RELEASE_CRITERIA.md)
+12. [`AGENTS.md`](AGENTS.md)
 
-## Documentation map
+Architecture decisions are recorded under [`docs/adr`](docs/adr).
 
-- `PRD.md` — product requirements, scope, users, risks, success criteria, and vertical slice.
-- `GAME_DESIGN.md` — mission structure, player agency, operatives, combat, information, progression, and first scenario.
-- `DSL_SPEC.md` — functional language semantics, syntax, type system, compiler, bytecode, VM, and diagnostics.
-- `LANGUAGE_ROADMAP.md` — how the DSL can grow without invalidating the small-core design.
-- `ARCHITECTURE.md` — repository layout, module boundaries, dependency rules, runtime pipeline, and performance budgets.
-- `PYTHON_STACK.md` — Python, pygame-ce, dependency, performance, and packaging guidance.
-- `SIMULATION_SPEC.md` — deterministic time, entities, observations, intentions, movement, projectiles, cover, damage, and hashing.
-- `CAUSAL_DEBUGGER.md` — provenance model, trace levels, source linkage, queries, retention, and UI contract.
-- `UX_UI.md` — workbench, terminal, mission view, debugger, controls, accessibility, and bitmap-font direction.
-- `DATA_FORMATS.md` — source, bytecode, mission, replay, trace, save, and schema-versioning rules.
-- `TESTING.md` — test layers, determinism harnesses, compiler goldens, properties, performance, and CI.
-- `DECISIONS.md` — settled decisions, prohibited shortcuts, open decisions, and change process.
-- [GitHub Issues](https://github.com/gongahkia/kiwi/issues) — gated implementation milestones, tasks, and exit evidence.
-- `AGENTS.md` — rules for Codex and other repository agents.
-- `CODEX_HANDOFF.md` — exact initial prompt and recommended implementation workflow.
+## Initial release shape
 
-## Recommended reading order
+The first credible public release should include:
 
-1. `AGENTS.md`
-2. `PRD.md`
-3. `DECISIONS.md`
-4. `ARCHITECTURE.md`
-5. `DSL_SPEC.md`
-6. `SIMULATION_SPEC.md`
-7. `CAUSAL_DEBUGGER.md`
-8. The active GitHub issue
-9. The specification relevant to the active milestone
+- a deterministic terminal parser and screen state model;
+- recorded-session playback with pause, seek, and single-event stepping;
+- a LÖVE renderer with a glyph atlas and effect pipeline;
+- a sandboxed command environment for web and game embedding;
+- a Unix PTY helper for real interactive shells;
+- a protocol-inspection overlay;
+- several procedural effect presets;
+- a small embedding example and a standalone application;
+- state, property, replay, integration, and performance tests.
 
-## First technical proof
+Windows PTY support, full xterm compatibility, remote sessions, and production-grade accessibility are later work.
 
-Before building a polished editor, campaign, or content pipeline, prove this chain headlessly:
+## Canonical invariant
+
+Given the same initial state, ordered backend events, configuration, and font metrics, Stanczyk must produce the same terminal state at every event boundary.
+
+Rendering may be nondeterministic only where a plugin explicitly opts into wall-clock time or external randomness. The core runtime and recording playback must remain deterministic.
+
+## Proposed repository shape
 
 ```text
-DSL source
-  -> parsed AST with source spans
-  -> typed core IR
-  -> deterministic bytecode
-  -> bounded VM evaluation
-  -> emitted tactical intention
-  -> deterministic simulation resolution
-  -> causal event linked to the source expression
-  -> replay with matching state hashes
+stanczyk/
+├── main.lua
+├── conf.lua
+├── src/
+│   ├── terminal/
+│   ├── recording/
+│   ├── backend/
+│   ├── renderer/
+│   ├── effects/
+│   ├── shell/
+│   ├── debugger/
+│   ├── plugin/
+│   └── app/
+├── native/
+│   └── pty-helper/
+├── examples/
+│   ├── standalone/
+│   ├── embedded-terminal/
+│   └── protocol-debugger/
+├── tests/
+│   ├── unit/
+│   ├── property/
+│   ├── fixtures/
+│   ├── golden/
+│   └── integration/
+├── docs/
+└── tools/
 ```
 
-The first playable proof must then demonstrate:
+## Project status
 
-1. A squad fails because of a flawed policy.
-2. The debugger identifies the decisive expression and evidence.
-3. The player edits the function.
-4. The compiler accepts the revision.
-5. The same scenario and seed rerun deterministically.
-6. The changed code produces a materially different tactical outcome.
+Milestone 0 provides the repository skeleton, plain-Lua interface contracts, validated runtime events, and a blank LÖVE viewport. It remains active until a clean checkout and CI run are verified; terminal semantics begin only after those exit criteria pass.
 
-If that loop is not satisfying, more missions, factions, graphics, and language features will not fix the project.
+The current implementation unit is Milestone 0 in [`TODO.md`](TODO.md).
 
 ## Development
 
-Canonical development runtime: CPython 3.12. `uv` manages the locked `.venv`; `.python-version` pins its interpreter selection. `pygame-ce` is the sole runtime dependency and is reserved for future presentation packages. It is not imported by headless commands.
+The verified bootstrap targets are LÖVE 11.5 and LuaJIT 2.1.1785192264. Core tests use the repository test runner at [`tools/test.lua`](tools/test.lua) under LuaJIT; it prints and accepts `STANCZYK_TEST_SEED` for reproducible generated tests.
 
-```bash
-uv sync --extra dev
-make doctor
-make check
-```
-
-Use standard `venv`/`pip` when `uv` is unavailable:
-
-```bash
-python3.12 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-python -m kiwi.cli doctor
-python -m ruff format --check .
-python -m ruff check .
-python -m mypy src tests
-python -m pytest
-```
-
-`make format` applies formatting. `make check` runs formatting verification, linting, static types, and tests. The equivalent `uv` commands are `uv run --extra dev python -m kiwi.cli doctor`, `uv run --extra dev ruff format --check .`, `uv run --extra dev ruff check .`, `uv run --extra dev mypy src tests`, and `uv run --extra dev pytest`.
-
-Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli parse path/to/policy.dtr`; successful parses emit stable surface-AST output and invalid input emits structured diagnostics.
-
-Type-check and lower a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli check path/to/policy.dtr`; successful checks emit stable core and source-map output and invalid input emits structured diagnostics.
-
-Compile a type-clean source file with `uv run --extra dev python -m kiwi.cli compile path/to/policy.dtr`. Add `--output path/to/policy.kbc` to write the canonical `KWI-BC\0` bytecode payload; without it, the command reports the exact encoded byte count. Inspect compiled source with `uv run --extra dev python -m kiwi.cli disassemble path/to/policy.dtr`.
-
-Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cli run-policy path/to/policy.dtr entry --arg true`. Repeat `--arg` in parameter order; command-line arguments currently accept decimal integers, `true`, `false`, and `unit`. Milestone 4 source also supports strings, exact `ms`, `s`, `m`, `deg`, and `%` quantity literals; checked exact `+`, `-`, `<`, `<=`, `>`, and `>=` domain operations; built-in `Position { x, y }` and `Vector { dx, dy }` records; nominal immutable records declared with `type Name = { field: Type }`; closed `Option<T>` values using `Some(value)` or contextually typed `None`; exhaustive `match value with | Some(item) -> ... | None -> ...`; immutable `List<T>` literals such as `[1, 2]`; context-typed anonymous functions such as `fn item -> item`; and `value |> function(args...)` pipelines. Output renders closed runtime values. The command never evaluates Python source.
-
-The simulation policy boundary accepts `MoveToward { target: Position }` and
-`Wait { duration: Duration }`. MoveToward is capability-gated, uses canonical
-integer route planning, and emits source-linked route and movement events; it
-does not expose Python or renderer state to policy code.
-
-The current authoring language, core IR, and bytecode use version `2`; `.dtr`
-source has no header and compiles as version `2`. Historical `(1, 1, 1)`
-bytecode decodes with its original semantics but cannot contain version-2
-values, types, or instructions. Check the complete version-2 language example
-with `uv run --extra dev python -m kiwi.cli check examples/policies/m4-language.dtr`.
-
-Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated. The bundled BigBlue Terminal font is CC-BY-SA-4.0; its exact licence, attribution, source release, and SHA-256 are in `kiwi.render`'s packaged asset manifest.
+Run `make bootstrap` to verify local tools, `make test` for plain-Lua core tests, `make lint` for formatting checks, `make check` for both, and `make run` to open the LÖVE viewport with its deterministic sample recording. Use `make inspect RECORDING=path/to/session.strec` for a bounded, human-readable recording dump. Stylua 2.5.2 is the formatter.

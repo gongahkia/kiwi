@@ -1,533 +1,506 @@
-# Product Requirements Document
+# Product Requirements Document: Stanczyk
 
-## 1. Product summary
+## 1. Summary
 
-Kiwi is a single-player real-time squad tactics game in which the player programs the decision logic of a persistent tactical squad using a deliberately small functional language. Missions execute autonomously under incomplete information. Rather than directly moving and firing each operative, the player defines how the squad observes, prioritises, communicates, chooses cover, handles casualties, and pursues objectives.
+Stanczyk is a programmable terminal runtime for LÖVE applications. It combines a deterministic terminal state machine, multiple input backends, recorded-session replay, protocol inspection, and a programmable renderer.
 
-The product’s distinguishing feature is a causal debugger that maps battlefield outcomes back to program evaluations. When an operative is exposed, misses an extraction window, fires on a low-priority target, or fails to aid an ally, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and physical events that produced the result.
+The project should feel like a terminal emulator internally and a creative runtime externally. The parser, screen model, backend, renderer, effects, debugger, and embedding API must remain separable.
 
-The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer.
+Stanczyk should be useful even when all visual effects are disabled. Its base value is correctness, replayability, inspectability, and embeddability. Effects increase differentiation and demonstration value but must not compromise the core.
 
-## 2. Product thesis
+## 2. Problem
 
-Programming games frequently reduce code to automation puzzles, while tactics games usually reserve all meaningful decisions for direct player input. Kiwi combines the two:
+Existing terminal emulators are optimised for daily interactive use. Their rendering layers are generally not designed as programmable scene systems for games, art tools, recorded demonstrations, or protocol visualisation.
 
-- Tactical decisions remain meaningful because missions unfold with cover, projectiles, uncertainty, timing, suppression, injury, and extraction pressure.
-- Programming remains meaningful because code controls actual autonomous behaviour rather than cosmetic automation.
-- Failure remains learnable because consequences are traceable to source code and evidence.
-- Repetition remains purposeful because deterministic reruns allow controlled experiments.
+Creative coding projects often solve the opposite problem poorly: they create attractive fake terminals with scripted commands but no terminal protocol, no reusable state machine, no real PTY, and no deterministic replay.
 
-The player is not writing scripts alongside the game. **Writing, deploying, and debugging kiwi is the game.**
+TUI developers also lack approachable tools that reveal the relationship between raw output bytes, parsed control sequences, screen mutations, modes, cursor changes, and rendered results.
 
-## 3. Product promise
+Stanczyk addresses these gaps with a runtime that can act as:
 
-> Program the kiwi. Deploy the squad. Debug the consequences.
+- a real terminal front-end on supported desktop platforms;
+- a deterministic player for terminal recordings;
+- a sandboxed terminal environment in games and web builds;
+- a control-sequence debugger;
+- a platform for procedural terminal renderers and effects.
 
-The player should regularly experience:
+## 3. Goals
 
-- predicting how a policy will behave;
-- watching the prediction fail for a specific reason;
-- understanding the causal chain rather than blaming opaque AI;
-- changing one function or value;
-- rerunning the same situation;
-- observing a materially improved or newly broken outcome.
+### 3.1 Product goals
 
-## 4. Target users
+- Provide a real, testable terminal model rather than a scripted terminal illusion.
+- Make terminal sessions deterministic and replayable.
+- Support both standalone and embedded usage.
+- Make control-sequence behaviour inspectable.
+- Allow rendering and effects to be replaced or extended without changing parser logic.
+- Offer a portable sandbox mode and an optional real PTY mode.
+- Be visually distinctive enough to demonstrate well in screenshots and video.
+- Produce a repository that demonstrates systems design, protocol parsing, testing, rendering, IPC, and API design.
 
-### 4.1 Primary users
+### 3.2 Learning goals
 
-- Programmers who enjoy tactical and systems games.
-- Players interested in automation, simulation, debugging, and emergent behaviour.
-- Students or professionals curious about functional programming but not seeking a formal teaching product.
-- Players who enjoy XCOM-like squad persistence but want a less conventional control model.
+The project should expose its maintainer to:
 
-### 4.2 Secondary users
+- finite-state protocol parsers;
+- terminal screen models and modes;
+- Unicode width and grapheme handling;
+- event sourcing and deterministic replay;
+- binary and versioned file formats;
+- glyph caching and GPU batching;
+- native process and PTY integration;
+- IPC protocol design;
+- sandbox boundaries;
+- property-based and golden testing;
+- performance profiling and regression control.
 
-- Strategy players willing to use templates and type-directed editing rather than authoring large programs.
-- Developers interested in the compiler, VM, replay, or causal-trace implementation.
-- Challenge creators who may later share policies, fixtures, or mission configurations.
+### 3.3 Adoption goals
 
-### 4.3 Not initially targeted
+The first release should be credible for:
 
-- Players seeking action controls or conventional turn-based tactics.
-- Players unwilling to read or modify textual logic.
-- Competitive multiplayer audiences.
-- Users seeking a general-purpose programming environment.
+- embedding in small LÖVE games and interactive fiction;
+- replaying and styling recorded terminal sessions;
+- debugging output from TUIs;
+- experimenting with terminal rendering effects.
 
-## 5. Product goals
+It does not need to be credible as a primary daily-driver terminal at v0.1.
 
-### 5.1 Core gameplay goals
+## 4. Non-goals
 
-- Make policy design produce visible tactical consequences.
-- Keep the beginner language surface small enough to edit within minutes.
-- Support advanced composition without exposing unrestricted complexity.
-- Make autonomous execution tense rather than passive.
-- Provide enough player influence during missions through typed strategic signals without restoring micromanagement.
-- Make major failures explainable through the causal debugger.
+The following are explicitly outside the initial project scope:
 
-### 5.2 Engineering goals
+- implementing a web browser or browser engine;
+- implementing a POSIX shell;
+- complete xterm, Kitty, iTerm2, or DEC compatibility;
+- replacing Ghostty, WezTerm, Kitty, Alacritty, or the user’s normal terminal;
+- SSH, serial, container, or remote-session management;
+- a plugin marketplace or hosted service;
+- multi-user collaboration;
+- arbitrary untrusted native plugins;
+- a full desktop environment or fantasy computer;
+- AI-generated assets as a product claim;
+- pixel-perfect reproduction of every host terminal’s font rendering;
+- Windows PTY support in the first Unix-focused alpha;
+- accessibility claims before keyboard, contrast, and screen-reader behaviour are deliberately designed.
 
-- Build an independent functional language front end and VM.
-- Maintain deterministic headless simulation and replay verification.
-- Preserve source spans and provenance end to end.
-- Keep authoritative state independent of pygame and wall-clock timing.
-- Support golden, property, replay, and causal-query testing.
-- Make content and run formats explicitly versioned.
+## 5. Product principles
 
-### 5.3 Portfolio goals
+### 5.1 Core before spectacle
 
-The project should demonstrate:
+A terminal session rendered without effects must still be correct, useful, and testable.
 
-- language and compiler design;
-- type systems and diagnostics;
-- deterministic virtual-machine execution;
-- fixed-step simulation;
-- tactical geometry and information modelling;
-- event sourcing and replay;
-- causal provenance and explanation tooling;
-- custom in-game editor and bitmap UI;
-- disciplined testing of nontrivial interactive systems.
+### 5.2 Determinism by default
 
-### 5.4 Adoption goals
+Recorded input must reproduce the same state transitions. Randomised effects must use an explicit seed or opt out of deterministic export.
 
-The vertical slice should be understandable from a short video or animated demonstration:
+### 5.3 Explicit compatibility
 
-1. Show the policy.
-2. Show the squad make a poor decision.
-3. Click the consequence.
-4. Highlight the responsible code and data.
-5. Change the code.
-6. Replay the same situation.
-7. Show the changed result.
+Stanczyk must publish exactly which control sequences and modes are supported. Unsupported sequences must be ignored safely, logged in debugger mode, and never silently advertised as supported.
 
-This loop is the project’s strongest public-facing hook.
+### 5.4 Boundaries over convenience
 
-## 6. Non-goals
+Parser, state, backends, rendering, effects, and native integration must communicate through narrow interfaces. Direct cross-layer access is prohibited unless recorded in an ADR.
 
-The MVP does not attempt to provide:
+### 5.5 No hidden host execution
 
-- a broad campaign;
-- multiplayer;
-- procedural world generation;
-- complex base building;
-- general rigid-body physics;
-- mod scripting through Python;
-- a universal IDE;
-- many factions or enemy families;
-- cinematic narrative production;
-- a large item economy;
-- live-service infrastructure;
-- machine-learning agents;
-- an unrestricted or academically complete functional language.
+Sandbox mode must never execute host commands. PTY mode must be visibly distinct and must require a deliberate backend selection.
 
-## 7. Core player experience
+### 5.6 Procedural-first visuals
 
-The player acts at three timescales.
+Built-in effects should be represented as code, shaders, parameters, and generated textures where practical. Asset generation is optional and never a runtime dependency.
 
-### 7.1 Before a mission
+## 6. Personas and user stories
 
-The player:
+### 6.1 Creative game developer
 
-- reads the mission briefing;
-- reviews uncertain intelligence;
-- selects a small persistent squad;
-- chooses equipment and capabilities;
-- edits squad kiwi and operative policies;
-- compiles and reviews errors or warnings;
-- runs bounded training or fixture tests where available;
-- deploys the compiled policy bundle.
+As a LÖVE developer, I want to instantiate a terminal object inside a game so that commands can trigger game events without spawning a real shell.
 
-### 7.2 During a mission
+Acceptance examples:
 
-The player:
+- create an 80×24 terminal instance;
+- register commands from Lua;
+- emit terminal output through the same parser used by recordings and PTY output;
+- map command completion to game state;
+- apply a renderer preset to that instance only.
 
-- watches real-time execution;
-- inspects sensor, communication, cover, target, and intention overlays;
-- changes only permitted high-level typed signals;
-- may adjust simulation speed where the mode permits;
-- bookmarks important events;
-- does not directly command individual actions.
+### 6.2 TUI developer
 
-Potential high-level signals include:
+As a TUI developer, I want to see raw bytes, parsed sequences, and resulting state mutations so that I can diagnose rendering bugs.
 
-```text
-AdvanceTo(region)
-Hold(region)
-Prioritise(objective)
-Avoid(region)
-ExtractAt(position)
-Abort
-```
+Acceptance examples:
 
-A signal is data supplied to kiwi. It does not bypass kiwi.
+- feed a captured stream into Stanczyk;
+- pause at any event;
+- inspect active modes and cursor position;
+- see which cells changed;
+- identify unsupported or malformed escape sequences;
+- export a minimal reproduction recording.
 
-### 7.3 After or between runs
+### 6.3 Terminal-effects author
 
-The player:
+As an effects author, I want to react to terminal events and render cells through shaders so that I can build visual behaviours without modifying terminal semantics.
 
-- opens the mission timeline;
-- selects an outcome such as injury, missed shot, stalled movement, or failed objective;
-- asks why it happened;
-- follows the causal chain into policy source;
-- compares the run with a previous version;
-- edits the policy and reruns a fixture or mission.
+Acceptance examples:
 
-## 8. Core gameplay loop
+- subscribe to output, cursor, bell, scroll, and damage events;
+- modify visual position, opacity, colour, and post-processing;
+- use deterministic seeded randomness;
+- hot-reload an effect in development;
+- declare effect capabilities and configuration schema.
 
-### 8.1 Brief
+### 6.4 Terminal recording author
 
-Present objectives, constraints, probable threats, extraction conditions, and uncertain intelligence. Never reveal omniscient truth unless the scenario explicitly grants it.
+As a documentation author, I want to record and replay a terminal session deterministically so that I can produce repeatable demos and exports.
 
-### 8.2 Configure
+Acceptance examples:
 
-Select operatives, equipment, policy modules, initial parameters, and squad-level kiwi.
+- record raw PTY output, input, resize events, and timing;
+- pause, seek, speed up, and step through playback;
+- verify recording integrity;
+- render with a different visual preset without changing terminal state;
+- export event metadata for debugging.
 
-### 8.3 Program
+### 6.5 Terminal enthusiast
 
-Edit functions through templates, typed completions, inline documentation, source diagnostics, and small example fixtures.
+As a terminal enthusiast, I want to launch a real shell in the standalone app so that I can experience the renderer with authentic terminal programs.
 
-### 8.4 Compile
+Acceptance examples:
 
-Run the full language pipeline:
+- launch the configured shell through a PTY helper;
+- resize the window and propagate terminal dimensions;
+- run basic TUIs supported by the declared compatibility level;
+- exit cleanly without orphaning the child process.
 
-```text
-source -> tokens -> syntax tree -> name resolution -> typed tree
-       -> capability and budget checks -> core IR -> bytecode -> source map
-```
+## 7. Functional requirements
 
-### 8.5 Execute
+### 7.1 Terminal parser and state
 
-Run the mission with fixed-step authority. Each policy receives an immutable observation and explicit memory, returning new memory and intentions.
+The core must:
 
-### 8.6 Resolve
+- consume arbitrary byte chunks without assuming sequence boundaries;
+- preserve parser state across chunks;
+- decode printable UTF-8 safely;
+- model cursor position, margins, modes, rendition attributes, and screen buffers;
+- support primary and alternate screen buffers;
+- represent cells independently from rendering objects;
+- model scrollback separately from visible rows;
+- expose structured state-change events or damage information;
+- treat malformed or unsupported sequences predictably;
+- avoid dependence on the global `love` object.
 
-Validate and arbitrate intentions, then resolve movement, aiming, projectiles, cover, damage, communication, and objectives.
+The initial compatibility subset is defined in `docs/TERMINAL_COMPATIBILITY.md`.
 
-### 8.7 Explain
+### 7.2 Recording and replay
 
-Build structured provenance from source evaluation through tactical consequence.
+The runtime must:
 
-### 8.8 Revise
+- record output bytes, optional input bytes, resize events, marks, and timing deltas;
+- use a versioned format with a stable magic header;
+- preserve raw byte streams exactly;
+- allow streaming reads without loading the entire recording;
+- support deterministic pause, seek, replay speed, and single-event stepping;
+- support checkpoints for bounded seeking cost;
+- validate frame lengths and checksums before use;
+- distinguish terminal time from renderer wall-clock time;
+- expose recording metadata without executing or replaying content.
 
-Modify the kiwi and rerun under controlled inputs.
+The format is defined in `docs/RECORDING_FORMAT.md`.
 
-## 9. Functional requirements
+### 7.3 Backend interface
 
-### 9.1 Functional DSL
+Every backend must implement the same conceptual interface:
 
-The system must provide:
+- `start(config)`;
+- `poll(now)` returning zero or more backend events;
+- `send_input(bytes)` when supported;
+- `resize(columns, rows)` when supported;
+- `stop(reason)`;
+- `capabilities()`;
+- `status()`.
 
-- lexer and parser with source spans;
-- immutable AST;
-- named functions and local bindings;
-- conditionals and exhaustive pattern matching;
-- records, lists, and algebraic variants;
-- checked primitive and tactical domain types;
-- explicit memory threading;
-- bounded standard-library combinators;
-- typed observation, signal, and intention APIs;
-- stable diagnostic codes;
-- source formatting or at least stable pretty printing;
-- versioned bytecode and source maps;
-- deterministic instruction and allocation budgets;
-- structured runtime faults and fallback behaviour.
+Required backends:
 
-### 9.2 Tactical simulation
+1. Replay backend.
+2. Sandboxed command backend.
+3. Unix PTY backend through an external helper.
 
-The system must provide:
+Later backends may include Windows ConPTY, serial streams, sockets, or remote sessions, but these are not v0.1 requirements.
 
-- fixed integer ticks;
-- deterministic ordering and seeded random streams;
-- small-squad entity state;
-- discrete or fixed-point positions and velocities;
-- obstacles and cover edges;
-- visibility and uncertain contacts;
-- typed communication with delay and loss where configured;
-- movement intentions and path queries;
-- aiming, firing, physical projectile travel, impact, and damage;
-- suppression and basic medical stabilisation;
-- mission objectives and extraction;
-- state hashing, snapshots, and replay.
+### 7.4 Sandboxed command environment
 
-### 9.3 Causal debugger
+Sandbox mode must:
 
-The system must provide:
+- never invoke the host shell or arbitrary host binaries;
+- provide a virtual command registry;
+- provide an in-memory or explicitly mounted virtual filesystem;
+- provide command history and completion;
+- support command output as incremental byte streams;
+- support asynchronous game-controlled jobs without host process execution;
+- expose a documented API for commands to emit output and domain events;
+- remain deterministic under a fixed event schedule and seed.
 
-- source-linked evaluation records;
-- observation-field read provenance;
-- branch and pattern-selection provenance;
-- intention origin and priority;
-- validation and arbitration outcomes;
-- world-event links;
-- major consequence links;
-- “why selected?”, “why not?”, and “why failed?” queries;
-- timeline navigation;
-- source highlighting;
-- deterministic comparison between two runs;
-- configurable trace detail and retention.
+The sandbox is not required to implement POSIX shell syntax. Basic tokenisation, quoted arguments, command dispatch, and optional pipelines are sufficient if documented.
 
-### 9.4 Workbench
+### 7.5 Native PTY mode
 
-The system must provide:
+The desktop PTY mode must:
 
-- bitmap-font source editor;
-- syntax colouring;
-- line and column display;
-- diagnostics list and inline markers;
-- type or documentation hints;
-- compile command;
-- policy and fixture selection;
-- source-to-trace navigation;
-- basic keyboard-first controls;
-- copy and paste through platform APIs;
-- readable scaling at integer and high-DPI window sizes.
+- spawn a configured shell or command through a pseudo-terminal;
+- forward input bytes;
+- stream output without blocking the LÖVE update loop;
+- forward terminal resizes;
+- report process exit status;
+- terminate or detach children according to a documented policy;
+- use a narrow framed IPC protocol between LÖVE and the helper;
+- avoid loading platform-specific native code directly into the LÖVE process for the initial implementation.
 
-The MVP editor need not provide general IDE features such as multi-cursor editing, language-server protocols, plugins, or arbitrary project management.
+### 7.6 Renderer
 
-### 9.5 Mission presentation
+The renderer must:
 
-The graphical client must provide:
+- consume immutable or read-only terminal snapshots and damage information;
+- render visible cells using a glyph atlas or equivalent cache;
+- batch draw operations by texture and relevant attributes;
+- render cursor shapes independently from cell content;
+- support selection and optional link decoration later;
+- handle wide and combining characters according to the core cell model;
+- scale cleanly across window sizes;
+- keep visual state separate from semantic terminal state;
+- expose stable hooks for effects and debugger overlays.
 
-- map and operative rendering;
-- camera movement and zoom;
-- objective and extraction markers;
-- visible projectiles and impacts;
-- cover and visibility overlays;
-- current policy version and high-level signal state;
-- event timeline markers;
-- selectable entities and events for inspection without direct command authority.
+### 7.7 Effects
 
-### 9.6 Persistence
+Effects must:
 
-The system must store:
+- be optional;
+- operate through a declared plugin interface;
+- be able to subscribe to semantic events without mutating terminal state;
+- distinguish per-cell, per-row, full-frame, and post-process costs;
+- support seeded randomness;
+- declare whether deterministic export is supported;
+- fail in isolation where possible;
+- expose parameters through serialisable configuration;
+- include at least three built-in presets for v0.1.
 
-- source policies;
-- compiled policy metadata;
-- missions and fixtures;
-- replay inputs and state hashes;
-- trace files or trace references;
-- user settings;
-- later, campaign and operative state.
+Recommended initial presets:
 
-All durable formats require schema versions and validation.
+1. Clean baseline renderer.
+2. CRT/phosphor preset using shaders and temporal buffers.
+3. Kinetic preset reacting to output, scroll, bell, and cursor movement.
 
-## 10. User stories
+### 7.8 Protocol debugger
 
-### 10.1 New player
+The debugger must make it possible to inspect:
 
-- As a new player, I can start from a working policy template rather than a blank file.
-- I can change one threshold and understand its type and effect.
-- The compiler tells me exactly where and why a program is invalid.
-- When the squad fails, I can click the failure and see the relevant line of code.
+- byte offsets and byte values;
+- parser state before and after an event;
+- recognised control sequence and parameters;
+- unsupported or malformed sequences;
+- cursor changes;
+- mode changes;
+- rendition changes;
+- damaged rows and cells;
+- active backend status;
+- recording position and checkpoint information.
 
-### 10.2 Intermediate player
+The debugger should support pausing on:
 
-- I can compose reusable tactical functions.
-- I can define role-specific behaviour.
-- I can account for missing or stale observations through explicit variants.
-- I can compare two policy versions against the same scenario and seed.
+- any control sequence;
+- unsupported sequences;
+- bell events;
+- alternate-screen transitions;
+- resize events;
+- a selected row or cell changing.
 
-### 10.3 Advanced player
+### 7.9 Embedding API
 
-- I can define custom records and variants within supported limits.
-- I can replace standard target, cover, and coordination functions.
-- I can reason about instruction budgets and communication delays.
-- I can inspect lower-level evaluation and resolution traces.
+A LÖVE project must be able to:
 
-## 11. MVP vertical slice
+- create one or more terminal instances;
+- select a backend per instance;
+- provide geometry and font configuration;
+- feed bytes directly for tests or custom backends;
+- register sandbox commands;
+- receive semantic events;
+- update and draw the instance explicitly;
+- destroy the instance and associated resources;
+- run multiple independent terminals without global state collisions.
 
-### 11.1 Scenario: Glasshouse
+### 7.10 Standalone application
 
-A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
+The standalone application must provide:
 
-- two approaches;
-- several cover edges;
-- one breachable or alternate entry;
-- incomplete hostile intelligence;
-- one reinforcement timer;
-- an extraction zone;
-- a casualty risk created by an intentionally flawed policy.
+- backend selection;
+- recording open and save operations;
+- PTY command configuration;
+- effect preset selection;
+- debugger overlay toggle;
+- pause, seek, step, and playback speed controls;
+- font and grid sizing;
+- safe shutdown.
 
-The first policy overvalues formation continuity and objective progress relative to exposure. An operative advances past viable cover, is engaged by a hostile contact, and is injured.
+A complex settings UI is not required. A simple command palette or configuration file is acceptable.
 
-### 11.2 Required player actions
+## 8. Non-functional requirements
 
-The player must be able to:
+### 8.1 Correctness
 
-- inspect the briefing;
-- load the provided policy;
-- compile it;
-- run the mission;
-- select the injury event;
-- trace the event to a source comparison or priority function;
-- change a value or function;
-- rerun the same mission and seed;
-- observe changed behaviour;
-- compare the two causal chains.
+- Parser and state modules must be testable in plain LuaJIT without starting LÖVE.
+- Every supported control sequence must have positive and boundary tests.
+- Chunk-boundary invariance must be property-tested.
+- Recording replay must match direct event application.
+- Unsupported sequences must not corrupt parser state or screen state.
 
-### 11.3 Required language subset
+### 8.2 Performance
 
-- integer, boolean, string, duration, distance, probability, position;
-- functions and application;
-- `let`;
-- `if`;
-- records and field access;
-- `Option`-like variants;
-- pattern matching;
-- lists with bounded `map`, `filter`, `fold`, and selection functions;
-- explicit memory record;
-- observation access;
-- `Move`, `TakeCover`, `Aim`, `Fire`, `Stabilise`, `Emit`, and `Wait` intentions;
-- no user recursion.
+Initial target on an ordinary developer laptop:
 
-### 11.4 Required debugger subset
+- 60 FPS at 120×40 with the clean renderer under continuous output;
+- no full-grid allocation per frame;
+- no reparsing of unchanged cells;
+- bounded event processing per update with configurable catch-up behaviour;
+- responsive input while processing moderate output bursts;
+- seek to any point in a 30-minute recording within one second after checkpoint indexing, excluding first-time index creation;
+- memory growth proportional to configured scrollback and recording buffers.
 
-- trace selected source span;
-- show relevant observation values;
-- show selected branch;
-- show emitted intention;
-- show validation and resolution outcome;
-- show projectile impact and injury;
-- compare changed branch and consequence between two runs.
+These are engineering targets, not public guarantees until benchmarked.
 
-### 11.5 Required presentation subset
+### 8.3 Portability
 
-- workbench screen;
-- tactical map;
-- four operatives and a small enemy force;
-- cover and visibility overlays;
-- projectile rendering;
-- timeline and source pane;
-- bitmap terminal font;
-- deterministic headless and graphical execution of the same mission.
+- Core, replay, sandbox, and renderer should run on desktop LÖVE builds.
+- Core modules should avoid OS dependencies.
+- Web builds may support replay and sandbox only.
+- Native PTY support initially targets macOS and Linux through the helper.
+- Platform-specific code must remain under `native/` or explicit adapter modules.
 
-## 12. Success criteria
+### 8.4 Maintainability
 
-### 12.1 Prototype success
+- Avoid hidden singletons.
+- Avoid direct `love.*` use in terminal, recording, and protocol modules.
+- Use explicit constructors and dependency injection.
+- Keep files focused; split modules before they become multi-purpose.
+- All public interfaces must be documented and versioned before external release.
+- Irreversible file-format or IPC changes require ADRs.
 
-The project passes the first technical proof when one source expression can be compiled, executed, resolved into a world change, traced to a consequence, and deterministically replayed.
+### 8.5 Security
 
-### 12.2 Vertical-slice success
+- Replay files are untrusted input.
+- Sandbox commands are trusted application code but must not automatically gain host execution.
+- Effects are trusted Lua code in v0.1; the project must not imply strong plugin isolation.
+- The PTY helper must validate frame lengths and commands.
+- The app must visibly identify PTY mode.
+- OSC clipboard and host-integration sequences are disabled until explicitly designed.
 
-The vertical slice succeeds when an unfamiliar programmer can:
+## 9. User experience requirements
 
-- understand the mission objective;
-- identify why the provided policy failed;
-- make a plausible correction;
-- observe a changed outcome;
-- explain the code-to-consequence relationship.
+### 9.1 Default experience
 
-### 12.3 Engineering success
+The first launch should open a sample deterministic recording or sandbox terminal rather than immediately starting a host shell.
 
-- All authoritative tests run headlessly.
-- Repeated fixture runs produce matching hashes.
-- Compiler and runtime errors contain no leaked Python stack traces in normal use.
-- Presentation code cannot mutate authoritative state.
-- Trace queries are validated against known causal fixtures.
-- Performance remains interactive on a typical modern laptop for the target squad and map size.
+This demonstrates the project safely and works on platforms without a PTY helper.
 
-## 13. Risks and mitigations
+### 9.2 Visual hierarchy
 
-### Risk: The language overwhelms players
+The terminal must remain readable under all built-in presets. Effects may distort the presentation but must provide:
 
-Mitigations:
+- an intensity control;
+- a one-action route to the clean renderer;
+- a reduced-motion mode for built-in effects;
+- a deterministic export mode where applicable.
 
-- working templates;
-- one new construct per tutorial;
-- type-directed completions;
-- limited visible standard library;
-- domain-specific examples;
-- no blank-file onboarding;
-- progressively unlocked advanced syntax.
+### 9.3 Error communication
 
-### Risk: Watching autonomous execution becomes passive
+Errors should distinguish:
 
-Mitigations:
+- invalid recording;
+- unsupported recording version;
+- PTY helper missing;
+- PTY helper protocol mismatch;
+- child process exit;
+- unsupported escape sequence;
+- effect load failure;
+- font or glyph failure;
+- configuration error.
 
-- incomplete intelligence;
-- limited high-level signals;
-- meaningful time pressure;
-- visible predictions and uncertainty;
-- short, dense missions;
-- tactical overlays and event bookmarks;
-- later, carefully bounded deployment windows.
+## 10. Data and configuration
 
-### Risk: Outcomes feel arbitrary
+Configuration should be serialisable and divided into:
 
-Mitigations:
+- terminal semantics;
+- backend configuration;
+- renderer configuration;
+- effect configuration;
+- debugger configuration;
+- application shortcuts.
 
-- deterministic reruns;
-- structured causal traces;
-- visible physical projectiles;
-- explicit uncertainty values;
-- named random streams and recorded draws;
-- explanation queries;
-- counterfactual comparison where supportable.
+User configuration must not be mixed into recordings. A recording may include metadata describing the original environment, but playback visuals are selected independently.
 
-### Risk: Python performance limits the simulation
+## 11. Success metrics
 
-Mitigations:
+### 11.1 Engineering success
 
-- target a small squad and compact maps;
-- use immutable snapshots selectively rather than cloning all state each frame;
-- use slotted data structures and integer representations;
-- profile before optimising;
-- batch geometry queries;
-- isolate hot loops for optional later native acceleration without changing semantics.
+- Supported control-sequence fixtures pass.
+- Property tests show identical final state under arbitrary input chunking.
+- Direct event application and recording replay produce identical state digests.
+- PTY integration runs representative commands and at least one supported TUI.
+- The renderer maintains target responsiveness under benchmark fixtures.
+- Example embedding requires minimal setup and no internal imports.
 
-### Risk: DSL scope becomes a language-research project
+### 11.2 Product success
 
-Mitigations:
+Within the first public release cycle, success would mean:
 
-- milestone-gated feature set;
-- separate language roadmap;
-- no recursion or advanced polymorphism in MVP;
-- every language feature must unlock a concrete gameplay use;
-- standard library before new syntax.
+- external users can run the demo without maintainer assistance;
+- at least one person embeds it in a separate LÖVE project;
+- at least one TUI developer uses the debugger on a real output stream;
+- at least one third-party effect or renderer experiment is created;
+- issues focus on meaningful compatibility or API needs rather than basic setup failure.
 
-### Risk: Causal traces become too large
+No numerical adoption forecast should be treated as a release criterion.
 
-Mitigations:
+## 12. Release boundaries
 
-- trace levels;
-- bounded retention windows;
-- event summarisation;
-- source-span and value interning;
-- checkpointed replay with on-demand re-execution;
-- performance budgets and trace-size tests.
+### 12.1 v0.1 required
 
-### Risk: External physics breaks determinism
+- deterministic core parser and screen state;
+- documented compatibility subset;
+- replay backend and versioned recording format;
+- sandbox backend and command API;
+- LÖVE grid renderer;
+- effect interface with clean, CRT, and kinetic presets;
+- protocol debugger;
+- macOS and Linux PTY helper support;
+- standalone app and embedding example;
+- automated tests and benchmark fixtures;
+- documentation for limitations and security boundaries.
 
-Mitigation: project-owned authoritative simulation for MVP. External physics remains non-authoritative unless a documented deterministic contract is proven.
+### 12.2 v0.1 optional
 
-## 14. Release stages
+- recording export to image sequence;
+- hyperlink inspection;
+- mouse reporting;
+- basic clipboard integration behind explicit permission;
+- web demo;
+- Windows support.
 
-### Stage 0 — Technical chain
+### 12.3 Later candidates
 
-Compiler, VM, one intention, one simulation consequence, one causal path, one replay.
+- ConPTY support;
+- semantic selection and copy mode;
+- inline image protocols;
+- remote and SSH adapters;
+- renderer packages;
+- recording diff tools;
+- accessibility work;
+- a stable C or Lua module API independent of the standalone app.
 
-### Stage 1 — Headless tactical prototype
+## 13. Open product decisions
 
-Movement, perception, cover, firing, injury, mission objective, deterministic CLI.
+The following decisions should be resolved through ADRs before implementation reaches them:
 
-### Stage 2 — Workbench and tactical viewer
-
-pygame client, bitmap editor, overlays, timeline, source navigation.
-
-### Stage 3 — Glasshouse vertical slice
-
-Complete playable loop and run comparison.
-
-### Stage 4 — Alpha foundation
-
-Persistent squad state, several policies and enemy behaviours, additional mission archetypes, content validation, packaging.
-
-### Stage 5 — Adoption experiments
-
-Public demo, policy challenges, replay sharing, documentation, and measured user testing.
-
-## 15. Acceptance rule
-
-No amount of content or visual polish substitutes for the core acceptance test:
-
-> A player must be able to understand a tactical consequence by following it back to code, alter the policy, and observe a deterministic change in behaviour.
+- public project licence;
+- final package/module naming conventions;
+- exact font fallback strategy;
+- whether mouse reporting enters v0.1;
+- whether recording checkpoints are embedded or stored in a sidecar index;
+- when the plugin API becomes stability-governed;
+- whether the Unix PTY helper uses Rust permanently or only for the bootstrap implementation.

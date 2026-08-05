@@ -1,21 +1,40 @@
-.PHONY: check doctor format format-check lint test type
+LUAJIT ?= luajit
+STYLUA ?= stylua
+LOVE ?= love
+TEST_SEED ?= 20260730
+FRAMES ?= 1000
+EFFECT_FRAMES ?= 5
+WARMUP ?= 20
+SAMPLES ?= 3
 
-check: format-check lint type test
+.PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run screenshot-scenarios test
 
-doctor:
-	uv run --extra dev python -m kiwi.cli doctor
+bootstrap:
+	zsh tools/bootstrap.sh
 
-format:
-	uv run --extra dev ruff format .
+benchmark-renderer:
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean --frames "$(FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
 
-format-check:
-	uv run --extra dev ruff format --check .
+benchmark-effects:
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,crt --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,kinetic --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,combined --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,effects_disabled --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,quarantined --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+
+check: lint test
 
 lint:
-	uv run --extra dev ruff check .
+	$(STYLUA) --check main.lua conf.lua src tests tools
+
+run:
+	$(LOVE) .
+
+screenshot-scenarios:
+	$(LUAJIT) tools/validate_screenshot_scenarios.lua
+
+inspect:
+	$(LUAJIT) tools/inspect_recording.lua "$(RECORDING)"
 
 test:
-	uv run --extra dev pytest
-
-type:
-	uv run --extra dev mypy src tests
+	STANCZYK_TEST_SEED="$(TEST_SEED)" $(LUAJIT) tools/test.lua

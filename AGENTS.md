@@ -1,159 +1,97 @@
-# AGENTS.md
+# Instructions for Coding Agents
 
-## Project intent
+This repository is intended to be implementable by a local coding agent without relying on chat history.
 
-Kiwi is a Python and pygame-ce real-time squad tactics game in which players program autonomous squad logic using a small functional DSL. The compiler, deterministic VM, tactical simulation, replay system, and causal debugger are the core engineering work. The graphical client is a consumer of snapshots, not the authority.
+## Required reading order
 
-Read `PRD.md`, `DECISIONS.md`, `ARCHITECTURE.md`, and the active milestone's GitHub issue before making architectural changes.
+Before modifying code, read:
 
-## Non-negotiable invariants
+1. `README.md`
+2. `PRD.md`
+3. `TODO.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/TERMINAL_COMPATIBILITY.md`
+6. `docs/RECORDING_FORMAT.md`
+7. `docs/RENDERER_AND_EFFECTS.md`
+8. `docs/BACKENDS.md`
+9. `docs/PLUGIN_API.md`
+10. `docs/TESTING.md`
+11. `docs/SECURITY.md`
+12. all accepted ADRs under `docs/adr/`
 
-1. Player programs are not Python and are never executed with `eval` or `exec`.
-2. DSL programs are pure: immutable input, explicit memory, returned intentions.
-3. The simulation, not the program or UI, decides outcomes.
-4. Authoritative code does not read wall-clock time, OS randomness, filesystem state, or renderer state.
-5. Deterministic ordering is explicit wherever order can affect results.
-6. The compiler, VM, simulation, replay verifier, and trace queries run headlessly.
-7. pygame imports are restricted to presentation and application-shell packages.
-8. Important decisions retain machine-readable source provenance.
-9. GitHub issues are closed only after their exit evidence passes.
-10. No later milestone may be used to justify leaving the current milestone incomplete.
+Then inspect the worktree and identify the earliest incomplete milestone in `TODO.md`.
 
-## Repository discipline
+## Operating rules
 
-- Work in the milestone order defined by open GitHub issues.
-- Select the smallest coherent open task.
-- Inspect existing code and tests before editing.
-- Preserve a clean dependency direction.
-- Add tests with each behavioural change.
-- Update specifications when formats, interfaces, semantics, or commands change.
-- Review the diff before committing.
-- Commit each independently complete task or tightly coupled task group.
-- Use imperative commit messages that describe the completed behaviour.
+- Work on the smallest coherent slice that advances the earliest incomplete milestone.
+- Do not begin a later milestone while an earlier exit criterion remains unsatisfied.
+- Do not implement a browser engine, fake web browser, full shell, remote-session manager, or unrelated fantasy-computer environment.
+- Do not make visual assets the project’s central architecture.
+- Keep terminal semantics independent from LÖVE rendering.
+- Keep backend I/O independent from terminal state mutation except through declared events.
+- Keep effects read-only with respect to terminal semantics.
+- Do not introduce global mutable singletons.
+- Do not use wall-clock time directly in deterministic core or replay tests.
+- Do not add native code to the LÖVE process in the initial PTY implementation; use the helper boundary.
+- Do not silently broaden the compatibility claim.
+- Do not advertise unsupported control sequences.
+- Do not add host execution to sandbox mode.
+- Do not weaken bounds checks for recordings or IPC to simplify development.
 
-Do not create broad scaffolding for future milestones unless the current milestone requires it. Prefer a concrete representation with tests over speculative generic frameworks.
+## Irreversible decisions
 
-## Required dependency direction
+Create or update an ADR before making decisions that would be costly to reverse, including:
 
-Permitted high-level direction:
+- public recording format changes;
+- PTY helper protocol changes;
+- public plugin API changes;
+- public embedding API changes;
+- cell-model representation changes that affect recordings or plugins;
+- compatibility-profile promises;
+- child-process shutdown semantics;
+- persistent configuration schema changes.
 
-```text
-domain <- dsl <- simulation <- replay/debugger <- application adapters
-```
+If an ADR requires owner approval and no accepted direction exists, stop before implementation and present:
 
-More precisely:
+1. the exact decision;
+2. two or three viable options;
+3. trade-offs;
+4. the recommended option;
+5. the smallest work that remains unblocked.
 
-- `kiwi.domain` depends only on the Python standard library.
-- `kiwi.dsl` may depend on `domain` value definitions but not pygame.
-- `kiwi.sim` may depend on `domain` and compiled DSL interfaces but not pygame.
-- `kiwi.replay` and `kiwi.trace` may depend on simulation event schemas.
-- `kiwi.app` and `kiwi.render` may depend on all read-only public interfaces.
-- Authoritative packages must not import from presentation packages.
+## Testing expectations
 
-Use architecture tests or import checks to enforce this boundary.
+Every behavioural change requires tests at the lowest useful layer.
 
-## Python rules
+Prefer:
 
-- Target Python 3.12 or later unless `DECISIONS.md` is updated.
-- Use type annotations for public functions and durable data structures.
-- Prefer frozen, slotted dataclasses or immutable tuples for authoritative values.
-- Use enums and tagged dataclasses for variants; avoid magic strings in authority code.
-- Do not rely on dictionary or set iteration unless canonical order is explicitly imposed.
-- Avoid floating-point values in canonical state. Use integers, fixed-point quantities, rational representations, or carefully documented deterministic conversions.
-- Do not catch broad `Exception` unless converting an external boundary failure into a typed error.
-- Ordinary DSL errors must be structured values, not Python stack traces shown to players.
-- Keep IO at boundaries. Core transforms should be testable as pure functions.
-- Do not add dependencies without documenting why the standard library is insufficient.
+- unit tests for isolated transitions;
+- property tests for chunking, replay, and invariants;
+- golden state snapshots for representative streams;
+- integration tests for the PTY helper;
+- benchmarks for renderer and parser regressions.
 
-## DSL rules
+Do not rely primarily on screenshots for terminal correctness.
 
-- Preserve source spans from tokenisation through bytecode and runtime traces.
-- Every compiler stage must accept and return explicit typed structures.
-- Diagnostics require stable codes, primary spans, messages, and optional notes.
-- Bytecode execution has deterministic instruction and allocation budgets.
-- No unbounded recursion in the MVP.
-- Standard-library collection operations must be bounded and deterministic.
-- Capability checking happens before runtime where practical.
-- Language changes require parser, type, compiler, VM, diagnostics, fixture, and versioning updates as applicable.
+## Progress reporting
 
-## Simulation rules
+At the end of a slice, report:
 
-- Use a fixed integer tick.
-- Gather observations from a stable pre-evaluation state.
-- Evaluate each policy against immutable inputs.
-- Collect all intentions before authoritative resolution.
-- Resolve in documented phases with canonical tie-breaking.
-- Record random draws through named deterministic streams.
-- Emit structured events for significant validations, arbitration decisions, actions, and outcomes.
-- Hash canonical state at defined checkpoints.
-- Keep rendering interpolation outside authoritative state.
+- files changed;
+- behaviour implemented;
+- tests added and commands run;
+- current milestone status;
+- remaining blockers or risks;
+- the next smallest safe slice.
 
-## Causal-debugger rules
+Do not claim completion unless the relevant exit criteria pass.
 
-A textual log is not sufficient. Preserve identifiers and edges among:
+## Code quality
 
-- source span;
-- function invocation;
-- observation field read;
-- intermediate value;
-- branch or pattern selected;
-- intention emitted;
-- validation or arbitration decision;
-- world event;
-- damage, injury, death, or objective consequence.
-
-Trace levels may reduce retained detail, but summary traces must still explain major outcomes.
-
-## Verification
-
-The repository should expose stable commands, preferably through `make`, `just`, or documented Python invocations. At minimum, milestones must eventually support:
-
-```bash
-python -m pytest
-python -m ruff check .
-python -m ruff format --check .
-python -m mypy src tests
-python -m kiwi.cli compile examples/policies/basic.dtr
-python -m kiwi.cli simulate fixtures/glasshouse.json --headless
-python -m kiwi.cli replay verify runs/example.drun
-```
-
-Use only commands actually configured in the repository. Update this file and `README.md` when the canonical commands change.
-
-Current Milestone 4 headless commands are:
-
-```bash
-python -m kiwi.cli compile examples/policies/typed_core.dtr
-python -m kiwi.cli compile examples/policies/typed_core.dtr --output /tmp/typed_core.kbc
-python -m kiwi.cli disassemble examples/policies/typed_core.dtr
-python -m kiwi.cli run-policy examples/policies/typed_core.dtr choose --arg true
-```
-
-## Definition of done
-
-A task is complete only when:
-
-- its implementation is coherent and scoped;
-- relevant unit and integration tests pass;
-- deterministic implications were considered;
-- diagnostics and source provenance remain valid;
-- documentation is updated where required;
-- no temporary debug code or generated junk remains;
-- the diff contains no unrelated edits;
-- the documented task exit evidence is available;
-- the repository is committed at a valid rollback point.
-
-## When to ask the user
-
-Do not ask about routine choices that can be resolved from the documents, tests, primary documentation, or the smallest reversible design.
-
-Stop and ask before:
-
-- changing a settled decision;
-- choosing an irreversible save or bytecode compatibility policy;
-- adding a dependency with licensing or distribution consequences;
-- weakening deterministic or causal-debugging guarantees;
-- expanding direct player control;
-- materially changing the product loop;
-- committing to a visual fiction that constrains core mechanics;
-- deleting or migrating user-authored content without a compatibility plan.
+- Use explicit module constructors.
+- Validate external input at boundaries.
+- Return structured errors rather than ambiguous booleans where possible.
+- Keep parser transitions readable and table-driven where that improves auditability.
+- Comment protocol edge cases and invariants, not obvious syntax.
+- Keep public API docs adjacent to exported functions.
+- Avoid premature compatibility or performance hacks without measurements.
