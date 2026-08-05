@@ -154,6 +154,8 @@ Test:
   source maps, bytecode, policy manifests, and corrupt-sidecar rejection;
 - run comparison rejects every changed non-policy baseline input in stable order
   while reporting added, removed, and changed deployed policy versions;
+- compatible headless-run comparison finds the first logical policy evaluation
+  and intention delta while ignoring allocation-only IDs;
 - corrupt replay rejection;
 - content hash mismatch;
 - first-divergence reporting;

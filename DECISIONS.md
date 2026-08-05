@@ -794,6 +794,19 @@ comparison output. Additions, removals, and substitutions preserve their
 entity ID and old/new version where present. This permits controlled policy
 experiments without weakening the replay v1 migration policy.
 
+### D-071: First policy differences use logical evaluation and intention keys
+
+Compatible headless runs compare policy evaluations in ascending `(tick, entity
+ID)` order. Emitted intentions compare in ascending `(tick, issuer entity ID,
+policy order)` order. The comparison returns the first added, removed, or
+changed record for each stream, retaining the exact canonical events for
+inspection.
+
+Allocation-only policy invocation and intention IDs are ignored when comparing
+emitted intention semantics. Issuer, source expression and span, policy order,
+creation tick, intention kind, and validated payload remain significant. This
+prevents a prior allocation shift from being mistaken for a policy choice.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
