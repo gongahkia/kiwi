@@ -605,10 +605,12 @@ this is the fixed canonical precision for projectile movement.
 
 Select one earliest collision by `(subtick, class, stable target ID)`, where
 class precedence is obstacle, cover, then operative. Map bounds are not a
-collision candidate until a boundary-removal rule is defined. The sweep query
-has no state or event effect; a subsequent impact phase moves or removes the
-projectile as applicable, emits impact and consequence events, and applies
-damage or cover effects.
+collision candidate until a boundary-removal rule is defined. A collision
+consumes the projectile and records one transient impact result; an
+unobstructed projectile advances to its endpoint and decrements its remaining
+lifetime. On its final remaining tick, it travels that unobstructed segment and
+then expires. This phase applies no damage, cover-integrity change,
+suppression, or event; those dedicated phases consume the impact result.
 
 ## 16. Randomness
 
