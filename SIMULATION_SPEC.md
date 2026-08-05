@@ -510,7 +510,13 @@ Avoid fully realistic crowd dynamics. Behaviour should remain explainable.
 
 ### 12.4 Contention
 
-When multiple operatives seek the same location or cover slot, resolve using documented priority and ID tie-breaks. Emit contention events.
+When multiple operatives seek the same location or cover slot, resolve using
+documented priority and ID tie-breaks. Cover-slot requests sort by ascending
+`(priority, entity ID, intention ID)`. A granted request replaces only its
+issuer's prior reservation; a rejected reassignment keeps that prior slot.
+Existing holders reject later claims as `slot_reserved`, while an earlier
+successful request in the same batch rejects later claims as `slot_contested`.
+Execution emits the corresponding structured selection or rejection event.
 
 ## 13. Cover
 
@@ -520,8 +526,9 @@ sides. A segment has one `low` or `high` height class, inclusive 0–10,000
 basis-point integrity, and one through 16 contiguous-indexed slots. Each slot
 stores its same-elevation standing position and its side; slot positions are
 unique within a segment. Segments are stored by ascending `CoverId` in authority
-state. Occupancy, reservation, material, blocking, exposure, and damage rules
-remain separate phases.
+state. Reservations are a separate, slot-ordered authority store: one slot and
+one entity can appear at most once. Occupancy, material, blocking, exposure,
+and damage remain separate phases.
 
 Observed cover is an owner-local `CoverId`-ordered projection. A same-elevation
 segment is included when its exact nearest planar point is within the fixed

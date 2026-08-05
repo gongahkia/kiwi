@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import ContactId, CoverId, EntityId, EventId
+from kiwi.domain.ids import ContactId, CoverId, EntityId, EventId, IntentionId
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -17,11 +17,18 @@ from kiwi.sim.covers import (
     MAX_COVER_INTEGRITY_BASIS_POINTS,
     CoverHeight,
     CoverIntegrity,
+    CoverReservation,
+    CoverReservationRejectionReason,
+    CoverReservationRequest,
+    CoverReservationResolution,
+    CoverReservationStatus,
+    CoverReservationStore,
     CoverSegment,
     CoverSide,
     CoverSlot,
     CoverStore,
     estimate_cover_exposure,
+    resolve_cover_reservations,
 )
 from kiwi.sim.visibility import SensorRange, visible_covers
 
@@ -46,6 +53,121 @@ def test_cover_store_uses_cover_id_order_without_unordered_lookup() -> None:
     assert store.segment_for(CoverId(3)) is None
     with pytest.raises(ValueError, match="unique ascending"):
         CoverStore((second, first))
+
+
+def test_cover_reservations_use_canonical_slot_order_and_entity_lookup() -> None:
+    first = CoverReservation(CoverId(1), 0, EntityId(1), IntentionId(1))
+    second = CoverReservation(CoverId(2), 0, EntityId(2), IntentionId(2))
+    reservations = CoverReservationStore((first, second))
+
+    assert reservations.reservation_for_slot(CoverId(2), 0) == second
+    assert reservations.reservation_for_entity(EntityId(1)) == first
+    assert reservations.reservation_for_slot(CoverId(1), 1) is None
+    with pytest.raises(ValueError, match="unique ascending"):
+        CoverReservationStore((second, first))
+    with pytest.raises(ValueError, match="unique entity IDs"):
+        CoverReservationStore((first, CoverReservation(CoverId(2), 0, EntityId(1), IntentionId(2))))
+
+
+def test_cover_reservation_contention_uses_priority_then_entity_and_intention_ids() -> None:
+    covers = CoverStore((_segment(),))
+    phase = resolve_cover_reservations(
+        covers,
+        CoverReservationStore(),
+        (
+            CoverReservationRequest(CoverId(1), 0, EntityId(1), IntentionId(2), priority=1),
+            CoverReservationRequest(CoverId(1), 0, EntityId(2), IntentionId(3)),
+            CoverReservationRequest(CoverId(1), 0, EntityId(1), IntentionId(1)),
+        ),
+    )
+
+    assert tuple(resolution.request.intention_id for resolution in phase.resolutions) == (
+        IntentionId(1),
+        IntentionId(3),
+        IntentionId(2),
+    )
+    assert tuple(resolution.status for resolution in phase.resolutions) == (
+        CoverReservationStatus.GRANTED,
+        CoverReservationStatus.REJECTED,
+        CoverReservationStatus.REJECTED,
+    )
+    assert phase.resolutions[1].reason is CoverReservationRejectionReason.SLOT_CONTESTED
+    assert phase.resolutions[1].competing_intention_id == IntentionId(1)
+    assert phase.resolutions[2].reason is CoverReservationRejectionReason.ENTITY_ALREADY_REQUESTED
+    assert phase.reservations.entries == (
+        CoverReservation(CoverId(1), 0, EntityId(1), IntentionId(1)),
+    )
+
+
+def test_failed_cover_reassignment_preserves_an_existing_reservation() -> None:
+    covers = CoverStore((_segment(),))
+    existing = CoverReservationStore(
+        (
+            CoverReservation(CoverId(1), 0, EntityId(1), IntentionId(1)),
+            CoverReservation(CoverId(1), 1, EntityId(2), IntentionId(2)),
+        )
+    )
+
+    phase = resolve_cover_reservations(
+        covers,
+        existing,
+        (CoverReservationRequest(CoverId(1), 1, EntityId(1), IntentionId(3)),),
+    )
+
+    assert phase.reservations == existing
+    assert phase.resolutions == (
+        CoverReservationResolution(
+            CoverReservationRequest(CoverId(1), 1, EntityId(1), IntentionId(3)),
+            CoverReservationStatus.REJECTED,
+            CoverReservationRejectionReason.SLOT_RESERVED,
+            IntentionId(2),
+        ),
+    )
+
+
+def test_successful_cover_reassignment_replaces_the_issuer_prior_reservation() -> None:
+    covers = CoverStore((_segment(),))
+    existing = CoverReservationStore(
+        (CoverReservation(CoverId(1), 0, EntityId(1), IntentionId(1)),)
+    )
+
+    phase = resolve_cover_reservations(
+        covers,
+        existing,
+        (CoverReservationRequest(CoverId(1), 1, EntityId(1), IntentionId(2)),),
+    )
+
+    assert phase.resolutions[0].status is CoverReservationStatus.GRANTED
+    assert phase.reservations.entries == (
+        CoverReservation(CoverId(1), 1, EntityId(1), IntentionId(2)),
+    )
+
+
+def test_cover_reservations_reject_unknown_cover_and_slot_without_mutating_store() -> None:
+    covers = CoverStore((_segment(),))
+    phase = resolve_cover_reservations(
+        covers,
+        CoverReservationStore(),
+        (
+            CoverReservationRequest(CoverId(2), 0, EntityId(1), IntentionId(1)),
+            CoverReservationRequest(CoverId(1), 2, EntityId(2), IntentionId(2)),
+        ),
+    )
+
+    assert phase.reservations == CoverReservationStore()
+    assert tuple(resolution.reason for resolution in phase.resolutions) == (
+        CoverReservationRejectionReason.COVER_NOT_FOUND,
+        CoverReservationRejectionReason.SLOT_NOT_FOUND,
+    )
+
+
+def test_cover_reservations_reject_duplicate_intention_ids() -> None:
+    request = CoverReservationRequest(CoverId(1), 0, EntityId(1), IntentionId(1))
+
+    with pytest.raises(ValueError, match="unique intention IDs"):
+        resolve_cover_reservations(
+            CoverStore((_segment(),)), CoverReservationStore(), (request, request)
+        )
 
 
 def test_visible_covers_use_same_layer_exact_segment_range_and_cover_id_order() -> None:

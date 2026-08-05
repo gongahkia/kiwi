@@ -15,6 +15,8 @@ from kiwi.sim.contacts import (
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
+    CoverReservation,
+    CoverReservationStore,
     CoverSegment,
     CoverSide,
     CoverSlot,
@@ -126,6 +128,29 @@ def test_mission_state_rejects_cover_ids_without_allocator_provenance() -> None:
 
     with pytest.raises(ValueError, match="cover IDs must be allocated"):
         MissionState(covers=CoverStore((cover,)))
+
+
+def test_mission_state_rejects_cover_reservations_without_valid_authority_references() -> None:
+    cover_id, allocator = IdAllocator().allocate_cover()
+    intention_id, allocator = allocator.allocate_intention()
+    cover = CoverSegment(
+        cover_id,
+        position(0, 0),
+        position(1_000, 0),
+        CoverHeight.LOW,
+        CoverIntegrity(10_000),
+        (CoverSlot(0, position(0, -350), CoverSide.LEFT),),
+    )
+    reservations = CoverReservationStore(
+        (CoverReservation(cover_id, 0, EntityId(1), intention_id),)
+    )
+
+    with pytest.raises(ValueError, match="belong to mission entities"):
+        MissionState(
+            covers=CoverStore((cover,)),
+            cover_reservations=reservations,
+            id_allocator=allocator,
+        )
 
 
 @pytest.mark.parametrize(
