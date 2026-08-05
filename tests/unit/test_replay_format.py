@@ -17,6 +17,7 @@ from kiwi.replay.format import (
 )
 from kiwi.sim.clock import TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, IssueSignal, SignalName, StartMission
+from kiwi.sim.hashing import StateHash
 from kiwi.sim.policy_versions import EntityPolicyVersion, PolicyVersion
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.snapshot import capture_authority_snapshot
@@ -103,5 +104,8 @@ def _replay() -> ReplayPacket:
         seed=seed,
         tick_rate=TickRate.HZ_30,
         commands=(start, signal),
-        checkpoints=(ReplayCheckpoint(initial.tick, initial.state_hash),),
+        checkpoints=(
+            ReplayCheckpoint(initial.tick, initial.state_hash),
+            ReplayCheckpoint(initial.tick + 4, StateHash(b"c" * 32)),
+        ),
     )
