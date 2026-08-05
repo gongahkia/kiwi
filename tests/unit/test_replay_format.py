@@ -17,7 +17,7 @@ from kiwi.replay.format import (
 )
 from kiwi.sim.clock import TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, IssueSignal, SignalName, StartMission
-from kiwi.sim.policy_versions import PolicyVersion, PolicyVersionStore
+from kiwi.sim.policy_versions import EntityPolicyVersion, PolicyVersion
 from kiwi.sim.randomness import MissionSeed, RandomStreams
 from kiwi.sim.snapshot import capture_authority_snapshot
 from kiwi.sim.state import MissionState, add_entity
@@ -87,13 +87,6 @@ def _replay() -> ReplayPacket:
         MissionState(random_streams=RandomStreams.from_seed(seed)),
         WorldPosition(WorldSubunits(0), WorldSubunits(0)),
     )
-    state = replace(
-        state,
-        policy_versions=PolicyVersionStore().with_version(
-            entity.entity_id,
-            PolicyVersion(b"p" * 32),
-        ),
-    )
     initial = capture_authority_snapshot(state)
     start = StartMission(CommandHeader(0, 1, CommandSource.SCENARIO))
     signal = IssueSignal(
@@ -105,7 +98,7 @@ def _replay() -> ReplayPacket:
         application_build="test-build",
         simulation_version="sim-v1",
         mission_hash=b"m" * 32,
-        policy_versions=state.policy_versions.entries,
+        policy_versions=(EntityPolicyVersion(entity.entity_id, PolicyVersion(b"p" * 32)),),
         initial_snapshot=initial,
         seed=seed,
         tick_rate=TickRate.HZ_30,

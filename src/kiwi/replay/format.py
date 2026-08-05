@@ -107,8 +107,9 @@ class ReplayPacket:
             raise ValueError("replay seed must be a MissionSeed")
         if restored.random_streams.seed != self.seed:
             raise ValueError("replay seed must match the initial snapshot")
-        if restored.policy_versions.entries != self.policy_versions:
-            raise ValueError("replay policy versions must match the initial snapshot")
+        entity_ids = tuple(entity.entity_id for entity in restored.entities)
+        if any(version.entity_id not in entity_ids for version in self.policy_versions):
+            raise ValueError("replay policy versions must belong to initial snapshot entities")
         if not isinstance(self.tick_rate, TickRate):
             raise ValueError("replay tick rate must be a TickRate")
         if not isinstance(self.commands, tuple):

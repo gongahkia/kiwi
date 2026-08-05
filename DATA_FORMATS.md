@@ -244,7 +244,8 @@ insignificant whitespace. The complete immutable v1 input manifest contains:
 
 - visible-ASCII application-build and simulation-version identifiers;
 - a 32-byte mission-content hash;
-- entity-ID-ordered 32-byte deployed policy-version hashes;
+- entity-ID-ordered 32-byte execution policy-version hashes, whose entities
+  must occur in the initial snapshot;
 - a self-verifying canonical initial `AuthoritySnapshot`;
 - the root unsigned-64-bit seed, which must equal the initial snapshot's seed;
 - the fixed tick rate;
