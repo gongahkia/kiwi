@@ -542,7 +542,9 @@ hashes into the packet.
 Verification restores the packet's initial snapshot, requires matching binding
 versions, and replays each checkpoint interval headlessly before comparing its
 canonical state hash. It returns structured initial-snapshot, policy-version,
-or checkpoint-hash failures; detailed divergence diagnostics remain deferred.
+or checkpoint-hash failures. A checkpoint failure retains the earliest index,
+tick, expected hash, and reconstructed hash; canonical-state detail remains
+deferred.
 An optional strict `KWI-SEEK\0` v1 sidecar binds periodic self-verifying
 snapshots to the canonical replay hash. Seeking rejects mismatched sidecars or
 bindings, restores the nearest preceding checkpoint, then runs only the

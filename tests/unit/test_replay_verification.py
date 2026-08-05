@@ -84,3 +84,37 @@ def test_replay_verification_rejects_checkpoint_hash_mismatch() -> None:
 
     assert isinstance(verified, ReplayVerificationFailure)
     assert verified.code is ReplayVerificationFailureCode.CHECKPOINT_HASH
+    assert verified.divergence is not None
+    assert verified.divergence.checkpoint_index == 1
+    assert verified.divergence.tick == 1
+    assert verified.divergence.expected_hash == StateHash(b"x" * 32)
+    assert verified.divergence.actual_hash == recorded.replay.checkpoints[1].state_hash
+
+
+def test_replay_verification_reports_the_first_divergent_checkpoint() -> None:
+    recorded = record_headless_run(
+        MissionState(),
+        FixedTickClock(TickRate.HZ_30),
+        3,
+        application_build="test-build",
+        simulation_version="sim-v1",
+        mission_hash=b"m" * 32,
+    )
+    replay = replace(
+        recorded.replay,
+        checkpoints=(
+            recorded.replay.checkpoints[0],
+            ReplayCheckpoint(1, StateHash(b"a" * 32)),
+            ReplayCheckpoint(2, StateHash(b"b" * 32)),
+            recorded.replay.checkpoints[3],
+        ),
+    )
+
+    verified = verify_replay(replay)
+
+    assert isinstance(verified, ReplayVerificationFailure)
+    assert verified.divergence is not None
+    assert verified.divergence.checkpoint_index == 1
+    assert verified.divergence.tick == 1
+    assert verified.divergence.expected_hash == StateHash(b"a" * 32)
+    assert verified.divergence.actual_hash == recorded.replay.checkpoints[1].state_hash
