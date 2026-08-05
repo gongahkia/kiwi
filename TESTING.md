@@ -130,6 +130,7 @@ Small deterministic fixtures test:
 - projectile consumption, final-segment expiry, and map-boundary deferral;
 - deterministic protection, injury bands, incapacitation, and condition versioning;
 - deterministic damage, suppression radii, decay, stacking, and aim clamping;
+- fire, projectile, impact, damage, injury, and suppression event order and causal parents;
 - medical interruption;
 - objective completion;
 - command timing.

@@ -574,6 +574,8 @@ class SuppressionChanged:
             raise ValueError("suppression event requires a suppression resolution")
         if self.resolution.suppression_before == self.resolution.suppression_after:
             raise ValueError("suppression event requires a changed suppression value")
+        if self.resolution.contributions and not self.header.parent_event_ids:
+            raise ValueError("suppression source contributions require projectile outcome parents")
         _require_matching_tick(self.header, self.resolution.tick)
 
 
