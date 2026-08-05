@@ -360,6 +360,12 @@ Return a ranked causal subgraph:
 
 Ranking is explanatory, not metaphysical certainty. Label heuristics as such.
 
+`consequence_chain` takes a retained consequence node ID and returns its
+backward causal subgraph. Ancestor records rank by shortest causal-edge distance
+from the consequence, with edge-ID order breaking ties; selected subgraph edges
+remain edge-ID ordered. If either the consequence or its parent evidence was
+discarded, it returns a typed unavailable result rather than inventing a cause.
+
 ## 9. Source integration
 
 The debugger must navigate from trace records to:
