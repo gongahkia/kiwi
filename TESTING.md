@@ -158,6 +158,8 @@ Test:
   and intention delta while ignoring allocation-only IDs;
 - retained causal-consequence comparison returns all logical added, removed,
   and changed outcomes while ignoring trace and authority allocation IDs;
+- CLI replay record, verify, inspect, and compare operate headlessly on strict
+  policy-free kernel-fixture replay packets and report structured mismatches;
 - corrupt replay rejection;
 - content hash mismatch;
 - first-divergence reporting;
