@@ -385,4 +385,6 @@ and age, stable standard-library List selection and ranking source indices,
 Cover candidate decisions, canonical intention-origin links through policy
 validation and arbitration, canonical world-event parent chains, projectile
 provenance through injury consequences, and identical traced and untraced
-authority successors.
+authority successors. Retention tests require level-specific record filtering,
+deterministic trailing-tick windows, bounded record and edge selection, and no
+dangling retained edges.
