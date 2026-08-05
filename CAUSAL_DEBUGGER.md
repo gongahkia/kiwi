@@ -434,6 +434,10 @@ Policy evaluations match by `(tick, entity ID)`. Emitted intentions match by
 validated payload while ignoring allocation-only invocation and intention IDs.
 Missing and changed records are explicit distinct results.
 
+Consequences match by `(tick, kind, subject entity IDs)` and retain every
+added, removed, and changed consequence. Trace-node and authority-event IDs are
+allocation detail, not a changed consequence.
+
 ## 12. Counterfactual support
 
 MVP counterfactuals are controlled reruns, not fabricated predictions.
