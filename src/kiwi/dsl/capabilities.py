@@ -51,6 +51,7 @@ class CapabilityId:
 MOVE_TOWARD_CAPABILITY = CapabilityId("move_toward")
 TAKE_COVER_CAPABILITY = CapabilityId("take_cover")
 WAIT_CAPABILITY = CapabilityId("wait")
+AIM_CAPABILITY = CapabilityId("aim")
 FIRE_CAPABILITY = CapabilityId("fire")
 
 
@@ -166,6 +167,8 @@ def _capability_for_record_type(type_name: str) -> CapabilityId | None:
         return TAKE_COVER_CAPABILITY
     if type_name == "Wait":
         return WAIT_CAPABILITY
+    if type_name == "Aim":
+        return AIM_CAPABILITY
     if type_name == "Fire":
         return FIRE_CAPABILITY
     return None

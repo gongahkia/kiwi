@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, world_subunits_from_distance
-from kiwi.domain.ids import CoverId, EntityId, IntentionId, PolicyInvocationId
+from kiwi.domain.ids import CoverId, EntityId, IntentionId, PolicyInvocationId, WeaponId
 from kiwi.domain.quantities import Quantity, QuantityDimension
 from kiwi.dsl.capabilities import (
+    AIM_CAPABILITY,
+    FIRE_CAPABILITY,
     MOVE_TOWARD_CAPABILITY,
     TAKE_COVER_CAPABILITY,
     WAIT_CAPABILITY,
@@ -66,6 +68,7 @@ class IntentionValidationCode(StrEnum):
     INVALID_TARGET = "I005_INVALID_TARGET"
     INVALID_COVER_ID = "I006_INVALID_COVER_ID"
     INVALID_COVER_SIDE = "I007_INVALID_COVER_SIDE"
+    INVALID_WEAPON_ID = "I008_INVALID_WEAPON_ID"
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,7 +138,33 @@ class TakeCoverIntention:
             raise ValueError("take-cover intention requires a cover side")
 
 
-type ValidatedIntention = MoveTowardIntention | TakeCoverIntention | WaitIntention
+@dataclass(frozen=True, slots=True)
+class AimIntention:
+    """A target-free weapon-channel action that retains automatic aim progression."""
+
+    kind: IntentionKind = field(default=IntentionKind.AIM, init=False)
+    action_channel: ActionChannel = field(default=ActionChannel.WEAPON, init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class FireIntention:
+    """One exact planar weapon request against a policy-visible target position."""
+
+    weapon_id: WeaponId
+    target: WorldPosition
+    kind: IntentionKind = field(default=IntentionKind.FIRE, init=False)
+    action_channel: ActionChannel = field(default=ActionChannel.WEAPON, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.weapon_id, WeaponId):
+            raise ValueError("fire intention requires a weapon ID")
+        if not isinstance(self.target, WorldPosition):
+            raise ValueError("fire intention requires a world position")
+        if self.target.elevation.value != 0:
+            raise ValueError("fire intention target must be planar")
+
+
+type ValidatedIntention = AimIntention | FireIntention | MoveTowardIntention | TakeCoverIntention | WaitIntention
 type IntentionValidationResult = ValidatedIntention | IntentionValidationFailure
 
 
@@ -215,6 +244,10 @@ def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult
         return _validate_move_toward(value)
     if value.type_name == "TakeCover":
         return _validate_take_cover(value)
+    if value.type_name == "Aim":
+        return _validate_aim(value)
+    if value.type_name == "Fire":
+        return _validate_fire(value)
     if value.type_name != "Wait":
         return IntentionValidationFailure(
             IntentionValidationCode.UNSUPPORTED_KIND,
@@ -327,8 +360,83 @@ def _validate_take_cover(value: RecordValue) -> IntentionValidationResult:
     return TakeCoverIntention(resolved_cover_id, resolved_side)
 
 
+def _validate_aim(value: RecordValue) -> IntentionValidationResult:
+    if value.field_names != ():
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_FIELDS,
+            "Aim intention must not contain fields",
+        )
+    return AimIntention()
+
+
+def _validate_fire(value: RecordValue) -> IntentionValidationResult:
+    if value.field_names != ("target", "weapon_id"):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_FIELDS,
+            "Fire intention must contain exactly target and weapon_id fields",
+        )
+    weapon_id = value.field_value("weapon_id")
+    if not isinstance(weapon_id, IntegerValue):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_WEAPON_ID,
+            "Fire.weapon_id must be a positive weapon ID",
+            ("weapon_id",),
+        )
+    try:
+        resolved_weapon_id = WeaponId(weapon_id.value)
+    except ValueError:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_WEAPON_ID,
+            "Fire.weapon_id must be a positive weapon ID",
+            ("weapon_id",),
+        )
+    target = _target_position(value.field_value("target"), "Fire")
+    if isinstance(target, IntentionValidationFailure):
+        return target
+    return FireIntention(resolved_weapon_id, target)
+
+
+def _target_position(value: RuntimeValue, intention_name: str) -> WorldPosition | IntentionValidationFailure:
+    if not isinstance(value, RecordValue) or value.type_name != "Position":
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            f"{intention_name}.target must be a Position value",
+            ("target",),
+        )
+    if value.field_names != ("x", "y"):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            f"{intention_name}.target must contain exactly x and y fields",
+            ("target",),
+        )
+    x, y = value.values
+    if (
+        not isinstance(x, QuantityValue)
+        or x.value.dimension is not QuantityDimension.DISTANCE
+        or not isinstance(y, QuantityValue)
+        or y.value.dimension is not QuantityDimension.DISTANCE
+    ):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            f"{intention_name}.target coordinates must be Distance values",
+            ("target",),
+        )
+    try:
+        return WorldPosition(world_subunits_from_distance(x.value), world_subunits_from_distance(y.value))
+    except ValueError:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_TARGET,
+            f"{intention_name}.target coordinates are outside canonical world bounds",
+            ("target",),
+        )
+
+
 def required_capability_for(intention: ValidatedIntention) -> CapabilityId:
     """Return the declared tactical capability required by an available intention."""
+    if isinstance(intention, AimIntention):
+        return AIM_CAPABILITY
+    if isinstance(intention, FireIntention):
+        return FIRE_CAPABILITY
     if isinstance(intention, MoveTowardIntention):
         return MOVE_TOWARD_CAPABILITY
     if isinstance(intention, TakeCoverIntention):
