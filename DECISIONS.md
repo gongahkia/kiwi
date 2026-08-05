@@ -424,7 +424,8 @@ Cover segments reside in a `CoverId`-ordered authoritative store. Reservation,
 occupancy, exposure, and integrity damage are deliberately separate later
 rules. `KWI-STATE\0` therefore uses version `12`, serialising the cover store
 before contacts. Versions `1` through `11` are rejected with no migration or
-compatibility decoder because development state remains disposable.
+compatibility decoder because development state remains disposable. Its current
+format version is superseded by D-051.
 
 ### D-049: Observation ABI version 5 projects range-visible cover
 
@@ -447,6 +448,24 @@ full 10,000-basis-point exposure. A slot is protected only from the opposite
 side: low cover protects 5,000 basis points and high cover 7,500, each scaled
 down by integer-floor integrity. This is an estimate, not hidden-world line of
 fire or occupancy resolution.
+
+### D-051: Cover slots use persistent deterministic reservations
+
+Each cover slot has at most one persistent reservation and each entity holds at
+most one reservation. An entry contains its `CoverId`, slot index, owner
+`EntityId`, and the selected `IntentionId` that last granted it; entries are
+ordered by `(cover ID, slot index)`. A request must name an existing slot and is
+resolved in ascending `(priority, entity ID, intention ID)` order, where a lower
+priority integer wins. A successful request replaces that entity's prior
+reservation. A failed reassignment leaves the prior reservation intact. A claim
+blocked by an existing holder reports `slot_reserved`; one blocked by an earlier
+claim in the same batch reports `slot_contested` and names the winning intention.
+
+This reservation is authority state, not player-visible observation or physical
+occupancy. `KWI-STATE\0` version `13` serialises the reservation store after
+cover geometry and before contacts. Versions `1` through `12` are rejected with
+no migration or compatibility decoder because development state remains
+disposable.
 
 ## 2. Prohibited shortcuts
 

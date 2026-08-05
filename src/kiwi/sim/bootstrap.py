@@ -37,6 +37,8 @@ def build_initial_state(
             id_allocator=state.id_allocator,
             policy_memory=state.policy_memory,
             policy_versions=state.policy_versions,
+            covers=state.covers,
+            cover_reservations=state.cover_reservations,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition
-from kiwi.domain.ids import CoverId
+from kiwi.domain.ids import CoverId, EntityId, IntentionId
 from kiwi.sim.contacts import ContactEstimate
+from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
 MAX_COVER_INTEGRITY_BASIS_POINTS = 10_000
 MAX_COVER_SLOTS_PER_SEGMENT = 16
@@ -28,6 +29,23 @@ class CoverHeight(StrEnum):
 
     LOW = "low"
     HIGH = "high"
+
+
+class CoverReservationStatus(StrEnum):
+    """One authoritative outcome while assigning a requested cover slot."""
+
+    GRANTED = "granted"
+    REJECTED = "rejected"
+
+
+class CoverReservationRejectionReason(StrEnum):
+    """Stable reasons a cover-slot claim cannot become a reservation."""
+
+    COVER_NOT_FOUND = "cover_not_found"
+    SLOT_NOT_FOUND = "slot_not_found"
+    ENTITY_ALREADY_REQUESTED = "entity_already_requested"
+    SLOT_RESERVED = "slot_reserved"
+    SLOT_CONTESTED = "slot_contested"
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +152,270 @@ class CoverStore:
             if segment.cover_id == cover_id:
                 return segment
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservation:
+    """One persistent claim by an entity on one valid cover slot."""
+
+    cover_id: CoverId
+    slot_index: int
+    entity_id: EntityId
+    intention_id: IntentionId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cover_id, CoverId):
+            raise ValueError("cover reservation requires a cover ID")
+        if not isinstance(self.slot_index, int) or isinstance(self.slot_index, bool):
+            raise ValueError("cover reservation slot index must be an integer")
+        if self.slot_index < 0:
+            raise ValueError("cover reservation slot index must be non-negative")
+        if not isinstance(self.entity_id, EntityId):
+            raise ValueError("cover reservation requires an entity ID")
+        if not isinstance(self.intention_id, IntentionId):
+            raise ValueError("cover reservation requires an intention ID")
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservationStore:
+    """A canonical cover-slot-ordered sparse reservation store."""
+
+    entries: tuple[CoverReservation, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.entries, tuple):
+            raise ValueError("cover reservations must be an immutable tuple")
+        previous_key = (0, -1)
+        entity_ids: tuple[EntityId, ...] = ()
+        for reservation in self.entries:
+            if not isinstance(reservation, CoverReservation):
+                raise ValueError("cover reservations must contain cover reservations")
+            key = (reservation.cover_id.value, reservation.slot_index)
+            if key <= previous_key:
+                raise ValueError("cover reservations must have unique ascending cover slots")
+            if reservation.entity_id in entity_ids:
+                raise ValueError("cover reservations must have unique entity IDs")
+            previous_key = key
+            entity_ids += (reservation.entity_id,)
+
+    def reservation_for_slot(self, cover_id: CoverId, slot_index: int) -> CoverReservation | None:
+        """Return one slot claim without using an unordered lookup."""
+        if not isinstance(cover_id, CoverId):
+            raise ValueError("cover reservation lookup requires a cover ID")
+        if not isinstance(slot_index, int) or isinstance(slot_index, bool):
+            raise ValueError("cover reservation lookup requires an integer slot index")
+        for reservation in self.entries:
+            if reservation.cover_id == cover_id and reservation.slot_index == slot_index:
+                return reservation
+        return None
+
+    def reservation_for_entity(self, entity_id: EntityId) -> CoverReservation | None:
+        """Return one entity claim without using an unordered lookup."""
+        if not isinstance(entity_id, EntityId):
+            raise ValueError("cover reservation lookup requires an entity ID")
+        for reservation in self.entries:
+            if reservation.entity_id == entity_id:
+                return reservation
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservationRequest:
+    """One selected intent's request for an exclusive cover slot."""
+
+    cover_id: CoverId
+    slot_index: int
+    entity_id: EntityId
+    intention_id: IntentionId
+    priority: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cover_id, CoverId):
+            raise ValueError("cover reservation request requires a cover ID")
+        if not isinstance(self.slot_index, int) or isinstance(self.slot_index, bool):
+            raise ValueError("cover reservation request slot index must be an integer")
+        if self.slot_index < 0:
+            raise ValueError("cover reservation request slot index must be non-negative")
+        if not isinstance(self.entity_id, EntityId):
+            raise ValueError("cover reservation request requires an entity ID")
+        if not isinstance(self.intention_id, IntentionId):
+            raise ValueError("cover reservation request requires an intention ID")
+        if not isinstance(self.priority, int) or isinstance(self.priority, bool):
+            raise ValueError("cover reservation request priority must be an integer")
+        if not 0 <= self.priority <= MAX_AUTHORITY_TICK:
+            raise ValueError(
+                "cover reservation request priority must fit non-negative signed 64-bit range"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservationResolution:
+    """One deterministic result for a requested cover slot."""
+
+    request: CoverReservationRequest
+    status: CoverReservationStatus
+    reason: CoverReservationRejectionReason | None = None
+    competing_intention_id: IntentionId | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.request, CoverReservationRequest):
+            raise ValueError("cover reservation resolution requires a request")
+        if not isinstance(self.status, CoverReservationStatus):
+            raise ValueError("cover reservation resolution requires a status")
+        if self.status is CoverReservationStatus.GRANTED:
+            if self.reason is not None or self.competing_intention_id is not None:
+                raise ValueError("granted cover reservations cannot have a rejection reason")
+            return
+        if not isinstance(self.reason, CoverReservationRejectionReason):
+            raise ValueError("rejected cover reservations require a rejection reason")
+        if self.reason in (
+            CoverReservationRejectionReason.SLOT_RESERVED,
+            CoverReservationRejectionReason.SLOT_CONTESTED,
+        ):
+            if not isinstance(self.competing_intention_id, IntentionId):
+                raise ValueError(
+                    "slot-rejected cover reservations require a competing intention ID"
+                )
+        elif self.competing_intention_id is not None:
+            raise ValueError("non-slot cover reservation rejections cannot name a competitor")
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservationPhase:
+    """The successor reservation store and canonical request outcomes."""
+
+    reservations: CoverReservationStore
+    resolutions: tuple[CoverReservationResolution, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.reservations, CoverReservationStore):
+            raise ValueError("cover reservation phase requires a reservation store")
+        if not isinstance(self.resolutions, tuple):
+            raise ValueError("cover reservation phase resolutions must be an immutable tuple")
+        previous_key = (-1, 0, 0)
+        for resolution in self.resolutions:
+            if not isinstance(resolution, CoverReservationResolution):
+                raise ValueError("cover reservation phase must contain resolutions")
+            request = resolution.request
+            key = (request.priority, request.entity_id.value, request.intention_id.value)
+            if key <= previous_key:
+                raise ValueError(
+                    "cover reservation phase resolutions must use canonical request order"
+                )
+            previous_key = key
+
+
+def resolve_cover_reservations(
+    covers: CoverStore,
+    reservations: CoverReservationStore,
+    requests: tuple[CoverReservationRequest, ...],
+) -> CoverReservationPhase:
+    """Resolve slot claims by priority, entity ID, then intention ID."""
+    if not isinstance(covers, CoverStore):
+        raise TypeError("cover reservation resolution requires a cover store")
+    if not isinstance(reservations, CoverReservationStore):
+        raise TypeError("cover reservation resolution requires a reservation store")
+    if not isinstance(requests, tuple):
+        raise TypeError("cover reservation requests must be an immutable tuple")
+    if any(not isinstance(request, CoverReservationRequest) for request in requests):
+        raise ValueError("cover reservation requests must contain reservation requests")
+    intention_ids: tuple[IntentionId, ...] = ()
+    for request in requests:
+        if request.intention_id in intention_ids:
+            raise ValueError("cover reservation requests must have unique intention IDs")
+        intention_ids += (request.intention_id,)
+    ordered_requests = tuple(sorted(requests, key=_reservation_request_key))
+    current = list(reservations.entries)
+    resolutions: list[CoverReservationResolution] = []
+    requested_entities: tuple[EntityId, ...] = ()
+    newly_granted_intention_ids: tuple[IntentionId, ...] = ()
+    for request in ordered_requests:
+        if request.entity_id in requested_entities:
+            resolutions.append(
+                CoverReservationResolution(
+                    request,
+                    CoverReservationStatus.REJECTED,
+                    CoverReservationRejectionReason.ENTITY_ALREADY_REQUESTED,
+                )
+            )
+            continue
+        requested_entities += (request.entity_id,)
+        segment = covers.segment_for(request.cover_id)
+        if segment is None:
+            resolutions.append(
+                CoverReservationResolution(
+                    request,
+                    CoverReservationStatus.REJECTED,
+                    CoverReservationRejectionReason.COVER_NOT_FOUND,
+                )
+            )
+            continue
+        if segment.slot_for(request.slot_index) is None:
+            resolutions.append(
+                CoverReservationResolution(
+                    request,
+                    CoverReservationStatus.REJECTED,
+                    CoverReservationRejectionReason.SLOT_NOT_FOUND,
+                )
+            )
+            continue
+        existing = _reservation_for_entity(current, request.entity_id)
+        target = _reservation_for_slot(current, request.cover_id, request.slot_index)
+        if target is not None and target != existing:
+            reason = (
+                CoverReservationRejectionReason.SLOT_CONTESTED
+                if target.intention_id in newly_granted_intention_ids
+                else CoverReservationRejectionReason.SLOT_RESERVED
+            )
+            resolutions.append(
+                CoverReservationResolution(
+                    request,
+                    CoverReservationStatus.REJECTED,
+                    reason,
+                    target.intention_id,
+                )
+            )
+            continue
+        if existing is not None:
+            current.remove(existing)
+        current.append(
+            CoverReservation(
+                request.cover_id,
+                request.slot_index,
+                request.entity_id,
+                request.intention_id,
+            )
+        )
+        newly_granted_intention_ids += (request.intention_id,)
+        resolutions.append(CoverReservationResolution(request, CoverReservationStatus.GRANTED))
+    ordered_reservations = tuple(sorted(current, key=_reservation_key))
+    return CoverReservationPhase(CoverReservationStore(ordered_reservations), tuple(resolutions))
+
+
+def _reservation_key(reservation: CoverReservation) -> tuple[int, int]:
+    return (reservation.cover_id.value, reservation.slot_index)
+
+
+def _reservation_request_key(request: CoverReservationRequest) -> tuple[int, int, int]:
+    return (request.priority, request.entity_id.value, request.intention_id.value)
+
+
+def _reservation_for_entity(
+    reservations: list[CoverReservation], entity_id: EntityId
+) -> CoverReservation | None:
+    for reservation in reservations:
+        if reservation.entity_id == entity_id:
+            return reservation
+    return None
+
+
+def _reservation_for_slot(
+    reservations: list[CoverReservation], cover_id: CoverId, slot_index: int
+) -> CoverReservation | None:
+    for reservation in reservations:
+        if reservation.cover_id == cover_id and reservation.slot_index == slot_index:
+            return reservation
+    return None
 
 
 @dataclass(frozen=True, slots=True)

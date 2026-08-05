@@ -28,6 +28,8 @@ from kiwi.sim.contacts import (
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
+    CoverReservation,
+    CoverReservationStore,
     CoverSegment,
     CoverSide,
     CoverSlot,
@@ -97,7 +99,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "8993b1aba1741c1dac63e7c577aa5a461f9ae50143478eb080ad4a53b7816a69"
+    assert first.hex == "acd19d182a8a2a5497f2b458579bcb496923fb7928c49be58c017d735c705c45"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -239,14 +241,30 @@ def test_canonical_state_codec_round_trips_cover_segments_and_hashes_them() -> N
             CoverSlot(1, WorldPosition(WorldSubunits(1_000), WorldSubunits(350)), CoverSide.RIGHT),
         ),
     )
-    state = MissionState(covers=CoverStore((cover,)), id_allocator=allocator)
+    state, entity = add_entity(
+        MissionState(covers=CoverStore((cover,)), id_allocator=allocator),
+        WorldPosition(WorldSubunits(3), WorldSubunits(4)),
+    )
+    intention_id, allocator = state.id_allocator.allocate_intention()
+    state = replace(
+        state,
+        id_allocator=allocator,
+        cover_reservations=CoverReservationStore(
+            (CoverReservation(cover_id, 0, entity.entity_id, intention_id),)
+        ),
+    )
 
     decoded = decode_canonical_state(encode_canonical_state(state))
 
     assert decoded == state
     assert isinstance(decoded, MissionState)
     assert decoded.covers.segment_for(cover_id) == cover
-    assert hash_canonical_state(state) != hash_canonical_state(replace(state, covers=CoverStore()))
+    assert decoded.cover_reservations == state.cover_reservations
+    without_reservations = replace(state, cover_reservations=CoverReservationStore())
+    assert hash_canonical_state(without_reservations) != hash_canonical_state(
+        replace(without_reservations, covers=CoverStore())
+    )
+    assert hash_canonical_state(state) != hash_canonical_state(without_reservations)
 
 
 def test_canonical_state_codec_round_trips_contacts_and_hashes_them() -> None:
@@ -361,6 +379,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x09", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0a", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0b", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x0c", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

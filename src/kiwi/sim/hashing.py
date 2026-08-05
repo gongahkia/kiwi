@@ -14,6 +14,7 @@ from kiwi.domain.ids import (
     EventId,
     IdAllocator,
     IdKind,
+    IntentionId,
     MessageId,
     ObstacleId,
 )
@@ -43,6 +44,8 @@ from kiwi.sim.contacts import (
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
+    CoverReservation,
+    CoverReservationStore,
     CoverSegment,
     CoverSide,
     CoverSlot,
@@ -74,7 +77,7 @@ from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 12
+CANONICAL_STATE_VERSION = 13
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -148,7 +151,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 12 form."""
+    """Encode one validated mission state in canonical binary version 13 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -167,6 +170,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_policy_memory(writer, state.policy_memory)
     _encode_policy_versions(writer, state.policy_versions)
     _encode_covers(writer, state.covers)
+    _encode_cover_reservations(writer, state.cover_reservations)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
@@ -264,6 +268,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     policy_memory = _decode_policy_memory(reader)
     policy_versions = _decode_policy_versions(reader)
     covers = _decode_covers(reader)
+    cover_reservations = _decode_cover_reservations(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
@@ -280,6 +285,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         policy_memory=policy_memory,
         policy_versions=policy_versions,
         covers=covers,
+        cover_reservations=cover_reservations,
         contacts=contacts,
         messages=messages,
         signals=signals,
@@ -507,6 +513,28 @@ def _decode_covers(reader: _Reader) -> CoverStore:
         )
         segments.append(CoverSegment(cover_id, start, end, height, integrity, slots))
     return CoverStore(tuple(segments))
+
+
+def _encode_cover_reservations(writer: _Writer, store: CoverReservationStore) -> None:
+    writer.items(len(store.entries), "cover reservation count")
+    for reservation in store.entries:
+        writer.i64(reservation.cover_id.value, "cover reservation cover ID")
+        writer.u16(reservation.slot_index, "cover reservation slot index")
+        writer.i64(reservation.entity_id.value, "cover reservation entity ID")
+        writer.i64(reservation.intention_id.value, "cover reservation intention ID")
+
+
+def _decode_cover_reservations(reader: _Reader) -> CoverReservationStore:
+    reservations = tuple(
+        CoverReservation(
+            CoverId(reader.i64()),
+            reader.u16(),
+            EntityId(reader.i64()),
+            IntentionId(reader.i64()),
+        )
+        for _ in range(reader.items("cover reservation count"))
+    )
+    return CoverReservationStore(reservations)
 
 
 def _encode_contacts(writer: _Writer, store: ContactStore) -> None:
