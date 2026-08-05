@@ -274,7 +274,9 @@ canonical command log at the recorded fixed rate, and compares every checkpoint
 hash. A mismatching policy manifest or checkpoint is a structured verification
 failure. A checkpoint failure reports the first divergent checkpoint's index,
 tick, expected hash, and reconstructed hash; canonical-state field detail
-remains deferred.
+is included when the verifier receives a matching `.dseek` sidecar. The report
+then identifies the first differing canonical field path and its expected and
+reconstructed values.
 
 `.dseek` is an optional `KWI-SEEK\0` version `1` binary sidecar. It stores the
 32-byte BLAKE2b-256 hash of its exact canonical `.drun` packet, then an
