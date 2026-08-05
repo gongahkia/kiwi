@@ -42,6 +42,7 @@ def build_initial_state(
             weapons=state.weapons,
             aim_states=state.aim_states,
             suppressions=state.suppressions,
+            projectiles=state.projectiles,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

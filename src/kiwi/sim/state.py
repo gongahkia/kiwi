@@ -15,6 +15,7 @@ from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageLedger
 from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
+from kiwi.sim.projectiles import ProjectileStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 from kiwi.sim.signals import SignalStore
@@ -135,6 +136,7 @@ class MissionState:
     weapons: WeaponStore = field(default_factory=WeaponStore)
     aim_states: AimStore = field(default_factory=AimStore)
     suppressions: SuppressionStore = field(default_factory=SuppressionStore)
+    projectiles: ProjectileStore = field(default_factory=ProjectileStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
@@ -170,6 +172,8 @@ class MissionState:
             raise ValueError("mission state requires an aim store")
         if not isinstance(self.suppressions, SuppressionStore):
             raise ValueError("mission state requires a suppression store")
+        if not isinstance(self.projectiles, ProjectileStore):
+            raise ValueError("mission state requires a projectile store")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
@@ -238,13 +242,26 @@ class MissionState:
             suppression.entity_id not in entity_ids for suppression in self.suppressions.entries
         ):
             raise ValueError("suppression states must belong to mission entities")
+        next_projectile_id = self.id_allocator.next_ids[int(IdKind.PROJECTILE)]
+        if any(
+            projectile.projectile_id.value >= next_projectile_id
+            for projectile in self.projectiles.entries
+        ):
+            raise ValueError("projectile IDs must be allocated by the current ID allocator")
+        if any(projectile.owner_entity_id not in entity_ids for projectile in self.projectiles.entries):
+            raise ValueError("projectiles must belong to mission entities")
+        next_intention_id = self.id_allocator.next_ids[int(IdKind.INTENTION)]
+        if any(
+            projectile.source_intention_id.value >= next_intention_id
+            for projectile in self.projectiles.entries
+        ):
+            raise ValueError("projectile source intention IDs must be allocated")
         for reservation in self.cover_reservations.entries:
             if reservation.entity_id not in entity_ids:
                 raise ValueError("cover reservations must belong to mission entities")
             segment = self.covers.segment_for(reservation.cover_id)
             if segment is None or segment.slot_for(reservation.slot_index) is None:
                 raise ValueError("cover reservations must reference mission cover slots")
-        next_intention_id = self.id_allocator.next_ids[int(IdKind.INTENTION)]
         if any(
             reservation.intention_id.value >= next_intention_id
             for reservation in self.cover_reservations.entries
@@ -324,6 +341,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             weapons=state.weapons,
             aim_states=state.aim_states,
             suppressions=state.suppressions,
+            projectiles=state.projectiles,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

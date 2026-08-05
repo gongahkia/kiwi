@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import blake2b
 
-from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits
+from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits, WorldVector
 from kiwi.domain.ids import (
     ContactId,
     CoverId,
@@ -67,6 +67,7 @@ from kiwi.sim.policy_versions import (
     PolicyVersion,
     PolicyVersionStore,
 )
+from kiwi.sim.projectiles import Projectile, ProjectileStore
 from kiwi.sim.randomness import (
     RANDOM_ALGORITHM_VERSION,
     MissionSeed,
@@ -87,7 +88,7 @@ from kiwi.sim.weapons import (
 )
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 15
+CANONICAL_STATE_VERSION = 16
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -161,7 +162,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 15 form."""
+    """Encode one validated mission state in canonical binary version 16 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -184,6 +185,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_weapons(writer, state.weapons)
     _encode_aim_states(writer, state.aim_states)
     _encode_suppressions(writer, state.suppressions)
+    _encode_projectiles(writer, state.projectiles)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
@@ -263,7 +265,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 15 requires exactly four random streams")
+        raise ValueError("state format version 16 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -285,6 +287,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     weapons = _decode_weapons(reader)
     aim_states = _decode_aim_states(reader)
     suppressions = _decode_suppressions(reader)
+    projectiles = _decode_projectiles(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
@@ -305,6 +308,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         weapons=weapons,
         aim_states=aim_states,
         suppressions=suppressions,
+        projectiles=projectiles,
         contacts=contacts,
         messages=messages,
         signals=signals,
@@ -606,6 +610,40 @@ def _decode_suppressions(reader: _Reader) -> SuppressionStore:
         tuple(
             SuppressionState(EntityId(reader.i64()), reader.u16())
             for _ in range(reader.items("suppression count"))
+        )
+    )
+
+
+def _encode_projectiles(writer: _Writer, store: ProjectileStore) -> None:
+    writer.items(len(store.entries), "projectile count")
+    for projectile in store.entries:
+        writer.i64(projectile.projectile_id.value, "projectile ID")
+        writer.i64(projectile.owner_entity_id.value, "projectile owner entity ID")
+        writer.i64(projectile.source_intention_id.value, "projectile source intention ID")
+        writer.i64(projectile.position.x.value, "projectile x")
+        writer.i64(projectile.position.y.value, "projectile y")
+        writer.u64(projectile.position.elevation.value, "projectile elevation")
+        writer.i64(projectile.velocity.dx.value, "projectile velocity x")
+        writer.i64(projectile.velocity.dy.value, "projectile velocity y")
+        writer.u64(projectile.remaining_ticks, "projectile remaining ticks")
+
+
+def _decode_projectiles(reader: _Reader) -> ProjectileStore:
+    return ProjectileStore(
+        tuple(
+            Projectile(
+                ProjectileId(reader.i64()),
+                EntityId(reader.i64()),
+                IntentionId(reader.i64()),
+                WorldPosition(
+                    WorldSubunits(reader.i64()),
+                    WorldSubunits(reader.i64()),
+                    ElevationLayer(reader.u64()),
+                ),
+                WorldVector(WorldSubunits(reader.i64()), WorldSubunits(reader.i64())),
+                reader.u64(),
+            )
+            for _ in range(reader.items("projectile count"))
         )
     )
 
