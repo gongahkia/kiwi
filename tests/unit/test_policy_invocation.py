@@ -21,6 +21,14 @@ from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.dsl.types import BuiltinType
 from kiwi.dsl.vm import VMRunResult
 from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactStore,
+)
 from kiwi.sim.intentions import WaitIntention
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.policies import (
@@ -98,6 +106,78 @@ def test_policy_invocation_expression_capture_does_not_change_authority_state() 
     assert traced.evaluations[0].result.value == untraced.evaluations[0].result.value
     assert untraced.evaluations[0].result.expression_traces == ()
     assert traced.evaluations[0].result.expression_traces
+
+
+def test_policy_invocation_captures_source_mapped_contact_field_reads_with_evidence() -> None:
+    state, entity = add_entity(
+        MissionState(tick=7), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    contact_id, allocator = allocator.allocate_contact()
+    state = replace(
+        state,
+        contacts=ContactStore(
+            (
+                ContactEstimate(
+                    contact_id,
+                    entity.entity_id,
+                    WorldPosition(WorldSubunits(2_000), WorldSubunits(2_000)),
+                    WorldSubunits(300),
+                    ContactConfidence(7_500),
+                    4,
+                    ContactProvenance(
+                        tuple(
+                            ContactFieldProvenance(field, (evidence_event_id,))
+                            for field in ContactField
+                        )
+                    ),
+                ),
+            ),
+            lifecycle_tick=7,
+        ),
+        id_allocator=allocator,
+    )
+    binding = PolicyBinding(
+        entity.entity_id,
+        _contact_read_policy_artifact(),
+        FunctionId(0),
+        MEMORY_SCHEMA,
+        _memory("initial"),
+    )
+
+    untraced = invoke_policies(state, PolicyBindings((binding,)))
+    first = invoke_policies(
+        state,
+        PolicyBindings((binding,)),
+        capture_observation_read_trace=True,
+    )
+    second = invoke_policies(
+        state,
+        PolicyBindings((binding,)),
+        capture_observation_read_trace=True,
+    )
+
+    untraced_result = untraced.evaluations[0].result
+    first_result = first.evaluations[0].result
+    assert first.state == second.state == untraced.state
+    assert first_result.value == second.evaluations[0].result.value == untraced_result.value
+    assert untraced_result.observation_read_traces == ()
+    assert (
+        first_result.observation_read_traces == second.evaluations[0].result.observation_read_traces
+    )
+    assert tuple(trace.path for trace in first_result.observation_read_traces) == (
+        ("nearest_contact",),
+        ("nearest_contact", "confidence_basis_points"),
+    )
+    contact_read = first_result.observation_read_traces[1]
+    assert contact_read.value == IntegerValue(7_500)
+    assert contact_read.evidence_event_ids == (evidence_event_id,)
+    assert contact_read.confidence_basis_points == 7_500
+    assert contact_read.age_ticks == 3
+    assert all(
+        trace.source_map_entry in binding.artifact.bytecode.source_map.entries
+        for trace in first_result.observation_read_traces
+    )
 
 
 def test_policy_bindings_reject_noncanonical_and_unbound_entries() -> None:
@@ -310,6 +390,19 @@ def _decision_policy_artifact() -> CompiledArtifact:
         "type Decision = { intentions: List<Wait>, memory: Memory }\n"
         "policy decide(observation: Observation, memory: Memory) -> Decision = "
         "Decision { intentions = [Wait { duration = 1s }], memory = memory }\n"
+    )
+
+
+def _contact_read_policy_artifact() -> CompiledArtifact:
+    return _artifact(
+        "type Contact = { age_ticks: Int, confidence_basis_points: Int, contact_id: Int, "
+        "estimated_position: Position, uncertainty_radius: Distance }\n"
+        "type Observation = { nearest_contact: Option<Contact> }\n"
+        "type Memory = { label: String }\n"
+        "policy decide(observation: Observation, memory: Memory) -> Memory = "
+        "match observation.nearest_contact with\n"
+        "| Some(contact) -> let confidence = contact.confidence_basis_points in memory\n"
+        "| None -> memory\n"
     )
 
 

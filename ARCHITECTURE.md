@@ -567,8 +567,12 @@ this boundary in later milestones.
 
 The VM's opt-in expression capture retains source-map entries in execution
 order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning
-evaluation. These records are non-authoritative and are omitted unless capture
-is requested.
+evaluation. Its separate opt-in observation-read capture attaches immutable
+field metadata only to the policy input, then records each `LoadField` with its
+source-map entry, canonical observation path, closed value, ordered evidence
+event IDs, and applicable contact confidence and age. Metadata is stripped from
+top-level VM results, and both record streams are non-authoritative and omitted
+unless requested.
 
 ## 16. pygame application architecture
 

@@ -5,11 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
-from kiwi.domain.ids import EntityId
+from kiwi.domain.ids import EntityId, EventId
 from kiwi.dsl.runtime_values import (
     BooleanValue,
     IntegerValue,
     ListValue,
+    ObservationFieldMetadata,
     OptionNoneValue,
     OptionSomeValue,
     QuantityValue,
@@ -17,7 +18,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
 )
 from kiwi.sim.conditions import MAX_OPERATIVE_HEALTH, MAX_OPERATIVE_PROTECTION, InjurySeverity
-from kiwi.sim.contacts import ContactEstimate, nearest_contact_for
+from kiwi.sim.contacts import ContactEstimate, ContactField, nearest_contact_for
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
 from kiwi.sim.signals import SignalObservation, signals_for, signals_runtime_value
@@ -190,12 +191,25 @@ def _runtime_observation_for(
     )
 
 
-def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
+def observation_runtime_value(
+    observation: RuntimeObservation,
+    *,
+    capture_observation_read_trace: bool = False,
+) -> RecordValue:
     """Convert one authority observation to the closed version-7 DSL record layout."""
     if not isinstance(observation, RuntimeObservation):
         raise TypeError("runtime observation value requires a RuntimeObservation")
+    if not isinstance(capture_observation_read_trace, bool):
+        raise TypeError("runtime observation read trace capture must be a boolean")
     self_observation = observation.self_observation
-    position_value = _position_runtime_value(self_observation.position)
+    position_value = _position_runtime_value(
+        self_observation.position,
+        _observation_fields(
+            capture_observation_read_trace,
+            ("self", "position"),
+            ("x", "y"),
+        ),
+    )
     self_value = RecordValue(
         SELF_OBSERVATION_RECORD_TYPE,
         (
@@ -222,13 +236,44 @@ def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
             BooleanValue(self_observation.stabilized),
             IntegerValue(self_observation.suppression_basis_points),
         ),
+        observation_fields=_observation_fields(
+            capture_observation_read_trace,
+            ("self",),
+            (
+                "aim_ceiling_basis_points",
+                "aim_quality_basis_points",
+                "entity_id",
+                "health",
+                "incapacitated",
+                "injury_severity",
+                "position",
+                "protection",
+                "stabilized",
+                "suppression_basis_points",
+            ),
+        ),
+    )
+    inbox_value = inbox_runtime_value(observation.inbox)
+    inbox_value = RecordValue(
+        inbox_value.type_name,
+        inbox_value.field_names,
+        inbox_value.values,
+        observation_fields=_observation_fields(
+            capture_observation_read_trace,
+            ("inbox",),
+            inbox_value.field_names,
+        ),
     )
     return RecordValue(
         OBSERVATION_RECORD_TYPE,
         ("inbox", "nearest_contact", "self", "signals", "tick", "visible_covers"),
         (
-            inbox_runtime_value(observation.inbox),
-            _nearest_contact_runtime_value(observation.nearest_contact, observation.tick),
+            inbox_value,
+            _nearest_contact_runtime_value(
+                observation.nearest_contact,
+                observation.tick,
+                capture_observation_read_trace,
+            ),
             self_value,
             signals_runtime_value(observation.signals),
             IntegerValue(observation.tick),
@@ -236,14 +281,27 @@ def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
                 tuple(_visible_cover_runtime_value(cover) for cover in observation.visible_covers)
             ),
         ),
+        observation_fields=_observation_fields(
+            capture_observation_read_trace,
+            (),
+            ("inbox", "nearest_contact", "self", "signals", "tick", "visible_covers"),
+        ),
     )
 
 
 def _nearest_contact_runtime_value(
-    contact: ContactEstimate | None, current_tick: int
+    contact: ContactEstimate | None,
+    current_tick: int,
+    capture_observation_read_trace: bool,
 ) -> OptionNoneValue | OptionSomeValue:
     if contact is None:
         return OptionNoneValue()
+    age_ticks = contact.age_at(current_tick).ticks
+    confidence_basis_points = contact.confidence.basis_points
+    estimated_position_evidence = contact.provenance.evidence_for(ContactField.ESTIMATED_POSITION)
+    age_evidence = contact.provenance.evidence_for(ContactField.LAST_OBSERVED_TICK)
+    confidence_evidence = contact.provenance.evidence_for(ContactField.CONFIDENCE)
+    uncertainty_evidence = contact.provenance.evidence_for(ContactField.UNCERTAINTY_RADIUS)
     return OptionSomeValue(
         RecordValue(
             CONTACT_RECORD_TYPE,
@@ -255,12 +313,56 @@ def _nearest_contact_runtime_value(
                 "uncertainty_radius",
             ),
             (
-                IntegerValue(contact.age_at(current_tick).ticks),
-                IntegerValue(contact.confidence.basis_points),
+                IntegerValue(age_ticks),
+                IntegerValue(confidence_basis_points),
                 IntegerValue(contact.contact_id.value),
-                _position_runtime_value(contact.estimated_position),
+                _position_runtime_value(
+                    contact.estimated_position,
+                    _observation_fields(
+                        capture_observation_read_trace,
+                        ("nearest_contact", "estimated_position"),
+                        ("x", "y"),
+                        evidence_event_ids=estimated_position_evidence,
+                        confidence_basis_points=confidence_basis_points,
+                        age_ticks=age_ticks,
+                    ),
+                ),
                 QuantityValue(distance_from_world_subunits(contact.uncertainty_radius)),
             ),
+            observation_fields=(
+                ObservationFieldMetadata(
+                    ("nearest_contact", "age_ticks"),
+                    age_evidence,
+                    confidence_basis_points,
+                    age_ticks,
+                ),
+                ObservationFieldMetadata(
+                    ("nearest_contact", "confidence_basis_points"),
+                    confidence_evidence,
+                    confidence_basis_points,
+                    age_ticks,
+                ),
+                ObservationFieldMetadata(
+                    ("nearest_contact", "contact_id"),
+                    (),
+                    confidence_basis_points,
+                    age_ticks,
+                ),
+                ObservationFieldMetadata(
+                    ("nearest_contact", "estimated_position"),
+                    estimated_position_evidence,
+                    confidence_basis_points,
+                    age_ticks,
+                ),
+                ObservationFieldMetadata(
+                    ("nearest_contact", "uncertainty_radius"),
+                    uncertainty_evidence,
+                    confidence_basis_points,
+                    age_ticks,
+                ),
+            )
+            if capture_observation_read_trace
+            else (),
         )
     )
 
@@ -275,7 +377,10 @@ def _injury_severity_for_health(health: int) -> InjurySeverity:
     return InjurySeverity.INCAPACITATED
 
 
-def _position_runtime_value(position: WorldPosition) -> RecordValue:
+def _position_runtime_value(
+    position: WorldPosition,
+    observation_fields: tuple[ObservationFieldMetadata, ...] = (),
+) -> RecordValue:
     return RecordValue(
         POSITION_RECORD_TYPE,
         ("x", "y"),
@@ -283,6 +388,29 @@ def _position_runtime_value(position: WorldPosition) -> RecordValue:
             QuantityValue(distance_from_world_subunits(position.x)),
             QuantityValue(distance_from_world_subunits(position.y)),
         ),
+        observation_fields=observation_fields,
+    )
+
+
+def _observation_fields(
+    capture_observation_read_trace: bool,
+    path: tuple[str, ...],
+    field_names: tuple[str, ...],
+    *,
+    evidence_event_ids: tuple[EventId, ...] = (),
+    confidence_basis_points: int | None = None,
+    age_ticks: int | None = None,
+) -> tuple[ObservationFieldMetadata, ...]:
+    if not capture_observation_read_trace:
+        return ()
+    return tuple(
+        ObservationFieldMetadata(
+            path + (field_name,),
+            evidence_event_ids,
+            confidence_basis_points,
+            age_ticks,
+        )
+        for field_name in field_names
     )
 
 
