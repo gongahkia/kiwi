@@ -7,6 +7,8 @@ from enum import StrEnum
 
 from kiwi.domain.ids import EntityId, PolicyInvocationId
 from kiwi.dsl.capabilities import (
+    AIM_CAPABILITY,
+    FIRE_CAPABILITY,
     MOVE_TOWARD_CAPABILITY,
     TAKE_COVER_CAPABILITY,
     WAIT_CAPABILITY,
@@ -24,6 +26,8 @@ from kiwi.dsl.runtime_values import RecordValue
 from kiwi.dsl.source import SourceSpan
 from kiwi.dsl.vm import DEFAULT_VM_BUDGETS, VMBudgets, VMFault, VMFaultCode, VMRunResult, run_vm
 from kiwi.sim.intentions import (
+    AimIntention,
+    FireIntention,
     IntentionValidationFailure,
     MoveTowardIntention,
     TakeCoverIntention,
@@ -53,6 +57,8 @@ class PolicyBinding:
     initial_memory: RecordValue
     budgets: VMBudgets = DEFAULT_VM_BUDGETS
     available_capabilities: tuple[CapabilityId, ...] = (
+        AIM_CAPABILITY,
+        FIRE_CAPABILITY,
         MOVE_TOWARD_CAPABILITY,
         TAKE_COVER_CAPABILITY,
         WAIT_CAPABILITY,
@@ -248,7 +254,10 @@ class PolicyValidation:
         if not isinstance(self.intentions, tuple):
             raise ValueError("policy validation intentions must be an immutable tuple")
         if any(
-            not isinstance(intention, (MoveTowardIntention, TakeCoverIntention, WaitIntention))
+            not isinstance(
+                intention,
+                (AimIntention, FireIntention, MoveTowardIntention, TakeCoverIntention, WaitIntention),
+            )
             for intention in self.intentions
         ):
             raise ValueError("policy validation intentions must be validated intentions")

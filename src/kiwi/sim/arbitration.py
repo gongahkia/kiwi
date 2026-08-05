@@ -8,6 +8,8 @@ from enum import StrEnum
 from kiwi.domain.ids import IntentionId
 from kiwi.dsl.bytecode import InstructionIndex, InstructionSourceMapEntry
 from kiwi.sim.intentions import (
+    AimIntention,
+    FireIntention,
     IntentionOrigin,
     MoveTowardIntention,
     TakeCoverIntention,
@@ -42,7 +44,10 @@ class IntentionCandidate:
     def __post_init__(self) -> None:
         if not isinstance(self.origin, IntentionOrigin):
             raise ValueError("intention candidate requires an origin")
-        if not isinstance(self.intention, (MoveTowardIntention, TakeCoverIntention, WaitIntention)):
+        if not isinstance(
+            self.intention,
+            (AimIntention, FireIntention, MoveTowardIntention, TakeCoverIntention, WaitIntention),
+        ):
             raise ValueError("intention candidate requires a validated intention")
         if self.intention.kind is not self.origin.kind:
             raise ValueError("intention candidate kind must match its origin")
