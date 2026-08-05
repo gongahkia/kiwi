@@ -194,6 +194,8 @@ def decode_seek_index(data: bytes) -> SeekIndexDecodeResult:
         return ReplaySeekIndex(replay_hash, snapshots)
     except _SeekFormatError as error:
         return _decode_failure(SeekIndexDecodeFailureCode.INVALID_STRUCTURE, error.message)
+    except ValueError as error:
+        return _decode_failure(SeekIndexDecodeFailureCode.INVALID_STRUCTURE, str(error))
 
 
 def seek_replay(

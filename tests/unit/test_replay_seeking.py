@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-import pytest
-
-from kiwi.replay.recording import record_headless_run
+from kiwi.replay.recording import RecordedReplay, record_headless_run
 from kiwi.replay.seeking import (
     SEEK_MAGIC,
     SEEK_VERSION,
     ReplaySeekFailure,
     ReplaySeekFailureCode,
+    ReplaySeekIndex,
     ReplaySeekSuccess,
     SeekIndexDecodeFailure,
     SeekIndexDecodeFailureCode,
@@ -74,12 +73,12 @@ def test_seek_replay_rejects_a_sidecar_for_another_replay() -> None:
     assert sought.code is ReplaySeekFailureCode.REPLAY_HASH
 
 
-def _index():
+def _index() -> ReplaySeekIndex:
     recorded = _recorded()
     return build_seek_index(recorded.replay, recorded.run.checkpoints)
 
 
-def _recorded():
+def _recorded() -> RecordedReplay:
     return record_headless_run(
         MissionState(),
         FixedTickClock(TickRate.HZ_30),
