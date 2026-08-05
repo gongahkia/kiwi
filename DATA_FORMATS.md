@@ -282,21 +282,21 @@ Commands are sorted by `(tick, sequence)`. Duplicate sequence IDs are invalid.
 
 ## 11. Trace package
 
-Suggested extension: `.dtrace`
+`.dtrace` currently carries one `KWI-TRACE\0` version `1` packet: magic, a
+16-bit big-endian version, then canonical UTF-8 JSON with sorted keys and no
+insignificant whitespace. It records the exact canonical run-state hash, trace
+level, node-ID-ordered policy-invocation, expression, observation, intention,
+resolution, world-event, and consequence records, followed by edge-ID-ordered
+typed links. Source spans, closed IDs, fixed 32-byte digests, bounded text, and
+explicit nullable fields are encoded as data; arbitrary Python objects are
+never serialised.
 
-Trace may be chunked by tick range. Manifest fields:
-
-- trace format version;
-- replay hash;
-- trace level;
-- source-map references;
-- chunk index;
-- interning tables;
-- retained tick ranges;
-- consequence index;
-- query metadata.
-
-Trace data does not affect authoritative state hashes. Capturing trace must not change simulation semantics.
+Decoders reject version `0`, unsupported versions, duplicate or unknown fields,
+malformed values, packets over 16 MiB, and valid-but-noncanonical JSON. Version
+`1` is one complete immutable run-local graph: chunk indexes, interning tables,
+retention ranges, and query metadata are deferred until their owning milestones.
+Trace data does not affect authoritative state hashes. Capturing trace must not
+change simulation semantics.
 
 ## 12. Historical source
 

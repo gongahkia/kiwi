@@ -558,6 +558,13 @@ Simulation side records:
 
 Stable IDs connect these records. Trace capture must be configurable to avoid retaining every intermediate value in ordinary play.
 
+`kiwi.trace.model` defines the immutable run-local graph records and typed
+edges; `kiwi.trace.format` encodes one `KWI-TRACE\0` version-1 packet with a
+run-state hash and no authority-state reference. The trace package may depend
+on domain, DSL source, and simulation event schemas, but no authoritative
+package imports it. Capture, retention, queries, and replay packaging extend
+this boundary in later milestones.
+
 ## 16. pygame application architecture
 
 The desktop application contains modes such as:

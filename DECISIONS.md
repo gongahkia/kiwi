@@ -707,6 +707,22 @@ after its owner ID and before physical fields. Versions `1` through `17` are
 rejected with no migration because development state is disposable. This adds no
 observation field or renderer dependency.
 
+### D-066: Causal traces start as strict run-local version-one packets
+
+`KWI-TRACE\0` version `1` is a bounded canonical UTF-8 JSON packet holding one
+immutable trace graph tied to a 32-byte canonical run-state hash. It contains a
+declared summary, decision, or full level; node-ID-ordered typed policy,
+expression, observation, intention, resolution, world-event, and consequence
+records; and edge-ID-ordered typed causal links. Values are closed summaries,
+typed IDs, digests, source spans, and explicit nullable fields: neither Python
+object serialisation nor authoritative-state references are permitted.
+
+Version `1` rejects version `0`, unknown versions, malformed or duplicate
+fields, oversized packets, and noncanonical encodings. It intentionally omits
+chunking, interning, retention, queries, capture instrumentation, and replay
+packaging; later trace milestones own those compatible extensions. Trace capture
+and trace hashing do not participate in canonical mission state.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

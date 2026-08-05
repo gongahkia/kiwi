@@ -373,3 +373,7 @@ A debugger feature requires:
 - trace-level behaviour;
 - retention impact;
 - versioned format update if durable.
+
+Trace-format tests additionally require canonical encode/decode equality,
+stable packet hashes, ordered record and edge validation, and rejection of
+unsupported or noncanonical packets.
