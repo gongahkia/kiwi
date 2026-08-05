@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle
 from kiwi.domain.ids import EntityId
+from kiwi.sim.covers import CoverSegment
 from kiwi.sim.hashing import (
     StateDecodeFailure,
     StateHash,
@@ -16,7 +17,7 @@ from kiwi.sim.hashing import (
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
-from kiwi.sim.state import MissionState
+from kiwi.sim.state import EntityState, MissionState
 from kiwi.sim.visibility import VisibleGeometry
 
 
@@ -242,6 +243,81 @@ class PresentationVisibilityOverlay:
 
 
 @dataclass(frozen=True, slots=True)
+class PresentationCoverSlot:
+    """One copied cover slot and its current display-only occupant."""
+
+    slot_index: int
+    position: PresentationPoint
+    side: str
+    occupant_entity_id: int | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.slot_index, int)
+            or isinstance(self.slot_index, bool)
+            or self.slot_index < 0
+        ):
+            raise ValueError("presentation cover slot index must be non-negative")
+        if not isinstance(self.position, PresentationPoint):
+            raise ValueError("presentation cover slot position must be a presentation point")
+        if self.side not in ("left", "right"):
+            raise ValueError("presentation cover slot side must be left or right")
+        if self.occupant_entity_id is not None and (
+            not isinstance(self.occupant_entity_id, int)
+            or isinstance(self.occupant_entity_id, bool)
+            or self.occupant_entity_id <= 0
+        ):
+            raise ValueError(
+                "presentation cover slot occupant must be a positive entity ID or absent"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationCover:
+    """One display-safe cover segment with quality and slot occupancy values."""
+
+    cover_id: int
+    start: PresentationPoint
+    end: PresentationPoint
+    height: str
+    integrity_basis_points: int
+    slots: tuple[PresentationCoverSlot, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.cover_id, int)
+            or isinstance(self.cover_id, bool)
+            or self.cover_id <= 0
+        ):
+            raise ValueError("presentation cover ID must be positive")
+        if not isinstance(self.start, PresentationPoint) or not isinstance(
+            self.end, PresentationPoint
+        ):
+            raise ValueError("presentation cover endpoints must be presentation points")
+        if self.start.elevation != self.end.elevation:
+            raise ValueError("presentation cover endpoints must share an elevation")
+        if (self.start.x, self.start.y) >= (self.end.x, self.end.y):
+            raise ValueError("presentation cover endpoints must be canonically ordered")
+        if self.height not in ("low", "high"):
+            raise ValueError("presentation cover height must be low or high")
+        if (
+            not isinstance(self.integrity_basis_points, int)
+            or isinstance(self.integrity_basis_points, bool)
+            or not 0 <= self.integrity_basis_points <= 10_000
+        ):
+            raise ValueError("presentation cover integrity must be between zero and 10,000")
+        if not isinstance(self.slots, tuple):
+            raise ValueError("presentation cover slots must be an immutable tuple")
+        for expected_index, slot in enumerate(self.slots):
+            if not isinstance(slot, PresentationCoverSlot):
+                raise ValueError("presentation cover slots must be presentation cover slots")
+            if slot.slot_index != expected_index:
+                raise ValueError("presentation cover slots must use contiguous ascending indices")
+            if slot.position.elevation != self.start.elevation:
+                raise ValueError("presentation cover slots must share the cover elevation")
+
+
+@dataclass(frozen=True, slots=True)
 class PresentationSnapshot:
     """A non-canonical, display-ready projection with no authority-state reference."""
 
@@ -252,6 +328,7 @@ class PresentationSnapshot:
     objective_marker: PresentationPoint | None = None
     contacts: tuple[PresentationContact, ...] = ()
     visibility_overlays: tuple[PresentationVisibilityOverlay, ...] = ()
+    covers: tuple[PresentationCover, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -274,6 +351,8 @@ class PresentationSnapshot:
             raise ValueError("presentation snapshot contacts must be an immutable tuple")
         if not isinstance(self.visibility_overlays, tuple):
             raise ValueError("presentation snapshot visibility overlays must be an immutable tuple")
+        if not isinstance(self.covers, tuple):
+            raise ValueError("presentation snapshot covers must be an immutable tuple")
         previous_entity_id = 0
         for operative in self.operatives:
             if not isinstance(operative, PresentationOperative):
@@ -301,6 +380,18 @@ class PresentationSnapshot:
             if overlay.owner_entity_id <= previous_owner_id:
                 raise ValueError("presentation visibility overlays must be owner-ID ordered")
             previous_owner_id = overlay.owner_entity_id
+        previous_cover_id = 0
+        for cover in self.covers:
+            if not isinstance(cover, PresentationCover):
+                raise ValueError("presentation snapshot covers must be presentation covers")
+            if cover.cover_id <= previous_cover_id:
+                raise ValueError("presentation snapshot covers must be ID ordered")
+            if any(
+                slot.occupant_entity_id is not None and slot.occupant_entity_id not in operative_ids
+                for slot in cover.slots
+            ):
+                raise ValueError("presentation cover occupants must be snapshot operatives")
+            previous_cover_id = cover.cover_id
 
 
 def build_presentation_snapshot(
@@ -328,6 +419,7 @@ def build_presentation_snapshot(
             _presentation_contact(contact, state.tick) for contact in state.contacts.estimates
         ),
         visibility_overlays=visibility_overlays,
+        covers=tuple(_presentation_cover(cover, state.entities) for cover in state.covers.segments),
     )
 
 
@@ -402,6 +494,44 @@ def _presentation_map(map_geometry: object) -> PresentationMap:
             for obstacle in map_geometry.obstacles
         ),
     )
+
+
+def _presentation_cover(
+    cover: object,
+    entities: tuple[EntityState, ...],
+) -> PresentationCover:
+    if not isinstance(cover, CoverSegment):
+        raise TypeError("presentation cover requires a cover segment")
+    if not isinstance(entities, tuple) or any(
+        not isinstance(entity, EntityState) for entity in entities
+    ):
+        raise TypeError("presentation cover requires entity states")
+    return PresentationCover(
+        cover_id=cover.cover_id.value,
+        start=_presentation_point(cover.start),
+        end=_presentation_point(cover.end),
+        height=cover.height.value,
+        integrity_basis_points=cover.integrity.basis_points,
+        slots=tuple(
+            PresentationCoverSlot(
+                slot_index=slot.slot_index,
+                position=_presentation_point(slot.position),
+                side=slot.side.value,
+                occupant_entity_id=_cover_slot_occupant(slot.position, entities),
+            )
+            for slot in cover.slots
+        ),
+    )
+
+
+def _cover_slot_occupant(
+    position: WorldPosition,
+    entities: tuple[EntityState, ...],
+) -> int | None:
+    for entity in entities:
+        if entity.position == position:
+            return entity.entity_id.value
+    return None
 
 
 def _presentation_path(state: MissionState, entity_id: int) -> tuple[PresentationPoint, ...]:

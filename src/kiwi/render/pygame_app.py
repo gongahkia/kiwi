@@ -8,7 +8,7 @@ import pygame
 
 from kiwi.render.camera import Camera, radius_to_canvas, rectangle_to_canvas, world_to_canvas
 from kiwi.render.pygame_lifecycle import initialise_pygame
-from kiwi.sim.snapshot import PresentationSnapshot
+from kiwi.sim.snapshot import PresentationCover, PresentationPoint, PresentationSnapshot
 
 DEFAULT_WINDOW_SIZE = (960, 540)
 DEFAULT_LOGICAL_CANVAS_SIZE = (480, 270)
@@ -24,9 +24,20 @@ VISIBILITY_RANGE_COLOR = (68, 119, 142)
 VISIBLE_GEOMETRY_COLOR = (111, 174, 196)
 CONTACT_UNCERTAINTY_COLOR = (230, 145, 102)
 CONTACT_MARKER_COLOR = (255, 214, 130)
+COVER_LOW_COLOR = (198, 152, 77)
+COVER_HIGH_COLOR = (95, 191, 162)
+COVER_DAMAGED_COLOR = (102, 61, 64)
+COVER_THREAT_DIRECTION_COLOR = (244, 117, 94)
+COVER_SLOT_EMPTY_COLOR = (192, 201, 191)
+COVER_SLOT_OCCUPIED_COLOR = (255, 237, 152)
 OPERATIVE_RADIUS_PIXELS = 4
 OBJECTIVE_RADIUS_PIXELS = 6
 CONTACT_RADIUS_PIXELS = 2
+COVER_LOW_WIDTH_PIXELS = 2
+COVER_HIGH_WIDTH_PIXELS = 3
+COVER_SLOT_EMPTY_RADIUS_PIXELS = 3
+COVER_SLOT_OCCUPIED_RADIUS_PIXELS = 6
+COVER_THREAT_DIRECTION_LENGTH_PIXELS = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +120,8 @@ def render_tactical_view(
                 rectangle_to_canvas(visible_obstacle.bounds, logical_canvas.get_size(), camera),
                 width=1,
             )
+    for cover in snapshot.covers:
+        _render_cover(logical_canvas, cover, snapshot, camera)
     for contact in snapshot.contacts:
         estimated_position = world_to_canvas(
             contact.estimated_position,
@@ -157,6 +170,85 @@ def render_tactical_view(
             world_to_canvas(operative.position, logical_canvas.get_size(), camera),
             OPERATIVE_RADIUS_PIXELS,
         )
+
+
+def _render_cover(
+    logical_canvas: pygame.Surface,
+    cover: PresentationCover,
+    snapshot: PresentationSnapshot,
+    camera: Camera,
+) -> None:
+    centre = _cover_centre(cover)
+    for contact in snapshot.contacts:
+        if contact.estimated_position.elevation == cover.start.elevation:
+            _render_cover_threat_direction(
+                logical_canvas,
+                centre,
+                contact.estimated_position,
+                camera,
+            )
+    pygame.draw.line(
+        logical_canvas,
+        _cover_quality_color(cover),
+        world_to_canvas(cover.start, logical_canvas.get_size(), camera),
+        world_to_canvas(cover.end, logical_canvas.get_size(), camera),
+        COVER_HIGH_WIDTH_PIXELS if cover.height == "high" else COVER_LOW_WIDTH_PIXELS,
+    )
+    for slot in cover.slots:
+        pygame.draw.circle(
+            logical_canvas,
+            COVER_SLOT_OCCUPIED_COLOR
+            if slot.occupant_entity_id is not None
+            else COVER_SLOT_EMPTY_COLOR,
+            world_to_canvas(slot.position, logical_canvas.get_size(), camera),
+            COVER_SLOT_OCCUPIED_RADIUS_PIXELS
+            if slot.occupant_entity_id is not None
+            else COVER_SLOT_EMPTY_RADIUS_PIXELS,
+            width=1,
+        )
+
+
+def _cover_centre(cover: PresentationCover) -> PresentationPoint:
+    if not isinstance(cover, PresentationCover):
+        raise TypeError("cover rendering requires a presentation cover")
+    return PresentationPoint(
+        (cover.start.x + cover.end.x) / 2,
+        (cover.start.y + cover.end.y) / 2,
+        cover.start.elevation,
+    )
+
+
+def _cover_quality_color(cover: PresentationCover) -> tuple[int, int, int]:
+    if not isinstance(cover, PresentationCover):
+        raise TypeError("cover rendering requires a presentation cover")
+    source = COVER_HIGH_COLOR if cover.height == "high" else COVER_LOW_COLOR
+    integrity = cover.integrity_basis_points
+    return (
+        (source[0] * integrity + COVER_DAMAGED_COLOR[0] * (10_000 - integrity)) // 10_000,
+        (source[1] * integrity + COVER_DAMAGED_COLOR[1] * (10_000 - integrity)) // 10_000,
+        (source[2] * integrity + COVER_DAMAGED_COLOR[2] * (10_000 - integrity)) // 10_000,
+    )
+
+
+def _render_cover_threat_direction(
+    logical_canvas: pygame.Surface,
+    centre: PresentationPoint,
+    threat: PresentationPoint,
+    camera: Camera,
+) -> None:
+    start = world_to_canvas(centre, logical_canvas.get_size(), camera)
+    target = world_to_canvas(threat, logical_canvas.get_size(), camera)
+    delta_x = target[0] - start[0]
+    delta_y = target[1] - start[1]
+    dominant_distance = max(abs(delta_x), abs(delta_y))
+    if dominant_distance == 0:
+        return
+    tip = (
+        start[0] + round(delta_x * COVER_THREAT_DIRECTION_LENGTH_PIXELS / dominant_distance),
+        start[1] + round(delta_y * COVER_THREAT_DIRECTION_LENGTH_PIXELS / dominant_distance),
+    )
+    pygame.draw.line(logical_canvas, COVER_THREAT_DIRECTION_COLOR, start, tip, width=1)
+    pygame.draw.circle(logical_canvas, COVER_THREAT_DIRECTION_COLOR, tip, 1)
 
 
 def present(window: PygameWindow) -> None:
