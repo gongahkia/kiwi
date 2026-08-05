@@ -221,11 +221,12 @@ The current VM boundary exposes opt-in execution-order `TraceExpression`
 source-map entries and observation `LoadField` records on each `VMRunResult`.
 Each observation record retains its source-map entry, canonical path, closed
 value, ordered evidence event IDs, and applicable contact confidence and age.
-`PolicyEvaluation` already retains the allocated policy invocation ID, so its
-caller can join either stream to one exact policy invocation without changing
-authority state, IDs, values, or fault behaviour. Input-only metadata is
-stripped from top-level VM results. Later trace capture converts these boundary
-records into the versioned graph packet.
+It also records only the executed `then` or `else` conditional arm and `Some`
+or `None` Option-pattern arm. `PolicyEvaluation` already retains the allocated
+policy invocation ID, so its caller can join every stream to one exact policy
+invocation without changing authority state, IDs, values, or fault behaviour.
+Input-only metadata is stripped from top-level VM results. Later trace capture
+converts these boundary records into the versioned graph packet.
 
 Examples:
 

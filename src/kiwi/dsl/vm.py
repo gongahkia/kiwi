@@ -212,6 +212,29 @@ class VMExpressionTrace:
             raise ValueError("VM expression trace requires a source-map entry")
 
 
+class VMBranchSelection(StrEnum):
+    """The closed control-flow arms selected by current bytecode instructions."""
+
+    THEN = "then"
+    ELSE = "else"
+    SOME = "some"
+    NONE = "none"
+
+
+@dataclass(frozen=True, slots=True)
+class VMBranchSelectionTrace:
+    """One source-mapped conditional or Option-pattern arm selected by the VM."""
+
+    source_map_entry: InstructionSourceMapEntry
+    selection: VMBranchSelection
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_map_entry, InstructionSourceMapEntry):
+            raise ValueError("VM branch selection trace requires a source-map entry")
+        if not isinstance(self.selection, VMBranchSelection):
+            raise ValueError("VM branch selection trace requires a closed selection")
+
+
 @dataclass(frozen=True, slots=True)
 class VMObservationReadTrace:
     """One source-mapped field read from an observation-provenanced record."""
@@ -281,6 +304,7 @@ class VMRunResult:
     fault: VMFault | None = None
     cover_selection_traces: tuple[CoverSelectionTrace, ...] = ()
     expression_traces: tuple[VMExpressionTrace, ...] = ()
+    branch_selection_traces: tuple[VMBranchSelectionTrace, ...] = ()
     observation_read_traces: tuple[VMObservationReadTrace, ...] = ()
 
     def __post_init__(self) -> None:
@@ -292,6 +316,12 @@ class VMRunResult:
             raise ValueError("VM expression traces must be an immutable tuple")
         if any(not isinstance(trace, VMExpressionTrace) for trace in self.expression_traces):
             raise ValueError("VM expression traces must be VM expression traces")
+        if not isinstance(self.branch_selection_traces, tuple):
+            raise ValueError("VM branch selection traces must be an immutable tuple")
+        if any(
+            not isinstance(trace, VMBranchSelectionTrace) for trace in self.branch_selection_traces
+        ):
+            raise ValueError("VM branch selection traces must be VM branch selection traces")
         if not isinstance(self.observation_read_traces, tuple):
             raise ValueError("VM observation read traces must be an immutable tuple")
         if any(
@@ -413,6 +443,7 @@ def run_vm(
     *,
     capture_cover_selection_trace: bool = False,
     capture_expression_trace: bool = False,
+    capture_branch_selection_trace: bool = False,
     capture_observation_read_trace: bool = False,
 ) -> VMRunResult:
     """Validate and execute bytecode with deterministic resource limits."""
@@ -420,6 +451,8 @@ def run_vm(
         raise ValueError("cover selection trace capture must be a boolean")
     if not isinstance(capture_expression_trace, bool):
         raise ValueError("expression trace capture must be a boolean")
+    if not isinstance(capture_branch_selection_trace, bool):
+        raise ValueError("branch selection trace capture must be a boolean")
     if not isinstance(capture_observation_read_trace, bool):
         raise ValueError("observation read trace capture must be a boolean")
     validation = validate_bytecode(module)
@@ -473,6 +506,7 @@ def run_vm(
     resources = _ExecutionResources()
     cover_selection_traces: list[CoverSelectionTrace] = []
     expression_traces: list[VMExpressionTrace] = []
+    branch_selection_traces: list[VMBranchSelectionTrace] = []
     observation_read_traces: list[VMObservationReadTrace] = []
     while frames:
         active_frame = frames[-1]
@@ -675,6 +709,16 @@ def run_vm(
                 )
             match_value = stack[-1]
             if isinstance(match_value, OptionNoneValue):
+                if capture_branch_selection_trace:
+                    branch_selection_traces.append(
+                        VMBranchSelectionTrace(
+                            module.source_map.entry_for(
+                                frame.function.function_id,
+                                InstructionIndex(frame.instruction_index - 1),
+                            ),
+                            VMBranchSelection.NONE,
+                        )
+                    )
                 frame.instruction_index = instruction.target.value
             elif not isinstance(match_value, OptionSomeValue):
                 return _fault(
@@ -682,6 +726,16 @@ def run_vm(
                     VMFaultCode.TYPE,
                     "Option match requires an Option value",
                     frame,
+                )
+            elif capture_branch_selection_trace:
+                branch_selection_traces.append(
+                    VMBranchSelectionTrace(
+                        module.source_map.entry_for(
+                            frame.function.function_id,
+                            InstructionIndex(frame.instruction_index - 1),
+                        ),
+                        VMBranchSelection.SOME,
+                    )
                 )
         elif isinstance(instruction, UnwrapSome):
             some_value = _pop(stack, frame.stack_base)
@@ -833,6 +887,16 @@ def run_vm(
                 return _fault(
                     module, VMFaultCode.TYPE, "conditional jump requires a boolean value", frame
                 )
+            if capture_branch_selection_trace:
+                branch_selection_traces.append(
+                    VMBranchSelectionTrace(
+                        module.source_map.entry_for(
+                            frame.function.function_id,
+                            InstructionIndex(frame.instruction_index - 1),
+                        ),
+                        VMBranchSelection.THEN if value.value else VMBranchSelection.ELSE,
+                    )
+                )
             if not value.value:
                 frame.instruction_index = instruction.target.value
         elif isinstance(instruction, Return):
@@ -847,6 +911,7 @@ def run_vm(
                     strip_observation_metadata(value),
                     cover_selection_traces=tuple(cover_selection_traces),
                     expression_traces=tuple(expression_traces),
+                    branch_selection_traces=tuple(branch_selection_traces),
                     observation_read_traces=tuple(observation_read_traces),
                 )
             if isinstance(frames[-1], _IntrinsicFrame):

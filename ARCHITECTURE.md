@@ -570,8 +570,10 @@ order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning
 evaluation. Its separate opt-in observation-read capture attaches immutable
 field metadata only to the policy input, then records each `LoadField` with its
 source-map entry, canonical observation path, closed value, ordered evidence
-event IDs, and applicable contact confidence and age. Metadata is stripped from
-top-level VM results, and both record streams are non-authoritative and omitted
+event IDs, and applicable contact confidence and age. An opt-in branch capture
+records only executed `then` or `else` conditional arms and `Some` or `None`
+Option-pattern arms with their source-map entries. Metadata is stripped from
+top-level VM results, and all record streams are non-authoritative and omitted
 unless requested.
 
 ## 16. pygame application architecture
