@@ -262,6 +262,22 @@ class MissionState:
             for projectile in self.projectiles.entries
         ):
             raise ValueError("projectile source intention IDs must be allocated")
+        if any(
+            projectile.source_intention.issuer_entity_id != projectile.owner_entity_id
+            for projectile in self.projectiles.entries
+        ):
+            raise ValueError("projectile provenance issuer must match its owner")
+        next_invocation_id = self.id_allocator.next_ids[int(IdKind.POLICY_INVOCATION)]
+        if any(
+            projectile.source_intention.invocation_id.value >= next_invocation_id
+            for projectile in self.projectiles.entries
+        ):
+            raise ValueError("projectile source invocation IDs must be allocated")
+        if any(
+            projectile.source_intention.creation_tick > self.tick
+            for projectile in self.projectiles.entries
+        ):
+            raise ValueError("projectile source intentions cannot be created after mission state")
         if any(condition.entity_id not in entity_ids for condition in self.conditions.entries):
             raise ValueError("operative conditions must belong to mission entities")
         if any(

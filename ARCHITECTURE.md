@@ -363,8 +363,9 @@ ID allocator state, a `CoverId`-ordered dynamic cover store, a `(CoverId,
 slot index)`-ordered cover-reservation store, a `WeaponId`-ordered owner-bound
 magazine store, an entity-ID-ordered sparse nonzero aim-quality store, an
 entity-ID-ordered sparse nonzero suppression store, a `ProjectileId`-ordered
-live point-projectile store with owner, source intention, exact position,
-per-tick vector, and remaining lifetime, a pure bounded swept-collision query,
+live point-projectile store with owner, full immutable Fire intention origin,
+exact position, per-tick vector, and remaining lifetime, a pure bounded swept-
+collision query,
 and a projectile-impact phase that produces one projectile-ID-ordered
 advancement, expiry, or impact resolution per live projectile, an
 entity-ID-ordered sparse operative-condition store, and a `(tick, sequence)`

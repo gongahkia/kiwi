@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from kiwi.domain.ids import EntityId
 from kiwi.sim.conditions import InjurySeverity, OperativeCondition
 from kiwi.sim.covers import CoverReservationStore
+from kiwi.sim.intentions import IntentionOrigin
 from kiwi.sim.projectile_impacts import ProjectileImpact
 from kiwi.sim.projectile_sweeps import ProjectileCollisionKind
 from kiwi.sim.state import MissionState
@@ -94,6 +95,11 @@ class DamageResolution:
             self.injury_before is not InjurySeverity.INCAPACITATED
             and self.injury_after is InjurySeverity.INCAPACITATED
         )
+
+    @property
+    def source_intention(self) -> IntentionOrigin:
+        """Return the full Fire origin that caused this damage and injury result."""
+        return self.impact.source_intention
 
 
 @dataclass(frozen=True, slots=True)

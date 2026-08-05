@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
+from kiwi.sim.intentions import IntentionOrigin
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.projectile_sweeps import ProjectileCollision, sweep_projectiles
 from kiwi.sim.projectiles import Projectile, ProjectileStore
@@ -30,6 +31,11 @@ class ProjectileImpact:
             raise ValueError("projectile impact requires a projectile collision")
         if self.projectile.position.elevation != self.collision.position.elevation:
             raise ValueError("projectile impact collision must share projectile elevation")
+
+    @property
+    def source_intention(self) -> IntentionOrigin:
+        """Return the full Fire origin retained by the impacted projectile."""
+        return self.projectile.source_intention
 
 
 class ProjectileResolutionKind(StrEnum):

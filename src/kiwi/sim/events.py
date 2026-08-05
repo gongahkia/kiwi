@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from kiwi.sim.covers import CoverReservation
     from kiwi.sim.damage import DamageResolution
     from kiwi.sim.firing import FireResolution
+    from kiwi.sim.intentions import IntentionOrigin
     from kiwi.sim.messages import Message
     from kiwi.sim.projectile_impacts import ProjectileImpact, ProjectileResolution
     from kiwi.sim.suppression import SuppressionResolution
@@ -557,6 +558,11 @@ class InjuryChanged:
         if len(self.header.parent_event_ids) != 1:
             raise ValueError("injury event requires one damage parent")
         _require_matching_tick(self.header, self.resolution.impact.tick)
+
+    @property
+    def source_intention(self) -> IntentionOrigin:
+        """Return the Fire origin retained through the injury consequence."""
+        return self.resolution.source_intention
 
 
 @dataclass(frozen=True, slots=True)

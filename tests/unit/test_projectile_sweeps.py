@@ -10,6 +10,8 @@ from kiwi.domain.geometry import (
     WorldVector,
 )
 from kiwi.domain.ids import CoverId, IdAllocator, ObstacleId, ProjectileId
+from kiwi.dsl.ids import ExpressionId
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
@@ -18,6 +20,7 @@ from kiwi.sim.covers import (
     CoverSlot,
     CoverStore,
 )
+from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.projectile_sweeps import (
     PROJECTILE_SWEEP_TIME_SUBTICKS,
@@ -25,7 +28,7 @@ from kiwi.sim.projectile_sweeps import (
     ProjectileCollisionKind,
     sweep_projectiles,
 )
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.state import MissionState, add_entity
 
 
@@ -162,10 +165,22 @@ def _state_with_projectile(
         state, _ = add_entity(state, position(target_x, 0))
     projectile_id, allocator = state.id_allocator.allocate_projectile()
     intention_id, allocator = allocator.allocate_intention()
+    invocation_id, allocator = allocator.allocate_policy_invocation()
     projectile = Projectile(
         projectile_id,
         owner.entity_id,
-        intention_id,
+        ProjectileProvenance(
+            IntentionOrigin(
+                intention_id,
+                owner.entity_id,
+                invocation_id,
+                ExpressionId(0),
+                _SOURCE.span(ByteOffset(0), ByteOffset(0)),
+                0,
+                state.tick,
+                IntentionKind.FIRE,
+            )
+        ),
         position(0, 0),
         WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
         3,
@@ -195,3 +210,6 @@ def rectangle(minimum_x: int, minimum_y: int, maximum_x: int, maximum_y: int) ->
         WorldSubunits(maximum_x),
         WorldSubunits(maximum_y),
     )
+
+
+_SOURCE = SourceFile(SourceFileId("projectile-sweep-test.dtr"), "")

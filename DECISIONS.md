@@ -693,6 +693,20 @@ retained contributions; decay-only changes have no physical parents. These
 events use the existing event-ID allocator and do not change `KWI-STATE\0`
 version `17` or the observation ABI.
 
+### D-065: Projectiles retain complete durable Fire provenance
+
+Every live projectile retains the full immutable `IntentionOrigin` of the Fire
+request that created it: intention ID, issuer, policy invocation ID, expression
+ID, source file/span, policy-list index, and creation tick. The projectile owner
+must match the origin issuer. Impact and damage values expose that same origin,
+and injury events retain it through their damage resolution; no causal lookup by
+reused object identity is required.
+
+`KWI-STATE\0` version `18` serializes this provenance in every live projectile
+after its owner ID and before physical fields. Versions `1` through `17` are
+rejected with no migration because development state is disposable. This adds no
+observation field or renderer dependency.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
