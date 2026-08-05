@@ -69,6 +69,18 @@ def test_replay_packet_rejects_corrupt_initial_snapshot() -> None:
         )
 
 
+def test_replay_decoder_rejects_duplicate_and_unknown_fields() -> None:
+    prefix = REPLAY_MAGIC + REPLAY_VERSION.to_bytes(2, "big")
+
+    duplicate = decode_replay(prefix + b'{"seed":7,"seed":7}')
+    unknown = decode_replay(prefix + b'{"unexpected":true}')
+
+    assert isinstance(duplicate, ReplayDecodeFailure)
+    assert duplicate.code is ReplayDecodeFailureCode.INVALID_STRUCTURE
+    assert isinstance(unknown, ReplayDecodeFailure)
+    assert unknown.code is ReplayDecodeFailureCode.INVALID_STRUCTURE
+
+
 def _replay() -> ReplayPacket:
     seed = MissionSeed(7)
     state, entity = add_entity(
