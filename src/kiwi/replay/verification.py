@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from kiwi.replay.format import ReplayPacket
+from kiwi.replay.seeking import ReplaySeekIndex, seek_index_matches_replay
 from kiwi.sim.clock import FixedTickClock
+from kiwi.sim.determinism import CanonicalStateDifference, first_canonical_state_difference
 from kiwi.sim.hashing import StateHash, hash_canonical_state
 from kiwi.sim.policies import EMPTY_POLICY_BINDINGS, PolicyBindings
 from kiwi.sim.policy_versions import EntityPolicyVersion
@@ -21,6 +23,7 @@ class ReplayVerificationFailureCode(StrEnum):
     INITIAL_SNAPSHOT = "RV001_INITIAL_SNAPSHOT"
     POLICY_VERSIONS = "RV002_POLICY_VERSIONS"
     CHECKPOINT_HASH = "RV003_CHECKPOINT_HASH"
+    SEEK_INDEX = "RV004_SEEK_INDEX"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +34,7 @@ class ReplayCheckpointDivergence:
     tick: int
     expected_hash: StateHash
     actual_hash: StateHash
+    difference: CanonicalStateDifference | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -45,6 +49,8 @@ class ReplayCheckpointDivergence:
             self.actual_hash, StateHash
         ):
             raise ValueError("replay divergence hashes must be StateHash values")
+        if self.difference is not None and not isinstance(self.difference, CanonicalStateDifference):
+            raise ValueError("replay divergence difference must be canonical state difference")
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,12 +90,21 @@ type ReplayVerificationResult = ReplayVerificationSuccess | ReplayVerificationFa
 def verify_replay(
     replay: ReplayPacket,
     policy_bindings: PolicyBindings = EMPTY_POLICY_BINDINGS,
+    *,
+    seek_index: ReplaySeekIndex | None = None,
 ) -> ReplayVerificationResult:
     """Re-execute a packet headlessly and validate every recorded checkpoint hash."""
     if not isinstance(replay, ReplayPacket):
         raise TypeError("replay verification requires a ReplayPacket")
     if not isinstance(policy_bindings, PolicyBindings):
         raise TypeError("replay verification requires policy bindings")
+    if seek_index is not None and not isinstance(seek_index, ReplaySeekIndex):
+        raise TypeError("replay verification seek index must be a ReplaySeekIndex or None")
+    if seek_index is not None and not seek_index_matches_replay(replay, seek_index):
+        return ReplayVerificationFailure(
+            ReplayVerificationFailureCode.SEEK_INDEX,
+            "replay verification seek index does not match the replay packet",
+        )
     actual_policy_versions = tuple(
         EntityPolicyVersion(binding.entity_id, binding.policy_version)
         for binding in policy_bindings.entries
@@ -134,8 +149,25 @@ def verify_replay(
                     checkpoint.tick,
                     checkpoint.state_hash,
                     actual_hash,
+                    _canonical_difference(seek_index, checkpoint_index, state),
                 ),
             )
     if command_index != len(replay.commands):
         raise AssertionError("replay command lies outside its checkpoint timeline")
     return ReplayVerificationSuccess(state)
+
+
+def _canonical_difference(
+    seek_index: ReplaySeekIndex | None,
+    checkpoint_index: int,
+    actual_state: MissionState,
+) -> CanonicalStateDifference | None:
+    if seek_index is None:
+        return None
+    restored = restore_authority_snapshot(seek_index.snapshots[checkpoint_index])
+    if isinstance(restored, SnapshotRestoreFailure):
+        raise AssertionError("validated replay seek index snapshot cannot fail restoration")
+    difference = first_canonical_state_difference(restored, actual_state)
+    if difference is None:
+        raise AssertionError("distinct checkpoint hashes require a canonical state difference")
+    return difference
