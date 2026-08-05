@@ -434,6 +434,17 @@ emits exactly one source-linked grant or rejection event parented by the selecte
 intention. Cover occupancy and movement to a reserved slot remain separate
 phases.
 
+Selected Fire produces exactly one event in intention-ID order: `fire_fired`
+or `fire_rejected`, each parented by its `intention_selected` event. Every live
+projectile then produces exactly one projectile-ID-ordered event:
+`projectile_advanced`, `projectile_expired`, or `projectile_impacted`. Damage
+events parent their matching impact events; `injury_changed` parents its damage
+event only when a health band changes. A changed suppression value emits one
+entity-ID-ordered `suppression_changed` event, parented by the unique current-
+tick projectile outcome events that contributed to it; decay-only changes have
+no physical parent. These records are transient canonical events and use the
+existing event-ID allocator, not a new authority field.
+
 ### 11.5 Outcome
 
 Every selected intention produces an outcome record:
@@ -621,8 +632,9 @@ collision candidate until a boundary-removal rule is defined. A collision
 consumes the projectile and records one transient impact result; an
 unobstructed projectile advances to its endpoint and decrements its remaining
 lifetime. On its final remaining tick, it travels that unobstructed segment and
-then expires. This phase applies no damage, cover-integrity change,
-suppression, or event; those dedicated phases consume the impact result.
+then expires. The phase retains one projectile-ID-ordered advancement, expiry,
+or impact outcome for event emission. It applies no damage, cover-integrity
+change, or suppression; those dedicated phases consume the impact result.
 
 ## 16. Randomness
 
@@ -658,9 +670,9 @@ operative damage in this phase.
 
 An incapacitated operative has health zero, loses active movement and cover
 reservation, and is not invoked to produce non-medical actions. The later
-medical phase defines stabilization and recovery; the later event phase emits
-the source-linked impact and damage records. Damage has no random variation or
-hit-region abstraction in this model.
+medical phase defines stabilization and recovery. Damage emits its source-linked
+impact record and emits a distinct injury event only on a severity change.
+Damage has no random variation or hit-region abstraction in this model.
 
 ## 18. Suppression
 
@@ -675,10 +687,10 @@ impact position. Sources stack in projectile-ID order and clamp at `10,000`.
 
 The phase follows projectile impacts and damage. It clamps each current aim
 quality immediately to the resulting `10,000 - suppression` ceiling. Its
-transient source-retaining contributions are consumed by the later event and
-causal-debugger phases. Policies observe resulting suppression as an explicit
-owner-local quantity. Explosions, ally injury, and scenario effects remain
-future suppression sources.
+transient source-retaining contributions parent each nonzero suppression-change
+event in projectile-ID order. Policies observe resulting suppression as an
+explicit owner-local quantity. Explosions, ally injury, and scenario effects
+remain future suppression sources.
 
 ## 19. Medical action
 

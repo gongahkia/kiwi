@@ -676,6 +676,23 @@ This changes no durable state layout or observation ABI. `KWI-STATE\0` version
 `17` continues to encode the resulting existing magazine, aim, and projectile
 state.
 
+### D-064: Combat events retain phase results with bounded causal parents
+
+Selected Fire outcomes emit `fire_fired` or `fire_rejected` records in
+intention-ID order, each parented by the corresponding selected-intention
+event. Every live projectile emits exactly one projectile-ID-ordered outcome:
+advance, expiry, or impact. Projectile outcomes retain the existing exact
+transient resolution; they do not introduce a new event-reference field before
+the dedicated provenance work.
+
+Each operative impact emits a damage event parented by its projectile impact.
+It emits an injury event parented by that damage only when the stable injury
+severity changes. Each nonzero suppression change emits an entity-ID-ordered
+event whose parents are unique current-tick projectile outcomes from its
+retained contributions; decay-only changes have no physical parents. These
+events use the existing event-ID allocator and do not change `KWI-STATE\0`
+version `17` or the observation ABI.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

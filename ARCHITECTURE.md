@@ -365,12 +365,16 @@ magazine store, an entity-ID-ordered sparse nonzero aim-quality store, an
 entity-ID-ordered sparse nonzero suppression store, a `ProjectileId`-ordered
 live point-projectile store with owner, source intention, exact position,
 per-tick vector, and remaining lifetime, a pure bounded swept-collision query,
-and a projectile-impact phase that consumes collisions or advances/ages a
-survivor, an entity-ID-ordered sparse operative-condition store, and a `(tick,
-sequence)` scheduled-event queue. Damage consumes only structured operative
-impacts, in projectile-ID order, and retains the source impact in its transient
-resolution. State components are added only with the task that defines their
-invariants; canonical encoding follows this explicit state-field order.
+and a projectile-impact phase that produces one projectile-ID-ordered
+advancement, expiry, or impact resolution per live projectile, an
+entity-ID-ordered sparse operative-condition store, and a `(tick, sequence)`
+scheduled-event queue. Damage consumes only structured operative impacts, in
+projectile-ID order, and retains the source impact in its transient resolution.
+Combat event emission follows fire intention ID, projectile ID, damage
+projectile ID, then changed-suppression entity ID order; it is transient and
+allocates only the existing event-ID counter. State components are added only
+with the task that defines their invariants; canonical encoding follows this
+explicit state-field order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor
@@ -404,6 +408,14 @@ Selected `TakeCover` requests resolve against the cover store, retain or choose
 one requested-side reservation slot in canonical order, and emit a
 source-linked grant or rejection event. Reservation is independent of movement
 and physical occupancy.
+
+Selected Fire execution emits one fired or rejected outcome parented by the
+selected intention event. Each live projectile then emits its advancement,
+expiry, or impact outcome. Damage events parent the matching impact; an injury
+event parents its damage event only when severity changes. Every nonzero
+suppression change retains the current-tick projectile outcomes that contributed
+to it as parents. This event layer is headless, read-only with respect to
+renderer state, and stores no new durable field.
 
 `kiwi.sim.visibility` resolves pure range-limited map line-of-sight queries and
 range-visible obstacle projections from immutable positions. It has no policy,
