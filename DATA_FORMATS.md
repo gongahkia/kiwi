@@ -272,7 +272,9 @@ Verification restores the initial snapshot, requires the supplied
 entity-ID-ordered policy binding versions to match the packet, re-executes the
 canonical command log at the recorded fixed rate, and compares every checkpoint
 hash. A mismatching policy manifest or checkpoint is a structured verification
-failure; detailed first-divergence reporting remains deferred.
+failure. A checkpoint failure reports the first divergent checkpoint's index,
+tick, expected hash, and reconstructed hash; canonical-state field detail
+remains deferred.
 
 `.dseek` is an optional `KWI-SEEK\0` version `1` binary sidecar. It stores the
 32-byte BLAKE2b-256 hash of its exact canonical `.drun` packet, then an

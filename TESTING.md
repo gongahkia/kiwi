@@ -146,7 +146,8 @@ Test:
 - graphical adapter does not change hashes;
 - replay recorder preserves canonical initial inputs, binding hashes, commands,
   and checkpoints;
-- record then verify, including policy-version and checkpoint-hash failures;
+- record then verify, including policy-version failures and earliest divergent
+  checkpoint index, tick, expected hash, and reconstructed hash;
 - checkpoint seek and resume from a replay-hash-bound periodic snapshot sidecar;
 - corrupt replay rejection;
 - content hash mismatch;

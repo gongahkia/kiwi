@@ -744,8 +744,8 @@ Only version `1` is accepted. Version `0`, every future or historical version,
 and all migration paths are rejected. This user-approved development policy
 matches D-010: cross-version replay requires a separately approved migration or
 compatibility runner. Embedded seek snapshots, trace references, content
-resolution, and verifier divergence reporting remain deferred to their owning
-milestones.
+resolution, and canonical-state divergence detail remain deferred to their
+owning milestones.
 
 ### D-068: Periodic replay snapshots use a separate strict sidecar
 
