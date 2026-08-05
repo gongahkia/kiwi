@@ -541,6 +541,26 @@ cover reservations and before contacts, plus the appended weapon ID allocator
 counter. Versions `1` through `13` are rejected with no migration because
 development state is disposable.
 
+### D-057: Aim rewards holding position and suppression sets a visible ceiling
+
+Suppression is a sparse entity-ID-ordered store of nonzero 1–10,000 basis
+points; absence is canonical zero. During an active tick, aim progresses after
+movement resolution and before the clock advances. A stationary or blocked
+entity gains `floor((tick + 1) * 10,000 / rate) - floor(tick * 10,000 / rate)`
+basis points, reaching full aim in exactly one real-time second at every
+supported fixed rate. An entity whose resolved position changed resets to zero.
+
+Suppression `S` sets a linear aim ceiling of `10,000 - S`; the update clamps
+aim to that ceiling immediately. `SelfObservation` ABI version `6` exposes
+current aim, suppression, and the calculated ceiling so policy and later trace
+code can distinguish incomplete preparation from suppression. This task adds no
+suppression source or decay, target selection, Aim/Fire intention, projectile,
+or movement-speed penalty.
+
+`KWI-STATE\0` version `15` serialises suppression after aim state and before
+contacts. Versions `1` through `14` are rejected with no migration because
+development state is disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

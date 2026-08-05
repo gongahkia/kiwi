@@ -121,6 +121,8 @@ Small deterministic fixtures test:
 - contact decay;
 - message order;
 - aim progression;
+- aim reset after actual movement and retention after a blocked attempt;
+- aim-rate equivalence at 20, 30, and 60 Hz;
 - projectile tunnelling prevention;
 - earliest impact selection;
 - damage and suppression;

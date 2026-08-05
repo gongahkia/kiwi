@@ -171,15 +171,16 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
-The current observation ABI is version `5`: each operative input contains its
-own entity ID, planar position, delivered addressed inbox, current owner-local
-signals, current tick, and `nearest_contact: Option<Contact>`. The builder
-selects the nearest owner-local contact by exact planar squared distance and
-ascending `ContactId` tie-break. The closed `Contact` value carries age,
-confidence basis points, contact ID, estimated planar position, and uncertainty
-radius only; target identity, true state, owner identity, elevation, and
-provenance remain authority-only. Allies, geometry, and objectives remain absent
-until their respective authority models define explicit observable semantics.
+The current observation ABI is version `6`: each operative input contains its
+own entity ID, planar position, exact aim quality, aim ceiling, suppression,
+delivered addressed inbox, current owner-local signals, current tick, and
+`nearest_contact: Option<Contact>`. The builder selects the nearest owner-local
+contact by exact planar squared distance and ascending `ContactId` tie-break.
+The closed `Contact` value carries age, confidence basis points, contact ID,
+estimated planar position, and uncertainty radius only; target identity, true
+state, owner identity, elevation, and provenance remain authority-only. Allies,
+geometry, and objectives remain absent until their respective authority models
+define explicit observable semantics.
 
 The initial builder consumes one validated `MissionState` and produces an
 entity-ID-ascending immutable tuple before any policy executes. Successor
@@ -560,23 +561,18 @@ Exposure to a threat is computed from geometry, stance, and contact estimate. Be
 
 ## 14. Aiming
 
-The initial aim state is a target-free 0–10,000 basis-point quality retained in
-a sparse entity-ID-ordered store; absence means canonical zero. Weapon state is
-a weapon-ID-ordered inventory of generic owner-bound magazines. It contains no
-weapon class, target, projectile property, or firing outcome until later M10
-phases define them.
+Aim quality is target-free 0–10,000 basis points in a sparse entity-ID-ordered
+store; absence means canonical zero. Suppression is an equally sparse
+entity-ID-ordered 0–10,000 basis-point store. After movement resolution and
+before clock advance, stationary and blocked entities gain the exact rate-
+normalized delta `floor((tick + 1) * 10,000 / rate) - floor(tick * 10,000 /
+rate)`; a resolved position change resets aim to zero. Suppression `S` gives an
+immediate linear ceiling of `10,000 - S`.
 
-Later aim progression will add:
-
-- target estimate;
-- accumulated aim quality;
-- movement penalty;
-- suppression penalty;
-- injury penalty;
-- weapon characteristics;
-- last update tick.
-
-Aim progression is deterministic. If dispersion uses randomness, it draws from a named stream and records the draw.
+Policy observations expose current aim, suppression, and that ceiling. Weapon
+state remains a weapon-ID-ordered inventory of generic owner-bound magazines.
+This phase adds no target, weapon class, projectile property, firing outcome,
+suppression source or decay, injury modifier, or movement-speed modifier.
 
 ## 15. Projectiles
 
@@ -686,9 +682,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`14` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`15` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `13`, unsupported versions, and noncanonical values are
+versions `1` through `14`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -705,7 +701,7 @@ Include:
 - map bounds and obstacle geometry;
 - active movement actions;
 - cover segments, slots, height, and integrity;
-- equipped weapon magazines and nonzero aim qualities;
+- equipped weapon magazines and nonzero aim qualities and suppressions;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
 - live message ledger entries, send-event IDs, and send sequence;

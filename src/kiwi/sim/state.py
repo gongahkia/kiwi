@@ -234,7 +234,9 @@ class MissionState:
             raise ValueError("weapons must belong to mission entities")
         if any(aim_state.entity_id not in entity_ids for aim_state in self.aim_states.entries):
             raise ValueError("aim states must belong to mission entities")
-        if any(suppression.entity_id not in entity_ids for suppression in self.suppressions.entries):
+        if any(
+            suppression.entity_id not in entity_ids for suppression in self.suppressions.entries
+        ):
             raise ValueError("suppression states must belong to mission entities")
         for reservation in self.cover_reservations.entries:
             if reservation.entity_id not in entity_ids:

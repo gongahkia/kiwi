@@ -21,8 +21,9 @@ from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
 from kiwi.sim.signals import SignalObservation, signals_for, signals_runtime_value
 from kiwi.sim.state import MissionState
 from kiwi.sim.visibility import SensorRange, VisibleCover, visible_covers
+from kiwi.sim.weapons import MAX_AIM_QUALITY_BASIS_POINTS
 
-OBSERVATION_SCHEMA_VERSION = 5
+OBSERVATION_SCHEMA_VERSION = 6
 OBSERVATION_RECORD_TYPE = "Observation"
 SELF_OBSERVATION_RECORD_TYPE = "SelfObservation"
 POSITION_RECORD_TYPE = "Position"
@@ -34,21 +35,39 @@ DEFAULT_OBSERVATION_SENSOR_RANGE = SensorRange(WorldSubunits(10_000))
 
 @dataclass(frozen=True, slots=True)
 class SelfObservation:
-    """The current owner-visible entity identity and planar position."""
+    """The current owner-visible position and exact readiness values."""
 
     entity_id: EntityId
     position: WorldPosition
+    aim_quality_basis_points: int = 0
+    aim_ceiling_basis_points: int = MAX_AIM_QUALITY_BASIS_POINTS
+    suppression_basis_points: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, EntityId):
             raise ValueError("self observation requires an entity ID")
         if not isinstance(self.position, WorldPosition):
             raise ValueError("self observation requires a world position")
+        values = (
+            self.aim_quality_basis_points,
+            self.aim_ceiling_basis_points,
+            self.suppression_basis_points,
+        )
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+            raise ValueError("self observation readiness values must be integers")
+        if not 0 <= self.aim_quality_basis_points <= MAX_AIM_QUALITY_BASIS_POINTS:
+            raise ValueError("self observation aim quality is outside the configured range")
+        if not 0 <= self.suppression_basis_points <= MAX_AIM_QUALITY_BASIS_POINTS:
+            raise ValueError("self observation suppression is outside the configured range")
+        if self.aim_ceiling_basis_points != (
+            MAX_AIM_QUALITY_BASIS_POINTS - self.suppression_basis_points
+        ):
+            raise ValueError("self observation aim ceiling must match suppression")
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeObservation:
-    """The complete version-5 policy input with no hidden or writable state."""
+    """The complete version-6 policy input with no hidden or writable state."""
 
     self_observation: SelfObservation
     tick: int
@@ -116,7 +135,13 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
         raise TypeError("runtime observation building requires mission state")
     return tuple(
         RuntimeObservation(
-            SelfObservation(entity.entity_id, entity.position),
+            SelfObservation(
+                entity.entity_id,
+                entity.position,
+                state.aim_states.quality_for(entity.entity_id),
+                MAX_AIM_QUALITY_BASIS_POINTS - state.suppressions.suppression_for(entity.entity_id),
+                state.suppressions.suppression_for(entity.entity_id),
+            ),
             state.tick,
             inbox_for(state.messages, entity.entity_id, state.tick),
             signals_for(state.signals, entity.entity_id, state.tick),
@@ -128,15 +153,27 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
 
 
 def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
-    """Convert one authority observation to the closed version-5 DSL record layout."""
+    """Convert one authority observation to the closed version-6 DSL record layout."""
     if not isinstance(observation, RuntimeObservation):
         raise TypeError("runtime observation value requires a RuntimeObservation")
     self_observation = observation.self_observation
     position_value = _position_runtime_value(self_observation.position)
     self_value = RecordValue(
         SELF_OBSERVATION_RECORD_TYPE,
-        ("entity_id", "position"),
-        (IntegerValue(self_observation.entity_id.value), position_value),
+        (
+            "aim_ceiling_basis_points",
+            "aim_quality_basis_points",
+            "entity_id",
+            "position",
+            "suppression_basis_points",
+        ),
+        (
+            IntegerValue(self_observation.aim_ceiling_basis_points),
+            IntegerValue(self_observation.aim_quality_basis_points),
+            IntegerValue(self_observation.entity_id.value),
+            position_value,
+            IntegerValue(self_observation.suppression_basis_points),
+        ),
     )
     return RecordValue(
         OBSERVATION_RECORD_TYPE,

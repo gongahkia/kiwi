@@ -358,10 +358,11 @@ store of data-only policy-memory records, an
 entity-ID-ordered sparse store of BLAKE2b deployed-policy versions, immutable
 ID allocator state, a `CoverId`-ordered dynamic cover store, a `(CoverId,
 slot index)`-ordered cover-reservation store, a `WeaponId`-ordered owner-bound
-magazine store, an entity-ID-ordered sparse nonzero aim-quality store, and a
-`(tick, sequence)` scheduled-event queue. State components are added only with
-the task that defines their invariants; canonical encoding follows this explicit
-state-field order.
+magazine store, an entity-ID-ordered sparse nonzero aim-quality store, an
+entity-ID-ordered sparse nonzero suppression store, and a `(tick, sequence)`
+scheduled-event queue. State components are added only with the task that
+defines their invariants; canonical encoding follows this explicit state-field
+order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor
@@ -434,9 +435,10 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
-The version-5 runtime observation model is an immutable simulation value with
-owner-visible entity ID, planar position, delivered inbox, current signals,
-tick, `nearest_contact: Option<Contact>`, and range-visible cover records. A conversion at the
+The version-6 runtime observation model is an immutable simulation value with
+owner-visible entity ID, planar position, exact aim quality, aim ceiling,
+suppression, delivered inbox, current signals, tick, `nearest_contact:
+Option<Contact>`, and range-visible cover records. A conversion at the
 simulation/DSL boundary produces closed lexically ordered DSL records; no
 renderer or hidden-world reference crosses that boundary.
 
