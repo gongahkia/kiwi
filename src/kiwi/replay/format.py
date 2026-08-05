@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import blake2b
 
 from kiwi.domain.ids import EntityId
 from kiwi.sim.clock import TickRate
@@ -34,6 +35,7 @@ MAX_ENCODED_REPLAY_BYTES = 64 * 1_024 * 1_024
 MAX_REPLAY_COMMANDS = 65_536
 MAX_REPLAY_CHECKPOINTS = 65_536
 MAX_REPLAY_TEXT_BYTES = 256
+REPLAY_HASH_DIGEST_BYTES = 32
 
 
 class ReplayDecodeFailureCode(StrEnum):
@@ -202,6 +204,13 @@ def decode_replay(data: bytes) -> ReplayDecodeResult:
             "replay packet is not canonically encoded",
         )
     return replay
+
+
+def hash_replay(replay: ReplayPacket) -> bytes:
+    """Return the fixed BLAKE2b-256 identity of canonical replay bytes."""
+    if not isinstance(replay, ReplayPacket):
+        raise TypeError("replay hashing requires a ReplayPacket")
+    return blake2b(encode_replay(replay), digest_size=REPLAY_HASH_DIGEST_BYTES).digest()
 
 
 def _packet_object(replay: ReplayPacket) -> dict[str, object]:

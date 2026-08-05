@@ -274,6 +274,17 @@ canonical command log at the recorded fixed rate, and compares every checkpoint
 hash. A mismatching policy manifest or checkpoint is a structured verification
 failure; detailed first-divergence reporting remains deferred.
 
+`.dseek` is an optional `KWI-SEEK\0` version `1` binary sidecar. It stores the
+32-byte BLAKE2b-256 hash of its exact canonical `.drun` packet, then an
+ascending snapshot for every replay checkpoint: unsigned-64-bit tick,
+32-byte state hash, 32-bit state-byte length, and the canonical state bytes.
+The sidecar is bounded to 64 MiB and 65,536 snapshots. Decoders reject every
+version other than `1`, truncation, oversized state payloads, invalid snapshots,
+and trailing bytes. Seekers reject a replay-hash, checkpoint, policy-version,
+or target-tick mismatch before restoring the nearest preceding snapshot and
+headlessly replaying to the requested tick. `.dseek` does not change `.drun`
+v1 compatibility and has no migration path.
+
 ## 10. Command log
 
 Each command contains:

@@ -147,7 +147,7 @@ Test:
 - replay recorder preserves canonical initial inputs, binding hashes, commands,
   and checkpoints;
 - record then verify, including policy-version and checkpoint-hash failures;
-- checkpoint seek and resume;
+- checkpoint seek and resume from a replay-hash-bound periodic snapshot sidecar;
 - corrupt replay rejection;
 - content hash mismatch;
 - first-divergence reporting;

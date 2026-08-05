@@ -747,6 +747,20 @@ compatibility runner. Embedded seek snapshots, trace references, content
 resolution, and verifier divergence reporting remain deferred to their owning
 milestones.
 
+### D-068: Periodic replay snapshots use a separate strict sidecar
+
+`KWI-SEEK\0` version `1` is an optional bounded binary `.dseek` sidecar. It
+contains the BLAKE2b-256 identity of one canonical `.drun` packet followed by
+all of that replay's checkpoint snapshots in ascending tick order. Every
+snapshot remains independently self-verifying through its canonical state hash,
+and its tick/hash must exactly match the corresponding replay checkpoint.
+
+Seeking rejects replay-hash, checkpoint, policy-version, snapshot, and target
+range mismatches before it restores the nearest preceding snapshot and
+headlessly advances the remaining fixed ticks. `.dseek` preserves the
+user-approved strict `.drun` v1 policy: it introduces no `.drun` field,
+migration, or compatibility runner. Only sidecar version `1` is accepted.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
