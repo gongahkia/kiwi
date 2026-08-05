@@ -136,6 +136,8 @@ Compile a type-clean source file with `uv run --extra dev python -m kiwi.cli com
 
 Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cli run-policy path/to/policy.dtr entry --arg true`. Repeat `--arg` in parameter order; command-line arguments currently accept decimal integers, `true`, `false`, and `unit`. Milestone 4 source also supports strings, exact `ms`, `s`, `m`, `deg`, and `%` quantity literals; checked exact `+`, `-`, `<`, `<=`, `>`, and `>=` domain operations; built-in `Position { x, y }` and `Vector { dx, dy }` records; nominal immutable records declared with `type Name = { field: Type }`; closed `Option<T>` values using `Some(value)` or contextually typed `None`; exhaustive `match value with | Some(item) -> ... | None -> ...`; immutable `List<T>` literals such as `[1, 2]`; context-typed anonymous functions such as `fn item -> item`; and `value |> function(args...)` pipelines. Output renders closed runtime values. The command never evaluates Python source.
 
+Query an encoded `KWI-TRACE\0` packet headlessly with `uv run --extra dev python -m kiwi.cli trace-query path/to/run.ktrace why-selected 1`. The query name is one of `why-selected`, `why-not-selected`, `why-failed`, or `consequence-chain`; the final positive ID is an intention ID except for `consequence-chain`, which takes a trace node ID. Output is deterministic evidence or an explicit retention-unavailable code.
+
 The simulation policy boundary accepts `MoveToward { target: Position }`,
 `TakeCover { cover_id: Int, side: String }`, and `Wait { duration: Duration }`.
 MoveToward is capability-gated, uses canonical integer route planning, and emits

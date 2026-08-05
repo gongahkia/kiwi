@@ -339,6 +339,13 @@ failed action because the version-one world-event record does not retain its
 collision kind. A retained rejected intention is simulation rejection evidence
 and retains its stable reason code and competing intention IDs.
 
+The headless CLI exposes these records with
+`kiwi trace-query packet.ktrace why-selected 1`; accepted query names are
+`why-selected`, `why-not-selected`, `why-failed`, and `consequence-chain`.
+The first three take an intention ID; `consequence-chain` takes a trace node ID.
+It renders deterministic evidence or an explicit unavailable code and rejects
+invalid trace packets before querying.
+
 ### 8.5 Why was information wrong?
 
 Show:

@@ -127,6 +127,7 @@ python -m kiwi.cli compile examples/policies/typed_core.dtr
 python -m kiwi.cli compile examples/policies/typed_core.dtr --output /tmp/typed_core.kbc
 python -m kiwi.cli disassemble examples/policies/typed_core.dtr
 python -m kiwi.cli run-policy examples/policies/typed_core.dtr choose --arg true
+python -m kiwi.cli trace-query path/to/run.ktrace why-selected 1
 ```
 
 ## Definition of done

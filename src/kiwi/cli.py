@@ -7,6 +7,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from kiwi.domain.ids import IntentionId, TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader, BytecodeModule
 from kiwi.dsl.bytecode_codec import encode_bytecode
 from kiwi.dsl.checker import check
@@ -36,6 +37,28 @@ from kiwi.dsl.runtime_values import (
 )
 from kiwi.dsl.source import SourceFile, SourceFileId, SourceLoadFailure, load_utf8_file
 from kiwi.dsl.vm import run_vm
+from kiwi.sim.intentions import IntentionOrigin
+from kiwi.trace.format import TraceDecodeFailure, decode_trace
+from kiwi.trace.model import (
+    CausalTrace,
+    ConsequenceTrace,
+    IntentionResolutionTrace,
+    IntentionTrace,
+    TraceRecord,
+    WorldEventTrace,
+)
+from kiwi.trace.queries import (
+    ConsequenceChainExplanation,
+    ConsequenceQueryUnavailable,
+    IntentionFailureExplanation,
+    IntentionRejectionExplanation,
+    IntentionSelectionExplanation,
+    TraceQueryUnavailable,
+    consequence_chain,
+    why_failed,
+    why_not_selected,
+    why_selected,
+)
 
 _MINIMUM_PYTHON = (3, 12)
 
@@ -136,6 +159,33 @@ def run_policy_source(path: Path, entry_name: str, argument_texts: Sequence[str]
     return 0
 
 
+def trace_query(path: Path, query_name: str, target_id: int) -> int:
+    """Load one trace packet and render one deterministic evidence-only query."""
+    if not isinstance(path, Path):
+        raise TypeError("trace query path must be a path")
+    if not isinstance(query_name, str):
+        raise TypeError("trace query name must be text")
+    if not isinstance(target_id, int) or isinstance(target_id, bool) or target_id <= 0:
+        print("trace-query: target ID must be a positive integer", file=sys.stderr)
+        return 1
+    trace = _load_trace(path)
+    if trace is None:
+        return 1
+    if query_name == "why-selected":
+        _print_selected_query(why_selected(trace, IntentionId(target_id)))
+        return 0
+    if query_name == "why-not-selected":
+        _print_not_selected_query(why_not_selected(trace, IntentionId(target_id)))
+        return 0
+    if query_name == "why-failed":
+        _print_failed_query(why_failed(trace, IntentionId(target_id)))
+        return 0
+    if query_name == "consequence-chain":
+        _print_consequence_query(consequence_chain(trace, TraceNodeId(target_id)))
+        return 0
+    raise ValueError("trace query name is unsupported")
+
+
 def _load_source(path: Path) -> SourceFile | None:
     source_or_failure = load_utf8_file(path, file_id=SourceFileId(str(path)))
     if isinstance(source_or_failure, SourceLoadFailure):
@@ -146,6 +196,133 @@ def _load_source(path: Path) -> SourceFile | None:
         )
         return None
     return source_or_failure
+
+
+def _load_trace(path: Path) -> CausalTrace | None:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        print(f"{path}: could not read trace", file=sys.stderr)
+        return None
+    decoded = decode_trace(data)
+    if isinstance(decoded, TraceDecodeFailure):
+        print(f"{path}: {decoded.code}: {decoded.message}", file=sys.stderr)
+        return None
+    return decoded
+
+
+def _print_selected_query(result: IntentionSelectionExplanation | TraceQueryUnavailable) -> None:
+    if isinstance(result, TraceQueryUnavailable):
+        _print_unavailable("why-selected", result.code.value)
+        return
+    print("query: why-selected")
+    _print_origin(result.origin)
+    print("status: selected")
+    _print_resolution_events(result.resolution)
+
+
+def _print_not_selected_query(
+    result: IntentionRejectionExplanation | TraceQueryUnavailable,
+) -> None:
+    if isinstance(result, TraceQueryUnavailable):
+        _print_unavailable("why-not-selected", result.code.value)
+        return
+    print("query: why-not-selected")
+    _print_origin(result.origin)
+    print("status: rejected")
+    print(f"reason: {result.resolution.reason_code}")
+    print(
+        "competing_intentions: "
+        + _format_ids(
+            tuple(identifier.value for identifier in result.resolution.competing_intention_ids)
+        )
+    )
+    _print_resolution_events(result.resolution)
+
+
+def _print_failed_query(result: IntentionFailureExplanation | TraceQueryUnavailable) -> None:
+    if isinstance(result, TraceQueryUnavailable):
+        _print_unavailable("why-failed", result.code.value)
+        return
+    print("query: why-failed")
+    _print_origin(result.origin)
+    print(
+        "failure: "
+        f"event={result.failure_event.event_id.value} "
+        f"kind={result.failure_event.event_kind.value} "
+        f"summary={result.failure_event.summary!r}"
+    )
+    print("path: " + " -> ".join(str(node_id.value) for node_id in result.path_node_ids))
+
+
+def _print_consequence_query(
+    result: ConsequenceChainExplanation | ConsequenceQueryUnavailable,
+) -> None:
+    if isinstance(result, ConsequenceQueryUnavailable):
+        _print_unavailable("consequence-chain", result.code.value)
+        return
+    consequence = result.consequence
+    print("query: consequence-chain")
+    print(
+        "consequence: "
+        f"node={consequence.node_id.value} "
+        f"kind={consequence.kind.value} "
+        f"event={consequence.event_id.value} "
+        f"summary={consequence.summary!r}"
+    )
+    print("causes:")
+    for record in result.causal_records:
+        print(f"  {_format_trace_record(record)}")
+    print("causal_edges: " + _format_ids(tuple(edge.edge_id.value for edge in result.causal_edges)))
+
+
+def _print_unavailable(query_name: str, code: str) -> None:
+    print(f"query: {query_name}")
+    print(f"unavailable: {code}")
+
+
+def _print_origin(origin: IntentionOrigin) -> None:
+    span = origin.source_span
+    print(f"intention: {origin.intention_id.value}")
+    print(f"source: {span.file_id.value}@{span.start.value}..{span.end.value}")
+    print(f"policy_order: {origin.policy_order}")
+
+
+def _print_resolution_events(resolution: IntentionResolutionTrace) -> None:
+    print(
+        "world_events: "
+        + _format_ids(tuple(event_id.value for event_id in resolution.world_event_ids))
+    )
+
+
+def _format_ids(values: tuple[int, ...]) -> str:
+    return ", ".join(str(value) for value in values) if values else "none"
+
+
+def _format_trace_record(record: TraceRecord) -> str:
+    if isinstance(record, WorldEventTrace):
+        return (
+            f"node={record.node_id.value} world_event event={record.event_id.value} "
+            f"kind={record.event_kind.value} summary={record.summary!r}"
+        )
+    if isinstance(record, IntentionTrace):
+        origin = record.origin
+        return (
+            f"node={record.node_id.value} intention intention={origin.intention_id.value} "
+            f"source={origin.source_span.file_id.value}@{origin.source_span.start.value}.."
+            f"{origin.source_span.end.value}"
+        )
+    if isinstance(record, IntentionResolutionTrace):
+        return (
+            f"node={record.node_id.value} intention_resolution "
+            f"intention={record.intention_id.value} status={record.status.value}"
+        )
+    if isinstance(record, ConsequenceTrace):
+        return (
+            f"node={record.node_id.value} consequence kind={record.kind.value} "
+            f"event={record.event_id.value} summary={record.summary!r}"
+        )
+    return f"node={record.node_id.value} {type(record).__name__}"
 
 
 def _check_and_lower(source: SourceFile) -> LowerResult | None:
@@ -259,6 +436,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_policy_parser.add_argument("source", type=Path)
     run_policy_parser.add_argument("entry")
     run_policy_parser.add_argument("--arg", action="append", default=[])
+    trace_query_parser = subparsers.add_parser("trace-query")
+    trace_query_parser.add_argument("trace", type=Path)
+    trace_query_parser.add_argument(
+        "query",
+        choices=("why-selected", "why-not-selected", "why-failed", "consequence-chain"),
+    )
+    trace_query_parser.add_argument("target_id", type=int)
     arguments = parser.parse_args(argv)
     if arguments.command == "doctor":
         return doctor()
@@ -270,6 +454,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return compile_source(arguments.source, arguments.output)
     if arguments.command == "disassemble":
         return disassemble_source(arguments.source)
+    if arguments.command == "trace-query":
+        return trace_query(arguments.trace, arguments.query, arguments.target_id)
     return run_policy_source(arguments.source, arguments.entry, arguments.arg)
 
 
