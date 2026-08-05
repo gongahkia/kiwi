@@ -543,6 +543,10 @@ Verification restores the packet's initial snapshot, requires matching binding
 versions, and replays each checkpoint interval headlessly before comparing its
 canonical state hash. It returns structured initial-snapshot, policy-version,
 or checkpoint-hash failures; detailed divergence diagnostics remain deferred.
+An optional strict `KWI-SEEK\0` v1 sidecar binds periodic self-verifying
+snapshots to the canonical replay hash. Seeking rejects mismatched sidecars or
+bindings, restores the nearest preceding checkpoint, then runs only the
+remaining authoritative ticks. It does not alter `.drun` v1.
 
 ## 15. Causal tracing architecture
 
