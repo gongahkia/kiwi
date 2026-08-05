@@ -559,6 +559,10 @@ Run-comparison admission is a pure replay-layer check. It requires identical
 build, simulation version, mission hash, initial snapshot, seed, tick rate,
 and canonical commands while retaining policy-version deltas as ordered output.
 It never runs an incompatible replay or reads presentation state.
+Compatible headless runs compare policy evaluations by `(tick, entity ID)` and
+emitted intentions by `(tick, issuer entity ID, policy order)`. Allocation-only
+invocation and intention IDs do not create a difference; source provenance and
+validated intention payloads do.
 
 ## 15. Causal tracing architecture
 

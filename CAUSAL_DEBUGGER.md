@@ -429,6 +429,11 @@ Comparison should identify:
 
 Do not imply that later differences have a single cause after large divergence. Highlight the first known divergence and relevant downstream chains.
 
+Policy evaluations match by `(tick, entity ID)`. Emitted intentions match by
+`(tick, issuer entity ID, policy order)` and compare source expression/span and
+validated payload while ignoring allocation-only invocation and intention IDs.
+Missing and changed records are explicit distinct results.
+
 ## 12. Counterfactual support
 
 MVP counterfactuals are controlled reruns, not fabricated predictions.
