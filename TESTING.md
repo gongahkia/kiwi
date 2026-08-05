@@ -128,7 +128,7 @@ Small deterministic fixtures test:
 - earliest impact selection and obstacle, cover, operative tie precedence;
 - projectile consumption, final-segment expiry, and map-boundary deferral;
 - deterministic protection, injury bands, incapacitation, and condition versioning;
-- damage and suppression;
+- deterministic damage, suppression radii, decay, stacking, and aim clamping;
 - medical interruption;
 - objective completion;
 - command timing.

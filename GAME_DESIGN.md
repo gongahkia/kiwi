@@ -383,6 +383,13 @@ Damage is a deterministic function of projectile state, hit location abstraction
 
 Near misses, incoming fire, explosions, and ally injury may increase suppression. Suppression affects movement, aim, and available actions through explicit state visible to the policy.
 
+The current combat slice reduces suppression by 500 basis points each active
+tick, applies 1,500 from a non-owner projectile path within two metres, and
+applies 2,500 from a non-owner impact within three metres. Path and impact
+sources stack to 10,000; direct hits receive the impact source rather than an
+additional near-miss source. The new value immediately clamps aim. Movement,
+available-action, explosion, and ally-injury modifiers remain later work.
+
 ## 11. Squad kiwi layers
 
 ### 11.1 Squad coordinator
