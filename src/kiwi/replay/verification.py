@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from kiwi.replay.format import ReplayCheckpoint, ReplayPacket
+from kiwi.replay.format import ReplayPacket
 from kiwi.sim.clock import FixedTickClock
-from kiwi.sim.hashing import hash_canonical_state
+from kiwi.sim.hashing import StateHash, hash_canonical_state
 from kiwi.sim.policies import EMPTY_POLICY_BINDINGS, PolicyBindings
 from kiwi.sim.policy_versions import EntityPolicyVersion
 from kiwi.sim.runner import run_headless
