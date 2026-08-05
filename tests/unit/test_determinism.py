@@ -9,6 +9,7 @@ from kiwi.domain.ids import EventId
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandSource, SignalName
+from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactField,
@@ -85,6 +86,23 @@ def test_differential_report_includes_policy_memory_in_canonical_order() -> None
 
     assert difference is not None
     assert difference.path == "policy_memory/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_operative_conditions() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    actual = replace(
+        expected,
+        conditions=OperativeConditionStore((OperativeCondition(entity.entity_id, 1, 0, True),)),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "conditions/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

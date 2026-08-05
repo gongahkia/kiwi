@@ -608,6 +608,30 @@ operative, change cover integrity, suppress entities, or emit events; those
 effects remain dedicated later M10 phases. It adds no durable state field or
 canonical-format revision.
 
+### D-061: Operative damage uses a small deterministic condition track
+
+Each entity has an implicit default `OperativeCondition` of health `3`, one
+consumable protection point, and `stabilized = false`. The condition store is
+sparse and entity-ID ordered: non-default values carry current health
+`0`–`3`, protection `0`–`1`, and stabilization. An operative projectile impact
+does exactly one damage point. Protection absorbs it first; remaining damage
+reduces health without random variation or hit-location rules. Health bands
+are `3` none, `2` minor, `1` severe, and `0` incapacitated. A health-damaging
+impact clears stabilization.
+
+Impacts resolve in projectile-ID order. Incapacitation removes a live movement
+action and cover reservation, and no policy is invoked for that entity, so it
+cannot initiate non-medical actions. The medical phase owns any later
+stabilization or recovery semantics. Obstacle and cover impacts do not enter
+this damage phase. The structured damage result retains its source projectile
+impact for later event and causal-edge emission.
+
+`KWI-STATE\0` version `17` serializes sparse operative conditions after live
+projectiles and before contacts. Versions `1` through `16` are rejected with
+no migration because development state is disposable. `SelfObservation` ABI
+version `7` adds owner-visible health, protection, derived injury severity,
+incapacitation, and stabilization.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

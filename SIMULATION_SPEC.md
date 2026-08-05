@@ -171,11 +171,13 @@ Each operative receives:
 
 The observation must not contain writable references or hidden entity state.
 
-The current observation ABI is version `6`: each operative input contains its
+The current observation ABI is version `7`: each operative input contains its
 own entity ID, planar position, exact aim quality, aim ceiling, suppression,
-delivered addressed inbox, current owner-local signals, current tick, and
-`nearest_contact: Option<Contact>`. The builder selects the nearest owner-local
-contact by exact planar squared distance and ascending `ContactId` tie-break.
+health, consumable protection, derived injury severity, incapacitation,
+stabilization, delivered addressed inbox, current owner-local signals, current
+tick, and `nearest_contact: Option<Contact>`. The builder selects the nearest
+owner-local contact by exact planar squared distance and ascending `ContactId`
+tie-break.
 The closed `Contact` value carries age, confidence basis points, contact ID,
 estimated planar position, and uncertainty radius only; target identity, true
 state, owner identity, elevation, and provenance remain authority-only. Allies,
@@ -636,17 +638,19 @@ Where practical, prefer deterministic geometry and explicit uncertainty over ran
 
 ## 17. Damage and injury
 
-The MVP uses a bounded abstraction:
+The MVP uses one sparse entity-ID-ordered condition store. Absence means the
+canonical default: health `3`, protection `1`, and `stabilized = false`. Each
+operative impact applies one deterministic damage point in projectile-ID order.
+Protection consumes first; remaining damage reduces health. Injury is derived
+from health: `3` none, `2` minor, `1` severe, `0` incapacitated. A damaging hit
+clears stabilization. Obstacles and cover stop projectiles but do not cause
+operative damage in this phase.
 
-- health;
-- protection;
-- injury severity;
-- incapacitated state;
-- stabilised state.
-
-Damage resolution may include hit region categories only if they create meaningful policy decisions. Avoid anatomical complexity.
-
-All state changes link to projectile or action events.
+An incapacitated operative has health zero, loses active movement and cover
+reservation, and is not invoked to produce non-medical actions. The later
+medical phase defines stabilization and recovery; the later event phase emits
+the source-linked impact and damage records. Damage has no random variation or
+hit-region abstraction in this model.
 
 ## 18. Suppression
 

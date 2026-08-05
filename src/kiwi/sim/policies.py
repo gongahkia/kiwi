@@ -302,6 +302,8 @@ def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEval
     evaluations: list[PolicyEvaluation] = []
     observations = build_runtime_observations(state)
     for entity, observation in zip(state.entities, observations, strict=True):
+        if state.conditions.is_incapacitated(entity.entity_id):
+            continue
         binding = bindings.binding_for(entity.entity_id)
         if binding is None:
             continue

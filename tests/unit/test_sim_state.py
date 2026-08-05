@@ -4,6 +4,7 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import CoverId, EntityId, EventId, IdAllocator
+from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -150,6 +151,17 @@ def test_mission_state_rejects_cover_reservations_without_valid_authority_refere
             covers=CoverStore((cover,)),
             cover_reservations=reservations,
             id_allocator=allocator,
+        )
+
+
+def test_mission_state_rejects_conditions_outside_entity_ownership() -> None:
+    entity_id, allocator = IdAllocator().allocate_entity()
+
+    with pytest.raises(ValueError, match="operative conditions must belong"):
+        MissionState(
+            entities=(EntityState(entity_id, position()),),
+            id_allocator=allocator,
+            conditions=OperativeConditionStore((OperativeCondition(EntityId(2), 2, 0),)),
         )
 
 

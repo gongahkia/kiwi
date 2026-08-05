@@ -292,6 +292,38 @@ def first_canonical_state_difference(
                 expected_version.version.digest.hex(),
                 actual_version.version.digest.hex(),
             )
+    if len(expected.conditions.entries) != len(actual.conditions.entries):
+        return _difference(
+            "conditions/count",
+            len(expected.conditions.entries),
+            len(actual.conditions.entries),
+        )
+    for index, (expected_condition, actual_condition) in enumerate(
+        zip(expected.conditions.entries, actual.conditions.entries, strict=True)
+    ):
+        prefix = f"conditions/{index}"
+        if expected_condition.entity_id != actual_condition.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_condition.entity_id.value,
+                actual_condition.entity_id.value,
+            )
+        if expected_condition.health != actual_condition.health:
+            return _difference(
+                f"{prefix}/health", expected_condition.health, actual_condition.health
+            )
+        if expected_condition.protection != actual_condition.protection:
+            return _difference(
+                f"{prefix}/protection",
+                expected_condition.protection,
+                actual_condition.protection,
+            )
+        if expected_condition.stabilized != actual_condition.stabilized:
+            return _difference(
+                f"{prefix}/stabilized",
+                int(expected_condition.stabilized),
+                int(actual_condition.stabilized),
+            )
     if expected.contacts.lifecycle_tick != actual.contacts.lifecycle_tick:
         return _difference(
             "contacts/lifecycle_tick",

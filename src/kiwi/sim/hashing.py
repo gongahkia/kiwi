@@ -41,6 +41,7 @@ from kiwi.dsl.runtime_values import (
     UnitValue,
 )
 from kiwi.sim.commands import CommandSource, SignalName
+from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -95,7 +96,7 @@ from kiwi.sim.weapons import (
 )
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 16
+CANONICAL_STATE_VERSION = 17
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -169,7 +170,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 16 form."""
+    """Encode one validated mission state in canonical binary version 17 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -193,6 +194,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_aim_states(writer, state.aim_states)
     _encode_suppressions(writer, state.suppressions)
     _encode_projectiles(writer, state.projectiles)
+    _encode_conditions(writer, state.conditions)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
@@ -272,7 +274,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 16 requires exactly four random streams")
+        raise ValueError("state format version 17 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -295,6 +297,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     aim_states = _decode_aim_states(reader)
     suppressions = _decode_suppressions(reader)
     projectiles = _decode_projectiles(reader)
+    conditions = _decode_conditions(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
@@ -316,6 +319,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         aim_states=aim_states,
         suppressions=suppressions,
         projectiles=projectiles,
+        conditions=conditions,
         contacts=contacts,
         messages=messages,
         signals=signals,
@@ -653,6 +657,33 @@ def _decode_projectiles(reader: _Reader) -> ProjectileStore:
             for _ in range(reader.items("projectile count"))
         )
     )
+
+
+def _encode_conditions(writer: _Writer, store: OperativeConditionStore) -> None:
+    writer.items(len(store.entries), "operative condition count")
+    for condition in store.entries:
+        writer.i64(condition.entity_id.value, "operative condition entity ID")
+        writer.u8(condition.health, "operative health")
+        writer.u8(condition.protection, "operative protection")
+        writer.u8(int(condition.stabilized), "operative stabilized state")
+
+
+def _decode_conditions(reader: _Reader) -> OperativeConditionStore:
+    conditions: list[OperativeCondition] = []
+    for _ in range(reader.items("operative condition count")):
+        entity_id = EntityId(reader.i64())
+        health = reader.u8()
+        protection = reader.u8()
+        stabilized_offset = reader.offset
+        stabilized_tag = reader.u8()
+        if stabilized_tag not in (0, 1):
+            raise _DecodeError(
+                StateDecodeCode.INVALID_VALUE,
+                stabilized_offset,
+                f"invalid operative stabilized state tag {stabilized_tag}",
+            )
+        conditions.append(OperativeCondition(entity_id, health, protection, bool(stabilized_tag)))
+    return OperativeConditionStore(tuple(conditions))
 
 
 def _encode_contacts(writer: _Writer, store: ContactStore) -> None:
