@@ -88,10 +88,69 @@ Do not claim completion unless the relevant exit criteria pass.
 
 ## Code quality
 
-- Use explicit module constructors.
-- Validate external input at boundaries.
-- Return structured errors rather than ambiguous booleans where possible.
-- Keep parser transitions readable and table-driven where that improves auditability.
-- Comment protocol edge cases and invariants, not obvious syntax.
-- Keep public API docs adjacent to exported functions.
-- Avoid premature compatibility or performance hacks without measurements.
+- source span;
+- function invocation;
+- observation field read;
+- intermediate value;
+- branch or pattern selected;
+- intention emitted;
+- validation or arbitration decision;
+- world event;
+- damage, injury, death, or objective consequence.
+
+Trace levels may reduce retained detail, but summary traces must still explain major outcomes.
+
+## Verification
+
+The repository should expose stable commands, preferably through `make`, `just`, or documented Python invocations. At minimum, milestones must eventually support:
+
+```bash
+python -m pytest
+python -m ruff check .
+python -m ruff format --check .
+python -m mypy src tests
+python -m kiwi.cli compile examples/policies/basic.dtr
+python -m kiwi.cli simulate fixtures/glasshouse.json --headless
+python -m kiwi.cli replay verify runs/example.drun
+```
+
+Use only commands actually configured in the repository. Update this file and `README.md` when the canonical commands change.
+
+Current Milestone 4 headless commands are:
+
+```bash
+python -m kiwi.cli compile examples/policies/typed_core.dtr
+python -m kiwi.cli compile examples/policies/typed_core.dtr --output /tmp/typed_core.kbc
+python -m kiwi.cli disassemble examples/policies/typed_core.dtr
+python -m kiwi.cli run-policy examples/policies/typed_core.dtr choose --arg true
+python -m kiwi.cli trace-query path/to/run.ktrace why-selected 1
+```
+
+## Definition of done
+
+A task is complete only when:
+
+- its implementation is coherent and scoped;
+- relevant unit and integration tests pass;
+- deterministic implications were considered;
+- diagnostics and source provenance remain valid;
+- documentation is updated where required;
+- no temporary debug code or generated junk remains;
+- the diff contains no unrelated edits;
+- the documented task exit evidence is available;
+- the repository is committed at a valid rollback point.
+
+## When to ask the user
+
+Do not ask about routine choices that can be resolved from the documents, tests, primary documentation, or the smallest reversible design.
+
+Stop and ask before:
+
+- changing a settled decision;
+- choosing an irreversible save or bytecode compatibility policy;
+- adding a dependency with licensing or distribution consequences;
+- weakening deterministic or causal-debugging guarantees;
+- expanding direct player control;
+- materially changing the product loop;
+- committing to a visual fiction that constrains core mechanics;
+- deleting or migrating user-authored content without a compatibility plan.

@@ -32,6 +32,7 @@ Cover pure functions and local invariants:
 - event construction;
 - trace query helpers;
 - retained selection, rejection, failure, and consequence-chain query evidence;
+- trace-query CLI output and malformed-packet handling;
 - trace capture preserves canonical state hashes;
 - format validation.
 
