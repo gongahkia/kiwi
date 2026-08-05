@@ -45,6 +45,7 @@ from kiwi.sim.policy_events import emit_policy_events
 from kiwi.sim.projectile_impacts import resolve_projectile_impacts
 from kiwi.sim.signals import SignalObservation, add_signal, discard_signals_before
 from kiwi.sim.state import MissionPhase, MissionState
+from kiwi.sim.suppression import resolve_projectile_suppression
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,8 +111,14 @@ def reduce_one_tick(
         movement_phase = resolve_movement_actions(next_state)
         movement = emit_movement_events(movement_phase)
         aim = resolve_aim_progression(movement.state, clock, movement_phase.resolutions)
+        source_projectiles = aim.state.projectiles.entries
         impacts = resolve_projectile_impacts(aim.state)
-        next_state = resolve_projectile_damage(impacts.state, impacts.impacts).state
+        damage = resolve_projectile_damage(impacts.state, impacts.impacts)
+        next_state = resolve_projectile_suppression(
+            damage.state,
+            source_projectiles,
+            impacts.impacts,
+        ).state
         emitted.extend(movement.events)
 
     advanced_state = clock.advance(next_state)

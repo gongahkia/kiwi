@@ -654,15 +654,21 @@ hit-region abstraction in this model.
 
 ## 18. Suppression
 
-Suppression increases from:
+Each active tick reduces every retained suppression value by `500` basis points
+to a minimum of zero before applying new sources. Each pre-impact projectile
+adds `1,500` basis points to every same-elevation non-owner operative whose
+exact closed distance to its travelled segment is at most two metres. A direct
+operative collision does not count as a near miss for its target. Each
+obstacle, cover, or operative impact adds `2,500` basis points to every
+same-elevation non-owner operative within a closed three-metre radius of its
+impact position. Sources stack in projectile-ID order and clamp at `10,000`.
 
-- nearby projectile paths;
-- impacts;
-- explosions;
-- ally injury;
-- scenario effects.
-
-It decays deterministically. Policies observe suppression as an explicit quantity.
+The phase follows projectile impacts and damage. It clamps each current aim
+quality immediately to the resulting `10,000 - suppression` ceiling. Its
+transient source-retaining contributions are consumed by the later event and
+causal-debugger phases. Policies observe resulting suppression as an explicit
+owner-local quantity. Explosions, ally injury, and scenario effects remain
+future suppression sources.
 
 ## 19. Medical action
 

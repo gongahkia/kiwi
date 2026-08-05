@@ -89,6 +89,7 @@ The architecture should remain simple enough for one developer and coding agents
 │       │   ├── projectiles.py
 │       │   ├── conditions.py
 │       │   ├── damage.py
+│       │   ├── suppression.py
 │       │   ├── objectives.py
 │       │   ├── events.py
 │       │   ├── reducer.py

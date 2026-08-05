@@ -632,6 +632,26 @@ no migration because development state is disposable. `SelfObservation` ABI
 version `7` adds owner-visible health, protection, derived injury severity,
 incapacitation, and stabilization.
 
+### D-062: Projectile paths and impacts cause bounded, decaying suppression
+
+Every active tick first reduces each entity's retained suppression by `500`
+basis points, to a minimum of zero. Each pre-impact projectile then contributes
+`1,500` basis points to every same-elevation non-owner entity within an exact
+two-metre closed radius of its travelled segment. A direct operative collision
+does not also count as a near miss for that target. Every collision contributes
+`2,500` basis points to every same-elevation non-owner entity within an exact
+three-metre closed radius of its impact point. Contributions stack in
+projectile-ID then source-kind order and clamp the resulting sparse
+suppression value at `10,000`.
+
+The suppression phase runs after projectile impacts and damage. It immediately
+clamps current aim to the new `10,000 - suppression` ceiling, so a same-tick
+shot or impact cannot leave illegal aim quality. Each transient contribution
+retains the source projectile and, where applicable, the impact for later
+event and causal-edge emission. This changes no durable state layout or
+observation ABI: the existing sparse suppression field and owner-visible
+observation value remain authoritative.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

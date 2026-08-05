@@ -31,6 +31,7 @@ from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.snapshot import capture_authority_snapshot
 from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
+from kiwi.sim.weapons import SuppressionState, SuppressionStore
 
 
 def test_determinism_harness_repeats_checkpoint_hashes_exactly() -> None:
@@ -103,6 +104,23 @@ def test_differential_report_includes_operative_conditions() -> None:
 
     assert difference is not None
     assert difference.path == "conditions/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_suppression() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    actual = replace(
+        expected,
+        suppressions=SuppressionStore((SuppressionState(entity.entity_id, 1_500),)),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "suppressions/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

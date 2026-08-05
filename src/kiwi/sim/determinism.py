@@ -292,6 +292,28 @@ def first_canonical_state_difference(
                 expected_version.version.digest.hex(),
                 actual_version.version.digest.hex(),
             )
+    if len(expected.suppressions.entries) != len(actual.suppressions.entries):
+        return _difference(
+            "suppressions/count",
+            len(expected.suppressions.entries),
+            len(actual.suppressions.entries),
+        )
+    for index, (expected_suppression, actual_suppression) in enumerate(
+        zip(expected.suppressions.entries, actual.suppressions.entries, strict=True)
+    ):
+        prefix = f"suppressions/{index}"
+        if expected_suppression.entity_id != actual_suppression.entity_id:
+            return _difference(
+                f"{prefix}/entity_id",
+                expected_suppression.entity_id.value,
+                actual_suppression.entity_id.value,
+            )
+        if expected_suppression.basis_points != actual_suppression.basis_points:
+            return _difference(
+                f"{prefix}/basis_points",
+                expected_suppression.basis_points,
+                actual_suppression.basis_points,
+            )
     if len(expected.conditions.entries) != len(actual.conditions.entries):
         return _difference(
             "conditions/count",
