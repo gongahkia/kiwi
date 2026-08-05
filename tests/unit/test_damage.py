@@ -7,6 +7,7 @@ import pytest
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits, WorldVector
 from kiwi.domain.ids import EntityId
 from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.combat_events import emit_damage_events, emit_projectile_events
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.conditions import InjurySeverity, OperativeCondition, OperativeConditionStore
 from kiwi.sim.covers import (
@@ -20,9 +21,10 @@ from kiwi.sim.covers import (
     CoverStore,
 )
 from kiwi.sim.damage import PROJECTILE_IMPACT_DAMAGE, resolve_projectile_damage
+from kiwi.sim.events import DamageApplied, InjuryChanged, ProjectileImpacted
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.pathing import Path, PathQuery
-from kiwi.sim.projectile_impacts import ProjectileImpact
+from kiwi.sim.projectile_impacts import ProjectileImpact, resolve_projectile_impacts
 from kiwi.sim.projectile_sweeps import ProjectileCollision, ProjectileCollisionKind
 from kiwi.sim.projectiles import Projectile, ProjectileStore
 from kiwi.sim.reducer import reduce_one_tick
@@ -64,6 +66,29 @@ def test_injury_clears_stabilization_when_health_damage_occurs() -> None:
     assert resolution.stabilized_before
     assert not resolution.stabilized_after
     assert resolution.health_after == 1
+
+
+def test_damage_events_parent_impacts_and_injury_events_parent_damage() -> None:
+    state, target = _state_with_target()
+    state = replace(
+        state,
+        conditions=OperativeConditionStore((OperativeCondition(target.entity_id, 2, 0),)),
+    )
+    state = _with_live_projectiles(state, target.entity_id, 1)
+    impacts = resolve_projectile_impacts(state)
+    projectile_events = emit_projectile_events(impacts)
+    damage = resolve_projectile_damage(projectile_events.state, impacts.impacts)
+
+    emitted = emit_damage_events(damage, projectile_events.events)
+
+    impact_event = next(
+        event for event in projectile_events.events if isinstance(event, ProjectileImpacted)
+    )
+    damage_event = next(event for event in emitted.events if isinstance(event, DamageApplied))
+    injury_event = next(event for event in emitted.events if isinstance(event, InjuryChanged))
+    assert damage_event.header.parent_event_ids == (impact_event.header.event_id,)
+    assert injury_event.header.parent_event_ids == (damage_event.header.event_id,)
+    assert injury_event.resolution.injury_after is InjurySeverity.SEVERE
 
 
 def test_incapacitation_cancels_existing_movement_actions_and_cover_reservations() -> None:

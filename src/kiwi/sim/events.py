@@ -24,7 +24,11 @@ from kiwi.sim.scheduled import ScheduledEvent
 if TYPE_CHECKING:
     from kiwi.sim.cover_intentions import TakeCoverResolution
     from kiwi.sim.covers import CoverReservation
+    from kiwi.sim.damage import DamageResolution
+    from kiwi.sim.firing import FireResolution
     from kiwi.sim.messages import Message
+    from kiwi.sim.projectile_impacts import ProjectileImpact, ProjectileResolution
+    from kiwi.sim.suppression import SuppressionResolution
 
 
 class EventKind(StrEnum):
@@ -49,6 +53,14 @@ class EventKind(StrEnum):
     MOVEMENT_ARRIVED = "movement_arrived"
     MOVEMENT_ROUTE_STARTED = "movement_route_started"
     MOVEMENT_ROUTE_REJECTED = "movement_route_rejected"
+    FIRE_FIRED = "fire_fired"
+    FIRE_REJECTED = "fire_rejected"
+    PROJECTILE_ADVANCED = "projectile_advanced"
+    PROJECTILE_EXPIRED = "projectile_expired"
+    PROJECTILE_IMPACTED = "projectile_impacted"
+    DAMAGE_APPLIED = "damage_applied"
+    INJURY_CHANGED = "injury_changed"
+    SUPPRESSION_CHANGED = "suppression_changed"
 
 
 class CommandRejectionReason(StrEnum):
@@ -417,6 +429,154 @@ class MovementArrived:
         _require_matching_tick(self.header, self.resolution.tick)
 
 
+@dataclass(frozen=True, slots=True)
+class FireFired:
+    """One successful selected fire request and its spawned projectile."""
+
+    header: EventHeader
+    resolution: FireResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.firing import FireResolution, FireResolutionStatus
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, FireResolution):
+            raise ValueError("fire event requires a fire resolution")
+        if self.resolution.status is not FireResolutionStatus.FIRED:
+            raise ValueError("fired event requires a fired resolution")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("fired event requires one selected-intention parent")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class FireRejected:
+    """One selected fire request rejected by current authority state."""
+
+    header: EventHeader
+    resolution: FireResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.firing import FireResolution, FireResolutionStatus
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, FireResolution):
+            raise ValueError("fire rejection event requires a fire resolution")
+        if self.resolution.status is not FireResolutionStatus.REJECTED:
+            raise ValueError("fire rejection event requires a rejected resolution")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("fire rejection event requires one selected-intention parent")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectileAdvanced:
+    """One live projectile that travelled one unobstructed nonterminal segment."""
+
+    header: EventHeader
+    resolution: ProjectileResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.projectile_impacts import ProjectileResolution, ProjectileResolutionKind
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, ProjectileResolution):
+            raise ValueError("projectile advance event requires a projectile resolution")
+        if self.resolution.kind is not ProjectileResolutionKind.ADVANCED:
+            raise ValueError("projectile advance event requires an advanced resolution")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectileExpired:
+    """One terminal-lifetime projectile that travelled its final clear segment."""
+
+    header: EventHeader
+    resolution: ProjectileResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.projectile_impacts import ProjectileResolution, ProjectileResolutionKind
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, ProjectileResolution):
+            raise ValueError("projectile expiry event requires a projectile resolution")
+        if self.resolution.kind is not ProjectileResolutionKind.EXPIRED:
+            raise ValueError("projectile expiry event requires an expired resolution")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectileImpacted:
+    """One projectile collision with its exact selected collision result."""
+
+    header: EventHeader
+    impact: ProjectileImpact
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.projectile_impacts import ProjectileImpact
+
+        _require_header(self.header)
+        if not isinstance(self.impact, ProjectileImpact):
+            raise ValueError("projectile impact event requires a projectile impact")
+        _require_matching_tick(self.header, self.impact.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class DamageApplied:
+    """One deterministic protection and health result from an operative impact."""
+
+    header: EventHeader
+    resolution: DamageResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.damage import DamageResolution
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, DamageResolution):
+            raise ValueError("damage event requires a damage resolution")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("damage event requires one projectile-impact parent")
+        _require_matching_tick(self.header, self.resolution.impact.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class InjuryChanged:
+    """One damage result that crossed a stable injury-severity boundary."""
+
+    header: EventHeader
+    resolution: DamageResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.damage import DamageResolution
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, DamageResolution):
+            raise ValueError("injury event requires a damage resolution")
+        if self.resolution.injury_before is self.resolution.injury_after:
+            raise ValueError("injury event requires a changed injury severity")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("injury event requires one damage parent")
+        _require_matching_tick(self.header, self.resolution.impact.tick)
+
+
+@dataclass(frozen=True, slots=True)
+class SuppressionChanged:
+    """One nonzero suppression-state change and its retained physical sources."""
+
+    header: EventHeader
+    resolution: SuppressionResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.suppression import SuppressionResolution
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, SuppressionResolution):
+            raise ValueError("suppression event requires a suppression resolution")
+        if self.resolution.suppression_before == self.resolution.suppression_after:
+            raise ValueError("suppression event requires a changed suppression value")
+        _require_matching_tick(self.header, self.resolution.tick)
+
+
 CanonicalEvent = (
     MissionStarted
     | AbortRequested
@@ -437,6 +597,14 @@ CanonicalEvent = (
     | MovementProgressed
     | MovementBlocked
     | MovementArrived
+    | FireFired
+    | FireRejected
+    | ProjectileAdvanced
+    | ProjectileExpired
+    | ProjectileImpacted
+    | DamageApplied
+    | InjuryChanged
+    | SuppressionChanged
 )
 
 
@@ -480,6 +648,22 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.MOVEMENT_BLOCKED
     if isinstance(event, MovementArrived):
         return EventKind.MOVEMENT_ARRIVED
+    if isinstance(event, FireFired):
+        return EventKind.FIRE_FIRED
+    if isinstance(event, FireRejected):
+        return EventKind.FIRE_REJECTED
+    if isinstance(event, ProjectileAdvanced):
+        return EventKind.PROJECTILE_ADVANCED
+    if isinstance(event, ProjectileExpired):
+        return EventKind.PROJECTILE_EXPIRED
+    if isinstance(event, ProjectileImpacted):
+        return EventKind.PROJECTILE_IMPACTED
+    if isinstance(event, DamageApplied):
+        return EventKind.DAMAGE_APPLIED
+    if isinstance(event, InjuryChanged):
+        return EventKind.INJURY_CHANGED
+    if isinstance(event, SuppressionChanged):
+        return EventKind.SUPPRESSION_CHANGED
     raise ValueError("event kind requires a canonical event")
 
 
@@ -510,6 +694,14 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 MovementProgressed,
                 MovementBlocked,
                 MovementArrived,
+                FireFired,
+                FireRejected,
+                ProjectileAdvanced,
+                ProjectileExpired,
+                ProjectileImpacted,
+                DamageApplied,
+                InjuryChanged,
+                SuppressionChanged,
             ),
         ):
             raise ValueError("canonical event ordering requires canonical events")

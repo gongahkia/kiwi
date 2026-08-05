@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, translate
 from kiwi.domain.ids import EntityId, IdKind
+from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.projectile_impacts import ProjectileImpact
 from kiwi.sim.projectile_sweeps import ProjectileCollisionKind
 from kiwi.sim.projectiles import Projectile, ProjectileStore
@@ -65,6 +66,7 @@ class SuppressionContribution:
 class SuppressionResolution:
     """One entity's decayed, contributed, and aim-clamped suppression successor."""
 
+    tick: int
     entity_id: EntityId
     suppression_before: int
     decay_basis_points: int
@@ -75,6 +77,12 @@ class SuppressionResolution:
     aim_after: int
 
     def __post_init__(self) -> None:
+        if not isinstance(self.tick, int) or isinstance(self.tick, bool):
+            raise ValueError("suppression resolution tick must be an integer")
+        if not 0 <= self.tick <= MAX_AUTHORITY_TICK:
+            raise ValueError(
+                "suppression resolution tick must fit non-negative signed 64-bit range"
+            )
         if not isinstance(self.entity_id, EntityId):
             raise ValueError("suppression resolution requires an entity ID")
         values = (
@@ -146,6 +154,8 @@ class SuppressionPhase:
         if tuple(resolution.entity_id for resolution in self.resolutions) != entity_ids:
             raise ValueError("suppression resolutions must cover every mission entity")
         for resolution in self.resolutions:
+            if resolution.tick != self.state.tick:
+                raise ValueError("suppression resolutions must share the state tick")
             if (
                 self.state.suppressions.suppression_for(resolution.entity_id)
                 != resolution.suppression_after
@@ -227,6 +237,7 @@ def resolve_projectile_suppression(
         aim_ceiling_after = MAX_AIM_QUALITY_BASIS_POINTS - suppression_after
         aim_after = min(aim_before, aim_ceiling_after)
         resolution = SuppressionResolution(
+            state.tick,
             entity_id,
             suppression_before,
             decay_basis_points,

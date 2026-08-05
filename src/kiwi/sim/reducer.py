@@ -7,6 +7,12 @@ from dataclasses import dataclass, replace
 from kiwi.sim.aim import resolve_aim_progression
 from kiwi.sim.arbitration import PolicyArbitrationPhase, arbitrate_intentions
 from kiwi.sim.clock import FixedTickClock
+from kiwi.sim.combat_events import (
+    emit_damage_events,
+    emit_fire_events,
+    emit_projectile_events,
+    emit_suppression_events,
+)
 from kiwi.sim.commands import (
     ExternalCommand,
     IssueSignal,
@@ -112,18 +118,30 @@ def reduce_one_tick(
     if next_state.phase is MissionPhase.ACTIVE:
         movement_phase = resolve_movement_actions(next_state)
         movement = emit_movement_events(movement_phase)
+        emitted.extend(movement.events)
         aim = resolve_aim_progression(movement.state, clock, movement_phase.resolutions)
         firing = resolve_selected_fire(aim.state, arbitration) if arbitration is not None else None
-        after_firing = firing.state if firing is not None else aim.state
+        if firing is not None:
+            fire_events = emit_fire_events(firing, tuple(emitted))
+            after_firing = fire_events.state
+            emitted.extend(fire_events.events)
+        else:
+            after_firing = aim.state
         source_projectiles = after_firing.projectiles.entries
         impacts = resolve_projectile_impacts(after_firing)
-        damage = resolve_projectile_damage(impacts.state, impacts.impacts)
-        next_state = resolve_projectile_suppression(
-            damage.state,
+        projectile_events = emit_projectile_events(impacts)
+        emitted.extend(projectile_events.events)
+        damage = resolve_projectile_damage(projectile_events.state, impacts.impacts)
+        damage_events = emit_damage_events(damage, projectile_events.events)
+        emitted.extend(damage_events.events)
+        suppression = resolve_projectile_suppression(
+            damage_events.state,
             source_projectiles,
             impacts.impacts,
-        ).state
-        emitted.extend(movement.events)
+        )
+        suppression_events = emit_suppression_events(suppression, projectile_events.events)
+        next_state = suppression_events.state
+        emitted.extend(suppression_events.events)
 
     advanced_state = clock.advance(next_state)
     return TickResult(state=advanced_state, events=canonical_event_order(emitted))

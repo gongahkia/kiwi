@@ -25,7 +25,7 @@ from kiwi.sim.arbitration import (
 )
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
-from kiwi.sim.events import IntentionSelected
+from kiwi.sim.events import FireFired, FireRejected, IntentionSelected, ProjectileAdvanced
 from kiwi.sim.firing import (
     PROJECTILE_LIFETIME_TICKS,
     PROJECTILE_SPEED_MM_PER_TICK,
@@ -144,6 +144,34 @@ def test_compiled_fire_policy_spawns_and_advances_a_projectile() -> None:
         weapon_id, shooter.entity_id, Ammunition(3, 1)
     )
     assert result.state.aim_states.quality_for(shooter.entity_id) == 0
+    selected = next(event for event in result.events if isinstance(event, IntentionSelected))
+    fired = next(event for event in result.events if isinstance(event, FireFired))
+    advanced = next(event for event in result.events if isinstance(event, ProjectileAdvanced))
+    assert fired.header.parent_event_ids == (selected.header.event_id,)
+    assert advanced.resolution.projectile == fired.resolution.projectile
+
+
+def test_compiled_fire_policy_emits_a_selected_request_rejection() -> None:
+    state, shooter = add_entity(MissionState(), position(0, 0))
+    binding = PolicyBinding(
+        shooter.entity_id,
+        _fire_policy_artifact(),
+        FunctionId(0),
+        MEMORY_SCHEMA,
+        RecordValue("Memory", ("label",), (StringValue("ready"),)),
+    )
+
+    result = reduce_one_tick(
+        state,
+        FixedTickClock(TickRate.HZ_30),
+        (StartMission(CommandHeader(0, 0, CommandSource.SCENARIO)),),
+        PolicyBindings((binding,)),
+    )
+
+    selected = next(event for event in result.events if isinstance(event, IntentionSelected))
+    rejected = next(event for event in result.events if isinstance(event, FireRejected))
+    assert rejected.resolution.reason is FireRejectionReason.WEAPON_NOT_FOUND
+    assert rejected.header.parent_event_ids == (selected.header.event_id,)
 
 
 def test_compiled_aim_policy_preserves_automatic_aim_progression() -> None:
