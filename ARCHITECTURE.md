@@ -526,19 +526,15 @@ event IDs. Canonical streams sort by `(tick, event ID)` and reject duplicate IDs
 
 A replay package contains:
 
-- format version;
-- application build identifier;
-- mission content hashes;
-- kiwi bundle hashes;
-- initial state or fixture reference;
-- deterministic seed manifest;
-- command log;
-- scheduled content events;
-- checkpoint hashes;
-- optional snapshots;
-- optional trace references.
+- binary `KWI-RUN\0` format version;
+- application build and simulation-version identifiers;
+- mission and deployed policy-version hashes;
+- self-verifying initial authority snapshot and matching seed;
+- fixed tick rate, canonical external command log, and checkpoint hashes.
 
-Verification re-executes the simulation and compares hashes. A mismatch reports the first divergent checkpoint and, where enabled, the first divergent canonical component.
+Version `1` accepts only exact version-one packets; it has no migration or
+compatibility runner. Seeking snapshots, trace references, content resolution,
+and divergence reports are introduced by their owning replay milestones.
 
 ## 15. Causal tracing architecture
 
