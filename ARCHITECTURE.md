@@ -555,6 +555,10 @@ UTF-8 source, language versions, deployed bytecode, selected entry functions,
 and canonical bytecode source maps to that same replay hash. Consumers require
 its entity-ID-ordered policy-version manifest to match the replay before source
 navigation; it does not alter `.drun` v1 or authoritative execution.
+Run-comparison admission is a pure replay-layer check. It requires identical
+build, simulation version, mission hash, initial snapshot, seed, tick rate,
+and canonical commands while retaining policy-version deltas as ordered output.
+It never runs an incompatible replay or reads presentation state.
 
 ## 15. Causal tracing architecture
 

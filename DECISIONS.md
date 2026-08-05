@@ -780,6 +780,20 @@ is accepted. `.dsrc` introduces no `.drun` field, migration, compatibility
 runner, or authority dependency, preserving the user-approved strict replay
 v1 policy.
 
+### D-070: Run comparison requires one exact non-policy baseline
+
+Before comparing two replay outcomes, Kiwi requires equal application build,
+simulation version, mission hash, initial authority snapshot, root seed, fixed
+tick rate, and canonical command log. Each mismatch is reported as a stable
+structured compatibility failure in a fixed order. This does not claim
+cross-version replay execution: unequal builds or simulation versions are not
+comparable.
+
+Entity-ID-ordered policy-version manifest changes are instead explicit
+comparison output. Additions, removals, and substitutions preserve their
+entity ID and old/new version where present. This permits controlled policy
+experiments without weakening the replay v1 migration policy.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

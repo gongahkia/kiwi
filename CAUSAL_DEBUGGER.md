@@ -413,7 +413,10 @@ Selecting an event displays:
 
 ## 11. Run comparison
 
-Compare runs only when a meaningful common baseline exists, such as same mission content and initial seed.
+Compare runs only when a meaningful common baseline exists: equal application
+build, simulation version, mission content hash, initial authority snapshot,
+root seed, tick rate, and canonical command log. Policy-version changes are
+explicit experiment deltas; any baseline mismatch is a structured incompatibility.
 
 Comparison should identify:
 
