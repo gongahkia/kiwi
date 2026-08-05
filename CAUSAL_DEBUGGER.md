@@ -217,6 +217,13 @@ Retain expression-level evaluations, value summaries, call structure, and detail
 
 The compiler inserts or associates stable expression IDs. The VM records evaluations according to trace mode. Standard-library intrinsics report semantic trace events instead of appearing as opaque Python calls.
 
+The current VM boundary exposes opt-in execution-order `TraceExpression`
+source-map entries on each `VMRunResult`. `PolicyEvaluation` already retains the
+allocated policy invocation ID, so its caller can join those expression IDs to
+one exact policy invocation without changing authority state, IDs, values, or
+fault behaviour. Later trace capture converts these boundary records into the
+versioned graph packet.
+
 Examples:
 
 - `Threat.score` reports its principal inputs and output.

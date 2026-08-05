@@ -303,12 +303,19 @@ class PolicyValidationPhase:
             previous_entity_id = validation.evaluation.entity_id.value
 
 
-def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEvaluationPhase:
+def invoke_policies(
+    state: MissionState,
+    bindings: PolicyBindings,
+    *,
+    capture_expression_trace: bool = False,
+) -> PolicyEvaluationPhase:
     """Invoke applicable policy entries in canonical entity-ID order without state mutation."""
     if not isinstance(state, MissionState):
         raise TypeError("policy invocation requires mission state")
     if not isinstance(bindings, PolicyBindings):
         raise TypeError("policy invocation requires policy bindings")
+    if not isinstance(capture_expression_trace, bool):
+        raise TypeError("policy invocation expression trace capture must be a boolean")
     entity_ids = tuple(entity.entity_id for entity in state.entities)
     if any(binding.entity_id not in entity_ids for binding in bindings.entries):
         raise ValueError("policy bindings must belong to mission entities")
@@ -342,6 +349,7 @@ def invoke_policies(state: MissionState, bindings: PolicyBindings) -> PolicyEval
                 binding.function_id,
                 (observation_runtime_value(observation), input_memory),
                 binding.budgets,
+                capture_expression_trace=capture_expression_trace,
             )
         )
         evaluations.append(

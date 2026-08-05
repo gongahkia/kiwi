@@ -200,18 +200,34 @@ class CoverSelectionTrace:
 
 
 @dataclass(frozen=True, slots=True)
+class VMExpressionTrace:
+    """One source-mapped expression entry executed during a VM invocation."""
+
+    source_map_entry: InstructionSourceMapEntry
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_map_entry, InstructionSourceMapEntry):
+            raise ValueError("VM expression trace requires a source-map entry")
+
+
+@dataclass(frozen=True, slots=True)
 class VMRunResult:
     """A VM value or fault; fallback runs retain their original fault."""
 
     value: RuntimeValue | None
     fault: VMFault | None = None
     cover_selection_traces: tuple[CoverSelectionTrace, ...] = ()
+    expression_traces: tuple[VMExpressionTrace, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.cover_selection_traces, tuple):
             raise ValueError("VM cover selection traces must be an immutable tuple")
         if any(not isinstance(trace, CoverSelectionTrace) for trace in self.cover_selection_traces):
             raise ValueError("VM cover selection traces must be cover selection traces")
+        if not isinstance(self.expression_traces, tuple):
+            raise ValueError("VM expression traces must be an immutable tuple")
+        if any(not isinstance(trace, VMExpressionTrace) for trace in self.expression_traces):
+            raise ValueError("VM expression traces must be VM expression traces")
 
     @property
     def succeeded(self) -> bool:
@@ -326,10 +342,13 @@ def run_vm(
     budgets: VMBudgets = DEFAULT_VM_BUDGETS,
     *,
     capture_cover_selection_trace: bool = False,
+    capture_expression_trace: bool = False,
 ) -> VMRunResult:
     """Validate and execute bytecode with deterministic resource limits."""
     if not isinstance(capture_cover_selection_trace, bool):
         raise ValueError("cover selection trace capture must be a boolean")
+    if not isinstance(capture_expression_trace, bool):
+        raise ValueError("expression trace capture must be a boolean")
     validation = validate_bytecode(module)
     if not validation.is_valid:
         return VMRunResult(
@@ -380,6 +399,7 @@ def run_vm(
     stack: list[RuntimeValue] = []
     resources = _ExecutionResources()
     cover_selection_traces: list[CoverSelectionTrace] = []
+    expression_traces: list[VMExpressionTrace] = []
     while frames:
         active_frame = frames[-1]
         if isinstance(active_frame, _IntrinsicFrame):
@@ -737,6 +757,7 @@ def run_vm(
                 return VMRunResult(
                     value,
                     cover_selection_traces=tuple(cover_selection_traces),
+                    expression_traces=tuple(expression_traces),
                 )
             if isinstance(frames[-1], _IntrinsicFrame):
                 frames[-1].pending_value = value
@@ -744,6 +765,15 @@ def run_vm(
             if not _push(stack, value, budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, TraceExpression):
+            if capture_expression_trace:
+                expression_traces.append(
+                    VMExpressionTrace(
+                        module.source_map.entry_for(
+                            frame.function.function_id,
+                            InstructionIndex(frame.instruction_index - 1),
+                        )
+                    )
+                )
             continue
     raise AssertionError("VM exited without a return or fault")
 

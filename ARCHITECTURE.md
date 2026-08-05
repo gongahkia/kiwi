@@ -565,6 +565,11 @@ on domain, DSL source, and simulation event schemas, but no authoritative
 package imports it. Capture, retention, queries, and replay packaging extend
 this boundary in later milestones.
 
+The VM's opt-in expression capture retains source-map entries in execution
+order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning
+evaluation. These records are non-authoritative and are omitted unless capture
+is requested.
+
 ## 16. pygame application architecture
 
 The desktop application contains modes such as:
