@@ -379,6 +379,6 @@ stable packet hashes, ordered record and edge validation, and rejection of
 unsupported or noncanonical packets.
 
 VM trace instrumentation tests require deterministic source-map expression and
-observation-field entries, stable policy-invocation joins, retained ordered
-contact evidence with confidence and age, and identical traced and untraced
-authority successors.
+observation-field entries, executed conditional and Option-pattern selections,
+stable policy-invocation joins, retained ordered contact evidence with confidence
+and age, and identical traced and untraced authority successors.

@@ -19,7 +19,7 @@ from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import IntegerValue, ListValue, RecordValue, StringValue
 from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.dsl.types import BuiltinType
-from kiwi.dsl.vm import VMRunResult
+from kiwi.dsl.vm import VMBranchSelection, VMRunResult
 from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
@@ -106,6 +106,32 @@ def test_policy_invocation_expression_capture_does_not_change_authority_state() 
     assert traced.evaluations[0].result.value == untraced.evaluations[0].result.value
     assert untraced.evaluations[0].result.expression_traces == ()
     assert traced.evaluations[0].result.expression_traces
+
+
+def test_policy_invocation_branch_capture_does_not_change_authority_state() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    binding = PolicyBinding(
+        entity.entity_id,
+        _branching_policy_artifact(),
+        FunctionId(0),
+        MEMORY_SCHEMA,
+        _memory("initial"),
+    )
+
+    untraced = invoke_policies(state, PolicyBindings((binding,)))
+    traced = invoke_policies(
+        state,
+        PolicyBindings((binding,)),
+        capture_branch_selection_trace=True,
+    )
+
+    assert traced.state == untraced.state
+    assert traced.evaluations[0].result.value == untraced.evaluations[0].result.value
+    assert untraced.evaluations[0].result.branch_selection_traces == ()
+    selections = tuple(
+        trace.selection for trace in traced.evaluations[0].result.branch_selection_traces
+    )
+    assert selections == (VMBranchSelection.ELSE,)
 
 
 def test_policy_invocation_captures_source_mapped_contact_field_reads_with_evidence() -> None:
@@ -390,6 +416,16 @@ def _decision_policy_artifact() -> CompiledArtifact:
         "type Decision = { intentions: List<Wait>, memory: Memory }\n"
         "policy decide(observation: Observation, memory: Memory) -> Decision = "
         "Decision { intentions = [Wait { duration = 1s }], memory = memory }\n"
+    )
+
+
+def _branching_policy_artifact() -> CompiledArtifact:
+    return _artifact(
+        "type SelfObservation = { incapacitated: Bool }\n"
+        "type Observation = { self: SelfObservation }\n"
+        "type Memory = { label: String }\n"
+        "policy decide(observation: Observation, memory: Memory) -> Memory = "
+        "if observation.self.incapacitated then memory else memory\n"
     )
 
 

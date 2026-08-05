@@ -19,9 +19,16 @@ from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
-from kiwi.dsl.runtime_values import BooleanValue, IntegerValue, QuantityValue, StringValue
+from kiwi.dsl.runtime_values import (
+    BooleanValue,
+    IntegerValue,
+    OptionNoneValue,
+    OptionSomeValue,
+    QuantityValue,
+    StringValue,
+)
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
-from kiwi.dsl.vm import VMBudgets, VMFaultCode, run_vm, run_vm_with_fallback
+from kiwi.dsl.vm import VMBranchSelection, VMBudgets, VMFaultCode, run_vm, run_vm_with_fallback
 
 
 def test_vm_executes_calls_frames_slots_and_conditionals_deterministically() -> None:
@@ -73,6 +80,63 @@ def test_vm_expression_trace_retains_executed_source_map_entries_only_when_reque
     )
     assert all(
         trace.source_map_entry.span.file_id == source.file_id for trace in first.expression_traces
+    )
+
+
+def test_vm_branch_selection_trace_retains_executed_conditional_and_option_arms() -> None:
+    source = SourceFile(
+        SourceFileId("branch-trace-vm.dtr"),
+        "policy choose(flag: Bool, value: Option<Int>) -> Int = match value with\n"
+        "| Some(item) -> if flag then item else 0\n"
+        "| None -> 0\n",
+    )
+    compiled = _compiled(source)
+
+    untraced = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(True), OptionSomeValue(IntegerValue(7))),
+    )
+    some_then = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(True), OptionSomeValue(IntegerValue(7))),
+        capture_branch_selection_trace=True,
+    )
+    some_else = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(False), OptionSomeValue(IntegerValue(7))),
+        capture_branch_selection_trace=True,
+    )
+    none = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(True), OptionNoneValue()),
+        capture_branch_selection_trace=True,
+    )
+
+    assert untraced.branch_selection_traces == ()
+    assert some_then.value == untraced.value == IntegerValue(7)
+    assert tuple(trace.selection for trace in some_then.branch_selection_traces) == (
+        VMBranchSelection.SOME,
+        VMBranchSelection.THEN,
+    )
+    assert tuple(trace.selection for trace in some_else.branch_selection_traces) == (
+        VMBranchSelection.SOME,
+        VMBranchSelection.ELSE,
+    )
+    assert tuple(trace.selection for trace in none.branch_selection_traces) == (
+        VMBranchSelection.NONE,
+    )
+    assert none.value == IntegerValue(0)
+    assert all(
+        trace.source_map_entry in compiled.source_map.entries
+        for trace in (
+            *some_then.branch_selection_traces,
+            *some_else.branch_selection_traces,
+            *none.branch_selection_traces,
+        )
     )
 
 
