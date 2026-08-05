@@ -118,8 +118,6 @@ class ReplayPacket:
             raise ValueError("replay command count exceeds the configured limit")
         if canonical_command_order(self.commands) != self.commands:
             raise ValueError("replay commands must use canonical command order")
-        if any(command.header.tick < self.initial_snapshot.tick for command in self.commands):
-            raise ValueError("replay commands cannot precede the initial snapshot")
         if not isinstance(self.checkpoints, tuple):
             raise ValueError("replay checkpoints must be an immutable tuple")
         if not self.checkpoints:
@@ -139,6 +137,12 @@ class ReplayPacket:
             if checkpoint.tick <= previous_tick:
                 raise ValueError("replay checkpoints must use ascending unique ticks")
             previous_tick = checkpoint.tick
+        if any(
+            command.header.tick < self.initial_snapshot.tick
+            or command.header.tick >= self.checkpoints[-1].tick
+            for command in self.commands
+        ):
+            raise ValueError("replay commands must fall within the checkpoint timeline")
 
 
 type ReplayDecodeResult = ReplayPacket | ReplayDecodeFailure

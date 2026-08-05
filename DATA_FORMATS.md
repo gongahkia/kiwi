@@ -258,6 +258,8 @@ signals additionally carry a lowercase identifier and an explicit nullable
 entity target. The replay embeds no Python objects and is bounded to 64 MiB,
 65,536 commands, 65,536 checkpoints, and 256-byte build/version identifiers.
 Commands cannot precede the initial snapshot tick.
+They must also occur before the final checkpoint tick, so every recorded
+command is executed during verification.
 
 Decoders reject version `0`, every version other than `1`, invalid magic,
 duplicate or unknown fields, malformed values, corrupt initial snapshots,
@@ -265,6 +267,12 @@ oversized packets, and valid-but-noncanonical JSON. Version `1` defines only
 recording and verification inputs. Embedded seek snapshots, trace manifests,
 content loading, divergence reports, and completion summaries remain deferred
 to their owning replay milestones.
+
+Verification restores the initial snapshot, requires the supplied
+entity-ID-ordered policy binding versions to match the packet, re-executes the
+canonical command log at the recorded fixed rate, and compares every checkpoint
+hash. A mismatching policy manifest or checkpoint is a structured verification
+failure; detailed first-divergence reporting remains deferred.
 
 ## 10. Command log
 

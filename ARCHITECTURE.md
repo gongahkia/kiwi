@@ -539,6 +539,10 @@ Replay recording captures the initial authority snapshot before headless
 execution, canonicalises its external commands, derives policy identities from
 the immutable bindings used for that execution, and copies only checkpoint
 hashes into the packet.
+Verification restores the packet's initial snapshot, requires matching binding
+versions, and replays each checkpoint interval headlessly before comparing its
+canonical state hash. It returns structured initial-snapshot, policy-version,
+or checkpoint-hash failures; detailed divergence diagnostics remain deferred.
 
 ## 15. Causal tracing architecture
 
