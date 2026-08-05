@@ -6,7 +6,9 @@ import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits, WorldVector
 from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.combat_events import emit_projectile_events, emit_suppression_events
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
+from kiwi.sim.events import ProjectileAdvanced, SuppressionChanged
 from kiwi.sim.projectile_impacts import resolve_projectile_impacts
 from kiwi.sim.projectiles import Projectile, ProjectileStore
 from kiwi.sim.reducer import reduce_one_tick
@@ -42,6 +44,27 @@ def test_path_suppresses_exact_two_metre_near_misses_but_not_owner_or_far_entiti
     near_resolution = _resolution_for(phase, near_miss)
     assert near_resolution.contributions[0].source_kind is SuppressionSourceKind.NEAR_MISS
     assert near_resolution.contributions[0].basis_points == NEAR_MISS_SUPPRESSION_BASIS_POINTS
+
+
+def test_suppression_events_parent_current_tick_projectile_outcomes() -> None:
+    state, entities = _state_with_entities(position(-1_000, 1_000), position(500, 2_000))
+    state = _with_projectile(state, entities[0])
+    impacts = resolve_projectile_impacts(state)
+    projectile_events = emit_projectile_events(impacts)
+    suppression = resolve_projectile_suppression(
+        projectile_events.state,
+        state.projectiles.entries,
+        impacts.impacts,
+    )
+
+    emitted = emit_suppression_events(suppression, projectile_events.events)
+
+    projectile_event = next(
+        event for event in projectile_events.events if isinstance(event, ProjectileAdvanced)
+    )
+    changed = next(event for event in emitted.events if isinstance(event, SuppressionChanged))
+    assert changed.header.parent_event_ids == (projectile_event.header.event_id,)
+    assert changed.resolution.entity_id == entities[1].entity_id
 
 
 def test_operative_impact_suppresses_three_metre_radius_without_a_direct_hit_near_miss() -> None:

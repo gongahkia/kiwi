@@ -13,6 +13,7 @@ from kiwi.domain.geometry import (
 )
 from kiwi.domain.ids import CoverId, IdAllocator, ObstacleId
 from kiwi.sim.clock import FixedTickClock, TickRate
+from kiwi.sim.combat_events import emit_projectile_events
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.covers import (
     CoverHeight,
@@ -22,6 +23,7 @@ from kiwi.sim.covers import (
     CoverSlot,
     CoverStore,
 )
+from kiwi.sim.events import ProjectileAdvanced, ProjectileExpired, ProjectileImpacted
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.projectile_impacts import (
     ProjectileImpact,
@@ -54,6 +56,28 @@ def test_projectile_expiration_occurs_after_its_final_unobstructed_segment() -> 
 
     assert phase.impacts == ()
     assert phase.state.projectiles == ProjectileStore()
+
+
+def test_projectile_outcome_events_retain_advance_expiry_and_impact_results() -> None:
+    advanced = emit_projectile_events(resolve_projectile_impacts(_state_with_projectile()))
+    expired = emit_projectile_events(
+        resolve_projectile_impacts(_state_with_projectile(remaining_ticks=1))
+    )
+    obstacle_id = ObstacleId(1)
+    geometry = MapGeometry(
+        rectangle(-2_000, -2_000, 2_000, 2_000),
+        (MapObstacle(obstacle_id, rectangle(400, -100, 600, 100)),),
+    )
+    impacted = emit_projectile_events(
+        resolve_projectile_impacts(
+            _state_with_projectile(map_geometry=geometry, obstacle_ids=(obstacle_id,))
+        )
+    )
+
+    assert isinstance(advanced.events[0], ProjectileAdvanced)
+    assert isinstance(expired.events[0], ProjectileExpired)
+    assert isinstance(impacted.events[0], ProjectileImpacted)
+    assert impacted.events[0].impact.collision.target_id == obstacle_id
 
 
 def test_obstacle_impact_consumes_the_projectile_at_its_collision_point() -> None:
