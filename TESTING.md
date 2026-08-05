@@ -258,6 +258,11 @@ headless fixture asserts two advances, an operative impact, damage and injury
 parents, retained Fire provenance, and deterministic near-miss then impact
 suppression across three ticks.
 
+`causal_threshold_injury` pairs a contact-precision threshold policy with a
+one-shot hostile policy. It asserts the `Some` and threshold branches, observed
+contact precision and visible cover, advance source span and route, then enemy
+fire, projectile impact, injury, and the retained physical consequence chain.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:

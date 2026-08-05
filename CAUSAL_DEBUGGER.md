@@ -476,6 +476,14 @@ A required test fixture contains:
 
 The debugger must return a chain from the threshold literal or comparison through the movement intention to the injury, while also showing the enemy fire and projectile impact as direct physical causes.
 
+`causal_threshold_injury` is the deterministic integration fixture for this
+scenario. Its player policy takes the precise-contact branch at the one-metre
+uncertainty threshold and emits one advance; its hostile policy fires once and
+causes an operative impact and injury. The fixture preserves source spans,
+branch selection, observation-read evidence, and the retained
+injury-to-impact physical consequence chain as independently verifiable inputs
+to that explanation.
+
 ## 17. Acceptance criteria
 
 - Major consequences have structured causal parents.
