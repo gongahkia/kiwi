@@ -566,8 +566,10 @@ on domain, DSL source, and simulation event schemas, but no authoritative
 package imports it. Its decision-level policy-lifecycle projector consumes the
 canonical policy event phase and matching state hash to retain each intention
 origin, policy-evaluation/emission/resolution event IDs, arbitration outcome,
-and competitor link. Retention, queries, and replay packaging extend this
-boundary in later milestones.
+and competitor link. Its run projector extends that graph with every canonical
+world event and header-parent edge, bridges retained projectile provenance to
+impacts, and emits injury consequences. Retention, queries, and replay packaging
+extend this boundary in later milestones.
 
 The VM's opt-in expression capture retains source-map entries in execution
 order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning

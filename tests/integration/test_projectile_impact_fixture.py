@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.ids import EventId, IntentionId
 from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import CompiledArtifact, compile_artifact
@@ -23,6 +24,7 @@ from kiwi.sim.events import (
     DamageApplied,
     FireFired,
     InjuryChanged,
+    IntentionSelected,
     ProjectileAdvanced,
     ProjectileImpacted,
     SuppressionChanged,
@@ -32,6 +34,16 @@ from kiwi.sim.policies import PolicyBinding, PolicyBindings
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
+from kiwi.trace.capture import capture_run_trace
+from kiwi.trace.model import (
+    CausalTrace,
+    ConsequenceTrace,
+    IntentionResolutionTrace,
+    IntentionTrace,
+    TraceConsequenceKind,
+    TraceEdgeKind,
+    WorldEventTrace,
+)
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "policies" / "projectile_impact_policy.dtr"
@@ -50,6 +62,7 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
     damage = _only_event(first, DamageApplied)
     injury = _only_event(first, InjuryChanged)
     suppression = tuple(event for event in first.events if isinstance(event, SuppressionChanged))
+    trace = capture_run_trace(first, hash_canonical_state(first.state))
     fire_text = "Fire { target = Position { x = 10m, y = 0m }, weapon_id = 1 }"
     fire_start = source.text.index(fire_text)
 
@@ -88,6 +101,44 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
     assert first.state.policy_memory.memory_for(shooter.entity_id) == RecordValue(
         "Memory", ("fired",), (BooleanValue(True),)
     )
+    assert tuple(
+        record.event_id for record in trace.records if isinstance(record, WorldEventTrace)
+    ) == tuple(event.header.event_id for event in first.events)
+    consequences = tuple(record for record in trace.records if isinstance(record, ConsequenceTrace))
+    assert tuple(
+        (record.kind, record.subject_entity_ids, record.event_id, record.summary)
+        for record in consequences
+    ) == (
+        (
+            TraceConsequenceKind.INJURY,
+            (target.entity_id,),
+            injury.header.event_id,
+            "injury changed from severe to incapacitated",
+        ),
+    )
+    fired_intention_id = fired.resolution.candidate.origin.intention_id
+    selected = next(
+        event
+        for event in first.events
+        if isinstance(event, IntentionSelected)
+        and event.resolution.candidate.origin.intention_id == fired_intention_id
+    )
+    edges = tuple(
+        (edge.source_node_id.value, edge.target_node_id.value, edge.kind) for edge in trace.edges
+    )
+    fired_origin_node_id = _intention_trace_node_id(trace, fired_intention_id)
+    fired_resolution_node_id = _resolution_trace_node_id(trace, fired_intention_id)
+    selected_world_node_id = _world_trace_node_id(trace, selected.header.event_id)
+    impact_world_node_id = _world_trace_node_id(trace, impact_event.header.event_id)
+    damage_world_node_id = _world_trace_node_id(trace, damage.header.event_id)
+    injury_world_node_id = _world_trace_node_id(trace, injury.header.event_id)
+    consequence_node_id = consequences[0].node_id.value
+    assert (fired_origin_node_id, fired_resolution_node_id, TraceEdgeKind.VALIDATED_BY) in edges
+    assert (fired_resolution_node_id, selected_world_node_id, TraceEdgeKind.CAUSED_EVENT) in edges
+    assert (fired_origin_node_id, impact_world_node_id, TraceEdgeKind.CAUSED_EVENT) in edges
+    assert (impact_world_node_id, damage_world_node_id, TraceEdgeKind.CAUSED_EVENT) in edges
+    assert (damage_world_node_id, injury_world_node_id, TraceEdgeKind.CAUSED_EVENT) in edges
+    assert (injury_world_node_id, consequence_node_id, TraceEdgeKind.CONTRIBUTED_TO) in edges
 
 
 def _run_fixture() -> tuple[HeadlessRun, EntityState, EntityState, SourceFile]:
@@ -132,6 +183,27 @@ def _only_event[Event](run: HeadlessRun, event_type: type[Event]) -> Event:
     events = tuple(event for event in run.events if isinstance(event, event_type))
     assert len(events) == 1
     return events[0]
+
+
+def _intention_trace_node_id(trace: CausalTrace, intention_id: IntentionId) -> int:
+    for record in trace.records:
+        if isinstance(record, IntentionTrace) and record.origin.intention_id == intention_id:
+            return record.node_id.value
+    raise AssertionError("trace has no retained intention origin")
+
+
+def _resolution_trace_node_id(trace: CausalTrace, intention_id: IntentionId) -> int:
+    for record in trace.records:
+        if isinstance(record, IntentionResolutionTrace) and record.intention_id == intention_id:
+            return record.node_id.value
+    raise AssertionError("trace has no retained intention resolution")
+
+
+def _world_trace_node_id(trace: CausalTrace, event_id: EventId) -> int:
+    for record in trace.records:
+        if isinstance(record, WorldEventTrace) and record.event_id == event_id:
+            return record.node_id.value
+    raise AssertionError("trace has no retained world event")
 
 
 def _position(x: int, y: int) -> WorldPosition:

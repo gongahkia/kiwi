@@ -383,4 +383,6 @@ observation-field entries, executed conditional and Option-pattern selections,
 stable policy-invocation joins, retained ordered contact evidence with confidence
 and age, stable standard-library List selection and ranking source indices,
 Cover candidate decisions, canonical intention-origin links through policy
-validation and arbitration, and identical traced and untraced authority successors.
+validation and arbitration, canonical world-event parent chains, projectile
+provenance through injury consequences, and identical traced and untraced
+authority successors.
