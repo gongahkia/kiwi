@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
+from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits, WorldVector
 from kiwi.domain.ids import EventId
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.sim.clock import FixedTickClock, TickRate
@@ -27,11 +27,20 @@ from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.pathing import Path, PathQuery
+from kiwi.sim.projectiles import Projectile, ProjectileStore
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.snapshot import capture_authority_snapshot
 from kiwi.sim.state import MissionPhase, MissionState, MovementAction, add_entity
-from kiwi.sim.weapons import SuppressionState, SuppressionStore
+from kiwi.sim.weapons import (
+    AimState,
+    AimStore,
+    Ammunition,
+    EquippedWeapon,
+    SuppressionState,
+    SuppressionStore,
+    WeaponStore,
+)
 
 
 def test_determinism_harness_repeats_checkpoint_hashes_exactly() -> None:
@@ -121,6 +130,70 @@ def test_differential_report_includes_suppression() -> None:
 
     assert difference is not None
     assert difference.path == "suppressions/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_weapons_before_later_allocator_state() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    weapon_id, allocator = expected.id_allocator.allocate_weapon()
+    actual = replace(
+        expected,
+        id_allocator=allocator,
+        weapons=WeaponStore((EquippedWeapon(weapon_id, entity.entity_id, Ammunition(3, 2)),)),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "weapons/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_aim_states() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    actual = replace(expected, aim_states=AimStore((AimState(entity.entity_id, 1_500),)))
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "aim_states/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_projectiles_before_later_allocator_state() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    projectile_id, allocator = expected.id_allocator.allocate_projectile()
+    intention_id, allocator = allocator.allocate_intention()
+    actual = replace(
+        expected,
+        id_allocator=allocator,
+        projectiles=ProjectileStore(
+            (
+                Projectile(
+                    projectile_id,
+                    entity.entity_id,
+                    intention_id,
+                    entity.position,
+                    WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
+                    30,
+                ),
+            )
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "projectiles/count"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

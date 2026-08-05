@@ -292,6 +292,56 @@ def first_canonical_state_difference(
                 expected_version.version.digest.hex(),
                 actual_version.version.digest.hex(),
             )
+    if len(expected.weapons.entries) != len(actual.weapons.entries):
+        return _difference(
+            "weapons/count", len(expected.weapons.entries), len(actual.weapons.entries)
+        )
+    for index, (expected_weapon, actual_weapon) in enumerate(
+        zip(expected.weapons.entries, actual.weapons.entries, strict=True)
+    ):
+        prefix = f"weapons/{index}"
+        if expected_weapon.weapon_id != actual_weapon.weapon_id:
+            return _difference(
+                f"{prefix}/weapon_id",
+                expected_weapon.weapon_id.value,
+                actual_weapon.weapon_id.value,
+            )
+        if expected_weapon.owner_entity_id != actual_weapon.owner_entity_id:
+            return _difference(
+                f"{prefix}/owner_entity_id",
+                expected_weapon.owner_entity_id.value,
+                actual_weapon.owner_entity_id.value,
+            )
+        if expected_weapon.ammunition.capacity != actual_weapon.ammunition.capacity:
+            return _difference(
+                f"{prefix}/ammunition/capacity",
+                expected_weapon.ammunition.capacity,
+                actual_weapon.ammunition.capacity,
+            )
+        if expected_weapon.ammunition.loaded_rounds != actual_weapon.ammunition.loaded_rounds:
+            return _difference(
+                f"{prefix}/ammunition/loaded_rounds",
+                expected_weapon.ammunition.loaded_rounds,
+                actual_weapon.ammunition.loaded_rounds,
+            )
+    if len(expected.aim_states.entries) != len(actual.aim_states.entries):
+        return _difference(
+            "aim_states/count", len(expected.aim_states.entries), len(actual.aim_states.entries)
+        )
+    for index, (expected_aim, actual_aim) in enumerate(
+        zip(expected.aim_states.entries, actual.aim_states.entries, strict=True)
+    ):
+        prefix = f"aim_states/{index}"
+        if expected_aim.entity_id != actual_aim.entity_id:
+            return _difference(
+                f"{prefix}/entity_id", expected_aim.entity_id.value, actual_aim.entity_id.value
+            )
+        if expected_aim.quality_basis_points != actual_aim.quality_basis_points:
+            return _difference(
+                f"{prefix}/quality_basis_points",
+                expected_aim.quality_basis_points,
+                actual_aim.quality_basis_points,
+            )
     if len(expected.suppressions.entries) != len(actual.suppressions.entries):
         return _difference(
             "suppressions/count",
@@ -313,6 +363,35 @@ def first_canonical_state_difference(
                 f"{prefix}/basis_points",
                 expected_suppression.basis_points,
                 actual_suppression.basis_points,
+            )
+    if len(expected.projectiles.entries) != len(actual.projectiles.entries):
+        return _difference(
+            "projectiles/count", len(expected.projectiles.entries), len(actual.projectiles.entries)
+        )
+    for index, (expected_projectile, actual_projectile) in enumerate(
+        zip(expected.projectiles.entries, actual.projectiles.entries, strict=True)
+    ):
+        prefix = f"projectiles/{index}"
+        for field in ("projectile_id", "owner_entity_id", "source_intention_id"):
+            expected_value = getattr(expected_projectile, field).value
+            actual_value = getattr(actual_projectile, field).value
+            if expected_value != actual_value:
+                return _difference(f"{prefix}/{field}", expected_value, actual_value)
+        for field in ("x", "y", "elevation"):
+            expected_value = getattr(expected_projectile.position, field).value
+            actual_value = getattr(actual_projectile.position, field).value
+            if expected_value != actual_value:
+                return _difference(f"{prefix}/position/{field}", expected_value, actual_value)
+        for field in ("dx", "dy"):
+            expected_value = getattr(expected_projectile.velocity, field).value
+            actual_value = getattr(actual_projectile.velocity, field).value
+            if expected_value != actual_value:
+                return _difference(f"{prefix}/velocity/{field}", expected_value, actual_value)
+        if expected_projectile.remaining_ticks != actual_projectile.remaining_ticks:
+            return _difference(
+                f"{prefix}/remaining_ticks",
+                expected_projectile.remaining_ticks,
+                actual_projectile.remaining_ticks,
             )
     if len(expected.conditions.entries) != len(actual.conditions.entries):
         return _difference(
