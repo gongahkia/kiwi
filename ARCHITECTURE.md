@@ -563,8 +563,11 @@ Stable IDs connect these records. Trace capture must be configurable to avoid re
 edges; `kiwi.trace.format` encodes one `KWI-TRACE\0` version-1 packet with a
 run-state hash and no authority-state reference. The trace package may depend
 on domain, DSL source, and simulation event schemas, but no authoritative
-package imports it. Capture, retention, queries, and replay packaging extend
-this boundary in later milestones.
+package imports it. Its decision-level policy-lifecycle projector consumes the
+canonical policy event phase and matching state hash to retain each intention
+origin, policy-evaluation/emission/resolution event IDs, arbitration outcome,
+and competitor link. Retention, queries, and replay packaging extend this
+boundary in later milestones.
 
 The VM's opt-in expression capture retains source-map entries in execution
 order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning

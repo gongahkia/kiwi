@@ -161,6 +161,14 @@ one `intention_selected` or `intention_rejected` child of that candidate. The
 candidate retains its full `IntentionOrigin`; a rejection retains its stable
 reason and competing intention IDs.
 
+The decision-level policy trace projects that canonical chain into an
+`IntentionTrace` and an `IntentionResolutionTrace` for every emitted candidate.
+Each resolution retains the ordered policy-evaluation, emission, and
+selected/rejected event IDs. A selected origin has a `VALIDATED_BY` edge to its
+resolution; a rejected origin has a `REJECTED_BECAUSE` edge, and every winning
+competitor has a `SELECTED_OVER` edge to that rejection. The projection verifies
+the parent chain and matching canonical state hash without changing authority.
+
 When policy validation fails, the corresponding `policy_evaluated` event
 retains the structured failure and its resolved decision is a `hold` fallback:
 the input memory persists and no candidate is emitted.
@@ -230,7 +238,10 @@ capture. `PolicyEvaluation` already retains the allocated policy invocation ID,
 so its caller can join every stream to one exact policy invocation without
 changing authority state, IDs, values, or fault behaviour. Input-only metadata
 is stripped from top-level VM results. Later trace capture converts these
-boundary records into the versioned graph packet.
+boundary records into the versioned graph packet. The current policy-lifecycle
+projector already converts canonical intention validation and arbitration events
+into a decision-level packet; later capture adds the remaining VM and world-event
+graph records.
 
 Examples:
 
