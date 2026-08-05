@@ -177,7 +177,9 @@ def _apply_fired_projectile(state: MissionState, resolution: FireResolution) -> 
     weapon = state.weapons.weapon_for(intention.weapon_id)
     if weapon is None:
         raise AssertionError("fired projectile source weapon must remain equipped")
-    _, id_allocator = state.id_allocator.allocate_projectile()
+    allocated_projectile_id, id_allocator = state.id_allocator.allocate_projectile()
+    if allocated_projectile_id != projectile.projectile_id:
+        raise AssertionError("fired projectile allocation must retain its resolved ID")
     reduced_weapon = EquippedWeapon(
         weapon.weapon_id,
         weapon.owner_entity_id,
