@@ -595,6 +595,19 @@ The sweep query does not mutate projectile position or lifetime, remove a
 projectile, emit an event, damage an operative, or alter cover. Those impact
 effects remain a later M10 phase consuming this selected collision.
 
+### D-060: Projectile impacts consume collisions and expire after final travel
+
+After movement and aim resolution, every live projectile receives exactly one
+ID-ordered swept-impact resolution. A selected obstacle, cover, or operative
+collision consumes the projectile at its collision point and retains a
+transient impact result containing the original projectile and collision for
+the later damage and event phases. A projectile with no collision advances to
+its exact endpoint and loses one remaining tick; one with one remaining tick
+travels its final unobstructed segment then expires. This does not damage an
+operative, change cover integrity, suppress entities, or emit events; those
+effects remain dedicated later M10 phases. It adds no durable state field or
+canonical-format revision.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

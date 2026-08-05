@@ -126,6 +126,7 @@ Small deterministic fixtures test:
 - projectile canonical state, provenance, ordering, and version rejection;
 - projectile tunnelling prevention;
 - earliest impact selection and obstacle, cover, operative tie precedence;
+- projectile consumption, final-segment expiry, and map-boundary deferral;
 - damage and suppression;
 - medical interruption;
 - objective completion;
