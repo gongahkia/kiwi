@@ -359,10 +359,11 @@ entity-ID-ordered sparse store of BLAKE2b deployed-policy versions, immutable
 ID allocator state, a `CoverId`-ordered dynamic cover store, a `(CoverId,
 slot index)`-ordered cover-reservation store, a `WeaponId`-ordered owner-bound
 magazine store, an entity-ID-ordered sparse nonzero aim-quality store, an
-entity-ID-ordered sparse nonzero suppression store, and a `(tick, sequence)`
-scheduled-event queue. State components are added only with the task that
-defines their invariants; canonical encoding follows this explicit state-field
-order.
+entity-ID-ordered sparse nonzero suppression store, a `ProjectileId`-ordered
+live point-projectile store with owner, source intention, exact position,
+per-tick vector, and remaining lifetime, and a `(tick, sequence)` scheduled-
+event queue. State components are added only with the task that defines their
+invariants; canonical encoding follows this explicit state-field order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor

@@ -578,17 +578,19 @@ suppression source or decay, injury modifier, or movement-speed modifier.
 
 ### 15.1 Spawn
 
-A successful fire resolution creates a projectile with:
+A live projectile is a projectile-ID-ordered point state with:
 
 - ID;
 - owner;
 - source intention;
 - position;
-- velocity;
-- radius or ray representation;
-- damage profile;
+- nonzero exact millimetres-per-tick velocity;
 - remaining lifetime;
-- provenance.
+
+It has no radius, damage profile, collision, advance, expiration, ammunition,
+or fire-validation semantics until their dedicated phases. Source intentions
+and owners must already have allocated IDs; projectiles may be outside map
+bounds until boundary collision defines removal.
 
 ### 15.2 Advance
 
@@ -682,9 +684,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`15` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`16` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `14`, unsupported versions, and noncanonical values are
+versions `1` through `15`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -702,6 +704,7 @@ Include:
 - active movement actions;
 - cover segments, slots, height, and integrity;
 - equipped weapon magazines and nonzero aim qualities and suppressions;
+- live projectile position, velocity, ownership, origin, and lifetime;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
 - live message ledger entries, send-event IDs, and send sequence;

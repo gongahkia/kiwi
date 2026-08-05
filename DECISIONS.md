@@ -561,6 +561,21 @@ or movement-speed penalty.
 contacts. Versions `1` through `14` are rejected with no migration because
 development state is disposable.
 
+### D-058: Projectiles are owner-bound point states with explicit origin and lifetime
+
+A live projectile has an allocated `ProjectileId`, owner `EntityId`, allocated
+source `IntentionId`, exact position and elevation, nonzero integer
+millimetres-per-tick `WorldVector`, and a positive bounded remaining lifetime.
+`ProjectileStore` is strictly projectile-ID ordered. This commits only to a
+point representation: radius, damage profile, collision, advancement,
+expiration, ammunition consumption, and firing validation remain their later
+M10 tasks. Projectiles may be outside map bounds because collision resolution
+has not yet defined boundary removal.
+
+`KWI-STATE\0` version `16` serialises projectile state after suppression and
+before contacts. Versions `1` through `15` are rejected with no migration
+because development state is disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

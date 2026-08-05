@@ -31,10 +31,10 @@ Kiwi currently uses a small deterministic binary encoding for:
 - replay checkpoints;
 - trace chunks where size matters.
 
-`KWI-STATE\0` version `15` is the canonical mission-state payload. It uses a
+`KWI-STATE\0` version `16` is the canonical mission-state payload. It uses a
 fixed big-endian field order, fixed-width scalar values, and ordered bounded
 collections; it contains no Python object serialisation. BLAKE2b-256 hashes the
-exact payload. Decoders reject versions `1` through `14`, unsupported versions,
+exact payload. Decoders reject versions `1` through `15`, unsupported versions,
 malformed values, size limits, and trailing bytes rather than reinterpreting data.
 
 ## 4. Policy source
@@ -199,12 +199,12 @@ Snapshots must contain all authority required to resume. Presentation state is e
 
 The current internal canonical-state payload is distinct from the future
 `.dsnap` container: it encodes the authority state only, starting with
-`KWI-STATE\0`, 16-bit format version `15`, tick, phase, entities, optional map
+`KWI-STATE\0`, 16-bit format version `16`, tick, phase, entities, optional map
 geometry, entity-ID ordered active movement actions, policy-memory records,
 entity-ID ordered policy-version records, cover geometry, and `(cover ID, slot
 index)`-ordered cover reservations, weapon-ID-ordered equipped weapons with
-bounded magazines, entity-ID-ordered nonzero aim qualities, and entity-ID-
-ordered nonzero suppression values,
+bounded magazines, entity-ID-ordered nonzero aim qualities, entity-ID-ordered
+nonzero suppression values, and projectile-ID-ordered live point projectiles,
 type-local ID allocator counters, scheduled-event queue, random-algorithm
 version, root seed, and named random-stream states.
 Counts are 32-bit big-endian values bounded to 65,536 items. Memory values are
@@ -214,7 +214,7 @@ rejected. Entity coordinates are signed 64-bit millimetres; elevation,
 sequences, stream state, and seed use unsigned 64-bit values. A policy-version
 record contains an entity ID and a 32-byte BLAKE2b digest of canonical `KWI-BC`
 bytes plus its selected entry function ID. Versions `1` through `4` are
-intentionally unsupported. Versions `5` through `14` are also intentionally
+intentionally unsupported. Versions `5` through `15` are also intentionally
 unsupported. A snapshot container will add content/replay metadata
 around this payload without changing its hash semantics. Milestone 5's in-memory
 `AuthoritySnapshot` carries that payload with a redundant tick and BLAKE2b-256
