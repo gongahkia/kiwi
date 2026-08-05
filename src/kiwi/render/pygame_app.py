@@ -1,4 +1,4 @@
-"""Minimal pygame-ce window, logical canvas, and map-bounds renderer."""
+"""Minimal pygame-ce window, logical canvas, and tactical renderer."""
 
 from __future__ import annotations
 
@@ -8,7 +8,13 @@ import pygame
 
 from kiwi.render.camera import Camera, radius_to_canvas, rectangle_to_canvas, world_to_canvas
 from kiwi.render.pygame_lifecycle import initialise_pygame
-from kiwi.sim.snapshot import PresentationCover, PresentationPoint, PresentationSnapshot
+from kiwi.sim.snapshot import (
+    PresentationCover,
+    PresentationImpact,
+    PresentationOperative,
+    PresentationPoint,
+    PresentationSnapshot,
+)
 
 DEFAULT_WINDOW_SIZE = (960, 540)
 DEFAULT_LOGICAL_CANVAS_SIZE = (480, 270)
@@ -30,9 +36,20 @@ COVER_DAMAGED_COLOR = (102, 61, 64)
 COVER_THREAT_DIRECTION_COLOR = (244, 117, 94)
 COVER_SLOT_EMPTY_COLOR = (192, 201, 191)
 COVER_SLOT_OCCUPIED_COLOR = (255, 237, 152)
+PROJECTILE_COLOR = (255, 231, 112)
+IMPACT_OBSTACLE_COLOR = (219, 229, 234)
+IMPACT_COVER_COLOR = (255, 175, 84)
+IMPACT_OPERATIVE_COLOR = (239, 99, 99)
+AIM_COLOR = (111, 216, 238)
+SUPPRESSION_COLOR = (244, 117, 94)
 OPERATIVE_RADIUS_PIXELS = 4
 OBJECTIVE_RADIUS_PIXELS = 6
 CONTACT_RADIUS_PIXELS = 2
+PROJECTILE_RADIUS_PIXELS = 2
+IMPACT_RADIUS_PIXELS = 4
+AIM_INDICATOR_MAX_HEIGHT_PIXELS = 4
+SUPPRESSION_RING_MIN_RADIUS_PIXELS = 7
+SUPPRESSION_RING_MAX_RADIUS_PIXELS = 9
 COVER_LOW_WIDTH_PIXELS = 2
 COVER_HIGH_WIDTH_PIXELS = 3
 COVER_SLOT_EMPTY_RADIUS_PIXELS = 3
@@ -99,7 +116,7 @@ def render_tactical_view(
     snapshot: PresentationSnapshot,
     camera: Camera,
 ) -> None:
-    """Render copied map, obstacles, paths, operatives, and an optional marker."""
+    """Render copied map, overlays, operatives, projectiles, and current impacts."""
     render_basic_map(logical_canvas, snapshot, camera)
     if snapshot.map_geometry is not None:
         for map_obstacle in snapshot.map_geometry.obstacles:
@@ -164,12 +181,69 @@ def render_tactical_view(
             width=1,
         )
     for operative in snapshot.operatives:
+        _render_operative_combat_state(logical_canvas, operative, camera)
         pygame.draw.circle(
             logical_canvas,
             OPERATIVE_COLOR,
             world_to_canvas(operative.position, logical_canvas.get_size(), camera),
             OPERATIVE_RADIUS_PIXELS,
         )
+    for projectile in snapshot.projectiles:
+        pygame.draw.circle(
+            logical_canvas,
+            PROJECTILE_COLOR,
+            world_to_canvas(projectile.position, logical_canvas.get_size(), camera),
+            PROJECTILE_RADIUS_PIXELS,
+        )
+    for impact in snapshot.impacts:
+        _render_impact(logical_canvas, impact, camera)
+
+
+def _render_operative_combat_state(
+    logical_canvas: pygame.Surface,
+    operative: PresentationOperative,
+    camera: Camera,
+) -> None:
+    position = world_to_canvas(operative.position, logical_canvas.get_size(), camera)
+    if operative.aim_quality_basis_points > 0:
+        height = max(
+            1,
+            operative.aim_quality_basis_points * AIM_INDICATOR_MAX_HEIGHT_PIXELS // 10_000,
+        )
+        start = (position[0], position[1] - OPERATIVE_RADIUS_PIXELS - 1)
+        pygame.draw.line(logical_canvas, AIM_COLOR, start, (start[0], start[1] - height))
+    if operative.suppression_basis_points > 0:
+        radius = SUPPRESSION_RING_MIN_RADIUS_PIXELS + (
+            operative.suppression_basis_points
+            * (SUPPRESSION_RING_MAX_RADIUS_PIXELS - SUPPRESSION_RING_MIN_RADIUS_PIXELS)
+            // 10_000
+        )
+        pygame.draw.circle(logical_canvas, SUPPRESSION_COLOR, position, radius, width=1)
+
+
+def _render_impact(
+    logical_canvas: pygame.Surface,
+    impact: PresentationImpact,
+    camera: Camera,
+) -> None:
+    color = {
+        "obstacle": IMPACT_OBSTACLE_COLOR,
+        "cover": IMPACT_COVER_COLOR,
+        "operative": IMPACT_OPERATIVE_COLOR,
+    }[impact.collision_kind]
+    position = world_to_canvas(impact.position, logical_canvas.get_size(), camera)
+    pygame.draw.line(
+        logical_canvas,
+        color,
+        (position[0] - IMPACT_RADIUS_PIXELS, position[1]),
+        (position[0] + IMPACT_RADIUS_PIXELS, position[1]),
+    )
+    pygame.draw.line(
+        logical_canvas,
+        color,
+        (position[0], position[1] - IMPACT_RADIUS_PIXELS),
+        (position[0], position[1] + IMPACT_RADIUS_PIXELS),
+    )
 
 
 def _render_cover(

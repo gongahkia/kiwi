@@ -116,6 +116,8 @@ def test_presentation_snapshot_copies_display_values_without_mutating_authority(
         "contacts",
         "visibility_overlays",
         "covers",
+        "projectiles",
+        "impacts",
     )
     assert snapshot == PresentationSnapshot(
         tick=0,

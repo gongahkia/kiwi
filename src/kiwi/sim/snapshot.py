@@ -8,6 +8,7 @@ from enum import StrEnum
 from kiwi.domain.geometry import WorldPosition, WorldRectangle
 from kiwi.domain.ids import EntityId
 from kiwi.sim.covers import CoverSegment
+from kiwi.sim.events import CanonicalEvent, ProjectileImpacted, canonical_event_order
 from kiwi.sim.hashing import (
     StateDecodeFailure,
     StateHash,
@@ -17,6 +18,7 @@ from kiwi.sim.hashing import (
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
+from kiwi.sim.projectiles import Projectile
 from kiwi.sim.state import EntityState, MissionState
 from kiwi.sim.visibility import VisibleGeometry
 
@@ -140,11 +142,13 @@ class PresentationMap:
 
 @dataclass(frozen=True, slots=True)
 class PresentationOperative:
-    """One display-safe operative position and current planned path."""
+    """One display-safe operative position, path, aim, and suppression state."""
 
     entity_id: int
     position: PresentationPoint
     path: tuple[PresentationPoint, ...] = ()
+    aim_quality_basis_points: int = 0
+    suppression_basis_points: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, int) or isinstance(self.entity_id, bool):
@@ -157,6 +161,52 @@ class PresentationOperative:
             raise ValueError("presentation operative path must be an immutable tuple")
         if any(not isinstance(point, PresentationPoint) for point in self.path):
             raise ValueError("presentation operative path must contain presentation points")
+        for value, label in (
+            (self.aim_quality_basis_points, "aim quality"),
+            (self.suppression_basis_points, "suppression"),
+        ):
+            if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10_000:
+                raise ValueError(f"presentation operative {label} must be between zero and 10,000")
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationProjectile:
+    """One display-safe live projectile position."""
+
+    projectile_id: int
+    owner_entity_id: int
+    position: PresentationPoint
+
+    def __post_init__(self) -> None:
+        for value, label in (
+            (self.projectile_id, "projectile ID"),
+            (self.owner_entity_id, "owner entity ID"),
+        ):
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise ValueError(f"presentation projectile {label} must be positive")
+        if not isinstance(self.position, PresentationPoint):
+            raise ValueError("presentation projectile position must be a presentation point")
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationImpact:
+    """One display-safe impact marker copied from a projectile impact event."""
+
+    projectile_id: int
+    position: PresentationPoint
+    collision_kind: str
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.projectile_id, int)
+            or isinstance(self.projectile_id, bool)
+            or self.projectile_id <= 0
+        ):
+            raise ValueError("presentation impact projectile ID must be positive")
+        if not isinstance(self.position, PresentationPoint):
+            raise ValueError("presentation impact position must be a presentation point")
+        if self.collision_kind not in ("obstacle", "cover", "operative"):
+            raise ValueError("presentation impact collision kind is unsupported")
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,6 +381,8 @@ class PresentationSnapshot:
     contacts: tuple[PresentationContact, ...] = ()
     visibility_overlays: tuple[PresentationVisibilityOverlay, ...] = ()
     covers: tuple[PresentationCover, ...] = ()
+    projectiles: tuple[PresentationProjectile, ...] = ()
+    impacts: tuple[PresentationImpact, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.tick, int) or isinstance(self.tick, bool):
@@ -355,6 +407,10 @@ class PresentationSnapshot:
             raise ValueError("presentation snapshot visibility overlays must be an immutable tuple")
         if not isinstance(self.covers, tuple):
             raise ValueError("presentation snapshot covers must be an immutable tuple")
+        if not isinstance(self.projectiles, tuple):
+            raise ValueError("presentation snapshot projectiles must be an immutable tuple")
+        if not isinstance(self.impacts, tuple):
+            raise ValueError("presentation snapshot impacts must be an immutable tuple")
         previous_entity_id = 0
         for operative in self.operatives:
             if not isinstance(operative, PresentationOperative):
@@ -363,6 +419,24 @@ class PresentationSnapshot:
                 raise ValueError("presentation snapshot operatives must be ID ordered")
             previous_entity_id = operative.entity_id
         operative_ids = tuple(operative.entity_id for operative in self.operatives)
+        previous_projectile_id = 0
+        for projectile in self.projectiles:
+            if not isinstance(projectile, PresentationProjectile):
+                raise ValueError(
+                    "presentation snapshot projectiles must be presentation projectiles"
+                )
+            if projectile.projectile_id <= previous_projectile_id:
+                raise ValueError("presentation snapshot projectiles must be ID ordered")
+            if projectile.owner_entity_id not in operative_ids:
+                raise ValueError("presentation projectile owners must be snapshot operatives")
+            previous_projectile_id = projectile.projectile_id
+        previous_impact_projectile_id = 0
+        for impact in self.impacts:
+            if not isinstance(impact, PresentationImpact):
+                raise ValueError("presentation snapshot impacts must be presentation impacts")
+            if impact.projectile_id <= previous_impact_projectile_id:
+                raise ValueError("presentation snapshot impacts must be projectile-ID ordered")
+            previous_impact_projectile_id = impact.projectile_id
         previous_contact_key = (0, 0)
         for contact in self.contacts:
             if not isinstance(contact, PresentationContact):
@@ -407,6 +481,7 @@ class PresentationSnapshot:
 def build_presentation_snapshot(
     state: MissionState,
     visibility_overlays: tuple[PresentationVisibilityOverlay, ...] = (),
+    projectile_events: tuple[CanonicalEvent, ...] = (),
 ) -> PresentationSnapshot:
     """Copy one authority state into display-only values without changing authority."""
     if not isinstance(state, MissionState):
@@ -422,6 +497,8 @@ def build_presentation_snapshot(
                 entity_id=entity.entity_id.value,
                 position=_presentation_point(entity.position),
                 path=_presentation_path(state, entity.entity_id.value),
+                aim_quality_basis_points=state.aim_states.quality_for(entity.entity_id),
+                suppression_basis_points=state.suppressions.suppression_for(entity.entity_id),
             )
             for entity in state.entities
         ),
@@ -430,7 +507,25 @@ def build_presentation_snapshot(
         ),
         visibility_overlays=visibility_overlays,
         covers=tuple(_presentation_cover(cover, state.entities) for cover in state.covers.segments),
+        projectiles=tuple(
+            _presentation_projectile(projectile) for projectile in state.projectiles.entries
+        ),
+        impacts=build_presentation_projectile_impacts(projectile_events),
     )
+
+
+def build_presentation_projectile_impacts(
+    events: tuple[CanonicalEvent, ...],
+) -> tuple[PresentationImpact, ...]:
+    """Copy current projectile-impact event positions into ordered display markers."""
+    if not isinstance(events, tuple):
+        raise TypeError("presentation projectile impacts require immutable canonical events")
+    impacts = tuple(
+        _presentation_projectile_impact(event)
+        for event in canonical_event_order(events)
+        if isinstance(event, ProjectileImpacted)
+    )
+    return tuple(sorted(impacts, key=lambda impact: impact.projectile_id))
 
 
 def build_presentation_visibility_overlay(
@@ -461,6 +556,24 @@ def _presentation_point(position: object) -> PresentationPoint:
         raise TypeError("presentation point requires a world position")
     return PresentationPoint(
         float(position.x.value), float(position.y.value), position.elevation.value
+    )
+
+
+def _presentation_projectile(projectile: object) -> PresentationProjectile:
+    if not isinstance(projectile, Projectile):
+        raise TypeError("presentation projectile requires a projectile")
+    return PresentationProjectile(
+        projectile.projectile_id.value,
+        projectile.owner_entity_id.value,
+        _presentation_point(projectile.position),
+    )
+
+
+def _presentation_projectile_impact(event: ProjectileImpacted) -> PresentationImpact:
+    return PresentationImpact(
+        event.impact.projectile.projectile_id.value,
+        _presentation_point(event.impact.collision.position),
+        event.impact.collision.kind.value,
     )
 
 

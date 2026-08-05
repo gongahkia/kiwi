@@ -145,6 +145,11 @@ integrity, draws rays toward owner-local contact estimates, and outlines empty
 and exact-position occupied slots. Reservation and predicted movement are not
 rendered as occupancy.
 
+The tactical view also draws copied live projectile markers, one-frame copied
+impact markers, a short aim indicator, and a suppression ring. Their values are
+read-only presentation data: impact markers derive from the current projectile
+impact events and never persist in canonical mission state.
+
 ## 6. Causal debugger UI
 
 Recommended three-pane layout:

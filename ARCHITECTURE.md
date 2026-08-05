@@ -389,8 +389,9 @@ versions are rejected rather than reinterpreted.
 An `AuthoritySnapshot` holds the exact canonical-state payload, redundant tick,
 and state hash. Restore decodes the payload and verifies its tick and hash
 before returning authoritative state. It contains no display data. The separate
-`PresentationSnapshot` is an immutable copied projection of display values;
-pygame receives it rather than `MissionState`.
+`PresentationSnapshot` is an immutable copied projection of display values,
+including live projectiles, per-operative aim and suppression, and copied
+current impact-event markers; pygame receives it rather than `MissionState`.
 
 The initial reducer accepts an immutable exact-tick command tuple, canonicalises
 it, transitions `prepared` missions to `active`, records authorised aborts,

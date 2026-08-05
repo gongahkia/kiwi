@@ -773,21 +773,24 @@ hash mismatches before returning mission state.
 A separate, non-canonical read model contains display information. The current
 `PresentationSnapshot` copies the tick, phase tag, optional map bounds and
 ID-ordered obstacles, ID-ordered operative positions, and each active
-operative's endpoint-inclusive planned path. It also copies owner-local contact
-estimates as an estimated point, uncertainty radius, confidence, and age; no
-target entity ID or hidden position crosses the boundary. Explicit sensor
-overlays carry an observer, radius, and already-visible obstacle geometry. Its
-coordinates are display-only floats derived from authoritative millimetres. It
-also copies `CoverId`-ordered segments with height, integrity, and ordered
-slots. A slot's optional display occupant is the lowest entity ID exactly at
-that same-elevation standing position when the snapshot is built; reservations,
-predicted movement, and future physical occupancy remain absent. The renderer
-may derive threat-facing rays only from these copied contact estimates. The
-snapshot carries no `MissionState`, entity, map, or path object reference and
-is never encoded or hashed as authority. It also admits one optional display
-objective marker; the current authority projection leaves it absent until
-objective state is implemented. Render interpolation and overlays may derive
-further values from this snapshot.
+operative's endpoint-inclusive planned path, aim quality, and suppression. It
+also copies projectile-ID-ordered live projectile positions and projectile-ID-
+ordered impact markers from explicitly supplied `ProjectileImpacted` events;
+the markers are display-only and are not retained in mission state. It copies
+owner-local contact estimates as an estimated point, uncertainty radius,
+confidence, and age; no target entity ID or hidden position crosses the
+boundary. Explicit sensor overlays carry an observer, radius, and already-
+visible obstacle geometry. Its coordinates are display-only floats derived from
+authoritative millimetres. It also copies `CoverId`-ordered segments with
+height, integrity, and ordered slots. A slot's optional display occupant is the
+lowest entity ID exactly at that same-elevation standing position when the
+snapshot is built; reservations, predicted movement, and future physical
+occupancy remain absent. The renderer may derive threat-facing rays only from
+these copied contact estimates. The snapshot carries no `MissionState`, entity,
+map, path, or canonical-event object reference and is never encoded or hashed
+as authority. It also admits one optional display objective marker; the current
+authority projection leaves it absent until objective state is implemented.
+Render interpolation and overlays may derive further values from this snapshot.
 
 Do not confuse the two formats.
 

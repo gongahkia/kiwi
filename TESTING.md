@@ -172,7 +172,7 @@ Keep UI tests focused:
 - diagnostic navigation;
 - coordinate-to-source mapping;
 - timeline filtering;
-- snapshot rendering smoke test with dummy SDL driver where supported;
+- snapshot combat projection and rendering smoke test with dummy SDL driver where supported;
 - no authoritative mutation from UI actions.
 
 ## 3. Determinism harness
