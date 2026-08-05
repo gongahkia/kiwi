@@ -177,6 +177,31 @@ def test_policy_capability_preflight_blocks_declared_unavailable_wait() -> None:
     assert validated.validations[0].failure.primary_span is not None
 
 
+def test_policy_capability_preflight_blocks_unavailable_cover_seek() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    bindings = PolicyBindings(
+        (
+            PolicyBinding(
+                entity.entity_id,
+                _cover_seek_policy_artifact(),
+                FunctionId(0),
+                MEMORY_SCHEMA,
+                _memory("initial"),
+                available_capabilities=(),
+            ),
+        )
+    )
+
+    phase = invoke_policies(state, bindings)
+    validated = validate_policy_evaluations(phase, bindings)
+
+    assert phase.evaluations[0].capability_failure is not None
+    assert phase.evaluations[0].result.fault is not None
+    assert validated.validations[0].failure is not None
+    assert validated.validations[0].failure.code is PolicyValidationCode.CAPABILITY
+    assert validated.validations[0].failure.primary_span is not None
+
+
 def test_policy_capability_validation_covers_wait_returned_by_a_helper() -> None:
     state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
     artifact = _indirect_wait_policy_artifact()
@@ -263,3 +288,15 @@ def _artifact(text: str) -> CompiledArtifact:
     assert checked.diagnostics == ()
     assert checked.module is not None
     return compile_artifact(lower(checked.module).module, BytecodeHeader(source.file_id))
+
+
+def _cover_seek_policy_artifact() -> CompiledArtifact:
+    return _artifact(
+        "type SelfObservation = { entity_id: Int, position: Position }\n"
+        "type Observation = { self: SelfObservation, tick: Int }\n"
+        "type Memory = { label: String }\n"
+        "type TakeCover = { cover_id: Int, side: String }\n"
+        "type Decision = { intentions: List<TakeCover>, memory: Memory }\n"
+        "policy decide(observation: Observation, memory: Memory) -> Decision = "
+        'Decision { intentions = [Cover.seek(1, "left")], memory = memory }\n'
+    )

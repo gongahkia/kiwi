@@ -545,6 +545,11 @@ segment is included when its exact nearest planar point is within the fixed
 not obstacle-occluded and exposes segment endpoints, height, integrity, and
 slots only; occupancy and reservation remain hidden until their own phase.
 
+The policy `Cover` helpers may evaluate only this supplied projection and a
+supplied owner-local contact. Their route-cost value is a deterministic planar
+Manhattan proxy, not an authority path query, so helper evaluation cannot reveal
+map, reservation, or occupancy state.
+
 Initial exposure estimates consume only one cover slot and contact estimate.
 The contact's estimated position determines its side of the directed segment;
 the slot is protected only from the opposite side. Low/high cover contributes

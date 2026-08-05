@@ -129,7 +129,8 @@ constants: `BUILD_LIST` encodes an ordered element count and the VM consumes
 that many stack values in source order. Closures use `BUILD_CLOSURE` opcode
 `19`, encoding its synthetic function ID and source-ordered capture count;
 version-1 modules reject it. `PUSH_INTRINSIC` opcode `20` encodes one closed
-one-byte List intrinsic identifier and is likewise rejected by version 1;
+one-byte standard-library identifier and is likewise rejected by version 1;
+tags 1 through 6 are List intrinsics and tags 7 through 10 are Cover intrinsics.
 `CALL` dispatches that identifier without a Python callable or dynamic lookup.
 `BINARY_OPERATION` opcode `21` encodes one closed one-byte exact domain operator
 and is likewise rejected by version 1. It operates only on statically checked

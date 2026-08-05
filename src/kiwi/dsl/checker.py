@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.ids import DefinitionId, SymbolId
-from kiwi.dsl.intrinsics import IntrinsicKind, list_intrinsic
+from kiwi.dsl.intrinsics import IntrinsicKind, cover_intrinsic, list_intrinsic
 from kiwi.dsl.names import ResolutionResult, ResolvedBinding, SymbolKind
 from kiwi.dsl.operators import BinaryOperator, render_binary_operator
 from kiwi.dsl.runtime_values import MAX_RUNTIME_CLOSURE_CAPTURES, MAX_RUNTIME_LIST_ITEMS
@@ -115,6 +115,34 @@ class _RecordSchema:
 
 _POSITION_TYPE = NamedType("Position")
 _VECTOR_TYPE = NamedType("Vector")
+_COVER_TYPE = NamedType("Cover")
+_COVER_SLOT_TYPE = NamedType("CoverSlot")
+_CONTACT_TYPE = NamedType("Contact")
+_TAKE_COVER_TYPE = NamedType("TakeCover")
+_COVER_SCHEMA_FIELDS = (
+    ("cover_id", BuiltinType.INT),
+    ("end", _POSITION_TYPE),
+    ("height", BuiltinType.STRING),
+    ("integrity_basis_points", BuiltinType.INT),
+    ("slots", ListType(_COVER_SLOT_TYPE)),
+    ("start", _POSITION_TYPE),
+)
+_COVER_SLOT_SCHEMA_FIELDS = (
+    ("position", _POSITION_TYPE),
+    ("side", BuiltinType.STRING),
+    ("slot_index", BuiltinType.INT),
+)
+_CONTACT_SCHEMA_FIELDS = (
+    ("age_ticks", BuiltinType.INT),
+    ("confidence_basis_points", BuiltinType.INT),
+    ("contact_id", BuiltinType.INT),
+    ("estimated_position", _POSITION_TYPE),
+    ("uncertainty_radius", BuiltinType.DISTANCE),
+)
+_TAKE_COVER_SCHEMA_FIELDS = (
+    ("cover_id", BuiltinType.INT),
+    ("side", BuiltinType.STRING),
+)
 
 
 def _builtin_record_schemas(span: SourceSpan) -> tuple[_RecordSchema, ...]:
@@ -540,12 +568,12 @@ def _check_expression(
             return None
         return TypedGroupExpression(inner, inner.type_, expression.span)
     if isinstance(expression, FieldAccessExpression):
-        if _list_intrinsic_for_callee(expression) is not None:
+        if _intrinsic_for_callee(expression) is not None:
             diagnostics.append(
                 Diagnostic(
                     "E424_INTRINSIC_CALL",
                     DiagnosticSeverity.ERROR,
-                    "List intrinsics must be called directly",
+                    "standard-library intrinsics must be called directly",
                     expression.span,
                     DiagnosticStage.CHECKER,
                 )
@@ -559,9 +587,18 @@ def _check_expression(
             record_schemas,
         )
     if isinstance(expression, CallExpression):
-        intrinsic = _list_intrinsic_for_callee(expression.callee)
+        intrinsic = _intrinsic_for_callee(expression.callee)
         if intrinsic is not None:
-            return _check_list_intrinsic_call(
+            if intrinsic.name.startswith("LIST_"):
+                return _check_list_intrinsic_call(
+                    expression,
+                    intrinsic,
+                    resolution,
+                    symbol_types,
+                    diagnostics,
+                    record_schemas,
+                )
+            return _check_cover_intrinsic_call(
                 expression,
                 intrinsic,
                 resolution,
@@ -717,14 +754,16 @@ def _check_expression(
     raise TypeError(f"unsupported surface expression: {type(expression).__name__}")
 
 
-def _list_intrinsic_for_callee(expression: Expression) -> IntrinsicKind | None:
+def _intrinsic_for_callee(expression: Expression) -> IntrinsicKind | None:
     if not isinstance(expression, FieldAccessExpression) or not isinstance(
         expression.record, NameExpression
     ):
         return None
-    if expression.record.name.text != "List":
-        return None
-    return list_intrinsic(expression.field.text)
+    if expression.record.name.text == "List":
+        return list_intrinsic(expression.field.text)
+    if expression.record.name.text == "Cover":
+        return cover_intrinsic(expression.field.text)
+    return None
 
 
 def _check_binary_expression(
@@ -809,6 +848,173 @@ def _domain_binary_result(
         if left == _VECTOR_TYPE and right == _VECTOR_TYPE:
             return _VECTOR_TYPE
     return None
+
+
+def _check_cover_intrinsic_call(
+    expression: CallExpression,
+    intrinsic: IntrinsicKind,
+    resolution: ResolutionResult,
+    symbol_types: list[tuple[SymbolId, DslType]],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> TypedExpression | None:
+    expected_arity = {
+        IntrinsicKind.COVER_EXPOSURE: 3,
+        IntrinsicKind.COVER_ROUTE_COST: 2,
+        IntrinsicKind.COVER_NEAREST_SAFE: 3,
+        IntrinsicKind.COVER_SEEK: 2,
+    }.get(intrinsic)
+    if expected_arity is None:
+        raise AssertionError("unknown Cover intrinsic")
+    if len(expression.arguments) != expected_arity:
+        diagnostics.append(
+            Diagnostic(
+                "E430_COVER_ARITY",
+                DiagnosticSeverity.ERROR,
+                f"{_intrinsic_name(intrinsic)} expects {expected_arity} arguments",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return None
+    arguments = tuple(
+        _check_expression(argument, resolution, symbol_types, diagnostics, record_schemas)
+        for argument in expression.arguments
+    )
+    if any(argument is None for argument in arguments):
+        return None
+    typed_arguments = tuple(argument for argument in arguments if argument is not None)
+    if intrinsic is IntrinsicKind.COVER_EXPOSURE:
+        valid = (
+            _require_cover_record(
+                typed_arguments[0], "Cover", _COVER_SCHEMA_FIELDS, diagnostics, record_schemas
+            )
+            and _require_cover_record(
+                typed_arguments[1],
+                "CoverSlot",
+                _COVER_SLOT_SCHEMA_FIELDS,
+                diagnostics,
+                record_schemas,
+            )
+            and _require_cover_record(
+                typed_arguments[2], "Contact", _CONTACT_SCHEMA_FIELDS, diagnostics, record_schemas
+            )
+        )
+        result_type: DslType = BuiltinType.INT
+    elif intrinsic is IntrinsicKind.COVER_ROUTE_COST:
+        valid = _require_cover_record(
+            typed_arguments[0], "Position", _POSITION_SCHEMA_FIELDS, diagnostics, record_schemas
+        ) and _require_cover_record(
+            typed_arguments[1], "CoverSlot", _COVER_SLOT_SCHEMA_FIELDS, diagnostics, record_schemas
+        )
+        result_type = BuiltinType.DISTANCE
+    elif intrinsic is IntrinsicKind.COVER_NEAREST_SAFE:
+        valid = (
+            _require_type(typed_arguments[0], ListType(_COVER_TYPE), "a List<Cover>", diagnostics)
+            and _require_cover_record(
+                typed_arguments[0], "Cover", _COVER_SCHEMA_FIELDS, diagnostics, record_schemas
+            )
+            and _require_cover_record(
+                typed_arguments[1], "Position", _POSITION_SCHEMA_FIELDS, diagnostics, record_schemas
+            )
+            and _require_cover_record(
+                typed_arguments[2], "Contact", _CONTACT_SCHEMA_FIELDS, diagnostics, record_schemas
+            )
+            and _require_cover_schema(
+                "TakeCover", _TAKE_COVER_SCHEMA_FIELDS, expression, diagnostics, record_schemas
+            )
+        )
+        result_type = OptionType(_TAKE_COVER_TYPE)
+    else:
+        valid = (
+            _require_type(typed_arguments[0], BuiltinType.INT, "an Int", diagnostics)
+            and _require_type(typed_arguments[1], BuiltinType.STRING, "a String", diagnostics)
+            and _require_cover_schema(
+                "TakeCover", _TAKE_COVER_SCHEMA_FIELDS, expression, diagnostics, record_schemas
+            )
+        )
+        result_type = _TAKE_COVER_TYPE
+    if not valid:
+        return None
+    return TypedIntrinsicCallExpression(intrinsic, typed_arguments, result_type, expression.span)
+
+
+_POSITION_SCHEMA_FIELDS = (
+    ("x", BuiltinType.DISTANCE),
+    ("y", BuiltinType.DISTANCE),
+)
+
+
+def _require_cover_record(
+    expression: TypedExpression,
+    name: str,
+    fields: tuple[tuple[str, DslType], ...],
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> bool:
+    if isinstance(expression.type_, ListType):
+        type_ = expression.type_.element_type
+    else:
+        type_ = expression.type_
+    if type_ != NamedType(name):
+        diagnostics.append(
+            Diagnostic(
+                "E431_COVER_ARGUMENT",
+                DiagnosticSeverity.ERROR,
+                f"Cover helper requires {name}",
+                expression.span,
+                DiagnosticStage.CHECKER,
+            )
+        )
+        return False
+    return _require_cover_schema(name, fields, expression, diagnostics, record_schemas)
+
+
+def _require_cover_schema(
+    name: str,
+    fields: tuple[tuple[str, DslType], ...],
+    expression: TypedExpression | Expression,
+    diagnostics: list[Diagnostic],
+    record_schemas: tuple[_RecordSchema, ...],
+) -> bool:
+    schema = _record_schema_for(record_schemas, name)
+    actual_fields = (
+        ()
+        if schema is None
+        else tuple(sorted((field.name, field.type_) for field in schema.fields))
+    )
+    if actual_fields == fields:
+        return True
+    diagnostics.append(
+        Diagnostic(
+            "E432_COVER_SCHEMA",
+            DiagnosticSeverity.ERROR,
+            f"{name} must match the observed cover helper record schema",
+            expression.span,
+            DiagnosticStage.CHECKER,
+        )
+    )
+    return False
+
+
+def _require_type(
+    expression: TypedExpression,
+    expected_type: DslType,
+    expected_description: str,
+    diagnostics: list[Diagnostic],
+) -> bool:
+    if expression.type_ == expected_type:
+        return True
+    diagnostics.append(
+        Diagnostic(
+            "E431_COVER_ARGUMENT",
+            DiagnosticSeverity.ERROR,
+            f"Cover helper requires {expected_description}",
+            expression.span,
+            DiagnosticStage.CHECKER,
+        )
+    )
+    return False
 
 
 def _check_list_intrinsic_call(
@@ -1102,7 +1308,11 @@ def _non_orderable_key_diagnostic(
 
 
 def _intrinsic_name(intrinsic: IntrinsicKind) -> str:
-    return f"List.{intrinsic.name.removeprefix('LIST_').lower()}"
+    if intrinsic.name.startswith("LIST_"):
+        return f"List.{intrinsic.name.removeprefix('LIST_').lower()}"
+    if intrinsic.name.startswith("COVER_"):
+        return f"Cover.{intrinsic.name.removeprefix('COVER_').lower()}"
+    raise AssertionError("unknown intrinsic name")
 
 
 def _lambda_captures(
