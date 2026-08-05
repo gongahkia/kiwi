@@ -31,6 +31,7 @@ Cover pure functions and local invariants:
 - deterministic random streams;
 - event construction;
 - trace query helpers;
+- retained selection, rejection, and failure-query evidence;
 - format validation.
 
 ### 2.2 Golden tests

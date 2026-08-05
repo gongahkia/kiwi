@@ -167,7 +167,11 @@ The exact filenames may change, but dependency boundaries should remain visible.
 
 ### 4.4 Trace and replay
 
-`trace` records provenance from the VM and simulation. `replay` records all authoritative inputs and verifies state hashes. Neither package depends on pygame.
+`trace` records provenance from the VM and simulation. Its query layer consumes
+only retained immutable packets and returns evidence or an explicit unavailable
+result; it never reads authoritative state or infers discarded causes. `replay`
+records all authoritative inputs and verifies state hashes. Neither package
+depends on pygame.
 
 ### 4.5 Presentation
 
