@@ -294,7 +294,9 @@ never serialised.
 Decoders reject version `0`, unsupported versions, duplicate or unknown fields,
 malformed values, packets over 16 MiB, and valid-but-noncanonical JSON. Version
 `1` is one complete immutable run-local graph: chunk indexes, interning tables,
-retention ranges, and query metadata are deferred until their owning milestones.
+and query metadata are deferred until their owning milestones. Capture applies
+trace-level filtering and deterministic trailing-tick, record, and edge limits
+before serialisation; the resulting packet stores no mutable retention range.
 Trace data does not affect authoritative state hashes. Capturing trace must not
 change simulation semantics.
 

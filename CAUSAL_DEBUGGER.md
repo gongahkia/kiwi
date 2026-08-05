@@ -63,11 +63,13 @@ IDs are local to a run unless content-derived identity is useful.
 
 `KWI-TRACE\0` version `1` stores one immutable trace graph tied to an exact
 canonical run-state hash. It has an explicit trace level, node-ID-ordered typed
-records, and edge-ID-ordered typed graph links. The initial packet has no
-chunking, compression, interning, retention window, or query cache; those are
-later storage concerns. Decoders reject unsupported, malformed, duplicate-field,
-oversized, and noncanonical packets rather than repairing or reinterpreting
-them. Trace capture and trace hashes remain outside authoritative state.
+records, and edge-ID-ordered typed graph links. Capture applies a deterministic
+detail level, optional trailing-tick window, and record/edge limits before packet
+construction; the packet itself stores its resulting graph rather than mutable
+retention metadata. It has no chunking, compression, interning, or query cache.
+Decoders reject unsupported, malformed, duplicate-field, oversized, and
+noncanonical packets rather than repairing or reinterpreting them. Trace capture
+and trace hashes remain outside authoritative state.
 
 ## 5. Trace records
 
@@ -222,13 +224,31 @@ Only replay and canonical simulation events. Not suitable for explanation.
 
 Retain policy invocation, selected branches at labelled decision points, emitted intentions, resolution, major events, and consequences.
 
+Current Summary capture retains policy invocation, emitted intention and
+resolution records, consequences, and the major canonical events for mission
+lifecycle, signals/scenario triggers, command rejection, arbitration, cover and
+movement terminal outcomes, firing, impact, damage, injury, and suppression. It
+omits expression evaluations, observation facts, and non-terminal world-event
+detail such as projectile advancement.
+
 ### 6.3 Decision
 
 Retain all branch and match selections, decisive values, observation reads that influenced decisions, intention candidates, and resolution records.
 
+Current Decision capture retains all currently projected policy, intention,
+world-event, and consequence records, plus any observation records supplied to
+the retention layer, while omitting expression-level evaluation records reserved
+for Full capture.
+
 ### 6.4 Full
 
 Retain expression-level evaluations, value summaries, call structure, and detailed provenance. Used for fixtures and debugging, not default long missions.
+
+Full retains every projected record. A trailing-tick window first drops older
+records and their dangling edges. If a record or edge budget still binds,
+retention deterministically prioritises consequences, their direct world events,
+resolutions, intentions, and their causal edges, then returns surviving records
+and edges in their original node/edge order.
 
 ## 7. Instrumentation strategy
 

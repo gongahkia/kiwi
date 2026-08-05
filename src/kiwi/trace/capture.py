@@ -25,7 +25,6 @@ from kiwi.trace.model import (
     TraceEdge,
     TraceEdgeId,
     TraceEdgeKind,
-    TraceLevel,
     TraceRecord,
     TraceResolutionStatus,
     WorldEventTrace,

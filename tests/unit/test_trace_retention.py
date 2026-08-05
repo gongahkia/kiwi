@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from kiwi.domain.ids import EntityId, EventId, IntentionId, PolicyInvocationId, TraceNodeId
@@ -60,16 +62,16 @@ def test_trace_retention_prefers_consequence_chain_with_time_record_and_edge_lim
 
 
 @pytest.mark.parametrize(
-    "kwargs",
+    "factory",
     (
-        {"retained_ticks": 0},
-        {"max_records": 0},
-        {"max_edges": 0},
+        lambda: TraceRetentionPolicy(retained_ticks=0),
+        lambda: TraceRetentionPolicy(max_records=0),
+        lambda: TraceRetentionPolicy(max_edges=0),
     ),
 )
-def test_trace_retention_rejects_empty_limits(kwargs: dict[str, int]) -> None:
+def test_trace_retention_rejects_empty_limits(factory: Callable[[], TraceRetentionPolicy]) -> None:
     with pytest.raises(ValueError):
-        TraceRetentionPolicy(**kwargs)
+        factory()
 
 
 def _trace() -> CausalTrace:

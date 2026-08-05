@@ -569,7 +569,9 @@ origin, policy-evaluation/emission/resolution event IDs, arbitration outcome,
 and competitor link. Its run projector extends that graph with every canonical
 world event and header-parent edge, bridges retained projectile provenance to
 impacts, and emits injury consequences. Retention, queries, and replay packaging
-extend this boundary in later milestones.
+extend this boundary in later milestones. `TraceRetentionPolicy` selects Summary,
+Decision, or Full detail and applies an optional trailing-tick window plus bounded
+record and edge limits before a packet is constructed; it never changes authority.
 
 The VM's opt-in expression capture retains source-map entries in execution
 order on `VMRunResult`; `PolicyEvaluation.invocation_id` identifies the owning
