@@ -18,7 +18,7 @@ from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 from kiwi.sim.signals import SignalStore
-from kiwi.sim.weapons import AimStore, WeaponStore
+from kiwi.sim.weapons import AimStore, SuppressionStore, WeaponStore
 
 MAX_MISSION_TICK = MAX_AUTHORITY_TICK
 
@@ -134,6 +134,7 @@ class MissionState:
     cover_reservations: CoverReservationStore = field(default_factory=CoverReservationStore)
     weapons: WeaponStore = field(default_factory=WeaponStore)
     aim_states: AimStore = field(default_factory=AimStore)
+    suppressions: SuppressionStore = field(default_factory=SuppressionStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
@@ -167,6 +168,8 @@ class MissionState:
             raise ValueError("mission state requires a weapon store")
         if not isinstance(self.aim_states, AimStore):
             raise ValueError("mission state requires an aim store")
+        if not isinstance(self.suppressions, SuppressionStore):
+            raise ValueError("mission state requires a suppression store")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
@@ -231,6 +234,8 @@ class MissionState:
             raise ValueError("weapons must belong to mission entities")
         if any(aim_state.entity_id not in entity_ids for aim_state in self.aim_states.entries):
             raise ValueError("aim states must belong to mission entities")
+        if any(suppression.entity_id not in entity_ids for suppression in self.suppressions.entries):
+            raise ValueError("suppression states must belong to mission entities")
         for reservation in self.cover_reservations.entries:
             if reservation.entity_id not in entity_ids:
                 raise ValueError("cover reservations must belong to mission entities")
@@ -316,6 +321,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             cover_reservations=state.cover_reservations,
             weapons=state.weapons,
             aim_states=state.aim_states,
+            suppressions=state.suppressions,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

@@ -41,6 +41,7 @@ def build_initial_state(
             cover_reservations=state.cover_reservations,
             weapons=state.weapons,
             aim_states=state.aim_states,
+            suppressions=state.suppressions,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,
