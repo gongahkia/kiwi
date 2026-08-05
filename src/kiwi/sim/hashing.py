@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import blake2b
 
-from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldRectangle, WorldSubunits, WorldVector
+from kiwi.domain.geometry import (
+    ElevationLayer,
+    WorldPosition,
+    WorldRectangle,
+    WorldSubunits,
+    WorldVector,
+)
 from kiwi.domain.ids import (
     ContactId,
     CoverId,
@@ -17,6 +23,7 @@ from kiwi.domain.ids import (
     IntentionId,
     MessageId,
     ObstacleId,
+    ProjectileId,
     WeaponId,
 )
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension

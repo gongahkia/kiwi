@@ -248,7 +248,9 @@ class MissionState:
             for projectile in self.projectiles.entries
         ):
             raise ValueError("projectile IDs must be allocated by the current ID allocator")
-        if any(projectile.owner_entity_id not in entity_ids for projectile in self.projectiles.entries):
+        if any(
+            projectile.owner_entity_id not in entity_ids for projectile in self.projectiles.entries
+        ):
             raise ValueError("projectiles must belong to mission entities")
         next_intention_id = self.id_allocator.next_ids[int(IdKind.INTENTION)]
         if any(
