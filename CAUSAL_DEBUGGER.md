@@ -59,6 +59,16 @@ Use stable IDs for:
 
 IDs are local to a run unless content-derived identity is useful.
 
+### 4.1 Trace packet version 1
+
+`KWI-TRACE\0` version `1` stores one immutable trace graph tied to an exact
+canonical run-state hash. It has an explicit trace level, node-ID-ordered typed
+records, and edge-ID-ordered typed graph links. The initial packet has no
+chunking, compression, interning, retention window, or query cache; those are
+later storage concerns. Decoders reject unsupported, malformed, duplicate-field,
+oversized, and noncanonical packets rather than repairing or reinterpreting
+them. Trace capture and trace hashes remain outside authoritative state.
+
 ## 5. Trace records
 
 ### 5.1 Policy invocation
