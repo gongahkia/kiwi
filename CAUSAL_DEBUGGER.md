@@ -67,6 +67,8 @@ records, and edge-ID-ordered typed graph links. Capture applies a deterministic
 detail level, optional trailing-tick window, and record/edge limits before packet
 construction; the packet itself stores its resulting graph rather than mutable
 retention metadata. It has no chunking, compression, interning, or query cache.
+Capture consumes immutable authority values and is verified not to change their
+canonical state hashes at every supported retention level.
 Decoders reject unsupported, malformed, duplicate-field, oversized, and
 noncanonical packets rather than repairing or reinterpreting them. Trace capture
 and trace hashes remain outside authoritative state.

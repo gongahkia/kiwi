@@ -65,10 +65,11 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
     damage = _only_event(first, DamageApplied)
     injury = _only_event(first, InjuryChanged)
     suppression = tuple(event for event in first.events if isinstance(event, SuppressionChanged))
-    trace = capture_run_trace(first, hash_canonical_state(first.state))
+    state_hash = hash_canonical_state(first.state)
+    trace = capture_run_trace(first, state_hash)
     summary_trace = capture_run_trace(
         first,
-        hash_canonical_state(first.state),
+        state_hash,
         retention_policy=TraceRetentionPolicy(TraceLevel.SUMMARY),
     )
     fire_text = "Fire { target = Position { x = 10m, y = 0m }, weapon_id = 1 }"
@@ -76,6 +77,8 @@ def test_projectile_impact_fixture_is_deterministic_and_retains_causal_consequen
 
     assert first == second
     assert hash_canonical_state(first.state) == hash_canonical_state(second.state)
+    assert hash_canonical_state(first.state) == state_hash
+    assert trace.run_state_hash == summary_trace.run_state_hash == state_hash.digest
     assert tuple(checkpoint.tick for checkpoint in first.checkpoints) == (0, 1, 2, 3)
     assert tuple(event.header.tick for event in advances) == (0, 1)
     assert impact_event.header.tick == damage.header.tick == injury.header.tick == 2
