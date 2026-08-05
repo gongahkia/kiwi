@@ -125,7 +125,7 @@ Small deterministic fixtures test:
 - aim-rate equivalence at 20, 30, and 60 Hz;
 - projectile canonical state, provenance, ordering, and version rejection;
 - projectile tunnelling prevention;
-- earliest impact selection;
+- earliest impact selection and obstacle, cover, operative tie precedence;
 - damage and suppression;
 - medical interruption;
 - objective completion;
