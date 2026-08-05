@@ -725,12 +725,17 @@ operative's endpoint-inclusive planned path. It also copies owner-local contact
 estimates as an estimated point, uncertainty radius, confidence, and age; no
 target entity ID or hidden position crosses the boundary. Explicit sensor
 overlays carry an observer, radius, and already-visible obstacle geometry. Its
-coordinates are display-only floats derived from authoritative millimetres; it
-carries no `MissionState`, entity, map, or path object reference and is never
-encoded or hashed as authority. It also admits one optional display objective
-marker; the current authority projection leaves it absent until objective state
-is implemented. Render interpolation and overlays may derive further values
-from this snapshot.
+coordinates are display-only floats derived from authoritative millimetres. It
+also copies `CoverId`-ordered segments with height, integrity, and ordered
+slots. A slot's optional display occupant is the lowest entity ID exactly at
+that same-elevation standing position when the snapshot is built; reservations,
+predicted movement, and future physical occupancy remain absent. The renderer
+may derive threat-facing rays only from these copied contact estimates. The
+snapshot carries no `MissionState`, entity, map, or path object reference and
+is never encoded or hashed as authority. It also admits one optional display
+objective marker; the current authority projection leaves it absent until
+objective state is implemented. Render interpolation and overlays may derive
+further values from this snapshot.
 
 Do not confuse the two formats.
 
