@@ -377,6 +377,50 @@ def first_canonical_state_difference(
             actual_value = getattr(actual_projectile, field).value
             if expected_value != actual_value:
                 return _difference(f"{prefix}/{field}", expected_value, actual_value)
+        expected_origin = expected_projectile.source_intention
+        actual_origin = actual_projectile.source_intention
+        if expected_origin.invocation_id != actual_origin.invocation_id:
+            return _difference(
+                f"{prefix}/source_invocation_id",
+                expected_origin.invocation_id.value,
+                actual_origin.invocation_id.value,
+            )
+        if expected_origin.source_expression_id != actual_origin.source_expression_id:
+            return _difference(
+                f"{prefix}/source_expression_id",
+                expected_origin.source_expression_id.value,
+                actual_origin.source_expression_id.value,
+            )
+        if expected_origin.source_span.file_id != actual_origin.source_span.file_id:
+            return _difference(
+                f"{prefix}/source_span/file_id",
+                expected_origin.source_span.file_id.value,
+                actual_origin.source_span.file_id.value,
+            )
+        if expected_origin.source_span.start != actual_origin.source_span.start:
+            return _difference(
+                f"{prefix}/source_span/start",
+                expected_origin.source_span.start.value,
+                actual_origin.source_span.start.value,
+            )
+        if expected_origin.source_span.end != actual_origin.source_span.end:
+            return _difference(
+                f"{prefix}/source_span/end",
+                expected_origin.source_span.end.value,
+                actual_origin.source_span.end.value,
+            )
+        if expected_origin.policy_order != actual_origin.policy_order:
+            return _difference(
+                f"{prefix}/source_policy_order",
+                expected_origin.policy_order,
+                actual_origin.policy_order,
+            )
+        if expected_origin.creation_tick != actual_origin.creation_tick:
+            return _difference(
+                f"{prefix}/source_creation_tick",
+                expected_origin.creation_tick,
+                actual_origin.creation_tick,
+            )
         for field in ("x", "y", "elevation"):
             expected_value = getattr(expected_projectile.position, field).value
             actual_value = getattr(actual_projectile.position, field).value

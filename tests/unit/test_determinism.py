@@ -6,7 +6,9 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits, WorldVector
 from kiwi.domain.ids import EventId
+from kiwi.dsl.ids import ExpressionId
 from kiwi.dsl.runtime_values import RecordValue, StringValue
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandSource, SignalName
 from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
@@ -23,11 +25,12 @@ from kiwi.sim.determinism import (
     first_canonical_state_difference,
     run_determinism_harness,
 )
+from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.pathing import Path, PathQuery
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.snapshot import capture_authority_snapshot
@@ -41,6 +44,8 @@ from kiwi.sim.weapons import (
     SuppressionStore,
     WeaponStore,
 )
+
+_SOURCE = SourceFile(SourceFileId("determinism-test.dtr"), "")
 
 
 def test_determinism_harness_repeats_checkpoint_hashes_exactly() -> None:
@@ -173,6 +178,7 @@ def test_differential_report_includes_projectiles_before_later_allocator_state()
     )
     projectile_id, allocator = expected.id_allocator.allocate_projectile()
     intention_id, allocator = allocator.allocate_intention()
+    invocation_id, allocator = allocator.allocate_policy_invocation()
     actual = replace(
         expected,
         id_allocator=allocator,
@@ -181,7 +187,18 @@ def test_differential_report_includes_projectiles_before_later_allocator_state()
                 Projectile(
                     projectile_id,
                     entity.entity_id,
-                    intention_id,
+                    ProjectileProvenance(
+                        IntentionOrigin(
+                            intention_id,
+                            entity.entity_id,
+                            invocation_id,
+                            ExpressionId(0),
+                            _SOURCE.span(ByteOffset(0), ByteOffset(0)),
+                            0,
+                            expected.tick,
+                            IntentionKind.FIRE,
+                        )
+                    ),
                     entity.position,
                     WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
                     30,
@@ -194,6 +211,59 @@ def test_differential_report_includes_projectiles_before_later_allocator_state()
 
     assert difference is not None
     assert difference.path == "projectiles/count"
+    assert difference.expected == "0"
+    assert difference.actual == "1"
+
+
+def test_differential_report_includes_projectile_source_provenance() -> None:
+    expected, entity = add_entity(
+        MissionState(), WorldPosition(WorldSubunits(1_000), WorldSubunits(2_000))
+    )
+    projectile_id, allocator = expected.id_allocator.allocate_projectile()
+    intention_id, allocator = allocator.allocate_intention()
+    invocation_id, allocator = allocator.allocate_policy_invocation()
+    projectile = Projectile(
+        projectile_id,
+        entity.entity_id,
+        ProjectileProvenance(
+            IntentionOrigin(
+                intention_id,
+                entity.entity_id,
+                invocation_id,
+                ExpressionId(0),
+                _SOURCE.span(ByteOffset(0), ByteOffset(0)),
+                0,
+                expected.tick,
+                IntentionKind.FIRE,
+            )
+        ),
+        entity.position,
+        WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
+        30,
+    )
+    expected = replace(
+        expected,
+        id_allocator=allocator,
+        projectiles=ProjectileStore((projectile,)),
+    )
+    actual = replace(
+        expected,
+        projectiles=ProjectileStore(
+            (
+                replace(
+                    projectile,
+                    provenance=ProjectileProvenance(
+                        replace(projectile.source_intention, source_expression_id=ExpressionId(1))
+                    ),
+                ),
+            )
+        ),
+    )
+
+    difference = first_canonical_state_difference(expected, actual)
+
+    assert difference is not None
+    assert difference.path == "projectiles/0/source_expression_id"
     assert difference.expected == "0"
     assert difference.actual == "1"
 

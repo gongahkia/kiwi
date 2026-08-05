@@ -55,6 +55,7 @@ def test_selected_fire_consumes_ammunition_resets_aim_and_spawns_a_generic_proje
     assert resolution.projectile.velocity.dx.value == PROJECTILE_SPEED_MM_PER_TICK
     assert resolution.projectile.velocity.dy.value == 0
     assert resolution.projectile.remaining_ticks == PROJECTILE_LIFETIME_TICKS
+    assert resolution.projectile.source_intention == resolution.candidate.origin
     assert phase.state.weapons.weapon_for(weapon.weapon_id) == EquippedWeapon(
         weapon.weapon_id,
         shooter.entity_id,

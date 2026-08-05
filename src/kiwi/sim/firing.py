@@ -9,7 +9,7 @@ from math import isqrt
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, WorldVector
 from kiwi.sim.arbitration import ArbitrationStatus, IntentionCandidate, PolicyArbitrationPhase
 from kiwi.sim.intentions import FireIntention
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.state import EntityState, MissionState
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 
@@ -159,7 +159,7 @@ def _resolve_fire(state: MissionState, candidate: IntentionCandidate) -> FireRes
         Projectile(
             projectile_id,
             entity.entity_id,
-            candidate.origin.intention_id,
+            ProjectileProvenance(candidate.origin),
             entity.position,
             _velocity_toward(entity.position, target),
             PROJECTILE_LIFETIME_TICKS,

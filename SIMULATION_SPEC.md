@@ -599,7 +599,8 @@ A live projectile is a projectile-ID-ordered point state with:
 
 - ID;
 - owner;
-- source intention;
+- full source Fire intention origin: intention, invocation, expression, span,
+  returned-list index, and creation tick;
 - position;
 - nonzero exact millimetres-per-tick velocity;
 - remaining lifetime;
@@ -728,9 +729,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`17` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`18` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `16`, unsupported versions, and noncanonical values are
+versions `1` through `17`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -748,7 +749,7 @@ Include:
 - active movement actions;
 - cover segments, slots, height, and integrity;
 - equipped weapon magazines and nonzero aim qualities and suppressions;
-- live projectile position, velocity, ownership, origin, and lifetime;
+- live projectile position, velocity, ownership, full Fire origin, and lifetime;
 - non-default operative health, protection, and stabilization conditions;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;

@@ -5,12 +5,15 @@ from dataclasses import replace
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits, WorldVector
+from kiwi.dsl.ids import ExpressionId
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.combat_events import emit_projectile_events, emit_suppression_events
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.events import ProjectileAdvanced, SuppressionChanged
+from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.sim.projectile_impacts import resolve_projectile_impacts
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.reducer import reduce_one_tick
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.suppression import (
@@ -182,10 +185,22 @@ def _state_with_entities(*positions: WorldPosition) -> tuple[MissionState, tuple
 def _with_projectile(state: MissionState, owner: EntityState) -> MissionState:
     projectile_id, allocator = state.id_allocator.allocate_projectile()
     intention_id, allocator = allocator.allocate_intention()
+    invocation_id, allocator = allocator.allocate_policy_invocation()
     projectile = Projectile(
         projectile_id,
         owner.entity_id,
-        intention_id,
+        ProjectileProvenance(
+            IntentionOrigin(
+                intention_id,
+                owner.entity_id,
+                invocation_id,
+                ExpressionId(0),
+                _SOURCE.span(ByteOffset(0), ByteOffset(0)),
+                0,
+                state.tick,
+                IntentionKind.FIRE,
+            )
+        ),
         position(0, 0),
         WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
         3,
@@ -201,6 +216,9 @@ def _resolution_for(phase: SuppressionPhase, entity: EntityState) -> Suppression
     return next(
         resolution for resolution in phase.resolutions if resolution.entity_id == entity.entity_id
     )
+
+
+_SOURCE = SourceFile(SourceFileId("suppression-test.dtr"), "")
 
 
 def position(x: int, y: int, elevation: int = 0) -> WorldPosition:

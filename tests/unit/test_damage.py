@@ -6,6 +6,8 @@ import pytest
 
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits, WorldVector
 from kiwi.domain.ids import EntityId
+from kiwi.dsl.ids import ExpressionId
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.combat_events import emit_damage_events, emit_projectile_events
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
@@ -22,11 +24,12 @@ from kiwi.sim.covers import (
 )
 from kiwi.sim.damage import PROJECTILE_IMPACT_DAMAGE, resolve_projectile_damage
 from kiwi.sim.events import DamageApplied, InjuryChanged, ProjectileImpacted
+from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.projectile_impacts import ProjectileImpact, resolve_projectile_impacts
 from kiwi.sim.projectile_sweeps import ProjectileCollision, ProjectileCollisionKind
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.reducer import reduce_one_tick
 from kiwi.sim.state import EntityState, MissionState, MovementAction, add_entity
 
@@ -89,6 +92,7 @@ def test_damage_events_parent_impacts_and_injury_events_parent_damage() -> None:
     assert damage_event.header.parent_event_ids == (impact_event.header.event_id,)
     assert injury_event.header.parent_event_ids == (damage_event.header.event_id,)
     assert injury_event.resolution.injury_after is InjurySeverity.SEVERE
+    assert injury_event.source_intention == impact_event.impact.source_intention
 
 
 def test_incapacitation_cancels_existing_movement_actions_and_cover_reservations() -> None:
@@ -169,10 +173,22 @@ def _operative_impacts(
     for _ in range(count):
         projectile_id, allocator = allocator.allocate_projectile()
         intention_id, allocator = allocator.allocate_intention()
+        invocation_id, allocator = allocator.allocate_policy_invocation()
         projectile = Projectile(
             projectile_id,
             owner_entity_id,
-            intention_id,
+            ProjectileProvenance(
+                IntentionOrigin(
+                    intention_id,
+                    owner_entity_id,
+                    invocation_id,
+                    ExpressionId(0),
+                    _SOURCE.span(ByteOffset(0), ByteOffset(0)),
+                    0,
+                    state.tick,
+                    IntentionKind.FIRE,
+                )
+            ),
             position(0, 0),
             WorldVector(WorldSubunits(1_000), WorldSubunits(0)),
             1,
@@ -214,3 +230,6 @@ def rectangle(minimum_x: int, minimum_y: int, maximum_x: int, maximum_y: int) ->
         WorldSubunits(maximum_x),
         WorldSubunits(maximum_y),
     )
+
+
+_SOURCE = SourceFile(SourceFileId("damage-test.dtr"), "")

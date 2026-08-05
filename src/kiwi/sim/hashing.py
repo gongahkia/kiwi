@@ -23,10 +23,12 @@ from kiwi.domain.ids import (
     IntentionId,
     MessageId,
     ObstacleId,
+    PolicyInvocationId,
     ProjectileId,
     WeaponId,
 )
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
+from kiwi.dsl.ids import ExpressionId
 from kiwi.dsl.runtime_values import (
     MAX_RUNTIME_STRING_BYTES,
     BooleanValue,
@@ -40,6 +42,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
     UnitValue,
 )
+from kiwi.dsl.source import ByteOffset, SourceFileId, SourceSpan
 from kiwi.sim.commands import CommandSource, SignalName
 from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
@@ -60,6 +63,7 @@ from kiwi.sim.covers import (
     CoverSlot,
     CoverStore,
 )
+from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import (
     MAX_POLICY_MEMORY_DEPTH,
@@ -75,7 +79,7 @@ from kiwi.sim.policy_versions import (
     PolicyVersion,
     PolicyVersionStore,
 )
-from kiwi.sim.projectiles import Projectile, ProjectileStore
+from kiwi.sim.projectiles import Projectile, ProjectileProvenance, ProjectileStore
 from kiwi.sim.randomness import (
     RANDOM_ALGORITHM_VERSION,
     MissionSeed,
@@ -96,7 +100,7 @@ from kiwi.sim.weapons import (
 )
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 17
+CANONICAL_STATE_VERSION = 18
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -170,7 +174,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 17 form."""
+    """Encode one validated mission state in canonical binary version 18 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -274,7 +278,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 17 requires exactly four random streams")
+        raise ValueError("state format version 18 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -630,7 +634,7 @@ def _encode_projectiles(writer: _Writer, store: ProjectileStore) -> None:
     for projectile in store.entries:
         writer.i64(projectile.projectile_id.value, "projectile ID")
         writer.i64(projectile.owner_entity_id.value, "projectile owner entity ID")
-        writer.i64(projectile.source_intention_id.value, "projectile source intention ID")
+        _encode_projectile_provenance(writer, projectile.provenance)
         writer.i64(projectile.position.x.value, "projectile x")
         writer.i64(projectile.position.y.value, "projectile y")
         writer.u64(projectile.position.elevation.value, "projectile elevation")
@@ -641,20 +645,63 @@ def _encode_projectiles(writer: _Writer, store: ProjectileStore) -> None:
 
 def _decode_projectiles(reader: _Reader) -> ProjectileStore:
     return ProjectileStore(
-        tuple(
-            Projectile(
-                ProjectileId(reader.i64()),
-                EntityId(reader.i64()),
-                IntentionId(reader.i64()),
-                WorldPosition(
-                    WorldSubunits(reader.i64()),
-                    WorldSubunits(reader.i64()),
-                    ElevationLayer(reader.u64()),
-                ),
-                WorldVector(WorldSubunits(reader.i64()), WorldSubunits(reader.i64())),
-                reader.u64(),
-            )
-            for _ in range(reader.items("projectile count"))
+        tuple(_decode_projectile(reader) for _ in range(reader.items("projectile count")))
+    )
+
+
+def _decode_projectile(reader: _Reader) -> Projectile:
+    projectile_id = ProjectileId(reader.i64())
+    owner_entity_id = EntityId(reader.i64())
+    return Projectile(
+        projectile_id,
+        owner_entity_id,
+        _decode_projectile_provenance(reader, owner_entity_id),
+        WorldPosition(
+            WorldSubunits(reader.i64()),
+            WorldSubunits(reader.i64()),
+            ElevationLayer(reader.u64()),
+        ),
+        WorldVector(WorldSubunits(reader.i64()), WorldSubunits(reader.i64())),
+        reader.u64(),
+    )
+
+
+def _encode_projectile_provenance(writer: _Writer, provenance: ProjectileProvenance) -> None:
+    origin = provenance.source_intention
+    writer.i64(origin.intention_id.value, "projectile source intention ID")
+    writer.i64(origin.invocation_id.value, "projectile source invocation ID")
+    writer.u64(origin.source_expression_id.value, "projectile source expression ID")
+    writer.text(origin.source_span.file_id.value, "projectile source file ID")
+    writer.u64(origin.source_span.start.value, "projectile source span start")
+    writer.u64(origin.source_span.end.value, "projectile source span end")
+    writer.u16(origin.policy_order, "projectile source policy order")
+    writer.u64(origin.creation_tick, "projectile source creation tick")
+
+
+def _decode_projectile_provenance(
+    reader: _Reader,
+    owner_entity_id: EntityId,
+) -> ProjectileProvenance:
+    intention_id = IntentionId(reader.i64())
+    invocation_id = PolicyInvocationId(reader.i64())
+    expression_id = ExpressionId(reader.u64())
+    span = SourceSpan(
+        SourceFileId(reader.text("projectile source file ID", _MAX_MEMORY_TEXT_BYTES)),
+        ByteOffset(reader.u64()),
+        ByteOffset(reader.u64()),
+    )
+    policy_order = reader.u16()
+    creation_tick = reader.u64()
+    return ProjectileProvenance(
+        IntentionOrigin(
+            intention_id,
+            owner_entity_id,
+            invocation_id,
+            expression_id,
+            span,
+            policy_order,
+            creation_tick,
+            IntentionKind.FIRE,
         )
     )
 

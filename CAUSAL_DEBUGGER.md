@@ -37,7 +37,10 @@ world evidence
  -> tactical consequence
 ```
 
-Chains may merge and branch. An injury may depend on the operative’s movement decision, an enemy fire decision, cover geometry, projectile dispersion, and timing.
+Chains may merge and branch. An injury may depend on the operative’s movement decision, an enemy fire decision, cover geometry, projectile dispersion, and timing. A
+projectile retains its exact Fire intention ID, invocation ID, expression ID,
+source span, policy-list index, and creation tick through impact and injury,
+so physical consequences stay source-addressable after later ticks.
 
 ## 4. Stable identifiers
 

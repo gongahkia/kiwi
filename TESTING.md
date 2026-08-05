@@ -155,8 +155,8 @@ Fixtures should assert:
 - source expression linked to intention;
 - observation facts linked to branch;
 - rejected intention has reason;
-- projectile linked to fire intention;
-- injury linked to projectile impact;
+- projectile retains full Fire intention provenance through canonical round-trip;
+- injury retains the projectile's full Fire intention provenance;
 - “why not?” distinguishes absence from rejection;
 - summary and full traces agree on high-level chain;
 - comparison identifies first divergence;
