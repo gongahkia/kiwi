@@ -4,22 +4,31 @@ from __future__ import annotations
 
 from kiwi.domain.ids import EventId, IntentionId, PolicyInvocationId, TraceNodeId
 from kiwi.sim.events import (
+    CanonicalEvent,
+    InjuryChanged,
     IntentionEmitted,
     IntentionRejected,
     IntentionSelected,
     PolicyEvaluated,
+    ProjectileImpacted,
+    event_kind,
 )
 from kiwi.sim.hashing import StateHash, hash_canonical_state
 from kiwi.sim.policy_events import PolicyEventPhase
+from kiwi.sim.runner import HeadlessRun
 from kiwi.trace.model import (
     CausalTrace,
+    ConsequenceTrace,
     IntentionResolutionTrace,
     IntentionTrace,
+    TraceConsequenceKind,
     TraceEdge,
     TraceEdgeId,
     TraceEdgeKind,
     TraceLevel,
+    TraceRecord,
     TraceResolutionStatus,
+    WorldEventTrace,
 )
 
 
@@ -34,11 +43,19 @@ def capture_policy_lifecycle_trace(
         raise TypeError("policy lifecycle trace capture requires a canonical state hash")
     if hash_canonical_state(phase.state) != state_hash:
         raise ValueError("policy lifecycle trace hash must match the event phase state")
+    return _capture_policy_lifecycle_events(phase.events, state_hash)
+
+
+def _capture_policy_lifecycle_events(
+    events: tuple[CanonicalEvent, ...],
+    state_hash: StateHash,
+) -> CausalTrace:
+    """Project one policy-only canonical event sequence into a decision trace."""
 
     policy_events: list[PolicyEvaluated] = []
     emitted_events: list[IntentionEmitted] = []
     resolution_events: list[IntentionSelected | IntentionRejected] = []
-    for event in phase.events:
+    for event in events:
         if isinstance(event, PolicyEvaluated):
             policy_events.append(event)
         elif isinstance(event, IntentionEmitted):
@@ -107,6 +124,71 @@ def capture_policy_lifecycle_trace(
                 target_node_id,
                 TraceEdgeKind.SELECTED_OVER,
             )
+    return CausalTrace(state_hash.digest, TraceLevel.DECISION, tuple(records), tuple(edges))
+
+
+def capture_run_trace(run: HeadlessRun, state_hash: StateHash) -> CausalTrace:
+    """Capture canonical world-event and current injury-consequence records for one run."""
+    if not isinstance(run, HeadlessRun):
+        raise TypeError("run trace capture requires a headless run")
+    if not isinstance(state_hash, StateHash):
+        raise TypeError("run trace capture requires a canonical state hash")
+    if hash_canonical_state(run.state) != state_hash:
+        raise ValueError("run trace hash must match the headless run state")
+
+    policy_trace = _capture_policy_lifecycle_events(
+        tuple(
+            event
+            for event in run.events
+            if isinstance(
+                event,
+                (PolicyEvaluated, IntentionEmitted, IntentionSelected, IntentionRejected),
+            )
+        ),
+        state_hash,
+    )
+    records: list[TraceRecord] = list(policy_trace.records)
+    world_nodes: list[tuple[EventId, TraceNodeId]] = []
+    injury_nodes: list[tuple[InjuryChanged, TraceNodeId]] = []
+    for event in run.events:
+        node_id = TraceNodeId(len(records) + 1)
+        kind = event_kind(event)
+        records.append(
+            WorldEventTrace(
+                node_id,
+                event.header.tick,
+                event.header.event_id,
+                kind,
+                kind.value.replace("_", " "),
+            )
+        )
+        world_nodes.append((event.header.event_id, node_id))
+        if isinstance(event, InjuryChanged):
+            injury_nodes.append((event, node_id))
+
+    consequence_nodes: list[tuple[TraceNodeId, TraceNodeId]] = []
+    for injury, world_node_id in injury_nodes:
+        consequence_node_id = TraceNodeId(len(records) + 1)
+        records.append(
+            ConsequenceTrace(
+                consequence_node_id,
+                injury.header.tick,
+                TraceConsequenceKind.INJURY,
+                (injury.resolution.target_entity_id,),
+                injury.header.event_id,
+                "injury changed from "
+                f"{injury.resolution.injury_before.value} to "
+                f"{injury.resolution.injury_after.value}",
+            )
+        )
+        consequence_nodes.append((world_node_id, consequence_node_id))
+
+    edges = list(policy_trace.edges)
+    _append_policy_resolution_event_edges(edges, policy_trace.records, world_nodes)
+    _append_world_parent_edges(edges, run.events, world_nodes)
+    _append_projectile_origin_edges(edges, run.events, policy_trace.records, world_nodes)
+    for world_node_id, consequence_node_id in consequence_nodes:
+        _append_edge(edges, world_node_id, consequence_node_id, TraceEdgeKind.CONTRIBUTED_TO)
     return CausalTrace(state_hash.digest, TraceLevel.DECISION, tuple(records), tuple(edges))
 
 
@@ -206,6 +288,87 @@ def _event_ids_for_intention(
         if candidate_id == intention_id:
             return event_ids
     raise AssertionError("retained intention has no policy lifecycle event IDs")
+
+
+def _append_policy_resolution_event_edges(
+    edges: list[TraceEdge],
+    records: tuple[TraceRecord, ...],
+    world_nodes: list[tuple[EventId, TraceNodeId]],
+) -> None:
+    for record in records:
+        if not isinstance(record, IntentionResolutionTrace):
+            continue
+        _append_edge_if_retained(
+            edges,
+            record.node_id,
+            _node_for_event(world_nodes, record.world_event_ids[-1]),
+            TraceEdgeKind.CAUSED_EVENT,
+        )
+
+
+def _append_world_parent_edges(
+    edges: list[TraceEdge],
+    events: tuple[CanonicalEvent, ...],
+    world_nodes: list[tuple[EventId, TraceNodeId]],
+) -> None:
+    for event in events:
+        target_node_id = _node_for_event(world_nodes, event.header.event_id)
+        if target_node_id is None:
+            raise AssertionError("retained world event has no trace node")
+        for parent_event_id in event.header.parent_event_ids:
+            _append_edge_if_retained(
+                edges,
+                _node_for_event(world_nodes, parent_event_id),
+                target_node_id,
+                TraceEdgeKind.CAUSED_EVENT,
+            )
+
+
+def _append_projectile_origin_edges(
+    edges: list[TraceEdge],
+    events: tuple[CanonicalEvent, ...],
+    records: tuple[TraceRecord, ...],
+    world_nodes: list[tuple[EventId, TraceNodeId]],
+) -> None:
+    for event in events:
+        if not isinstance(event, ProjectileImpacted):
+            continue
+        source_node_id = _node_for_trace_intention(
+            records,
+            event.impact.source_intention.intention_id,
+        )
+        target_node_id = _node_for_event(world_nodes, event.header.event_id)
+        _append_edge_if_retained(edges, source_node_id, target_node_id, TraceEdgeKind.CAUSED_EVENT)
+
+
+def _node_for_event(
+    nodes: list[tuple[EventId, TraceNodeId]],
+    event_id: EventId,
+) -> TraceNodeId | None:
+    for candidate_id, node_id in nodes:
+        if candidate_id == event_id:
+            return node_id
+    return None
+
+
+def _node_for_trace_intention(
+    records: tuple[TraceRecord, ...],
+    intention_id: IntentionId,
+) -> TraceNodeId | None:
+    for record in records:
+        if isinstance(record, IntentionTrace) and record.origin.intention_id == intention_id:
+            return record.node_id
+    return None
+
+
+def _append_edge_if_retained(
+    edges: list[TraceEdge],
+    source_node_id: TraceNodeId | None,
+    target_node_id: TraceNodeId | None,
+    kind: TraceEdgeKind,
+) -> None:
+    if source_node_id is not None and target_node_id is not None:
+        _append_edge(edges, source_node_id, target_node_id, kind)
 
 
 def _append_edge(

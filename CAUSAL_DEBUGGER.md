@@ -187,6 +187,15 @@ Consequence {
 }
 ```
 
+The headless-run projector retains every canonical event as a `WorldEventTrace`
+and turns every header parent into a `CAUSED_EVENT` edge when that parent is in
+the run. Retained Fire provenance bridges its intention origin to a later
+projectile impact even when the physical projectile event has no event-header
+parent. Every `injury_changed` event produces one `INJURY` consequence with its
+target entity and pre/post severity summary, linked by `CONTRIBUTED_TO`. Current
+authority has no objective or system-fault consequence event; those record kinds
+remain reserved rather than inferred from presentation state.
+
 ### 5.7 Edge
 
 Edges use typed reasons:
@@ -240,8 +249,8 @@ changing authority state, IDs, values, or fault behaviour. Input-only metadata
 is stripped from top-level VM results. Later trace capture converts these
 boundary records into the versioned graph packet. The current policy-lifecycle
 projector already converts canonical intention validation and arbitration events
-into a decision-level packet; later capture adds the remaining VM and world-event
-graph records.
+into a decision-level packet, and the headless-run projector adds world-event
+and injury-consequence records; later capture adds the remaining VM graph records.
 
 Examples:
 

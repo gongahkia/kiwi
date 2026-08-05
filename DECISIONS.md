@@ -720,10 +720,11 @@ object serialisation nor authoritative-state references are permitted.
 Version `1` rejects version `0`, unknown versions, malformed or duplicate
 fields, oversized packets, and noncanonical encodings. It intentionally omits
 chunking, interning, retention, queries, and replay packaging; later trace
-milestones own those compatible extensions. The initial policy-lifecycle capture
-projects canonical validation and arbitration events into decision-level records
-only after the matching authority state is hashed. Trace capture and trace
-hashing do not participate in canonical mission state.
+milestones own those compatible extensions. Policy-lifecycle capture projects
+canonical validation and arbitration events into decision-level records, while
+headless-run capture adds canonical world events, parent edges, and current
+injury consequences only after the matching authority state is hashed. Trace
+capture and trace hashing do not participate in canonical mission state.
 
 ## 2. Prohibited shortcuts
 
