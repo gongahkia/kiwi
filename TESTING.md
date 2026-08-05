@@ -156,6 +156,8 @@ Test:
   while reporting added, removed, and changed deployed policy versions;
 - compatible headless-run comparison finds the first logical policy evaluation
   and intention delta while ignoring allocation-only IDs;
+- retained causal-consequence comparison returns all logical added, removed,
+  and changed outcomes while ignoring trace and authority allocation IDs;
 - corrupt replay rejection;
 - content hash mismatch;
 - first-divergence reporting;

@@ -807,6 +807,15 @@ emitted intention semantics. Issuer, source expression and span, policy order,
 creation tick, intention kind, and validated payload remain significant. This
 prevents a prior allocation shift from being mistaken for a policy choice.
 
+### D-072: Changed consequences use logical causal keys
+
+Retained `ConsequenceTrace` records compare by ascending `(tick, consequence
+kind, subject entity IDs)`. The comparison returns all added, removed, and
+changed records and retains their exact expected and actual trace values for
+downstream causal inspection. Trace-node and authority-event IDs are
+run-local allocation detail and do not cause a changed consequence; the
+human-readable closed summary remains significant.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

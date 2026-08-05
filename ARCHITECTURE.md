@@ -563,6 +563,10 @@ Compatible headless runs compare policy evaluations by `(tick, entity ID)` and
 emitted intentions by `(tick, issuer entity ID, policy order)`. Allocation-only
 invocation and intention IDs do not create a difference; source provenance and
 validated intention payloads do.
+Retained causal consequences compare by `(tick, kind, subject entity IDs)` and
+return all added, removed, and changed records in canonical key order.
+Run-local trace nodes and authority event IDs do not create a consequence
+difference.
 
 ## 15. Causal tracing architecture
 
