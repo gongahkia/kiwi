@@ -111,12 +111,107 @@ class VMFault:
     validation_errors: tuple[BytecodeValidationError, ...] = ()
 
 
+class CoverCandidateTraceStatus(StrEnum):
+    """One final outcome for a scored Cover.nearest_safe candidate."""
+
+    SELECTED = "selected"
+    REJECTED = "rejected"
+
+
+class CoverCandidateRejectionReason(StrEnum):
+    """The first deterministic rank component that lost to the selected slot."""
+
+    HIGHER_EXPOSURE = "higher_exposure"
+    HIGHER_ROUTE_COST = "higher_route_cost"
+    HIGHER_COVER_ID = "higher_cover_id"
+    HIGHER_SLOT_INDEX = "higher_slot_index"
+
+
+@dataclass(frozen=True, slots=True)
+class CoverCandidateTrace:
+    """One score and final outcome retained for a Cover.nearest_safe call."""
+
+    cover_id: int
+    slot_index: int
+    side: str
+    exposure_basis_points: int
+    route_cost: Quantity
+    status: CoverCandidateTraceStatus
+    rejection_reason: CoverCandidateRejectionReason | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.cover_id, int)
+            or isinstance(self.cover_id, bool)
+            or self.cover_id <= 0
+        ):
+            raise ValueError("cover candidate trace requires a positive cover ID")
+        if (
+            not isinstance(self.slot_index, int)
+            or isinstance(self.slot_index, bool)
+            or self.slot_index < 0
+        ):
+            raise ValueError("cover candidate trace requires a non-negative slot index")
+        if self.side not in ("left", "right"):
+            raise ValueError("cover candidate trace requires a cover side")
+        if (
+            not isinstance(self.exposure_basis_points, int)
+            or isinstance(self.exposure_basis_points, bool)
+            or not 0 <= self.exposure_basis_points <= 10_000
+        ):
+            raise ValueError("cover candidate trace exposure must be between zero and 10,000")
+        if (
+            not isinstance(self.route_cost, Quantity)
+            or self.route_cost.dimension is not QuantityDimension.DISTANCE
+            or self.route_cost.value.numerator < 0
+        ):
+            raise ValueError("cover candidate trace route cost must be non-negative Distance")
+        if not isinstance(self.status, CoverCandidateTraceStatus):
+            raise ValueError("cover candidate trace requires a status")
+        if self.status is CoverCandidateTraceStatus.SELECTED:
+            if self.rejection_reason is not None:
+                raise ValueError("selected cover candidate trace cannot have a rejection reason")
+        elif not isinstance(self.rejection_reason, CoverCandidateRejectionReason):
+            raise ValueError("rejected cover candidate trace requires a rejection reason")
+
+
+@dataclass(frozen=True, slots=True)
+class CoverSelectionTrace:
+    """Source-linked semantic results for one Cover.nearest_safe invocation."""
+
+    source_map_entry: InstructionSourceMapEntry
+    candidates: tuple[CoverCandidateTrace, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_map_entry, InstructionSourceMapEntry):
+            raise ValueError("cover selection trace requires an instruction source-map entry")
+        if not isinstance(self.candidates, tuple):
+            raise ValueError("cover selection trace candidates must be an immutable tuple")
+        if any(not isinstance(candidate, CoverCandidateTrace) for candidate in self.candidates):
+            raise ValueError("cover selection trace candidates must be cover candidate traces")
+        if self.candidates and (
+            self.candidates[0].status is not CoverCandidateTraceStatus.SELECTED
+            or any(
+                candidate.status is not CoverCandidateTraceStatus.REJECTED
+                for candidate in self.candidates[1:]
+            )
+        ):
+            raise ValueError("cover selection trace must retain one leading selected candidate")
+
+
 @dataclass(frozen=True, slots=True)
 class VMRunResult:
     """A VM value or fault; fallback runs retain their original fault."""
 
     value: RuntimeValue | None
     fault: VMFault | None = None
+    cover_selection_traces: tuple[CoverSelectionTrace, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cover_selection_traces, tuple):
+            raise ValueError("VM cover selection traces must be an immutable tuple")
+        if any(not isinstance(trace, CoverSelectionTrace) for trace in self.cover_selection_traces):
+            raise ValueError("VM cover selection traces must be cover selection traces")
 
     @property
     def succeeded(self) -> bool:
@@ -164,6 +259,7 @@ class _CoverIntrinsicResult:
 
     value: RuntimeValue
     allocation_cost: int
+    candidate_scores: tuple[_CoverCandidateScore, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +299,16 @@ class _CoverValue:
     slots: ListValue
 
 
+@dataclass(frozen=True, slots=True)
+class _CoverCandidateScore:
+    """One parsed Cover.nearest_safe candidate before final trace projection."""
+
+    cover_id: int
+    slot: _CoverSlotValue
+    exposure_basis_points: int
+    route_cost: ExactRational
+
+
 _COVER_INTRINSICS = frozenset(
     {
         IntrinsicKind.COVER_EXPOSURE,
@@ -218,8 +324,12 @@ def run_vm(
     entry_function_id: FunctionId,
     arguments: Sequence[RuntimeValue],
     budgets: VMBudgets = DEFAULT_VM_BUDGETS,
+    *,
+    capture_cover_selection_trace: bool = False,
 ) -> VMRunResult:
     """Validate and execute bytecode with deterministic resource limits."""
+    if not isinstance(capture_cover_selection_trace, bool):
+        raise ValueError("cover selection trace capture must be a boolean")
     validation = validate_bytecode(module)
     if not validation.is_valid:
         return VMRunResult(
@@ -269,6 +379,7 @@ def run_vm(
     frames: list[_Frame | _IntrinsicFrame] = [_frame(entry, tuple(arguments), 0)]
     stack: list[RuntimeValue] = []
     resources = _ExecutionResources()
+    cover_selection_traces: list[CoverSelectionTrace] = []
     while frames:
         active_frame = frames[-1]
         if isinstance(active_frame, _IntrinsicFrame):
@@ -535,9 +646,18 @@ def run_vm(
                         call_arguments,
                         budgets,
                         resources,
+                        capture_cover_selection_trace,
                     )
                     if isinstance(cover_result, _CoverIntrinsicFailure):
                         return _fault(module, cover_result.code, cover_result.message, frame)
+                    if capture_cover_selection_trace and cover_result.candidate_scores is not None:
+                        source_map_entry = module.source_map.entry_for(
+                            frame.function.function_id,
+                            InstructionIndex(frame.instruction_index - 1),
+                        )
+                        cover_selection_traces.append(
+                            _cover_selection_trace(source_map_entry, cover_result.candidate_scores)
+                        )
                     if (
                         resources.allocations + cover_result.allocation_cost
                         > budgets.allocation_limit
@@ -614,7 +734,10 @@ def run_vm(
                 )
             frames.pop()
             if not frames:
-                return VMRunResult(value)
+                return VMRunResult(
+                    value,
+                    cover_selection_traces=tuple(cover_selection_traces),
+                )
             if isinstance(frames[-1], _IntrinsicFrame):
                 frames[-1].pending_value = value
                 continue
@@ -812,6 +935,7 @@ def _run_cover_intrinsic(
     arguments: tuple[RuntimeValue, ...],
     budgets: VMBudgets,
     resources: _ExecutionResources,
+    capture_cover_selection_trace: bool,
 ) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
     if not _consume_cover_work(budgets, resources):
         return _CoverIntrinsicFailure(
@@ -823,7 +947,12 @@ def _run_cover_intrinsic(
     if intrinsic is IntrinsicKind.COVER_ROUTE_COST:
         return _cover_route_cost(arguments)
     if intrinsic is IntrinsicKind.COVER_NEAREST_SAFE:
-        return _cover_nearest_safe(arguments, budgets, resources)
+        return _cover_nearest_safe(
+            arguments,
+            budgets,
+            resources,
+            capture_cover_selection_trace,
+        )
     if intrinsic is IntrinsicKind.COVER_SEEK:
         return _cover_seek(arguments)
     raise AssertionError("unknown Cover intrinsic")
@@ -881,6 +1010,7 @@ def _cover_nearest_safe(
     arguments: tuple[RuntimeValue, ...],
     budgets: VMBudgets,
     resources: _ExecutionResources,
+    capture_cover_selection_trace: bool,
 ) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
     if len(arguments) != 3:
         return _cover_arity_failure(IntrinsicKind.COVER_NEAREST_SAFE, 3)
@@ -891,7 +1021,11 @@ def _cover_nearest_safe(
     contact_position = _contact_position(threat_position)
     if origin_position is None or contact_position is None:
         return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
-    selected: tuple[int, _CoverSlotValue, int, ExactRational] | None = None
+    trace_candidates: list[_CoverCandidateScore] | None = (
+        [] if capture_cover_selection_trace else None
+    )
+    selected: _CoverCandidateScore | None = None
+    previous_cover_id = 0
     for value in covers.values:
         if not _consume_cover_work(budgets, resources):
             return _CoverIntrinsicFailure(
@@ -899,8 +1033,10 @@ def _cover_nearest_safe(
                 "instruction budget exhausted",
             )
         cover = _cover_value(value)
-        if cover is None:
+        if cover is None or cover.cover_id <= previous_cover_id:
             return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+        previous_cover_id = cover.cover_id
+        previous_slot_index = -1
         for slot_value in cover.slots.values:
             if not _consume_cover_work(budgets, resources):
                 return _CoverIntrinsicFailure(
@@ -908,22 +1044,32 @@ def _cover_nearest_safe(
                     "instruction budget exhausted",
                 )
             slot = _cover_slot_value(slot_value)
-            if slot is None:
+            if slot is None or slot.slot_index <= previous_slot_index:
                 return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+            previous_slot_index = slot.slot_index
             exposure = _cover_exposure_basis_points(cover, slot, contact_position)
             route_cost = _manhattan_distance(origin_position, slot.position)
-            candidate = (cover.cover_id, slot, exposure, route_cost)
+            candidate = _CoverCandidateScore(cover.cover_id, slot, exposure, route_cost)
+            if trace_candidates is not None:
+                trace_candidates.append(candidate)
             if selected is None or _is_safer_cover_candidate(candidate, selected):
                 selected = candidate
     if selected is None:
-        return _CoverIntrinsicResult(OptionNoneValue(), 1)
-    cover_id, slot, _, _ = selected
+        return _CoverIntrinsicResult(
+            OptionNoneValue(),
+            1,
+            () if trace_candidates is not None else None,
+        )
     intention = RecordValue(
         "TakeCover",
         ("cover_id", "side"),
-        (IntegerValue(cover_id), StringValue(slot.side)),
+        (IntegerValue(selected.cover_id), StringValue(selected.slot.side)),
     )
-    return _CoverIntrinsicResult(OptionSomeValue(intention), 2)
+    return _CoverIntrinsicResult(
+        OptionSomeValue(intention),
+        2,
+        tuple(trace_candidates) if trace_candidates is not None else None,
+    )
 
 
 def _cover_seek(
@@ -1123,20 +1269,74 @@ def _absolute_rational(value: ExactRational) -> ExactRational:
 
 
 def _is_safer_cover_candidate(
-    candidate: tuple[int, _CoverSlotValue, int, ExactRational],
-    selected: tuple[int, _CoverSlotValue, int, ExactRational],
+    candidate: _CoverCandidateScore,
+    selected: _CoverCandidateScore,
 ) -> bool:
-    candidate_cover_id, candidate_slot, candidate_exposure, candidate_cost = candidate
-    selected_cover_id, selected_slot, selected_exposure, selected_cost = selected
-    if candidate_exposure != selected_exposure:
-        return candidate_exposure < selected_exposure
-    cost_comparison = _compare_rationals(candidate_cost, selected_cost)
+    if candidate.exposure_basis_points != selected.exposure_basis_points:
+        return candidate.exposure_basis_points < selected.exposure_basis_points
+    cost_comparison = _compare_rationals(candidate.route_cost, selected.route_cost)
     if cost_comparison != 0:
         return cost_comparison < 0
-    return (candidate_cover_id, candidate_slot.slot_index) < (
-        selected_cover_id,
-        selected_slot.slot_index,
+    return (candidate.cover_id, candidate.slot.slot_index) < (
+        selected.cover_id,
+        selected.slot.slot_index,
     )
+
+
+def _cover_selection_trace(
+    source_map_entry: InstructionSourceMapEntry,
+    candidates: tuple[_CoverCandidateScore, ...],
+) -> CoverSelectionTrace:
+    ordered = _ordered_cover_candidates(candidates)
+    if not ordered:
+        return CoverSelectionTrace(source_map_entry, ())
+    selected = ordered[0]
+    traces = tuple(
+        CoverCandidateTrace(
+            candidate.cover_id,
+            candidate.slot.slot_index,
+            candidate.slot.side,
+            candidate.exposure_basis_points,
+            Quantity(QuantityDimension.DISTANCE, candidate.route_cost),
+            (
+                CoverCandidateTraceStatus.SELECTED
+                if index == 0
+                else CoverCandidateTraceStatus.REJECTED
+            ),
+            None if index == 0 else _cover_candidate_rejection_reason(candidate, selected),
+        )
+        for index, candidate in enumerate(ordered)
+    )
+    return CoverSelectionTrace(source_map_entry, traces)
+
+
+def _ordered_cover_candidates(
+    candidates: tuple[_CoverCandidateScore, ...],
+) -> tuple[_CoverCandidateScore, ...]:
+    ordered: list[_CoverCandidateScore] = []
+    for candidate in candidates:
+        insertion_index = len(ordered)
+        while insertion_index > 0 and _is_safer_cover_candidate(
+            candidate, ordered[insertion_index - 1]
+        ):
+            insertion_index -= 1
+        ordered.insert(insertion_index, candidate)
+    return tuple(ordered)
+
+
+def _cover_candidate_rejection_reason(
+    candidate: _CoverCandidateScore,
+    selected: _CoverCandidateScore,
+) -> CoverCandidateRejectionReason:
+    if candidate.exposure_basis_points != selected.exposure_basis_points:
+        return CoverCandidateRejectionReason.HIGHER_EXPOSURE
+    if _compare_rationals(candidate.route_cost, selected.route_cost) != 0:
+        return CoverCandidateRejectionReason.HIGHER_ROUTE_COST
+    if candidate.cover_id != selected.cover_id:
+        return CoverCandidateRejectionReason.HIGHER_COVER_ID
+    if candidate.slot.slot_index != selected.slot.slot_index:
+        return CoverCandidateRejectionReason.HIGHER_SLOT_INDEX
+    raise AssertionError("cover selection trace has duplicate candidate ranks")
 
 
 def _compare_rationals(left: ExactRational, right: ExactRational) -> int:

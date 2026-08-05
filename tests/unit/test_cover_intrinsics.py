@@ -19,7 +19,13 @@ from kiwi.dsl.runtime_values import (
     StringValue,
 )
 from kiwi.dsl.source import SourceFile, SourceFileId
-from kiwi.dsl.vm import VMBudgets, VMFaultCode, run_vm
+from kiwi.dsl.vm import (
+    CoverCandidateRejectionReason,
+    CoverCandidateTraceStatus,
+    VMBudgets,
+    VMFaultCode,
+    run_vm,
+)
 
 
 def test_cover_intrinsics_compile_encode_and_rank_safe_slots_deterministically() -> None:
@@ -91,6 +97,77 @@ def test_cover_nearest_safe_charges_bounded_candidate_work() -> None:
     assert result.fault is not None
     assert result.fault.code is VMFaultCode.INSTRUCTION_BUDGET
     assert result.fault.source_map_entry is not None
+
+
+def test_cover_nearest_safe_trace_retains_scores_rejections_and_source() -> None:
+    source = SourceFile(SourceFileId("cover-intrinsics-trace.dtr"), _SOURCE)
+    checked = check(resolve(parse(lex(source)).module))
+
+    assert checked.module is not None
+    module = compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
+    untraced = run_vm(module, FunctionId(2), ())
+    result = run_vm(module, FunctionId(2), (), capture_cover_selection_trace=True)
+    repeated = run_vm(module, FunctionId(2), (), capture_cover_selection_trace=True)
+    trace = result.cover_selection_traces[0]
+
+    assert result.succeeded
+    assert untraced.value == result.value
+    assert untraced.cover_selection_traces == ()
+    assert result.cover_selection_traces == repeated.cover_selection_traces
+    assert trace.source_map_entry.span.file_id == source.file_id
+    assert trace.source_map_entry.span.start.value == source.text.index("Cover.nearest_safe")
+    assert tuple(
+        (
+            candidate.cover_id,
+            candidate.slot_index,
+            candidate.exposure_basis_points,
+            candidate.route_cost.value,
+            candidate.status,
+            candidate.rejection_reason,
+        )
+        for candidate in trace.candidates
+    ) == (
+        (
+            2,
+            0,
+            2_500,
+            ExactRational(12, 1),
+            CoverCandidateTraceStatus.SELECTED,
+            None,
+        ),
+        (
+            2,
+            1,
+            2_500,
+            ExactRational(12, 1),
+            CoverCandidateTraceStatus.REJECTED,
+            CoverCandidateRejectionReason.HIGHER_SLOT_INDEX,
+        ),
+        (
+            3,
+            0,
+            2_500,
+            ExactRational(12, 1),
+            CoverCandidateTraceStatus.REJECTED,
+            CoverCandidateRejectionReason.HIGHER_COVER_ID,
+        ),
+        (
+            2,
+            2,
+            2_500,
+            ExactRational(13, 1),
+            CoverCandidateTraceStatus.REJECTED,
+            CoverCandidateRejectionReason.HIGHER_ROUTE_COST,
+        ),
+        (
+            1,
+            0,
+            5_000,
+            ExactRational(12, 1),
+            CoverCandidateTraceStatus.REJECTED,
+            CoverCandidateRejectionReason.HIGHER_EXPOSURE,
+        ),
+    )
 
 
 _SOURCE = """\
@@ -177,10 +254,29 @@ policy nearest_safe() -> Option<TakeCover> =
         integrity_basis_points = 10000,
         slots = [
           CoverSlot {
+            position = Position { x = 2m, y = 10m },
+            side = "left",
+            slot_index = 0
+          },
+          CoverSlot {
             position = Position { x = 1m, y = 11m },
             side = "left",
             slot_index = 1
           },
+          CoverSlot {
+            position = Position { x = 3m, y = 10m },
+            side = "left",
+            slot_index = 2
+          }
+        ],
+        start = Position { x = 0m, y = 10m }
+      },
+      Cover {
+        cover_id = 3,
+        end = Position { x = 10m, y = 10m },
+        height = "high",
+        integrity_basis_points = 10000,
+        slots = [
           CoverSlot {
             position = Position { x = 2m, y = 10m },
             side = "left",

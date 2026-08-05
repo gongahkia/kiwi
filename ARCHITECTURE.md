@@ -325,6 +325,10 @@ Requirements:
 - structured runtime faults;
 - trace hooks keyed by source and expression identifiers.
 
+The Cover helper VM path can optionally retain source-mapped semantic selection
+records without mutating authoritative state. Durable trace packaging and
+cross-phase causal graphs remain outside this VM-facing record.
+
 A policy invocation returns one of:
 
 ```text
