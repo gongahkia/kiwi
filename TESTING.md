@@ -150,6 +150,8 @@ Test:
   checkpoint index, tick, expected hash, reconstructed hash, and sidecar-backed
   canonical-state field difference;
 - checkpoint seek and resume from a replay-hash-bound periodic snapshot sidecar;
+- replay-hash-bound historical-source sidecar preservation of exact UTF-8 text,
+  source maps, bytecode, policy manifests, and corrupt-sidecar rejection;
 - corrupt replay rejection;
 - content hash mismatch;
 - first-divergence reporting;

@@ -550,6 +550,11 @@ An optional strict `KWI-SEEK\0` v1 sidecar binds periodic self-verifying
 snapshots to the canonical replay hash. Seeking rejects mismatched sidecars or
 bindings, restores the nearest preceding checkpoint, then runs only the
 remaining authoritative ticks. It does not alter `.drun` v1.
+An optional strict `KWI-SOURCE\0` v1 `.dsrc` sidecar binds exact historical
+UTF-8 source, language versions, deployed bytecode, selected entry functions,
+and canonical bytecode source maps to that same replay hash. Consumers require
+its entity-ID-ordered policy-version manifest to match the replay before source
+navigation; it does not alter `.drun` v1 or authoritative execution.
 
 ## 15. Causal tracing architecture
 

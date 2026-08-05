@@ -289,6 +289,24 @@ or target-tick mismatch before restoring the nearest preceding snapshot and
 headlessly replaying to the requested tick. `.dseek` does not change `.drun`
 v1 compatibility and has no migration path.
 
+`.dsrc` is an optional `KWI-SOURCE\0` version `1` binary sidecar. It stores the
+32-byte BLAKE2b-256 hash of its exact canonical `.drun` packet, then
+file-ID-ordered retained sources and entity-ID-ordered deployed policies. Each
+source records its UTF-8 file ID, source-language version, BLAKE2b-256 source
+text hash, and exact UTF-8 text. Each policy records its entity ID, execution
+policy-version hash, selected function ID, and canonical `KWI-BC\0` bytecode.
+The bytecode retains the instruction source map; the retained text reconstructs
+its line index, so source spans remain navigable without reading the current
+working tree. Sources must be exactly those referenced by retained bytecode,
+and every source-map span must be valid against its retained text.
+
+The sidecar is bounded to 64 MiB, 65,536 source files, 65,536 policies, 1 MiB
+per source text, and 16 MiB per bytecode payload. Decoders reject every
+version other than `1`, malformed UTF-8, invalid source hashes or bytecode,
+inconsistent source maps, and trailing bytes. Consumers must require both the
+replay hash and entity policy-version manifest to match before using a `.dsrc`.
+It does not alter `.drun` v1 compatibility and has no migration path.
+
 ## 10. Command log
 
 Each command contains:
@@ -327,15 +345,10 @@ change simulation semantics.
 
 ## 12. Historical source
 
-A run that supports source navigation must preserve the exact source text or a content-addressed reference to it. Current working-tree source is not sufficient.
-
-Historical source metadata includes:
-
-- module path within policy project;
-- source hash;
-- UTF-8 bytes;
-- language version;
-- line-start index for navigation.
+Historical source navigation uses a replay-hash-bound `.dsrc` sidecar described
+in section 9. Current working-tree source is never used as a substitute. The
+source text and bytecode source map are immutable sidecar data; each retained
+`SourceFile` derives its line-start index from the exact UTF-8 text.
 
 ## 13. Campaign save
 

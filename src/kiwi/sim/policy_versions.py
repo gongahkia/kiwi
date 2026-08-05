@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from hashlib import blake2b
 
 from kiwi.domain.ids import EntityId
+from kiwi.dsl.bytecode import BytecodeModule
 from kiwi.dsl.bytecode_codec import encode_bytecode
 from kiwi.dsl.compiler import CompiledArtifact
 from kiwi.dsl.ids import FunctionId
@@ -35,13 +36,24 @@ class PolicyVersion:
         """Hash canonical bytecode and its selected policy entry point."""
         if not isinstance(artifact, CompiledArtifact):
             raise TypeError("policy version requires a compiled artifact")
+        return cls.from_bytecode(artifact.bytecode, function_id)
+
+    @classmethod
+    def from_bytecode(
+        cls,
+        bytecode: BytecodeModule,
+        function_id: FunctionId,
+    ) -> PolicyVersion:
+        """Hash canonical bytecode and its selected policy entry point."""
+        if not isinstance(bytecode, BytecodeModule):
+            raise TypeError("policy version requires a bytecode module")
         if not isinstance(function_id, FunctionId):
             raise TypeError("policy version requires a function ID")
-        if function_id.value >= len(artifact.bytecode.functions):
+        if function_id.value >= len(bytecode.functions):
             raise ValueError("policy version function is outside the bytecode module")
         digest = blake2b(digest_size=POLICY_VERSION_DIGEST_BYTES)
         digest.update(_POLICY_VERSION_DOMAIN)
-        digest.update(encode_bytecode(artifact.bytecode))
+        digest.update(encode_bytecode(bytecode))
         digest.update(function_id.value.to_bytes(8, "big"))
         return cls(digest.digest())
 
