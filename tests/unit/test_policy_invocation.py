@@ -11,6 +11,7 @@ from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import CompiledArtifact, compile_artifact
 from kiwi.dsl.ids import FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
@@ -132,6 +133,35 @@ def test_policy_invocation_branch_capture_does_not_change_authority_state() -> N
         trace.selection for trace in traced.evaluations[0].result.branch_selection_traces
     )
     assert selections == (VMBranchSelection.ELSE,)
+
+
+def test_policy_invocation_standard_library_capture_does_not_change_authority_state() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    binding = PolicyBinding(
+        entity.entity_id,
+        _standard_library_policy_artifact(),
+        FunctionId(0),
+        MEMORY_SCHEMA,
+        _memory("initial"),
+    )
+
+    untraced = invoke_policies(state, PolicyBindings((binding,)))
+    traced = invoke_policies(
+        state,
+        PolicyBindings((binding,)),
+        capture_standard_library_trace=True,
+    )
+
+    assert traced.state == untraced.state
+    assert traced.evaluations[0].result.value == untraced.evaluations[0].result.value
+    assert untraced.evaluations[0].result.standard_library_decision_traces == ()
+    trace = traced.evaluations[0].result.standard_library_decision_traces[0]
+    assert (trace.intrinsic, trace.input_count, trace.evaluated_count, trace.output_indices) == (
+        IntrinsicKind.LIST_MIN_BY,
+        2,
+        2,
+        (1,),
+    )
 
 
 def test_policy_invocation_captures_source_mapped_contact_field_reads_with_evidence() -> None:
@@ -426,6 +456,15 @@ def _branching_policy_artifact() -> CompiledArtifact:
         "type Memory = { label: String }\n"
         "policy decide(observation: Observation, memory: Memory) -> Memory = "
         "if observation.self.incapacitated then memory else memory\n"
+    )
+
+
+def _standard_library_policy_artifact() -> CompiledArtifact:
+    return _artifact(
+        "type Observation = { tick: Int }\n"
+        "type Memory = { label: String }\n"
+        "policy decide(observation: Observation, memory: Memory) -> Memory = "
+        "let selected = List.min_by([2, 1], fn item -> item) in memory\n"
     )
 
 

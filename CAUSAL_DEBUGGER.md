@@ -222,16 +222,21 @@ source-map entries and observation `LoadField` records on each `VMRunResult`.
 Each observation record retains its source-map entry, canonical path, closed
 value, ordered evidence event IDs, and applicable contact confidence and age.
 It also records only the executed `then` or `else` conditional arm and `Some`
-or `None` Option-pattern arm. `PolicyEvaluation` already retains the allocated
-policy invocation ID, so its caller can join every stream to one exact policy
-invocation without changing authority state, IDs, values, or fault behaviour.
-Input-only metadata is stripped from top-level VM results. Later trace capture
-converts these boundary records into the versioned graph packet.
+or `None` Option-pattern arm. Standard-library capture records `List.filter`
+retained source indices, `List.find` and `List.min_by` selected source indices,
+and `List.sort_by` ranking source-index order, with each intrinsic's input and
+callback-evaluated counts; that switch also enables detailed Cover candidate
+capture. `PolicyEvaluation` already retains the allocated policy invocation ID,
+so its caller can join every stream to one exact policy invocation without
+changing authority state, IDs, values, or fault behaviour. Input-only metadata
+is stripped from top-level VM results. Later trace capture converts these
+boundary records into the versioned graph packet.
 
 Examples:
 
 - `Threat.score` reports its principal inputs and output.
-- `List.min_by` reports the selected item, compared candidate count, and tie-break.
+- `List.min_by` reports its selected source index and evaluated candidate count;
+  equal keys retain the earliest input index.
 - `Cover.nearest_safe` reports every candidate's exposure and route-cost score,
   first losing rank component, and selected slot from its source-mapped call.
 

@@ -107,6 +107,7 @@ def test_cover_nearest_safe_trace_retains_scores_rejections_and_source() -> None
     module = compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
     untraced = run_vm(module, FunctionId(2), ())
     result = run_vm(module, FunctionId(2), (), capture_cover_selection_trace=True)
+    standard = run_vm(module, FunctionId(2), (), capture_standard_library_trace=True)
     repeated = run_vm(module, FunctionId(2), (), capture_cover_selection_trace=True)
     trace = result.cover_selection_traces[0]
 
@@ -114,6 +115,8 @@ def test_cover_nearest_safe_trace_retains_scores_rejections_and_source() -> None
     assert untraced.value == result.value
     assert untraced.cover_selection_traces == ()
     assert result.cover_selection_traces == repeated.cover_selection_traces
+    assert standard.cover_selection_traces == result.cover_selection_traces
+    assert standard.standard_library_decision_traces == ()
     assert trace.source_map_entry.span.file_id == source.file_id
     assert trace.source_map_entry.span.start.value == source.text.index("Cover.nearest_safe")
     assert tuple(

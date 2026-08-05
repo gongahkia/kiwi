@@ -309,6 +309,7 @@ def invoke_policies(
     *,
     capture_expression_trace: bool = False,
     capture_branch_selection_trace: bool = False,
+    capture_standard_library_trace: bool = False,
     capture_observation_read_trace: bool = False,
 ) -> PolicyEvaluationPhase:
     """Invoke applicable policy entries in canonical entity-ID order without state mutation."""
@@ -320,6 +321,8 @@ def invoke_policies(
         raise TypeError("policy invocation expression trace capture must be a boolean")
     if not isinstance(capture_branch_selection_trace, bool):
         raise TypeError("policy invocation branch selection trace capture must be a boolean")
+    if not isinstance(capture_standard_library_trace, bool):
+        raise TypeError("policy invocation standard-library trace capture must be a boolean")
     if not isinstance(capture_observation_read_trace, bool):
         raise TypeError("policy invocation observation read trace capture must be a boolean")
     entity_ids = tuple(entity.entity_id for entity in state.entities)
@@ -363,6 +366,7 @@ def invoke_policies(
                 binding.budgets,
                 capture_expression_trace=capture_expression_trace,
                 capture_branch_selection_trace=capture_branch_selection_trace,
+                capture_standard_library_trace=capture_standard_library_trace,
                 capture_observation_read_trace=capture_observation_read_trace,
             )
         )

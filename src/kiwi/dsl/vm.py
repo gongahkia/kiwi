@@ -235,6 +235,64 @@ class VMBranchSelectionTrace:
             raise ValueError("VM branch selection trace requires a closed selection")
 
 
+_SEMANTIC_LIST_INTRINSICS = frozenset(
+    {
+        IntrinsicKind.LIST_FILTER,
+        IntrinsicKind.LIST_FIND,
+        IntrinsicKind.LIST_MIN_BY,
+        IntrinsicKind.LIST_SORT_BY,
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class VMStandardLibraryDecisionTrace:
+    """One bounded final selection or ranking made by a List intrinsic."""
+
+    source_map_entry: InstructionSourceMapEntry
+    intrinsic: IntrinsicKind
+    input_count: int
+    evaluated_count: int
+    output_indices: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_map_entry, InstructionSourceMapEntry):
+            raise ValueError("VM standard-library decision trace requires a source-map entry")
+        if self.intrinsic not in _SEMANTIC_LIST_INTRINSICS:
+            raise ValueError(
+                "VM standard-library decision trace requires a semantic List intrinsic"
+            )
+        values = (self.input_count, self.evaluated_count)
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+            raise ValueError("VM standard-library decision trace counts must be integers")
+        if not 0 <= self.evaluated_count <= self.input_count:
+            raise ValueError("VM standard-library evaluated count must fit its input count")
+        if not isinstance(self.output_indices, tuple):
+            raise ValueError("VM standard-library output indices must be an immutable tuple")
+        if any(
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or not 0 <= index < self.input_count
+            for index in self.output_indices
+        ):
+            raise ValueError("VM standard-library output indices must address its input")
+        if len(set(self.output_indices)) != len(self.output_indices):
+            raise ValueError("VM standard-library output indices must be unique")
+        if (
+            self.intrinsic in {IntrinsicKind.LIST_FIND, IntrinsicKind.LIST_MIN_BY}
+            and len(self.output_indices) > 1
+        ):
+            raise ValueError("VM standard-library selection intrinsic has multiple outputs")
+        if self.intrinsic is IntrinsicKind.LIST_FILTER and self.output_indices != tuple(
+            sorted(self.output_indices)
+        ):
+            raise ValueError("VM List.filter output indices must preserve input order")
+        if self.intrinsic is IntrinsicKind.LIST_SORT_BY and set(self.output_indices) != set(
+            range(self.input_count)
+        ):
+            raise ValueError("VM List.sort_by output indices must rank every input")
+
+
 @dataclass(frozen=True, slots=True)
 class VMObservationReadTrace:
     """One source-mapped field read from an observation-provenanced record."""
@@ -305,6 +363,7 @@ class VMRunResult:
     cover_selection_traces: tuple[CoverSelectionTrace, ...] = ()
     expression_traces: tuple[VMExpressionTrace, ...] = ()
     branch_selection_traces: tuple[VMBranchSelectionTrace, ...] = ()
+    standard_library_decision_traces: tuple[VMStandardLibraryDecisionTrace, ...] = ()
     observation_read_traces: tuple[VMObservationReadTrace, ...] = ()
 
     def __post_init__(self) -> None:
@@ -322,6 +381,15 @@ class VMRunResult:
             not isinstance(trace, VMBranchSelectionTrace) for trace in self.branch_selection_traces
         ):
             raise ValueError("VM branch selection traces must be VM branch selection traces")
+        if not isinstance(self.standard_library_decision_traces, tuple):
+            raise ValueError("VM standard-library decision traces must be an immutable tuple")
+        if any(
+            not isinstance(trace, VMStandardLibraryDecisionTrace)
+            for trace in self.standard_library_decision_traces
+        ):
+            raise ValueError(
+                "VM standard-library decision traces must be standard-library decision traces"
+            )
         if not isinstance(self.observation_read_traces, tuple):
             raise ValueError("VM observation read traces must be an immutable tuple")
         if any(
@@ -357,6 +425,7 @@ class _IntrinsicFrame:
     pending_value: RuntimeValue | None = None
     outputs: list[RuntimeValue] = field(default_factory=list)
     keys: list[RuntimeValue] = field(default_factory=list)
+    output_indices: list[int] = field(default_factory=list)
     selected_index: int | None = None
     best_key: RuntimeValue | None = None
 
@@ -444,6 +513,7 @@ def run_vm(
     capture_cover_selection_trace: bool = False,
     capture_expression_trace: bool = False,
     capture_branch_selection_trace: bool = False,
+    capture_standard_library_trace: bool = False,
     capture_observation_read_trace: bool = False,
 ) -> VMRunResult:
     """Validate and execute bytecode with deterministic resource limits."""
@@ -453,6 +523,8 @@ def run_vm(
         raise ValueError("expression trace capture must be a boolean")
     if not isinstance(capture_branch_selection_trace, bool):
         raise ValueError("branch selection trace capture must be a boolean")
+    if not isinstance(capture_standard_library_trace, bool):
+        raise ValueError("standard-library trace capture must be a boolean")
     if not isinstance(capture_observation_read_trace, bool):
         raise ValueError("observation read trace capture must be a boolean")
     validation = validate_bytecode(module)
@@ -507,6 +579,7 @@ def run_vm(
     cover_selection_traces: list[CoverSelectionTrace] = []
     expression_traces: list[VMExpressionTrace] = []
     branch_selection_traces: list[VMBranchSelectionTrace] = []
+    standard_library_decision_traces: list[VMStandardLibraryDecisionTrace] = []
     observation_read_traces: list[VMObservationReadTrace] = []
     while frames:
         active_frame = frames[-1]
@@ -518,9 +591,18 @@ def run_vm(
                 stack,
                 budgets,
                 resources,
+                standard_library_decision_traces,
+                capture_standard_library_trace,
             )
             if intrinsic_result is not None:
-                return intrinsic_result
+                return _with_captured_traces(
+                    intrinsic_result,
+                    cover_selection_traces,
+                    expression_traces,
+                    branch_selection_traces,
+                    standard_library_decision_traces,
+                    observation_read_traces,
+                )
             continue
         frame = active_frame
         if resources.instructions >= budgets.instruction_limit:
@@ -809,11 +891,13 @@ def run_vm(
                         call_arguments,
                         budgets,
                         resources,
-                        capture_cover_selection_trace,
+                        capture_cover_selection_trace or capture_standard_library_trace,
                     )
                     if isinstance(cover_result, _CoverIntrinsicFailure):
                         return _fault(module, cover_result.code, cover_result.message, frame)
-                    if capture_cover_selection_trace and cover_result.candidate_scores is not None:
+                    if (
+                        capture_cover_selection_trace or capture_standard_library_trace
+                    ) and cover_result.candidate_scores is not None:
                         source_map_entry = module.source_map.entry_for(
                             frame.function.function_id,
                             InstructionIndex(frame.instruction_index - 1),
@@ -912,6 +996,7 @@ def run_vm(
                     cover_selection_traces=tuple(cover_selection_traces),
                     expression_traces=tuple(expression_traces),
                     branch_selection_traces=tuple(branch_selection_traces),
+                    standard_library_decision_traces=tuple(standard_library_decision_traces),
                     observation_read_traces=tuple(observation_read_traces),
                 )
             if isinstance(frames[-1], _IntrinsicFrame):
@@ -931,6 +1016,25 @@ def run_vm(
                 )
             continue
     raise AssertionError("VM exited without a return or fault")
+
+
+def _with_captured_traces(
+    result: VMRunResult,
+    cover_selection_traces: list[CoverSelectionTrace],
+    expression_traces: list[VMExpressionTrace],
+    branch_selection_traces: list[VMBranchSelectionTrace],
+    standard_library_decision_traces: list[VMStandardLibraryDecisionTrace],
+    observation_read_traces: list[VMObservationReadTrace],
+) -> VMRunResult:
+    return VMRunResult(
+        result.value,
+        result.fault,
+        tuple(cover_selection_traces),
+        tuple(expression_traces),
+        tuple(branch_selection_traces),
+        tuple(standard_library_decision_traces),
+        tuple(observation_read_traces),
+    )
 
 
 def _apply_binary_operation(
@@ -1581,6 +1685,8 @@ def _advance_intrinsic(
     stack: list[RuntimeValue],
     budgets: VMBudgets,
     resources: _ExecutionResources,
+    standard_library_decision_traces: list[VMStandardLibraryDecisionTrace],
+    capture_standard_library_trace: bool,
 ) -> VMRunResult | None:
     if frame.intrinsic is IntrinsicKind.LIST_MAP:
         if frame.pending_value is not None:
@@ -1615,7 +1721,16 @@ def _advance_intrinsic(
                 )
             if predicate.value:
                 frame.outputs.append(frame.values[frame.index - 1])
+                frame.output_indices.append(frame.index - 1)
         if frame.index == len(frame.values):
+            _append_standard_library_decision_trace(
+                module,
+                frame,
+                standard_library_decision_traces,
+                capture_standard_library_trace,
+                len(frame.values),
+                tuple(frame.output_indices),
+            )
             return _complete_intrinsic(
                 module,
                 frame,
@@ -1643,6 +1758,14 @@ def _advance_intrinsic(
                     frame,
                 )
             if predicate.value:
+                _append_standard_library_decision_trace(
+                    module,
+                    frame,
+                    standard_library_decision_traces,
+                    capture_standard_library_trace,
+                    frame.index,
+                    (frame.index - 1,),
+                )
                 return _complete_intrinsic(
                     module,
                     frame,
@@ -1654,6 +1777,14 @@ def _advance_intrinsic(
                     1,
                 )
         if frame.index == len(frame.values):
+            _append_standard_library_decision_trace(
+                module,
+                frame,
+                standard_library_decision_traces,
+                capture_standard_library_trace,
+                len(frame.values),
+                (),
+            )
             return _complete_intrinsic(
                 module, frame, frames, stack, budgets, resources, OptionNoneValue(), 1
             )
@@ -1707,6 +1838,14 @@ def _advance_intrinsic(
                 result = OptionNoneValue()
             else:
                 result = OptionSomeValue(frame.values[frame.selected_index])
+            _append_standard_library_decision_trace(
+                module,
+                frame,
+                standard_library_decision_traces,
+                capture_standard_library_trace,
+                len(frame.values),
+                () if frame.selected_index is None else (frame.selected_index,),
+            )
             return _complete_intrinsic(module, frame, frames, stack, budgets, resources, result, 1)
         value = frame.values[frame.index]
         frame.index += 1
@@ -1718,9 +1857,17 @@ def _advance_intrinsic(
             frame.keys.append(frame.pending_value)
             frame.pending_value = None
         if frame.index == len(frame.values):
-            sorted_values = _stable_sorted_values(module, frame, budgets, resources)
-            if isinstance(sorted_values, VMRunResult):
-                return sorted_values
+            sorted_indices = _stable_sorted_indices(module, frame, budgets, resources)
+            if isinstance(sorted_indices, VMRunResult):
+                return sorted_indices
+            _append_standard_library_decision_trace(
+                module,
+                frame,
+                standard_library_decision_traces,
+                capture_standard_library_trace,
+                len(frame.values),
+                sorted_indices,
+            )
             return _complete_intrinsic(
                 module,
                 frame,
@@ -1728,8 +1875,8 @@ def _advance_intrinsic(
                 stack,
                 budgets,
                 resources,
-                ListValue(sorted_values),
-                len(sorted_values) + 1,
+                ListValue(tuple(frame.values[index] for index in sorted_indices)),
+                len(sorted_indices) + 1,
             )
         value = frame.values[frame.index]
         frame.index += 1
@@ -1782,12 +1929,12 @@ def _schedule_intrinsic_callback(
     return None
 
 
-def _stable_sorted_values(
+def _stable_sorted_indices(
     module: BytecodeModule,
     frame: _IntrinsicFrame,
     budgets: VMBudgets,
     resources: _ExecutionResources,
-) -> tuple[RuntimeValue, ...] | VMRunResult:
+) -> tuple[int, ...] | VMRunResult:
     if len(frame.keys) != len(frame.values):
         raise AssertionError("sort intrinsic has incomplete key evaluations")
     ordered_indices = list(range(len(frame.values)))
@@ -1812,7 +1959,31 @@ def _stable_sorted_values(
             ordered_indices[insertion_position] = prior_index
             insertion_position -= 1
         ordered_indices[insertion_position] = candidate_index
-    return tuple(frame.values[index] for index in ordered_indices)
+    return tuple(ordered_indices)
+
+
+def _append_standard_library_decision_trace(
+    module: BytecodeModule,
+    frame: _IntrinsicFrame,
+    traces: list[VMStandardLibraryDecisionTrace],
+    capture: bool,
+    evaluated_count: int,
+    output_indices: tuple[int, ...],
+) -> None:
+    if not capture:
+        return
+    traces.append(
+        VMStandardLibraryDecisionTrace(
+            module.source_map.entry_for(
+                frame.function_id,
+                InstructionIndex(frame.instruction_index),
+            ),
+            frame.intrinsic,
+            len(frame.values),
+            evaluated_count,
+            output_indices,
+        )
+    )
 
 
 def _compare_orderable(left: RuntimeValue, right: RuntimeValue) -> int | None:

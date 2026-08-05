@@ -328,9 +328,10 @@ Requirements:
 - structured runtime faults;
 - trace hooks keyed by source and expression identifiers.
 
-The Cover helper VM path can optionally retain source-mapped semantic selection
-records without mutating authoritative state. Durable trace packaging and
-cross-phase causal graphs remain outside this VM-facing record.
+The VM standard-library path can optionally retain source-mapped final List
+selections and rankings plus detailed `Cover.nearest_safe` candidate records
+without mutating authoritative state. Durable trace packaging and cross-phase
+causal graphs remain outside this VM-facing record.
 
 A policy invocation returns one of:
 
@@ -572,9 +573,12 @@ field metadata only to the policy input, then records each `LoadField` with its
 source-map entry, canonical observation path, closed value, ordered evidence
 event IDs, and applicable contact confidence and age. An opt-in branch capture
 records only executed `then` or `else` conditional arms and `Some` or `None`
-Option-pattern arms with their source-map entries. Metadata is stripped from
-top-level VM results, and all record streams are non-authoritative and omitted
-unless requested.
+Option-pattern arms with their source-map entries. Standard-library capture
+records `List.filter` retained source indices, `List.find` and `List.min_by`
+selected source indices, and `List.sort_by` ranking source-index order, together
+with the number of items whose callbacks were evaluated; the same switch enables
+detailed Cover candidate capture. Metadata is stripped from top-level VM results,
+and all record streams are non-authoritative and omitted unless requested.
 
 ## 16. pygame application architecture
 

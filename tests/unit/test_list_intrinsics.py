@@ -5,6 +5,7 @@ from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import compile_core
 from kiwi.dsl.ids import FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
@@ -68,6 +69,52 @@ def test_list_intrinsics_compile_encode_and_preserve_source_order_ties() -> None
     )
     assert run_vm(module, FunctionId(6), (IntegerValue(9),)).value == ListValue(
         (IntegerValue(9), IntegerValue(9))
+    )
+
+
+def test_list_intrinsic_trace_retains_final_selection_and_ranking_indices() -> None:
+    source = SourceFile(
+        SourceFileId("list-intrinsics-trace.dtr"),
+        "type Candidate = { id: Int, key: Int }\n"
+        "policy filtered() -> List<Int> = List.filter([2, 1], fn item -> false)\n"
+        "policy found() -> Option<Int> = List.find([2, 1], fn item -> true)\n"
+        "policy minimum() -> Option<Candidate> = List.min_by("
+        "[Candidate { id = 2, key = 1 }, Candidate { id = 1, key = 1 }], "
+        "fn item -> item.key)\n"
+        "policy ordered() -> List<Candidate> = List.sort_by("
+        "[Candidate { id = 2, key = 1 }, Candidate { id = 3, key = 0 }, "
+        "Candidate { id = 1, key = 1 }], fn item -> item.key)\n",
+    )
+    checked = check(resolve(parse(lex(source)).module))
+
+    assert checked.module is not None
+    assert checked.diagnostics == ()
+    module = compile_core(lower(checked.module).module, BytecodeHeader(source.file_id))
+    untraced = run_vm(module, FunctionId(0), ())
+    traced = tuple(
+        run_vm(module, FunctionId(index), (), capture_standard_library_trace=True)
+        for index in range(4)
+    )
+
+    assert untraced.standard_library_decision_traces == ()
+    assert tuple(
+        (
+            result.standard_library_decision_traces[0].intrinsic,
+            result.standard_library_decision_traces[0].input_count,
+            result.standard_library_decision_traces[0].evaluated_count,
+            result.standard_library_decision_traces[0].output_indices,
+        )
+        for result in traced
+    ) == (
+        (IntrinsicKind.LIST_FILTER, 2, 2, ()),
+        (IntrinsicKind.LIST_FIND, 2, 1, (0,)),
+        (IntrinsicKind.LIST_MIN_BY, 2, 2, (0,)),
+        (IntrinsicKind.LIST_SORT_BY, 3, 3, (1, 0, 2)),
+    )
+    assert all(
+        trace.source_map_entry.span.file_id == source.file_id
+        for result in traced
+        for trace in result.standard_library_decision_traces
     )
 
 
