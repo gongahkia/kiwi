@@ -18,6 +18,7 @@ from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
 from kiwi.sim.scheduled import ScheduledEventQueue
 from kiwi.sim.signals import SignalStore
+from kiwi.sim.weapons import AimStore, WeaponStore
 
 MAX_MISSION_TICK = MAX_AUTHORITY_TICK
 
@@ -131,6 +132,8 @@ class MissionState:
     policy_versions: PolicyVersionStore = field(default_factory=PolicyVersionStore)
     covers: CoverStore = field(default_factory=CoverStore)
     cover_reservations: CoverReservationStore = field(default_factory=CoverReservationStore)
+    weapons: WeaponStore = field(default_factory=WeaponStore)
+    aim_states: AimStore = field(default_factory=AimStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
@@ -160,6 +163,10 @@ class MissionState:
             raise ValueError("mission state requires a cover store")
         if not isinstance(self.cover_reservations, CoverReservationStore):
             raise ValueError("mission state requires a cover reservation store")
+        if not isinstance(self.weapons, WeaponStore):
+            raise ValueError("mission state requires a weapon store")
+        if not isinstance(self.aim_states, AimStore):
+            raise ValueError("mission state requires an aim store")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
@@ -217,6 +224,13 @@ class MissionState:
         next_cover_id = self.id_allocator.next_ids[int(IdKind.COVER)]
         if any(segment.cover_id.value >= next_cover_id for segment in self.covers.segments):
             raise ValueError("cover IDs must be allocated by the current ID allocator")
+        next_weapon_id = self.id_allocator.next_ids[int(IdKind.WEAPON)]
+        if any(weapon.weapon_id.value >= next_weapon_id for weapon in self.weapons.entries):
+            raise ValueError("weapon IDs must be allocated by the current ID allocator")
+        if any(weapon.owner_entity_id not in entity_ids for weapon in self.weapons.entries):
+            raise ValueError("weapons must belong to mission entities")
+        if any(aim_state.entity_id not in entity_ids for aim_state in self.aim_states.entries):
+            raise ValueError("aim states must belong to mission entities")
         for reservation in self.cover_reservations.entries:
             if reservation.entity_id not in entity_ids:
                 raise ValueError("cover reservations must belong to mission entities")
@@ -300,6 +314,8 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             policy_versions=state.policy_versions,
             covers=state.covers,
             cover_reservations=state.cover_reservations,
+            weapons=state.weapons,
+            aim_states=state.aim_states,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,

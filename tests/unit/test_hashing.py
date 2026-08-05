@@ -99,7 +99,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "acd19d182a8a2a5497f2b458579bcb496923fb7928c49be58c017d735c705c45"
+    assert first.hex == "9eb1c501e4467147dad7eda99c6f6452c3d22c412d511f2334afb536fa6d6e93"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -380,6 +380,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x0a", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0b", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0c", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x0d", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

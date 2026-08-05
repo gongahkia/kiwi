@@ -138,6 +138,16 @@ class ObstacleId:
         _validate_stable_id(self.value, "obstacle ID")
 
 
+@dataclass(frozen=True, slots=True)
+class WeaponId:
+    """The stable identity of one equipped weapon."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        _validate_stable_id(self.value, "weapon ID")
+
+
 StableId = (
     EntityId
     | OperativeId
@@ -151,6 +161,7 @@ StableId = (
     | ObjectiveId
     | MessageId
     | ObstacleId
+    | WeaponId
 )
 
 
@@ -169,6 +180,7 @@ class IdKind(IntEnum):
     OBJECTIVE = 9
     MESSAGE = 10
     OBSTACLE = 11
+    WEAPON = 12
 
 
 _INITIAL_NEXT_IDS = (FIRST_DYNAMIC_ID,) * len(IdKind)
@@ -228,6 +240,9 @@ class IdAllocator:
     def allocate_obstacle(self) -> tuple[ObstacleId, IdAllocator]:
         return self._allocate(IdKind.OBSTACLE, ObstacleId)
 
+    def allocate_weapon(self) -> tuple[WeaponId, IdAllocator]:
+        return self._allocate(IdKind.WEAPON, WeaponId)
+
     def _allocate(
         self,
         kind: IdKind,
@@ -258,6 +273,7 @@ def canonical_id_value(value: StableId) -> int:
             ObjectiveId,
             MessageId,
             ObstacleId,
+            WeaponId,
         ),
     ):
         raise ValueError("canonical ID key requires a stable ID")

@@ -6,6 +6,7 @@ from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.capabilities import (
     CAPABILITY_MANIFEST_VERSION,
+    FIRE_CAPABILITY,
     MOVE_TOWARD_CAPABILITY,
     TAKE_COVER_CAPABILITY,
     WAIT_CAPABILITY,
@@ -125,6 +126,23 @@ def test_compiler_records_take_cover_requirement_at_its_source_construction() ->
     assert requirement.primary_span == source.span(
         ByteOffset(take_cover_start),
         ByteOffset(take_cover_start + len(take_cover_text)),
+    )
+
+
+def test_compiler_records_fire_requirement_at_its_source_construction() -> None:
+    source = SourceFile(
+        SourceFileId("fire-capability.dtr"),
+        "type Fire = { weapon_id: Int }\npolicy decide() -> Fire = Fire { weapon_id = 1 }\n",
+    )
+
+    artifact = compile_artifact(_core(source), BytecodeHeader(source.file_id))
+    requirement = artifact.capability_manifest.entries[0].requirements[0]
+    fire_text = "Fire { weapon_id = 1 }"
+    fire_start = source.text.index(fire_text)
+
+    assert requirement.capability == FIRE_CAPABILITY
+    assert requirement.primary_span == source.span(
+        ByteOffset(fire_start), ByteOffset(fire_start + len(fire_text))
     )
 
 

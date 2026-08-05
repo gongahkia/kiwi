@@ -525,6 +525,22 @@ The renderer may derive contact-facing threat rays from already-projected local
 contact estimates; it receives no true target identity or renderer-writable
 authority reference.
 
+### D-056: Weapons use neutral magazines and sparse target-free aim quality
+
+Each equipped weapon has an allocated `WeaponId`, an owning `EntityId`, and
+`Ammunition { capacity, loaded_rounds }`; capacity is one through 65,535 and
+loaded rounds are zero through capacity. The initial authority model deliberately
+does not assign weapon classes, damage, projectile properties, or fiction. Aim
+is a sparse entity-ID-ordered store of nonzero 1–10,000 basis-point quality;
+an absent entry is canonical zero and carries no target. The compiler records a
+source-linked `fire` capability requirement for a `Fire` record, but runtime
+fire-intention validation and weapon ownership enforcement remain M10 #15.
+
+`KWI-STATE\0` version `14` serialises the weapon store and aim store after
+cover reservations and before contacts, plus the appended weapon ID allocator
+counter. Versions `1` through `13` are rejected with no migration because
+development state is disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
