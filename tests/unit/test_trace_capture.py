@@ -34,6 +34,7 @@ from kiwi.trace.model import (
     TraceLevel,
     TraceResolutionStatus,
 )
+from kiwi.trace.retention import TraceRetentionPolicy
 
 MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
 
@@ -124,6 +125,23 @@ def test_policy_lifecycle_trace_rejects_a_hash_for_another_authority_state() -> 
 
     with pytest.raises(ValueError, match="must match the event phase state"):
         capture_policy_lifecycle_trace(phase, StateHash(b"x" * 32))
+
+
+def test_policy_lifecycle_trace_capture_preserves_the_authority_state_hash() -> None:
+    phase = _policy_event_phase()
+    before = hash_canonical_state(phase.state)
+
+    traces = tuple(
+        capture_policy_lifecycle_trace(phase, before, retention_policy=policy)
+        for policy in (
+            TraceRetentionPolicy(TraceLevel.SUMMARY),
+            TraceRetentionPolicy(TraceLevel.DECISION),
+            TraceRetentionPolicy(TraceLevel.FULL),
+        )
+    )
+
+    assert hash_canonical_state(phase.state) == before
+    assert tuple(trace.run_state_hash for trace in traces) == (before.digest,) * 3
 
 
 def _policy_event_phase() -> PolicyEventPhase:
