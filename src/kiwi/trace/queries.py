@@ -1,4 +1,4 @@
-"""Evidence-only causal-trace queries for intention selection and failure."""
+"""Evidence-only causal-trace queries for decisions, failures, and consequences."""
 
 from __future__ import annotations
 
@@ -10,10 +10,14 @@ from kiwi.sim.events import EventKind
 from kiwi.sim.intentions import IntentionOrigin
 from kiwi.trace.model import (
     CausalTrace,
+    ConsequenceTrace,
     IntentionResolutionTrace,
     IntentionTrace,
+    TraceEdge,
+    TraceRecord,
     TraceResolutionStatus,
     WorldEventTrace,
+    trace_record_id,
 )
 
 _FAILURE_EVENT_KINDS = frozenset(
@@ -36,6 +40,13 @@ class TraceQueryUnavailableCode(StrEnum):
     FAILURE_NOT_RETAINED = "failure_not_retained"
 
 
+class ConsequenceQueryUnavailableCode(StrEnum):
+    """Closed reasons a retained trace cannot explain one consequence."""
+
+    CONSEQUENCE_NOT_RETAINED = "consequence_not_retained"
+    CAUSES_NOT_RETAINED = "causes_not_retained"
+
+
 @dataclass(frozen=True, slots=True)
 class TraceQueryUnavailable:
     """One explicit absence of retained evidence without an inferred answer."""
@@ -48,6 +59,20 @@ class TraceQueryUnavailable:
             raise ValueError("trace query unavailable result requires a code")
         if not isinstance(self.intention_id, IntentionId):
             raise ValueError("trace query unavailable result requires an intention ID")
+
+
+@dataclass(frozen=True, slots=True)
+class ConsequenceQueryUnavailable:
+    """One explicit absence of retained causal-consequence evidence."""
+
+    code: ConsequenceQueryUnavailableCode
+    consequence_node_id: TraceNodeId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, ConsequenceQueryUnavailableCode):
+            raise ValueError("consequence query unavailable result requires a code")
+        if not isinstance(self.consequence_node_id, TraceNodeId):
+            raise ValueError("consequence query unavailable result requires a trace node ID")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,9 +141,44 @@ class IntentionFailureExplanation:
             raise ValueError("failure explanation path must end at its failure event")
 
 
+@dataclass(frozen=True, slots=True)
+class ConsequenceChainExplanation:
+    """One consequence and its retained causal ancestors ranked by graph distance."""
+
+    consequence: ConsequenceTrace
+    causal_records: tuple[TraceRecord, ...]
+    causal_edges: tuple[TraceEdge, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.consequence, ConsequenceTrace):
+            raise ValueError("consequence chain requires a consequence trace")
+        if not isinstance(self.causal_records, tuple) or not self.causal_records:
+            raise ValueError("consequence chain requires retained causal records")
+        node_ids: list[TraceNodeId] = []
+        for record in self.causal_records:
+            node_id = trace_record_id(record)
+            if node_id == self.consequence.node_id or node_id in node_ids:
+                raise ValueError("consequence chain records must be unique causal ancestors")
+            node_ids.append(node_id)
+        if not isinstance(self.causal_edges, tuple) or not self.causal_edges:
+            raise ValueError("consequence chain requires retained causal edges")
+        previous_edge_id = 0
+        chain_node_ids = tuple(node_ids) + (self.consequence.node_id,)
+        for edge in self.causal_edges:
+            if not isinstance(edge, TraceEdge) or edge.edge_id.value <= previous_edge_id:
+                raise ValueError("consequence chain edges must be trace edge-ID ordered")
+            if (
+                edge.source_node_id not in chain_node_ids
+                or edge.target_node_id not in chain_node_ids
+            ):
+                raise ValueError("consequence chain edges must stay inside its causal records")
+            previous_edge_id = edge.edge_id.value
+
+
 type SelectionQueryResult = IntentionSelectionExplanation | TraceQueryUnavailable
 type RejectionQueryResult = IntentionRejectionExplanation | TraceQueryUnavailable
 type FailureQueryResult = IntentionFailureExplanation | TraceQueryUnavailable
+type ConsequenceChainQueryResult = ConsequenceChainExplanation | ConsequenceQueryUnavailable
 
 
 def why_selected(trace: CausalTrace, intention_id: IntentionId) -> SelectionQueryResult:
@@ -158,6 +218,30 @@ def why_failed(trace: CausalTrace, intention_id: IntentionId) -> FailureQueryRes
     return IntentionFailureExplanation(origin.origin, resolution, failure_event, path)
 
 
+def consequence_chain(
+    trace: CausalTrace,
+    consequence_node_id: TraceNodeId,
+) -> ConsequenceChainQueryResult:
+    """Return retained causal ancestors ranked by proximity to one consequence."""
+    if not isinstance(trace, CausalTrace):
+        raise TypeError("consequence chain query requires a causal trace")
+    if not isinstance(consequence_node_id, TraceNodeId):
+        raise TypeError("consequence chain query requires a trace node ID")
+    consequence = _consequence_trace(trace, consequence_node_id)
+    if consequence is None:
+        return ConsequenceQueryUnavailable(
+            ConsequenceQueryUnavailableCode.CONSEQUENCE_NOT_RETAINED,
+            consequence_node_id,
+        )
+    causal_records, causal_edges = _causal_ancestors(trace, consequence.node_id)
+    if not causal_records:
+        return ConsequenceQueryUnavailable(
+            ConsequenceQueryUnavailableCode.CAUSES_NOT_RETAINED,
+            consequence_node_id,
+        )
+    return ConsequenceChainExplanation(consequence, causal_records, causal_edges)
+
+
 def _origin_and_resolution(
     trace: CausalTrace,
     intention_id: IntentionId,
@@ -194,6 +278,16 @@ def _resolution_trace(
 ) -> IntentionResolutionTrace | None:
     for record in trace.records:
         if isinstance(record, IntentionResolutionTrace) and record.intention_id == intention_id:
+            return record
+    return None
+
+
+def _consequence_trace(
+    trace: CausalTrace,
+    consequence_node_id: TraceNodeId,
+) -> ConsequenceTrace | None:
+    for record in trace.records:
+        if isinstance(record, ConsequenceTrace) and record.node_id == consequence_node_id:
             return record
     return None
 
@@ -238,3 +332,33 @@ def _path_to(
         predecessor = predecessors[predecessor]
     path.reverse()
     return tuple(path)
+
+
+def _causal_ancestors(
+    trace: CausalTrace,
+    consequence_node_id: TraceNodeId,
+) -> tuple[tuple[TraceRecord, ...], tuple[TraceEdge, ...]]:
+    records_by_node_id = {record.node_id: record for record in trace.records}
+    incoming_edges: dict[TraceNodeId, list[TraceEdge]] = {}
+    for edge in trace.edges:
+        incoming_edges.setdefault(edge.target_node_id, []).append(edge)
+    queue = [consequence_node_id]
+    visited = {consequence_node_id}
+    index = 0
+    while index < len(queue):
+        node_id = queue[index]
+        index += 1
+        for edge in incoming_edges.get(node_id, ()):
+            if edge.source_node_id in visited:
+                continue
+            visited.add(edge.source_node_id)
+            queue.append(edge.source_node_id)
+    causal_edges = tuple(
+        edge
+        for edge in trace.edges
+        if edge.source_node_id in visited and edge.target_node_id in visited
+    )
+    return (
+        tuple(records_by_node_id[node_id] for node_id in queue[1:]),
+        causal_edges,
+    )

@@ -9,8 +9,10 @@ from kiwi.sim.events import EventKind
 from kiwi.sim.intentions import IntentionKind, IntentionOrigin
 from kiwi.trace.model import (
     CausalTrace,
+    ConsequenceTrace,
     IntentionResolutionTrace,
     IntentionTrace,
+    TraceConsequenceKind,
     TraceEdge,
     TraceEdgeId,
     TraceEdgeKind,
@@ -19,11 +21,15 @@ from kiwi.trace.model import (
     WorldEventTrace,
 )
 from kiwi.trace.queries import (
+    ConsequenceChainExplanation,
+    ConsequenceQueryUnavailable,
+    ConsequenceQueryUnavailableCode,
     IntentionFailureExplanation,
     IntentionRejectionExplanation,
     IntentionSelectionExplanation,
     TraceQueryUnavailable,
     TraceQueryUnavailableCode,
+    consequence_chain,
     why_failed,
     why_not_selected,
     why_selected,
@@ -75,6 +81,34 @@ def test_queries_report_unavailable_without_retained_evidence() -> None:
     assert failed_rejection.code is TraceQueryUnavailableCode.INTENTION_NOT_SELECTED
     assert isinstance(failed_without_event, TraceQueryUnavailable)
     assert failed_without_event.code is TraceQueryUnavailableCode.FAILURE_NOT_RETAINED
+
+
+def test_consequence_chain_ranks_retained_ancestors_by_causal_proximity() -> None:
+    trace = _trace()
+    no_parent_trace = CausalTrace(
+        trace.run_state_hash,
+        trace.level,
+        trace.records,
+        trace.edges[:-2],
+    )
+
+    chain = consequence_chain(trace, TraceNodeId(7))
+    missing_consequence = consequence_chain(trace, TraceNodeId(99))
+    missing_causes = consequence_chain(no_parent_trace, TraceNodeId(7))
+
+    assert isinstance(chain, ConsequenceChainExplanation)
+    assert chain.consequence.node_id == TraceNodeId(7)
+    assert tuple(record.node_id for record in chain.causal_records) == (
+        TraceNodeId(4),
+        TraceNodeId(3),
+        TraceNodeId(2),
+        TraceNodeId(1),
+    )
+    assert tuple(edge.edge_id.value for edge in chain.causal_edges) == (1, 2, 3, 6, 7)
+    assert isinstance(missing_consequence, ConsequenceQueryUnavailable)
+    assert missing_consequence.code is ConsequenceQueryUnavailableCode.CONSEQUENCE_NOT_RETAINED
+    assert isinstance(missing_causes, ConsequenceQueryUnavailable)
+    assert missing_causes.code is ConsequenceQueryUnavailableCode.CAUSES_NOT_RETAINED
 
 
 def _trace() -> CausalTrace:
@@ -129,6 +163,14 @@ def _trace() -> CausalTrace:
             (IntentionId(1),),
             (EventId(3),),
         ),
+        ConsequenceTrace(
+            TraceNodeId(7),
+            3,
+            TraceConsequenceKind.INJURY,
+            (EntityId(1),),
+            EventId(2),
+            "operative injured",
+        ),
     )
     edges = (
         TraceEdge(TraceEdgeId(1), TraceNodeId(1), TraceNodeId(2), TraceEdgeKind.VALIDATED_BY),
@@ -136,5 +178,7 @@ def _trace() -> CausalTrace:
         TraceEdge(TraceEdgeId(3), TraceNodeId(3), TraceNodeId(4), TraceEdgeKind.CAUSED_EVENT),
         TraceEdge(TraceEdgeId(4), TraceNodeId(5), TraceNodeId(6), TraceEdgeKind.REJECTED_BECAUSE),
         TraceEdge(TraceEdgeId(5), TraceNodeId(1), TraceNodeId(6), TraceEdgeKind.SELECTED_OVER),
+        TraceEdge(TraceEdgeId(6), TraceNodeId(4), TraceNodeId(7), TraceEdgeKind.CONTRIBUTED_TO),
+        TraceEdge(TraceEdgeId(7), TraceNodeId(1), TraceNodeId(3), TraceEdgeKind.COMPUTED_FROM),
     )
     return CausalTrace(b"q" * 32, TraceLevel.FULL, records, edges)
