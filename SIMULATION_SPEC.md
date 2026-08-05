@@ -700,9 +700,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`16` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`17` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `15`, unsupported versions, and noncanonical values are
+versions `1` through `16`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -721,6 +721,7 @@ Include:
 - cover segments, slots, height, and integrity;
 - equipped weapon magazines and nonzero aim qualities and suppressions;
 - live projectile position, velocity, ownership, origin, and lifetime;
+- non-default operative health, protection, and stabilization conditions;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
 - live message ledger entries, send-event IDs, and send sequence;
