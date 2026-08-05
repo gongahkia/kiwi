@@ -320,7 +320,24 @@ Follow from intention through resolution events. Examples:
 - projectile hit cover;
 - action interrupted by injury.
 
-### 8.4 Why was information wrong?
+### 8.4 Retained query boundary
+
+`kiwi.trace.queries` provides headless, evidence-only `why_selected`,
+`why_not_selected`, and `why_failed` queries over a retained `CausalTrace` and
+an emitted `IntentionId`. They return immutable source-origin, arbitration, and
+world-event evidence. `why_failed` uses deterministic edge-ID breadth-first
+traversal from the selected resolution and intention origin, returning the first
+reachable retained cover, movement, or fire failure event.
+
+`TraceQueryUnavailable` is returned when the retained packet cannot prove the
+answer. In particular, a missing `IntentionId` does not prove that a program did
+not request an action: the current trace model records emitted intentions, not
+hypothetical branch outcomes. A projectile impact alone also cannot prove a
+failed action because the version-one world-event record does not retain its
+collision kind. A retained rejected intention is simulation rejection evidence
+and retains its stable reason code and competing intention IDs.
+
+### 8.5 Why was information wrong?
 
 Show:
 
@@ -330,7 +347,7 @@ Show:
 - update or decay rules;
 - true world state only in post-mission analysis or authorised modes.
 
-### 8.5 Why did this consequence happen?
+### 8.6 Why did this consequence happen?
 
 Return a ranked causal subgraph:
 
