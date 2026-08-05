@@ -567,6 +567,10 @@ Retained causal consequences compare by `(tick, kind, subject entity IDs)` and
 return all added, removed, and changed records in canonical key order.
 Run-local trace nodes and authority event IDs do not create a consequence
 difference.
+The headless CLI records policy-free kernel fixtures as replay packets, verifies
+them without renderer access, inspects immutable manifest metadata, and reports
+baseline compatibility plus policy-version manifest deltas. Policy-bundle
+resolution remains outside this boundary.
 
 ## 15. Causal tracing architecture
 

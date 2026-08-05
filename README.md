@@ -138,6 +138,8 @@ Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cl
 
 Query an encoded `KWI-TRACE\0` packet headlessly with `uv run --extra dev python -m kiwi.cli trace-query path/to/run.ktrace why-selected 1`. The query name is one of `why-selected`, `why-not-selected`, `why-failed`, or `consequence-chain`; the final positive ID is an intention ID except for `consequence-chain`, which takes a trace node ID. Output is deterministic evidence or an explicit retention-unavailable code.
 
+Record a policy-free kernel-fixture replay with `uv run --extra dev python -m kiwi.cli replay-record tests/fixtures/minimal.kfixture.json 3 /tmp/minimal.drun --application-build dev --simulation-version sim-v1`. The command hashes the exact fixture bytes as mission content, records every checkpoint, and writes strict `KWI-RUN\0` v1 bytes. Use `replay-verify /tmp/minimal.drun`, `replay-inspect /tmp/minimal.drun`, and `replay-compare expected.drun actual.drun` for deterministic verification, metadata inspection, and baseline/policy-manifest comparison. The current CLI cannot resolve policy bundles, so it verifies only policy-free replay packets.
+
 The simulation policy boundary accepts `MoveToward { target: Position }`,
 `TakeCover { cover_id: Int, side: String }`, and `Wait { duration: Duration }`.
 MoveToward is capability-gated, uses canonical integer route planning, and emits

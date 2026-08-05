@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from hashlib import blake2b
 from pathlib import Path
 
+from kiwi.content.fixtures import FixtureLoadFailure, load_kernel_fixture_bytes
 from kiwi.domain.ids import IntentionId, TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader, BytecodeModule
 from kiwi.dsl.bytecode_codec import encode_bytecode
@@ -37,7 +39,20 @@ from kiwi.dsl.runtime_values import (
 )
 from kiwi.dsl.source import SourceFile, SourceFileId, SourceLoadFailure, load_utf8_file
 from kiwi.dsl.vm import run_vm
+from kiwi.replay.compatibility import check_run_compatibility
+from kiwi.replay.format import (
+    ReplayDecodeFailure,
+    ReplayPacket,
+    decode_replay,
+    encode_replay,
+    hash_replay,
+)
+from kiwi.replay.recording import record_headless_run
+from kiwi.replay.verification import ReplayVerificationFailure, verify_replay
+from kiwi.sim.bootstrap import build_initial_state
+from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.intentions import IntentionOrigin
+from kiwi.sim.randomness import MissionSeed
 from kiwi.trace.format import TraceDecodeFailure, decode_trace
 from kiwi.trace.model import (
     CausalTrace,
@@ -186,6 +201,115 @@ def trace_query(path: Path, query_name: str, target_id: int) -> int:
     raise ValueError("trace query name is unsupported")
 
 
+def replay_record(
+    fixture_path: Path,
+    ticks: int,
+    output: Path,
+    application_build: str,
+    simulation_version: str,
+) -> int:
+    """Record one policy-free fixture run into an immutable replay packet."""
+    if not isinstance(ticks, int) or isinstance(ticks, bool) or ticks < 0:
+        print("replay-record: ticks must be a non-negative integer", file=sys.stderr)
+        return 1
+    try:
+        fixture_bytes = fixture_path.read_bytes()
+    except OSError:
+        print(f"{fixture_path}: could not read fixture", file=sys.stderr)
+        return 1
+    fixture = load_kernel_fixture_bytes(fixture_bytes, str(fixture_path))
+    if isinstance(fixture, FixtureLoadFailure):
+        _print_fixture_failure(fixture)
+        return 1
+    try:
+        recorded = record_headless_run(
+            build_initial_state(
+                MissionSeed(fixture.seed),
+                tuple(entity.position for entity in fixture.entities),
+                fixture.scheduled_trigger_ticks,
+            ),
+            FixedTickClock(TickRate(fixture.tick_rate)),
+            ticks,
+            application_build=application_build,
+            simulation_version=simulation_version,
+            mission_hash=blake2b(fixture_bytes, digest_size=32).digest(),
+        )
+        encoded = encode_replay(recorded.replay)
+    except ValueError as error:
+        print(f"replay-record: {error}", file=sys.stderr)
+        return 1
+    try:
+        output.write_bytes(encoded)
+    except OSError:
+        print(f"{output}: could not write replay", file=sys.stderr)
+        return 1
+    print(
+        f"{output}: wrote {len(encoded)} bytes "
+        f"checkpoints={len(recorded.replay.checkpoints)} hash={hash_replay(recorded.replay).hex()}"
+    )
+    return 0
+
+
+def replay_verify(path: Path) -> int:
+    """Verify one policy-free recorded replay through its canonical checkpoints."""
+    replay = _load_replay(path)
+    if replay is None:
+        return 1
+    result = verify_replay(replay)
+    if isinstance(result, ReplayVerificationFailure):
+        print(f"{path}: {result.code}: {result.message}", file=sys.stderr)
+        return 1
+    print(f"verified: tick={result.state.tick} checkpoints={len(replay.checkpoints)}")
+    return 0
+
+
+def replay_inspect(path: Path) -> int:
+    """Render deterministic immutable replay metadata without executing authority."""
+    replay = _load_replay(path)
+    if replay is None:
+        return 1
+    print("format: KWI-RUN v1")
+    print(f"hash: {hash_replay(replay).hex()}")
+    print(f"application_build: {replay.application_build}")
+    print(f"simulation_version: {replay.simulation_version}")
+    print(f"mission_hash: {replay.mission_hash.hex()}")
+    print(f"seed: {replay.seed.value}")
+    print(f"tick_rate: {int(replay.tick_rate)}")
+    print(f"commands: {len(replay.commands)}")
+    print(f"checkpoints: {len(replay.checkpoints)}")
+    print(f"policy_versions: {len(replay.policy_versions)}")
+    return 0
+
+
+def replay_compare(expected_path: Path, actual_path: Path) -> int:
+    """Report baseline compatibility and deployed-policy deltas for two replay packets."""
+    expected = _load_replay(expected_path)
+    actual = _load_replay(actual_path)
+    if expected is None or actual is None:
+        return 1
+    compatibility = check_run_compatibility(expected, actual)
+    print(f"compatible: {'yes' if compatibility.is_compatible else 'no'}")
+    for failure in compatibility.failures:
+        print(f"incompatible: {failure.code}: {failure.message}")
+    for difference in compatibility.policy_differences:
+        expected_digest = (
+            difference.expected_version.digest.hex()
+            if difference.expected_version is not None
+            else "none"
+        )
+        actual_digest = (
+            difference.actual_version.digest.hex()
+            if difference.actual_version is not None
+            else "none"
+        )
+        print(
+            "policy: "
+            f"entity={difference.entity_id.value} kind={difference.kind.value} "
+            f"expected={expected_digest} actual={actual_digest}"
+        )
+    return 0 if compatibility.is_compatible else 1
+
+
 def _load_source(path: Path) -> SourceFile | None:
     source_or_failure = load_utf8_file(path, file_id=SourceFileId(str(path)))
     if isinstance(source_or_failure, SourceLoadFailure):
@@ -209,6 +333,27 @@ def _load_trace(path: Path) -> CausalTrace | None:
         print(f"{path}: {decoded.code}: {decoded.message}", file=sys.stderr)
         return None
     return decoded
+
+
+def _load_replay(path: Path) -> ReplayPacket | None:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        print(f"{path}: could not read replay", file=sys.stderr)
+        return None
+    decoded = decode_replay(data)
+    if isinstance(decoded, ReplayDecodeFailure):
+        print(f"{path}: {decoded.code}: {decoded.message}", file=sys.stderr)
+        return None
+    return decoded
+
+
+def _print_fixture_failure(failure: FixtureLoadFailure) -> None:
+    for diagnostic in failure.diagnostics:
+        print(
+            f"{failure.source}:{diagnostic.path}: {diagnostic.code}: {diagnostic.message}",
+            file=sys.stderr,
+        )
 
 
 def _print_selected_query(result: IntentionSelectionExplanation | TraceQueryUnavailable) -> None:
@@ -443,6 +588,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         choices=("why-selected", "why-not-selected", "why-failed", "consequence-chain"),
     )
     trace_query_parser.add_argument("target_id", type=int)
+    replay_record_parser = subparsers.add_parser("replay-record")
+    replay_record_parser.add_argument("fixture", type=Path)
+    replay_record_parser.add_argument("ticks", type=int)
+    replay_record_parser.add_argument("output", type=Path)
+    replay_record_parser.add_argument("--application-build", required=True)
+    replay_record_parser.add_argument("--simulation-version", required=True)
+    replay_verify_parser = subparsers.add_parser("replay-verify")
+    replay_verify_parser.add_argument("replay", type=Path)
+    replay_inspect_parser = subparsers.add_parser("replay-inspect")
+    replay_inspect_parser.add_argument("replay", type=Path)
+    replay_compare_parser = subparsers.add_parser("replay-compare")
+    replay_compare_parser.add_argument("expected", type=Path)
+    replay_compare_parser.add_argument("actual", type=Path)
     arguments = parser.parse_args(argv)
     if arguments.command == "doctor":
         return doctor()
@@ -456,6 +614,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return disassemble_source(arguments.source)
     if arguments.command == "trace-query":
         return trace_query(arguments.trace, arguments.query, arguments.target_id)
+    if arguments.command == "replay-record":
+        return replay_record(
+            arguments.fixture,
+            arguments.ticks,
+            arguments.output,
+            arguments.application_build,
+            arguments.simulation_version,
+        )
+    if arguments.command == "replay-verify":
+        return replay_verify(arguments.replay)
+    if arguments.command == "replay-inspect":
+        return replay_inspect(arguments.replay)
+    if arguments.command == "replay-compare":
+        return replay_compare(arguments.expected, arguments.actual)
     return run_policy_source(arguments.source, arguments.entry, arguments.arg)
 
 
