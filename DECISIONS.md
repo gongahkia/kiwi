@@ -467,6 +467,20 @@ cover geometry and before contacts. Versions `1` through `12` are rejected with
 no migration or compatibility decoder because development state remains
 disposable.
 
+### D-052: TakeCover selects an eligible requested-side reservation
+
+`TakeCover` is the closed runtime record `{ cover_id: Int, side: String }`. Its
+validator accepts only a positive `CoverId` and the exact `left` or `right` side
+tags, reports stable `I006` and `I007` failures otherwise, and requires the
+source-linked `take_cover` capability. After locomotion arbitration, a selected
+request retains its existing same-cover same-side slot when present; otherwise
+it chooses the first unreserved matching-side slot in ascending slot-index order
+before applying D-051 contention. Each outcome emits a source-linked canonical
+grant or rejection event parented by the selected intention. Reservation does
+not imply movement, occupancy, or player-visible hidden state. This consumes the
+already-versioned D-051 reservation field and does not change `KWI-STATE\0`
+version `13`.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

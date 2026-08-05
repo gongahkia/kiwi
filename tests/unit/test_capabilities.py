@@ -7,6 +7,7 @@ from kiwi.dsl.bytecode_codec import decode_bytecode, encode_bytecode
 from kiwi.dsl.capabilities import (
     CAPABILITY_MANIFEST_VERSION,
     MOVE_TOWARD_CAPABILITY,
+    TAKE_COVER_CAPABILITY,
     WAIT_CAPABILITY,
     CapabilityId,
     CapabilityManifest,
@@ -105,6 +106,25 @@ def test_compiler_records_move_toward_requirement_at_its_source_construction() -
     assert requirement.capability == MOVE_TOWARD_CAPABILITY
     assert requirement.primary_span == source.span(
         ByteOffset(move_start), ByteOffset(move_start + len(move_text))
+    )
+
+
+def test_compiler_records_take_cover_requirement_at_its_source_construction() -> None:
+    source = SourceFile(
+        SourceFileId("take-cover-capability.dtr"),
+        "type TakeCover = { cover_id: Int, side: String }\n"
+        'policy decide() -> TakeCover = TakeCover { cover_id = 1, side = "left" }\n',
+    )
+
+    artifact = compile_artifact(_core(source), BytecodeHeader(source.file_id))
+    requirement = artifact.capability_manifest.entries[0].requirements[0]
+    take_cover_text = 'TakeCover { cover_id = 1, side = "left" }'
+    take_cover_start = source.text.index(take_cover_text)
+
+    assert requirement.capability == TAKE_COVER_CAPABILITY
+    assert requirement.primary_span == source.span(
+        ByteOffset(take_cover_start),
+        ByteOffset(take_cover_start + len(take_cover_text)),
     )
 
 

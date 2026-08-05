@@ -553,11 +553,14 @@ Intent =
 
 The exact constructors exposed to players may be wrapped by standard-library functions. Keep the VM representation closed and versioned.
 
-The initial simulation boundary accepts the runtime record
-`Wait { duration: Duration }` only, with a strictly positive duration. The
-other named core kinds remain unavailable until their domain payload models are
-implemented; they produce a structured simulation validation failure rather
-than being reinterpreted as another request.
+The initial simulation boundary accepts `Wait { duration: Duration }` with a
+strictly positive duration, `MoveToward { target: Position }`, and
+`TakeCover { cover_id: Int, side: String }`. TakeCover requires a positive cover
+ID and `left` or `right` side string. It reserves the first eligible slot of
+that side in ascending slot-index order; occupancy and physical movement remain
+separate authority phases. Other named core kinds remain unavailable until their
+domain payload models are implemented; they produce a structured simulation
+validation failure rather than being reinterpreted as another request.
 
 ## 13. Standard library
 
@@ -828,11 +831,12 @@ intentions where static information suffices.
 Milestone 4 exposes a separate immutable `CapabilityManifest` compiler artifact.
 It has manifest version `1`, policy entry points in ascending `FunctionId`
 order, and source-linked, lexically ordered capability requirements. Milestone
-6 records the `wait` requirement at a direct `Wait` record construction. The
-simulation repeats this check for decoded requests, including values returned
-through helpers, before accepting an intention. This manifest is deliberately
-outside the raw `KWI-BC\0` bytecode payload; later compiled-policy bundles carry
-it with their tactical API version.
+6 begins recording direct intention constructions; `wait`, `move_toward`, and
+`take_cover` each require their matching capability. The simulation repeats this
+check for decoded requests, including values returned through helpers, before
+accepting an intention. This manifest is deliberately outside the raw
+`KWI-BC\0` bytecode payload; later compiled-policy bundles carry it with their
+tactical API version.
 
 ### 15.6 Cost analysis
 

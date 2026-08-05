@@ -22,6 +22,8 @@ from kiwi.sim.randomness import RandomDraw
 from kiwi.sim.scheduled import ScheduledEvent
 
 if TYPE_CHECKING:
+    from kiwi.sim.cover_intentions import TakeCoverResolution
+    from kiwi.sim.covers import CoverReservation
     from kiwi.sim.messages import Message
 
 
@@ -40,6 +42,8 @@ class EventKind(StrEnum):
     INTENTION_EMITTED = "intention_emitted"
     INTENTION_SELECTED = "intention_selected"
     INTENTION_REJECTED = "intention_rejected"
+    COVER_RESERVATION_GRANTED = "cover_reservation_granted"
+    COVER_RESERVATION_REJECTED = "cover_reservation_rejected"
     MOVEMENT_PROGRESSED = "movement_progressed"
     MOVEMENT_BLOCKED = "movement_blocked"
     MOVEMENT_ARRIVED = "movement_arrived"
@@ -268,6 +272,57 @@ class IntentionRejected:
 
 
 @dataclass(frozen=True, slots=True)
+class CoverReservationGranted:
+    """The source-linked grant of one selected TakeCover reservation."""
+
+    header: EventHeader
+    resolution: TakeCoverResolution
+    reservation: CoverReservation
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.cover_intentions import TakeCoverResolution
+        from kiwi.sim.covers import CoverReservation, CoverReservationStatus
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, TakeCoverResolution):
+            raise ValueError("cover reservation grant requires a take-cover resolution")
+        if self.resolution.status is not CoverReservationStatus.GRANTED:
+            raise ValueError("cover reservation grant requires a granted resolution")
+        if not isinstance(self.reservation, CoverReservation):
+            raise ValueError("cover reservation grant requires a cover reservation")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("cover reservation grant requires one selected-intention parent")
+        if self.reservation.entity_id != self.resolution.candidate.origin.issuer_entity_id:
+            raise ValueError("cover reservation grant owner must match its intention issuer")
+        if self.reservation.intention_id != self.resolution.candidate.origin.intention_id:
+            raise ValueError("cover reservation grant intention must match its resolution")
+        if self.reservation.slot_index != self.resolution.slot_index:
+            raise ValueError("cover reservation grant slot must match its resolution")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
+class CoverReservationRejected:
+    """The source-linked rejection of one selected TakeCover reservation."""
+
+    header: EventHeader
+    resolution: TakeCoverResolution
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.cover_intentions import TakeCoverResolution
+        from kiwi.sim.covers import CoverReservationStatus
+
+        _require_header(self.header)
+        if not isinstance(self.resolution, TakeCoverResolution):
+            raise ValueError("cover reservation rejection requires a take-cover resolution")
+        if self.resolution.status is not CoverReservationStatus.REJECTED:
+            raise ValueError("cover reservation rejection requires a rejected resolution")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("cover reservation rejection requires one selected-intention parent")
+        _require_matching_tick(self.header, self.resolution.candidate.origin.creation_tick)
+
+
+@dataclass(frozen=True, slots=True)
 class MovementRouteStarted:
     """One selected move request whose canonical route was activated."""
 
@@ -375,6 +430,8 @@ CanonicalEvent = (
     | IntentionEmitted
     | IntentionSelected
     | IntentionRejected
+    | CoverReservationGranted
+    | CoverReservationRejected
     | MovementRouteStarted
     | MovementRouteRejected
     | MovementProgressed
@@ -409,6 +466,10 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.INTENTION_SELECTED
     if isinstance(event, IntentionRejected):
         return EventKind.INTENTION_REJECTED
+    if isinstance(event, CoverReservationGranted):
+        return EventKind.COVER_RESERVATION_GRANTED
+    if isinstance(event, CoverReservationRejected):
+        return EventKind.COVER_RESERVATION_REJECTED
     if isinstance(event, MovementRouteStarted):
         return EventKind.MOVEMENT_ROUTE_STARTED
     if isinstance(event, MovementRouteRejected):
@@ -442,6 +503,8 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 IntentionEmitted,
                 IntentionSelected,
                 IntentionRejected,
+                CoverReservationGranted,
+                CoverReservationRejected,
                 MovementRouteStarted,
                 MovementRouteRejected,
                 MovementProgressed,
