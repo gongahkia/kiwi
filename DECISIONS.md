@@ -576,6 +576,25 @@ has not yet defined boundary removal.
 before contacts. Versions `1` through `15` are rejected with no migration
 because development state is disposable.
 
+### D-059: Projectile sweeps select one canonical earliest collision
+
+`sweep_projectiles` is a pure projectile-ID-ordered query over each live
+point projectile's current position and one exact per-tick endpoint. It tests
+only equal-elevation static obstacle rectangles, cover segments, and operative
+350-millimetre discs. Map bounds are not collision candidates: D-058 permits
+projectiles outside them until a later boundary-removal rule exists.
+
+For each candidate, the earliest time is the smallest of `2^32` canonical
+subticks whose rounded integer-millimetre prefix segment intersects it. Prefix
+positions use the existing nearest, ties-away-from-zero conversion. This
+bounded integer query prevents tunnelling without float geometry or
+wall-clock-dependent precision. Equal subticks order collision classes as
+obstacle, cover, operative, then the target's ascending stable ID.
+
+The sweep query does not mutate projectile position or lifetime, remove a
+projectile, emit an event, damage an operative, or alter cover. Those impact
+effects remain a later M10 phase consuming this selected collision.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

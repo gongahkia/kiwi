@@ -594,11 +594,21 @@ bounds until boundary collision defines removal.
 
 ### 15.2 Advance
 
-Advance projectiles in canonical ID order. Use swept-segment intersection to prevent tunnelling at target scales.
+Advance queries inspect projectiles in canonical ID order, from each current
+position to its exact one-tick endpoint. They use swept-prefix intersection to
+prevent tunnelling through equal-elevation obstacles, cover, or operative
+footprints. Each candidate's time is the smallest of `2^32` subticks whose
+nearest, ties-away-from-zero integer-millimetre prefix endpoint intersects;
+this is the fixed canonical precision for projectile movement.
 
 ### 15.3 Impact
 
-Select the earliest collision along the projectile segment. Equal-time ties use documented stable ordering. Emit impact and consequence events.
+Select one earliest collision by `(subtick, class, stable target ID)`, where
+class precedence is obstacle, cover, then operative. Map bounds are not a
+collision candidate until a boundary-removal rule is defined. The sweep query
+has no state or event effect; a subsequent impact phase moves or removes the
+projectile as applicable, emits impact and consequence events, and applies
+damage or cover effects.
 
 ## 16. Randomness
 
