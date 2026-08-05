@@ -558,8 +558,10 @@ strictly display transforms and cannot write authority state.
 The current tactical renderer draws copied map geometry, operative positions,
 planned paths, owner-local contact estimates with uncertainty rings, explicit
 sensor-radius and visible-geometry overlays, and an optional display objective
-marker. These overlay values cannot define objective mechanics or write
-authority state.
+marker. It also draws copied cover height and integrity, contact-facing threat
+rays, and exact-position slot occupancy markers. Those occupancy markers omit
+reservations and predicted movement; all of these display values cannot define
+objective mechanics or write authority state.
 
 `kiwi.render.bitmap_font` loads bundled BigBlue Terminal (native 8x12) with
 antialiasing disabled, then uses integer unfiltered scaling. Its CC-BY-SA-4.0

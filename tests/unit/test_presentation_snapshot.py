@@ -185,6 +185,26 @@ def test_presentation_snapshot_requires_authority_state() -> None:
         build_presentation_snapshot(object())  # type: ignore[arg-type]
 
 
+def test_presentation_cover_occupants_require_exact_operative_positions() -> None:
+    with pytest.raises(ValueError, match="exact operative positions"):
+        PresentationSnapshot(
+            0,
+            "active",
+            None,
+            (PresentationOperative(1, PresentationPoint(0.0, 0.0, 0)),),
+            covers=(
+                PresentationCover(
+                    1,
+                    PresentationPoint(0.0, 100.0, 0),
+                    PresentationPoint(100.0, 100.0, 0),
+                    "low",
+                    10_000,
+                    (PresentationCoverSlot(0, PresentationPoint(100.0, 0.0, 0), "left", 1),),
+                ),
+            ),
+        )
+
+
 def test_presentation_snapshot_copies_contacts_and_visibility_without_authority_references() -> (
     None
 ):

@@ -308,6 +308,8 @@ class PresentationCover:
             raise ValueError("presentation cover integrity must be between zero and 10,000")
         if not isinstance(self.slots, tuple):
             raise ValueError("presentation cover slots must be an immutable tuple")
+        if not 1 <= len(self.slots) <= 16:
+            raise ValueError("presentation cover must contain between one and 16 slots")
         for expected_index, slot in enumerate(self.slots):
             if not isinstance(slot, PresentationCoverSlot):
                 raise ValueError("presentation cover slots must be presentation cover slots")
@@ -391,6 +393,14 @@ class PresentationSnapshot:
                 for slot in cover.slots
             ):
                 raise ValueError("presentation cover occupants must be snapshot operatives")
+            if any(
+                slot.occupant_entity_id
+                != _presentation_slot_occupant(slot.position, self.operatives)
+                for slot in cover.slots
+            ):
+                raise ValueError(
+                    "presentation cover occupants must match exact operative positions"
+                )
             previous_cover_id = cover.cover_id
 
 
@@ -522,6 +532,16 @@ def _presentation_cover(
             for slot in cover.slots
         ),
     )
+
+
+def _presentation_slot_occupant(
+    position: PresentationPoint,
+    operatives: tuple[PresentationOperative, ...],
+) -> int | None:
+    for operative in operatives:
+        if operative.position == position:
+            return operative.entity_id
+    return None
 
 
 def _cover_slot_occupant(

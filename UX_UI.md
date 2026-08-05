@@ -140,6 +140,10 @@ MVP overlays:
 - objective regions.
 
 Overlays are derived from snapshots and trace data. They do not change authority.
+The initial map distinguishes low and high cover, dims damaged cover by its
+integrity, draws rays toward owner-local contact estimates, and outlines empty
+and exact-position occupied slots. Reservation and predicted movement are not
+rendered as occupancy.
 
 ## 6. Causal debugger UI
 

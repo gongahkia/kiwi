@@ -513,6 +513,18 @@ alter VM values or faults, affect state hashes, or change bytecode/state
 formats. It is deliberately not the durable generic trace model; later trace
 milestones own trace levels, persistence, and cross-phase graph construction.
 
+### D-055: Cover presentation derives occupancy from current positions, not reservations
+
+`PresentationSnapshot` copies `CoverId`-ordered cover segments with their
+height, integrity, and ordered slots. A slot's optional display occupant is the
+lowest-ID operative whose current exact same-elevation position equals its slot
+position when the snapshot is built. It is a copied read-model annotation only:
+it does not expose cover reservations, predict movement, allocate IDs, change
+state hashes, or imply that the later authoritative occupancy phase exists.
+The renderer may derive contact-facing threat rays from already-projected local
+contact estimates; it receives no true target identity or renderer-writable
+authority reference.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

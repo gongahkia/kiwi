@@ -12,6 +12,7 @@ from kiwi.render.pygame_app import (
     BACKGROUND_COLOR,
     CONTACT_MARKER_COLOR,
     CONTACT_UNCERTAINTY_COLOR,
+    COVER_DAMAGED_COLOR,
     COVER_HIGH_COLOR,
     COVER_SLOT_EMPTY_COLOR,
     COVER_SLOT_OCCUPIED_COLOR,
@@ -76,8 +77,16 @@ snapshot = PresentationSnapshot(
             10_000,
             (
                 PresentationCoverSlot(0, PresentationPoint(400.0, 0.0, 0), "left", 1),
-                PresentationCoverSlot(1, PresentationPoint(-100.0, 200.0, 0), "right"),
+                PresentationCoverSlot(1, PresentationPoint(-100.0, -400.0, 0), "right"),
             ),
+        ),
+        PresentationCover(
+            2,
+            PresentationPoint(-1_000.0, -300.0, 0),
+            PresentationPoint(-600.0, -300.0, 0),
+            "low",
+            0,
+            (PresentationCoverSlot(0, PresentationPoint(-800.0, -400.0, 0), "left"),),
         ),
     ),
 )
@@ -92,9 +101,10 @@ assert window.logical_canvas.get_at((80, 30))[:3] == VISIBILITY_RANGE_COLOR
 assert window.logical_canvas.get_at((99, 35))[:3] == CONTACT_UNCERTAINTY_COLOR
 assert window.logical_canvas.get_at((90, 35))[:3] == CONTACT_MARKER_COLOR
 assert window.logical_canvas.get_at((72, 40))[:3] == COVER_HIGH_COLOR
+assert window.logical_canvas.get_at((35, 60))[:3] == COVER_DAMAGED_COLOR
 assert window.logical_canvas.get_at((85, 38))[:3] == COVER_THREAT_DIRECTION_COLOR
-assert window.logical_canvas.get_at((78, 35))[:3] == COVER_SLOT_EMPTY_COLOR
-assert window.logical_canvas.get_at((106, 45))[:3] == COVER_SLOT_OCCUPIED_COLOR
+assert window.logical_canvas.get_at((77, 65))[:3] == COVER_SLOT_EMPTY_COLOR
+assert window.logical_canvas.get_at((105, 45))[:3] == COVER_SLOT_OCCUPIED_COLOR
 present(window)
 assert pygame_is_initialised()
 quit_pygame()
