@@ -43,6 +43,39 @@ def test_vm_executes_calls_frames_slots_and_conditionals_deterministically() -> 
     assert false_branch.fault is None
 
 
+def test_vm_expression_trace_retains_executed_source_map_entries_only_when_requested() -> None:
+    source = SourceFile(
+        SourceFileId("trace-vm.dtr"),
+        "policy choose(flag: Bool) -> Int = if flag then 1 else 2\n",
+    )
+    compiled = _compiled(source)
+
+    untraced = run_vm(compiled, FunctionId(0), (BooleanValue(True),))
+    first = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(True),),
+        capture_expression_trace=True,
+    )
+    second = run_vm(
+        compiled,
+        FunctionId(0),
+        (BooleanValue(True),),
+        capture_expression_trace=True,
+    )
+
+    assert untraced.value == first.value == IntegerValue(1)
+    assert untraced.expression_traces == ()
+    assert first.expression_traces == second.expression_traces
+    assert first.expression_traces
+    assert all(
+        trace.source_map_entry in compiled.source_map.entries for trace in first.expression_traces
+    )
+    assert all(
+        trace.source_map_entry.span.file_id == source.file_id for trace in first.expression_traces
+    )
+
+
 def test_vm_budgets_and_fallback_are_deterministic() -> None:
     source = SourceFile(
         SourceFileId("budget.dtr"),

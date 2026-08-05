@@ -80,6 +80,26 @@ def test_policy_invocation_uses_pre_state_memory_and_canonical_entity_order() ->
     assert phase.state.id_allocator.next_ids[int(IdKind.POLICY_INVOCATION)] == 3
 
 
+def test_policy_invocation_expression_capture_does_not_change_authority_state() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    binding = PolicyBinding(
+        entity.entity_id,
+        _two_argument_policy_artifact(),
+        FunctionId(0),
+        MEMORY_SCHEMA,
+        _memory("initial"),
+    )
+
+    untraced = invoke_policies(state, PolicyBindings((binding,)))
+    traced = invoke_policies(state, PolicyBindings((binding,)), capture_expression_trace=True)
+
+    assert traced.state == untraced.state
+    assert traced.evaluations[0].invocation_id == untraced.evaluations[0].invocation_id
+    assert traced.evaluations[0].result.value == untraced.evaluations[0].result.value
+    assert untraced.evaluations[0].result.expression_traces == ()
+    assert traced.evaluations[0].result.expression_traces
+
+
 def test_policy_bindings_reject_noncanonical_and_unbound_entries() -> None:
     artifact = _two_argument_policy_artifact()
     binding = PolicyBinding(EntityId(1), artifact, FunctionId(0), MEMORY_SCHEMA, _memory("initial"))

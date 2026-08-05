@@ -377,3 +377,7 @@ A debugger feature requires:
 Trace-format tests additionally require canonical encode/decode equality,
 stable packet hashes, ordered record and edge validation, and rejection of
 unsupported or noncanonical packets.
+
+VM trace instrumentation tests require deterministic source-map expression
+entries, stable policy-invocation joins, and identical traced and untraced
+authority successors.
