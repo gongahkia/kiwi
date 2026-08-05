@@ -1,0 +1,39 @@
+type SelfObservation = { entity_id: Int, position: Position }
+type Contact = {
+  age_ticks: Int,
+  confidence_basis_points: Int,
+  contact_id: Int,
+  estimated_position: Position,
+  uncertainty_radius: Distance
+}
+type CoverSlot = {
+  position: Position,
+  side: String,
+  slot_index: Int
+}
+type Cover = {
+  cover_id: Int,
+  end: Position,
+  height: String,
+  integrity_basis_points: Int,
+  slots: List<CoverSlot>,
+  start: Position
+}
+type Observation = {
+  nearest_contact: Option<Contact>,
+  self: SelfObservation,
+  visible_covers: List<Cover>
+}
+type Memory = { label: String }
+type TakeCover = { cover_id: Int, side: String }
+type Decision = { intentions: List<TakeCover>, memory: Memory }
+
+fn decide(choice: Option<TakeCover>, memory: Memory) -> Decision =
+  match choice with
+  | Some(cover) -> Decision { intentions = [cover], memory = memory }
+  | None -> Decision { intentions = [], memory = memory }
+
+policy choose_cover(observation: Observation, memory: Memory) -> Decision =
+  match observation.nearest_contact with
+  | Some(contact) -> decide(Cover.nearest_safe(observation.visible_covers, observation.self.position, contact), memory)
+  | None -> Decision { intentions = [], memory = memory }

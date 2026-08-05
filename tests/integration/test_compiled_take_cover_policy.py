@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from kiwi.domain.geometry import WorldPosition, WorldSubunits
 from kiwi.domain.ids import IdAllocator, IntentionId
 from kiwi.dsl.bytecode import BytecodeHeader
@@ -32,21 +34,15 @@ from kiwi.sim.runner import run_headless
 from kiwi.sim.state import MissionState, add_entity
 
 MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
+POLICY_PATH = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "policies" / "cover_contention_policy.dtr"
+)
 
 
 def test_compiled_take_cover_policy_reserves_cover_and_retains_contention_causality() -> None:
     source = SourceFile(
-        SourceFileId("take-cover-policy.dtr"),
-        "type SelfObservation = { entity_id: Int, position: Position }\n"
-        "type Observation = { self: SelfObservation, tick: Int }\n"
-        "type Memory = { label: String }\n"
-        "type TakeCover = { cover_id: Int, side: String }\n"
-        "type Decision = { intentions: List<TakeCover>, memory: Memory }\n"
-        "policy reserve(observation: Observation, memory: Memory) -> Decision = "
-        "Decision { "
-        'intentions = [TakeCover { cover_id = 1, side = "left" }], '
-        "memory = memory "
-        "}\n",
+        SourceFileId("tests/fixtures/policies/cover_contention_policy.dtr"),
+        POLICY_PATH.read_text(encoding="utf-8"),
     )
     artifact = _compile(source)
     state, bindings = _mission_with_compiled_policy(artifact)

@@ -231,10 +231,18 @@ Recommended initial fixtures:
 - `minimal_move`;
 - `missing_contact`;
 - `cover_contention`;
+- `stale_threat_cover`;
 - `projectile_impact`;
 - `policy_budget_fault`;
 - `causal_threshold_injury`;
 - `glasshouse_vertical_slice`.
+
+The current `cover_contention_policy` fixture emits the same requested-side
+`TakeCover` intent for two operatives, asserting the canonical grant and
+`slot_contested` loser. The `stale_threat_cover_policy` fixture receives a
+decayed owner-local contact and asserts that `Cover.nearest_safe` still selects
+the protected observed slot from that estimate. Both run through the headless
+policy boundary and compare repeated events, checkpoints, and final hashes.
 
 ## 7. Compiler diagnostics tests
 

@@ -9,7 +9,6 @@ from kiwi.domain.quantities import Quantity, quantity_from_literal
 from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import CompiledArtifact, compile_artifact
-from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.lexer import lex
 from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
@@ -30,9 +29,17 @@ from kiwi.sim.contacts import (
     ContactStore,
     advance_contacts,
 )
+from kiwi.sim.covers import (
+    CoverHeight,
+    CoverIntegrity,
+    CoverSegment,
+    CoverSide,
+    CoverSlot,
+    CoverStore,
+)
 from kiwi.sim.events import IntentionEmitted, MessageDelivered, PolicyEvaluated
 from kiwi.sim.hashing import hash_canonical_state
-from kiwi.sim.intentions import WaitIntention
+from kiwi.sim.intentions import TakeCoverIntention, WaitIntention
 from kiwi.sim.messages import MessageChannel, send_message
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
 from kiwi.sim.runner import HeadlessRun, run_headless
@@ -41,6 +48,10 @@ from kiwi.sim.state import MissionState, add_entity
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "policies" / "contact_option_policy.dtr"
 )
+STALE_THREAT_POLICY_PATH = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "policies" / "stale_threat_cover_policy.dtr"
+)
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
 
 
@@ -93,6 +104,58 @@ def test_stale_contact_fixture_selects_some_deterministically() -> None:
     assert _wait_duration(first) == quantity_from_literal(2, "s")
 
 
+def test_stale_threat_cover_fixture_selects_the_observed_safe_slot_deterministically() -> None:
+    state, entity = add_entity(
+        MissionState(tick=1), WorldPosition(WorldSubunits(0), WorldSubunits(0))
+    )
+    cover_id, allocator = state.id_allocator.allocate_cover()
+    evidence_event_id, allocator = allocator.allocate_event()
+    contact_id, allocator = allocator.allocate_contact()
+    cover = CoverSegment(
+        cover_id,
+        WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+        WorldPosition(WorldSubunits(1_000), WorldSubunits(0)),
+        CoverHeight.HIGH,
+        CoverIntegrity(10_000),
+        (
+            CoverSlot(0, WorldPosition(WorldSubunits(0), WorldSubunits(-350)), CoverSide.LEFT),
+            CoverSlot(1, WorldPosition(WorldSubunits(1_000), WorldSubunits(350)), CoverSide.RIGHT),
+        ),
+    )
+    contact = ContactEstimate(
+        contact_id,
+        entity.entity_id,
+        WorldPosition(WorldSubunits(2_000), WorldSubunits(-2_000)),
+        WorldSubunits(300),
+        ContactConfidence(7_500),
+        1,
+        _contact_provenance(evidence_event_id),
+    )
+    stale_state = replace(
+        state,
+        tick=4,
+        covers=CoverStore((cover,)),
+        contacts=advance_contacts(ContactStore((contact,), lifecycle_tick=1), 4),
+        id_allocator=allocator,
+    )
+
+    first = _run_fixture(stale_state, entity.entity_id, STALE_THREAT_POLICY_PATH)
+    second = _run_fixture(stale_state, entity.entity_id, STALE_THREAT_POLICY_PATH)
+    observation = _policy_evaluation(first).validation.evaluation.observation
+    emitted = next(event for event in first.events if isinstance(event, IntentionEmitted))
+
+    assert first.events == second.events
+    assert first.checkpoints == second.checkpoints
+    assert hash_canonical_state(first.state) == hash_canonical_state(second.state)
+    assert observation.nearest_contact is not None
+    assert observation.nearest_contact.age_at(4).ticks == 3
+    assert observation.nearest_contact.confidence == ContactConfidence(7_200)
+    assert observation.nearest_contact.uncertainty_radius == WorldSubunits(600)
+    assert isinstance(emitted.candidate.intention, TakeCoverIntention)
+    assert emitted.candidate.intention.cover_id == cover_id
+    assert emitted.candidate.intention.side is CoverSide.LEFT
+
+
 def test_relayed_contact_report_fixture_remains_an_inbox_message() -> None:
     initial, sender = add_entity(
         MissionState(tick=4), WorldPosition(WorldSubunits(-1_000), WorldSubunits(0))
@@ -126,18 +189,24 @@ def test_relayed_contact_report_fixture_remains_an_inbox_message() -> None:
     assert _wait_duration(result) == quantity_from_literal(1, "s")
 
 
-def _run_fixture(state: MissionState, entity_id: EntityId) -> HeadlessRun:
+def _run_fixture(
+    state: MissionState,
+    entity_id: EntityId,
+    policy_path: Path = FIXTURE_PATH,
+) -> HeadlessRun:
     source = SourceFile(
-        SourceFileId("tests/fixtures/policies/contact_option_policy.dtr"),
-        FIXTURE_PATH.read_text(encoding="utf-8"),
+        SourceFileId(policy_path.relative_to(REPOSITORY_ROOT).as_posix()),
+        policy_path.read_text(encoding="utf-8"),
     )
     artifact = _compile(source)
+    assert len(artifact.capability_manifest.entries) == 1
+    entry_function_id = artifact.capability_manifest.entries[0].function_id
     bindings = PolicyBindings(
         (
             PolicyBinding(
                 entity_id,
                 artifact,
-                FunctionId(0),
+                entry_function_id,
                 MEMORY_SCHEMA,
                 RecordValue("Memory", ("label",), (StringValue("ready"),)),
             ),
