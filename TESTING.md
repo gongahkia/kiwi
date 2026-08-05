@@ -251,6 +251,11 @@ decayed owner-local contact and asserts that `Cover.nearest_safe` still selects
 the protected observed slot from that estimate. Both run through the headless
 policy boundary and compare repeated events, checkpoints, and final hashes.
 
+`projectile_impact_policy` retains explicit memory after one Fire request. Its
+headless fixture asserts two advances, an operative impact, damage and injury
+parents, retained Fire provenance, and deterministic near-miss then impact
+suppression across three ticks.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:
