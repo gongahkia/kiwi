@@ -158,6 +158,61 @@ class _ExecutionResources:
     allocations: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class _CoverIntrinsicResult:
+    """One completed Cover intrinsic value and its output allocation cost."""
+
+    value: RuntimeValue
+    allocation_cost: int
+
+
+@dataclass(frozen=True, slots=True)
+class _CoverIntrinsicFailure:
+    """One source-linked Cover intrinsic fault awaiting active-frame attachment."""
+
+    code: VMFaultCode
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class _CoverPosition:
+    """One exact planar position decoded from a closed runtime record."""
+
+    x: ExactRational
+    y: ExactRational
+
+
+@dataclass(frozen=True, slots=True)
+class _CoverSlotValue:
+    """One validated observable cover slot."""
+
+    position: _CoverPosition
+    side: str
+    slot_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class _CoverValue:
+    """One validated observable cover segment."""
+
+    cover_id: int
+    start: _CoverPosition
+    end: _CoverPosition
+    height: str
+    integrity_basis_points: int
+    slots: ListValue
+
+
+_COVER_INTRINSICS = frozenset(
+    {
+        IntrinsicKind.COVER_EXPOSURE,
+        IntrinsicKind.COVER_ROUTE_COST,
+        IntrinsicKind.COVER_NEAREST_SAFE,
+        IntrinsicKind.COVER_SEEK,
+    }
+)
+
+
 def run_vm(
     module: BytecodeModule,
     entry_function_id: FunctionId,
@@ -474,6 +529,31 @@ def run_vm(
             call_arguments = tuple(stack[start + 1 :])
             del stack[start:]
             if isinstance(callee, IntrinsicValue):
+                if callee.intrinsic in _COVER_INTRINSICS:
+                    cover_result = _run_cover_intrinsic(
+                        callee.intrinsic,
+                        call_arguments,
+                        budgets,
+                        resources,
+                    )
+                    if isinstance(cover_result, _CoverIntrinsicFailure):
+                        return _fault(module, cover_result.code, cover_result.message, frame)
+                    if (
+                        resources.allocations + cover_result.allocation_cost
+                        > budgets.allocation_limit
+                    ):
+                        return _fault(
+                            module,
+                            VMFaultCode.ALLOCATION_BUDGET,
+                            "allocation budget exhausted",
+                            frame,
+                        )
+                    resources.allocations += cover_result.allocation_cost
+                    if not _push(stack, cover_result.value, budgets):
+                        return _fault(
+                            module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame
+                        )
+                    continue
                 intrinsic_frame = _new_intrinsic_frame(
                     module,
                     callee.intrinsic,
@@ -725,6 +805,343 @@ def _combine_quantities(
         numerator += adjustment
     denominator = left_value.denominator * right_value.denominator
     return QuantityValue(Quantity(left.value.dimension, ExactRational(numerator, denominator)))
+
+
+def _run_cover_intrinsic(
+    intrinsic: IntrinsicKind,
+    arguments: tuple[RuntimeValue, ...],
+    budgets: VMBudgets,
+    resources: _ExecutionResources,
+) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
+    if not _consume_cover_work(budgets, resources):
+        return _CoverIntrinsicFailure(
+            VMFaultCode.INSTRUCTION_BUDGET,
+            "instruction budget exhausted",
+        )
+    if intrinsic is IntrinsicKind.COVER_EXPOSURE:
+        return _cover_exposure(arguments, budgets, resources)
+    if intrinsic is IntrinsicKind.COVER_ROUTE_COST:
+        return _cover_route_cost(arguments)
+    if intrinsic is IntrinsicKind.COVER_NEAREST_SAFE:
+        return _cover_nearest_safe(arguments, budgets, resources)
+    if intrinsic is IntrinsicKind.COVER_SEEK:
+        return _cover_seek(arguments)
+    raise AssertionError("unknown Cover intrinsic")
+
+
+def _cover_exposure(
+    arguments: tuple[RuntimeValue, ...],
+    budgets: VMBudgets,
+    resources: _ExecutionResources,
+) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
+    if len(arguments) != 3:
+        return _cover_arity_failure(IntrinsicKind.COVER_EXPOSURE, 3)
+    cover = _cover_value(arguments[0])
+    slot = _cover_slot_value(arguments[1])
+    threat_position = _contact_position(arguments[2])
+    if cover is None or slot is None or threat_position is None:
+        return _cover_type_failure(IntrinsicKind.COVER_EXPOSURE)
+    found_slot = False
+    for value in cover.slots.values:
+        if not _consume_cover_work(budgets, resources):
+            return _CoverIntrinsicFailure(
+                VMFaultCode.INSTRUCTION_BUDGET,
+                "instruction budget exhausted",
+            )
+        candidate = _cover_slot_value(value)
+        if candidate is None:
+            return _cover_type_failure(IntrinsicKind.COVER_EXPOSURE)
+        if candidate == slot:
+            found_slot = True
+    if not found_slot:
+        return _cover_type_failure(IntrinsicKind.COVER_EXPOSURE)
+    return _CoverIntrinsicResult(
+        IntegerValue(_cover_exposure_basis_points(cover, slot, threat_position)), 1
+    )
+
+
+def _cover_route_cost(
+    arguments: tuple[RuntimeValue, ...],
+) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
+    if len(arguments) != 2:
+        return _cover_arity_failure(IntrinsicKind.COVER_ROUTE_COST, 2)
+    origin = _cover_position(arguments[0])
+    slot = _cover_slot_value(arguments[1])
+    if origin is None or slot is None:
+        return _cover_type_failure(IntrinsicKind.COVER_ROUTE_COST)
+    return _CoverIntrinsicResult(
+        QuantityValue(
+            Quantity(QuantityDimension.DISTANCE, _manhattan_distance(origin, slot.position))
+        ),
+        1,
+    )
+
+
+def _cover_nearest_safe(
+    arguments: tuple[RuntimeValue, ...],
+    budgets: VMBudgets,
+    resources: _ExecutionResources,
+) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
+    if len(arguments) != 3:
+        return _cover_arity_failure(IntrinsicKind.COVER_NEAREST_SAFE, 3)
+    covers, origin, threat_position = arguments
+    if not isinstance(covers, ListValue):
+        return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+    origin_position = _cover_position(origin)
+    contact_position = _contact_position(threat_position)
+    if origin_position is None or contact_position is None:
+        return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+    selected: tuple[int, _CoverSlotValue, int, ExactRational] | None = None
+    for value in covers.values:
+        if not _consume_cover_work(budgets, resources):
+            return _CoverIntrinsicFailure(
+                VMFaultCode.INSTRUCTION_BUDGET,
+                "instruction budget exhausted",
+            )
+        cover = _cover_value(value)
+        if cover is None:
+            return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+        for slot_value in cover.slots.values:
+            if not _consume_cover_work(budgets, resources):
+                return _CoverIntrinsicFailure(
+                    VMFaultCode.INSTRUCTION_BUDGET,
+                    "instruction budget exhausted",
+                )
+            slot = _cover_slot_value(slot_value)
+            if slot is None:
+                return _cover_type_failure(IntrinsicKind.COVER_NEAREST_SAFE)
+            exposure = _cover_exposure_basis_points(cover, slot, contact_position)
+            route_cost = _manhattan_distance(origin_position, slot.position)
+            candidate = (cover.cover_id, slot, exposure, route_cost)
+            if selected is None or _is_safer_cover_candidate(candidate, selected):
+                selected = candidate
+    if selected is None:
+        return _CoverIntrinsicResult(OptionNoneValue(), 1)
+    cover_id, slot, _, _ = selected
+    intention = RecordValue(
+        "TakeCover",
+        ("cover_id", "side"),
+        (IntegerValue(cover_id), StringValue(slot.side)),
+    )
+    return _CoverIntrinsicResult(OptionSomeValue(intention), 2)
+
+
+def _cover_seek(
+    arguments: tuple[RuntimeValue, ...],
+) -> _CoverIntrinsicResult | _CoverIntrinsicFailure:
+    if len(arguments) != 2:
+        return _cover_arity_failure(IntrinsicKind.COVER_SEEK, 2)
+    cover_id, side = arguments
+    if not isinstance(cover_id, IntegerValue) or not isinstance(side, StringValue):
+        return _cover_type_failure(IntrinsicKind.COVER_SEEK)
+    return _CoverIntrinsicResult(
+        RecordValue("TakeCover", ("cover_id", "side"), (cover_id, side)),
+        1,
+    )
+
+
+def _cover_arity_failure(intrinsic: IntrinsicKind, expected_arity: int) -> _CoverIntrinsicFailure:
+    return _CoverIntrinsicFailure(
+        VMFaultCode.CALL,
+        f"{_cover_intrinsic_name(intrinsic)} expects {expected_arity} arguments",
+    )
+
+
+def _cover_type_failure(intrinsic: IntrinsicKind) -> _CoverIntrinsicFailure:
+    return _CoverIntrinsicFailure(
+        VMFaultCode.TYPE,
+        f"{_cover_intrinsic_name(intrinsic)} received malformed observable records",
+    )
+
+
+def _cover_intrinsic_name(intrinsic: IntrinsicKind) -> str:
+    return f"Cover.{intrinsic.name.removeprefix('COVER_').lower()}"
+
+
+def _consume_cover_work(budgets: VMBudgets, resources: _ExecutionResources) -> bool:
+    if resources.instructions >= budgets.instruction_limit:
+        return False
+    resources.instructions += 1
+    return True
+
+
+def _cover_value(value: RuntimeValue) -> _CoverValue | None:
+    fields = _record_values(
+        value,
+        "Cover",
+        ("cover_id", "end", "height", "integrity_basis_points", "slots", "start"),
+    )
+    if fields is None:
+        return None
+    cover_id, end, height, integrity, slots, start = fields
+    if (
+        not isinstance(cover_id, IntegerValue)
+        or cover_id.value <= 0
+        or not isinstance(height, StringValue)
+        or height.value not in ("low", "high")
+        or not isinstance(integrity, IntegerValue)
+        or not 0 <= integrity.value <= 10_000
+        or not isinstance(slots, ListValue)
+    ):
+        return None
+    start_position = _cover_position(start)
+    end_position = _cover_position(end)
+    if start_position is None or end_position is None:
+        return None
+    return _CoverValue(
+        cover_id.value,
+        start_position,
+        end_position,
+        height.value,
+        integrity.value,
+        slots,
+    )
+
+
+def _cover_slot_value(value: RuntimeValue) -> _CoverSlotValue | None:
+    fields = _record_values(value, "CoverSlot", ("position", "side", "slot_index"))
+    if fields is None:
+        return None
+    position, side, slot_index = fields
+    if (
+        not isinstance(side, StringValue)
+        or side.value not in ("left", "right")
+        or not isinstance(slot_index, IntegerValue)
+        or slot_index.value < 0
+    ):
+        return None
+    parsed_position = _cover_position(position)
+    if parsed_position is None:
+        return None
+    return _CoverSlotValue(parsed_position, side.value, slot_index.value)
+
+
+def _contact_position(value: RuntimeValue) -> _CoverPosition | None:
+    fields = _record_values(
+        value,
+        "Contact",
+        (
+            "age_ticks",
+            "confidence_basis_points",
+            "contact_id",
+            "estimated_position",
+            "uncertainty_radius",
+        ),
+    )
+    if fields is None:
+        return None
+    age_ticks, confidence, contact_id, position, uncertainty = fields
+    if (
+        not isinstance(age_ticks, IntegerValue)
+        or age_ticks.value < 0
+        or not isinstance(confidence, IntegerValue)
+        or not 0 <= confidence.value <= 10_000
+        or not isinstance(contact_id, IntegerValue)
+        or contact_id.value <= 0
+        or not isinstance(uncertainty, QuantityValue)
+        or uncertainty.value.dimension is not QuantityDimension.DISTANCE
+        or uncertainty.value.value.numerator < 0
+    ):
+        return None
+    return _cover_position(position)
+
+
+def _cover_position(value: RuntimeValue) -> _CoverPosition | None:
+    fields = _record_values(value, "Position", ("x", "y"))
+    if fields is None:
+        return None
+    x, y = fields
+    if (
+        not isinstance(x, QuantityValue)
+        or x.value.dimension is not QuantityDimension.DISTANCE
+        or not isinstance(y, QuantityValue)
+        or y.value.dimension is not QuantityDimension.DISTANCE
+    ):
+        return None
+    return _CoverPosition(x.value.value, y.value.value)
+
+
+def _record_values(
+    value: RuntimeValue,
+    type_name: str,
+    field_names: tuple[str, ...],
+) -> tuple[RuntimeValue, ...] | None:
+    if not isinstance(value, RecordValue) or value.type_name != type_name:
+        return None
+    if value.field_names != field_names:
+        return None
+    return value.values
+
+
+def _cover_exposure_basis_points(
+    cover: _CoverValue,
+    slot: _CoverSlotValue,
+    threat_position: _CoverPosition,
+) -> int:
+    threat_side = _cover_side_for_position(cover, threat_position)
+    if threat_side is None or threat_side == slot.side:
+        return 10_000
+    protection = 5_000 if cover.height == "low" else 7_500
+    return 10_000 - protection * cover.integrity_basis_points // 10_000
+
+
+def _cover_side_for_position(cover: _CoverValue, position: _CoverPosition) -> str | None:
+    vector_x = _subtract_rationals(cover.end.x, cover.start.x)
+    vector_y = _subtract_rationals(cover.end.y, cover.start.y)
+    offset_x = _subtract_rationals(position.x, cover.start.x)
+    offset_y = _subtract_rationals(position.y, cover.start.y)
+    cross_numerator = (
+        vector_x.numerator * offset_y.numerator * vector_y.denominator * offset_x.denominator
+        - vector_y.numerator * offset_x.numerator * vector_x.denominator * offset_y.denominator
+    )
+    if cross_numerator > 0:
+        return "left"
+    if cross_numerator < 0:
+        return "right"
+    return None
+
+
+def _manhattan_distance(left: _CoverPosition, right: _CoverPosition) -> ExactRational:
+    x_distance = _absolute_rational(_subtract_rationals(left.x, right.x))
+    y_distance = _absolute_rational(_subtract_rationals(left.y, right.y))
+    return ExactRational(
+        x_distance.numerator * y_distance.denominator
+        + y_distance.numerator * x_distance.denominator,
+        x_distance.denominator * y_distance.denominator,
+    )
+
+
+def _subtract_rationals(left: ExactRational, right: ExactRational) -> ExactRational:
+    return ExactRational(
+        left.numerator * right.denominator - right.numerator * left.denominator,
+        left.denominator * right.denominator,
+    )
+
+
+def _absolute_rational(value: ExactRational) -> ExactRational:
+    return ExactRational(abs(value.numerator), value.denominator)
+
+
+def _is_safer_cover_candidate(
+    candidate: tuple[int, _CoverSlotValue, int, ExactRational],
+    selected: tuple[int, _CoverSlotValue, int, ExactRational],
+) -> bool:
+    candidate_cover_id, candidate_slot, candidate_exposure, candidate_cost = candidate
+    selected_cover_id, selected_slot, selected_exposure, selected_cost = selected
+    if candidate_exposure != selected_exposure:
+        return candidate_exposure < selected_exposure
+    cost_comparison = _compare_rationals(candidate_cost, selected_cost)
+    if cost_comparison != 0:
+        return cost_comparison < 0
+    return (candidate_cover_id, candidate_slot.slot_index) < (
+        selected_cover_id,
+        selected_slot.slot_index,
+    )
+
+
+def _compare_rationals(left: ExactRational, right: ExactRational) -> int:
+    difference = left.numerator * right.denominator - right.numerator * left.denominator
+    return (difference > 0) - (difference < 0)
 
 
 def _new_intrinsic_frame(

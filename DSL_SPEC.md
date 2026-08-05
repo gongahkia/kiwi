@@ -637,11 +637,24 @@ output list remains bounded to 1,024 items.
 
 #### `Cover`
 
-- visible candidates;
-- exposure estimate;
-- nearest safe;
-- route cost;
-- seek intention.
+The `visible_covers` observation field is the candidate list. Cover helpers are
+direct-only closed intrinsics over supplied observations:
+
+```text
+Cover.exposure(cover, slot, threat)             : Int
+Cover.route_cost(origin, slot)                  : Distance
+Cover.nearest_safe(covers, origin, threat)      : Option<TakeCover>
+Cover.seek(cover_id, side)                      : TakeCover
+```
+
+`Cover`, `CoverSlot`, `Contact`, and `TakeCover` must use the exact current
+observation/intention record layouts. `exposure` returns 0–10,000 basis points
+using the same side, height, and integrity rule as the simulation. `route_cost`
+is exact planar Manhattan distance, not a hidden map route. `nearest_safe`
+evaluates each supplied slot and returns the `TakeCover` for the least tuple
+`(exposure, route cost, cover ID, slot index)`, or `None` when no slots were
+supplied. `seek` constructs `TakeCover { cover_id, side }`; simulation retains
+normal cover-ID and side validation. Every traversal charges bounded VM work.
 
 #### `Movement`
 
@@ -816,9 +829,11 @@ An anonymous function without an expected function type is
 `E421_AMBIGUOUS_LAMBDA`; an arity mismatch is `E422_LAMBDA_ARITY`; more than
 64 captures is `E423_CLOSURE_CAPTURE_LIMIT`.
 
-List intrinsic diagnostics are `E424_INTRINSIC_CALL` for a non-direct intrinsic
-reference, `E425_INTRINSIC_ARITY`, `E426_INTRINSIC_LIST`,
-`E427_INTRINSIC_CALLBACK`, and `E428_INTRINSIC_ORDER_KEY`.
+Intrinsic diagnostics are `E424_INTRINSIC_CALL` for a non-direct intrinsic
+reference. List calls additionally use `E425_INTRINSIC_ARITY`,
+`E426_INTRINSIC_LIST`, `E427_INTRINSIC_CALLBACK`, and
+`E428_INTRINSIC_ORDER_KEY`; Cover calls use `E430_COVER_ARITY`,
+`E431_COVER_ARGUMENT`, and `E432_COVER_SCHEMA`.
 
 `E429_INVALID_DOMAIN_OPERATION` reports an unsupported or dimensionally invalid
 binary operation at the operator span.
@@ -831,10 +846,10 @@ intentions where static information suffices.
 Milestone 4 exposes a separate immutable `CapabilityManifest` compiler artifact.
 It has manifest version `1`, policy entry points in ascending `FunctionId`
 order, and source-linked, lexically ordered capability requirements. Milestone
-6 begins recording direct intention constructions; `wait`, `move_toward`, and
-`take_cover` each require their matching capability. The simulation repeats this
-check for decoded requests, including values returned through helpers, before
-accepting an intention. This manifest is deliberately outside the raw
+6 begins recording direct intention constructions and intention-producing Cover
+helpers; `wait`, `move_toward`, and `take_cover` each require their matching
+capability. The simulation repeats this check for decoded requests, including
+values returned through helpers, before accepting an intention. This manifest is deliberately outside the raw
 `KWI-BC\0` bytecode payload; later compiled-policy bundles carry it with their
 tactical API version.
 
@@ -932,8 +947,9 @@ number of source-ordered captured values and pushes a closure targeting that
 entry. A closure call prepends its captures to explicit call arguments.
 
 `PUSH_INTRINSIC` pushes one closed standard-library identifier. It has no host
-callable, import path, or dynamic lookup; `CALL` dispatches it only to the
-documented bounded List operations.
+callable, import path, or dynamic lookup; `CALL` dispatches it only to
+documented bounded operations. Version-2 tags 1 through 6 are List operations;
+tags 7 through 10 are Cover operations.
 
 `BINARY_OPERATION` consumes a left and right value and pushes the statically
 checked exact domain result. Its closed one-byte operator tag is `+`, `-`, `<`,

@@ -7,7 +7,7 @@ from enum import StrEnum
 
 from kiwi.dsl.diagnostics import Diagnostic, DiagnosticLabel, DiagnosticSeverity, DiagnosticStage
 from kiwi.dsl.ids import DefinitionId, SymbolId
-from kiwi.dsl.intrinsics import list_intrinsic
+from kiwi.dsl.intrinsics import cover_intrinsic, list_intrinsic
 from kiwi.dsl.syntax import (
     BinaryExpression,
     BooleanLiteral,
@@ -434,7 +434,7 @@ def _resolve_expression(
             diagnostics,
         )
     if isinstance(expression, FieldAccessExpression):
-        if _is_list_intrinsic_access(expression):
+        if _is_intrinsic_access(expression):
             return next_symbol_value
         return _resolve_expression(
             expression.record,
@@ -548,12 +548,14 @@ def _resolved_callee(
     return None
 
 
-def _is_list_intrinsic_access(expression: FieldAccessExpression) -> bool:
-    return (
-        isinstance(expression.record, NameExpression)
-        and expression.record.name.text == "List"
-        and list_intrinsic(expression.field.text) is not None
-    )
+def _is_intrinsic_access(expression: FieldAccessExpression) -> bool:
+    if not isinstance(expression.record, NameExpression):
+        return False
+    if expression.record.name.text == "List":
+        return list_intrinsic(expression.field.text) is not None
+    if expression.record.name.text == "Cover":
+        return cover_intrinsic(expression.field.text) is not None
+    return False
 
 
 def _check_call_arity(

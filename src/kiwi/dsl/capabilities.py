@@ -25,6 +25,7 @@ from kiwi.dsl.core_ir import (
     CoreSome,
 )
 from kiwi.dsl.ids import DefinitionId, FunctionId
+from kiwi.dsl.intrinsics import IntrinsicKind
 from kiwi.dsl.source import SourceSpan
 
 CAPABILITY_MANIFEST_VERSION = 1
@@ -137,15 +138,24 @@ def capability_manifest(module: CoreModule, function_table: FunctionTable) -> Ca
 def _requirements_for_expression(expression: CoreExpression) -> tuple[CapabilityRequirement, ...]:
     requirements: list[CapabilityRequirement] = []
     for candidate in _walk_expressions(expression):
-        if not isinstance(candidate, CoreRecord):
-            continue
-        capability = _capability_for_record_type(candidate.type_name)
+        capability = _capability_for_expression(candidate)
         if capability is None or any(
             requirement.capability == capability for requirement in requirements
         ):
             continue
         requirements.append(CapabilityRequirement(capability, candidate.span))
     return tuple(sorted(requirements, key=lambda requirement: requirement.capability.value))
+
+
+def _capability_for_expression(expression: CoreExpression) -> CapabilityId | None:
+    if isinstance(expression, CoreRecord):
+        return _capability_for_record_type(expression.type_name)
+    if isinstance(expression, CoreIntrinsicCall) and expression.intrinsic in {
+        IntrinsicKind.COVER_NEAREST_SAFE,
+        IntrinsicKind.COVER_SEEK,
+    }:
+        return TAKE_COVER_CAPABILITY
+    return None
 
 
 def _capability_for_record_type(type_name: str) -> CapabilityId | None:

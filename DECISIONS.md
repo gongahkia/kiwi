@@ -481,6 +481,25 @@ not imply movement, occupancy, or player-visible hidden state. This consumes the
 already-versioned D-051 reservation field and does not change `KWI-STATE\0`
 version `13`.
 
+### D-053: Cover helpers use only observed geometry and exact deterministic ranks
+
+The closed `Cover` standard-library module adds four direct-only bytecode-v2
+intrinsics: `exposure(Cover, CoverSlot, Contact) -> Int`,
+`route_cost(Position, CoverSlot) -> Distance`,
+`nearest_safe(List<Cover>, Position, Contact) -> Option<TakeCover>`, and
+`seek(Int, String) -> TakeCover`. Their records must exactly match the
+owner-visible ABI layouts. `exposure` returns the same 0–10,000 side, height,
+and integrity estimate as D-050. `route_cost` is the exact planar Manhattan
+distance proxy; it does not query map, routes, occupancy, reservations, or
+hidden state. `nearest_safe` evaluates every supplied slot and selects by
+ascending `(exposure, route cost, CoverId, slot index)`, returning `None` only
+when there are no supplied slots. `seek` retains its arguments for the normal
+TakeCover validator, including `I006`/`I007` failures. These bounded intrinsics
+charge deterministic instruction and allocation budgets. Their existing
+one-byte `PUSH_INTRINSIC` representation gains tags `7` through `10`; prior
+version-2 bytes retain their meanings, so no language, bytecode, or state
+version changes.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

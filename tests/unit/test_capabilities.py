@@ -128,6 +128,25 @@ def test_compiler_records_take_cover_requirement_at_its_source_construction() ->
     )
 
 
+def test_compiler_records_take_cover_requirement_at_cover_helper_invocation() -> None:
+    source = SourceFile(
+        SourceFileId("take-cover-helper-capability.dtr"),
+        "type TakeCover = { cover_id: Int, side: String }\n"
+        'policy decide() -> TakeCover = Cover.seek(1, "left")\n',
+    )
+
+    artifact = compile_artifact(_core(source), BytecodeHeader(source.file_id))
+    requirement = artifact.capability_manifest.entries[0].requirements[0]
+    helper_text = 'Cover.seek(1, "left")'
+    helper_start = source.text.index(helper_text)
+
+    assert requirement.capability == TAKE_COVER_CAPABILITY
+    assert requirement.primary_span == source.span(
+        ByteOffset(helper_start),
+        ByteOffset(helper_start + len(helper_text)),
+    )
+
+
 def _core(source: SourceFile) -> CoreModule:
     checked = check(resolve(parse(lex(source)).module))
     assert checked.diagnostics == ()

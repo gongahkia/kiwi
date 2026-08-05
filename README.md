@@ -141,7 +141,9 @@ The simulation policy boundary accepts `MoveToward { target: Position }`,
 MoveToward is capability-gated, uses canonical integer route planning, and emits
 source-linked route and movement events. TakeCover is capability-gated and
 reserves the first eligible requested-side slot with deterministic contention
-events. Neither exposes Python or renderer state to policy code.
+events. The direct-only `Cover` helpers rank supplied visible geometry and
+contacts without reading hidden map, reservation, or renderer state. Neither
+exposes Python or renderer state to policy code.
 
 The current authoring language, core IR, and bytecode use version `2`; `.dtr`
 source has no header and compiles as version `2`. Historical `(1, 1, 1)`
