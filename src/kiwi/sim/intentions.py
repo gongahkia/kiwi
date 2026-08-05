@@ -6,12 +6,25 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, world_subunits_from_distance
-from kiwi.domain.ids import EntityId, IntentionId, PolicyInvocationId
+from kiwi.domain.ids import CoverId, EntityId, IntentionId, PolicyInvocationId
 from kiwi.domain.quantities import Quantity, QuantityDimension
-from kiwi.dsl.capabilities import MOVE_TOWARD_CAPABILITY, WAIT_CAPABILITY, CapabilityId
+from kiwi.dsl.capabilities import (
+    MOVE_TOWARD_CAPABILITY,
+    TAKE_COVER_CAPABILITY,
+    WAIT_CAPABILITY,
+    CapabilityId,
+)
 from kiwi.dsl.ids import ExpressionId
-from kiwi.dsl.runtime_values import MAX_RUNTIME_LIST_ITEMS, QuantityValue, RecordValue, RuntimeValue
+from kiwi.dsl.runtime_values import (
+    MAX_RUNTIME_LIST_ITEMS,
+    IntegerValue,
+    QuantityValue,
+    RecordValue,
+    RuntimeValue,
+    StringValue,
+)
 from kiwi.dsl.source import SourceSpan
+from kiwi.sim.covers import CoverSide
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 
 MAX_POLICY_INTENTIONS = MAX_RUNTIME_LIST_ITEMS
@@ -51,6 +64,8 @@ class IntentionValidationCode(StrEnum):
     INVALID_FIELDS = "I003_INVALID_FIELDS"
     INVALID_DURATION = "I004_INVALID_DURATION"
     INVALID_TARGET = "I005_INVALID_TARGET"
+    INVALID_COVER_ID = "I006_INVALID_COVER_ID"
+    INVALID_COVER_SIDE = "I007_INVALID_COVER_SIDE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +119,23 @@ class MoveTowardIntention:
             raise ValueError("move-toward intention target must be planar")
 
 
-type ValidatedIntention = MoveTowardIntention | WaitIntention
+@dataclass(frozen=True, slots=True)
+class TakeCoverIntention:
+    """A request for the canonical first eligible slot on one cover side."""
+
+    cover_id: CoverId
+    side: CoverSide
+    kind: IntentionKind = field(default=IntentionKind.TAKE_COVER, init=False)
+    action_channel: ActionChannel = field(default=ActionChannel.LOCOMOTION, init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cover_id, CoverId):
+            raise ValueError("take-cover intention requires a cover ID")
+        if not isinstance(self.side, CoverSide):
+            raise ValueError("take-cover intention requires a cover side")
+
+
+type ValidatedIntention = MoveTowardIntention | TakeCoverIntention | WaitIntention
 type IntentionValidationResult = ValidatedIntention | IntentionValidationFailure
 
 
@@ -182,6 +213,8 @@ def validate_runtime_intention(value: RuntimeValue) -> IntentionValidationResult
         )
     if value.type_name == "MoveToward":
         return _validate_move_toward(value)
+    if value.type_name == "TakeCover":
+        return _validate_take_cover(value)
     if value.type_name != "Wait":
         return IntentionValidationFailure(
             IntentionValidationCode.UNSUPPORTED_KIND,
@@ -255,10 +288,51 @@ def _validate_move_toward(value: RecordValue) -> IntentionValidationResult:
     return MoveTowardIntention(target_position)
 
 
+def _validate_take_cover(value: RecordValue) -> IntentionValidationResult:
+    if value.field_names != ("cover_id", "side"):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_FIELDS,
+            "TakeCover intention must contain exactly cover_id and side fields",
+        )
+    cover_id = value.field_value("cover_id")
+    if not isinstance(cover_id, IntegerValue):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_COVER_ID,
+            "TakeCover.cover_id must be a positive cover ID",
+            ("cover_id",),
+        )
+    try:
+        resolved_cover_id = CoverId(cover_id.value)
+    except ValueError:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_COVER_ID,
+            "TakeCover.cover_id must be a positive cover ID",
+            ("cover_id",),
+        )
+    side = value.field_value("side")
+    if not isinstance(side, StringValue):
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_COVER_SIDE,
+            "TakeCover.side must be left or right",
+            ("side",),
+        )
+    try:
+        resolved_side = CoverSide(side.value)
+    except ValueError:
+        return IntentionValidationFailure(
+            IntentionValidationCode.INVALID_COVER_SIDE,
+            "TakeCover.side must be left or right",
+            ("side",),
+        )
+    return TakeCoverIntention(resolved_cover_id, resolved_side)
+
+
 def required_capability_for(intention: ValidatedIntention) -> CapabilityId:
     """Return the declared tactical capability required by an available intention."""
     if isinstance(intention, MoveTowardIntention):
         return MOVE_TOWARD_CAPABILITY
+    if isinstance(intention, TakeCoverIntention):
+        return TAKE_COVER_CAPABILITY
     if isinstance(intention, WaitIntention):
         return WAIT_CAPABILITY
     raise TypeError("intention capability lookup requires a validated intention")

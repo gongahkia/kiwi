@@ -351,22 +351,23 @@ Validation checks:
 - basic range or existence where required;
 - content constraints.
 
-The initial validator accepts `Wait { duration: Duration }` and
-`MoveToward { target: Position }`. Wait duration must be positive. MoveToward
-requires exactly `Position { x: Distance, y: Distance }`; its exact planar
-coordinates convert to canonical millimetres with the domain rounding rule and
-inherit the issuer's current elevation layer during route planning. Both occupy
-`locomotion`. Other named core kinds return the structured
-`I002_UNSUPPORTED_KIND` result until their payload models exist. Malformed
-records return stable `I001` through `I005` validation codes; policy-result and
-VM failures retain a structured `P001` through `P003` result for deterministic
-fallback.
+The initial validator accepts `Wait { duration: Duration }`,
+`MoveToward { target: Position }`, and `TakeCover { cover_id: Int, side: String }`.
+Wait duration must be positive. MoveToward requires exactly
+`Position { x: Distance, y: Distance }`; its exact planar coordinates convert to
+canonical millimetres with the domain rounding rule and inherit the issuer's
+current elevation layer during route planning. TakeCover requires a positive
+cover ID and `left` or `right` side string. All three occupy `locomotion`. Other
+named core kinds return the structured `I002_UNSUPPORTED_KIND` result until
+their payload models exist. Malformed records return stable `I001` through
+`I007` validation codes; policy-result and VM failures retain a structured
+`P001` through `P003` result for deterministic fallback.
 
-`Wait` requires the source-linked `wait` capability and MoveToward requires
-`move_toward`. Each policy binding has an immutable lexically ordered set of
-available capabilities. A missing declared requirement prevents VM execution
-and records `P004_CAPABILITY` with the requirement span; decoded requests
-repeat the same availability check.
+`Wait` requires the source-linked `wait` capability, MoveToward requires
+`move_toward`, and TakeCover requires `take_cover`. Each policy binding has an
+immutable lexically ordered set of available capabilities. A missing declared
+requirement prevents VM execution and records `P004_CAPABILITY` with the
+requirement span; decoded requests repeat the same availability check.
 
 The initial fallback resolves every failed policy validation, including VM
 faults, to `hold`: it preserves that invocation's input memory and emits no
@@ -417,6 +418,14 @@ action. Query or bounded-search failures leave the prior action intact and emit
 a structured route-rejection event. Route-start and route-rejection events
 parent the corresponding selection; movement progress, block, and arrival
 events parent the retained route-start event.
+
+A selected TakeCover validates the referenced cover against current authority
+state. It first retains an existing matching-side reservation, otherwise chooses
+the first currently eligible requested-side slot in ascending slot-index order.
+The canonical reservation resolver then applies cross-entity contention. It
+emits exactly one source-linked grant or rejection event parented by the selected
+intention. Cover occupancy and movement to a reserved slot remain separate
+phases.
 
 ### 11.5 Outcome
 

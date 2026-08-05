@@ -15,6 +15,8 @@ from kiwi.sim.commands import (
 )
 from kiwi.sim.communication import emit_message_delivery_events
 from kiwi.sim.contacts import advance_contacts
+from kiwi.sim.cover_events import emit_take_cover_events
+from kiwi.sim.cover_intentions import resolve_selected_take_cover
 from kiwi.sim.events import (
     AbortRequested,
     CanonicalEvent,
@@ -119,13 +121,17 @@ def _reduce_policies(
     decisions = resolve_policy_decisions(validations)
     arbitration = arbitrate_intentions(validations, bindings)
     policy_events = emit_policy_events(validations, arbitration)
+    cover_events = emit_take_cover_events(
+        resolve_selected_take_cover(policy_events.state, arbitration),
+        policy_events.events,
+    )
     routes = emit_movement_route_events(
-        plan_selected_movement_routes(policy_events.state, arbitration),
+        plan_selected_movement_routes(cover_events.state, arbitration),
         policy_events.events,
     )
     return (
         commit_policy_decisions(routes.state, decisions, bindings),
-        policy_events.events + routes.events,
+        policy_events.events + cover_events.events + routes.events,
     )
 
 

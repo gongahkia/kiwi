@@ -111,4 +111,47 @@ The current implementation unit is Milestone 0 in [`TODO.md`](TODO.md).
 
 The verified bootstrap targets are LÖVE 11.5 and LuaJIT 2.1.1785192264. Core tests use the repository test runner at [`tools/test.lua`](tools/test.lua) under LuaJIT; it prints and accepts `STANCZYK_TEST_SEED` for reproducible generated tests.
 
-Run `make bootstrap` to verify local tools, `make test` for plain-Lua core tests, `make lint` for formatting checks, `make check` for both, and `make run` to open the LÖVE viewport with its deterministic sample recording. Use `make inspect RECORDING=path/to/session.strec` for a bounded, human-readable recording dump. Stylua 2.5.2 is the formatter.
+```bash
+uv sync --extra dev
+make doctor
+make check
+```
+
+Use standard `venv`/`pip` when `uv` is unavailable:
+
+```bash
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m kiwi.cli doctor
+python -m ruff format --check .
+python -m ruff check .
+python -m mypy src tests
+python -m pytest
+```
+
+`make format` applies formatting. `make check` runs formatting verification, linting, static types, and tests. The equivalent `uv` commands are `uv run --extra dev python -m kiwi.cli doctor`, `uv run --extra dev ruff format --check .`, `uv run --extra dev ruff check .`, `uv run --extra dev mypy src tests`, and `uv run --extra dev pytest`.
+
+Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli parse path/to/policy.dtr`; successful parses emit stable surface-AST output and invalid input emits structured diagnostics.
+
+Type-check and lower a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli check path/to/policy.dtr`; successful checks emit stable core and source-map output and invalid input emits structured diagnostics.
+
+Compile a type-clean source file with `uv run --extra dev python -m kiwi.cli compile path/to/policy.dtr`. Add `--output path/to/policy.kbc` to write the canonical `KWI-BC\0` bytecode payload; without it, the command reports the exact encoded byte count. Inspect compiled source with `uv run --extra dev python -m kiwi.cli disassemble path/to/policy.dtr`.
+
+Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cli run-policy path/to/policy.dtr entry --arg true`. Repeat `--arg` in parameter order; command-line arguments currently accept decimal integers, `true`, `false`, and `unit`. Milestone 4 source also supports strings, exact `ms`, `s`, `m`, `deg`, and `%` quantity literals; checked exact `+`, `-`, `<`, `<=`, `>`, and `>=` domain operations; built-in `Position { x, y }` and `Vector { dx, dy }` records; nominal immutable records declared with `type Name = { field: Type }`; closed `Option<T>` values using `Some(value)` or contextually typed `None`; exhaustive `match value with | Some(item) -> ... | None -> ...`; immutable `List<T>` literals such as `[1, 2]`; context-typed anonymous functions such as `fn item -> item`; and `value |> function(args...)` pipelines. Output renders closed runtime values. The command never evaluates Python source.
+
+The simulation policy boundary accepts `MoveToward { target: Position }`,
+`TakeCover { cover_id: Int, side: String }`, and `Wait { duration: Duration }`.
+MoveToward is capability-gated, uses canonical integer route planning, and emits
+source-linked route and movement events. TakeCover is capability-gated and
+reserves the first eligible requested-side slot with deterministic contention
+events. Neither exposes Python or renderer state to policy code.
+
+The current authoring language, core IR, and bytecode use version `2`; `.dtr`
+source has no header and compiles as version `2`. Historical `(1, 1, 1)`
+bytecode decodes with its original semantics but cannot contain version-2
+values, types, or instructions. Check the complete version-2 language example
+with `uv run --extra dev python -m kiwi.cli check examples/policies/m4-language.dtr`.
+
+Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated. The bundled BigBlue Terminal font is CC-BY-SA-4.0; its exact licence, attribution, source release, and SHA-256 are in `kiwi.render`'s packaged asset manifest.

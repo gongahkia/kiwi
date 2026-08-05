@@ -48,6 +48,7 @@ class CapabilityId:
 
 
 MOVE_TOWARD_CAPABILITY = CapabilityId("move_toward")
+TAKE_COVER_CAPABILITY = CapabilityId("take_cover")
 WAIT_CAPABILITY = CapabilityId("wait")
 
 
@@ -150,6 +151,8 @@ def _requirements_for_expression(expression: CoreExpression) -> tuple[Capability
 def _capability_for_record_type(type_name: str) -> CapabilityId | None:
     if type_name == "MoveToward":
         return MOVE_TOWARD_CAPABILITY
+    if type_name == "TakeCover":
+        return TAKE_COVER_CAPABILITY
     if type_name == "Wait":
         return WAIT_CAPABILITY
     return None

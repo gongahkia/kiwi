@@ -386,6 +386,11 @@ failures emit structured route-rejection events. The action persists the
 route-start event ID, so later movement events retain a causal parent without
 consulting presentation state.
 
+Selected `TakeCover` requests resolve against the cover store, retain or choose
+one requested-side reservation slot in canonical order, and emit a
+source-linked grant or rejection event. Reservation is independent of movement
+and physical occupancy.
+
 `kiwi.sim.visibility` resolves pure range-limited map line-of-sight queries and
 range-visible obstacle projections from immutable positions. It has no policy,
 renderer, or state mutation dependency; later contact and observation phases
