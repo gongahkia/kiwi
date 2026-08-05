@@ -1,0 +1,156 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: wat
+      POSTGRES_PASSWORD: wat
+      POSTGRES_USER: wat
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wat -d wat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_HTTP_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/api/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  migrate:
+    build:
+      context: .
+      dockerfile: packages/db/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      WAT_DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    cpus: 2
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      EMAIL_FROM: wat@localhost
+      EMAIL_SERVER: smtp://mailpit:1025
+      AUTH_SECRET: ${AUTH_SECRET:-local_compose_auth_secret_0123456789abcdef}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local_compose_auth_secret_0123456789abcdef}
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      WAT_API_KEY: ${WAT_API_KEY:-local_compose_api_key_0123456789abcdef}
+      WAT_RATE_LIMIT_IP: 100000
+      WAT_RATE_LIMIT_TEAM: 100000
+      WAT_RATE_LIMIT_USER: 100000
+      WAT_RATE_LIMIT_WINDOW_MS: 60000
+      WAT_VALIDATE_ENV: ${WAT_VALIDATE_ENV:-false}
+    ports:
+      - "${WAT_WEB_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  slack:
+    build:
+      context: .
+      dockerfile: apps/slack/Dockerfile
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      PORT: 3001
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_INSTALL_STORE: ${SLACK_INSTALL_STORE:-postgres}
+      SLACK_INSTALL_STORE_PATH: .wat-slack-installs.json
+      SLACK_METRICS_TOKEN: ${SLACK_METRICS_TOKEN:-}
+      SLACK_REDIRECT_URI: ${SLACK_REDIRECT_URI:-http://localhost:3001/slack/oauth/callback}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-local-compose-slack-signing-secret}
+      SLACK_ADMIN_USER_IDS: ${SLACK_ADMIN_USER_IDS:-}
+      SLACK_HTTP_MODE: "true"
+      SLACK_SOCKET_MODE: ${SLACK_SOCKET_MODE:-false}
+      SLACK_STATE_SECRET: ${SLACK_STATE_SECRET:-}
+      SLACK_TOKEN_ENCRYPTION_KEY: ${SLACK_TOKEN_ENCRYPTION_KEY:-}
+      WAT_API_KEY: ${WAT_API_KEY:-local_compose_api_key_0123456789abcdef}
+      WAT_API_BASE_URL: http://web:3000
+      WAT_SLACK_TEAM_MAP: ${WAT_SLACK_TEAM_MAP:-}
+      WAT_TEAM_ID: ${WAT_TEAM_ID:-team_example}
+    ports:
+      - "${WAT_SLACK_PORT:-3001}:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  discord:
+    build:
+      context: .
+      dockerfile: apps/discord/Dockerfile
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      PORT: 3002
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_BOT_PERMISSIONS: ${DISCORD_BOT_PERMISSIONS:-}
+      DISCORD_DATABASE_URL: postgres://wat:wat@postgres:5432/wat
+      DISCORD_INSTALL_DISABLE_GUILD_SELECT: ${DISCORD_INSTALL_DISABLE_GUILD_SELECT:-false}
+      DISCORD_INSTALL_GUILD_ID: ${DISCORD_INSTALL_GUILD_ID:-}
+      DISCORD_INSTALL_INTEGRATION_TYPE: ${DISCORD_INSTALL_INTEGRATION_TYPE:-0}
+      DISCORD_INSTALL_SCOPES: ${DISCORD_INSTALL_SCOPES:-applications.commands}
+      DISCORD_INSTALL_STORE: ${DISCORD_INSTALL_STORE:-postgres}
+      DISCORD_INSTALL_STORE_PATH: .wat-discord-installs.json
+      DISCORD_METRICS_TOKEN: ${DISCORD_METRICS_TOKEN:-}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+      DISCORD_ADMIN_USER_IDS: ${DISCORD_ADMIN_USER_IDS:-}
+      DISCORD_ADMIN_ROLE_IDS: ${DISCORD_ADMIN_ROLE_IDS:-}
+      WAT_API_KEY: ${WAT_API_KEY:-local_compose_api_key_0123456789abcdef}
+      WAT_API_BASE_URL: http://web:3000
+      WAT_DISCORD_GUILD_MAP: ${WAT_DISCORD_GUILD_MAP:-}
+      WAT_TEAM_ID: ${WAT_TEAM_ID:-team_example}
+    ports:
+      - "${WAT_DISCORD_PORT:-3002}:3002"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3002/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres-data:

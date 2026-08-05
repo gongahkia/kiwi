@@ -1,0 +1,26 @@
+{
+  "name": "@wat/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run src",
+    "test:coverage": "vitest run src --coverage"
+  },
+  "dependencies": {
+    "spdx-license-ids": "^3.0.23",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/spdx-license-ids": "^3.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "vitest": "^4.1.9"
+  }
+}

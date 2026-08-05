@@ -1,0 +1,98 @@
+openapi: 3.0.3
+info:
+  title: wat Teams Search API
+  version: 0.1.0
+  description: Search wat glossary entries from Microsoft Teams.
+servers:
+  - url: https://wat.example.com
+paths:
+  /api/v1/teams/search:
+    get:
+      operationId: searchGlossary
+      summary: Search glossary entries
+      description: Returns Teams-ready glossary matches for a term.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Acronym or team term to search.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "401":
+          description: Invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    SearchResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamsSearchResult"
+    TeamsSearchResult:
+      type: object
+      required:
+        - term
+        - expansion
+        - title
+        - text
+      properties:
+        id:
+          type: string
+        term:
+          type: string
+        expansion:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+        text:
+          type: string
+        meaning:
+          type: string
+        layer:
+          type: string
+        confidence:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        url:
+          type: string
+          format: uri
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string

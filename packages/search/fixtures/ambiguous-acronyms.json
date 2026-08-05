@@ -1,0 +1,122 @@
+[
+  {
+    "query": "cap distributed systems",
+    "expected_id": "cap-theorem",
+    "candidates": [
+      {
+        "id": "cap-theorem",
+        "term": "CAP",
+        "expansions": ["Consistency Availability Partition tolerance"],
+        "domains": ["distributed systems", "databases"],
+        "meaning_short": "A distributed-system tradeoff under network partitions."
+      },
+      {
+        "id": "cap-policy",
+        "term": "CAP",
+        "expansions": ["Change Approval Process"],
+        "domains": ["ops", "change management"],
+        "meaning_short": "A production change approval process."
+      }
+    ]
+  },
+  {
+    "query": "api web software",
+    "expected_id": "api-programming-interface",
+    "candidates": [
+      {
+        "id": "api-programming-interface",
+        "term": "API",
+        "expansions": ["Application Programming Interface"],
+        "domains": ["web", "software"],
+        "meaning_short": "A software contract exposed for other programs."
+      },
+      {
+        "id": "api-analytics-pipeline-ingestion",
+        "term": "API",
+        "expansions": ["Analytics Pipeline Ingestion"],
+        "domains": ["data", "analytics"],
+        "meaning_short": "A data-ingestion pipeline acronym."
+      }
+    ]
+  },
+  {
+    "query": "acl security permissions",
+    "expected_id": "acl-access-control-list",
+    "candidates": [
+      {
+        "id": "acl-access-control-list",
+        "term": "ACL",
+        "expansions": ["Access Control List"],
+        "domains": ["security", "permissions"],
+        "meaning_short": "A list of permissions attached to a resource."
+      },
+      {
+        "id": "acl-agent-communication-language",
+        "term": "ACL",
+        "expansions": ["Agent Communication Language"],
+        "domains": ["agents", "ai"],
+        "meaning_short": "A language for agent messages."
+      }
+    ]
+  },
+  {
+    "query": "csp browser security",
+    "expected_id": "csp-content-security-policy",
+    "candidates": [
+      {
+        "id": "csp-content-security-policy",
+        "term": "CSP",
+        "expansions": ["Content Security Policy"],
+        "domains": ["browser", "security", "web"],
+        "meaning_short": "A browser policy for limiting resource loading."
+      },
+      {
+        "id": "csp-cloud-service-provider",
+        "term": "CSP",
+        "expansions": ["Cloud Service Provider"],
+        "domains": ["cloud", "infrastructure"],
+        "meaning_short": "A provider of cloud computing services."
+      }
+    ]
+  },
+  {
+    "query": "csr tls certificate",
+    "expected_id": "csr-certificate-signing-request",
+    "candidates": [
+      {
+        "id": "csr-certificate-signing-request",
+        "term": "CSR",
+        "expansions": ["Certificate Signing Request"],
+        "domains": ["tls", "security", "certificates"],
+        "meaning_short": "A request sent to a certificate authority."
+      },
+      {
+        "id": "csr-client-side-rendering",
+        "term": "CSR",
+        "expansions": ["Client-side Rendering"],
+        "domains": ["frontend", "web"],
+        "meaning_short": "Rendering a web UI in the browser."
+      }
+    ]
+  },
+  {
+    "query": "ir compiler representation",
+    "expected_id": "ir-intermediate-representation",
+    "candidates": [
+      {
+        "id": "ir-intermediate-representation",
+        "term": "IR",
+        "expansions": ["Intermediate Representation"],
+        "domains": ["compiler", "programming"],
+        "meaning_short": "An internal compiler representation."
+      },
+      {
+        "id": "ir-incident-response",
+        "term": "IR",
+        "expansions": ["Incident Response"],
+        "domains": ["security", "operations"],
+        "meaning_short": "Incident investigation and remediation."
+      }
+    ]
+  }
+]

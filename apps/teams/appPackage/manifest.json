@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "0.1.0",
+  "id": "7f503b6e-5710-4fd3-b4d0-8e8c2a0bd3d1",
+  "packageName": "com.wat.teams",
+  "developer": {
+    "name": "wat",
+    "websiteUrl": "https://wat.example.com",
+    "privacyUrl": "https://wat.example.com/privacy",
+    "termsOfUseUrl": "https://wat.example.com/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "wat",
+    "full": "wat glossary lookup"
+  },
+  "description": {
+    "short": "Search acronyms and team jargon.",
+    "full": "Search acronyms and team jargon from Teams."
+  },
+  "accentColor": "#111827",
+  "composeExtensions": [
+    {
+      "composeExtensionType": "apiBased",
+      "authorization": {
+        "authType": "apiSecretServiceAuth",
+        "apiSecretServiceAuthConfiguration": {
+          "apiSecretRegistrationId": "00000000-0000-0000-0000-000000000000"
+        }
+      },
+      "apiSpecificationFile": "wat-openapi.yml",
+      "commands": [
+        {
+          "id": "searchGlossary",
+          "type": "query",
+          "context": ["compose", "commandBox"],
+          "title": "Search wat",
+          "description": "Search wat glossary",
+          "parameters": [
+            {
+              "name": "q",
+              "title": "Term",
+              "description": "Acronym or team term, e.g. API"
+            }
+          ],
+          "apiResponseRenderingTemplateFile": "response-template.json"
+        }
+      ]
+    }
+  ],
+  "validDomains": ["wat.example.com"]
+}

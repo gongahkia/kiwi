@@ -1,0 +1,115 @@
+nameOverride: ""
+fullnameOverride: ""
+
+auth:
+  existingSecret: ""
+  secretKeys:
+    authSecret: auth-secret
+    authTokenEncryptionKey: auth-token-encryption-key
+    emailFrom: email-from
+    emailServer: email-server
+    googleClientId: google-client-id
+    googleClientSecret: google-client-secret
+    slackClientId: slack-client-id
+    slackClientSecret: slack-client-secret
+  authSecret: ""
+  authTokenEncryptionKey: ""
+  emailFrom: ""
+  emailServer: ""
+  googleClientId: ""
+  googleClientSecret: ""
+  slackClientId: ""
+  slackClientSecret: ""
+
+postgres:
+  enabled: true
+  existingSecret: ""
+  secretKeys:
+    password: password
+    databaseUrl: database-url
+  image:
+    repository: pgvector/pgvector
+    tag: pg16
+    pullPolicy: IfNotPresent
+  database: wat
+  user: wat
+  password: wat
+  storage:
+    size: 1Gi
+
+web:
+  replicaCount: 1
+  image:
+    repository: wat-web
+    tag: local
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    WAT_RATE_LIMIT_IP: "100000"
+    WAT_RATE_LIMIT_TEAM: "100000"
+    WAT_RATE_LIMIT_USER: "100000"
+    WAT_RATE_LIMIT_WINDOW_MS: "60000"
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: wat.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+slack:
+  replicaCount: 1
+  image:
+    repository: wat-slack
+    tag: local
+    pullPolicy: IfNotPresent
+  appToken: xapp-local-dev
+  botToken: ""
+  signingSecret: ""
+  clientId: ""
+  clientSecret: ""
+  stateSecret: ""
+  tokenEncryptionKey: ""
+  metricsToken: ""
+  watApiKey: ""
+  redirectUri: http://localhost:3001/slack/oauth/callback
+  installStore: postgres
+  teamMap: ""
+  teamId: team_example
+  httpMode: "true"
+  socketMode: "true"
+  service:
+    type: ClusterIP
+    port: 3001
+
+discord:
+  replicaCount: 1
+  image:
+    repository: wat-discord
+    tag: local
+    pullPolicy: IfNotPresent
+  publicKey: ""
+  applicationId: ""
+  botToken: ""
+  metricsToken: ""
+  watApiKey: ""
+  installStore: postgres
+  installScopes: applications.commands
+  installGuildId: ""
+  installDisableGuildSelect: "false"
+  installIntegrationType: "0"
+  botPermissions: ""
+  guildMap: ""
+  teamId: team_example
+  adminUserIds: ""
+  adminRoleIds: ""
+  service:
+    type: ClusterIP
+    port: 3002

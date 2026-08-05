@@ -1,0 +1,39 @@
+import { NextRequest } from "next/server";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { testSessionToken } from "@/lib/session";
+import { initialTeamEntries, resetTeamEntriesForTest } from "@/lib/team-entries";
+import { GET } from "./route";
+
+describe("GET /team/admin/export/csv", () => {
+  afterEach(resetTeamEntriesForTest);
+
+  it("paginates CSV exports with cursor headers", async () => {
+    const response = await GET(
+      new NextRequest("https://wat.example.com/team/admin/export/csv?limit=1", {
+        headers: { cookie: `next-auth.session-token=${testSessionToken()}` }
+      })
+    );
+    const csv = await response.text();
+
+    expect(csv).toContain("team-example-cap");
+    expect(csv).not.toContain("team-example-df");
+    expect(response.headers.get("x-page-limit")).toBe("1");
+    expect(response.headers.get("x-page-total")).toBe(String(initialTeamEntries.length));
+    expect(response.headers.get("x-next-cursor")).toBe("1");
+  });
+
+  it("does not export another team's CSV entries", async () => {
+    const response = await GET(
+      new NextRequest("https://wat.example.com/team/admin/export/csv", {
+        headers: {
+          cookie: `next-auth.session-token=${testSessionToken({ teamId: "team_2" })}`
+        }
+      })
+    );
+    const csv = await response.text();
+
+    expect(csv).not.toContain("team-example-cap");
+    expect(response.headers.get("x-page-total")).toBe("0");
+  });
+});

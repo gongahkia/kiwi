@@ -1,0 +1,46 @@
+{
+  "name": "@wat/mcp",
+  "version": "0.0.0",
+  "description": "MCP stdio server for sourced wat acronym and technical-term lookup.",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "wat-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "prepack": "rm -rf dist && pnpm build && rm -f dist/tsconfig.tsbuildinfo",
+    "start:http": "node dist/index.js --http",
+    "test": "pnpm build && vitest run src",
+    "test:contract": "pnpm build && node scripts/contract.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wat/wat.git",
+    "directory": "apps/mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "next": "^15.5.19",
+    "vitest": "^4.1.9"
+  }
+}

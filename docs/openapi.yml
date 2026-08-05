@@ -1,0 +1,1523 @@
+openapi: 3.1.0
+info:
+  title: wat REST API
+  version: 0.1.0
+  summary: Public, team, personal, integration, and team-admin glossary APIs.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /
+    description: current deployment origin
+tags:
+  - name: Search
+    description: Public, team, and personal glossary lookup.
+  - name: Custom entries
+    description: API-saved personal and team glossary entries.
+  - name: Suggestions
+    description: Team-scoped suggestion queue APIs.
+  - name: Team admin
+    description: Browser-session team administration endpoints.
+  - name: Import/export
+    description: Bulk team glossary import and export endpoints.
+  - name: API keys
+    description: Team API-key lifecycle endpoints.
+  - name: Integrations
+    description: Microsoft Teams and Discord integration endpoints.
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+paths:
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: Search public and scoped glossary entries.
+      operationId: searchGlossary
+      description: Anonymous callers see public entries. API-key callers may also see team and personal overlays derived from headers and key scope.
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+        - {}
+      x-required-scope: search
+      parameters:
+        - $ref: "#/components/parameters/Query"
+        - $ref: "#/components/parameters/SearchLimit"
+        - $ref: "#/components/parameters/Context"
+        - $ref: "#/components/parameters/MinConfidence"
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/WatUserId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Ranked search results.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/RateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/RateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/RateLimitReset"
+            X-RateLimit-Scope:
+              $ref: "#/components/headers/RateLimitScope"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+              examples:
+                public:
+                  value:
+                    matches:
+                      - entry:
+                          id: seed-api-application-programming-interface
+                          term: API
+                          term_normalized: api
+                          expansions: [Application Programming Interface]
+                          meaning_short: Contract that software uses to call another system.
+                          domains: [software]
+                          confidence_tier: T1
+                          layer: public
+                          sources:
+                            - title: API
+                              url: https://example.com/api
+                              publisher: Example
+                              license: CC-BY-4.0
+                              retrieved_at: "2026-06-19T00:00:00.000Z"
+                              snippet: API definition.
+                        score: 1
+                        score_breakdown:
+                          bm25: 1
+                          contemporary: 0
+                          domain: 0
+                    team_id: team_123
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/v1/team/entries:
+    get:
+      tags: [Search]
+      summary: List team entries visible to an API key.
+      operationId: listApiTeamEntries
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: search
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Domain"
+      responses:
+        "200":
+          description: Team entries page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries, next_cursor, team_id]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResultSummary"
+                  next_cursor:
+                    type:
+                      - integer
+                      - "null"
+                  team_id:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/custom-entries:
+    post:
+      tags: [Custom entries]
+      summary: Create or upsert a personal or team custom entry.
+      operationId: createCustomEntry
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: write
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/WatUserIdRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomEntryRequest"
+            examples:
+              team:
+                value:
+                  scope: team
+                  mode: upsert
+                  term: RTO
+                  expansion: Recovery Time Objective
+                  meaning: Maximum acceptable restore time.
+                  domains: [incident, sre]
+                  sourceUrl: https://runbook.example.test/rto
+      responses:
+        "200":
+          description: Existing entry updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomEntryResponse"
+        "201":
+          description: Entry created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomEntryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/suggestions:
+    post:
+      tags: [Suggestions]
+      summary: Queue a team-scoped glossary suggestion.
+      operationId: createSuggestion
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: suggest
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/WatUserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestionRequest"
+      responses:
+        "201":
+          description: Suggestion queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestion]
+                properties:
+                  suggestion:
+                    $ref: "#/components/schemas/Suggestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /api/v1/team/admin-check:
+    get:
+      tags: [Team admin]
+      summary: Check whether an API-key user is a wat team admin.
+      operationId: checkTeamAdmin
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/UserEmail"
+      responses:
+        "200":
+          description: Admin check result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [admin, team_id]
+                properties:
+                  admin:
+                    type: boolean
+                  team_id:
+                    type: string
+                  user_id:
+                    type:
+                      - string
+                      - "null"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /team/admin/entries/api:
+    get:
+      tags: [Team admin]
+      summary: List session-authenticated team entries.
+      operationId: listTeamAdminEntries
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Team entry page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamEntryPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Team admin]
+      summary: Create a session-authenticated team entry.
+      operationId: createTeamAdminEntry
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamEntryInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/TeamEntryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    patch:
+      tags: [Team admin]
+      summary: Patch a session-authenticated team entry by ID.
+      operationId: patchTeamAdminEntry
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, patch]
+              properties:
+                id:
+                  type: string
+                patch:
+                  $ref: "#/components/schemas/TeamEntryPatch"
+      responses:
+        "200":
+          $ref: "#/components/responses/TeamEntryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Team admin]
+      summary: Delete a session-authenticated team entry by ID.
+      operationId: deleteTeamAdminEntry
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          $ref: "#/components/responses/TeamEntryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /team/admin/import/api:
+    post:
+      tags: [Import/export]
+      summary: Bulk import team entries from JSON or CSV.
+      operationId: importTeamEntries
+      description: Session callers must be team admins. API-key callers must use a team-scoped key with admin scope; X-Wat-Team-Id, when present, must match the key team.
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - $ref: "#/components/parameters/WatUserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamImportRequest"
+          text/csv:
+            schema:
+              type: string
+            examples:
+              csv:
+                value:
+                  "id,term,expansion,meaning,domains,source_url,source_title,source_publisher,source_license,source_snippet\nteam-import-rto,RTO,Recovery Time Objective,Maximum restore time.,ops,https://example.com/rto,RTO fixture,wat test,proprietary-team,RTO fixture."
+      responses:
+        "200":
+          description: Import counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamImportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /team/admin/export/json:
+    get:
+      tags: [Import/export]
+      summary: Export team entries as JSON.
+      operationId: exportTeamEntriesJson
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: JSON export page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries, exported_at, page]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamEntry"
+                  exported_at:
+                    type: string
+                    format: date-time
+                  page:
+                    $ref: "#/components/schemas/PageInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /team/admin/export/csv:
+    get:
+      tags: [Import/export]
+      summary: Export team entries as CSV.
+      operationId: exportTeamEntriesCsv
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: CSV export page.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+            X-Page-Limit:
+              $ref: "#/components/headers/PageLimit"
+            X-Page-Total:
+              $ref: "#/components/headers/PageTotal"
+            X-Next-Cursor:
+              $ref: "#/components/headers/NextCursor"
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /team/admin/api-keys/api:
+    get:
+      tags: [API keys]
+      summary: List team API keys.
+      operationId: listApiKeys
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Team API keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [API keys]
+      summary: Create a team API key.
+      operationId: createApiKey
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: Created API key. Raw key is returned once.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key:
+                    allOf:
+                      - $ref: "#/components/schemas/ApiKey"
+                      - type: object
+                        required: [key]
+                        properties:
+                          key:
+                            type: string
+                            example: wat_live_abc123
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [API keys]
+      summary: Revoke a team API key.
+      operationId: revokeApiKey
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revoked API key.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key]
+                properties:
+                  key:
+                    $ref: "#/components/schemas/ApiKey"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /team/admin/review/api:
+    get:
+      tags: [Team admin]
+      summary: List pending or reviewed suggestions for a team.
+      operationId: listSuggestionReviews
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Suggestion review page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestions, page]
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Suggestion"
+                  page:
+                    $ref: "#/components/schemas/PageInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Team admin]
+      summary: Review a suggestion.
+      operationId: reviewSuggestion
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id:
+                  type: string
+                status:
+                  $ref: "#/components/schemas/SuggestionStatus"
+                after_jsonb:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Review result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [approval, notification, suggestion]
+                properties:
+                  approval:
+                    type:
+                      - object
+                      - "null"
+                    additionalProperties: true
+                  notification:
+                    type:
+                      - object
+                      - "null"
+                    additionalProperties: true
+                  suggestion:
+                    $ref: "#/components/schemas/Suggestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /team/admin/audit/api:
+    get:
+      tags: [Team admin]
+      summary: List team audit events.
+      operationId: listAuditLog
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Audit page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [audit, page]
+                properties:
+                  audit:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  page:
+                    $ref: "#/components/schemas/PageInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /team/admin/members/api:
+    get:
+      tags: [Team admin]
+      summary: List team members.
+      operationId: listTeamMembers
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Team members.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamMember"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [Team admin]
+      summary: Change a team member role.
+      operationId: updateTeamMemberRole
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, role]
+              properties:
+                id:
+                  type: string
+                role:
+                  $ref: "#/components/schemas/TeamRole"
+      responses:
+        "200":
+          description: Updated member.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [member]
+                properties:
+                  member:
+                    $ref: "#/components/schemas/TeamMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Team admin]
+      summary: Remove a team member.
+      operationId: removeTeamMember
+      security:
+        - SessionCookie: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed member.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [member]
+                properties:
+                  member:
+                    $ref: "#/components/schemas/TeamMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /team/admin/settings/api:
+    get:
+      tags: [Team admin]
+      summary: Read team settings.
+      operationId: getTeamSettings
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: Team settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Team admin]
+      summary: Update team settings.
+      operationId: updateTeamSettings
+      security:
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamSettings"
+      responses:
+        "200":
+          description: Updated team settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/teams/search:
+    get:
+      tags: [Integrations]
+      summary: Microsoft Teams message-extension search.
+      operationId: searchTeamsGlossary
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: search
+      parameters:
+        - $ref: "#/components/parameters/Query"
+        - $ref: "#/components/parameters/WatTeamsTenantId"
+      responses:
+        "200":
+          description: Teams search cards.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/teams/installations:
+    post:
+      tags: [Integrations]
+      summary: Create or update a Microsoft tenant mapping.
+      operationId: upsertTeamsInstallation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [microsoft_tenant_id, app_id, auth_type]
+              properties:
+                microsoft_tenant_id:
+                  type: string
+                tenant_name:
+                  type: string
+                app_id:
+                  type: string
+                auth_type:
+                  type: string
+                  enum: [apiSecretServiceAuth]
+                api_secret_registration_id:
+                  type: string
+      responses:
+        "201":
+          description: Teams install mapping.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [install]
+                properties:
+                  install:
+                    type: object
+                    additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Integrations]
+      summary: Delete a Microsoft tenant mapping.
+      operationId: deleteTeamsInstallation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/discord/installations:
+    post:
+      tags: [Integrations]
+      summary: Create or update a Discord guild mapping.
+      operationId: upsertDiscordInstallation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [discord_guild_id, application_id]
+              properties:
+                discord_guild_id:
+                  type: string
+                guild_name:
+                  type: string
+                application_id:
+                  type: string
+                bot_user_id:
+                  type: string
+                admin_role_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Discord install mapping.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [install]
+                properties:
+                  install:
+                    type: object
+                    additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Integrations]
+      summary: Delete a Discord guild mapping.
+      operationId: deleteDiscordInstallation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      x-required-scope: admin
+      parameters:
+        - $ref: "#/components/parameters/WatTeamId"
+        - name: guild_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: wat API key
+      description: "DB-backed team API key in `Authorization: Bearer <key>`."
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: DB-backed team API key.
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Browser session cookie for admin UI endpoints.
+  parameters:
+    Query:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+      examples:
+        api:
+          value: API
+    SearchLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 10
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Numeric offset cursor returned as `next_cursor` or `page.next_cursor`.
+    Context:
+      name: context
+      in: query
+      schema:
+        type: string
+      description: Optional domain/context text used for ranking boosts.
+    MinConfidence:
+      name: min_confidence
+      in: query
+      schema:
+        $ref: "#/components/schemas/ConfidenceTier"
+    Domain:
+      name: domain
+      in: query
+      schema:
+        type: string
+      description: Filter team entries by exact normalized domain.
+    WatTeamId:
+      name: X-Wat-Team-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional team assertion. When supplied with an API key, it must match that key's team.
+    WatUserId:
+      name: X-Wat-User-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: User or integration actor for quota/audit scope.
+    WatUserIdRequired:
+      name: X-Wat-User-Id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: User or integration actor required for write quota scope.
+    WatTeamsTenantId:
+      name: X-Wat-Teams-Tenant-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional trusted integration tenant; mapping must match the API key team.
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+    UserEmail:
+      name: email
+      in: query
+      required: true
+      schema:
+        type: string
+        format: email
+    EntryId:
+      name: id
+      in: query
+      required: true
+      schema:
+        type: string
+  headers:
+    RequestId:
+      schema:
+        type: string
+    RateLimitLimit:
+      schema:
+        type: integer
+    RateLimitRemaining:
+      schema:
+        type: integer
+    RateLimitReset:
+      schema:
+        type: integer
+      description: Unix timestamp seconds.
+    RateLimitScope:
+      schema:
+        type: string
+        enum: [ip, user, team]
+    PageLimit:
+      schema:
+        type: integer
+    PageTotal:
+      schema:
+        type: integer
+    NextCursor:
+      schema:
+        type:
+          - integer
+          - "null"
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: Missing login or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            invalid_api_key:
+              value:
+                error: invalid_api_key
+                code: invalid_api_key
+                message: invalid_api_key
+                request_id: req_123
+    Forbidden:
+      description: Missing team/admin/scope authorization or team mismatch.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: Duplicate or conflicting resource.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: Resource not found in the authenticated team scope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    RateLimited:
+      description: Request quota exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    TeamEntryResponse:
+      description: Team entry response.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [entry]
+            properties:
+              entry:
+                $ref: "#/components/schemas/TeamEntry"
+  schemas:
+    ApiError:
+      type: object
+      required: [error, code, message, request_id]
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+      additionalProperties: true
+    ApiKeyScope:
+      type: string
+      enum: [admin, search, suggest, write]
+    ApiKey:
+      type: object
+      required: [id, team_id, name, key_prefix, scopes, created_at, last_used_at, revoked_at]
+      properties:
+        id:
+          type: string
+        team_id:
+          type: string
+        name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+        created_by:
+          type:
+            - string
+            - "null"
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        revoked_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    CreateApiKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKeyScope"
+      examples:
+        - name: Extension readonly
+          scopes: [search]
+        - name: Import automation
+          scopes: [admin]
+    ConfidenceTier:
+      type: string
+      enum: [T1, T2, T3, T4]
+    EntryLayer:
+      type: string
+      enum: [public, team, personal]
+    Source:
+      type: object
+      required: [url, title, publisher, license, retrieved_at, snippet]
+      properties:
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        publisher:
+          type: string
+        license:
+          type: string
+        retrieved_at:
+          type: string
+          format: date-time
+        snippet:
+          type: string
+        source_quality:
+          type: string
+          enum: [canonical, secondary, community]
+    SearchEntry:
+      type: object
+      required: [id, term, expansions, meaning_short, domains, sources, confidence_tier, layer]
+      properties:
+        id:
+          type: string
+        term:
+          type: string
+        term_normalized:
+          type: string
+        expansions:
+          type: array
+          items:
+            type: string
+        contemporaries:
+          type: array
+          items:
+            type: string
+        domains:
+          type: array
+          items:
+            type: string
+        meaning_short:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+        confidence_tier:
+          $ref: "#/components/schemas/ConfidenceTier"
+        layer:
+          $ref: "#/components/schemas/EntryLayer"
+        aliases:
+          type: array
+          items:
+            type: string
+    SearchResult:
+      type: object
+      required: [entry, score]
+      properties:
+        entry:
+          $ref: "#/components/schemas/SearchEntry"
+        score:
+          type: number
+        score_breakdown:
+          type: object
+          additionalProperties:
+            type: number
+    SearchResultSummary:
+      type: object
+      required:
+        [entry_id, term, expansion, meaning, domains, citations, confidence_tier, layer, score]
+      properties:
+        entry_id:
+          type: string
+        term:
+          type: string
+        expansion:
+          type: string
+        meaning:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+        confidence_tier:
+          $ref: "#/components/schemas/ConfidenceTier"
+        layer:
+          $ref: "#/components/schemas/EntryLayer"
+        contemporaries:
+          type: array
+          items:
+            type: string
+        score:
+          type: number
+    SearchResponse:
+      type: object
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        suggest_url:
+          type: string
+        team_id:
+          type: string
+    TeamEntry:
+      type: object
+      required: [id, term, expansion, meaning, domains, sources]
+      properties:
+        id:
+          type: string
+        term:
+          type: string
+        expansion:
+          type: string
+        meaning:
+          type: string
+        domains:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Source"
+        contemporaries:
+          type: array
+          items:
+            type: string
+    TeamEntryInput:
+      allOf:
+        - $ref: "#/components/schemas/TeamEntry"
+    TeamEntryPatch:
+      type: object
+      properties:
+        term:
+          type: string
+        expansion:
+          type: string
+        meaning:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+        contemporaries:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    PageInfo:
+      type: object
+      required: [limit, total, cursor, next_cursor]
+      properties:
+        limit:
+          type: integer
+        total:
+          type: integer
+        cursor:
+          type: integer
+        next_cursor:
+          type:
+            - integer
+            - "null"
+    TeamEntryPage:
+      type: object
+      required: [entries, page]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamEntry"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+    TeamImportRequest:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TeamEntryInput"
+    TeamImportResponse:
+      type: object
+      required: [inserted, skipped]
+      properties:
+        inserted:
+          type: integer
+        skipped:
+          type: integer
+    CustomEntryRequest:
+      type: object
+      required: [term, expansion]
+      properties:
+        term:
+          type: string
+        expansion:
+          type: string
+        meaning:
+          type: string
+        mode:
+          type: string
+          enum: [create, upsert]
+          default: create
+        scope:
+          type: string
+          enum: [personal, team]
+          default: personal
+        domains:
+          type: array
+          items:
+            type: string
+        sourceUrl:
+          type: string
+          format: uri
+        sourceTitle:
+          type: string
+    CustomEntryResponse:
+      type: object
+      required: [scope, mode, entry]
+      properties:
+        scope:
+          type: string
+          enum: [personal, team]
+        mode:
+          type: string
+          enum: [created, updated]
+        entry:
+          $ref: "#/components/schemas/TeamEntry"
+    SuggestionRequest:
+      type: object
+      required: [term, expansion, meaning, domains, source_url]
+      properties:
+        term:
+          type: string
+        expansion:
+          type: string
+        meaning:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        source_url:
+          type: string
+          format: uri
+    SuggestionStatus:
+      type: string
+      enum: [pending, approved, rejected]
+    Suggestion:
+      type: object
+      required: [id, team_id, target_type, status, before_jsonb, after_jsonb, created_at]
+      properties:
+        id:
+          type: string
+        actor_id:
+          type:
+            - string
+            - "null"
+        team_id:
+          type: string
+        target_type:
+          type: string
+        target_id:
+          type:
+            - string
+            - "null"
+        status:
+          $ref: "#/components/schemas/SuggestionStatus"
+        before_jsonb:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+        after_jsonb:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    TeamRole:
+      type: string
+      enum: [admin, member]
+    TeamMember:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/TeamRole"
+        name:
+          type:
+            - string
+            - "null"
+    TeamSettings:
+      type: object
+      properties:
+        name:
+          type: string
+        email_domain:
+          type: string
+        domain_tags:
+          type: array
+          items:
+            type: string
+      additionalProperties: true

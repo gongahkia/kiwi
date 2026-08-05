@@ -1,0 +1,27 @@
+{
+  "name": "@wat/lsp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "wat-lsp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "pnpm build && vitest run src"
+  },
+  "dependencies": {
+    "vscode-languageserver": "10.0.0",
+    "vscode-languageserver-textdocument": "1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "vitest": "^4.1.9"
+  }
+}

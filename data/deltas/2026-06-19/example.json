@@ -1,0 +1,67 @@
+{
+  "entries": [
+    {
+      "dedup_key": "cap:consistency availability partition tolerance",
+      "domains": [
+        "distributed systems"
+      ],
+      "examples": [],
+      "contemporaries": [],
+      "expansion_normalized": "consistency availability partition tolerance",
+      "expansions": [
+        "Consistency Availability Partition tolerance"
+      ],
+      "meaning_short": "A distributed-systems tradeoff among consistency, availability, and partition tolerance.",
+      "sources": [
+        {
+          "license": "MIT",
+          "publisher": "wat fixture",
+          "retrieved_at": "2026-01-01T00:00:00.000Z",
+          "snippet": "Fixture entry for local ingestion CLI verification.",
+          "source_quality": "secondary",
+          "title": "Example CAP entry",
+          "url": "https://example.com/wat/cap"
+        }
+      ],
+      "term": "CAP",
+      "term_normalized": "cap",
+      "confidence_tier": "T3"
+    },
+    {
+      "dedup_key": "kubernetes:kubernetes",
+      "domains": [
+        "cloud native",
+        "orchestration"
+      ],
+      "examples": [
+        "Kubernetes schedules containers across a cluster."
+      ],
+      "contemporaries": [
+        "Docker Swarm",
+        "Nomad",
+        "ECS"
+      ],
+      "expansion_normalized": "kubernetes",
+      "expansions": [
+        "Kubernetes"
+      ],
+      "meaning_short": "An open-source system for automating deployment, scaling, and management of containerized applications.",
+      "sources": [
+        {
+          "license": "CC-BY-4.0",
+          "publisher": "Kubernetes",
+          "retrieved_at": "2026-06-19T00:00:00.000Z",
+          "snippet": "Kubernetes is an open source system for automating deployment, scaling, and management of containerized applications.",
+          "source_quality": "canonical",
+          "title": "Kubernetes Documentation",
+          "url": "https://kubernetes.io/docs/concepts/overview/"
+        }
+      ],
+      "term": "Kubernetes",
+      "term_normalized": "kubernetes",
+      "confidence_tier": "T1"
+    }
+  ],
+  "generated_at": "2026-06-19T07:20:04.213Z",
+  "source": "example"
+}

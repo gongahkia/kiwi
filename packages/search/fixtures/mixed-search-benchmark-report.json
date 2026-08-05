@@ -1,0 +1,9 @@
+{
+  "corpus": "mixed-search-benchmark",
+  "engine": "searchHybrid",
+  "total_cases": 1000,
+  "top_1_hits": 987,
+  "top_1_hit_rate": 0.987,
+  "top_5_hits": 1000,
+  "top_5_hit_rate": 1
+}

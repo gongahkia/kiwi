@@ -1,0 +1,10 @@
+{
+  "concurrency": 1,
+  "measured_requests": 1000,
+  "p50_ms": 0.03,
+  "p95_ms": 0.05,
+  "p99_ms": 0.07,
+  "target": "web-core",
+  "warmup_requests": 1000,
+  "search_entries": 260
+}

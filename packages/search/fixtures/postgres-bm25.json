@@ -1,0 +1,22 @@
+[
+  { "query": "api", "expected_id": "seed-api-application-programming-interface" },
+  { "query": "cors", "expected_id": "seed-cors-cross-origin-resource-sharing" },
+  { "query": "css", "expected_id": "seed-css-cascading-style-sheets" },
+  { "query": "dom", "expected_id": "seed-dom-document-object-model" },
+  { "query": "html", "expected_id": "seed-html-hypertext-markup-language" },
+  { "query": "http", "expected_id": "seed-http-hypertext-transfer-protocol" },
+  { "query": "https", "expected_id": "seed-https-hypertext-transfer-protocol-secure" },
+  { "query": "json", "expected_id": "seed-json-javascript-object-notation" },
+  { "query": "rest", "expected_id": "seed-rest-representational-state-transfer" },
+  { "query": "spa", "expected_id": "seed-spa-single-page-application" },
+  { "query": "ssr", "expected_id": "seed-ssr-server-side-rendering" },
+  { "query": "uri", "expected_id": "seed-uri-uniform-resource-identifier" },
+  { "query": "url", "expected_id": "seed-url-uniform-resource-locator" },
+  { "query": "xss", "expected_id": "seed-xss-cross-site-scripting" },
+  { "query": "jwt", "expected_id": "seed-jwt-json-web-token" },
+  { "query": "mime", "expected_id": "seed-mime-multipurpose-internet-mail-extensions" },
+  { "query": "dns", "expected_id": "seed-dns-domain-name-system" },
+  { "query": "tcp", "expected_id": "seed-tcp-transmission-control-protocol" },
+  { "query": "tls", "expected_id": "seed-tls-transport-layer-security" },
+  { "query": "cdn", "expected_id": "seed-cdn-content-delivery-network" }
+]

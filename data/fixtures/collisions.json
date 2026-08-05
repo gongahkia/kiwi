@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "domains": ["distributed systems"],
+      "id": "cap-theorem",
+      "term_normalized": "cap"
+    },
+    {
+      "domains": ["policy"],
+      "id": "cap-policy",
+      "term_normalized": "cap"
+    }
+  ]
+}

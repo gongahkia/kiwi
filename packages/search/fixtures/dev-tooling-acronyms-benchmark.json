@@ -1,0 +1,9 @@
+{
+  "corpus": "dev-tooling-acronyms.json",
+  "engine": "searchHybrid",
+  "total_cases": 500,
+  "top_1_hits": 483,
+  "top_1_hit_rate": 0.966,
+  "top_5_hits": 499,
+  "top_5_hit_rate": 0.998
+}

@@ -1,0 +1,15 @@
+.git
+.next
+**/.next
+.wxt
+.output
+coverage
+dist
+node_modules
+**/coverage
+**/dist
+**/node_modules
+.env
+.env.*
+!.env.example
+reports

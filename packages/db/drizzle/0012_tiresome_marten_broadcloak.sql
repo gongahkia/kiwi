@@ -1,0 +1,1 @@
+CREATE INDEX "entries_term_normalized_trgm_idx" ON "entries" USING gin ("term_normalized" gin_trgm_ops);
