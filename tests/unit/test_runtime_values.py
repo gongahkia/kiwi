@@ -4,6 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from kiwi.domain.ids import EventId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.ids import FunctionId
 from kiwi.dsl.runtime_values import (
@@ -12,6 +13,7 @@ from kiwi.dsl.runtime_values import (
     FunctionValue,
     IntegerValue,
     ListValue,
+    ObservationFieldMetadata,
     OptionNoneValue,
     OptionSomeValue,
     QuantityValue,
@@ -19,6 +21,7 @@ from kiwi.dsl.runtime_values import (
     RuntimeValueKind,
     StringValue,
     UnitValue,
+    strip_observation_metadata,
 )
 
 
@@ -71,3 +74,29 @@ def test_runtime_values_reject_host_type_confusion() -> None:
         QuantityValue(1)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="lexically"):
         RecordValue("Point", ("y", "x"), (IntegerValue(1), IntegerValue(2)))
+
+
+def test_observation_metadata_is_validated_and_stripped_from_returned_values() -> None:
+    metadata = ObservationFieldMetadata(("self", "health"), (EventId(1),), 7_500, 3)
+    observed = RecordValue(
+        "SelfObservation",
+        ("health",),
+        (IntegerValue(2),),
+        observation_fields=(metadata,),
+    )
+    returned = RecordValue("Memory", ("snapshot",), (observed,))
+
+    stripped = strip_observation_metadata(returned)
+
+    assert observed.observation_field_metadata("health") == metadata
+    assert isinstance(stripped, RecordValue)
+    nested = stripped.field_value("snapshot")
+    assert isinstance(nested, RecordValue)
+    assert nested.observation_fields == ()
+    with pytest.raises(ValueError, match="cover every field"):
+        RecordValue(
+            "SelfObservation",
+            ("health",),
+            (IntegerValue(2),),
+            observation_fields=(metadata, metadata),
+        )

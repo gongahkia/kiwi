@@ -378,6 +378,7 @@ Trace-format tests additionally require canonical encode/decode equality,
 stable packet hashes, ordered record and edge validation, and rejection of
 unsupported or noncanonical packets.
 
-VM trace instrumentation tests require deterministic source-map expression
-entries, stable policy-invocation joins, and identical traced and untraced
+VM trace instrumentation tests require deterministic source-map expression and
+observation-field entries, stable policy-invocation joins, retained ordered
+contact evidence with confidence and age, and identical traced and untraced
 authority successors.

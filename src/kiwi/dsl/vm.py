@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from kiwi.domain.ids import EventId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.bytecode import (
     BinaryOperation,
@@ -51,6 +52,7 @@ from kiwi.dsl.runtime_values import (
     RuntimeValue,
     StringValue,
     UnitValue,
+    strip_observation_metadata,
 )
 from kiwi.dsl.validator import BytecodeValidationError, validate_bytecode
 
@@ -211,6 +213,67 @@ class VMExpressionTrace:
 
 
 @dataclass(frozen=True, slots=True)
+class VMObservationReadTrace:
+    """One source-mapped field read from an observation-provenanced record."""
+
+    source_map_entry: InstructionSourceMapEntry
+    path: tuple[str, ...]
+    value: RuntimeValue
+    evidence_event_ids: tuple[EventId, ...]
+    confidence_basis_points: int | None
+    age_ticks: int | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_map_entry, InstructionSourceMapEntry):
+            raise ValueError("VM observation read trace requires a source-map entry")
+        if not isinstance(self.path, tuple) or not self.path:
+            raise ValueError("VM observation read trace requires a non-empty path")
+        if any(not isinstance(part, str) or not part for part in self.path):
+            raise ValueError("VM observation read trace path parts must be non-empty strings")
+        if not isinstance(
+            self.value,
+            (
+                IntegerValue,
+                BooleanValue,
+                StringValue,
+                QuantityValue,
+                ListValue,
+                OptionSomeValue,
+                OptionNoneValue,
+                RecordValue,
+                FunctionValue,
+                ClosureValue,
+                IntrinsicValue,
+                UnitValue,
+            ),
+        ):
+            raise ValueError("VM observation read trace value must be a runtime value")
+        if not isinstance(self.evidence_event_ids, tuple):
+            raise ValueError("VM observation read trace evidence IDs must be an immutable tuple")
+        previous_id = 0
+        for event_id in self.evidence_event_ids:
+            if not isinstance(event_id, EventId):
+                raise ValueError("VM observation read trace evidence IDs must contain event IDs")
+            if event_id.value <= previous_id:
+                raise ValueError(
+                    "VM observation read trace evidence IDs must be unique and ascending"
+                )
+            previous_id = event_id.value
+        if self.confidence_basis_points is not None and (
+            not isinstance(self.confidence_basis_points, int)
+            or isinstance(self.confidence_basis_points, bool)
+            or not 0 <= self.confidence_basis_points <= 10_000
+        ):
+            raise ValueError("VM observation read trace confidence must be between zero and 10,000")
+        if self.age_ticks is not None and (
+            not isinstance(self.age_ticks, int)
+            or isinstance(self.age_ticks, bool)
+            or self.age_ticks < 0
+        ):
+            raise ValueError("VM observation read trace age must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
 class VMRunResult:
     """A VM value or fault; fallback runs retain their original fault."""
 
@@ -218,6 +281,7 @@ class VMRunResult:
     fault: VMFault | None = None
     cover_selection_traces: tuple[CoverSelectionTrace, ...] = ()
     expression_traces: tuple[VMExpressionTrace, ...] = ()
+    observation_read_traces: tuple[VMObservationReadTrace, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.cover_selection_traces, tuple):
@@ -228,6 +292,12 @@ class VMRunResult:
             raise ValueError("VM expression traces must be an immutable tuple")
         if any(not isinstance(trace, VMExpressionTrace) for trace in self.expression_traces):
             raise ValueError("VM expression traces must be VM expression traces")
+        if not isinstance(self.observation_read_traces, tuple):
+            raise ValueError("VM observation read traces must be an immutable tuple")
+        if any(
+            not isinstance(trace, VMObservationReadTrace) for trace in self.observation_read_traces
+        ):
+            raise ValueError("VM observation read traces must be VM observation read traces")
 
     @property
     def succeeded(self) -> bool:
@@ -343,12 +413,15 @@ def run_vm(
     *,
     capture_cover_selection_trace: bool = False,
     capture_expression_trace: bool = False,
+    capture_observation_read_trace: bool = False,
 ) -> VMRunResult:
     """Validate and execute bytecode with deterministic resource limits."""
     if not isinstance(capture_cover_selection_trace, bool):
         raise ValueError("cover selection trace capture must be a boolean")
     if not isinstance(capture_expression_trace, bool):
         raise ValueError("expression trace capture must be a boolean")
+    if not isinstance(capture_observation_read_trace, bool):
+        raise ValueError("observation read trace capture must be a boolean")
     validation = validate_bytecode(module)
     if not validation.is_valid:
         return VMRunResult(
@@ -400,6 +473,7 @@ def run_vm(
     resources = _ExecutionResources()
     cover_selection_traces: list[CoverSelectionTrace] = []
     expression_traces: list[VMExpressionTrace] = []
+    observation_read_traces: list[VMObservationReadTrace] = []
     while frames:
         active_frame = frames[-1]
         if isinstance(active_frame, _IntrinsicFrame):
@@ -645,6 +719,21 @@ def run_vm(
                     f"record has no field '{instruction.field_name}'",
                     frame,
                 )
+            metadata = record_value.observation_field_metadata(instruction.field_name)
+            if capture_observation_read_trace and metadata is not None:
+                observation_read_traces.append(
+                    VMObservationReadTrace(
+                        module.source_map.entry_for(
+                            frame.function.function_id,
+                            InstructionIndex(frame.instruction_index - 1),
+                        ),
+                        metadata.path,
+                        field_value,
+                        metadata.evidence_event_ids,
+                        metadata.confidence_basis_points,
+                        metadata.age_ticks,
+                    )
+                )
             if not _push(stack, field_value, budgets):
                 return _fault(module, VMFaultCode.STACK_BUDGET, "stack budget exhausted", frame)
         elif isinstance(instruction, Call):
@@ -755,9 +844,10 @@ def run_vm(
             frames.pop()
             if not frames:
                 return VMRunResult(
-                    value,
+                    strip_observation_metadata(value),
                     cover_selection_traces=tuple(cover_selection_traces),
                     expression_traces=tuple(expression_traces),
+                    observation_read_traces=tuple(observation_read_traces),
                 )
             if isinstance(frames[-1], _IntrinsicFrame):
                 frames[-1].pending_value = value
