@@ -307,6 +307,12 @@ inconsistent source maps, and trailing bytes. Consumers must require both the
 replay hash and entity policy-version manifest to match before using a `.dsrc`.
 It does not alter `.drun` v1 compatibility and has no migration path.
 
+Run comparison accepts policy-version additions, removals, and substitutions as
+explicit experiment deltas. It requires identical application build,
+simulation version, mission hash, initial authority snapshot, seed, tick rate,
+and canonical command log. A structured compatibility result reports every
+baseline mismatch in stable code order before comparison proceeds.
+
 ## 10. Command log
 
 Each command contains:
