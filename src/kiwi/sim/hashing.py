@@ -17,6 +17,7 @@ from kiwi.domain.ids import (
     IntentionId,
     MessageId,
     ObstacleId,
+    WeaponId,
 )
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.runtime_values import (
@@ -75,9 +76,10 @@ from kiwi.sim.randomness import (
 from kiwi.sim.scheduled import ScheduledEvent, ScheduledEventKind, ScheduledEventQueue
 from kiwi.sim.signals import SignalObservation, SignalStore
 from kiwi.sim.state import EntityState, MissionPhase, MissionState, MovementAction
+from kiwi.sim.weapons import AimState, AimStore, Ammunition, EquippedWeapon, WeaponStore
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 13
+CANONICAL_STATE_VERSION = 14
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -151,7 +153,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 13 form."""
+    """Encode one validated mission state in canonical binary version 14 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -171,6 +173,8 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_policy_versions(writer, state.policy_versions)
     _encode_covers(writer, state.covers)
     _encode_cover_reservations(writer, state.cover_reservations)
+    _encode_weapons(writer, state.weapons)
+    _encode_aim_states(writer, state.aim_states)
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
@@ -250,7 +254,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 12 requires exactly four random streams")
+        raise ValueError("state format version 14 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -269,6 +273,8 @@ def _decode_state(reader: _Reader) -> MissionState:
     policy_versions = _decode_policy_versions(reader)
     covers = _decode_covers(reader)
     cover_reservations = _decode_cover_reservations(reader)
+    weapons = _decode_weapons(reader)
+    aim_states = _decode_aim_states(reader)
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
@@ -286,6 +292,8 @@ def _decode_state(reader: _Reader) -> MissionState:
         policy_versions=policy_versions,
         covers=covers,
         cover_reservations=cover_reservations,
+        weapons=weapons,
+        aim_states=aim_states,
         contacts=contacts,
         messages=messages,
         signals=signals,
@@ -535,6 +543,44 @@ def _decode_cover_reservations(reader: _Reader) -> CoverReservationStore:
         for _ in range(reader.items("cover reservation count"))
     )
     return CoverReservationStore(reservations)
+
+
+def _encode_weapons(writer: _Writer, store: WeaponStore) -> None:
+    writer.items(len(store.entries), "weapon count")
+    for weapon in store.entries:
+        writer.i64(weapon.weapon_id.value, "weapon ID")
+        writer.i64(weapon.owner_entity_id.value, "weapon owner entity ID")
+        writer.u16(weapon.ammunition.capacity, "weapon magazine capacity")
+        writer.u16(weapon.ammunition.loaded_rounds, "weapon loaded rounds")
+
+
+def _decode_weapons(reader: _Reader) -> WeaponStore:
+    return WeaponStore(
+        tuple(
+            EquippedWeapon(
+                WeaponId(reader.i64()),
+                EntityId(reader.i64()),
+                Ammunition(reader.u16(), reader.u16()),
+            )
+            for _ in range(reader.items("weapon count"))
+        )
+    )
+
+
+def _encode_aim_states(writer: _Writer, store: AimStore) -> None:
+    writer.items(len(store.entries), "aim state count")
+    for aim_state in store.entries:
+        writer.i64(aim_state.entity_id.value, "aim state entity ID")
+        writer.u16(aim_state.quality_basis_points, "aim quality basis points")
+
+
+def _decode_aim_states(reader: _Reader) -> AimStore:
+    return AimStore(
+        tuple(
+            AimState(EntityId(reader.i64()), reader.u16())
+            for _ in range(reader.items("aim state count"))
+        )
+    )
 
 
 def _encode_contacts(writer: _Writer, store: ContactStore) -> None:

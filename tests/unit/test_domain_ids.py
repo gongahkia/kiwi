@@ -20,6 +20,7 @@ from kiwi.domain.ids import (
     ProjectileId,
     StableId,
     TraceNodeId,
+    WeaponId,
     canonical_id_value,
 )
 
@@ -55,21 +56,26 @@ def test_id_allocator_is_immutable_type_local_and_deterministic() -> None:
     initial = IdAllocator()
     entity_one, after_entity_one = initial.allocate_entity()
     projectile_one, after_projectile_one = after_entity_one.allocate_projectile()
-    entity_two, after_entity_two = after_projectile_one.allocate_entity()
+    weapon_one, after_weapon_one = after_projectile_one.allocate_weapon()
+    entity_two, after_entity_two = after_weapon_one.allocate_entity()
 
     assert entity_one == EntityId(1)
     assert projectile_one == ProjectileId(1)
+    assert weapon_one == WeaponId(1)
     assert entity_two == EntityId(2)
     assert initial == IdAllocator()
     assert after_entity_two.next_ids[int(IdKind.ENTITY)] == 3
     assert after_entity_two.next_ids[int(IdKind.PROJECTILE)] == 2
+    assert after_entity_two.next_ids[int(IdKind.WEAPON)] == 2
 
     replay_entity, replay_after_entity = IdAllocator().allocate_entity()
     replay_projectile, replay_after_projectile = replay_after_entity.allocate_projectile()
-    replay_entity_two, replay_final = replay_after_projectile.allocate_entity()
-    assert (replay_entity, replay_projectile, replay_entity_two, replay_final) == (
+    replay_weapon, replay_after_weapon = replay_after_projectile.allocate_weapon()
+    replay_entity_two, replay_final = replay_after_weapon.allocate_entity()
+    assert (replay_entity, replay_projectile, replay_weapon, replay_entity_two, replay_final) == (
         entity_one,
         projectile_one,
+        weapon_one,
         entity_two,
         after_entity_two,
     )
@@ -90,6 +96,7 @@ def test_id_allocator_exposes_one_typed_entry_point_per_authority_family() -> No
         allocator.allocate_objective()[0],
         allocator.allocate_message()[0],
         allocator.allocate_obstacle()[0],
+        allocator.allocate_weapon()[0],
     )
 
     assert tuple(type(value) for value in allocated) == (
@@ -105,6 +112,7 @@ def test_id_allocator_exposes_one_typed_entry_point_per_authority_family() -> No
         ObjectiveId,
         MessageId,
         ObstacleId,
+        WeaponId,
     )
     assert all(canonical_id_value(value) == FIRST_DYNAMIC_ID for value in allocated)
 

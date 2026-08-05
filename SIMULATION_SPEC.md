@@ -560,7 +560,13 @@ Exposure to a threat is computed from geometry, stance, and contact estimate. Be
 
 ## 14. Aiming
 
-Aim state includes:
+The initial aim state is a target-free 0–10,000 basis-point quality retained in
+a sparse entity-ID-ordered store; absence means canonical zero. Weapon state is
+a weapon-ID-ordered inventory of generic owner-bound magazines. It contains no
+weapon class, target, projectile property, or firing outcome until later M10
+phases define them.
+
+Later aim progression will add:
 
 - target estimate;
 - accumulated aim quality;
@@ -680,9 +686,9 @@ Objective transitions are canonical events.
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`12` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`14` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `11`, unsupported versions, and noncanonical values are
+versions `1` through `13`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -699,6 +705,7 @@ Include:
 - map bounds and obstacle geometry;
 - active movement actions;
 - cover segments, slots, height, and integrity;
+- equipped weapon magazines and nonzero aim qualities;
 - contact estimates and field evidence event IDs;
 - current signal observations and issuing event IDs;
 - live message ledger entries, send-event IDs, and send sequence;
