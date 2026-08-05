@@ -382,4 +382,5 @@ VM trace instrumentation tests require deterministic source-map expression and
 observation-field entries, executed conditional and Option-pattern selections,
 stable policy-invocation joins, retained ordered contact evidence with confidence
 and age, stable standard-library List selection and ranking source indices,
-Cover candidate decisions, and identical traced and untraced authority successors.
+Cover candidate decisions, canonical intention-origin links through policy
+validation and arbitration, and identical traced and untraced authority successors.
