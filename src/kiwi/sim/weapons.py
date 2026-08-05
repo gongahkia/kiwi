@@ -8,6 +8,7 @@ from kiwi.domain.ids import EntityId, WeaponId
 
 MAX_MAGAZINE_ROUNDS = 65_535
 MAX_AIM_QUALITY_BASIS_POINTS = 10_000
+MAX_SUPPRESSION_BASIS_POINTS = 10_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,3 +116,80 @@ class AimStore:
             if entry.entity_id == entity_id:
                 return entry.quality_basis_points
         return 0
+
+    def with_quality(self, entity_id: EntityId, quality_basis_points: int) -> AimStore:
+        """Return the canonical successor after setting one entity's aim quality."""
+        if not isinstance(entity_id, EntityId):
+            raise ValueError("aim update requires an entity ID")
+        if (
+            not isinstance(quality_basis_points, int)
+            or isinstance(quality_basis_points, bool)
+            or not 0 <= quality_basis_points <= MAX_AIM_QUALITY_BASIS_POINTS
+        ):
+            raise ValueError("aim quality update must be between zero and 10,000")
+        retained = tuple(entry for entry in self.entries if entry.entity_id != entity_id)
+        if quality_basis_points == 0:
+            return AimStore(retained)
+        entries = retained + (AimState(entity_id, quality_basis_points),)
+        return AimStore(tuple(sorted(entries, key=lambda entry: entry.entity_id.value)))
+
+
+@dataclass(frozen=True, slots=True)
+class SuppressionState:
+    """One nonzero suppression value retained for an entity."""
+
+    entity_id: EntityId
+    basis_points: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.entity_id, EntityId):
+            raise ValueError("suppression state requires an entity ID")
+        if (
+            not isinstance(self.basis_points, int)
+            or isinstance(self.basis_points, bool)
+            or not 1 <= self.basis_points <= MAX_SUPPRESSION_BASIS_POINTS
+        ):
+            raise ValueError("suppression must be between one and 10,000")
+
+
+@dataclass(frozen=True, slots=True)
+class SuppressionStore:
+    """A sparse entity-ID-ordered suppression store; absence means zero."""
+
+    entries: tuple[SuppressionState, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.entries, tuple):
+            raise ValueError("suppression store entries must be an immutable tuple")
+        previous_entity_id = 0
+        for entry in self.entries:
+            if not isinstance(entry, SuppressionState):
+                raise ValueError("suppression store entries must be suppression states")
+            if entry.entity_id.value <= previous_entity_id:
+                raise ValueError("suppression store entries must be entity-ID ordered")
+            previous_entity_id = entry.entity_id.value
+
+    def suppression_for(self, entity_id: EntityId) -> int:
+        """Return retained suppression or the canonical implicit zero."""
+        if not isinstance(entity_id, EntityId):
+            raise ValueError("suppression lookup requires an entity ID")
+        for entry in self.entries:
+            if entry.entity_id == entity_id:
+                return entry.basis_points
+        return 0
+
+    def with_suppression(self, entity_id: EntityId, basis_points: int) -> SuppressionStore:
+        """Return the canonical successor after setting one entity's suppression."""
+        if not isinstance(entity_id, EntityId):
+            raise ValueError("suppression update requires an entity ID")
+        if (
+            not isinstance(basis_points, int)
+            or isinstance(basis_points, bool)
+            or not 0 <= basis_points <= MAX_SUPPRESSION_BASIS_POINTS
+        ):
+            raise ValueError("suppression update must be between zero and 10,000")
+        retained = tuple(entry for entry in self.entries if entry.entity_id != entity_id)
+        if basis_points == 0:
+            return SuppressionStore(retained)
+        entries = retained + (SuppressionState(entity_id, basis_points),)
+        return SuppressionStore(tuple(sorted(entries, key=lambda entry: entry.entity_id.value)))

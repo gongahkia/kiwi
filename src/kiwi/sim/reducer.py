@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from kiwi.sim.aim import resolve_aim_progression
 from kiwi.sim.arbitration import arbitrate_intentions
 from kiwi.sim.clock import FixedTickClock
 from kiwi.sim.commands import (
@@ -105,7 +106,8 @@ def reduce_one_tick(
         emitted.extend(policy_events)
     if next_state.phase is MissionPhase.ACTIVE:
         movement = emit_movement_events(resolve_movement_actions(next_state))
-        next_state = movement.state
+        aim = resolve_aim_progression(next_state, clock, movement.resolutions)
+        next_state = aim.state
         emitted.extend(movement.events)
 
     advanced_state = clock.advance(next_state)
