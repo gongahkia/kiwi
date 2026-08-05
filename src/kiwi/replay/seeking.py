@@ -134,6 +134,13 @@ def build_seek_index(
     return index
 
 
+def seek_index_matches_replay(replay: ReplayPacket, index: ReplaySeekIndex) -> bool:
+    """Return whether a sidecar exactly belongs to every checkpoint of one replay."""
+    if not isinstance(replay, ReplayPacket) or not isinstance(index, ReplaySeekIndex):
+        return False
+    return index.replay_hash == hash_replay(replay) and _snapshots_match_checkpoints(replay, index)
+
+
 def encode_seek_index(index: ReplaySeekIndex) -> bytes:
     """Encode one validated v1 seek index using a compact deterministic binary layout."""
     if not isinstance(index, ReplaySeekIndex):
