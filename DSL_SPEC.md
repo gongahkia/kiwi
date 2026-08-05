@@ -653,8 +653,12 @@ using the same side, height, and integrity rule as the simulation. `route_cost`
 is exact planar Manhattan distance, not a hidden map route. `nearest_safe`
 evaluates each supplied slot and returns the `TakeCover` for the least tuple
 `(exposure, route cost, cover ID, slot index)`, or `None` when no slots were
-supplied. `seek` constructs `TakeCover { cover_id, side }`; simulation retains
+supplied. Supplied covers and slots must retain observation ABI ID order. `seek`
+constructs `TakeCover { cover_id, side }`; simulation retains
 normal cover-ID and side validation. Every traversal charges bounded VM work.
+Optional VM semantic-trace capture records `nearest_safe` source provenance,
+every final candidate score, its rejection reason, and the selected slot; it
+does not alter VM output or authority state.
 
 #### `Movement`
 
@@ -677,6 +681,12 @@ normal cover-ID and side validation. Every traversal charges bounded VM work.
 ### 13.3 Standard-library traceability
 
 A standard-library function may emit summarised trace nodes, but the debugger must allow expansion to relevant internal decisions where needed. Do not hide decisive thresholds inside opaque native functions.
+
+When optional VM cover-selection tracing is enabled, `Cover.nearest_safe`
+retains its source-map entry, then the selected candidate followed by rejected
+candidates in ascending final rank. Each record contains its exposure and route
+cost plus the first losing rank component. This in-memory semantic data is not
+the later persisted general trace format.
 
 ## 14. Restrictions
 

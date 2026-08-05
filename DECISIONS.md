@@ -493,12 +493,25 @@ and integrity estimate as D-050. `route_cost` is the exact planar Manhattan
 distance proxy; it does not query map, routes, occupancy, reservations, or
 hidden state. `nearest_safe` evaluates every supplied slot and selects by
 ascending `(exposure, route cost, CoverId, slot index)`, returning `None` only
-when there are no supplied slots. `seek` retains its arguments for the normal
+when there are no supplied slots; its supplied cover and slot lists retain their
+observed ascending `CoverId` and slot-index order. `seek` retains its arguments for the normal
 TakeCover validator, including `I006`/`I007` failures. These bounded intrinsics
 charge deterministic instruction and allocation budgets. Their existing
 one-byte `PUSH_INTRINSIC` representation gains tags `7` through `10`; prior
 version-2 bytes retain their meanings, so no language, bytecode, or state
 version changes.
+
+### D-054: Cover selection traces are optional VM-derived semantic records
+
+`run_vm(..., capture_cover_selection_trace=True)` retains one in-memory
+`CoverSelectionTrace` for each successful `Cover.nearest_safe` call. It keeps
+the intrinsic call's source-map entry and candidate records in final rank order:
+the selected slot first, followed by rejected slots with their exact exposure,
+Manhattan route cost, and first losing rank component. Trace capture reads only
+the already-supplied immutable values and does not allocate authority IDs,
+alter VM values or faults, affect state hashes, or change bytecode/state
+formats. It is deliberately not the durable generic trace model; later trace
+milestones own trace levels, persistence, and cross-phase graph construction.
 
 ## 2. Prohibited shortcuts
 

@@ -208,7 +208,8 @@ Examples:
 
 - `Threat.score` reports its principal inputs and output.
 - `List.min_by` reports the selected item, compared candidate count, and tie-break.
-- `Cover.nearest_safe` reports candidate rejections and selected cover.
+- `Cover.nearest_safe` reports every candidate's exposure and route-cost score,
+  first losing rank component, and selected slot from its source-mapped call.
 
 Avoid recording irrelevant arithmetic noise at summary levels.
 
