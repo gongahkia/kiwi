@@ -154,6 +154,31 @@ def test_take_cover_validation_rejects_invalid_fields_cover_ids_and_sides() -> N
     )
 
 
+def test_fire_validation_rejects_nonpositive_weapon_ids() -> None:
+    distance = Quantity(QuantityDimension.DISTANCE, ExactRational(1, 1))
+
+    invalid_weapon_id = validate_runtime_intention(
+        RecordValue(
+            "Fire",
+            ("target", "weapon_id"),
+            (
+                RecordValue(
+                    "Position",
+                    ("x", "y"),
+                    (QuantityValue(distance), QuantityValue(distance)),
+                ),
+                IntegerValue(0),
+            ),
+        )
+    )
+
+    assert invalid_weapon_id == IntentionValidationFailure(
+        IntentionValidationCode.INVALID_WEAPON_ID,
+        "Fire.weapon_id must be a positive weapon ID",
+        ("weapon_id",),
+    )
+
+
 def test_intention_origin_retains_typed_causal_metadata() -> None:
     source = SourceFile(SourceFileId("policy.dtr"), "Wait(1s)")
 
