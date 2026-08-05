@@ -238,31 +238,32 @@ action without one.
 
 ## 9. Replay package
 
-Suggested extension: `.drun`
+`.drun` currently carries one `KWI-RUN\0` version `1` packet: magic, a 16-bit
+big-endian version, then canonical UTF-8 JSON with sorted keys and no
+insignificant whitespace. The complete immutable v1 input manifest contains:
 
-Fields:
+- visible-ASCII application-build and simulation-version identifiers;
+- a 32-byte mission-content hash;
+- entity-ID-ordered 32-byte deployed policy-version hashes;
+- a self-verifying canonical initial `AuthoritySnapshot`;
+- the root unsigned-64-bit seed, which must equal the initial snapshot's seed;
+- the fixed tick rate;
+- a `(tick, sequence)`-ordered command log with unique global sequences; and
+- an ascending unique-tick checkpoint list whose first entry matches the initial snapshot.
 
-- replay format version;
-- application build;
-- simulation semantic version;
-- mission hash;
-- policy bundle hashes;
-- initial snapshot or mission reference plus canonical initialisation inputs;
-- seed manifest;
-- command log;
-- checkpoint hashes;
-- optional embedded snapshots;
-- optional trace manifest;
-- completion summary.
+Commands use closed `start_mission`, `request_abort`, and `issue_signal`
+variants. Every command carries tick, sequence, and player or scenario source;
+signals additionally carry a lowercase identifier and an explicit nullable
+entity target. The replay embeds no Python objects and is bounded to 64 MiB,
+65,536 commands, 65,536 checkpoints, and 256-byte build/version identifiers.
+Commands cannot precede the initial snapshot tick.
 
-A replay verifier must be able to report:
-
-- unsupported version;
-- missing content;
-- content hash mismatch;
-- first divergent checkpoint;
-- invalid command sequence;
-- corrupt payload.
+Decoders reject version `0`, every version other than `1`, invalid magic,
+duplicate or unknown fields, malformed values, corrupt initial snapshots,
+oversized packets, and valid-but-noncanonical JSON. Version `1` defines only
+recording and verification inputs. Embedded seek snapshots, trace manifests,
+content loading, divergence reports, and completion summaries remain deferred
+to their owning replay milestones.
 
 ## 10. Command log
 
