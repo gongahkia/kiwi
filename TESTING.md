@@ -127,6 +127,7 @@ Small deterministic fixtures test:
 - projectile tunnelling prevention;
 - earliest impact selection and obstacle, cover, operative tie precedence;
 - projectile consumption, final-segment expiry, and map-boundary deferral;
+- deterministic protection, injury bands, incapacitation, and condition versioning;
 - damage and suppression;
 - medical interruption;
 - objective completion;

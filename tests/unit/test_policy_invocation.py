@@ -20,6 +20,7 @@ from kiwi.dsl.runtime_values import IntegerValue, ListValue, RecordValue, String
 from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.dsl.types import BuiltinType
 from kiwi.dsl.vm import VMRunResult
+from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.intentions import WaitIntention
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.policies import (
@@ -92,6 +93,30 @@ def test_policy_bindings_reject_noncanonical_and_unbound_entries() -> None:
         )
     with pytest.raises(ValueError, match="belong to mission entities"):
         invoke_policies(MissionState(), PolicyBindings((binding,)))
+
+
+def test_policy_invocation_skips_an_incapacitated_entity() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(1), WorldSubunits(2)))
+    state = replace(
+        state,
+        conditions=OperativeConditionStore((OperativeCondition(entity.entity_id, 0, 0),)),
+    )
+    bindings = PolicyBindings(
+        (
+            PolicyBinding(
+                entity.entity_id,
+                _two_argument_policy_artifact(),
+                FunctionId(0),
+                MEMORY_SCHEMA,
+                _memory("initial"),
+            ),
+        )
+    )
+
+    phase = invoke_policies(state, bindings)
+
+    assert phase.evaluations == ()
+    assert phase.state.id_allocator == state.id_allocator
 
 
 def test_policy_binding_requires_a_two_argument_policy_entry_point() -> None:

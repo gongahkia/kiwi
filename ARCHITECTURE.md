@@ -87,6 +87,7 @@ The architecture should remain simple enough for one developer and coding agents
 │       │   ├── cover.py
 │       │   ├── weapons.py
 │       │   ├── projectiles.py
+│       │   ├── conditions.py
 │       │   ├── damage.py
 │       │   ├── objectives.py
 │       │   ├── events.py
@@ -363,9 +364,11 @@ entity-ID-ordered sparse nonzero suppression store, a `ProjectileId`-ordered
 live point-projectile store with owner, source intention, exact position,
 per-tick vector, and remaining lifetime, a pure bounded swept-collision query,
 and a projectile-impact phase that consumes collisions or advances/ages a
-survivor, and a `(tick, sequence)` scheduled-event queue. State components are
-added only with the task that defines their invariants; canonical encoding
-follows this explicit state-field order.
+survivor, an entity-ID-ordered sparse operative-condition store, and a `(tick,
+sequence)` scheduled-event queue. Damage consumes only structured operative
+impacts, in projectile-ID order, and retains the source impact in its transient
+resolution. State components are added only with the task that defines their
+invariants; canonical encoding follows this explicit state-field order.
 
 Random state is a versioned root-seed manifest plus a fixed-order tuple of
 independent named PCG32 streams. Each raw draw returns immutable successor
@@ -438,9 +441,10 @@ models without importing simulation. The simulation bootstrap consumes those
 canonical primitive values to allocate initial authority state; it never reads
 files during ticks.
 
-The version-6 runtime observation model is an immutable simulation value with
+The version-7 runtime observation model is an immutable simulation value with
 owner-visible entity ID, planar position, exact aim quality, aim ceiling,
-suppression, delivered inbox, current signals, tick, `nearest_contact:
+suppression, health, protection, derived injury severity, incapacitation,
+stabilization, delivered inbox, current signals, tick, `nearest_contact:
 Option<Contact>`, and range-visible cover records. A conversion at the
 simulation/DSL boundary produces closed lexically ordered DSL records; no
 renderer or hidden-world reference crosses that boundary.

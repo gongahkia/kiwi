@@ -17,6 +17,7 @@ from kiwi.dsl.runtime_values import (
     StringValue,
 )
 from kiwi.sim.commands import CommandSource, SignalName
+from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactField,
@@ -99,7 +100,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "bdd7339f1fc3372abd7430ce251f96565ee9339bb172dda3e757a6627ac1931f"
+    assert first.hex == "d365a5b0187aacad98e09bc9029a2f38e3ea959e9ee6a536307b6917df33e846"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:
@@ -358,6 +359,21 @@ def test_canonical_state_codec_round_trips_current_signals_and_hashes_them() -> 
     )
 
 
+def test_canonical_state_codec_round_trips_nondefault_operative_conditions() -> None:
+    state, entity = add_entity(MissionState(), WorldPosition(WorldSubunits(3), WorldSubunits(4)))
+    conditions = OperativeConditionStore((OperativeCondition(entity.entity_id, 1, 0, True),))
+    state = replace(state, conditions=conditions)
+
+    decoded = decode_canonical_state(encode_canonical_state(state))
+
+    assert decoded == state
+    assert isinstance(decoded, MissionState)
+    assert decoded.conditions.condition_for(entity.entity_id) == conditions.entries[0]
+    assert hash_canonical_state(state) != hash_canonical_state(
+        replace(state, conditions=OperativeConditionStore())
+    )
+
+
 def _contact_provenance(event_id: EventId) -> ContactProvenance:
     return ContactProvenance(
         tuple(ContactFieldProvenance(field, (event_id,)) for field in ContactField)
@@ -383,6 +399,7 @@ def _contact_provenance(event_id: EventId) -> ContactProvenance:
         (CANONICAL_STATE_MAGIC + b"\x00\x0d", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0e", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC + b"\x00\x0f", StateDecodeCode.UNSUPPORTED_VERSION),
+        (CANONICAL_STATE_MAGIC + b"\x00\x10", StateDecodeCode.UNSUPPORTED_VERSION),
         (CANONICAL_STATE_MAGIC, StateDecodeCode.TRUNCATED),
         (encode_canonical_state(MissionState()) + b"x", StateDecodeCode.TRAILING_BYTES),
     ),

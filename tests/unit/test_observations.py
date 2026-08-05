@@ -7,6 +7,7 @@ import pytest
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
 from kiwi.domain.ids import ContactId, EntityId, EventId
 from kiwi.dsl.runtime_values import (
+    BooleanValue,
     IntegerValue,
     ListValue,
     OptionNoneValue,
@@ -15,6 +16,7 @@ from kiwi.dsl.runtime_values import (
     RecordValue,
     StringValue,
 )
+from kiwi.sim.conditions import InjurySeverity, OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
     ContactEstimate,
@@ -61,7 +63,7 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
 
     value = observation_runtime_value(observation)
 
-    assert OBSERVATION_SCHEMA_VERSION == 6
+    assert OBSERVATION_SCHEMA_VERSION == 7
     assert value.type_name == OBSERVATION_RECORD_TYPE
     assert value.field_names == (
         "inbox",
@@ -86,12 +88,20 @@ def test_runtime_observation_converts_to_the_versioned_closed_dsl_layout() -> No
         "aim_ceiling_basis_points",
         "aim_quality_basis_points",
         "entity_id",
+        "health",
+        "incapacitated",
+        "injury_severity",
         "position",
+        "protection",
+        "stabilized",
         "suppression_basis_points",
     )
     assert self_value.field_value("aim_ceiling_basis_points") == IntegerValue(10_000)
     assert self_value.field_value("aim_quality_basis_points") == IntegerValue(0)
     assert self_value.field_value("entity_id") == IntegerValue(4)
+    assert self_value.field_value("health") == IntegerValue(3)
+    assert self_value.field_value("incapacitated") == BooleanValue(False)
+    assert self_value.field_value("injury_severity") == StringValue("none")
     position_value = self_value.field_value("position")
     assert isinstance(position_value, RecordValue)
     assert position_value.type_name == POSITION_RECORD_TYPE
@@ -111,6 +121,7 @@ def test_runtime_observations_project_exact_aim_and_suppression_values() -> None
         state,
         aim_states=AimStore((AimState(entity.entity_id, 4_000),)),
         suppressions=SuppressionStore((SuppressionState(entity.entity_id, 2_500),)),
+        conditions=OperativeConditionStore((OperativeCondition(entity.entity_id, 1, 0, True),)),
     )
 
     observation = build_runtime_observations(state)[0]
@@ -120,10 +131,20 @@ def test_runtime_observations_project_exact_aim_and_suppression_values() -> None
     assert observation.self_observation.aim_quality_basis_points == 4_000
     assert observation.self_observation.aim_ceiling_basis_points == 7_500
     assert observation.self_observation.suppression_basis_points == 2_500
+    assert observation.self_observation.health == 1
+    assert observation.self_observation.protection == 0
+    assert observation.self_observation.injury_severity is InjurySeverity.SEVERE
+    assert not observation.self_observation.incapacitated
+    assert observation.self_observation.stabilized
     assert isinstance(self_value, RecordValue)
     assert self_value.field_value("aim_quality_basis_points") == IntegerValue(4_000)
     assert self_value.field_value("aim_ceiling_basis_points") == IntegerValue(7_500)
     assert self_value.field_value("suppression_basis_points") == IntegerValue(2_500)
+    assert self_value.field_value("health") == IntegerValue(1)
+    assert self_value.field_value("protection") == IntegerValue(0)
+    assert self_value.field_value("injury_severity") == StringValue("severe")
+    assert self_value.field_value("incapacitated") == BooleanValue(False)
+    assert self_value.field_value("stabilized") == BooleanValue(True)
 
 
 def test_runtime_observations_project_visible_cover_records() -> None:
@@ -311,6 +332,20 @@ def test_runtime_observations_project_only_each_owner_delivered_messages() -> No
         (
             lambda: SelfObservation(EntityId(1), object()),  # type: ignore[arg-type]
             "world position",
+        ),
+        (
+            lambda: SelfObservation(
+                EntityId(1), WorldPosition(WorldSubunits(0), WorldSubunits(0)), health=0
+            ),
+            "injury severity",
+        ),
+        (
+            lambda: SelfObservation(
+                EntityId(1),
+                WorldPosition(WorldSubunits(0), WorldSubunits(0)),
+                incapacitated=True,
+            ),
+            "incapacitation",
         ),
         (
             lambda: RuntimeObservation(object(), 0),  # type: ignore[arg-type]

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, distance_from_world_subunits
 from kiwi.domain.ids import EntityId
 from kiwi.dsl.runtime_values import (
+    BooleanValue,
     IntegerValue,
     ListValue,
     OptionNoneValue,
@@ -15,6 +16,7 @@ from kiwi.dsl.runtime_values import (
     RecordValue,
     StringValue,
 )
+from kiwi.sim.conditions import MAX_OPERATIVE_HEALTH, MAX_OPERATIVE_PROTECTION, InjurySeverity
 from kiwi.sim.contacts import ContactEstimate, nearest_contact_for
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.messages import InboxObservation, inbox_for, inbox_runtime_value
@@ -23,7 +25,7 @@ from kiwi.sim.state import MissionState
 from kiwi.sim.visibility import SensorRange, VisibleCover, visible_covers
 from kiwi.sim.weapons import MAX_AIM_QUALITY_BASIS_POINTS
 
-OBSERVATION_SCHEMA_VERSION = 6
+OBSERVATION_SCHEMA_VERSION = 7
 OBSERVATION_RECORD_TYPE = "Observation"
 SELF_OBSERVATION_RECORD_TYPE = "SelfObservation"
 POSITION_RECORD_TYPE = "Position"
@@ -42,6 +44,11 @@ class SelfObservation:
     aim_quality_basis_points: int = 0
     aim_ceiling_basis_points: int = MAX_AIM_QUALITY_BASIS_POINTS
     suppression_basis_points: int = 0
+    health: int = MAX_OPERATIVE_HEALTH
+    protection: int = MAX_OPERATIVE_PROTECTION
+    injury_severity: InjurySeverity = InjurySeverity.NONE
+    incapacitated: bool = False
+    stabilized: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.entity_id, EntityId):
@@ -52,6 +59,8 @@ class SelfObservation:
             self.aim_quality_basis_points,
             self.aim_ceiling_basis_points,
             self.suppression_basis_points,
+            self.health,
+            self.protection,
         )
         if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
             raise ValueError("self observation readiness values must be integers")
@@ -63,11 +72,25 @@ class SelfObservation:
             MAX_AIM_QUALITY_BASIS_POINTS - self.suppression_basis_points
         ):
             raise ValueError("self observation aim ceiling must match suppression")
+        if not 0 <= self.health <= MAX_OPERATIVE_HEALTH:
+            raise ValueError("self observation health is outside the configured range")
+        if not 0 <= self.protection <= MAX_OPERATIVE_PROTECTION:
+            raise ValueError("self observation protection is outside the configured range")
+        if not isinstance(self.injury_severity, InjurySeverity):
+            raise ValueError("self observation injury severity must be an injury severity")
+        if not isinstance(self.incapacitated, bool):
+            raise ValueError("self observation incapacitation state must be boolean")
+        if not isinstance(self.stabilized, bool):
+            raise ValueError("self observation stabilization state must be boolean")
+        if self.injury_severity is not _injury_severity_for_health(self.health):
+            raise ValueError("self observation injury severity must match health")
+        if self.incapacitated != (self.health == 0):
+            raise ValueError("self observation incapacitation state must match health")
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeObservation:
-    """The complete version-6 policy input with no hidden or writable state."""
+    """The complete version-7 policy input with no hidden or writable state."""
 
     self_observation: SelfObservation
     tick: int
@@ -134,26 +157,41 @@ def build_runtime_observations(state: MissionState) -> tuple[RuntimeObservation,
     if not isinstance(state, MissionState):
         raise TypeError("runtime observation building requires mission state")
     return tuple(
-        RuntimeObservation(
-            SelfObservation(
-                entity.entity_id,
-                entity.position,
-                state.aim_states.quality_for(entity.entity_id),
-                MAX_AIM_QUALITY_BASIS_POINTS - state.suppressions.suppression_for(entity.entity_id),
-                state.suppressions.suppression_for(entity.entity_id),
-            ),
-            state.tick,
-            inbox_for(state.messages, entity.entity_id, state.tick),
-            signals_for(state.signals, entity.entity_id, state.tick),
-            nearest_contact_for(state.contacts, entity.entity_id, entity.position, state.tick),
-            visible_covers(state.covers, entity.position, DEFAULT_OBSERVATION_SENSOR_RANGE),
-        )
+        _runtime_observation_for(state, entity.entity_id, entity.position)
         for entity in state.entities
     )
 
 
+def _runtime_observation_for(
+    state: MissionState,
+    entity_id: EntityId,
+    position: WorldPosition,
+) -> RuntimeObservation:
+    condition = state.conditions.condition_for(entity_id)
+    suppression = state.suppressions.suppression_for(entity_id)
+    return RuntimeObservation(
+        SelfObservation(
+            entity_id,
+            position,
+            state.aim_states.quality_for(entity_id),
+            MAX_AIM_QUALITY_BASIS_POINTS - suppression,
+            suppression,
+            condition.health,
+            condition.protection,
+            condition.injury_severity,
+            condition.incapacitated,
+            condition.stabilized,
+        ),
+        state.tick,
+        inbox_for(state.messages, entity_id, state.tick),
+        signals_for(state.signals, entity_id, state.tick),
+        nearest_contact_for(state.contacts, entity_id, position, state.tick),
+        visible_covers(state.covers, position, DEFAULT_OBSERVATION_SENSOR_RANGE),
+    )
+
+
 def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
-    """Convert one authority observation to the closed version-6 DSL record layout."""
+    """Convert one authority observation to the closed version-7 DSL record layout."""
     if not isinstance(observation, RuntimeObservation):
         raise TypeError("runtime observation value requires a RuntimeObservation")
     self_observation = observation.self_observation
@@ -164,14 +202,24 @@ def observation_runtime_value(observation: RuntimeObservation) -> RecordValue:
             "aim_ceiling_basis_points",
             "aim_quality_basis_points",
             "entity_id",
+            "health",
+            "incapacitated",
+            "injury_severity",
             "position",
+            "protection",
+            "stabilized",
             "suppression_basis_points",
         ),
         (
             IntegerValue(self_observation.aim_ceiling_basis_points),
             IntegerValue(self_observation.aim_quality_basis_points),
             IntegerValue(self_observation.entity_id.value),
+            IntegerValue(self_observation.health),
+            BooleanValue(self_observation.incapacitated),
+            StringValue(self_observation.injury_severity.value),
             position_value,
+            IntegerValue(self_observation.protection),
+            BooleanValue(self_observation.stabilized),
             IntegerValue(self_observation.suppression_basis_points),
         ),
     )
@@ -215,6 +263,16 @@ def _nearest_contact_runtime_value(
             ),
         )
     )
+
+
+def _injury_severity_for_health(health: int) -> InjurySeverity:
+    if health == MAX_OPERATIVE_HEALTH:
+        return InjurySeverity.NONE
+    if health == MAX_OPERATIVE_HEALTH - 1:
+        return InjurySeverity.MINOR
+    if health == 1:
+        return InjurySeverity.SEVERE
+    return InjurySeverity.INCAPACITATED
 
 
 def _position_runtime_value(position: WorldPosition) -> RecordValue:

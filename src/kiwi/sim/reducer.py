@@ -18,6 +18,7 @@ from kiwi.sim.communication import emit_message_delivery_events
 from kiwi.sim.contacts import advance_contacts
 from kiwi.sim.cover_events import emit_take_cover_events
 from kiwi.sim.cover_intentions import resolve_selected_take_cover
+from kiwi.sim.damage import resolve_projectile_damage
 from kiwi.sim.events import (
     AbortRequested,
     CanonicalEvent,
@@ -109,7 +110,8 @@ def reduce_one_tick(
         movement_phase = resolve_movement_actions(next_state)
         movement = emit_movement_events(movement_phase)
         aim = resolve_aim_progression(movement.state, clock, movement_phase.resolutions)
-        next_state = resolve_projectile_impacts(aim.state).state
+        impacts = resolve_projectile_impacts(aim.state)
+        next_state = resolve_projectile_damage(impacts.state, impacts.impacts).state
         emitted.extend(movement.events)
 
     advanced_state = clock.advance(next_state)

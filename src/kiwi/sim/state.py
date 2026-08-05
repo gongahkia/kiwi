@@ -7,6 +7,7 @@ from enum import StrEnum
 
 from kiwi.domain.geometry import WorldPosition, WorldSubunits, round_nearest_ties_away_from_zero
 from kiwi.domain.ids import EntityId, EventId, IdAllocator, IdKind
+from kiwi.sim.conditions import OperativeConditionStore
 from kiwi.sim.contacts import ContactStore
 from kiwi.sim.covers import CoverReservationStore, CoverStore
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
@@ -137,6 +138,7 @@ class MissionState:
     aim_states: AimStore = field(default_factory=AimStore)
     suppressions: SuppressionStore = field(default_factory=SuppressionStore)
     projectiles: ProjectileStore = field(default_factory=ProjectileStore)
+    conditions: OperativeConditionStore = field(default_factory=OperativeConditionStore)
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
@@ -174,6 +176,8 @@ class MissionState:
             raise ValueError("mission state requires a suppression store")
         if not isinstance(self.projectiles, ProjectileStore):
             raise ValueError("mission state requires a projectile store")
+        if not isinstance(self.conditions, OperativeConditionStore):
+            raise ValueError("mission state requires operative conditions")
         if not isinstance(self.contacts, ContactStore):
             raise ValueError("mission state requires a contact store")
         if not isinstance(self.messages, MessageLedger):
@@ -258,6 +262,17 @@ class MissionState:
             for projectile in self.projectiles.entries
         ):
             raise ValueError("projectile source intention IDs must be allocated")
+        if any(condition.entity_id not in entity_ids for condition in self.conditions.entries):
+            raise ValueError("operative conditions must belong to mission entities")
+        if any(
+            self.conditions.is_incapacitated(action.entity_id) for action in self.movement_actions
+        ):
+            raise ValueError("incapacitated entities cannot retain movement actions")
+        if any(
+            self.conditions.is_incapacitated(reservation.entity_id)
+            for reservation in self.cover_reservations.entries
+        ):
+            raise ValueError("incapacitated entities cannot retain cover reservations")
         for reservation in self.cover_reservations.entries:
             if reservation.entity_id not in entity_ids:
                 raise ValueError("cover reservations must belong to mission entities")
@@ -344,6 +359,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             aim_states=state.aim_states,
             suppressions=state.suppressions,
             projectiles=state.projectiles,
+            conditions=state.conditions,
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,
