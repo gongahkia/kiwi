@@ -10,6 +10,7 @@ def test_dummy_sdl_window_renders_and_presents_map_bounds() -> None:
 from kiwi.render.camera import Camera
 from kiwi.render.pygame_app import (
     BACKGROUND_COLOR,
+    AIM_COLOR,
     CONTACT_MARKER_COLOR,
     CONTACT_UNCERTAINTY_COLOR,
     COVER_DAMAGED_COLOR,
@@ -18,10 +19,13 @@ from kiwi.render.pygame_app import (
     COVER_SLOT_OCCUPIED_COLOR,
     COVER_THREAT_DIRECTION_COLOR,
     MAP_FILL_COLOR,
+    IMPACT_COVER_COLOR,
     OBJECTIVE_COLOR,
     OBSTACLE_COLOR,
     OPERATIVE_COLOR,
     PATH_COLOR,
+    PROJECTILE_COLOR,
+    SUPPRESSION_COLOR,
     VISIBLE_GEOMETRY_COLOR,
     VISIBILITY_RANGE_COLOR,
     open_pygame_window,
@@ -34,9 +38,11 @@ from kiwi.sim.snapshot import (
     PresentationCover,
     PresentationCoverSlot,
     PresentationContact,
+    PresentationImpact,
     PresentationObstacle,
     PresentationOperative,
     PresentationPoint,
+    PresentationProjectile,
     PresentationRectangle,
     PresentationSnapshot,
     PresentationVisibilityOverlay,
@@ -56,6 +62,8 @@ snapshot = PresentationSnapshot(
             1,
             PresentationPoint(400.0, 0.0, 0),
             (PresentationPoint(-800.0, -200.0, 0), PresentationPoint(400.0, -200.0, 0)),
+            10_000,
+            10_000,
         ),
     ),
     PresentationPoint(0.0, 300.0, 0),
@@ -89,9 +97,11 @@ snapshot = PresentationSnapshot(
             (PresentationCoverSlot(0, PresentationPoint(-800.0, -400.0, 0), "left"),),
         ),
     ),
+    projectiles=(PresentationProjectile(1, 1, PresentationPoint(0.0, 0.0, 0)),),
+    impacts=(PresentationImpact(2, PresentationPoint(-300.0, 0.0, 0), "cover"),),
 )
 render_tactical_view(window.logical_canvas, snapshot, Camera(pixels_per_millimetre=0.05))
-assert window.logical_canvas.get_at((80, 45))[:3] == MAP_FILL_COLOR
+assert window.logical_canvas.get_at((80, 50))[:3] == MAP_FILL_COLOR
 assert window.logical_canvas.get_at((0, 0))[:3] == BACKGROUND_COLOR
 assert window.logical_canvas.get_at((50, 45))[:3] == VISIBLE_GEOMETRY_COLOR
 assert window.logical_canvas.get_at((60, 55))[:3] == PATH_COLOR
@@ -105,6 +115,10 @@ assert window.logical_canvas.get_at((35, 60))[:3] == COVER_DAMAGED_COLOR
 assert window.logical_canvas.get_at((85, 38))[:3] == COVER_THREAT_DIRECTION_COLOR
 assert window.logical_canvas.get_at((77, 65))[:3] == COVER_SLOT_EMPTY_COLOR
 assert window.logical_canvas.get_at((105, 45))[:3] == COVER_SLOT_OCCUPIED_COLOR
+assert window.logical_canvas.get_at((100, 37))[:3] == AIM_COLOR
+assert window.logical_canvas.get_at((108, 45))[:3] == SUPPRESSION_COLOR
+assert window.logical_canvas.get_at((80, 45))[:3] == PROJECTILE_COLOR
+assert window.logical_canvas.get_at((65, 45))[:3] == IMPACT_COVER_COLOR
 present(window)
 assert pygame_is_initialised()
 quit_pygame()
