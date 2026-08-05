@@ -49,7 +49,9 @@ class ReplayCheckpointDivergence:
             self.actual_hash, StateHash
         ):
             raise ValueError("replay divergence hashes must be StateHash values")
-        if self.difference is not None and not isinstance(self.difference, CanonicalStateDifference):
+        if self.difference is not None and not isinstance(
+            self.difference, CanonicalStateDifference
+        ):
             raise ValueError("replay divergence difference must be canonical state difference")
 
 

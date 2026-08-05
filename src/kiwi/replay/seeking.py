@@ -136,8 +136,6 @@ def build_seek_index(
 
 def seek_index_matches_replay(replay: ReplayPacket, index: ReplaySeekIndex) -> bool:
     """Return whether a sidecar exactly belongs to every checkpoint of one replay."""
-    if not isinstance(replay, ReplayPacket) or not isinstance(index, ReplaySeekIndex):
-        return False
     return index.replay_hash == hash_replay(replay) and _snapshots_match_checkpoints(replay, index)
 
 
