@@ -144,6 +144,8 @@ Test:
 
 - repeated run hash equality;
 - graphical adapter does not change hashes;
+- replay recorder preserves canonical initial inputs, binding hashes, commands,
+  and checkpoints;
 - record then verify;
 - checkpoint seek and resume;
 - corrupt replay rejection;

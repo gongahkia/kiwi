@@ -732,11 +732,13 @@ capture and trace hashing do not participate in canonical mission state.
 
 `KWI-RUN\0` version `1` is a bounded canonical UTF-8 JSON replay packet for
 one headless run. It retains build and simulation identifiers, mission and
-deployed-policy hashes, a self-verifying initial authority snapshot, matching
+execution-policy hashes, a self-verifying initial authority snapshot, matching
 root seed, tick rate, canonically ordered external commands, and checkpoint
-hashes. The initial snapshot is the first checkpoint; its state and seed must
-match the manifest, so redundant replay metadata cannot silently describe a
-different run.
+hashes. Policy hashes identify the bindings to execute and their entity IDs
+must belong to the initial snapshot; they are intentionally independent of a
+snapshot's prior deployment history. The initial snapshot is the first
+checkpoint; its state and seed must match the manifest, so redundant replay
+metadata cannot silently describe a different run.
 
 Only version `1` is accepted. Version `0`, every future or historical version,
 and all migration paths are rejected. This user-approved development policy

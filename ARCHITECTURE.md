@@ -535,6 +535,10 @@ A replay package contains:
 Version `1` accepts only exact version-one packets; it has no migration or
 compatibility runner. Seeking snapshots, trace references, content resolution,
 and divergence reports are introduced by their owning replay milestones.
+Replay recording captures the initial authority snapshot before headless
+execution, canonicalises its external commands, derives policy identities from
+the immutable bindings used for that execution, and copies only checkpoint
+hashes into the packet.
 
 ## 15. Causal tracing architecture
 
