@@ -662,9 +662,9 @@ evaluates each supplied slot and returns the `TakeCover` for the least tuple
 supplied. Supplied covers and slots must retain observation ABI ID order. `seek`
 constructs `TakeCover { cover_id, side }`; simulation retains
 normal cover-ID and side validation. Every traversal charges bounded VM work.
-Optional VM semantic-trace capture records `nearest_safe` source provenance,
-every final candidate score, its rejection reason, and the selected slot; it
-does not alter VM output or authority state.
+Optional VM standard-library trace capture records `nearest_safe` source
+provenance, every final candidate score, its rejection reason, and the selected
+slot; it does not alter VM output or authority state.
 
 #### `Movement`
 
@@ -688,11 +688,17 @@ does not alter VM output or authority state.
 
 A standard-library function may emit summarised trace nodes, but the debugger must allow expansion to relevant internal decisions where needed. Do not hide decisive thresholds inside opaque native functions.
 
-When optional VM cover-selection tracing is enabled, `Cover.nearest_safe`
-retains its source-map entry, then the selected candidate followed by rejected
-candidates in ascending final rank. Each record contains its exposure and route
-cost plus the first losing rank component. This in-memory semantic data is not
-the later persisted general trace format.
+When optional VM standard-library tracing is enabled, `List.filter` retains
+ordered retained source indices, `List.find` and `List.min_by` retain their
+selected source index when present, and `List.sort_by` retains ranked source
+index order. Each record identifies its source-mapped call and counts input and
+callback-evaluated items; `find` records only the prefix evaluated before its
+first match, while equal `min_by` and `sort_by` keys retain input order.
+The same switch makes `Cover.nearest_safe` retain its source-map entry, then
+the selected candidate followed by rejected candidates in ascending final rank.
+Each Cover record contains its exposure and route cost plus the first losing
+rank component. This in-memory semantic data is not the later persisted general
+trace format.
 
 ## 14. Restrictions
 

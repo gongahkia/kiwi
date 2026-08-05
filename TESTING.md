@@ -381,4 +381,5 @@ unsupported or noncanonical packets.
 VM trace instrumentation tests require deterministic source-map expression and
 observation-field entries, executed conditional and Option-pattern selections,
 stable policy-invocation joins, retained ordered contact evidence with confidence
-and age, and identical traced and untraced authority successors.
+and age, stable standard-library List selection and ranking source indices,
+Cover candidate decisions, and identical traced and untraced authority successors.
