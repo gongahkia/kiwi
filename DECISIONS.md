@@ -652,6 +652,30 @@ event and causal-edge emission. This changes no durable state layout or
 observation ABI: the existing sparse suppression field and owner-visible
 observation value remain authoritative.
 
+### D-063: Aim reserves the weapon channel and fire uses generic exact shots
+
+`Aim {}` is a source-linked `aim` capability action with no target payload. It
+occupies the `weapon` arbitration channel while retaining D-057's automatic
+stationary aim progression. `Fire { target: Position, weapon_id: Int }`
+requires the source-linked `fire` capability, a positive weapon ID, and an
+exact planar target position from the policy's visible data.
+
+After movement and automatic aim progression, each selected fire request
+resolves in intention-ID order. It requires a non-incapacitated issuer, an
+existing issuer-owned weapon with a loaded round, and a target distinct from
+the issuer's current exact position. Success consumes one round, resets that
+issuer's aim to zero, allocates a projectile, and retains the selected
+intention as its source. Rejections are structured values for later event
+emission. A generic projectile starts at the issuer, lasts `30` ticks, and
+uses a componentwise nearest-integer approximation of a 1,000-millimetre
+Euclidean direction vector with exact integer comparisons. It uses no
+dispersion or random draw. Projectile sweeps exclude their owner but retain
+all other operative collisions.
+
+This changes no durable state layout or observation ABI. `KWI-STATE\0` version
+`17` continues to encode the resulting existing magazine, aim, and projectile
+state.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

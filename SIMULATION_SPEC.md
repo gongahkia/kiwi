@@ -355,22 +355,26 @@ Validation checks:
 - content constraints.
 
 The initial validator accepts `Wait { duration: Duration }`,
-`MoveToward { target: Position }`, and `TakeCover { cover_id: Int, side: String }`.
-Wait duration must be positive. MoveToward requires exactly
+`MoveToward { target: Position }`, `TakeCover { cover_id: Int, side: String }`,
+`Aim {}`, and `Fire { target: Position, weapon_id: Int }`. Wait duration must
+be positive. MoveToward and Fire require exactly
 `Position { x: Distance, y: Distance }`; its exact planar coordinates convert to
-canonical millimetres with the domain rounding rule and inherit the issuer's
-current elevation layer during route planning. TakeCover requires a positive
-cover ID and `left` or `right` side string. All three occupy `locomotion`. Other
-named core kinds return the structured `I002_UNSUPPORTED_KIND` result until
-their payload models exist. Malformed records return stable `I001` through
-`I007` validation codes; policy-result and VM failures retain a structured
-`P001` through `P003` result for deterministic fallback.
+canonical millimetres with the domain rounding rule. MoveToward inherits the
+issuer's current elevation during route planning. Fire requires a positive
+weapon ID and inherits the issuer's elevation during execution. TakeCover
+requires a positive cover ID and `left` or `right` side string. Wait,
+MoveToward, and TakeCover occupy `locomotion`; Aim and Fire occupy `weapon`.
+Other named core kinds return the structured `I002_UNSUPPORTED_KIND` result
+until their payload models exist. Malformed records return stable `I001`
+through `I008` validation codes; policy-result and VM failures retain a
+structured `P001` through `P003` result for deterministic fallback.
 
 `Wait` requires the source-linked `wait` capability, MoveToward requires
-`move_toward`, and TakeCover requires `take_cover`. Each policy binding has an
-immutable lexically ordered set of available capabilities. A missing declared
-requirement prevents VM execution and records `P004_CAPABILITY` with the
-requirement span; decoded requests repeat the same availability check.
+`move_toward`, TakeCover requires `take_cover`, Aim requires `aim`, and Fire
+requires `fire`. Each policy binding has an immutable lexically ordered set of
+available capabilities. A missing declared requirement prevents VM execution
+and records `P004_CAPABILITY` with the requirement span; decoded requests
+repeat the same availability check.
 
 The initial fallback resolves every failed policy validation, including VM
 faults, to `hold`: it preserves that invocation's input memory and emits no
@@ -589,16 +593,22 @@ A live projectile is a projectile-ID-ordered point state with:
 - nonzero exact millimetres-per-tick velocity;
 - remaining lifetime;
 
-It has no radius, damage profile, collision, advance, expiration, ammunition,
-or fire-validation semantics until their dedicated phases. Source intentions
-and owners must already have allocated IDs; projectiles may be outside map
-bounds until boundary collision defines removal.
+Selected Fire requests run after movement and automatic aim progression. A
+successful request needs an issuer-owned nonempty magazine and a target distinct
+from the current issuer position. It consumes one round, resets issuer aim to
+zero, starts a projectile at the issuer, and retains its selected intention ID.
+The generic projectile lives for `30` ticks. Its velocity is the
+componentwise-nearest integer approximation of a 1,000-millimetre Euclidean
+vector toward the supplied target, using exact integer comparisons; no random
+dispersion applies. Source intentions and owners must already have allocated
+IDs; projectiles may be outside map bounds until boundary collision defines
+removal.
 
 ### 15.2 Advance
 
 Advance queries inspect projectiles in canonical ID order, from each current
 position to its exact one-tick endpoint. They use swept-prefix intersection to
-prevent tunnelling through equal-elevation obstacles, cover, or operative
+prevent tunnelling through equal-elevation obstacles, cover, or non-owner operative
 footprints. Each candidate's time is the smallest of `2^32` subticks whose
 nearest, ties-away-from-zero integer-millimetre prefix endpoint intersects;
 this is the fixed canonical precision for projectile movement.

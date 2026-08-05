@@ -164,7 +164,9 @@ class FireIntention:
             raise ValueError("fire intention target must be planar")
 
 
-type ValidatedIntention = AimIntention | FireIntention | MoveTowardIntention | TakeCoverIntention | WaitIntention
+type ValidatedIntention = (
+    AimIntention | FireIntention | MoveTowardIntention | TakeCoverIntention | WaitIntention
+)
 type IntentionValidationResult = ValidatedIntention | IntentionValidationFailure
 
 
@@ -396,7 +398,9 @@ def _validate_fire(value: RecordValue) -> IntentionValidationResult:
     return FireIntention(resolved_weapon_id, target)
 
 
-def _target_position(value: RuntimeValue, intention_name: str) -> WorldPosition | IntentionValidationFailure:
+def _target_position(
+    value: RuntimeValue | None, intention_name: str
+) -> WorldPosition | IntentionValidationFailure:
     if not isinstance(value, RecordValue) or value.type_name != "Position":
         return IntentionValidationFailure(
             IntentionValidationCode.INVALID_TARGET,
@@ -422,7 +426,9 @@ def _target_position(value: RuntimeValue, intention_name: str) -> WorldPosition 
             ("target",),
         )
     try:
-        return WorldPosition(world_subunits_from_distance(x.value), world_subunits_from_distance(y.value))
+        return WorldPosition(
+            world_subunits_from_distance(x.value), world_subunits_from_distance(y.value)
+        )
     except ValueError:
         return IntentionValidationFailure(
             IntentionValidationCode.INVALID_TARGET,

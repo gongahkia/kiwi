@@ -101,7 +101,7 @@ def sweep_projectiles(state: MissionState) -> tuple[ProjectileSweep, ...]:
 def _sweep_projectile(projectile: Projectile, state: MissionState) -> ProjectileSweep:
     start = projectile.position
     end = translate(start, projectile.velocity)
-    candidates = _collision_candidates(start, end, state)
+    candidates = _collision_candidates(projectile, start, end, state)
     if not candidates:
         return ProjectileSweep(projectile.projectile_id, start, end)
     subtick, kind, target_id = min(candidates, key=_candidate_key)
@@ -114,7 +114,7 @@ def _sweep_projectile(projectile: Projectile, state: MissionState) -> Projectile
 
 
 def _collision_candidates(
-    start: WorldPosition, end: WorldPosition, state: MissionState
+    projectile: Projectile, start: WorldPosition, end: WorldPosition, state: MissionState
 ) -> tuple[tuple[int, ProjectileCollisionKind, ProjectileCollisionTargetId], ...]:
     candidates: list[tuple[int, ProjectileCollisionKind, ProjectileCollisionTargetId]] = []
     if state.map_geometry is not None:
@@ -139,6 +139,8 @@ def _collision_candidates(
         if subtick is not None:
             candidates.append((subtick, ProjectileCollisionKind.COVER, cover.cover_id))
     for entity in state.entities:
+        if entity.entity_id == projectile.owner_entity_id:
+            continue
         if entity.position.elevation != start.elevation:
             continue
         subtick = _first_intersection_subtick(

@@ -364,6 +364,13 @@ A fire intention specifies a target estimate or position, not a guaranteed hit. 
 - ammunition change;
 - source intention.
 
+The current generic shot is exact rather than dispersed: an issuer-owned loaded
+weapon fires toward a policy-supplied planar position, consumes one round, and
+resets aim. The projectile uses a nominal 1,000-millimetre-per-tick direction
+and a 30-tick lifetime. Aim is target-free and progresses automatically while
+stationary; `Aim {}` reserves the weapon channel without adding another state
+transition. Dispersion is later work.
+
 ### 10.3 Projectile travel
 
 Projectiles move through the authoritative geometry over fixed ticks. They may hit:
