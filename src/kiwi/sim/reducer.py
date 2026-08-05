@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from kiwi.sim.aim import resolve_aim_progression
-from kiwi.sim.arbitration import arbitrate_intentions
+from kiwi.sim.arbitration import PolicyArbitrationPhase, arbitrate_intentions
 from kiwi.sim.clock import FixedTickClock
 from kiwi.sim.commands import (
     ExternalCommand,
@@ -31,6 +31,7 @@ from kiwi.sim.events import (
     canonical_event_order,
 )
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
+from kiwi.sim.firing import resolve_selected_fire
 from kiwi.sim.messages import discard_expired_messages
 from kiwi.sim.movement import resolve_movement_actions
 from kiwi.sim.movement_events import emit_movement_events
@@ -104,15 +105,18 @@ def reduce_one_tick(
             messages=discard_expired_messages(next_state.messages, next_state.tick),
         )
         emitted.extend(delivery.events)
+    arbitration: PolicyArbitrationPhase | None = None
     if next_state.phase is MissionPhase.ACTIVE and policy_bindings.entries:
-        next_state, policy_events = _reduce_policies(next_state, policy_bindings)
+        next_state, policy_events, arbitration = _reduce_policies(next_state, policy_bindings)
         emitted.extend(policy_events)
     if next_state.phase is MissionPhase.ACTIVE:
         movement_phase = resolve_movement_actions(next_state)
         movement = emit_movement_events(movement_phase)
         aim = resolve_aim_progression(movement.state, clock, movement_phase.resolutions)
-        source_projectiles = aim.state.projectiles.entries
-        impacts = resolve_projectile_impacts(aim.state)
+        firing = resolve_selected_fire(aim.state, arbitration) if arbitration is not None else None
+        after_firing = firing.state if firing is not None else aim.state
+        source_projectiles = after_firing.projectiles.entries
+        impacts = resolve_projectile_impacts(after_firing)
         damage = resolve_projectile_damage(impacts.state, impacts.impacts)
         next_state = resolve_projectile_suppression(
             damage.state,
@@ -128,7 +132,7 @@ def reduce_one_tick(
 def _reduce_policies(
     state: MissionState,
     bindings: PolicyBindings,
-) -> tuple[MissionState, tuple[CanonicalEvent, ...]]:
+) -> tuple[MissionState, tuple[CanonicalEvent, ...], PolicyArbitrationPhase]:
     evaluations = invoke_policies(state, bindings)
     validations = validate_policy_evaluations(evaluations, bindings)
     decisions = resolve_policy_decisions(validations)
@@ -145,6 +149,7 @@ def _reduce_policies(
     return (
         commit_policy_decisions(routes.state, decisions, bindings),
         policy_events.events + cover_events.events + routes.events,
+        arbitration,
     )
 
 

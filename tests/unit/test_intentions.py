@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from kiwi.domain.geometry import ElevationLayer, WorldPosition, WorldSubunits
-from kiwi.domain.ids import CoverId, EntityId, IntentionId, PolicyInvocationId
+from kiwi.domain.ids import CoverId, EntityId, IntentionId, PolicyInvocationId, WeaponId
 from kiwi.domain.quantities import ExactRational, Quantity, QuantityDimension
 from kiwi.dsl.ids import ExpressionId
 from kiwi.dsl.runtime_values import IntegerValue, QuantityValue, RecordValue, StringValue
@@ -12,6 +12,8 @@ from kiwi.sim.covers import CoverSide
 from kiwi.sim.intentions import (
     CORE_INTENTION_KINDS,
     ActionChannel,
+    AimIntention,
+    FireIntention,
     IntentionKind,
     IntentionOrigin,
     IntentionValidationCode,
@@ -81,23 +83,42 @@ def test_runtime_intention_validation_accepts_well_formed_available_intentions()
             (IntegerValue(4), StringValue("left")),
         )
     )
+    aim = validate_runtime_intention(RecordValue("Aim", (), ()))
+    fire = validate_runtime_intention(
+        RecordValue(
+            "Fire",
+            ("target", "weapon_id"),
+            (
+                RecordValue(
+                    "Position",
+                    ("x", "y"),
+                    (QuantityValue(distance_x), QuantityValue(distance_y)),
+                ),
+                IntegerValue(3),
+            ),
+        )
+    )
     malformed = validate_runtime_intention(RecordValue("Wait", ("duration",), (IntegerValue(1),)))
     malformed_target = validate_runtime_intention(
         RecordValue("MoveToward", ("target",), (IntegerValue(1),))
     )
-    unavailable = validate_runtime_intention(RecordValue("Fire", (), ()))
+    malformed_fire = validate_runtime_intention(RecordValue("Fire", (), ()))
 
     assert validated == WaitIntention(duration)
     assert move == MoveTowardIntention(WorldPosition(WorldSubunits(1_500), WorldSubunits(-500)))
     assert take_cover == TakeCoverIntention(CoverId(4), CoverSide.LEFT)
+    assert aim == AimIntention()
+    assert fire == FireIntention(
+        WeaponId(3), WorldPosition(WorldSubunits(1_500), WorldSubunits(-500))
+    )
     assert malformed == IntentionValidationFailure(
         IntentionValidationCode.INVALID_DURATION,
         "Wait.duration must be a Duration value",
         ("duration",),
     )
-    assert unavailable == IntentionValidationFailure(
-        IntentionValidationCode.UNSUPPORTED_KIND,
-        "intention kind 'Fire' is unavailable",
+    assert malformed_fire == IntentionValidationFailure(
+        IntentionValidationCode.INVALID_FIELDS,
+        "Fire intention must contain exactly target and weapon_id fields",
     )
     assert malformed_target == IntentionValidationFailure(
         IntentionValidationCode.INVALID_TARGET,

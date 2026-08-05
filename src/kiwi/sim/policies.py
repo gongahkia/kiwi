@@ -256,7 +256,13 @@ class PolicyValidation:
         if any(
             not isinstance(
                 intention,
-                (AimIntention, FireIntention, MoveTowardIntention, TakeCoverIntention, WaitIntention),
+                (
+                    AimIntention,
+                    FireIntention,
+                    MoveTowardIntention,
+                    TakeCoverIntention,
+                    WaitIntention,
+                ),
             )
             for intention in self.intentions
         ):

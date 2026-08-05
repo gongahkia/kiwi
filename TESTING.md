@@ -123,6 +123,7 @@ Small deterministic fixtures test:
 - aim progression;
 - aim reset after actual movement and retention after a blocked attempt;
 - aim-rate equivalence at 20, 30, and 60 Hz;
+- Aim and Fire capability, weapon-channel, ammunition, projectile, and aim-reset rules;
 - projectile canonical state, provenance, ordering, and version rejection;
 - projectile tunnelling prevention;
 - earliest impact selection and obstacle, cover, operative tie precedence;

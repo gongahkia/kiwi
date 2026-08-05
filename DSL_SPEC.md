@@ -545,8 +545,8 @@ Core intent variants:
 Intent =
   MoveToward(Position, Stance)
   | TakeCover(CoverId, CoverSide)
-  | Aim(TargetEstimate)
-  | Fire(WeaponId, TargetEstimate)
+  | Aim
+  | Fire(Position, WeaponId)
   | Stabilise(OperativeId)
   | Use(ItemId, Target)
   | Emit(ChannelId, Message)
@@ -556,13 +556,17 @@ Intent =
 The exact constructors exposed to players may be wrapped by standard-library functions. Keep the VM representation closed and versioned.
 
 The initial simulation boundary accepts `Wait { duration: Duration }` with a
-strictly positive duration, `MoveToward { target: Position }`, and
-`TakeCover { cover_id: Int, side: String }`. TakeCover requires a positive cover
-ID and `left` or `right` side string. It reserves the first eligible slot of
-that side in ascending slot-index order; occupancy and physical movement remain
-separate authority phases. Other named core kinds remain unavailable until their
-domain payload models are implemented; they produce a structured simulation
-validation failure rather than being reinterpreted as another request.
+strictly positive duration, `MoveToward { target: Position }`,
+`TakeCover { cover_id: Int, side: String }`, `Aim {}`, and
+`Fire { target: Position, weapon_id: Int }`. Aim and Fire occupy the exclusive
+weapon channel. Aim retains automatic authority-side aim progression. Fire
+requires a positive weapon ID; its target coordinates must be Distance values.
+TakeCover requires a positive cover ID and `left` or `right` side string. It
+reserves the first eligible slot of that side in ascending slot-index order;
+occupancy and physical movement remain separate authority phases. Other named
+core kinds remain unavailable until their domain payload models are implemented;
+they produce a structured simulation validation failure rather than being
+reinterpreted as another request.
 
 ## 13. Standard library
 
