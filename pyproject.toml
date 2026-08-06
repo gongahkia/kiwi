@@ -25,7 +25,7 @@ kiwi-glasshouse = "kiwi.glasshouse:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"kiwi.render" = ["assets/*.json", "assets/*.ttf", "assets/*.txt"]
+"kiwi.render" = ["assets/*.json", "assets/*.png", "assets/*.ttf", "assets/*.txt", "assets/*.wav"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]

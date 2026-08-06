@@ -8,6 +8,15 @@
       "sha256": "f89f27225795feba3ee5184052da69532966d950512106a5e859d85765835442",
       "source_release": "v3.4.0",
       "source_url": "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/BigBlueTerminal.tar.xz"
+    },
+    {
+      "attribution": "Original generated tactical source art for Kiwi",
+      "license_file": "GLASSHOUSE-ATLAS-PROVENANCE.txt",
+      "license_spdx": "LicenseRef-Kiwi-Generated",
+      "path": "glasshouse_atlas.png",
+      "sha256": "b5fe3cdb594115417ef9d9c6c43071c013b7537c69279659cb4c7e6ffc6a056b",
+      "source_release": "2026-08-06",
+      "source_url": "generated-with-openai-imagegen"
     }
   ],
   "format": "kiwi-render-assets",

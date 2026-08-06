@@ -6,13 +6,23 @@ from dataclasses import dataclass
 
 import pygame
 
-from kiwi.render.camera import Camera, radius_to_canvas, rectangle_to_canvas, world_to_canvas
+from kiwi.render.atlas import TextureAtlas
+from kiwi.render.camera import (
+    Camera,
+    Projection,
+    isometric_depth_key,
+    radius_to_canvas,
+    rectangle_polygon_to_canvas,
+    rectangle_to_canvas,
+    world_to_canvas,
+)
 from kiwi.render.pygame_lifecycle import initialise_pygame
 from kiwi.sim.snapshot import (
     PresentationCover,
     PresentationImpact,
     PresentationOperative,
     PresentationPoint,
+    PresentationRectangle,
     PresentationSnapshot,
 )
 
@@ -59,6 +69,60 @@ COVER_THREAT_DIRECTION_LENGTH_PIXELS = 10
 
 
 @dataclass(frozen=True, slots=True)
+class TacticalPalette:
+    """One complete renderer-only tactical palette, including map and sprite tints."""
+
+    background: tuple[int, int, int] = BACKGROUND_COLOR
+    map_fill: tuple[int, int, int] = MAP_FILL_COLOR
+    map_border: tuple[int, int, int] = MAP_BORDER_COLOR
+    obstacle: tuple[int, int, int] = OBSTACLE_COLOR
+    path: tuple[int, int, int] = PATH_COLOR
+    operative: tuple[int, int, int] = OPERATIVE_COLOR
+    hostile: tuple[int, int, int] = OBJECTIVE_COLOR
+    objective: tuple[int, int, int] = OBJECTIVE_COLOR
+    visibility: tuple[int, int, int] = VISIBILITY_RANGE_COLOR
+    visible_geometry: tuple[int, int, int] = VISIBLE_GEOMETRY_COLOR
+    contact: tuple[int, int, int] = CONTACT_MARKER_COLOR
+    contact_uncertainty: tuple[int, int, int] = CONTACT_UNCERTAINTY_COLOR
+    projectile: tuple[int, int, int] = PROJECTILE_COLOR
+    impact: tuple[int, int, int] = IMPACT_OPERATIVE_COLOR
+    cover_low: tuple[int, int, int] = COVER_LOW_COLOR
+    cover_high: tuple[int, int, int] = COVER_HIGH_COLOR
+    cover_damaged: tuple[int, int, int] = COVER_DAMAGED_COLOR
+
+    def __post_init__(self) -> None:
+        for color in (
+            self.background,
+            self.map_fill,
+            self.map_border,
+            self.obstacle,
+            self.path,
+            self.operative,
+            self.hostile,
+            self.objective,
+            self.visibility,
+            self.visible_geometry,
+            self.contact,
+            self.contact_uncertainty,
+            self.projectile,
+            self.impact,
+            self.cover_low,
+            self.cover_high,
+            self.cover_damaged,
+        ):
+            if not isinstance(color, tuple) or len(color) != 3:
+                raise ValueError("tactical palette colors must be RGB tuples")
+            if any(
+                not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 255
+                for value in color
+            ):
+                raise ValueError("tactical palette colors must be between zero and 255")
+
+
+DEFAULT_TACTICAL_PALETTE = TacticalPalette()
+
+
+@dataclass(frozen=True, slots=True)
 class PygameWindow:
     """One mutable pygame surface pair behind immutable display dimensions."""
 
@@ -96,6 +160,7 @@ def render_basic_map(
     logical_canvas: pygame.Surface,
     snapshot: PresentationSnapshot,
     camera: Camera,
+    palette: TacticalPalette = DEFAULT_TACTICAL_PALETTE,
 ) -> None:
     """Draw the map bounds only; entities, obstacles, and overlays follow later."""
     if not isinstance(logical_canvas, pygame.Surface):
@@ -104,42 +169,48 @@ def render_basic_map(
         raise TypeError("map rendering requires a presentation snapshot")
     if not isinstance(camera, Camera):
         raise TypeError("map rendering requires a camera")
-    logical_canvas.fill(BACKGROUND_COLOR)
+    if not isinstance(palette, TacticalPalette):
+        raise TypeError("map rendering requires a tactical palette")
+    logical_canvas.fill(palette.background)
     if snapshot.map_geometry is None:
         return
-    bounds = rectangle_to_canvas(snapshot.map_geometry.bounds, logical_canvas.get_size(), camera)
-    pygame.draw.rect(logical_canvas, MAP_FILL_COLOR, bounds)
-    pygame.draw.rect(logical_canvas, MAP_BORDER_COLOR, bounds, width=1)
+    _draw_map_rectangle(logical_canvas, snapshot.map_geometry.bounds, camera, palette.map_fill)
+    _draw_map_rectangle(
+        logical_canvas, snapshot.map_geometry.bounds, camera, palette.map_border, width=1
+    )
 
 
 def render_tactical_view(
     logical_canvas: pygame.Surface,
     snapshot: PresentationSnapshot,
     camera: Camera,
+    *,
+    palette: TacticalPalette = DEFAULT_TACTICAL_PALETTE,
+    atlas: TextureAtlas | None = None,
 ) -> None:
     """Render copied map, overlays, operatives, projectiles, and current impacts."""
-    render_basic_map(logical_canvas, snapshot, camera)
+    if not isinstance(palette, TacticalPalette):
+        raise TypeError("tactical renderer palette is invalid")
+    if atlas is not None and not isinstance(atlas, TextureAtlas):
+        raise TypeError("tactical renderer atlas is invalid")
+    render_basic_map(logical_canvas, snapshot, camera, palette)
     if snapshot.map_geometry is not None:
         for map_obstacle in snapshot.map_geometry.obstacles:
-            pygame.draw.rect(
-                logical_canvas,
-                OBSTACLE_COLOR,
-                rectangle_to_canvas(map_obstacle.bounds, logical_canvas.get_size(), camera),
-            )
+            _draw_map_rectangle(logical_canvas, map_obstacle.bounds, camera, palette.obstacle)
     for overlay in snapshot.visibility_overlays:
         observer = world_to_canvas(overlay.observer, logical_canvas.get_size(), camera)
         radius = radius_to_canvas(overlay.sensor_radius, camera)
         if radius > 0:
-            pygame.draw.circle(logical_canvas, VISIBILITY_RANGE_COLOR, observer, radius, width=1)
+            pygame.draw.circle(logical_canvas, palette.visibility, observer, radius, width=1)
         for visible_obstacle in overlay.visible_obstacles:
             pygame.draw.rect(
                 logical_canvas,
-                VISIBLE_GEOMETRY_COLOR,
+                palette.visible_geometry,
                 rectangle_to_canvas(visible_obstacle.bounds, logical_canvas.get_size(), camera),
                 width=1,
             )
     for cover in snapshot.covers:
-        _render_cover(logical_canvas, cover, snapshot, camera)
+        _render_cover(logical_canvas, cover, snapshot, camera, palette)
     for contact in snapshot.contacts:
         estimated_position = world_to_canvas(
             contact.estimated_position,
@@ -150,14 +221,14 @@ def render_tactical_view(
         if uncertainty_radius > 0:
             pygame.draw.circle(
                 logical_canvas,
-                CONTACT_UNCERTAINTY_COLOR,
+                palette.contact_uncertainty,
                 estimated_position,
                 max(1, uncertainty_radius),
                 width=1,
             )
         pygame.draw.circle(
             logical_canvas,
-            CONTACT_MARKER_COLOR,
+            palette.contact,
             estimated_position,
             CONTACT_RADIUS_PIXELS,
         )
@@ -165,7 +236,7 @@ def render_tactical_view(
         if len(operative.path) > 1:
             pygame.draw.lines(
                 logical_canvas,
-                PATH_COLOR,
+                palette.path,
                 False,
                 tuple(
                     world_to_canvas(point, logical_canvas.get_size(), camera)
@@ -174,30 +245,96 @@ def render_tactical_view(
                 width=1,
             )
     if snapshot.objective_marker is not None:
-        pygame.draw.circle(
+        _render_sprite_or_circle(
             logical_canvas,
-            OBJECTIVE_COLOR,
+            atlas,
+            "objective",
+            snapshot.tick,
+            palette.objective,
             world_to_canvas(snapshot.objective_marker, logical_canvas.get_size(), camera),
-            OBJECTIVE_RADIUS_PIXELS,
-            width=1,
+            OBJECTIVE_RADIUS_PIXELS * 3,
+            outlined=True,
         )
-    for operative in snapshot.operatives:
+    for operative in sorted(
+        snapshot.operatives,
+        key=lambda item: isometric_depth_key(item.position, item.entity_id, camera),
+    ):
         _render_operative_combat_state(logical_canvas, operative, camera)
-        pygame.draw.circle(
+        _render_sprite_or_circle(
             logical_canvas,
-            OPERATIVE_COLOR,
+            atlas,
+            "operative_idle",
+            snapshot.tick + operative.entity_id,
+            palette.operative if operative.entity_id % 2 else palette.hostile,
             world_to_canvas(operative.position, logical_canvas.get_size(), camera),
-            OPERATIVE_RADIUS_PIXELS,
+            OPERATIVE_RADIUS_PIXELS * 3,
+            animation=True,
         )
     for projectile in snapshot.projectiles:
-        pygame.draw.circle(
+        _render_sprite_or_circle(
             logical_canvas,
-            PROJECTILE_COLOR,
+            atlas,
+            "projectile",
+            snapshot.tick,
+            palette.projectile,
             world_to_canvas(projectile.position, logical_canvas.get_size(), camera),
-            PROJECTILE_RADIUS_PIXELS,
+            PROJECTILE_RADIUS_PIXELS * 3,
         )
     for impact in snapshot.impacts:
-        _render_impact(logical_canvas, impact, camera)
+        _render_impact(logical_canvas, impact, camera, palette, atlas, snapshot.tick)
+
+
+def _draw_map_rectangle(
+    logical_canvas: pygame.Surface,
+    rectangle: PresentationRectangle,
+    camera: Camera,
+    color: tuple[int, int, int],
+    *,
+    width: int = 0,
+) -> None:
+    if camera.projection is Projection.ISOMETRIC:
+        pygame.draw.polygon(
+            logical_canvas,
+            color,
+            rectangle_polygon_to_canvas(rectangle, logical_canvas.get_size(), camera),
+            width=width,
+        )
+        return
+    pygame.draw.rect(
+        logical_canvas,
+        color,
+        rectangle_to_canvas(rectangle, logical_canvas.get_size(), camera),
+        width=width,
+    )
+
+
+def _render_sprite_or_circle(
+    logical_canvas: pygame.Surface,
+    atlas: TextureAtlas | None,
+    frame: str,
+    tick: int,
+    tint: tuple[int, int, int],
+    position: tuple[int, int],
+    size: int,
+    *,
+    animation: bool = False,
+    outlined: bool = False,
+) -> None:
+    if atlas is None:
+        pygame.draw.circle(
+            logical_canvas,
+            tint,
+            position,
+            max(1, (size + 2) // 3),
+            width=1 if outlined else 0,
+        )
+        return
+    image = (
+        atlas.animation_frame(frame, tick, size, tint)
+        if animation
+        else atlas.frame(frame, size, tint)
+    )
+    logical_canvas.blit(image, image.get_rect(center=position))
 
 
 def _render_operative_combat_state(
@@ -226,6 +363,9 @@ def _render_impact(
     logical_canvas: pygame.Surface,
     impact: PresentationImpact,
     camera: Camera,
+    palette: TacticalPalette,
+    atlas: TextureAtlas | None,
+    tick: int,
 ) -> None:
     color = {
         "obstacle": IMPACT_OBSTACLE_COLOR,
@@ -233,6 +373,18 @@ def _render_impact(
         "operative": IMPACT_OPERATIVE_COLOR,
     }[impact.collision_kind]
     position = world_to_canvas(impact.position, logical_canvas.get_size(), camera)
+    if atlas is not None:
+        _render_sprite_or_circle(
+            logical_canvas,
+            atlas,
+            "impact",
+            tick,
+            palette.impact,
+            position,
+            IMPACT_BURST_RADIUS_PIXELS * 3,
+            animation=True,
+        )
+        return
     pygame.draw.line(
         logical_canvas,
         color,
@@ -253,6 +405,7 @@ def _render_cover(
     cover: PresentationCover,
     snapshot: PresentationSnapshot,
     camera: Camera,
+    palette: TacticalPalette,
 ) -> None:
     centre = _cover_centre(cover)
     for contact in snapshot.contacts:
@@ -265,7 +418,11 @@ def _render_cover(
             )
     pygame.draw.line(
         logical_canvas,
-        _cover_quality_color(cover),
+        _cover_quality_color(
+            cover,
+            palette.cover_high if cover.height == "high" else palette.cover_low,
+            palette.cover_damaged,
+        ),
         world_to_canvas(cover.start, logical_canvas.get_size(), camera),
         world_to_canvas(cover.end, logical_canvas.get_size(), camera),
         COVER_HIGH_WIDTH_PIXELS if cover.height == "high" else COVER_LOW_WIDTH_PIXELS,
@@ -294,16 +451,33 @@ def _cover_centre(cover: PresentationCover) -> PresentationPoint:
     )
 
 
-def _cover_quality_color(cover: PresentationCover) -> tuple[int, int, int]:
+def _cover_quality_color(
+    cover: PresentationCover,
+    source: tuple[int, int, int] | None = None,
+    damaged: tuple[int, int, int] = COVER_DAMAGED_COLOR,
+) -> tuple[int, int, int]:
     if not isinstance(cover, PresentationCover):
         raise TypeError("cover rendering requires a presentation cover")
-    source = COVER_HIGH_COLOR if cover.height == "high" else COVER_LOW_COLOR
+    if source is None:
+        source = COVER_HIGH_COLOR if cover.height == "high" else COVER_LOW_COLOR
+    _validate_color(source)
+    _validate_color(damaged)
     integrity = cover.integrity_basis_points
     return (
-        (source[0] * integrity + COVER_DAMAGED_COLOR[0] * (10_000 - integrity)) // 10_000,
-        (source[1] * integrity + COVER_DAMAGED_COLOR[1] * (10_000 - integrity)) // 10_000,
-        (source[2] * integrity + COVER_DAMAGED_COLOR[2] * (10_000 - integrity)) // 10_000,
+        (source[0] * integrity + damaged[0] * (10_000 - integrity)) // 10_000,
+        (source[1] * integrity + damaged[1] * (10_000 - integrity)) // 10_000,
+        (source[2] * integrity + damaged[2] * (10_000 - integrity)) // 10_000,
     )
+
+
+def _validate_color(color: tuple[int, int, int]) -> None:
+    if not isinstance(color, tuple) or len(color) != 3:
+        raise ValueError("tactical palette colors must be RGB tuples")
+    if any(
+        not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 255
+        for value in color
+    ):
+        raise ValueError("tactical palette colors must be between zero and 255")
 
 
 def _render_cover_threat_direction(

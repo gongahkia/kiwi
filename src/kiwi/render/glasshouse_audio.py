@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import pi, sin
-from struct import pack
+from pathlib import Path
 
 import pygame
 
@@ -15,21 +14,26 @@ _MIXER_BUFFER_SIZE = 256
 
 
 @dataclass(frozen=True, slots=True)
-class _ToneProfile:
-    frequency_hz: int
-    duration_milliseconds: int
-    amplitude: int
+class _CueProfile:
+    filename: str
     volume: float
 
 
-_TONE_PROFILES = (
-    (GlasshouseSoundCueKind.FIRE, _ToneProfile(180, 70, 14_000, 0.18)),
-    (GlasshouseSoundCueKind.IMPACT, _ToneProfile(95, 55, 12_000, 0.16)),
-    (GlasshouseSoundCueKind.INJURY, _ToneProfile(320, 120, 10_000, 0.14)),
-    (GlasshouseSoundCueKind.OBJECTIVE_RETRIEVED, _ToneProfile(520, 100, 9_000, 0.14)),
-    (GlasshouseSoundCueKind.OBJECTIVE_EXTRACTED, _ToneProfile(740, 180, 9_000, 0.16)),
-    (GlasshouseSoundCueKind.LOCKDOWN, _ToneProfile(130, 180, 12_000, 0.16)),
+_CUE_PROFILES = (
+    (GlasshouseSoundCueKind.FIRE, _CueProfile("cue_fire.wav", 0.18)),
+    (GlasshouseSoundCueKind.IMPACT, _CueProfile("cue_impact.wav", 0.16)),
+    (GlasshouseSoundCueKind.INJURY, _CueProfile("cue_injury.wav", 0.14)),
+    (
+        GlasshouseSoundCueKind.OBJECTIVE_RETRIEVED,
+        _CueProfile("cue_objective_retrieved.wav", 0.14),
+    ),
+    (
+        GlasshouseSoundCueKind.OBJECTIVE_EXTRACTED,
+        _CueProfile("cue_objective_extracted.wav", 0.16),
+    ),
+    (GlasshouseSoundCueKind.LOCKDOWN, _CueProfile("cue_lockdown.wav", 0.16)),
 )
+_ASSET_ROOT = Path(__file__).with_name("assets")
 
 
 class GlasshouseSoundPlayer:
@@ -66,12 +70,10 @@ class GlasshouseSoundPlayer:
         mixer = pygame.mixer.get_init()
         if mixer is None or mixer[1] != -16 or mixer[2] not in (1, 2):
             return None
-        profile = _tone_profile(kind)
+        profile = _cue_profile(kind)
         try:
-            sound = pygame.mixer.Sound(
-                buffer=_tone_buffer(profile, sample_rate=mixer[0], channels=mixer[2])
-            )
-        except pygame.error:
+            sound = pygame.mixer.Sound(str(_ASSET_ROOT / profile.filename))
+        except (pygame.error, FileNotFoundError):
             return None
         sound.set_volume(profile.volume)
         self._sounds = (*self._sounds, (kind, sound))
@@ -93,22 +95,8 @@ def _ensure_mixer() -> bool:
     return pygame.mixer.get_init() is not None
 
 
-def _tone_profile(kind: GlasshouseSoundCueKind) -> _ToneProfile:
-    for stored_kind, profile in _TONE_PROFILES:
+def _cue_profile(kind: GlasshouseSoundCueKind) -> _CueProfile:
+    for stored_kind, profile in _CUE_PROFILES:
         if stored_kind is kind:
             return profile
     raise AssertionError("Glasshouse sound cue kind has no tone profile")
-
-
-def _tone_buffer(profile: _ToneProfile, *, sample_rate: int, channels: int) -> bytes:
-    sample_count = sample_rate * profile.duration_milliseconds // 1_000
-    samples = bytearray()
-    for index in range(sample_count):
-        envelope = (sample_count - index) / sample_count
-        sample = int(
-            profile.amplitude
-            * envelope
-            * sin(2.0 * pi * profile.frequency_hz * index / sample_rate)
-        )
-        samples.extend(pack("<h", sample) * channels)
-    return bytes(samples)
