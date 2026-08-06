@@ -79,7 +79,7 @@ class TextureAtlas:
     def __init__(self, image: pygame.Surface) -> None:
         if not isinstance(image, pygame.Surface):
             raise TypeError("texture atlas requires a pygame surface")
-        self._image = image.convert()
+        self._image = image.convert_alpha()
         self._frames = {frame.name: frame for frame in GLASSHOUSE_ATLAS_FRAMES}
         self._cache: dict[tuple[str, int, tuple[int, int, int]], pygame.Surface] = {}
 

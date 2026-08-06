@@ -124,7 +124,14 @@ def test_glasshouse_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> 
     amber = opened.cycle_color_scheme()
 
     assert amber.color_scheme is GlasshouseColorScheme.AMBER
-    assert amber.cycle_color_scheme().color_scheme is GlasshouseColorScheme.PHOSPHOR
+    phosphor = amber.cycle_color_scheme()
+    assert phosphor.color_scheme is GlasshouseColorScheme.PHOSPHOR
+    assert phosphor.cycle_color_scheme().color_scheme is GlasshouseColorScheme.MAROON
+    assert phosphor.cycle_color_scheme().cycle_color_scheme().color_scheme is GlasshouseColorScheme.WHITE
+    assert (
+        phosphor.cycle_color_scheme().cycle_color_scheme().cycle_color_scheme().color_scheme
+        is GlasshouseColorScheme.BLACK
+    )
 
 
 def test_glasshouse_preview_maps_entities_and_source_offsets_to_retained_trace_steps() -> None:
@@ -149,3 +156,13 @@ def test_glasshouse_preview_rotation_is_presentation_only() -> None:
     assert rotated.preview_rotation_quarters == 2
     assert rotated.current_run == preview.current_run
     assert rotated.workbench == preview.workbench
+
+
+def test_glasshouse_preview_zoom_is_presentation_only_and_bounded() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    zoomed = preview.zoom_preview(1).zoom_preview(1)
+
+    assert zoomed.preview_zoom_percent == 150
+    assert zoomed.zoom_preview(1).preview_zoom_percent == 150
+    assert zoomed.current_run == preview.current_run
+    assert zoomed.workbench == preview.workbench

@@ -121,6 +121,9 @@ class GlasshouseColorScheme(StrEnum):
     CYAN = "cyan"
     AMBER = "amber"
     PHOSPHOR = "phosphor"
+    MAROON = "maroon"
+    WHITE = "white"
+    BLACK = "black"
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +193,7 @@ class GlasshouseDemoController:
     preview_stale: bool = False
     hot_reload_enabled: bool = True
     preview_rotation_quarters: int = 0
+    preview_zoom_percent: int = 100
     selected_trace_node_id: TraceNodeId | None = None
     preview_selected_entity_id: int | None = None
     result_history: ChallengeHistory = ChallengeHistory()
@@ -233,6 +237,12 @@ class GlasshouseDemoController:
             raise ValueError("Glasshouse demo preview rotation is invalid")
         if not isinstance(self.color_scheme, GlasshouseColorScheme):
             raise TypeError("Glasshouse demo color scheme is invalid")
+        if (
+            not isinstance(self.preview_zoom_percent, int)
+            or isinstance(self.preview_zoom_percent, bool)
+            or self.preview_zoom_percent not in (50, 75, 100, 125, 150)
+        ):
+            raise ValueError("Glasshouse demo preview zoom must be a supported percentage")
         if self.selected_trace_node_id is not None and not isinstance(
             self.selected_trace_node_id, TraceNodeId
         ):
@@ -499,6 +509,21 @@ class GlasshouseDemoController:
             preview_rotation_quarters=next_rotation,
             notice=f"View rotated to {next_rotation * 90} degrees.",
         )
+
+    def zoom_preview(self, direction: int) -> GlasshouseDemoController:
+        """Adjust the renderer-only isometric scale in fixed, inspectable steps."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+            return self
+        if (
+            not isinstance(direction, int)
+            or isinstance(direction, bool)
+            or direction not in (-1, 1)
+        ):
+            raise ValueError("Glasshouse preview zoom direction must be minus or plus one")
+        zoom = min(150, max(50, self.preview_zoom_percent + direction * 25))
+        if zoom == self.preview_zoom_percent:
+            return replace(self, notice=f"Preview zoom is already {zoom}%.")
+        return replace(self, preview_zoom_percent=zoom, notice=f"Preview zoom: {zoom}%.")
 
     def toggle_preview_playing(self) -> GlasshouseDemoController:
         """Pause or resume non-authoritative recorded-preview playback."""

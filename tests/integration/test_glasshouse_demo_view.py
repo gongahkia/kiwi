@@ -93,6 +93,13 @@ controller, _ = _handle_event(
 )
 assert controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW
 controller, _ = _handle_event(
+    controller,
+    pygame.event.Event(
+        pygame.KEYDOWN, key=pygame.K_EQUALS, mod=pygame.KMOD_SHIFT, unicode="+"
+    ),
+)
+assert controller.preview_zoom_percent == 125
+controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert controller.screen is GlasshouseDemoScreen.DEBRIEF
