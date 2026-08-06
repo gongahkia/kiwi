@@ -26,6 +26,8 @@ class Camera:
     projection: Projection = Projection.TOP_DOWN
     rotation_quarters: int = 0
     elevation_pixels: int = 8
+    screen_offset_x: int = 0
+    screen_offset_y: int = 0
 
     def __post_init__(self) -> None:
         values = (self.centre_x, self.centre_y, self.pixels_per_millimetre)
@@ -45,6 +47,11 @@ class Camera:
             raise TypeError("camera elevation scale must be an integer")
         if self.elevation_pixels < 0:
             raise ValueError("camera elevation scale must be non-negative")
+        if any(
+            not isinstance(value, int) or isinstance(value, bool)
+            for value in (self.screen_offset_x, self.screen_offset_y)
+        ):
+            raise TypeError("camera screen offsets must be integers")
 
 
 def world_to_canvas(
@@ -61,16 +68,18 @@ def world_to_canvas(
     relative_x, relative_y = _rotate(point.x - camera.centre_x, point.y - camera.centre_y, camera)
     if camera.projection is Projection.TOP_DOWN:
         return (
-            round(width / 2 + relative_x * camera.pixels_per_millimetre),
-            round(height / 2 - relative_y * camera.pixels_per_millimetre),
+            round(width / 2 + relative_x * camera.pixels_per_millimetre) + camera.screen_offset_x,
+            round(height / 2 - relative_y * camera.pixels_per_millimetre) + camera.screen_offset_y,
         )
     return (
-        round(width / 2 + (relative_x - relative_y) * camera.pixels_per_millimetre),
+        round(width / 2 + (relative_x - relative_y) * camera.pixels_per_millimetre)
+        + camera.screen_offset_x,
         round(
             height / 2
             + (relative_x + relative_y) * camera.pixels_per_millimetre / 2
             - point.elevation * camera.elevation_pixels
-        ),
+        )
+        + camera.screen_offset_y,
     )
 
 

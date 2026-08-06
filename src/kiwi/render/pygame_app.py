@@ -187,12 +187,19 @@ def render_tactical_view(
     *,
     palette: TacticalPalette = DEFAULT_TACTICAL_PALETTE,
     atlas: TextureAtlas | None = None,
+    impact_emphasis: int = 0,
 ) -> None:
     """Render copied map, overlays, operatives, projectiles, and current impacts."""
     if not isinstance(palette, TacticalPalette):
         raise TypeError("tactical renderer palette is invalid")
     if atlas is not None and not isinstance(atlas, TextureAtlas):
         raise TypeError("tactical renderer atlas is invalid")
+    if (
+        not isinstance(impact_emphasis, int)
+        or isinstance(impact_emphasis, bool)
+        or not 0 <= impact_emphasis <= 4
+    ):
+        raise ValueError("tactical impact emphasis must be between zero and four")
     render_basic_map(logical_canvas, snapshot, camera, palette)
     if snapshot.map_geometry is not None:
         for map_obstacle in snapshot.map_geometry.obstacles:
@@ -281,7 +288,17 @@ def render_tactical_view(
             PROJECTILE_RADIUS_PIXELS * 3,
         )
     for impact in snapshot.impacts:
-        _render_impact(logical_canvas, impact, camera, palette, atlas, snapshot.tick)
+        _render_impact(
+            logical_canvas,
+            impact,
+            camera,
+            palette,
+            atlas,
+            snapshot.tick,
+            impact_emphasis,
+        )
+    if impact_emphasis > 0 and snapshot.impacts:
+        _render_impact_flash(logical_canvas, palette, impact_emphasis)
 
 
 def _draw_map_rectangle(
@@ -366,6 +383,7 @@ def _render_impact(
     palette: TacticalPalette,
     atlas: TextureAtlas | None,
     tick: int,
+    emphasis: int,
 ) -> None:
     color = {
         "obstacle": IMPACT_OBSTACLE_COLOR,
@@ -373,6 +391,14 @@ def _render_impact(
         "operative": IMPACT_OPERATIVE_COLOR,
     }[impact.collision_kind]
     position = world_to_canvas(impact.position, logical_canvas.get_size(), camera)
+    if emphasis > 0:
+        pygame.draw.circle(
+            logical_canvas,
+            palette.impact,
+            position,
+            IMPACT_BURST_RADIUS_PIXELS + emphasis * 2,
+            width=1,
+        )
     if atlas is not None:
         _render_sprite_or_circle(
             logical_canvas,
@@ -398,6 +424,17 @@ def _render_impact(
         (position[0], position[1] + IMPACT_RADIUS_PIXELS),
     )
     pygame.draw.circle(logical_canvas, color, position, IMPACT_BURST_RADIUS_PIXELS, width=1)
+
+
+def _render_impact_flash(
+    logical_canvas: pygame.Surface,
+    palette: TacticalPalette,
+    emphasis: int,
+) -> None:
+    """Apply a short renderer-only hit flash after retained impact markers."""
+    flash = pygame.Surface(logical_canvas.get_size(), flags=pygame.SRCALPHA)
+    flash.fill((*palette.impact, emphasis * 12))
+    logical_canvas.blit(flash, (0, 0))
 
 
 def _render_cover(

@@ -209,3 +209,11 @@ quit_pygame()
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_retained_impact_feedback_decays_without_an_authority_input() -> None:
+    from kiwi.render.glasshouse_demo import _impact_feedback
+
+    assert _impact_feedback(0) == ((-4, 4), 4)
+    assert _impact_feedback(315) == ((1, 1), 1)
+    assert _impact_feedback(360) == ((0, 0), 0)

@@ -194,6 +194,7 @@ class GlasshouseDemoController:
     hot_reload_enabled: bool = True
     preview_rotation_quarters: int = 0
     preview_zoom_percent: int = 100
+    preview_feedback_pulse: int = 0
     selected_trace_node_id: TraceNodeId | None = None
     preview_selected_entity_id: int | None = None
     result_history: ChallengeHistory = ChallengeHistory()
@@ -243,6 +244,12 @@ class GlasshouseDemoController:
             or self.preview_zoom_percent not in (50, 75, 100, 125, 150)
         ):
             raise ValueError("Glasshouse demo preview zoom must be a supported percentage")
+        if (
+            not isinstance(self.preview_feedback_pulse, int)
+            or isinstance(self.preview_feedback_pulse, bool)
+            or self.preview_feedback_pulse < 0
+        ):
+            raise ValueError("Glasshouse demo preview feedback pulse is invalid")
         if self.selected_trace_node_id is not None and not isinstance(
             self.selected_trace_node_id, TraceNodeId
         ):
@@ -620,9 +627,15 @@ class GlasshouseDemoController:
         """Advance one display checkpoint and loop after the final recorded tick."""
         if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
             return self
-        return self.set_preview_snapshot(
+        advanced = self.set_preview_snapshot(
             (self.preview_snapshot_index + 1) % len(self.current_run.snapshots)
         )
+        if advanced.current_run is None:
+            raise AssertionError("advanced Glasshouse preview lost its recorded run")
+        snapshot = advanced.current_run.snapshots[advanced.preview_snapshot_index]
+        if not snapshot.impacts:
+            return advanced
+        return replace(advanced, preview_feedback_pulse=self.preview_feedback_pulse + 1)
 
     def _accept_preview_run(
         self, result: GlasshouseDemoRun, *, notice: str | None = None

@@ -56,6 +56,7 @@ _FOOTER_HEIGHT = 16
 _LOGICAL_SIZE = (960, 540)
 _MAX_NOTICE_CHARACTERS = 116
 _PREVIEW_STEP_MILLISECONDS = 800
+_IMPACT_FEEDBACK_MILLISECONDS = 360
 _ATLAS: TextureAtlas | None = None
 
 
@@ -245,6 +246,8 @@ def run_glasshouse_demo() -> int:
     controller = GlasshouseDemoController.create()
     frame_clock = pygame.time.Clock()
     next_preview_step_at = pygame.time.get_ticks() + _PREVIEW_STEP_MILLISECONDS
+    feedback_pulse = controller.preview_feedback_pulse
+    feedback_started_at = -_IMPACT_FEEDBACK_MILLISECONDS
     try:
         running = True
         while running:
@@ -275,7 +278,17 @@ def run_glasshouse_demo() -> int:
                 next_preview_step_at = now + _PREVIEW_STEP_MILLISECONDS
             elif controller.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
                 next_preview_step_at = now + _PREVIEW_STEP_MILLISECONDS
-            _render(window.logical_canvas, font, controller)
+            if controller.preview_feedback_pulse != feedback_pulse:
+                feedback_pulse = controller.preview_feedback_pulse
+                feedback_started_at = now
+            shake_offset, impact_emphasis = _impact_feedback(now - feedback_started_at)
+            _render(
+                window.logical_canvas,
+                font,
+                controller,
+                shake_offset=shake_offset,
+                impact_emphasis=impact_emphasis,
+            )
             present(window)
             frame_clock.tick(60)
     finally:
@@ -482,7 +495,12 @@ def _move_editor(editor: EditorState, key: int, modifiers: int) -> EditorState:
 
 
 def _render(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    *,
+    shake_offset: tuple[int, int] = (0, 0),
+    impact_emphasis: int = 0,
 ) -> None:
     palette = _palette_for(controller.color_scheme)
     if controller.screen is GlasshouseDemoScreen.INPUT_SETUP:
@@ -523,7 +541,14 @@ def _render(
         )
         return
     if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
-        _render_live_preview(surface, font, controller, palette)
+        _render_live_preview(
+            surface,
+            font,
+            controller,
+            palette,
+            shake_offset=shake_offset,
+            impact_emphasis=impact_emphasis,
+        )
         return
     if controller.screen is GlasshouseDemoScreen.MISSION:
         _render_mission(surface, font, controller, palette)
@@ -542,6 +567,9 @@ def _render_live_preview(
     font: BitmapFont,
     controller: GlasshouseDemoController,
     palette: GlasshouseDemoPalette,
+    *,
+    shake_offset: tuple[int, int],
+    impact_emphasis: int,
 ) -> None:
     left_rect, right_rect = _live_preview_panes(surface)
     left = surface.subsurface(left_rect)
@@ -556,7 +584,14 @@ def _render_live_preview(
         completions=controller.completions(),
     )
     _render_workbench_controls(left, font, controller, palette)
-    _render_preview_map(right, font, controller, palette)
+    _render_preview_map(
+        right,
+        font,
+        controller,
+        palette,
+        shake_offset=shake_offset,
+        impact_emphasis=impact_emphasis,
+    )
     _render_footer(
         surface,
         font,
@@ -571,6 +606,9 @@ def _render_preview_map(
     font: BitmapFont,
     controller: GlasshouseDemoController,
     palette: GlasshouseDemoPalette,
+    *,
+    shake_offset: tuple[int, int] = (0, 0),
+    impact_emphasis: int = 0,
 ) -> None:
     if controller.current_run is None:
         surface.fill(palette.background)
@@ -590,9 +628,10 @@ def _render_preview_map(
     render_tactical_view(
         surface,
         snapshot,
-        _preview_camera(controller),
+        _preview_camera(controller, shake_offset),
         palette=_tactical_palette(palette),
         atlas=_ATLAS,
+        impact_emphasis=impact_emphasis,
     )
     trace_lines = _preview_trace_lines(controller, snapshot.tick)
     _render_preview_panel(
@@ -638,13 +677,34 @@ def _preview_trace_lines(
     return rows + ("yellow source selection = emitted intention origin",)
 
 
-def _preview_camera(controller: GlasshouseDemoController) -> Camera:
+def _preview_camera(
+    controller: GlasshouseDemoController,
+    screen_offset: tuple[int, int] = (0, 0),
+) -> Camera:
     """Build one renderer-only isometric preview camera from controller UI state."""
     return Camera(
         pixels_per_millimetre=0.027 * controller.preview_zoom_percent / 100,
         projection=Projection.ISOMETRIC,
         rotation_quarters=controller.preview_rotation_quarters,
+        screen_offset_x=screen_offset[0],
+        screen_offset_y=screen_offset[1],
     )
+
+
+def _impact_feedback(elapsed_milliseconds: int) -> tuple[tuple[int, int], int]:
+    """Return a deterministic decaying camera kick and impact flash strength."""
+    if (
+        not isinstance(elapsed_milliseconds, int)
+        or isinstance(elapsed_milliseconds, bool)
+        or elapsed_milliseconds < 0
+        or elapsed_milliseconds >= _IMPACT_FEEDBACK_MILLISECONDS
+    ):
+        return ((0, 0), 0)
+    magnitude = 1 + (_IMPACT_FEEDBACK_MILLISECONDS - elapsed_milliseconds) * 3 // (
+        _IMPACT_FEEDBACK_MILLISECONDS
+    )
+    direction = ((-1, 1), (1, -1), (-1, 0), (1, 1))[elapsed_milliseconds // 45 % 4]
+    return ((direction[0] * magnitude, direction[1] * magnitude), magnitude)
 
 
 def _render_preview_panel(
