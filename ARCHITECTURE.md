@@ -678,6 +678,13 @@ is resolved only by headless authority.
 roles using the same compiled policy binding, capability, memory, weapon, and
 headless execution interfaces as the player roster.
 
+`kiwi.app.glasshouse_workbench` converts the already-loaded canonical player
+sources into `kiwi.ui.glasshouse_workbench` briefing-first state. That UI state
+holds one independent immutable editor and optional compiler result per role;
+selecting, editing, and compiling a policy are non-authoritative operations.
+`kiwi.render.glasshouse_workbench_view` consumes only this state through the
+bitmap font. It cannot deploy, execute, or otherwise alter mission authority.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

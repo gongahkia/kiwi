@@ -25,6 +25,16 @@ Main menu
 
 The vertical slice may expose `Run fixture`, `Edit policy`, and `Compare runs` directly for development.
 
+### 2.1 Glasshouse entry flow
+
+Glasshouse opens on a briefing that states the recovery-and-extraction
+objective, 90-second lockdown, incomplete hostile intelligence, and Lark's
+initial 0.5-metre-uncertainty contact. Continuing opens the workbench. Its
+canonical role sidebar is Breach, Mender, Scope, then Lark; each role retains
+an independent in-memory editor and compile result while the player reviews
+another policy. Compilation only produces DSL diagnostics or bytecode metadata;
+it does not deploy or execute a policy.
+
 ## 3. Kiwi workbench
 
 Recommended layout:
