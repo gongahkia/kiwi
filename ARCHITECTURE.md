@@ -700,6 +700,10 @@ selection state.
 `kiwi.ui.causal_chain` projects a selected retained trace node, direct links,
 and canonical causal ancestors without inferring discarded evidence.
 `kiwi.render.causal_chain_view` renders this immutable panel only.
+`kiwi.ui.historical_source` selects only replay-archive source and exact
+bytecode source-map expression spans; it never highlights current edited source.
+`kiwi.render.historical_source_view` renders that immutable pane and its
+source-bound highlight underlines.
 
 ## 18. Content architecture
 
