@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pygame
 
-from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
+from kiwi.app.glasshouse_demo import (
+    GlasshouseDemoController,
+    GlasshouseDemoScreen,
+    GlasshouseInputMode,
+)
 from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
 from kiwi.render.camera import Camera
 from kiwi.render.glasshouse_debrief_view import render_glasshouse_debrief
@@ -25,12 +29,13 @@ _NORMAL = (206, 221, 231)
 _NOTICE = (245, 189, 74)
 _MUTED = (192, 201, 191)
 _FOOTER_HEIGHT = 16
-_MAX_NOTICE_CHARACTERS = 58
+_LOGICAL_SIZE = (960, 540)
+_MAX_NOTICE_CHARACTERS = 116
 
 
 def run_glasshouse_demo() -> int:
     """Run the local-only Glasshouse usability drill until its window closes."""
-    window = open_pygame_window()
+    window = open_pygame_window(logical_size=_LOGICAL_SIZE)
     pygame.display.set_caption("Kiwi — Glasshouse causal drill")
     font = load_bitmap_font()
     controller = GlasshouseDemoController.create()
@@ -42,7 +47,17 @@ def run_glasshouse_demo() -> int:
                 if event.type == pygame.QUIT:
                     running = False
                     continue
-                controller, should_quit = _handle_event(controller, event)
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    controller = _handle_click(
+                        controller,
+                        _logical_pointer_position(
+                            event.pos, window.window.get_size(), window.logical_size
+                        ),
+                        font,
+                    )
+                    should_quit = False
+                else:
+                    controller, should_quit = _handle_event(controller, event)
                 running = running and not should_quit
             _render(window.logical_canvas, font, controller)
             present(window)
@@ -58,9 +73,17 @@ def _handle_event(
     if event.type != pygame.KEYDOWN:
         return (controller, False)
     if event.key == pygame.K_ESCAPE:
-        if controller.screen is GlasshouseDemoScreen.BRIEFING:
+        if controller.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
             return (controller, True)
         return (_escape(controller), False)
+    if controller.screen is GlasshouseDemoScreen.INPUT_SETUP:
+        if event.key == pygame.K_1:
+            return (controller.choose_input_mode(GlasshouseInputMode.STANDARD), False)
+        if event.key == pygame.K_2:
+            return (controller.choose_input_mode(GlasshouseInputMode.FUNCTION_KEYS), False)
+        if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            return (controller.confirm_input_mode(), False)
+        return (controller, False)
     if controller.screen is GlasshouseDemoScreen.BRIEFING:
         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
             return (controller.open_workbench(), False)
@@ -78,20 +101,20 @@ def _handle_event(
             return (controller.open_debrief(), False)
         if event.key == pygame.K_c:
             return (controller.open_comparison(), False)
-        if event.key == pygame.K_F5:
+        if _deploy_pressed(controller, event):
             return (controller.return_to_workbench().deploy(), False)
         return (controller, False)
     if controller.screen is GlasshouseDemoScreen.DEBRIEF:
         if event.key == pygame.K_r:
             return (controller.guide_revision(), False)
         return (controller, False)
-    if controller.screen is GlasshouseDemoScreen.COMPARISON and event.key == pygame.K_F5:
+    if controller.screen is GlasshouseDemoScreen.COMPARISON and _deploy_pressed(controller, event):
         return (controller.return_to_workbench().deploy(), False)
     return (controller, False)
 
 
 def _escape(controller: GlasshouseDemoController) -> GlasshouseDemoController:
-    if controller.screen is GlasshouseDemoScreen.BRIEFING:
+    if controller.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
         return controller
     if controller.screen is GlasshouseDemoScreen.GUIDE:
         return controller.close_guide()
@@ -103,11 +126,19 @@ def _handle_workbench_key(
 ) -> GlasshouseDemoController:
     modifiers = event.mod
     command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
-    if event.key == pygame.K_F1:
+    if event.key == pygame.K_F1 or (
+        controller.input_mode is GlasshouseInputMode.STANDARD
+        and command
+        and event.key == pygame.K_g
+    ):
         return controller.open_guide()
-    if event.key == pygame.K_F2:
+    if event.key == pygame.K_F2 or (
+        controller.input_mode is GlasshouseInputMode.STANDARD
+        and command
+        and event.key == pygame.K_t
+    ):
         return controller.select_scout_threshold()
-    if event.key == pygame.K_F5:
+    if _deploy_pressed(controller, event):
         return controller.deploy()
     if event.key == pygame.K_TAB:
         direction = -1 if modifiers & pygame.KMOD_SHIFT else 1
@@ -148,6 +179,18 @@ def _handle_workbench_key(
     return controller
 
 
+def _deploy_pressed(controller: GlasshouseDemoController, event: pygame.event.Event) -> bool:
+    """Return whether one platform-selected deployment shortcut was pressed."""
+    if event.key == pygame.K_F5:
+        return True
+    modifiers = event.mod
+    return bool(
+        controller.input_mode is GlasshouseInputMode.STANDARD
+        and modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
+        and event.key == pygame.K_r
+    )
+
+
 def _move_editor(editor: EditorState, key: int, modifiers: int) -> EditorState:
     extend = bool(modifiers & pygame.KMOD_SHIFT)
     cursor = editor.cursor_position
@@ -171,8 +214,13 @@ def _move_editor(editor: EditorState, key: int, modifiers: int) -> EditorState:
 def _render(
     surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
 ) -> None:
+    if controller.screen is GlasshouseDemoScreen.INPUT_SETUP:
+        _render_input_setup(surface, font, controller)
+        return
     if controller.screen in (GlasshouseDemoScreen.BRIEFING, GlasshouseDemoScreen.WORKBENCH):
         render_glasshouse_workbench(surface, font, controller.workbench)
+        if controller.screen is GlasshouseDemoScreen.WORKBENCH:
+            _render_workbench_controls(surface, font, controller)
         _render_footer(surface, font, _workbench_help(controller), controller.notice)
         return
     if controller.screen is GlasshouseDemoScreen.GUIDE:
@@ -206,7 +254,12 @@ def _render_mission(
         controller.notice,
     )
     _render_panel(surface, font, lines)
-    _render_footer(surface, font, "Enter debrief | C compare | F5 rerun | Esc edit", "")
+    _render_footer(
+        surface,
+        font,
+        f"Enter debrief | C compare | {_deploy_label(controller)} rerun | Esc edit",
+        "",
+    )
 
 
 def _render_debrief(
@@ -240,7 +293,9 @@ def _render_comparison(
         raise AssertionError("Glasshouse comparison screen has no comparison")
     surface.fill(_BACKGROUND)
     render_run_comparison_view(surface, font, controller.comparison, (8, 8))
-    _render_footer(surface, font, "F5 rerun | Esc workbench", controller.notice)
+    _render_footer(
+        surface, font, f"{_deploy_label(controller)} rerun | Esc workbench", controller.notice
+    )
 
 
 def _render_panel(surface: pygame.Surface, font: BitmapFont, lines: tuple[str, ...]) -> None:
@@ -265,7 +320,226 @@ def _render_footer(surface: pygame.Surface, font: BitmapFont, controls: str, not
 def _workbench_help(controller: GlasshouseDemoController) -> str:
     if controller.screen is GlasshouseDemoScreen.BRIEFING:
         return "Enter opens workbench | Esc quits"
-    return "F1 guide | F2 select 1m | Ctrl+Enter compile | F5 deploy"
+    if controller.input_mode is GlasshouseInputMode.STANDARD:
+        return "Cmd+G guide | Cmd+T select 1m | Cmd+Enter compile | Cmd+R deploy"
+    return "F1 guide | F2 select 1m | Cmd/Ctrl+Enter compile | F5 deploy"
+
+
+def _deploy_label(controller: GlasshouseDemoController) -> str:
+    """Return the selected deployment shortcut label for a non-editing screen."""
+    return "Cmd+R" if controller.input_mode is GlasshouseInputMode.STANDARD else "F5"
+
+
+def _platform_label(platform_name: str) -> str:
+    """Return one compact runtime platform label for input setup."""
+    return {"Darwin": "macOS", "Windows": "Windows", "Linux": "Linux"}.get(
+        platform_name, platform_name
+    )
+
+
+def _input_mode_label(input_mode: GlasshouseInputMode) -> str:
+    """Return one compact selected input-mode label."""
+    return "standard keys" if input_mode is GlasshouseInputMode.STANDARD else "function keys"
+
+
+def _render_input_setup(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    surface.fill(_BACKGROUND)
+    line_height = font.measure("M")[1]
+    lines = (
+        "INPUT SETUP",
+        (
+            f"{_platform_label(controller.detected_platform)} detected: "
+            f"{_input_mode_label(controller.input_mode)} selected."
+        ),
+        "Choose a key set before the causal drill starts.",
+    )
+    for index, line in enumerate(lines):
+        color = _HEADING if index == 0 else _NORMAL
+        surface.blit(font.render(line, color), (24, 24 + index * line_height))
+    standard, function_keys, continue_button = _input_setup_buttons(surface, font)
+    _render_button(
+        surface,
+        font,
+        standard,
+        "1  Standard keys: Cmd+G / Cmd+T / Cmd+Enter / Cmd+R",
+        controller.input_mode is GlasshouseInputMode.STANDARD,
+    )
+    _render_button(
+        surface,
+        font,
+        function_keys,
+        "2  Function keys: F1 / F2 / Cmd+Enter / F5",
+        controller.input_mode is GlasshouseInputMode.FUNCTION_KEYS,
+    )
+    _render_button(surface, font, continue_button, "Continue", True)
+    _render_footer(surface, font, "Click a key set | Enter continues | Esc quits", "")
+
+
+def _render_workbench_controls(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    compile_button, deploy_button = _workbench_buttons(surface, font)
+    _render_button(surface, font, compile_button, "Compile", False)
+    _render_button(surface, font, deploy_button, "Compile + run", True)
+    if pygame.time.get_ticks() // 500 % 2 == 0:
+        _render_editor_caret(surface, font, controller)
+
+
+def _render_button(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    rect: pygame.Rect,
+    label: str,
+    emphasized: bool,
+) -> None:
+    fill = _BORDER if emphasized else _PANEL
+    text_color = _BACKGROUND if emphasized else _HEADING
+    pygame.draw.rect(surface, fill, rect)
+    pygame.draw.rect(surface, _HEADING, rect, width=1)
+    label_surface = font.render(label, text_color)
+    surface.blit(
+        label_surface,
+        (rect.x + max(4, (rect.width - label_surface.get_width()) // 2), rect.y + 3),
+    )
+
+
+def _render_editor_caret(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    _, source_rect, _ = _workbench_rects(surface, font)
+    editor = controller.workbench.editor
+    cursor = editor.cursor_position
+    first_visible_line = editor.scroll.line
+    if cursor.line < first_visible_line:
+        return
+    y = source_rect.y + 4 + (cursor.line - first_visible_line) * font.measure("M")[1]
+    if y + font.measure("M")[1] > source_rect.bottom - 4:
+        return
+    line = editor.buffer.line_text(cursor.line)
+    x = source_rect.x + 4 + font.measure(line[: cursor.column - 1].expandtabs(4))[0]
+    if x >= source_rect.right - font.measure("M")[0]:
+        return
+    previous_clip = surface.get_clip()
+    surface.set_clip(source_rect.inflate(-8, -8))
+    surface.blit(font.render("_", _NOTICE), (x, y))
+    surface.set_clip(previous_clip)
+
+
+def _input_setup_buttons(
+    surface: pygame.Surface, font: BitmapFont
+) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+    width, _ = surface.get_size()
+    line_height = font.measure("M")[1]
+    button_width = width - 48
+    return (
+        pygame.Rect(24, 78, button_width, line_height + 10),
+        pygame.Rect(24, 112, button_width, line_height + 10),
+        pygame.Rect(24, 158, max(108, font.measure("Continue")[0] + 12), line_height + 10),
+    )
+
+
+def _workbench_rects(
+    surface: pygame.Surface, font: BitmapFont
+) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+    width, height = surface.get_size()
+    line_height = font.measure("M")[1]
+    sidebar_width = max(140, width // 4)
+    output_height = max(line_height * 4, height // 4)
+    return (
+        pygame.Rect(8, 8, sidebar_width - 12, height - output_height - 20),
+        pygame.Rect(
+            sidebar_width + 8,
+            line_height + 12,
+            width - sidebar_width - 16,
+            height - output_height - line_height - 20,
+        ),
+        pygame.Rect(8, height - output_height - 8, width - 16, output_height),
+    )
+
+
+def _workbench_buttons(
+    surface: pygame.Surface, font: BitmapFont
+) -> tuple[pygame.Rect, pygame.Rect]:
+    _, _, output_rect = _workbench_rects(surface, font)
+    line_height = font.measure("M")[1]
+    deploy_width = font.measure("Compile + run")[0] + 12
+    compile_width = font.measure("Compile")[0] + 12
+    y = output_rect.bottom - line_height - 6
+    deploy = pygame.Rect(output_rect.right - deploy_width - 5, y, deploy_width, line_height + 4)
+    compile = pygame.Rect(deploy.left - compile_width - 6, y, compile_width, line_height + 4)
+    return (compile, deploy)
+
+
+def _handle_click(
+    controller: GlasshouseDemoController, position: tuple[int, int], font: BitmapFont
+) -> GlasshouseDemoController:
+    if controller.screen is GlasshouseDemoScreen.INPUT_SETUP:
+        standard, function_keys, continue_button = _input_setup_buttons(
+            pygame.Surface(_LOGICAL_SIZE), font
+        )
+        if standard.collidepoint(position):
+            return controller.choose_input_mode(GlasshouseInputMode.STANDARD)
+        if function_keys.collidepoint(position):
+            return controller.choose_input_mode(GlasshouseInputMode.FUNCTION_KEYS)
+        if continue_button.collidepoint(position):
+            return controller.confirm_input_mode()
+        return controller
+    if controller.screen is not GlasshouseDemoScreen.WORKBENCH:
+        return controller
+    surface = pygame.Surface(_LOGICAL_SIZE)
+    sidebar_rect, source_rect, _ = _workbench_rects(surface, font)
+    compile_button, deploy_button = _workbench_buttons(surface, font)
+    if compile_button.collidepoint(position):
+        return controller.compile_selected()
+    if deploy_button.collidepoint(position):
+        return controller.deploy()
+    if sidebar_rect.collidepoint(position):
+        line_height = font.measure("M")[1]
+        policy_index = (position[1] - 16) // line_height - 1
+        if 0 <= policy_index < len(controller.workbench.policies):
+            return controller.select_policy_index(policy_index)
+        return controller
+    if source_rect.collidepoint(position):
+        return _move_editor_to_pointer(controller, position, source_rect, font)
+    return controller
+
+
+def _move_editor_to_pointer(
+    controller: GlasshouseDemoController,
+    position: tuple[int, int],
+    source_rect: pygame.Rect,
+    font: BitmapFont,
+) -> GlasshouseDemoController:
+    editor = controller.workbench.editor
+    line_height = font.measure("M")[1]
+    line = min(
+        editor.buffer.line_index.line_count,
+        editor.scroll.line + max(0, (position[1] - source_rect.y - 4) // line_height),
+    )
+    character_width = font.measure("M")[0]
+    column = min(
+        editor.buffer.line_index.max_column(line),
+        max(1, (position[0] - source_rect.x - 4) // character_width + 1),
+    )
+    rows = max(1, (source_rect.height - 8) // line_height)
+    columns = max(1, (source_rect.width - 8) // character_width)
+    return controller.replace_selected_editor(
+        editor.move_to(TextPosition(line, column)).reveal_cursor(rows, columns)
+    )
+
+
+def _logical_pointer_position(
+    position: tuple[int, int], window_size: tuple[int, int], logical_size: tuple[int, int]
+) -> tuple[int, int]:
+    """Convert one physical pygame pointer position to the logical canvas grid."""
+    if window_size[0] <= 0 or window_size[1] <= 0:
+        raise ValueError("pygame window dimensions must be positive")
+    return (
+        position[0] * logical_size[0] // window_size[0],
+        position[1] * logical_size[1] // window_size[1],
+    )
 
 
 def _truncate(text: str) -> str:
