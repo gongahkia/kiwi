@@ -684,6 +684,9 @@ is string-only data passed to or from the platform adapter.
 `kiwi.ui.syntax` derives canonical source-provenance-preserving style spans
 from lexer tokens and errors. `kiwi.render.source_view` is the only consumer
 that imports pygame to render those spans through the bitmap font.
+`kiwi.ui.diagnostics` projects structured compiler diagnostics into canonical
+inline line ranges and panel rows; `kiwi.render.diagnostics_view` renders those
+read-only projections without changing source, compiler, or authority state.
 
 ## 18. Content architecture
 
