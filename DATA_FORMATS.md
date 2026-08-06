@@ -143,29 +143,18 @@ rejects trailing bytes, and validates decoded bytecode before returning it. See
 
 ## 7. Mission content
 
-Suggested extension: `.dmission.json`
+Mission v1 uses UTF-8 `.dmission.json` documents with exact top-level fields:
+`format` (`kiwi-mission`), `version` (1), `id`, `title`, `tick_rate`, `seed`,
+`map`, `covers`, and `regions`. The initial Glasshouse document defines the bounded
+map, obstacles, cover slots, player deployment, both entrances, objective room,
+and extraction region. Operative loadouts, hostile policies, objectives, and
+timers remain later vertical-slice extensions.
 
-Top-level fields:
-
-```json
-{
-  "format": "kiwi-mission",
-  "version": 1,
-  "id": "glasshouse",
-  "map": {},
-  "entities": [],
-  "objectives": [],
-  "deployment": {},
-  "signals": [],
-  "timers": [],
-  "seed_manifest": {}
-}
-```
-
-Validation occurs in two stages:
-
-1. Shape and primitive validation.
-2. Semantic validation, including references, geometry, capabilities, objective reachability assumptions where practical, and deterministic ordering.
+The loader rejects duplicate or unknown fields, malformed UTF-8/JSON,
+unsupported versions, values beyond explicit size limits, and invalid
+geometry. It normalises obstacle, cover, region, and slot order by stable
+content or geometry keys before allocating dynamic authority IDs, so JSON
+array order cannot affect the materialised state.
 
 Milestone 5 selects JSON for the separate, deliberately narrow
 `.kfixture.json` kernel-fixture format. Its top-level `format` is
