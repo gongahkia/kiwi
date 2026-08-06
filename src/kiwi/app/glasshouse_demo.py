@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
+from platform import system
 
 from kiwi.app.glasshouse_players import PLAYER_MEMORY_SCHEMA
 from kiwi.app.glasshouse_workbench import build_glasshouse_workbench
@@ -81,12 +82,20 @@ _ENEMY_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("fired", BuiltinType.
 class GlasshouseDemoScreen(StrEnum):
     """The finite non-authoritative screens in the manual Glasshouse drill."""
 
+    INPUT_SETUP = "input_setup"
     BRIEFING = "briefing"
     WORKBENCH = "workbench"
     GUIDE = "guide"
     MISSION = "mission"
     DEBRIEF = "debrief"
     COMPARISON = "comparison"
+
+
+class GlasshouseInputMode(StrEnum):
+    """The explicitly selected shortcut set for the local pygame shell."""
+
+    STANDARD = "standard"
+    FUNCTION_KEYS = "function_keys"
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +146,7 @@ class GlasshouseDemoController:
 
     screen: GlasshouseDemoScreen
     workbench: GlasshouseWorkbench
+    input_mode: GlasshouseInputMode
     tutorial: GlasshouseTutorial = GLASSHOUSE_LANGUAGE_TUTORIAL
     current_run: GlasshouseDemoRun | None = None
     baseline_run: GlasshouseDemoRun | None = None
@@ -148,6 +158,8 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo screen is invalid")
         if not isinstance(self.workbench, GlasshouseWorkbench):
             raise TypeError("Glasshouse demo workbench is invalid")
+        if not isinstance(self.input_mode, GlasshouseInputMode):
+            raise TypeError("Glasshouse demo input mode is invalid")
         if not isinstance(self.tutorial, GlasshouseTutorial):
             raise TypeError("Glasshouse demo tutorial is invalid")
         if self.current_run is not None and not isinstance(self.current_run, GlasshouseDemoRun):
@@ -158,9 +170,9 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo comparison is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Glasshouse demo notice must be text")
-        if self.screen is GlasshouseDemoScreen.BRIEFING:
+        if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
             if self.workbench.phase is not GlasshouseFlowPhase.BRIEFING:
-                raise ValueError("Glasshouse demo briefing requires a briefing workbench")
+                raise ValueError("Glasshouse demo pre-workbench screens require a briefing workbench")
         elif self.workbench.phase is not GlasshouseFlowPhase.WORKBENCH:
             raise ValueError("Glasshouse demo screens after briefing require an open workbench")
         if (
@@ -177,9 +189,39 @@ class GlasshouseDemoController:
             raise ValueError("Glasshouse demo comparison screen requires a comparison")
 
     @classmethod
-    def create(cls, repository_root: Path = _REPOSITORY_ROOT) -> GlasshouseDemoController:
-        """Load the shipped four-player workbench into the briefing screen."""
-        return cls(GlasshouseDemoScreen.BRIEFING, load_glasshouse_workbench(repository_root))
+    def create(
+        cls,
+        repository_root: Path = _REPOSITORY_ROOT,
+        platform_name: str | None = None,
+    ) -> GlasshouseDemoController:
+        """Load the shipped policies into platform-aware input setup."""
+        resolved_platform = system() if platform_name is None else platform_name
+        if not isinstance(resolved_platform, str):
+            raise TypeError("Glasshouse demo platform name must be text")
+        input_mode = (
+            GlasshouseInputMode.STANDARD
+            if resolved_platform == "Darwin"
+            else GlasshouseInputMode.FUNCTION_KEYS
+        )
+        return cls(
+            GlasshouseDemoScreen.INPUT_SETUP,
+            load_glasshouse_workbench(repository_root),
+            input_mode,
+        )
+
+    def choose_input_mode(self, input_mode: GlasshouseInputMode) -> GlasshouseDemoController:
+        """Choose the local shortcut set before the briefing begins."""
+        if self.screen is not GlasshouseDemoScreen.INPUT_SETUP:
+            return self
+        if not isinstance(input_mode, GlasshouseInputMode):
+            raise TypeError("Glasshouse demo input mode is invalid")
+        return replace(self, input_mode=input_mode)
+
+    def confirm_input_mode(self) -> GlasshouseDemoController:
+        """Advance from local shortcut selection to the fixed mission briefing."""
+        if self.screen is not GlasshouseDemoScreen.INPUT_SETUP:
+            return self
+        return replace(self, screen=GlasshouseDemoScreen.BRIEFING, notice="")
 
     def open_workbench(self) -> GlasshouseDemoController:
         """Advance from briefing to source review without starting authority."""

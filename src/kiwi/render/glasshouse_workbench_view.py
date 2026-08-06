@@ -9,6 +9,7 @@ import pygame
 from kiwi.dsl.source import ByteOffset, SourceFile
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.compile_output_view import render_compile_output_panel
+from kiwi.render.diagnostics_view import render_diagnostic_panel, render_inline_diagnostics
 from kiwi.render.source_view import render_source
 from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase, GlasshouseWorkbench
 
@@ -177,6 +178,16 @@ def _render_workbench(
         palette.focus,
         first_visible_line,
     )
+    if workbench.compile_output is not None and workbench.compile_output.diagnostics is not None:
+        render_inline_diagnostics(
+            surface,
+            font,
+            workbench.source,
+            workbench.compile_output.diagnostics,
+            (source_rect.x + 4, source_rect.y + 4),
+            scale=scale,
+            first_visible_line=first_visible_line,
+        )
     surface.set_clip(previous_clip)
     if workbench.compile_output is None:
         output_lines = ("COMPILE", "Cmd/Ctrl+Enter: compile selected policy")
@@ -194,7 +205,17 @@ def _render_workbench(
             (output_rect.x + 4, output_rect.y + 4),
             scale=scale,
         )
-        line_count = len(workbench.policies) + rendered.line_count + 2
+        diagnostic_count = 0
+        if workbench.compile_output.diagnostics is not None:
+            diagnostics = render_diagnostic_panel(
+                surface,
+                font,
+                workbench.compile_output.diagnostics,
+                (output_rect.x + 4, output_rect.y + 4 + rendered.height),
+                scale=scale,
+            )
+            diagnostic_count = diagnostics.entry_count
+        line_count = len(workbench.policies) + rendered.line_count + diagnostic_count + 2
     return GlasshouseWorkbenchRenderResult(workbench.phase, line_count)
 
 
