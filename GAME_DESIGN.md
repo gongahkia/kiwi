@@ -463,29 +463,24 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 
 ### 13.2 Initial flawed kiwi
 
-The provided policy:
-
-- preserves formation too aggressively;
-- weights distance to objective too heavily;
-- undervalues hostile elevation or crossfire;
-- uses a danger threshold that is too permissive;
-- causes one operative to advance past viable cover.
+The bundled Lark policy treats a contact uncertainty radius at or below one
+metre as sufficient reason to advance. Glasshouse starts it with a 0.5-metre
+uncertainty contact. The policy does not inspect available cover, so the source
+threshold can cause an advance past it.
 
 ### 13.3 Required failure trace
 
 The run produces a chain resembling:
 
 ```text
-observation: hostile contact confidence 0.78
-observation: cover C12 exposure score 0.20
-observation: current path exposure score 0.62
-source: danger threshold 0.65
+observation: hostile contact uncertainty radius 0.5m
+source: contact.uncertainty_radius <= 1m
 branch: continue advance
-intention: MoveToward objective
+intention: MoveToward (1m, 0m)
 resolution: operative enters hostile line of fire
 hostile intention: Fire
 projectile: impact operative
-consequence: injury and squad delay
+consequence: injury
 ```
 
 ### 13.4 Revision

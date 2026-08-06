@@ -348,7 +348,7 @@ A four-operative squad enters a small office or research structure to retrieve a
 - an extraction zone;
 - a casualty risk created by an intentionally flawed policy.
 
-The first policy overvalues formation continuity and objective progress relative to exposure. An operative advances past viable cover, is engaged by a hostile contact, and is injured.
+The bundled scout policy treats a contact uncertainty radius at or below one metre as sufficient reason to advance without inspecting cover. Its deterministic causal fixture traces that advance through hostile fire, projectile impact, and injury.
 
 ### 11.2 Required player actions
 
