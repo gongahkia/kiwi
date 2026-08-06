@@ -187,6 +187,11 @@ impact markers, a short aim indicator, and a suppression ring. Their values are
 read-only presentation data: impact markers derive from the current projectile
 impact events and never persist in canonical mission state.
 
+Current-tick impacts add a small matching-colour burst. Fire, impact, injury,
+objective, and lockdown events may emit one restrained synthesized cue per
+event during a presentation session; unavailable audio is silent and does not
+affect the mission.
+
 ## 6. Causal debugger UI
 
 Recommended three-pane layout:

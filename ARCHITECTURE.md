@@ -694,7 +694,11 @@ renders only the `GlasshouseMissionPresentation` copied snapshot, lockdown
 countdown, objective/lockdown-derived mission summary, and queued or recorded
 signal status. That summary cannot create a terminal state: it reports success
 only after authoritative extraction and failure only after authoritative
-lockdown blocks extraction.
+lockdown blocks extraction. Its optional sound player consumes event-ID-ordered
+cues copied from the just-resolved event tuple, deduplicates them within one
+presentation session, and tolerates unavailable audio output. Impact bursts are
+rendered from copied current impact markers; neither audio nor effects alter
+authority.
 
 Execution retains its initial authority state, source-matched policy bundle, and
 resolved canonical command log. `kiwi.app.glasshouse_rerun` re-executes those

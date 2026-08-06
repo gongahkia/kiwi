@@ -304,6 +304,10 @@ authoritative objective lifecycle and lockdown state into in-progress, success,
 and failure HUD output. The mission HUD test consumes the resulting presentation
 snapshot, summary, and signal status under dummy SDL.
 
+Glasshouse presentation-effect tests retain canonically ordered event-ID sound
+cues, play each copied cue once under dummy SDL, and render current impact bursts
+without writing authority state.
+
 Glasshouse debrief tests assert canonical retained-injury selection, rejection
 of missing trace evidence, causal-chain replacement, and dummy-SDL bitmap output.
 

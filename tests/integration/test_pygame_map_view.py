@@ -119,6 +119,11 @@ assert window.logical_canvas.get_at((100, 37))[:3] == AIM_COLOR
 assert window.logical_canvas.get_at((108, 45))[:3] == SUPPRESSION_COLOR
 assert window.logical_canvas.get_at((80, 45))[:3] == PROJECTILE_COLOR
 assert window.logical_canvas.get_at((65, 45))[:3] == IMPACT_COVER_COLOR
+assert sum(
+    window.logical_canvas.get_at((x, y))[:3] == IMPACT_COVER_COLOR
+    for x in range(160)
+    for y in range(90)
+) > 17
 present(window)
 assert pygame_is_initialised()
 quit_pygame()
