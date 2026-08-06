@@ -51,3 +51,48 @@ quit_pygame()
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_source_view_renders_lexer_styles_through_the_bitmap_font() -> None:
+    source = """
+import pygame
+
+from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.pygame_lifecycle import quit_pygame
+from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, render_source
+
+font = load_bitmap_font()
+canvas = pygame.Surface((480, 80))
+canvas.fill((0, 0, 0))
+source = SourceFile(
+    SourceFileId("styled.dtr"),
+    'fn choose(value: Int) -> Bool = if true then "yes" else 0 @',
+)
+result = render_source(canvas, font, source, (0, 0))
+pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(80)}
+
+assert result.line_count == 1
+assert result.line_height == font.measure("M")[1]
+assert result.width > 0
+assert result.height == result.line_height
+assert DEFAULT_SOURCE_PALETTE.keyword in pixels
+assert DEFAULT_SOURCE_PALETTE.literal in pixels
+assert DEFAULT_SOURCE_PALETTE.operator in pixels
+assert DEFAULT_SOURCE_PALETTE.punctuation in pixels
+assert DEFAULT_SOURCE_PALETTE.invalid in pixels
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+
+    result = subprocess.run(
+        (sys.executable, "-c", source),
+        check=False,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

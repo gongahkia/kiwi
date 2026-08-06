@@ -43,6 +43,15 @@ class BitmapFont:
         _color(color)
         return scale_nearest_neighbour(self._font.render(text, False, color), scale)
 
+    def measure(self, text: str, scale: int = 1) -> tuple[int, int]:
+        """Return unaliased rendered bounds at one positive integer scale."""
+        if not isinstance(text, str):
+            raise TypeError("bitmap text must be a string")
+        if not isinstance(scale, int) or isinstance(scale, bool) or scale <= 0:
+            raise ValueError("bitmap text scale must be a positive integer")
+        width, height = self._font.size(text)
+        return (width * scale, height * scale)
+
 
 def load_bitmap_font(
     source_path: Path = BIGBLUETERM_FONT_PATH,
