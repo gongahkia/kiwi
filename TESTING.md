@@ -188,6 +188,7 @@ Keep UI tests focused:
 - bounded logical scrolling and cursor visibility;
 - lexer-derived source-token styling and bitmap-font rendering;
 - inline source markers and canonical diagnostic panel rows;
+- workbench compilation from immutable editor text and output-panel rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;

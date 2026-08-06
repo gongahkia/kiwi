@@ -687,6 +687,10 @@ that imports pygame to render those spans through the bitmap font.
 `kiwi.ui.diagnostics` projects structured compiler diagnostics into canonical
 inline line ranges and panel rows; `kiwi.render.diagnostics_view` renders those
 read-only projections without changing source, compiler, or authority state.
+`kiwi.ui.compile_output` compiles immutable editor text through the existing
+closed DSL stages and returns either source-bound diagnostic presentation or
+immutable bytecode metadata. `kiwi.render.compile_output_view` renders only
+that outcome; it cannot execute policies or alter editor source.
 
 ## 18. Content architecture
 
