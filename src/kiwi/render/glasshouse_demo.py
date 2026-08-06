@@ -316,7 +316,11 @@ def _render_preview_map(
         surface,
         font,
         (
-            f"LIVE PREVIEW  checkpoint t{snapshot.tick}",
+            (
+                f"PREVIEW STALE  checkpoint t{snapshot.tick}"
+                if controller.preview_stale
+                else f"LIVE PREVIEW  checkpoint t{snapshot.tick}"
+            ),
             *trace_lines,
         ),
     )
@@ -328,6 +332,8 @@ def _preview_trace_lines(
 ) -> tuple[str, ...]:
     if controller.current_run is None:
         return ()
+    if controller.preview_stale:
+        return ("source changed; Compile + run is required to refresh.",)
     if snapshot_tick == 0:
         return (
             "initial state; next step evaluates the scout policy",
