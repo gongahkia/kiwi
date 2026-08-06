@@ -24,6 +24,7 @@ from kiwi.dsl.syntax import (
     SurfaceModule,
     TypeReference,
 )
+from kiwi.ui.syntax import SourceStyle, SyntaxSpan, syntax_spans
 
 
 def test_surface_nodes_are_immutable_and_source_spanned() -> None:
@@ -92,3 +93,39 @@ def test_surface_nodes_use_source_spans_not_python_identity() -> None:
 
     assert first == second
     assert first.span == SourceSpan(SourceFileId("policy.dtr"), ByteOffset(0), ByteOffset(1))
+
+
+def test_syntax_spans_preserve_lexer_token_and_error_source_ranges() -> None:
+    source = SourceFile(
+        SourceFileId("styled.dtr"),
+        'fn choose(flag: Bool) -> String = if flag then "yes" else 0 @ α',
+    )
+
+    styled = syntax_spans(source)
+
+    assert tuple((_span_text(source, item), item.style) for item in styled) == (
+        ("fn", SourceStyle.KEYWORD),
+        ("choose", SourceStyle.IDENTIFIER),
+        ("(", SourceStyle.PUNCTUATION),
+        ("flag", SourceStyle.IDENTIFIER),
+        (":", SourceStyle.PUNCTUATION),
+        ("Bool", SourceStyle.IDENTIFIER),
+        (")", SourceStyle.PUNCTUATION),
+        ("->", SourceStyle.OPERATOR),
+        ("String", SourceStyle.IDENTIFIER),
+        ("=", SourceStyle.OPERATOR),
+        ("if", SourceStyle.KEYWORD),
+        ("flag", SourceStyle.IDENTIFIER),
+        ("then", SourceStyle.KEYWORD),
+        ('"yes"', SourceStyle.LITERAL),
+        ("else", SourceStyle.KEYWORD),
+        ("0", SourceStyle.LITERAL),
+        ("@", SourceStyle.INVALID),
+        ("α", SourceStyle.INVALID),
+    )
+    assert all(item.span.file_id == source.file_id for item in styled)
+
+
+def _span_text(source: SourceFile, styled: SyntaxSpan) -> str:
+    span = styled.span
+    return source.text.encode("utf-8")[span.start.value : span.end.value].decode("utf-8")

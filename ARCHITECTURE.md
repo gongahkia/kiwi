@@ -681,6 +681,9 @@ Unicode-code-point line index, cursor selection, and logical scroll state. It
 does not import pygame, mutate authority, or define display glyph geometry.
 Edits are immutable and retain a bounded undo/redo history; clipboard exchange
 is string-only data passed to or from the platform adapter.
+`kiwi.ui.syntax` derives canonical source-provenance-preserving style spans
+from lexer tokens and errors. `kiwi.render.source_view` is the only consumer
+that imports pygame to render those spans through the bitmap font.
 
 ## 18. Content architecture
 

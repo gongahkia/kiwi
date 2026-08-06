@@ -186,6 +186,7 @@ Keep UI tests focused:
 - text insertion, deletion, newline, indentation, and clipboard handoff;
 - Unicode line indexing, cursor and directional selection;
 - bounded logical scrolling and cursor visibility;
+- lexer-derived source-token styling and bitmap-font rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
