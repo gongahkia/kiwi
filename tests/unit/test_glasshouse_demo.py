@@ -12,9 +12,11 @@ from kiwi.ui.glasshouse_debrief import GlasshouseDebrief, GlasshouseDebriefUnava
 def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
     baseline = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
 
-    assert baseline.screen is GlasshouseDemoScreen.MISSION
+    assert baseline.screen is GlasshouseDemoScreen.LIVE_PREVIEW
     assert baseline.current_run is not None
     assert isinstance(baseline.current_run.debrief, GlasshouseDebrief)
+    assert tuple(snapshot.tick for snapshot in baseline.current_run.snapshots) == (0, 1, 2)
+    assert baseline.preview_playing
 
     focused = baseline.open_debrief().guide_revision()
 
@@ -27,7 +29,7 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
         threshold.workbench.editor.insert_text("0m")
     ).deploy()
 
-    assert revised.screen is GlasshouseDemoScreen.MISSION
+    assert revised.screen is GlasshouseDemoScreen.LIVE_PREVIEW
     assert revised.current_run is not None
     assert isinstance(revised.current_run.debrief, GlasshouseDebriefUnavailable)
     assert revised.comparison is not None
@@ -37,6 +39,29 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
         ConsequenceDifferenceKind.REMOVED,
     )
     assert revised.open_debrief().screen is GlasshouseDemoScreen.COMPARISON
+
+
+def test_glasshouse_demo_hot_reloads_only_source_changes_into_recorded_preview_ticks() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    paused = preview.advance_preview().pause_preview()
+
+    assert paused.preview_snapshot_index == 1
+    assert not paused.preview_playing
+    assert paused.workbench.selected_policy.role == "breacher"
+
+    focused = paused.select_scout_threshold()
+    reloaded = focused.replace_selected_editor(focused.workbench.editor.insert_text("0m"))
+
+    assert reloaded.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+    assert reloaded.current_run is not None
+    assert reloaded.preview_snapshot_index == 0
+    assert reloaded.preview_playing
+    assert isinstance(reloaded.current_run.debrief, GlasshouseDebriefUnavailable)
+
+    traced = preview.select_policy_index(3).advance_preview()
+
+    assert traced.preview_source_span() is not None
+    assert traced.workbench.editor.selected_text
 
 
 def test_glasshouse_demo_blocks_deployment_after_a_policy_compile_failure() -> None:
