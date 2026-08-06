@@ -297,6 +297,11 @@ The Glasshouse briefing/workbench tests preserve fixed briefing rows, canonical
 roster order, independent editor state, compile-result invalidation, and
 dummy-SDL bitmap rendering. They do not execute a policy or mutate authority.
 
+Glasshouse execution tests compile the current workbench sources, queue a player
+start, advance one reducer tick at a time, and verify deterministic `advance`
+and targeted `hold` signal provenance. The mission HUD test consumes the
+resulting presentation snapshot and signal status under dummy SDL.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:

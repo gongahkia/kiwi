@@ -154,7 +154,15 @@ class GlasshouseWorkbench:
     @property
     def source(self) -> SourceFile:
         """Return current selected editor text with its fixed source identity."""
-        return SourceFile(self.selected_policy.source.file_id, self.editor.buffer.text)
+        return self.sources[self.selected_policy_index]
+
+    @property
+    def sources(self) -> tuple[SourceFile, ...]:
+        """Return every current editor buffer with its fixed source identity."""
+        return tuple(
+            SourceFile(policy.source.file_id, editor.buffer.text)
+            for policy, editor in zip(self.policies, self.editors, strict=True)
+        )
 
     def open_workbench(self) -> GlasshouseWorkbench:
         """Advance once from briefing to non-authoritative source review."""

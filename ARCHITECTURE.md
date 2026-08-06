@@ -685,6 +685,14 @@ selecting, editing, and compiling a policy are non-authoritative operations.
 `kiwi.render.glasshouse_workbench_view` consumes only this state through the
 bitmap font. It cannot deploy, execute, or otherwise alter mission authority.
 
+`kiwi.app.glasshouse_execution` compiles the current four workbench buffers,
+adds the project-owned hostile policies, and queues player `StartMission` or
+Glasshouse `advance`/`hold` commands for the next exact reducer tick. It limits
+targeted signals to deployed player entities, retains canonical emitted events,
+and otherwise delegates all outcomes to `kiwi.sim`. `kiwi.render.glasshouse_mission_view`
+renders only the `GlasshouseMissionPresentation` copied snapshot, lockdown
+countdown, and queued or recorded signal status.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

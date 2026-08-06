@@ -134,6 +134,11 @@ Delivery: next simulation tick
 
 The UI should never say “Move squad here” unless the kiwi actually interprets it that way.
 
+Glasshouse offers only `advance` and `hold` signals, addressed either to the
+squad or one deployed player operative. The mission HUD shows queued data before
+the next authoritative tick and the most recently issued signal afterwards. A
+signal is policy input; its recipient may ignore it.
+
 ## 5. Overlays
 
 MVP overlays:
