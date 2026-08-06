@@ -279,7 +279,7 @@ def _render_live_preview(
     left_rect, right_rect = _live_preview_panes(surface)
     left = surface.subsurface(left_rect)
     right = surface.subsurface(right_rect)
-    render_glasshouse_workbench(left, font, controller.workbench)
+    render_glasshouse_workbench(left, font, controller.workbench, compact_sidebar=True)
     _render_workbench_controls(left, font, controller)
     _render_preview_map(right, font, controller)
     _render_footer(
@@ -337,6 +337,7 @@ def _preview_trace_lines(
     if snapshot_tick == 0:
         return (
             "initial state; next step evaluates the scout policy",
+            "TRY: type 0 to stop Lark's exposed advance.",
             "DSL policies run once per fixed tick; no unbounded loops.",
         )
     trace_tick = snapshot_tick - 1
@@ -362,7 +363,10 @@ def _render_preview_panel(
     pygame.draw.rect(surface, _BORDER, (4, 4, surface.get_width() - 8, height), width=1)
     for index, line in enumerate(lines):
         color = _HEADING if index == 0 else _NOTICE if "intention" in line else _NORMAL
-        surface.blit(font.render(_truncate(line), color), (8, 8 + index * line_height))
+        surface.blit(
+            font.render(_fit_text(font, _truncate(line), surface.get_width() - 16), color),
+            (8, 8 + index * line_height),
+        )
 
 
 def _render_preview_controls(
@@ -390,7 +394,7 @@ def _render_preview_controls(
 def _live_preview_panes(surface: pygame.Surface) -> tuple[pygame.Rect, pygame.Rect]:
     width, height = surface.get_size()
     body_height = height - _FOOTER_HEIGHT
-    left_width = width // 2
+    left_width = width * 11 // 20
     return (
         pygame.Rect(0, 0, left_width, body_height),
         pygame.Rect(left_width, 0, width - left_width, body_height),
@@ -466,7 +470,10 @@ def _render_panel(surface: pygame.Surface, font: BitmapFont, lines: tuple[str, .
     pygame.draw.rect(surface, _BORDER, (4, 4, surface.get_width() - 8, height), width=1)
     for index, line in enumerate(lines):
         color = _HEADING if index == 0 else _NOTICE if index == len(lines) - 1 else _NORMAL
-        surface.blit(font.render(_truncate(line), color), (8, 8 + index * line_height))
+        surface.blit(
+            font.render(_fit_text(font, _truncate(line), surface.get_width() - 16), color),
+            (8, 8 + index * line_height),
+        )
 
 
 def _render_footer(surface: pygame.Surface, font: BitmapFont, controls: str, notice: str) -> None:
@@ -475,7 +482,10 @@ def _render_footer(surface: pygame.Surface, font: BitmapFont, controls: str, not
     pygame.draw.line(surface, _BORDER, (0, y), (surface.get_width(), y))
     text = notice if notice else controls
     color = _NOTICE if notice else _MUTED
-    surface.blit(font.render(_truncate(text), color), (4, y + 2))
+    surface.blit(
+        font.render(_fit_text(font, _truncate(text), surface.get_width() - 8), color),
+        (4, y + 2),
+    )
 
 
 def _workbench_help(controller: GlasshouseDemoController) -> str:
@@ -769,3 +779,18 @@ def _truncate(text: str) -> str:
     if len(text) <= _MAX_NOTICE_CHARACTERS:
         return text
     return text[: _MAX_NOTICE_CHARACTERS - 3] + "..."
+
+
+def _fit_text(font: BitmapFont, text: str, width: int) -> str:
+    """Return one bitmap-font line that fits an inclusive presentation width."""
+    if width <= 0:
+        raise ValueError("Glasshouse text width must be positive")
+    if font.measure(text)[0] <= width:
+        return text
+    suffix = "..."
+    if font.measure(suffix)[0] > width:
+        return ""
+    end = len(text)
+    while end > 0 and font.measure(text[:end] + suffix)[0] > width:
+        end -= 1
+    return text[:end] + suffix if end > 0 else suffix
