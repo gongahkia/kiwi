@@ -55,9 +55,14 @@ def test_glasshouse_demo_keyboard_flow_runs_the_complete_manual_drill() -> None:
     source = """
 import pygame
 
-from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
+from kiwi.app.glasshouse_demo import (
+    GlasshouseColorScheme,
+    GlasshouseDemoController,
+    GlasshouseDemoScreen,
+)
 from kiwi.render.glasshouse_demo import _handle_event
 from kiwi.render.pygame_lifecycle import quit_pygame
+from kiwi.ui.editor import EditorState
 
 pygame.init()
 controller = GlasshouseDemoController.create()
@@ -107,6 +112,13 @@ controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert controller.screen is GlasshouseDemoScreen.COMPARISON
+controller = controller.return_to_workbench().replace_selected_editor(
+    EditorState.from_text(\"Mov\").move_cursor(3)
+)
+controller, _ = _handle_event(
+    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_TAB, mod=0, unicode=\"\\t\")
+)
+assert controller.workbench.source.text == \"MoveToward\"
 quit_pygame()
 """
     environment = dict(os.environ)
@@ -128,12 +140,17 @@ def test_glasshouse_demo_clicks_position_the_editor_and_activate_compile_buttons
     source = """
 import pygame
 
-from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
+from kiwi.app.glasshouse_demo import (
+    GlasshouseColorScheme,
+    GlasshouseDemoController,
+    GlasshouseDemoScreen,
+)
 from kiwi.render.bitmap_font import load_bitmap_font
 from kiwi.render.glasshouse_demo import (
     _handle_click,
     _live_preview_panes,
     _preview_buttons,
+    _theme_button,
     _workbench_buttons,
 )
 from kiwi.render.pygame_lifecycle import quit_pygame
@@ -146,6 +163,9 @@ assert controller.screen is GlasshouseDemoScreen.BRIEFING
 controller = controller.open_workbench()
 controller = _handle_click(controller, (260, 32), font)
 assert controller.workbench.editor.cursor_position.line == 1
+theme_button = _theme_button(pygame.Surface((960, 540)), font)
+controller = _handle_click(controller, theme_button.center, font)
+assert controller.color_scheme is GlasshouseColorScheme.AMBER
 compile_button, deploy_button = _workbench_buttons(pygame.Surface((960, 540)), font)
 controller = _handle_click(controller, compile_button.center, font)
 assert controller.workbench.compile_output is not None
