@@ -139,6 +139,13 @@ squad or one deployed player operative. The mission HUD shows queued data before
 the next authoritative tick and the most recently issued signal afterwards. A
 signal is policy input; its recipient may ignore it.
 
+### 4.3 Glasshouse debrief
+
+The debrief lists retained injury consequences in canonical tick and trace-node
+order, initially selecting the first. Selecting another retained injury replaces
+the detail panel with that consequence's retained causal chain. It does not
+imply an authority change or a source edit.
+
 ## 5. Overlays
 
 MVP overlays:

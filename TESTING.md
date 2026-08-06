@@ -302,6 +302,9 @@ start, advance one reducer tick at a time, and verify deterministic `advance`
 and targeted `hold` signal provenance. The mission HUD test consumes the
 resulting presentation snapshot and signal status under dummy SDL.
 
+Glasshouse debrief tests assert canonical retained-injury selection, rejection
+of missing trace evidence, causal-chain replacement, and dummy-SDL bitmap output.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:
