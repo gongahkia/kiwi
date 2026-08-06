@@ -2,7 +2,7 @@
 
 ## 1. Design statement
 
-Kiwi is a real-time tactical programming game about designing a squad’s decision system rather than issuing individual actions. It borrows the emotional structure of persistent-squad tactics—preparation, incomplete intelligence, cover, injury, loss, extraction, and adaptation—without copying turn-based command mechanics.
+KIWI // Terminal is a real-time netrunner programming game about designing an autonomous daemon bundle rather than issuing individual actions. The Cyberpunk-era terminal fiction maps preparation, incomplete intelligence, cover, injury, loss, extraction, and adaptation onto routes, ICE, integrity, trace pressure, and payload exfiltration.
 
 The player’s skill is expressed through:
 
@@ -27,7 +27,7 @@ Kiwi is not:
 
 Kiwi is:
 
-- a small-squad tactics game;
+- a hybrid netspace tactics game;
 - real-time and autonomous;
 - based on incomplete local observations;
 - physically legible where outcomes matter;
@@ -38,7 +38,7 @@ Kiwi is:
 
 ```text
 Briefing
-  -> squad and equipment
+  -> daemon bundle and access profile
   -> kiwi editing
   -> compilation and tests
   -> real-time mission
@@ -449,39 +449,35 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 
 ### 13.1 Setup
 
-- Four player operatives.
-- Initial roles: Breach (breacher), Mender (medic), Scope (overwatch), and
-  Lark (scout), each with a separate bundled DSL policy and magazine loadout.
-- Three to five hostiles.
-- The initial three hostile roles use the same closed policy concepts as the
-  squad: patrol, aim, and hold; they receive no hidden player-state access.
-- Compact structure with two entrances.
-- Several full and partial cover segments.
-- One objective item or protected room.
-- One extraction area.
-- One 90-second extraction-lockdown event.
+- Four player daemons: Vector, Patch, Watch, and Lark, each with a separate
+  bundled DSL policy and bounded integrity budget.
+- Three hostile ICE programs using the same closed policy concepts: route,
+  acquire, and hold; they receive no hidden player-state access.
+- Compact hostile mainframe with two ingress routes, relay cover, subnet walls,
+  encrypted data shards, and one protected payload node.
+- One exfiltration route and one 90-second trace-containment event.
 - Two permitted high-level signals: `advance` and `hold`.
 
 ### 13.2 Initial flawed kiwi
 
-The bundled Lark policy treats a contact uncertainty radius at or below one
+The bundled Lark route daemon treats an ICE-contact uncertainty radius at or below one
 metre as sufficient reason to advance. Terminal starts it with a 0.5-metre
-uncertainty contact. The policy does not inspect available cover, so the source
-threshold can cause an advance past it.
+uncertainty contact. The policy does not inspect relay cover, so the source
+threshold can cause an exposed route.
 
 ### 13.3 Required failure trace
 
 The run produces a chain resembling:
 
 ```text
-observation: hostile contact uncertainty radius 0.5m
+observation: ICE contact uncertainty radius 0.5m
 source: contact.uncertainty_radius <= 1m
 branch: continue advance
 intention: MoveToward (1m, 0m)
-resolution: operative enters hostile line of fire
-hostile intention: Fire
-projectile: impact operative
-consequence: injury
+resolution: daemon enters exposed route
+ICE intention: countermeasure
+countermeasure: impacts daemon
+consequence: integrity loss
 ```
 
 ### 13.4 Revision
@@ -490,7 +486,7 @@ The player changes a threshold, weighting function, or priority ordering. The re
 
 ### 13.5 Completion
 
-The mission succeeds when the objective is secured and the squad extracts. Optional success measures include casualties, time, ammunition, and policy budget.
+The mission succeeds when the payload is secured and the daemon bundle exfiltrates. Optional success measures include integrity loss, trace time, countermeasure budget, and policy budget.
 
 ## 14. Progression after the vertical slice
 

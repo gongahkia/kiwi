@@ -3,21 +3,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pygame
 
+from kiwi.app.settings import UiSettings, load_ui_settings, save_ui_settings
+from kiwi.app.terminal_codex import TerminalCodex, load_terminal_codex, save_terminal_codex
 from kiwi.app.terminal_demo import (
     TerminalColorScheme,
     TerminalDemoController,
     TerminalDemoScreen,
     TerminalInputMode,
 )
+from kiwi.content.terminal_lore import TERMINAL_LORE_DROPS, terminal_lore_drop
 from kiwi.dsl.source import ByteOffset
 from kiwi.render.atlas import TextureAtlas, load_terminal_atlas
 from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
 from kiwi.render.camera import Camera, Projection, world_to_canvas
 from kiwi.render.causal_chain_view import CausalChainPalette
 from kiwi.render.challenge_results_view import ChallengeResultsPalette, render_challenge_results
+from kiwi.render.crt import CrtCompositor
+from kiwi.render.pygame_app import (
+    TacticalPalette,
+    open_pygame_window,
+    present,
+    render_tactical_view,
+)
+from kiwi.render.pygame_lifecycle import quit_pygame
+from kiwi.render.run_comparison_view import RunComparisonPalette, render_run_comparison_view
+from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
+from kiwi.render.terminal_cutscene_view import render_terminal_cutscene
 from kiwi.render.terminal_debrief_view import (
     TerminalDebriefPalette,
     render_terminal_debrief,
@@ -31,17 +46,9 @@ from kiwi.render.terminal_workbench_view import (
     TerminalWorkbenchPalette,
     render_terminal_workbench,
 )
-from kiwi.render.pygame_app import (
-    TacticalPalette,
-    open_pygame_window,
-    present,
-    render_tactical_view,
-)
-from kiwi.render.pygame_lifecycle import quit_pygame
-from kiwi.render.run_comparison_view import RunComparisonPalette, render_run_comparison_view
-from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
-from kiwi.sim.snapshot import build_presentation_snapshot
+from kiwi.sim.snapshot import PresentationPoint, PresentationSnapshot, build_presentation_snapshot
 from kiwi.ui.editor import EditorState, TextPosition
+from kiwi.ui.terminal_cutscenes import terminal_cutscene
 from kiwi.ui.terminal_debrief import TerminalDebrief
 from kiwi.ui.timeline import mission_timeline
 
@@ -58,6 +65,9 @@ _MAX_NOTICE_CHARACTERS = 116
 _PREVIEW_STEP_MILLISECONDS = 800
 _IMPACT_FEEDBACK_MILLISECONDS = 360
 _ATLAS: TextureAtlas | None = None
+_USER_STATE_DIRECTORY = Path.home() / "Library" / "Application Support" / "Kiwi"
+_SETTINGS_PATH = _USER_STATE_DIRECTORY / "settings.json"
+_CODEX_PATH = _USER_STATE_DIRECTORY / "terminal_codex.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,11 +249,20 @@ _PALETTES = {
 def run_terminal_demo() -> int:
     """Run the local-only Terminal usability drill until its window closes."""
     window = open_pygame_window(logical_size=_LOGICAL_SIZE)
-    pygame.display.set_caption("Kiwi — Terminal causal drill")
+    pygame.display.set_caption("KIWI // Terminal")
     font = load_bitmap_font()
     global _ATLAS
     _ATLAS = load_terminal_atlas()
-    controller = TerminalDemoController.create()
+    settings_result = load_ui_settings(_SETTINGS_PATH)
+    settings = settings_result.settings
+    saved_settings = settings
+    try:
+        codex = load_terminal_codex(_CODEX_PATH)
+    except ValueError:
+        codex = TerminalCodex()
+    controller = TerminalDemoController.create(codex=codex)
+    saved_codex = controller.codex
+    compositor = CrtCompositor()
     frame_clock = pygame.time.Clock()
     next_preview_step_at = pygame.time.get_ticks() + _PREVIEW_STEP_MILLISECONDS
     feedback_pulse = controller.preview_feedback_pulse
@@ -266,8 +285,22 @@ def run_terminal_demo() -> int:
                     should_quit = False
                 else:
                     controller, should_quit = _handle_event(controller, event)
+                    settings = _handle_crt_shortcuts(settings, event)
                 running = running and not should_quit
             now = pygame.time.get_ticks()
+            if controller.screen is TerminalDemoScreen.LOADING:
+                _render(window.logical_canvas, font, controller, elapsed_milliseconds=now)
+                compositor.apply(
+                    window.logical_canvas,
+                    _palette_for(controller.color_scheme).heading,
+                    now,
+                    enabled=settings.crt_enabled,
+                    reduced_flicker=settings.reduced_flicker,
+                )
+                present(window)
+                frame_clock.tick(60)
+                controller = controller.finish_deploy()
+                continue
             if (
                 controller.screen is TerminalDemoScreen.LIVE_PREVIEW
                 and controller.current_run is not None
@@ -288,8 +321,22 @@ def run_terminal_demo() -> int:
                 controller,
                 shake_offset=shake_offset,
                 impact_emphasis=impact_emphasis,
+                elapsed_milliseconds=now,
+            )
+            compositor.apply(
+                window.logical_canvas,
+                _palette_for(controller.color_scheme).heading,
+                now,
+                enabled=settings.crt_enabled,
+                reduced_flicker=settings.reduced_flicker,
             )
             present(window)
+            if controller.codex != saved_codex:
+                save_terminal_codex(_CODEX_PATH, controller.codex)
+                saved_codex = controller.codex
+            if settings != saved_settings:
+                save_ui_settings(_SETTINGS_PATH, settings)
+                saved_settings = settings
             frame_clock.tick(60)
     finally:
         quit_pygame()
@@ -301,10 +348,18 @@ def _handle_event(
 ) -> tuple[TerminalDemoController, bool]:
     if event.type != pygame.KEYDOWN:
         return (controller, False)
+    if controller.screen is TerminalDemoScreen.LOADING:
+        return (controller, False)
+    if controller.screen is TerminalDemoScreen.CODEX:
+        if event.key in (pygame.K_ESCAPE, pygame.K_l, pygame.K_RETURN):
+            return (controller.close_codex(), False)
+        return (controller, False)
     if event.key == pygame.K_ESCAPE:
         if controller.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
             return (controller, True)
         return (_escape(controller), False)
+    if event.key == pygame.K_l:
+        return (controller.open_codex(), False)
     if controller.screen is TerminalDemoScreen.INPUT_SETUP:
         if event.key == pygame.K_1:
             return (controller.choose_input_mode(TerminalInputMode.STANDARD), False)
@@ -350,6 +405,21 @@ def _handle_event(
     return (controller, False)
 
 
+def _handle_crt_shortcuts(settings: UiSettings, event: pygame.event.Event) -> UiSettings:
+    """Handle presentation-only CRT shortcuts without changing controller authority."""
+    if event.type != pygame.KEYDOWN:
+        return settings
+    modifiers = event.mod
+    command_shift = bool(
+        modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META) and modifiers & pygame.KMOD_SHIFT
+    )
+    if command_shift and event.key == pygame.K_c:
+        return settings.with_crt_enabled(not settings.crt_enabled)
+    if command_shift and event.key == pygame.K_f:
+        return settings.with_reduced_flicker(not settings.reduced_flicker)
+    return settings
+
+
 def _escape(controller: TerminalDemoController) -> TerminalDemoController:
     if controller.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
         return controller
@@ -365,9 +435,7 @@ def _handle_workbench_key(
     command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
     shifted = modifiers & pygame.KMOD_SHIFT
     if event.key == pygame.K_F1 or (
-        controller.input_mode is TerminalInputMode.STANDARD
-        and command
-        and event.key == pygame.K_g
+        controller.input_mode is TerminalInputMode.STANDARD and command and event.key == pygame.K_g
     ):
         return controller.open_guide()
     if event.key == pygame.K_F2 or (
@@ -385,7 +453,7 @@ def _handle_workbench_key(
     ):
         return controller.cycle_color_scheme()
     if _deploy_pressed(controller, event):
-        return controller.deploy()
+        return controller.begin_deploy()
     if event.key == pygame.K_TAB:
         completed = controller.accept_completion()
         if completed is not controller:
@@ -438,7 +506,7 @@ def _handle_live_preview_key(
     if event.key == pygame.K_h:
         return controller.open_results()
     if _deploy_pressed(controller, event):
-        return controller.deploy()
+        return controller.begin_deploy()
     if command and event.key == pygame.K_l:
         return controller.toggle_hot_reload()
     if command and event.key == pygame.K_p:
@@ -501,10 +569,25 @@ def _render(
     *,
     shake_offset: tuple[int, int] = (0, 0),
     impact_emphasis: int = 0,
+    elapsed_milliseconds: int = 0,
 ) -> None:
     palette = _palette_for(controller.color_scheme)
     if controller.screen is TerminalDemoScreen.INPUT_SETUP:
-        _render_input_setup(surface, font, controller)
+        _render_input_setup(surface, font, controller, palette, elapsed_milliseconds)
+        return
+    if controller.screen is TerminalDemoScreen.LOADING:
+        render_terminal_cutscene(
+            surface,
+            font,
+            terminal_cutscene("terminal_deploy"),
+            elapsed_milliseconds,
+            background=palette.background,
+            panel=palette.panel,
+            border=palette.border,
+            heading=palette.heading,
+            normal=palette.normal,
+            atlas=_ATLAS,
+        )
         return
     if controller.screen in (TerminalDemoScreen.BRIEFING, TerminalDemoScreen.WORKBENCH):
         render_terminal_workbench(
@@ -558,6 +641,9 @@ def _render(
         return
     if controller.screen is TerminalDemoScreen.RESULTS:
         _render_results(surface, font, controller, palette)
+        return
+    if controller.screen is TerminalDemoScreen.CODEX:
+        _render_codex(surface, font, controller, palette)
         return
     _render_comparison(surface, font, controller, palette)
 
@@ -633,6 +719,7 @@ def _render_preview_map(
         atlas=_ATLAS,
         impact_emphasis=impact_emphasis,
     )
+    _render_lore_shards(surface, snapshot, controller, palette, shake_offset)
     trace_lines = _preview_trace_lines(controller, snapshot.tick)
     _render_preview_panel(
         surface,
@@ -650,17 +737,15 @@ def _render_preview_map(
     _render_preview_controls(surface, font, controller, palette)
 
 
-def _preview_trace_lines(
-    controller: TerminalDemoController, snapshot_tick: int
-) -> tuple[str, ...]:
+def _preview_trace_lines(controller: TerminalDemoController, snapshot_tick: int) -> tuple[str, ...]:
     if controller.current_run is None:
         return ()
     if controller.preview_stale:
         return ("source changed; Compile + run is required to refresh.",)
     if snapshot_tick == 0:
         return (
-            "initial state; next step evaluates the scout policy",
-            "TRY: type 0 to stop Lark's exposed advance.",
+            "initial state; next step evaluates Lark's route daemon",
+            "TRY: type 0 to stop Lark's exposed ICE route.",
             "DSL policies run once per fixed tick; no unbounded loops.",
         )
     trace_tick = snapshot_tick - 1
@@ -785,9 +870,9 @@ def _render_mission(
         atlas=_ATLAS,
     )
     lines = (
-        "TERMINAL CAUSAL DRILL",
-        "2 fixed ticks; player requests, simulation resolves.",
-        "Lark starts with a 0.5m-uncertainty contact.",
+        "HOSTILE MAINFRAME // CAUSAL DRILL",
+        "2 fixed ticks; daemon requests, simulation resolves.",
+        "Lark's scout daemon starts with a 0.5m noisy ICE contact.",
         controller.notice,
     )
     _render_panel(surface, font, lines, palette)
@@ -901,6 +986,42 @@ def _render_results(
     _render_footer(surface, font, "Esc workbench", controller.notice, palette)
 
 
+def _render_codex(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+) -> None:
+    """Render only local lore IDs and authored content, never mission state."""
+    surface.fill(palette.background)
+    _render_panel(
+        surface,
+        font,
+        (
+            "KIWI // CODEX",
+            f"RECOVERED SHARDS: {len(controller.codex.unlocked_ids)} / {len(TERMINAL_LORE_DROPS)}",
+            "Policy-reached shards remain available between terminal sessions.",
+        ),
+        palette,
+    )
+    y = 68
+    line_height = font.measure("M")[1]
+    for lore_id in controller.codex.unlocked_ids:
+        drop = terminal_lore_drop(lore_id)
+        surface.blit(font.render(drop.title.upper(), palette.heading), (20, y))
+        y += line_height
+        for line in drop.body:
+            surface.blit(
+                font.render(_fit_text(font, line, surface.get_width() - 40), palette.normal),
+                (28, y),
+            )
+            y += line_height
+        y += 6
+    if not controller.codex.unlocked_ids:
+        surface.blit(font.render("No recovered data shards.", palette.muted), (20, y))
+    _render_footer(surface, font, "L / Enter / Esc workbench", "", palette)
+
+
 def _render_panel(
     surface: pygame.Surface,
     font: BitmapFont,
@@ -969,21 +1090,36 @@ def _input_mode_label(input_mode: TerminalInputMode) -> str:
 
 
 def _render_input_setup(
-    surface: pygame.Surface, font: BitmapFont, controller: TerminalDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+    elapsed_milliseconds: int,
 ) -> None:
-    surface.fill(_BACKGROUND)
+    render_terminal_cutscene(
+        surface,
+        font,
+        terminal_cutscene("terminal_boot"),
+        elapsed_milliseconds,
+        background=palette.background,
+        panel=palette.panel,
+        border=palette.border,
+        heading=palette.heading,
+        normal=palette.normal,
+        atlas=_ATLAS,
+    )
     line_height = font.measure("M")[1]
     lines = (
-        "INPUT SETUP",
+        "INPUT SETUP // select terminal controls",
         (
             f"{_platform_label(controller.detected_platform)} detected: "
             f"{_input_mode_label(controller.input_mode)} selected."
         ),
-        "Choose a key set before the causal drill starts.",
+        "Choose a key set before the terminal session starts.",
     )
     for index, line in enumerate(lines):
-        color = _HEADING if index == 0 else _NORMAL
-        surface.blit(font.render(line, color), (24, 24 + index * line_height))
+        color = palette.heading if index == 0 else palette.normal
+        surface.blit(font.render(line, color), (24, 248 + index * line_height))
     standard, function_keys, continue_button = _input_setup_buttons(surface, font)
     _render_button(
         surface,
@@ -991,6 +1127,7 @@ def _render_input_setup(
         standard,
         "1  Standard keys: Cmd+G / Cmd+T / Cmd+Enter / Cmd+R",
         controller.input_mode is TerminalInputMode.STANDARD,
+        palette,
     )
     _render_button(
         surface,
@@ -998,9 +1135,49 @@ def _render_input_setup(
         function_keys,
         "2  Function keys: F1 / F2 / Cmd+Enter / F5",
         controller.input_mode is TerminalInputMode.FUNCTION_KEYS,
+        palette,
     )
-    _render_button(surface, font, continue_button, "Continue", True)
-    _render_footer(surface, font, "Click a key set | Enter continues | Esc quits", "")
+    _render_button(surface, font, continue_button, "Continue", True, palette)
+    _render_footer(
+        surface,
+        font,
+        "Click a key set | Enter continues | Esc quits | Cmd+Shift+C CRT",
+        "",
+        palette,
+    )
+
+
+def _render_lore_shards(
+    surface: pygame.Surface,
+    snapshot: PresentationSnapshot,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+    shake_offset: tuple[int, int],
+) -> None:
+    """Draw uncollected content shards from fixed metadata over copied snapshots."""
+    camera = _preview_camera(controller, shake_offset)
+    for drop in TERMINAL_LORE_DROPS:
+        if drop.lore_id in controller.codex.unlocked_ids:
+            continue
+        point = world_to_canvas(
+            PresentationPoint(float(drop.position_x), float(drop.position_y), 0),
+            surface.get_size(),
+            camera,
+        )
+        if _ATLAS is None:
+            pygame.draw.polygon(
+                surface,
+                palette.notice,
+                (
+                    (point[0], point[1] - 5),
+                    (point[0] + 5, point[1]),
+                    (point[0], point[1] + 5),
+                    (point[0] - 5, point[1]),
+                ),
+            )
+            continue
+        sprite = _ATLAS.frame("data_shard", 18, palette.notice)
+        surface.blit(sprite, sprite.get_rect(center=point))
 
 
 def _render_workbench_controls(
@@ -1189,7 +1366,7 @@ def _handle_workbench_click(
     if compile_button.collidepoint(position):
         return controller.compile_selected()
     if deploy_button.collidepoint(position):
-        return controller.deploy()
+        return controller.begin_deploy()
     if theme_button.collidepoint(position):
         return controller.cycle_color_scheme()
     if sidebar_rect.collidepoint(position):

@@ -91,6 +91,8 @@ controller, _ = _handle_event(
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F5, mod=0, unicode=\"\")
 )
+assert controller.screen is TerminalDemoScreen.LOADING
+controller = controller.finish_deploy()
 assert controller.screen is TerminalDemoScreen.LIVE_PREVIEW
 controller, _ = _handle_event(
     controller,
@@ -116,6 +118,8 @@ for key, text in ((pygame.K_0, \"0\"),):
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F5, mod=0, unicode=\"\")
 )
+assert controller.screen is TerminalDemoScreen.LOADING
+controller = controller.finish_deploy()
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
@@ -179,6 +183,8 @@ controller = _handle_click(controller, compile_button.center, font)
 assert controller.workbench.compile_output is not None
 assert controller.workbench.compile_output.succeeded
 controller = _handle_click(controller, deploy_button.center, font)
+assert controller.screen is TerminalDemoScreen.LOADING
+controller = controller.finish_deploy()
 assert controller.screen is TerminalDemoScreen.LIVE_PREVIEW
 left_rect, right_rect = _live_preview_panes(pygame.Surface((960, 540)))
 play_button, step_button, reload_button, _ = _preview_buttons(pygame.Surface(right_rect.size), font)

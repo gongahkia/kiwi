@@ -2,9 +2,9 @@
 
 ## 1. Summary
 
-Stanczyk is a programmable terminal runtime for LÖVE applications. It combines a deterministic terminal state machine, multiple input backends, recorded-session replay, protocol inspection, and a programmable renderer.
+KIWI // Terminal is a single-player real-time netrunner programming game set against a Cyberpunk: Edgerunners-era backdrop. The player writes a deliberately small functional DSL for autonomous daemon bundles operating inside hostile netspace. The preserved deterministic simulation models their route, uncertainty, countermeasures, integrity, and payload exfiltration without direct player command.
 
-The project should feel like a terminal emulator internally and a creative runtime externally. The parser, screen model, backend, renderer, effects, debugger, and embedding API must remain separable.
+The product’s distinguishing feature is a causal debugger that maps netspace outcomes back to program evaluations. When a daemon is exposed to ICE, loses a route, triggers trace containment, or misses a payload, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and simulation events that produced the result.
 
 The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Terminal lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
@@ -18,11 +18,7 @@ TUI developers also lack approachable tools that reveal the relationship between
 
 Stanczyk addresses these gaps with a runtime that can act as:
 
-- a real terminal front-end on supported desktop platforms;
-- a deterministic player for terminal recordings;
-- a sandboxed terminal environment in games and web builds;
-- a control-sequence debugger;
-- a platform for procedural terminal renderers and effects.
+> Program the daemon bundle. Jack in. Debug the trace.
 
 ## 3. Goals
 
@@ -110,7 +106,7 @@ Parser, state, backends, rendering, effects, and native integration must communi
 - mod scripting through Python;
 - a universal IDE;
 - many factions or enemy families;
-- cinematic narrative production;
+- branching cinematic narrative production;
 - a large item economy;
 - live-service infrastructure;
 - machine-learning agents;
@@ -336,7 +332,7 @@ All durable formats require schema versions and validation.
 
 ### 11.1 Scenario: Terminal
 
-A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
+A four-daemon bundle breaches a hostile mainframe to retrieve an encrypted payload and exfiltrate. The isometric map is a netspace visualization of relays, ICE, and subnet boundaries; it preserves the existing deterministic authority rules.
 
 - two approaches;
 - several cover edges;

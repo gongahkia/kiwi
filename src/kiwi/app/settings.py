@@ -8,7 +8,7 @@ from enum import StrEnum
 from pathlib import Path
 
 SETTINGS_FORMAT = "kiwi-settings"
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 MAX_SETTINGS_BYTES = 65_536
 MIN_UI_SCALE = 1
 MAX_UI_SCALE = 4
@@ -28,10 +28,14 @@ class SettingsLoadFailureCode(StrEnum):
 class UiSettings:
     ui_scale: int = 1
     font_scale: int = 1
+    crt_enabled: bool = True
+    reduced_flicker: bool = False
 
     def __post_init__(self) -> None:
         _scale(self.ui_scale, MIN_UI_SCALE, MAX_UI_SCALE, "UI")
         _scale(self.font_scale, MIN_FONT_SCALE, MAX_FONT_SCALE, "font")
+        if not isinstance(self.crt_enabled, bool) or not isinstance(self.reduced_flicker, bool):
+            raise TypeError("CRT settings must be boolean")
 
     @property
     def render_scale(self) -> int:
@@ -50,6 +54,18 @@ class UiSettings:
     def with_font_scale(self, scale: int) -> UiSettings:
         """Return settings with one validated font scale."""
         return replace(self, font_scale=scale)
+
+    def with_crt_enabled(self, enabled: bool) -> UiSettings:
+        """Return one presentation-only CRT setting change."""
+        if not isinstance(enabled, bool):
+            raise TypeError("CRT enabled setting must be boolean")
+        return replace(self, crt_enabled=enabled)
+
+    def with_reduced_flicker(self, enabled: bool) -> UiSettings:
+        """Return one presentation-only flicker accessibility setting change."""
+        if not isinstance(enabled, bool):
+            raise TypeError("reduced flicker setting must be boolean")
+        return replace(self, reduced_flicker=enabled)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,8 +98,10 @@ def encode_ui_settings(settings: UiSettings) -> bytes:
         raise TypeError("settings encoding requires UI settings")
     return json.dumps(
         {
+            "crt_enabled": settings.crt_enabled,
             "font_scale": settings.font_scale,
             "format": SETTINGS_FORMAT,
+            "reduced_flicker": settings.reduced_flicker,
             "ui_scale": settings.ui_scale,
             "version": SETTINGS_VERSION,
         },
@@ -104,14 +122,33 @@ def decode_ui_settings(data: bytes) -> SettingsLoadResult:
         return _failed(SettingsLoadFailureCode.INVALID_UTF8, "settings are not valid UTF-8")
     except json.JSONDecodeError:
         return _failed(SettingsLoadFailureCode.INVALID_JSON, "settings are not valid JSON")
-    if not isinstance(value, dict) or set(value) != {"font_scale", "format", "ui_scale", "version"}:
+    if not isinstance(value, dict):
         return _failed(SettingsLoadFailureCode.INVALID_STRUCTURE, "settings fields are invalid")
-    if value["format"] != SETTINGS_FORMAT or value["version"] != SETTINGS_VERSION:
-        return _failed(
-            SettingsLoadFailureCode.INVALID_STRUCTURE, "settings format or version is unsupported"
-        )
+    if value.get("format") != SETTINGS_FORMAT:
+        return _failed(SettingsLoadFailureCode.INVALID_STRUCTURE, "settings format is unsupported")
+    if value.get("version") == 1 and set(value) == {"font_scale", "format", "ui_scale", "version"}:
+        try:
+            return SettingsLoadResult(UiSettings(value["ui_scale"], value["font_scale"]))
+        except (TypeError, ValueError):
+            return _failed(
+                SettingsLoadFailureCode.INVALID_STRUCTURE, "settings scale values are invalid"
+            )
+    if value.get("version") != SETTINGS_VERSION or set(value) != {
+        "crt_enabled",
+        "font_scale",
+        "format",
+        "reduced_flicker",
+        "ui_scale",
+        "version",
+    }:
+        return _failed(SettingsLoadFailureCode.INVALID_STRUCTURE, "settings fields are invalid")
     try:
-        settings = UiSettings(value["ui_scale"], value["font_scale"])
+        settings = UiSettings(
+            value["ui_scale"],
+            value["font_scale"],
+            value["crt_enabled"],
+            value["reduced_flicker"],
+        )
     except (TypeError, ValueError):
         return _failed(
             SettingsLoadFailureCode.INVALID_STRUCTURE, "settings scale values are invalid"

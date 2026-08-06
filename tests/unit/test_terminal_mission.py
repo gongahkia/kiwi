@@ -16,19 +16,19 @@ from kiwi.ui.terminal_mission import (
             ObjectiveStatus.ACTIVE,
             False,
             TerminalMissionOutcome.IN_PROGRESS,
-            "MISSION: IN PROGRESS / objective active",
+            "MISSION: IN PROGRESS / payload active",
         ),
         (
             ObjectiveStatus.RETRIEVED,
             True,
             TerminalMissionOutcome.FAILURE,
-            "MISSION: FAILURE / lockdown blocked extraction",
+            "MISSION: FAILURE / trace containment sealed route",
         ),
         (
             ObjectiveStatus.EXTRACTED,
             True,
             TerminalMissionOutcome.SUCCESS,
-            "MISSION: SUCCESS / objective extracted",
+            "MISSION: SUCCESS / payload exfiltrated",
         ),
     ),
 )

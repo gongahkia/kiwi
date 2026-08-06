@@ -128,8 +128,7 @@ def test_terminal_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> No
     assert phosphor.color_scheme is TerminalColorScheme.PHOSPHOR
     assert phosphor.cycle_color_scheme().color_scheme is TerminalColorScheme.MAROON
     assert (
-        phosphor.cycle_color_scheme().cycle_color_scheme().color_scheme
-        is TerminalColorScheme.WHITE
+        phosphor.cycle_color_scheme().cycle_color_scheme().color_scheme is TerminalColorScheme.WHITE
     )
     assert (
         phosphor.cycle_color_scheme().cycle_color_scheme().cycle_color_scheme().color_scheme

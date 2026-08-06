@@ -41,3 +41,12 @@ def test_settings_save_writes_canonical_json(tmp_path: Path) -> None:
     save_ui_settings(path, UiSettings(3, 2))
 
     assert load_ui_settings(path).settings == UiSettings(3, 2)
+
+
+def test_v1_settings_migrate_to_default_crt_preferences() -> None:
+    decoded = decode_ui_settings(
+        b'{"font_scale":2,"format":"kiwi-settings","ui_scale":3,"version":1}'
+    )
+
+    assert decoded.settings == UiSettings(3, 2, True, False)
+    assert decoded.failure is None

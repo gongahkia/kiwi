@@ -57,19 +57,29 @@ class AtlasAnimation:
 
 
 TERMINAL_ATLAS_FRAMES = (
-    AtlasFrame("operative", 48, 45, 270, 300),
-    AtlasFrame("operative_alert", 350, 45, 270, 300),
-    AtlasFrame("hostile", 32, 375, 270, 280),
-    AtlasFrame("cover", 382, 375, 360, 290),
-    AtlasFrame("wall", 660, 680, 540, 260),
-    AtlasFrame("objective", 840, 340, 360, 330),
-    AtlasFrame("projectile", 45, 1_015, 270, 150),
-    AtlasFrame("impact", 650, 985, 300, 230),
-    AtlasFrame("floor", 70, 680, 520, 300),
+    AtlasFrame("operator_seated", 0, 0, 418, 418),
+    AtlasFrame("operator_linked", 418, 0, 418, 418),
+    AtlasFrame("daemon", 836, 0, 418, 418),
+    AtlasFrame("daemon_alert", 0, 418, 418, 418),
+    AtlasFrame("black_ice", 418, 418, 418, 418),
+    AtlasFrame("data_shard", 836, 418, 418, 418),
+    AtlasFrame("relay_node", 0, 836, 418, 418),
+    AtlasFrame("countermeasure", 418, 836, 418, 418),
+    AtlasFrame("glitch_impact", 836, 836, 418, 418),
+    AtlasFrame("operative", 836, 0, 418, 418),
+    AtlasFrame("operative_alert", 0, 418, 418, 418),
+    AtlasFrame("hostile", 418, 418, 418, 418),
+    AtlasFrame("cover", 0, 836, 418, 418),
+    AtlasFrame("wall", 0, 0, 418, 418),
+    AtlasFrame("objective", 836, 418, 418, 418),
+    AtlasFrame("projectile", 418, 836, 418, 418),
+    AtlasFrame("impact", 836, 836, 418, 418),
+    AtlasFrame("floor", 418, 0, 418, 418),
 )
 TERMINAL_ATLAS_ANIMATIONS = (
+    AtlasAnimation("daemon_idle", ("daemon", "daemon_alert"), 10),
     AtlasAnimation("operative_idle", ("operative", "operative_alert"), 10),
-    AtlasAnimation("impact", ("impact", "projectile", "impact"), 2),
+    AtlasAnimation("impact", ("glitch_impact", "countermeasure", "glitch_impact"), 2),
 )
 
 

@@ -90,14 +90,10 @@ class TerminalDebrief:
             node_id not in tuple(injury.node_id for injury in self.injuries)
             or retained != self.injuries
         ):
-            return TerminalDebriefUnavailable(
-                TerminalDebriefUnavailableCode.INJURY_NOT_RETAINED
-            )
+            return TerminalDebriefUnavailable(TerminalDebriefUnavailableCode.INJURY_NOT_RETAINED)
         panel = causal_chain_panel(trace, node_id)
         if isinstance(panel, CausalPanelUnavailable):
-            return TerminalDebriefUnavailable(
-                TerminalDebriefUnavailableCode.INJURY_NOT_RETAINED
-            )
+            return TerminalDebriefUnavailable(TerminalDebriefUnavailableCode.INJURY_NOT_RETAINED)
         return replace(self, selected_node_id=node_id, chain=panel)
 
 

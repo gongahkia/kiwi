@@ -12,10 +12,10 @@
 ## 2. Main flow
 
 ```text
-Main menu
- -> campaign or fixture
+Terminal boot / loading
+ -> fixture or terminal session
  -> briefing
- -> squad and equipment
+ -> daemon bundle and access profile
  -> kiwi workbench
  -> compile and validation
  -> mission
@@ -27,15 +27,15 @@ The vertical slice may expose `Run fixture`, `Edit policy`, and `Compare runs` d
 
 ### 2.1 Terminal entry flow
 
-Terminal opens on a briefing that states the recovery-and-extraction
-objective, 90-second lockdown, incomplete hostile intelligence, and Lark's
+Terminal opens on a skippable operator-seated boot scene, then a briefing that states the hostile-mainframe
+payload objective, 90-second trace containment, incomplete ICE telemetry, and Lark's
 initial 0.5-metre-uncertainty contact. Continuing opens the workbench. Its
 canonical role sidebar is Breach, Mender, Scope, then Lark; each role retains
 an independent in-memory editor and compile result while the player reviews
 another policy. Compilation only produces DSL diagnostics or bytecode metadata;
 it does not deploy or execute a policy.
 
-`Compile + run` in the Terminal drill opens a live-preview split: editable
+`Compile + run` in the Terminal drill shows a jacking-in loading scene, then opens a live-preview split: editable
 source remains on the left while the right pane cycles through the initial,
 first-tick, and second-tick snapshots of one newly recorded deterministic run.
 With hot reload enabled, a source-text change recompiles and records the same
@@ -46,8 +46,8 @@ records for the displayed tick and focuses Lark's source span when that exact
 run emitted an intention. The DSL has no unbounded loops: policies evaluate once
 per fixed tick, so the preview never implies otherwise.
 
-The mission HUD reports `IN PROGRESS`, `SUCCESS` after the squad objective is
-extracted, or `FAILURE` when lockdown prevents extraction. These are copied
+The mission HUD reports `IN PROGRESS`, `SUCCESS` after the payload is
+exfiltrated, or `FAILURE` when trace containment seals the route. These are copied
 outcomes, not player controls or new mission phases.
 
 ## 3. Kiwi workbench
@@ -295,6 +295,10 @@ Creep may be evaluated for compact labels, sparklines, or micro-panels subject t
 - no font smoothing for the primary bitmap font;
 - fallback glyph indicator for unsupported characters;
 - test at common laptop resolutions.
+
+### 7.4 Cutscenes, lore, and CRT
+
+Cutscenes are skippable data-driven terminal-text, sprite, sound, hold, and transition beats. They have no authority state or branches. Data shards are visible map pickups that unlock only through policy-reached positions and persist as validated local codex IDs. A theme-aware CRT compositor covers every screen; scanlines, vignette, curvature framing, phosphor noise, and flicker reduction remain presentation-only and user-toggleable.
 
 ## 8. Visual style
 

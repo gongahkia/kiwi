@@ -25,18 +25,18 @@ def test_terminal_briefing_opens_role_specific_workbench_and_compiles_selected_s
 
     assert briefing.phase is TerminalFlowPhase.BRIEFING
     assert briefing.briefing.panel_lines == (
-        "TERMINAL",
+        "KIWI // HOSTILE MAINFRAME",
         "",
         "PRIMARY OBJECTIVE",
-        "Recover the protected objective, then extract.",
+        "Route daemons to the encrypted payload, then exfiltrate the bundle.",
         "",
         "TIME PRESSURE",
-        "Extraction locks exactly 90 seconds after mission start.",
+        "Trace containment seals the route exactly 90 seconds after deployment.",
         "",
         "INTELLIGENCE",
-        "Hostile intelligence is incomplete.",
-        "Lark begins with one 0.5m-uncertainty contact.",
-        "Review each policy before deployment.",
+        "Hostile ICE telemetry is incomplete.",
+        "Lark begins with one 0.5m-uncertainty ICE contact.",
+        "Review each daemon policy before jacking in.",
         "",
         "OPEN KIWI WORKBENCH",
     )
@@ -45,20 +45,18 @@ def test_terminal_briefing_opens_role_specific_workbench_and_compiles_selected_s
 
     assert workbench.phase is TerminalFlowPhase.WORKBENCH
     assert tuple(policy.label for policy in workbench.policies) == (
-        "Breach / breacher",
-        "Mender / medic",
-        "Scope / overwatch",
-        "Lark / scout",
+        "Vector / daemon",
+        "Patch / daemon",
+        "Watch / daemon",
+        "Lark / daemon",
     )
-    assert workbench.selected_policy.label == "Lark / scout"
+    assert workbench.selected_policy.label == "Lark / daemon"
     assert workbench.source.text == _policy_sources()[3].text
     assert workbench.compile_output is not None
     assert workbench.compile_output.succeeded
 
 
-def test_terminal_workbench_keeps_editors_independent_and_invalidates_only_changed_output() -> (
-    None
-):
+def test_terminal_workbench_keeps_editors_independent_and_invalidates_only_changed_output() -> None:
     workbench = build_terminal_workbench(_policy_sources()).open_workbench()
     compiled_breacher = workbench.compile_selected()
     edited_breacher = compiled_breacher.replace_editor(compiled_breacher.editor.insert_text("@"))

@@ -8,8 +8,8 @@ import pygame
 
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.camera import Camera
-from kiwi.render.terminal_audio import TerminalSoundPlayer
 from kiwi.render.pygame_app import render_tactical_view
+from kiwi.render.terminal_audio import TerminalSoundPlayer
 from kiwi.ui.terminal_mission import TerminalMissionOutcome, TerminalMissionPresentation
 
 

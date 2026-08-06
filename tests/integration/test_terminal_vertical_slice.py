@@ -9,7 +9,7 @@ from kiwi.app.terminal_execution import (
     build_terminal_mission_presentation,
 )
 from kiwi.app.terminal_hostiles import TERMINAL_HOSTILE_LOADOUTS
-from kiwi.app.terminal_players import TERMINAL_PLAYER_LOADOUTS, PLAYER_MEMORY_SCHEMA
+from kiwi.app.terminal_players import PLAYER_MEMORY_SCHEMA, TERMINAL_PLAYER_LOADOUTS
 from kiwi.app.terminal_workbench import build_terminal_workbench
 from kiwi.content.missions import MissionData, load_mission_file
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
@@ -57,10 +57,10 @@ from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
 from kiwi.trace.comparison import ConsequenceDifferenceKind
+from kiwi.ui.run_comparison import run_comparison_view
 from kiwi.ui.terminal_debrief import TerminalDebrief, terminal_debrief
 from kiwi.ui.terminal_revision import TerminalGuidedRevision, guided_source_revision
 from kiwi.ui.terminal_tutorial import TERMINAL_LANGUAGE_TUTORIAL, TerminalTutorialConstruct
-from kiwi.ui.run_comparison import run_comparison_view
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MISSION_PATH = REPOSITORY_ROOT / "examples" / "missions" / "terminal.dmission.json"

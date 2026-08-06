@@ -60,9 +60,7 @@ class TerminalHostileLoadout:
             not isinstance(value, int) or isinstance(value, bool)
             for value in (self.position_x, self.position_y, self.magazine_capacity)
         ):
-            raise ValueError(
-                "Terminal hostile coordinates and magazine capacity must be integers"
-            )
+            raise ValueError("Terminal hostile coordinates and magazine capacity must be integers")
         if self.magazine_capacity <= 0:
             raise ValueError("Terminal hostile magazine capacity must be positive")
         names = tuple(capability.value for capability in self.capabilities)

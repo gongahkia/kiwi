@@ -49,9 +49,9 @@ def test_terminal_deploys_four_distinct_player_loadouts_and_policies() -> None:
         "scout",
     )
     assert tuple(player.loadout.callsign for player in result.players) == (
-        "Breach",
-        "Mender",
-        "Scope",
+        "Vector",
+        "Patch",
+        "Watch",
         "Lark",
     )
     assert tuple(entity.position for entity in result.state.entities) == tuple(
