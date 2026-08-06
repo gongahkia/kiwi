@@ -676,6 +676,10 @@ The MVP editor is project-owned and intentionally limited:
 
 Do not build a general text-editor framework. Store source as Unicode text, while the shipping font may support a narrower initial glyph set with fallback diagnostics.
 
+`kiwi.ui.editor` provides the headless immutable source buffer, one-based
+Unicode-code-point line index, cursor selection, and logical scroll state. It
+does not import pygame, mutate authority, or define display glyph geometry.
+
 ## 18. Content architecture
 
 Mission and entity content should be data-driven through validated versioned files. Avoid dynamic Python imports for content.
