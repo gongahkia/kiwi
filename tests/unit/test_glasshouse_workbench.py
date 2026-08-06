@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from kiwi.app.glasshouse_players import GLASSHOUSE_PLAYER_LOADOUTS
+from kiwi.app.glasshouse_workbench import build_glasshouse_workbench
+from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _policy_sources() -> tuple[SourceFile, ...]:
+    return tuple(
+        SourceFile(
+            SourceFileId(loadout.policy_file_id),
+            (REPOSITORY_ROOT / loadout.policy_file_id).read_text(encoding="utf-8"),
+        )
+        for loadout in GLASSHOUSE_PLAYER_LOADOUTS
+    )
+
+
+def test_glasshouse_briefing_opens_role_specific_workbench_and_compiles_selected_source() -> None:
+    briefing = build_glasshouse_workbench(_policy_sources())
+
+    assert briefing.phase is GlasshouseFlowPhase.BRIEFING
+    assert briefing.briefing.panel_lines == (
+        "GLASSHOUSE",
+        "",
+        "PRIMARY OBJECTIVE",
+        "Recover the protected objective, then extract.",
+        "",
+        "TIME PRESSURE",
+        "Extraction locks exactly 90 seconds after mission start.",
+        "",
+        "INTELLIGENCE",
+        "Hostile intelligence is incomplete.",
+        "Lark begins with one 0.5m-uncertainty contact.",
+        "Review each policy before deployment.",
+        "",
+        "OPEN KIWI WORKBENCH",
+    )
+
+    workbench = briefing.open_workbench().select_policy("scout").compile_selected()
+
+    assert workbench.phase is GlasshouseFlowPhase.WORKBENCH
+    assert tuple(policy.label for policy in workbench.policies) == (
+        "Breach / breacher",
+        "Mender / medic",
+        "Scope / overwatch",
+        "Lark / scout",
+    )
+    assert workbench.selected_policy.label == "Lark / scout"
+    assert workbench.source.text == _policy_sources()[3].text
+    assert workbench.compile_output is not None
+    assert workbench.compile_output.succeeded
+
+
+def test_glasshouse_workbench_keeps_editors_independent_and_invalidates_only_changed_output() -> (
+    None
+):
+    workbench = build_glasshouse_workbench(_policy_sources()).open_workbench()
+    compiled_breacher = workbench.compile_selected()
+    edited_breacher = compiled_breacher.replace_editor(compiled_breacher.editor.insert_text("@"))
+    failed_breacher = edited_breacher.compile_selected()
+    scout = failed_breacher.select_policy("scout")
+
+    assert compiled_breacher.compile_output is not None
+    assert compiled_breacher.compile_output.succeeded
+    assert edited_breacher.compile_output is None
+    assert failed_breacher.compile_output is not None
+    assert not failed_breacher.compile_output.succeeded
+    assert scout.compile_output is None
+    assert scout.source.text == _policy_sources()[3].text

@@ -293,6 +293,10 @@ The same fixture compiles the bundled Glasshouse scout policy, binds its normal
 memory schema, and verifies its one-metre contact-uncertainty threshold through
 the same advance, hostile fire, projectile impact, and injury chain.
 
+The Glasshouse briefing/workbench tests preserve fixed briefing rows, canonical
+roster order, independent editor state, compile-result invalidation, and
+dummy-SDL bitmap rendering. They do not execute a policy or mutate authority.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:
