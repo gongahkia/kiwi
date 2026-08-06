@@ -60,8 +60,8 @@ from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
 from kiwi.trace.model import CausalTrace, IntentionTrace
-from kiwi.ui.editor import EditorState
 from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
+from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import (
     GlasshouseDebrief,
     GlasshouseDebriefResult,

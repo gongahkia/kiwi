@@ -295,12 +295,16 @@ def _render_completion_popup(
         max(font.measure(label, scale)[0] for label in labels) + 12,
     )
     height = len(labels) * line_height + 8
-    rect = pygame.Rect(source_rect.right - width - 4, source_rect.bottom - height - 4, width, height)
+    rect = pygame.Rect(
+        source_rect.right - width - 4, source_rect.bottom - height - 4, width, height
+    )
     pygame.draw.rect(surface, palette.panel, rect)
     pygame.draw.rect(surface, palette.border, rect, width=1)
     for index, label in enumerate(labels):
         color = palette.heading if index == 0 else palette.selected
-        surface.blit(font.render(label, color, scale), (rect.x + 4, rect.y + 4 + index * line_height))
+        surface.blit(
+            font.render(label, color, scale), (rect.x + 4, rect.y + 4 + index * line_height)
+        )
 
 
 def _draw_editor_selection(
