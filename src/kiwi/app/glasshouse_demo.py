@@ -70,7 +70,6 @@ from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase, GlasshouseWorkbenc
 from kiwi.ui.run_comparison import RunComparisonView, run_comparison_view
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-_SCOUT_SOURCE_ID = "examples/policies/glasshouse/scout.dtr"
 _ENEMY_SOURCE_ID = "examples/policies/glasshouse/causal_drill_enemy.dtr"
 _DEMO_APPLICATION_BUILD = "glasshouse-demo"
 _DEMO_SIMULATION_VERSION = "sim-v1"
