@@ -13,6 +13,10 @@
 
 ## 2. Test categories
 
+### 2.0 Performance measurement
+
+Use `make benchmark` or `uv run --extra dev python -m kiwi.cli benchmark source.dtr fixture.kfixture.json --entry choose --arg true --iterations 100 --ticks 60` for focused local measurements. The report covers full compilation, VM entry evaluation, headless ticks, retained trace capture, and replay packet encode/decode. It reports operation-normalized elapsed time only; host-dependent timings are not CI thresholds.
+
 ### 2.1 Unit tests
 
 Cover pure functions and local invariants:

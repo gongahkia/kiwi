@@ -1,19 +1,15 @@
-LUAJIT ?= luajit
-STYLUA ?= stylua
-LOVE ?= love
-TEST_SEED ?= 20260730
-FRAMES ?= 1000
-EFFECT_FRAMES ?= 5
-WARMUP ?= 20
-SAMPLES ?= 3
+.PHONY: benchmark check doctor format format-check lint test type
 
 .PHONY: benchmark-effects benchmark-renderer bootstrap check inspect lint run screenshot-scenarios test
 
 bootstrap:
 	zsh tools/bootstrap.sh
 
-benchmark-renderer:
-	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean --frames "$(FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
+benchmark:
+	uv run --extra dev python -m kiwi.cli benchmark examples/policies/typed_core.dtr tests/fixtures/minimal.kfixture.json --entry choose --arg true
+
+format:
+	uv run --extra dev ruff format .
 
 benchmark-effects:
 	$(LUAJIT) tools/benchmark_renderer.lua --fixtures clean,crt --frames "$(EFFECT_FRAMES)" --warmup "$(WARMUP)" --samples "$(SAMPLES)"
