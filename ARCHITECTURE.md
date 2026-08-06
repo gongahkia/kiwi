@@ -665,6 +665,11 @@ and cover authority IDs from canonical content order. The resulting
 `MissionState` remains renderer-independent; named regions remain content
 data until the corresponding objective and deployment rules consume them.
 
+`kiwi.app.glasshouse_players` adds the four fixed player deployments,
+generic weapon inventories, bounded compiled DSL policies, and declared
+capabilities above that mission boundary. Policy sources remain closed DSL
+files and compilation failures are structured diagnostics.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:
