@@ -64,6 +64,17 @@ def test_glasshouse_demo_hot_reloads_only_source_changes_into_recorded_preview_t
     assert traced.workbench.editor.selected_text
 
 
+def test_glasshouse_demo_marks_preview_stale_when_hot_reload_is_disabled() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    disabled = preview.toggle_hot_reload()
+    stale = disabled.replace_selected_editor(disabled.workbench.editor.insert_text(" "))
+
+    assert not stale.hot_reload_enabled
+    assert stale.preview_stale
+    assert stale.current_run == preview.current_run
+    assert stale.notice == "Preview out of date: Compile + run to refresh."
+
+
 def test_glasshouse_demo_blocks_deployment_after_a_policy_compile_failure() -> None:
     opened = GlasshouseDemoController.create().confirm_input_mode().open_workbench()
     broken = opened.replace_selected_editor(opened.workbench.editor.insert_text("@"))

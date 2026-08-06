@@ -35,6 +35,17 @@ an independent in-memory editor and compile result while the player reviews
 another policy. Compilation only produces DSL diagnostics or bytecode metadata;
 it does not deploy or execute a policy.
 
+`Compile + run` in the Glasshouse drill opens a live-preview split: editable
+source remains on the left while the right pane cycles through the initial,
+first-tick, and second-tick snapshots of one newly recorded deterministic run.
+With hot reload enabled, a source-text change recompiles and records the same
+two-tick drill before replacing the preview; a failed compile blocks the current
+preview rather than showing stale results. Pause and Step inspect copied
+checkpoints only. The trace panel reports retained policy/intention/world-event
+records for the displayed tick and focuses Lark's source span when that exact
+run emitted an intention. The DSL has no unbounded loops: policies evaluate once
+per fixed tick, so the preview never implies otherwise.
+
 The mission HUD reports `IN PROGRESS`, `SUCCESS` after the squad objective is
 extracted, or `FAILURE` when lockdown prevents extraction. These are copied
 outcomes, not player controls or new mission phases.

@@ -169,6 +169,7 @@ class GlasshouseDemoController:
     comparison: RunComparisonView | None = None
     preview_snapshot_index: int = 0
     preview_playing: bool = False
+    preview_stale: bool = False
     hot_reload_enabled: bool = True
     notice: str = ""
 
@@ -197,6 +198,8 @@ class GlasshouseDemoController:
             raise ValueError("Glasshouse demo preview snapshot index is invalid")
         if not isinstance(self.preview_playing, bool):
             raise TypeError("Glasshouse demo preview playback flag is invalid")
+        if not isinstance(self.preview_stale, bool):
+            raise TypeError("Glasshouse demo preview stale flag is invalid")
         if not isinstance(self.hot_reload_enabled, bool):
             raise TypeError("Glasshouse demo hot reload flag is invalid")
         if not isinstance(self.notice, str):
@@ -225,6 +228,8 @@ class GlasshouseDemoController:
                 self.current_run.snapshots
             ):
                 raise ValueError("Glasshouse demo preview snapshot index exceeds current run")
+            if self.current_run is None and self.preview_stale:
+                raise ValueError("Glasshouse demo missing preview cannot be stale")
         elif self.preview_playing:
             raise ValueError("Glasshouse demo playback is only valid in live preview")
 
@@ -301,6 +306,12 @@ class GlasshouseDemoController:
             and updated.hot_reload_enabled
         ):
             return updated.reload_preview()
+        if source_changed and updated.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
+            return replace(
+                updated,
+                preview_stale=True,
+                notice="Preview out of date: Compile + run to refresh.",
+            )
         return updated
 
     def compile_selected(self) -> GlasshouseDemoController:
@@ -375,6 +386,7 @@ class GlasshouseDemoController:
                 else self.comparison,
                 preview_snapshot_index=0,
                 preview_playing=False,
+                preview_stale=False,
                 notice="Deployment blocked: fix a policy compile failure.",
             )
         return self._accept_preview_run(result)
@@ -392,6 +404,7 @@ class GlasshouseDemoController:
                 comparison=None,
                 preview_snapshot_index=0,
                 preview_playing=False,
+                preview_stale=False,
                 notice="Hot reload blocked: fix the highlighted compile diagnostic.",
             )
         return self._accept_preview_run(result, notice="Hot reloaded deterministic drill.")
@@ -467,6 +480,7 @@ class GlasshouseDemoController:
             comparison=comparison,
             preview_snapshot_index=0,
             preview_playing=True,
+            preview_stale=False,
             notice=result_notice,
         )
         return preview._focus_preview_source()
@@ -481,6 +495,8 @@ class GlasshouseDemoController:
     def preview_source_span(self) -> SourceSpan | None:
         """Return the selected scout's retained intention span for the shown checkpoint."""
         if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return None
+        if self.preview_stale:
             return None
         if self.workbench.selected_policy.role != "scout":
             return None

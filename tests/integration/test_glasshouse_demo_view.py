@@ -127,7 +127,7 @@ import pygame
 
 from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
 from kiwi.render.bitmap_font import load_bitmap_font
-from kiwi.render.glasshouse_demo import _handle_click, _workbench_buttons
+from kiwi.render.glasshouse_demo import _handle_click, _preview_buttons, _workbench_buttons
 from kiwi.render.pygame_lifecycle import quit_pygame
 
 pygame.init()
@@ -144,6 +144,13 @@ assert controller.workbench.compile_output is not None
 assert controller.workbench.compile_output.succeeded
 controller = _handle_click(controller, deploy_button.center, font)
 assert controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+play_button, step_button, reload_button, _ = _preview_buttons(pygame.Surface((480, 524)), font)
+controller = _handle_click(controller, (480 + play_button.centerx, play_button.centery), font)
+assert not controller.preview_playing
+controller = _handle_click(controller, (480 + step_button.centerx, step_button.centery), font)
+assert controller.preview_snapshot_index == 1
+controller = _handle_click(controller, (480 + reload_button.centerx, reload_button.centery), font)
+assert not controller.hot_reload_enabled
 quit_pygame()
 """
     environment = dict(os.environ)
