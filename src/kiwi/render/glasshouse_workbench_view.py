@@ -157,10 +157,11 @@ def _render_workbench(
     )
     previous_clip = surface.get_clip()
     surface.set_clip(source_rect.inflate(-8, -8))
+    first_visible_line = workbench.editor.scroll.line
     render_source(
         surface,
         font,
-        workbench.source,
+        _source_from_line(workbench.source, first_visible_line),
         (source_rect.x + 4, source_rect.y + 4),
         scale=scale,
     )
@@ -174,6 +175,7 @@ def _render_workbench(
         line_height,
         scale,
         palette.focus,
+        first_visible_line,
     )
     surface.set_clip(previous_clip)
     if workbench.compile_output is None:
@@ -206,6 +208,7 @@ def _draw_editor_selection(
     line_height: int,
     scale: int,
     color: tuple[int, int, int],
+    first_visible_line: int,
 ) -> None:
     if start_offset == end_offset:
         return
@@ -216,6 +219,8 @@ def _draw_editor_selection(
     start, end = source.positions_of(span)
     lines = source.text.split("\n")
     for line_number in range(start.line, end.line + 1):
+        if line_number < first_visible_line:
+            continue
         line = lines[line_number - 1].removesuffix("\r")
         first_column = start.column if line_number == start.line else 1
         last_column = end.column if line_number == end.line else len(line) + 1
@@ -224,5 +229,15 @@ def _draw_editor_selection(
         x = origin[0] + font.measure(line[: first_column - 1].expandtabs(4), scale)[0]
         width = font.measure(line[first_column - 1 : last_column - 1].expandtabs(4), scale)[0]
         minimum_width = font.measure("M", scale)[0]
-        y = origin[1] + line_number * line_height - 1
+        y = origin[1] + (line_number - first_visible_line + 1) * line_height - 1
         pygame.draw.line(surface, color, (x, y), (x + max(width, minimum_width) - 1, y))
+
+
+def _source_from_line(source: SourceFile, first_line: int) -> SourceFile:
+    """Return a presentation-only source tail for the editor's selected scroll row."""
+    if not isinstance(first_line, int) or isinstance(first_line, bool) or first_line < 1:
+        raise ValueError("Glasshouse source view line must be positive")
+    lines = source.text.splitlines(keepends=True)
+    if first_line > len(lines):
+        raise ValueError("Glasshouse source view line exceeds source length")
+    return SourceFile(source.file_id, "".join(lines[first_line - 1 :]))

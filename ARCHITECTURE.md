@@ -731,6 +731,12 @@ source focus, a one-metre-to-zero-metre scout revision, and replay-compatible
 headless comparison. Its causal map is intentionally compact, but it binds the
 actual shipped scout source and requires the revision to remove the injury.
 
+`kiwi.glasshouse` is the pygame application shell for that same bounded causal
+drill. It owns screen/input state only and delegates source compilation, replay
+recording, trace capture, source-archive navigation, and comparison to the
+existing headless public interfaces. It uses no renderer state as authority and
+does not collect or transmit usability-test data.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

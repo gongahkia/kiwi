@@ -1,4 +1,4 @@
-.PHONY: benchmark check doctor format format-check lint test type
+.PHONY: benchmark check doctor format format-check glasshouse lint test type
 
 check: format-check lint type test
 
@@ -7,6 +7,9 @@ doctor:
 
 benchmark:
 	uv run --extra dev python -m kiwi.cli benchmark examples/policies/typed_core.dtr tests/fixtures/minimal.kfixture.json --entry choose --arg true
+
+glasshouse:
+	uv run --extra dev python -m kiwi.glasshouse
 
 format:
 	uv run --extra dev ruff format .
