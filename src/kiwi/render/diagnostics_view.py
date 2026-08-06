@@ -59,13 +59,31 @@ def render_inline_diagnostics(
     *,
     scale: int = 1,
     palette: DiagnosticPalette = DEFAULT_DIAGNOSTIC_PALETTE,
+    first_visible_line: int = 1,
 ) -> DiagnosticRenderResult:
     """Draw source-aligned one-pixel diagnostic underlines onto an existing surface."""
     _validate_inputs(surface, font, source, presentation, origin, scale, palette)
+    if (
+        not isinstance(first_visible_line, int)
+        or isinstance(first_visible_line, bool)
+        or not 1 <= first_visible_line <= source.text.count("\n") + 1
+    ):
+        raise ValueError("first visible diagnostic line must be within source bounds")
     line_height = font.measure("M", scale)[1]
     lines = source.text.split("\n")
     for marker in presentation.inline:
-        _draw_marker(surface, font, lines, marker, origin, line_height, scale, palette)
+        if marker.line >= first_visible_line:
+            _draw_marker(
+                surface,
+                font,
+                lines,
+                marker,
+                origin,
+                line_height,
+                scale,
+                palette,
+                first_visible_line,
+            )
     return DiagnosticRenderResult(
         len(presentation.inline), (source.text.count("\n") + 1) * line_height
     )
@@ -109,6 +127,7 @@ def _draw_marker(
     line_height: int,
     scale: int,
     palette: DiagnosticPalette,
+    first_visible_line: int,
 ) -> None:
     line = lines[marker.line - 1]
     start_index = marker.start_column - 1
@@ -117,7 +136,7 @@ def _draw_marker(
     length = font.measure(line[start_index:end_index].expandtabs(4), scale)[0]
     minimum_width = font.measure("M", scale)[0]
     end = start + max(length, minimum_width)
-    y = origin[1] + marker.line * line_height - 1
+    y = origin[1] + (marker.line - first_visible_line + 1) * line_height - 1
     pygame.draw.line(
         surface, palette.color_for(marker.diagnostic.severity), (start, y), (end - 1, y)
     )
