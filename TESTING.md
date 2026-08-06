@@ -310,6 +310,11 @@ policies, preserve matching compilation output while focusing provenance, reject
 changed current source text, and render the focused workbench range under dummy
 SDL.
 
+Glasshouse controlled-rerun tests record resolved commands from the original
+initial state, recompile one revised policy against that exact baseline, retain
+replay-bound trace/source evidence, and reject a changed initial state before
+comparison.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:

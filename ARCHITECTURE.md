@@ -693,6 +693,13 @@ and otherwise delegates all outcomes to `kiwi.sim`. `kiwi.render.glasshouse_miss
 renders only the `GlasshouseMissionPresentation` copied snapshot, lockdown
 countdown, and queued or recorded signal status.
 
+Execution retains its initial authority state, source-matched policy bundle, and
+resolved canonical command log. `kiwi.app.glasshouse_rerun` re-executes those
+exact inputs headlessly after recompiling a revised workbench bundle, retains a
+replay-bound source archive and causal trace for each run, then delegates to the
+existing compatibility-gated comparison view. It refuses a rerun whose newly
+materialised initial state or tick rate differs from the baseline.
+
 `kiwi.ui.glasshouse_debrief` projects retained injury `ConsequenceTrace` records
 into canonically ordered selection state and delegates the selected explanation
 to `kiwi.ui.causal_chain`. Its bitmap renderer consumes only that immutable UI
