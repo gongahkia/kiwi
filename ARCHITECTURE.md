@@ -659,6 +659,12 @@ antialiasing disabled, then uses integer unfiltered scaling. Its CC-BY-SA-4.0
 licence, attribution, release URL, and SHA-256 are retained in the packaged
 render asset manifest.
 
+`kiwi.content.missions` validates versioned mission JSON at the content
+boundary. The headless `kiwi.app.mission_loading` adapter then allocates map
+and cover authority IDs from canonical content order. The resulting
+`MissionState` remains renderer-independent; named regions remain content
+data until the corresponding objective and deployment rules consume them.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:
