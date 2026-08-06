@@ -32,6 +32,8 @@ from kiwi.sim.events import (
     CommandRejectionReason,
     EventHeader,
     MissionStarted,
+    ObjectiveExtracted,
+    ObjectiveRetrieved,
     ScheduledTriggerFired,
     SignalIssued,
     canonical_event_order,
@@ -42,6 +44,13 @@ from kiwi.sim.messages import discard_expired_messages
 from kiwi.sim.movement import resolve_movement_actions
 from kiwi.sim.movement_events import emit_movement_events
 from kiwi.sim.movement_intentions import emit_movement_route_events, plan_selected_movement_routes
+from kiwi.sim.objectives import (
+    extracted_objective,
+    extraction_ready,
+    replace_objective,
+    retrieval_candidate,
+    retrieved_objective,
+)
 from kiwi.sim.policies import (
     EMPTY_POLICY_BINDINGS,
     PolicyBindings,
@@ -142,6 +151,8 @@ def reduce_one_tick(
         suppression_events = emit_suppression_events(suppression, projectile_events.events)
         next_state = suppression_events.state
         emitted.extend(suppression_events.events)
+        next_state, objective_events = _resolve_objectives(next_state)
+        emitted.extend(objective_events)
 
     advanced_state = clock.advance(next_state)
     return TickResult(state=advanced_state, events=canonical_event_order(emitted))
@@ -169,6 +180,32 @@ def _reduce_policies(
         policy_events.events + cover_events.events + routes.events,
         arbitration,
     )
+
+
+def _resolve_objectives(state: MissionState) -> tuple[MissionState, tuple[CanonicalEvent, ...]]:
+    """Advance objective transitions after movement and combat leave positions stable."""
+    emitted: list[CanonicalEvent] = []
+    for objective in state.objectives.entries:
+        retriever = retrieval_candidate(objective, state.entities)
+        if retriever is not None:
+            state, header = _allocate_event_header(state)
+            updated = retrieved_objective(objective, retriever, header.event_id)
+            state = replace(state, objectives=replace_objective(state.objectives, updated))
+            emitted.append(ObjectiveRetrieved(header, updated))
+            continue
+        if extraction_ready(objective, state.entities):
+            state, allocated_header = _allocate_event_header(state)
+            updated = extracted_objective(objective)
+            if updated.retrieval_event_id is None:
+                raise AssertionError("retrieved objective lacks retrieval provenance")
+            header = EventHeader(
+                allocated_header.event_id,
+                allocated_header.tick,
+                (updated.retrieval_event_id,),
+            )
+            state = replace(state, objectives=replace_objective(state.objectives, updated))
+            emitted.append(ObjectiveExtracted(header, updated))
+    return state, tuple(emitted)
 
 
 def _apply_command(

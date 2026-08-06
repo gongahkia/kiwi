@@ -100,7 +100,7 @@ def test_canonical_state_hash_is_stable_and_tracks_authoritative_changes() -> No
 
     assert first == repeated
     assert first != changed
-    assert first.hex == "544eb04e693d66486f58a2661ec19797d49835417ef6741c3aa2a942fc00e15d"
+    assert first.hex == "5804a095003a9700bbc4ac98fc8ba82e9601db2e547a0f1ec5cfc611d2de0dff"
 
 
 def test_canonical_state_codec_round_trips_map_geometry_and_hashes_it() -> None:

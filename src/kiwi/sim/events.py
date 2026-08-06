@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from kiwi.sim.firing import FireResolution
     from kiwi.sim.intentions import IntentionOrigin
     from kiwi.sim.messages import Message
+    from kiwi.sim.objectives import RetrievalObjective
     from kiwi.sim.projectile_impacts import ProjectileImpact, ProjectileResolution
     from kiwi.sim.suppression import SuppressionResolution
 
@@ -62,6 +63,8 @@ class EventKind(StrEnum):
     DAMAGE_APPLIED = "damage_applied"
     INJURY_CHANGED = "injury_changed"
     SUPPRESSION_CHANGED = "suppression_changed"
+    OBJECTIVE_RETRIEVED = "objective_retrieved"
+    OBJECTIVE_EXTRACTED = "objective_extracted"
 
 
 class CommandRejectionReason(StrEnum):
@@ -585,6 +588,44 @@ class SuppressionChanged:
         _require_matching_tick(self.header, self.resolution.tick)
 
 
+@dataclass(frozen=True, slots=True)
+class ObjectiveRetrieved:
+    """One automatic retrieval transition with its authoritative objective provenance."""
+
+    header: EventHeader
+    objective: RetrievalObjective
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.objectives import ObjectiveStatus, RetrievalObjective
+
+        _require_header(self.header)
+        if not isinstance(self.objective, RetrievalObjective):
+            raise ValueError("objective retrieval event requires an objective")
+        if self.objective.status is not ObjectiveStatus.RETRIEVED:
+            raise ValueError("objective retrieval event requires a retrieved objective")
+        if self.objective.retrieval_event_id != self.header.event_id:
+            raise ValueError("objective retrieval event must match objective provenance")
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectiveExtracted:
+    """One full-squad extraction transition causally parented by retrieval."""
+
+    header: EventHeader
+    objective: RetrievalObjective
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.objectives import ObjectiveStatus, RetrievalObjective
+
+        _require_header(self.header)
+        if not isinstance(self.objective, RetrievalObjective):
+            raise ValueError("objective extraction event requires an objective")
+        if self.objective.status is not ObjectiveStatus.EXTRACTED:
+            raise ValueError("objective extraction event requires an extracted objective")
+        if self.header.parent_event_ids != (self.objective.retrieval_event_id,):
+            raise ValueError("objective extraction event must parent its retrieval event")
+
+
 CanonicalEvent = (
     MissionStarted
     | AbortRequested
@@ -613,6 +654,8 @@ CanonicalEvent = (
     | DamageApplied
     | InjuryChanged
     | SuppressionChanged
+    | ObjectiveRetrieved
+    | ObjectiveExtracted
 )
 
 
@@ -672,6 +715,10 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.INJURY_CHANGED
     if isinstance(event, SuppressionChanged):
         return EventKind.SUPPRESSION_CHANGED
+    if isinstance(event, ObjectiveRetrieved):
+        return EventKind.OBJECTIVE_RETRIEVED
+    if isinstance(event, ObjectiveExtracted):
+        return EventKind.OBJECTIVE_EXTRACTED
     raise ValueError("event kind requires a canonical event")
 
 
@@ -710,6 +757,8 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 DamageApplied,
                 InjuryChanged,
                 SuppressionChanged,
+                ObjectiveRetrieved,
+                ObjectiveExtracted,
             ),
         ):
             raise ValueError("canonical event ordering requires canonical events")
