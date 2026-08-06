@@ -704,6 +704,8 @@ and canonical causal ancestors without inferring discarded evidence.
 bytecode source-map expression spans; it never highlights current edited source.
 `kiwi.render.historical_source_view` renders that immutable pane and its
 source-bound highlight underlines.
+`kiwi.ui.trace_navigation` follows retained causal edges from trace to
+archive-bound source and from selected historical expressions to retained descendants.
 
 ## 18. Content architecture
 
