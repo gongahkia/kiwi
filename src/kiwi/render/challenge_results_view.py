@@ -49,7 +49,7 @@ def render_challenge_results(
         f"CHALLENGE {current.challenge_id}",
         f"OUTCOME: {current.outcome.value}  CASUALTIES: {current.casualties}",
         f"TICKS: {current.ticks}  BYTECODE: {current.bytecode_bytes} bytes",
-        f"VM TRACES: {current.vm_instructions}  POLICY EVALS: {current.policy_evaluations}",
+        f"VM INSN: {current.vm_instructions}  POLICY EVALS: {current.policy_evaluations}",
         "NO COMPOSITE SCORE: improve the dimension you care about.",
     )
     for index, line in enumerate(lines):

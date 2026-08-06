@@ -25,6 +25,7 @@ _render(canvas, font, controller)
 assert len({canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}) > 2
 controller = controller.confirm_input_mode().open_workbench().deploy()
 _render(canvas, font, controller)
+_render(canvas, font, controller.cycle_color_scheme().open_results())
 controller = controller.open_debrief()
 _render(canvas, font, controller)
 controller = controller.guide_revision().select_scout_threshold()

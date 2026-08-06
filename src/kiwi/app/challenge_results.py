@@ -200,7 +200,6 @@ def _integer(value: object) -> int:
 
 def _is_identifier(value: str) -> bool:
     return bool(value) and all(
-        character.isascii()
-        and (character.islower() or character.isdigit() or character == "_")
+        character.isascii() and (character.islower() or character.isdigit() or character == "_")
         for character in value
     )

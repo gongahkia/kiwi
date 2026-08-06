@@ -6,7 +6,7 @@ Stanczyk is a programmable terminal runtime for LÖVE applications. It combines 
 
 The project should feel like a terminal emulator internally and a creative runtime externally. The parser, screen model, backend, renderer, effects, debugger, and embedding API must remain separable.
 
-Stanczyk should be useful even when all visual effects are disabled. Its base value is correctness, replayability, inspectability, and embeddability. Effects increase differentiation and demonstration value but must not compromise the core.
+The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Glasshouse lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
 ## 2. Problem
 
@@ -102,7 +102,19 @@ Parser, state, backends, rendering, effects, and native integration must communi
 
 ### 5.5 No hidden host execution
 
-Sandbox mode must never execute host commands. PTY mode must be visibly distinct and must require a deliberate backend selection.
+- a broad campaign;
+- multiplayer;
+- procedural campaigns or open-world generation;
+- complex base building;
+- general rigid-body physics;
+- mod scripting through Python;
+- a universal IDE;
+- many factions or enemy families;
+- cinematic narrative production;
+- a large item economy;
+- live-service infrastructure;
+- machine-learning agents;
+- an unrestricted or academically complete functional language.
 
 ### 5.6 Procedural-first visuals
 
@@ -205,7 +217,11 @@ The runtime must:
 
 The format is defined in `docs/RECORDING_FORMAT.md`.
 
-### 7.3 Backend interface
+### 8.9 Challenge lab
+
+The local lab offers deterministic Daily and Practice contracts. A Daily contract is selected by an application-supplied ISO calendar-date string; a Practice contract is selected by an explicit seed. Both use versioned modular 32×32 districts and deterministic escalation. Each completed attempt shows tactical outcomes alongside code-cost metrics and local histograms without a composite score, network submission, or leaderboard.
+
+## 9. Functional requirements
 
 Every backend must implement the same conceptual interface:
 
@@ -275,6 +291,9 @@ The renderer must:
 - current policy version and high-level signal state;
 - event timeline markers;
 - selectable entities and events for inspection without direct command authority.
+- a rotatable isometric tactical presentation using an original texture atlas, fixed-tick animation, and event-driven local audio;
+- bidirectional source and entity selection that seeks retained trace evidence without re-running authority;
+- presentation themes that apply to the editor, tactical view, and local result page.
 
 ### 9.6 Persistence
 

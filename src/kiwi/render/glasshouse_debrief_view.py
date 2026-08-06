@@ -7,7 +7,11 @@ from dataclasses import dataclass
 import pygame
 
 from kiwi.render.bitmap_font import BitmapFont
-from kiwi.render.causal_chain_view import render_causal_chain_panel
+from kiwi.render.causal_chain_view import (
+    DEFAULT_CAUSAL_CHAIN_PALETTE,
+    CausalChainPalette,
+    render_causal_chain_panel,
+)
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief
 
 
@@ -59,6 +63,7 @@ def render_glasshouse_debrief(
     *,
     scale: int = 1,
     palette: GlasshouseDebriefPalette = DEFAULT_GLASSHOUSE_DEBRIEF_PALETTE,
+    chain_palette: CausalChainPalette = DEFAULT_CAUSAL_CHAIN_PALETTE,
 ) -> GlasshouseDebriefRenderResult:
     """Render selected injury rows and its retained causal explanation."""
     if not isinstance(surface, pygame.Surface) or not isinstance(font, BitmapFont):
@@ -75,6 +80,8 @@ def render_glasshouse_debrief(
         raise ValueError("Glasshouse debrief render scale must be positive")
     if not isinstance(palette, GlasshouseDebriefPalette):
         raise TypeError("Glasshouse debrief render palette is invalid")
+    if not isinstance(chain_palette, CausalChainPalette):
+        raise TypeError("Glasshouse debrief chain palette is invalid")
     line_height = font.measure("M", scale)[1]
     rows = (("GLASSHOUSE DEBRIEF", palette.heading),) + tuple(
         (
@@ -92,5 +99,6 @@ def render_glasshouse_debrief(
         debrief.chain,
         (origin[0], origin[1] + len(rows) * line_height + line_height),
         scale=scale,
+        palette=chain_palette,
     )
     return GlasshouseDebriefRenderResult(len(rows) + chain.line_count)

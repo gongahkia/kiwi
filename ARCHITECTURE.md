@@ -176,7 +176,7 @@ depends on pygame.
 
 ### 4.5 Presentation
 
-`render` and `ui` may import public snapshots, diagnostics, source maps, and trace-query results. They must not receive writable references to simulation state.
+`render` and `ui` may import public snapshots, diagnostics, source maps, and trace-query results. They must not receive writable references to simulation state. `content.challenges` is headless content generation: it accepts an explicit Daily date or Practice seed at the application boundary and returns versioned `MissionData` plus renderer-safe material tags.
 
 ## 5. Authoritative boundaries
 
@@ -735,7 +735,13 @@ actual shipped scout source and requires the revision to remove the injury.
 drill. It owns screen/input state only and delegates source compilation, replay
 recording, trace capture, source-archive navigation, and comparison to the
 existing headless public interfaces. It uses no renderer state as authority and
-does not collect or transmit usability-test data.
+does not collect or transmit usability-test data. Its texture atlas, fixed-tick
+sprite animation, palette selection, isometric camera rotation, and
+event-ID-deduplicated sound cues consume copied presentation data only. Map
+entity selection finds retained trace evidence; source selection seeks its
+recorded checkpoint. The local result page projects recorded run hashes and
+explicit tactical/code metrics into deterministic histograms without a score or
+network service.
 
 ## 17. Editor architecture
 

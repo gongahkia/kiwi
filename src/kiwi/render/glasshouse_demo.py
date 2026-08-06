@@ -16,8 +16,16 @@ from kiwi.dsl.source import ByteOffset
 from kiwi.render.atlas import TextureAtlas, load_glasshouse_atlas
 from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
 from kiwi.render.camera import Camera, Projection, world_to_canvas
-from kiwi.render.glasshouse_debrief_view import render_glasshouse_debrief
-from kiwi.render.glasshouse_tutorial_view import render_glasshouse_tutorial
+from kiwi.render.causal_chain_view import CausalChainPalette
+from kiwi.render.challenge_results_view import ChallengeResultsPalette, render_challenge_results
+from kiwi.render.glasshouse_debrief_view import (
+    GlasshouseDebriefPalette,
+    render_glasshouse_debrief,
+)
+from kiwi.render.glasshouse_tutorial_view import (
+    GlasshouseTutorialPalette,
+    render_glasshouse_tutorial,
+)
 from kiwi.render.glasshouse_workbench_view import (
     DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
     GlasshouseWorkbenchPalette,
@@ -30,7 +38,7 @@ from kiwi.render.pygame_app import (
     render_tactical_view,
 )
 from kiwi.render.pygame_lifecycle import quit_pygame
-from kiwi.render.run_comparison_view import render_run_comparison_view
+from kiwi.render.run_comparison_view import RunComparisonPalette, render_run_comparison_view
 from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
 from kiwi.sim.snapshot import build_presentation_snapshot
 from kiwi.ui.editor import EditorState, TextPosition
@@ -224,12 +232,18 @@ def _handle_event(
             return (controller.open_debrief(), False)
         if event.key == pygame.K_c:
             return (controller.open_comparison(), False)
+        if event.key == pygame.K_h:
+            return (controller.open_results(), False)
         if _deploy_pressed(controller, event):
             return (controller.return_to_workbench().deploy(), False)
         return (controller, False)
     if controller.screen is GlasshouseDemoScreen.DEBRIEF:
         if event.key == pygame.K_r:
             return (controller.guide_revision(), False)
+        if event.key == pygame.K_h:
+            return (controller.open_results(), False)
+        return (controller, False)
+    if controller.screen is GlasshouseDemoScreen.RESULTS:
         return (controller, False)
     if controller.screen is GlasshouseDemoScreen.COMPARISON and _deploy_pressed(controller, event):
         return (controller.return_to_workbench().deploy(), False)
@@ -321,6 +335,8 @@ def _handle_live_preview_key(
     command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
     if event.key in (pygame.K_RETURN, pygame.K_d):
         return controller.open_debrief()
+    if event.key == pygame.K_h:
+        return controller.open_results()
     if _deploy_pressed(controller, event):
         return controller.deploy()
     if command and event.key == pygame.K_l:
@@ -387,19 +403,39 @@ def _render(
         _render_footer(surface, font, _workbench_help(controller), controller.notice, palette)
         return
     if controller.screen is GlasshouseDemoScreen.GUIDE:
-        render_glasshouse_tutorial(surface, font, controller.tutorial)
-        _render_footer(surface, font, "Left/Right lesson | Esc workbench", controller.notice)
+        render_glasshouse_tutorial(
+            surface,
+            font,
+            controller.tutorial,
+            palette=GlasshouseTutorialPalette(
+                palette.background,
+                palette.heading,
+                palette.workbench.selected,
+                palette.normal,
+                palette.notice,
+            ),
+        )
+        _render_footer(
+            surface,
+            font,
+            "Left/Right lesson | Esc workbench",
+            controller.notice,
+            palette,
+        )
         return
     if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
         _render_live_preview(surface, font, controller, palette)
         return
     if controller.screen is GlasshouseDemoScreen.MISSION:
-        _render_mission(surface, font, controller)
+        _render_mission(surface, font, controller, palette)
         return
     if controller.screen is GlasshouseDemoScreen.DEBRIEF:
-        _render_debrief(surface, font, controller)
+        _render_debrief(surface, font, controller, palette)
         return
-    _render_comparison(surface, font, controller)
+    if controller.screen is GlasshouseDemoScreen.RESULTS:
+        _render_results(surface, font, controller, palette)
+        return
+    _render_comparison(surface, font, controller, palette)
 
 
 def _render_live_preview(
@@ -574,7 +610,10 @@ def _live_preview_panes(surface: pygame.Surface) -> tuple[pygame.Rect, pygame.Re
 
 
 def _render_mission(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     if controller.current_run is None:
         raise AssertionError("Glasshouse mission screen has no run")
@@ -582,7 +621,9 @@ def _render_mission(
     render_tactical_view(
         surface,
         build_presentation_snapshot(run.state, projectile_events=run.events),
-        Camera(pixels_per_millimetre=0.04),
+        _preview_camera(controller),
+        palette=_tactical_palette(palette),
+        atlas=_ATLAS,
     )
     lines = (
         "GLASSHOUSE CAUSAL DRILL",
@@ -590,25 +631,45 @@ def _render_mission(
         "Lark starts with a 0.5m-uncertainty contact.",
         controller.notice,
     )
-    _render_panel(surface, font, lines)
+    _render_panel(surface, font, lines, palette)
     _render_footer(
         surface,
         font,
-        f"Enter debrief | C compare | {_deploy_label(controller)} rerun | Esc edit",
+        f"Enter debrief | C compare | H results | {_deploy_label(controller)} rerun | Esc edit",
         "",
+        palette,
     )
 
 
 def _render_debrief(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     if controller.current_run is None:
         raise AssertionError("Glasshouse debrief screen has no run")
-    surface.fill(_BACKGROUND)
+    surface.fill(palette.background)
     debrief = controller.current_run.debrief
     if isinstance(debrief, GlasshouseDebrief):
-        render_glasshouse_debrief(surface, font, debrief, (8, 8))
-        help_text = "R trace source | Esc workbench"
+        render_glasshouse_debrief(
+            surface,
+            font,
+            debrief,
+            (8, 8),
+            palette=GlasshouseDebriefPalette(
+                palette.heading,
+                palette.normal,
+                palette.notice,
+            ),
+            chain_palette=CausalChainPalette(
+                palette.normal,
+                palette.heading,
+                palette.notice,
+                palette.muted,
+            ),
+        )
+        help_text = "R trace source | H results | Esc workbench"
     else:
         _render_panel(
             surface,
@@ -618,30 +679,87 @@ def _render_debrief(
                 "No injury retained in this controlled run.",
                 "The scout did not request the exposed advance.",
             ),
+            palette,
         )
-        help_text = "C compare | Esc workbench"
-    _render_footer(surface, font, help_text, controller.notice)
+        help_text = "C compare | H results | Esc workbench"
+    _render_footer(surface, font, help_text, controller.notice, palette)
 
 
 def _render_comparison(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     if controller.comparison is None:
         raise AssertionError("Glasshouse comparison screen has no comparison")
-    surface.fill(_BACKGROUND)
-    render_run_comparison_view(surface, font, controller.comparison, (8, 8))
+    surface.fill(palette.background)
+    render_run_comparison_view(
+        surface,
+        font,
+        controller.comparison,
+        (8, 8),
+        palette=RunComparisonPalette(
+            palette.heading,
+            palette.normal,
+            palette.notice,
+            palette.source.invalid,
+        ),
+    )
     _render_footer(
-        surface, font, f"{_deploy_label(controller)} rerun | Esc workbench", controller.notice
+        surface,
+        font,
+        f"H results | {_deploy_label(controller)} rerun | Esc workbench",
+        controller.notice,
+        palette,
     )
 
 
-def _render_panel(surface: pygame.Surface, font: BitmapFont, lines: tuple[str, ...]) -> None:
+def _render_results(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
+) -> None:
+    if not controller.result_history.results:
+        raise AssertionError("Glasshouse result screen requires a completed local attempt")
+    render_challenge_results(
+        surface,
+        font,
+        controller.result_history,
+        controller.result_history.results[-1],
+        ChallengeResultsPalette(
+            palette.background,
+            palette.panel,
+            palette.border,
+            palette.heading,
+            palette.normal,
+            palette.workbench.selected,
+            palette.source.invalid,
+            palette.notice,
+        ),
+    )
+    _render_footer(surface, font, "Esc workbench", controller.notice, palette)
+
+
+def _render_panel(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    lines: tuple[str, ...],
+    palette: GlasshouseDemoPalette = _CYAN_PALETTE,
+) -> None:
     line_height = font.measure("M")[1]
     height = len(lines) * line_height + 8
-    pygame.draw.rect(surface, _PANEL, (4, 4, surface.get_width() - 8, height))
-    pygame.draw.rect(surface, _BORDER, (4, 4, surface.get_width() - 8, height), width=1)
+    pygame.draw.rect(surface, palette.panel, (4, 4, surface.get_width() - 8, height))
+    pygame.draw.rect(surface, palette.border, (4, 4, surface.get_width() - 8, height), width=1)
     for index, line in enumerate(lines):
-        color = _HEADING if index == 0 else _NOTICE if index == len(lines) - 1 else _NORMAL
+        color = (
+            palette.heading
+            if index == 0
+            else palette.notice
+            if index == len(lines) - 1
+            else palette.normal
+        )
         surface.blit(
             font.render(_fit_text(font, _truncate(line), surface.get_width() - 16), color),
             (8, 8 + index * line_height),
