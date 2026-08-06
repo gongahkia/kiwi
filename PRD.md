@@ -6,7 +6,7 @@ Kiwi is a single-player real-time squad tactics game in which the player program
 
 The product’s distinguishing feature is a causal debugger that maps battlefield outcomes back to program evaluations. When an operative is exposed, misses an extraction window, fires on a low-priority target, or fails to aid an ally, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and physical events that produced the result.
 
-The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Glasshouse lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
+The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Terminal lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
 ## 2. Product thesis
 
@@ -343,7 +343,7 @@ All durable formats require schema versions and validation.
 
 ## 11. MVP vertical slice
 
-### 11.1 Scenario: Glasshouse
+### 11.1 Scenario: Terminal
 
 A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
 
@@ -521,7 +521,7 @@ Movement, perception, cover, firing, injury, mission objective, deterministic CL
 
 pygame client, bitmap editor, overlays, timeline, source navigation.
 
-### Stage 3 — Glasshouse vertical slice
+### Stage 3 — Terminal vertical slice
 
 Complete playable loop and run comparison.
 

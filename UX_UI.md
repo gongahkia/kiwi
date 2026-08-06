@@ -25,9 +25,9 @@ Main menu
 
 The vertical slice may expose `Run fixture`, `Edit policy`, and `Compare runs` directly for development.
 
-### 2.1 Glasshouse entry flow
+### 2.1 Terminal entry flow
 
-Glasshouse opens on a briefing that states the recovery-and-extraction
+Terminal opens on a briefing that states the recovery-and-extraction
 objective, 90-second lockdown, incomplete hostile intelligence, and Lark's
 initial 0.5-metre-uncertainty contact. Continuing opens the workbench. Its
 canonical role sidebar is Breach, Mender, Scope, then Lark; each role retains
@@ -35,7 +35,7 @@ an independent in-memory editor and compile result while the player reviews
 another policy. Compilation only produces DSL diagnostics or bytecode metadata;
 it does not deploy or execute a policy.
 
-`Compile + run` in the Glasshouse drill opens a live-preview split: editable
+`Compile + run` in the Terminal drill opens a live-preview split: editable
 source remains on the left while the right pane cycles through the initial,
 first-tick, and second-tick snapshots of one newly recorded deterministic run.
 With hot reload enabled, a source-text change recompiles and records the same
@@ -108,7 +108,7 @@ The UI provides:
 - sample observation values from fixtures;
 - compile warnings that explain unhandled situations.
 
-Glasshouse includes a separately navigable language guide. It introduces
+Terminal includes a separately navigable language guide. It introduces
 one construct at a time from Lark's supplied policy: policy shape, records,
 `Option`, `match`, `if`, distance literals, then intention lists. Every lesson
 anchors its text in shipped policy syntax, distinguishes an intention request
@@ -156,12 +156,12 @@ Delivery: next simulation tick
 
 The UI should never say “Move squad here” unless the kiwi actually interprets it that way.
 
-Glasshouse offers only `advance` and `hold` signals, addressed either to the
+Terminal offers only `advance` and `hold` signals, addressed either to the
 squad or one deployed player operative. The mission HUD shows queued data before
 the next authoritative tick and the most recently issued signal afterwards. A
 signal is policy input; its recipient may ignore it.
 
-### 4.3 Glasshouse debrief
+### 4.3 Terminal debrief
 
 The debrief lists retained injury consequences in canonical tick and trace-node
 order, initially selecting the first. Selecting another retained injury replaces
@@ -174,7 +174,7 @@ matching expression in the current workbench only when the current source text
 is exact. If current text differs, it keeps the historical source and does not
 apply its old offsets to the editable buffer.
 
-Rerunning Glasshouse reuses the retained initial authority state, seed, tick
+Rerunning Terminal reuses the retained initial authority state, seed, tick
 rate, and executed player command log. Only newly compiled policy bindings may
 differ. The comparison pane remains compatibility-gated and reports the policy,
 state, and retained consequence deltas without claiming a fabricated prediction.

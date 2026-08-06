@@ -1,4 +1,4 @@
-"""Bitmap local-result histogram page for Glasshouse challenge attempts."""
+"""Bitmap local-result histogram page for Terminal challenge attempts."""
 
 from __future__ import annotations
 

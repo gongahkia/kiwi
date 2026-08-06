@@ -114,7 +114,7 @@ python -m ruff check .
 python -m ruff format --check .
 python -m mypy src tests
 python -m kiwi.cli compile examples/policies/basic.dtr
-python -m kiwi.cli simulate fixtures/glasshouse.json --headless
+python -m kiwi.cli simulate fixtures/terminal.json --headless
 python -m kiwi.cli replay verify runs/example.drun
 ```
 

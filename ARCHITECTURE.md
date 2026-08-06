@@ -667,36 +667,36 @@ and cover authority IDs from canonical content order. The resulting
 `MissionState` remains renderer-independent; named regions remain content
 data until the corresponding objective and deployment rules consume them.
 
-`kiwi.app.glasshouse_players` adds the four fixed player deployments,
+`kiwi.app.terminal_players` adds the four fixed player deployments,
 generic weapon inventories, bounded compiled DSL policies, and declared
-capabilities above that mission boundary. It also binds Glasshouse's named
+capabilities above that mission boundary. It also binds Terminal's named
 objective and extraction regions to one canonical squad objective. Policy
 sources remain closed DSL files and compilation failures are structured
-diagnostics. It also schedules Glasshouse's one-shot 90-second lockdown, which
+diagnostics. It also schedules Terminal's one-shot 90-second lockdown, which
 is resolved only by headless authority.
 
-`kiwi.app.glasshouse_hostiles` appends three project-authored hostile
+`kiwi.app.terminal_hostiles` appends three project-authored hostile
 roles using the same compiled policy binding, capability, memory, weapon, and
 headless execution interfaces as the player roster.
 
-`kiwi.app.glasshouse_workbench` converts the already-loaded canonical player
-sources into `kiwi.ui.glasshouse_workbench` briefing-first state. That UI state
+`kiwi.app.terminal_workbench` converts the already-loaded canonical player
+sources into `kiwi.ui.terminal_workbench` briefing-first state. That UI state
 holds one independent immutable editor and optional compiler result per role;
 selecting, editing, and compiling a policy are non-authoritative operations.
-`kiwi.render.glasshouse_workbench_view` consumes only this state through the
+`kiwi.render.terminal_workbench_view` consumes only this state through the
 bitmap font. It cannot deploy, execute, or otherwise alter mission authority.
 
-`kiwi.ui.glasshouse_tutorial` supplies a fixed, one-construct-at-a-time guide
+`kiwi.ui.terminal_tutorial` supplies a fixed, one-construct-at-a-time guide
 for the shipped scout policy. Its selection state and bitmap renderer are
 read-only presentation values; tutorial navigation cannot change a source,
 compile result, deployment, or authority state.
 
-`kiwi.app.glasshouse_execution` compiles the current four workbench buffers,
+`kiwi.app.terminal_execution` compiles the current four workbench buffers,
 adds the project-owned hostile policies, and queues player `StartMission` or
-Glasshouse `advance`/`hold` commands for the next exact reducer tick. It limits
+Terminal `advance`/`hold` commands for the next exact reducer tick. It limits
 targeted signals to deployed player entities, retains canonical emitted events,
-and otherwise delegates all outcomes to `kiwi.sim`. `kiwi.render.glasshouse_mission_view`
-renders only the `GlasshouseMissionPresentation` copied snapshot, lockdown
+and otherwise delegates all outcomes to `kiwi.sim`. `kiwi.render.terminal_mission_view`
+renders only the `TerminalMissionPresentation` copied snapshot, lockdown
 countdown, objective/lockdown-derived mission summary, and queued or recorded
 signal status. That summary cannot create a terminal state: it reports success
 only after authoritative extraction and failure only after authoritative
@@ -707,31 +707,31 @@ rendered from copied current impact markers; neither audio nor effects alter
 authority.
 
 Execution retains its initial authority state, source-matched policy bundle, and
-resolved canonical command log. `kiwi.app.glasshouse_rerun` re-executes those
+resolved canonical command log. `kiwi.app.terminal_rerun` re-executes those
 exact inputs headlessly after recompiling a revised workbench bundle, retains a
 replay-bound source archive and causal trace for each run, then delegates to the
 existing compatibility-gated comparison view. It refuses a rerun whose newly
 materialised initial state or tick rate differs from the baseline.
 
-`kiwi.ui.glasshouse_debrief` projects retained injury `ConsequenceTrace` records
+`kiwi.ui.terminal_debrief` projects retained injury `ConsequenceTrace` records
 into canonically ordered selection state and delegates the selected explanation
 to `kiwi.ui.causal_chain`. Its bitmap renderer consumes only that immutable UI
 state and cannot alter trace or simulation authority.
 
-`kiwi.ui.glasshouse_revision` filters trace-to-source navigation to policies
-that the Glasshouse workbench can edit, then focuses the selected exact source
+`kiwi.ui.terminal_revision` filters trace-to-source navigation to policies
+that the Terminal workbench can edit, then focuses the selected exact source
 span without invalidating an unchanged compilation result. It retains historical
 source separately and returns a typed result instead of applying historical
 offsets after current source text diverges. The workbench renderer underlines
 the focused current editor range only.
 
-The Glasshouse vertical-slice acceptance fixture exercises briefing, current
+The Terminal vertical-slice acceptance fixture exercises briefing, current
 policy compilation, headless deployment, retained injury debrief, archive-bound
 source focus, a one-metre-to-zero-metre scout revision, and replay-compatible
 headless comparison. Its causal map is intentionally compact, but it binds the
 actual shipped scout source and requires the revision to remove the injury.
 
-`kiwi.glasshouse` is the pygame application shell for that same bounded causal
+`kiwi.terminal` is the pygame application shell for that same bounded causal
 drill. It owns screen/input state only and delegates source compilation, replay
 recording, trace capture, source-archive navigation, and comparison to the
 existing headless public interfaces. It uses no renderer state as authority and

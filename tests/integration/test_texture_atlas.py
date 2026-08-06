@@ -5,16 +5,16 @@ import subprocess
 import sys
 
 
-def test_glasshouse_atlas_preserves_transparent_backgrounds_when_tinted() -> None:
+def test_terminal_atlas_preserves_transparent_backgrounds_when_tinted() -> None:
     source = """
 import pygame
 
-from kiwi.render.atlas import load_glasshouse_atlas
+from kiwi.render.atlas import load_terminal_atlas
 from kiwi.render.pygame_lifecycle import quit_pygame
 
 pygame.init()
 pygame.display.set_mode((1, 1))
-atlas = load_glasshouse_atlas()
+atlas = load_terminal_atlas()
 assert atlas is not None
 operative = atlas.frame("operative", 48, (255, 255, 255))
 assert operative.get_at((0, 0)).a == 0

@@ -17,9 +17,9 @@
 
 Use `make benchmark` or `uv run --extra dev python -m kiwi.cli benchmark source.dtr fixture.kfixture.json --entry choose --arg true --iterations 100 --ticks 60` for focused local measurements. The report covers full compilation, VM entry evaluation, headless ticks, retained trace capture, and replay packet encode/decode. It reports operation-normalized elapsed time only; host-dependent timings are not CI thresholds.
 
-### 2.0.1 Manual Glasshouse usability drill
+### 2.0.1 Manual Terminal usability drill
 
-Use `make glasshouse` for an observer-led local session. Ask the participant to explain the `1m` uncertainty threshold, deploy the causal drill, identify the source selected by the injury debrief, change only `1m` to `0m`, and explain the resulting replay comparison. Record task completion, observed confusion, and verbatim feedback outside the repository with participant consent; do not commit personal data or claim results that were not collected.
+Use `make terminal` for an observer-led local session. Ask the participant to explain the `1m` uncertainty threshold, deploy the causal drill, identify the source selected by the injury debrief, change only `1m` to `0m`, and explain the resulting replay comparison. Record task completion, observed confusion, and verbatim feedback outside the repository with participant consent; do not commit personal data or claim results that were not collected.
 
 ### 2.1 Unit tests
 
@@ -278,7 +278,7 @@ Recommended initial fixtures:
 - `projectile_impact`;
 - `policy_budget_fault`;
 - `causal_threshold_injury`;
-- `glasshouse_vertical_slice`.
+- `terminal_vertical_slice`.
 
 The current `cover_contention_policy` fixture emits the same requested-side
 `TakeCover` intent for two operatives, asserting the canonical grant and
@@ -297,43 +297,43 @@ one-shot hostile policy. It asserts the `Some` and threshold branches, observed
 contact precision and visible cover, advance source span and route, then enemy
 fire, projectile impact, injury, and the retained physical consequence chain.
 
-The same fixture compiles the bundled Glasshouse scout policy, binds its normal
+The same fixture compiles the bundled Terminal scout policy, binds its normal
 memory schema, and verifies its one-metre contact-uncertainty threshold through
 the same advance, hostile fire, projectile impact, and injury chain.
 
-The Glasshouse briefing/workbench tests preserve fixed briefing rows, canonical
+The Terminal briefing/workbench tests preserve fixed briefing rows, canonical
 roster order, independent editor state, compile-result invalidation, and
 dummy-SDL bitmap rendering. They do not execute a policy or mutate authority.
 
-Glasshouse language-guide tests retain one distinct lesson for every construct
+Terminal language-guide tests retain one distinct lesson for every construct
 used by the shipped scout policy, preserve bounded lesson navigation, and render
 the selected lesson under dummy SDL without reading or changing policy text.
 
-Glasshouse execution tests compile the current workbench sources, queue a player
+Terminal execution tests compile the current workbench sources, queue a player
 start, advance one reducer tick at a time, and verify deterministic `advance`
 and targeted `hold` signal provenance. Mission-summary tests project only the
 authoritative objective lifecycle and lockdown state into in-progress, success,
 and failure HUD output. The mission HUD test consumes the resulting presentation
 snapshot, summary, and signal status under dummy SDL.
 
-Glasshouse presentation-effect tests retain canonically ordered event-ID sound
+Terminal presentation-effect tests retain canonically ordered event-ID sound
 cues, play each copied cue once under dummy SDL, and render current impact bursts
 without writing authority state.
 
-Glasshouse debrief tests assert canonical retained-injury selection, rejection
+Terminal debrief tests assert canonical retained-injury selection, rejection
 of missing trace evidence, causal-chain replacement, and dummy-SDL bitmap output.
 
-Glasshouse guided-revision tests filter retained causes to editable player
+Terminal guided-revision tests filter retained causes to editable player
 policies, preserve matching compilation output while focusing provenance, reject
 changed current source text, and render the focused workbench range under dummy
 SDL.
 
-Glasshouse controlled-rerun tests record resolved commands from the original
+Terminal controlled-rerun tests record resolved commands from the original
 initial state, recompile one revised policy against that exact baseline, retain
 replay-bound trace/source evidence, and reject a changed initial state before
 comparison.
 
-The `glasshouse_vertical_slice` acceptance fixture joins the player-facing loop:
+The `terminal_vertical_slice` acceptance fixture joins the player-facing loop:
 briefing, scout compilation, headless mission setup, injury debrief, historical
 source focus, a threshold revision, and replay-compatible comparison. Replacing
 Lark's `1m` threshold with `0m` must remove the retained injury under the exact

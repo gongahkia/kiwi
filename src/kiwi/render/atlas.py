@@ -8,7 +8,7 @@ from pathlib import Path
 import pygame
 
 _ASSET_ROOT = Path(__file__).with_name("assets")
-_ATLAS_NAME = "glasshouse_atlas.png"
+_ATLAS_NAME = "terminal_atlas.png"
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +56,7 @@ class AtlasAnimation:
             raise ValueError("atlas animation ticks per frame must be positive")
 
 
-GLASSHOUSE_ATLAS_FRAMES = (
+TERMINAL_ATLAS_FRAMES = (
     AtlasFrame("operative", 48, 45, 270, 300),
     AtlasFrame("operative_alert", 350, 45, 270, 300),
     AtlasFrame("hostile", 32, 375, 270, 280),
@@ -67,7 +67,7 @@ GLASSHOUSE_ATLAS_FRAMES = (
     AtlasFrame("impact", 650, 985, 300, 230),
     AtlasFrame("floor", 70, 680, 520, 300),
 )
-GLASSHOUSE_ATLAS_ANIMATIONS = (
+TERMINAL_ATLAS_ANIMATIONS = (
     AtlasAnimation("operative_idle", ("operative", "operative_alert"), 10),
     AtlasAnimation("impact", ("impact", "projectile", "impact"), 2),
 )
@@ -80,7 +80,7 @@ class TextureAtlas:
         if not isinstance(image, pygame.Surface):
             raise TypeError("texture atlas requires a pygame surface")
         self._image = image.convert_alpha()
-        self._frames = {frame.name: frame for frame in GLASSHOUSE_ATLAS_FRAMES}
+        self._frames = {frame.name: frame for frame in TERMINAL_ATLAS_FRAMES}
         self._cache: dict[tuple[str, int, tuple[int, int, int]], pygame.Surface] = {}
 
     def frame(self, name: str, size: int, tint: tuple[int, int, int]) -> pygame.Surface:
@@ -119,14 +119,14 @@ class TextureAtlas:
         """Return one deterministic display-animation frame for a recorded tick."""
         if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
             raise ValueError("atlas animation tick must be non-negative")
-        animation = next((item for item in GLASSHOUSE_ATLAS_ANIMATIONS if item.name == name), None)
+        animation = next((item for item in TERMINAL_ATLAS_ANIMATIONS if item.name == name), None)
         if animation is None:
             raise ValueError("texture atlas animation is unavailable")
         frame = animation.frames[(tick // animation.ticks_per_frame) % len(animation.frames)]
         return self.frame(frame, size, tint)
 
 
-def load_glasshouse_atlas() -> TextureAtlas | None:
+def load_terminal_atlas() -> TextureAtlas | None:
     """Load generated source art; absence is a non-authoritative visual fallback."""
     try:
         return TextureAtlas(pygame.image.load(_ASSET_ROOT / _ATLAS_NAME))
