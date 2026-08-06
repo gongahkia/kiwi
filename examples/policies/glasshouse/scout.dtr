@@ -1,0 +1,11 @@
+type SelfObservation = { entity_id: Int, position: Position }
+type Observation = { self: SelfObservation, tick: Int }
+type Memory = { label: String }
+type MoveToward = { target: Position }
+type Decision = { intentions: List<MoveToward>, memory: Memory }
+
+policy advance(observation: Observation, memory: Memory) -> Decision =
+  Decision {
+    intentions = [MoveToward { target = Position { x = 5m, y = 0m } }],
+    memory = memory
+  }

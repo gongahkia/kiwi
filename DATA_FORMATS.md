@@ -147,8 +147,9 @@ Mission v1 uses UTF-8 `.dmission.json` documents with exact top-level fields:
 `format` (`kiwi-mission`), `version` (1), `id`, `title`, `tick_rate`, `seed`,
 `map`, `covers`, and `regions`. The initial Glasshouse document defines the bounded
 map, obstacles, cover slots, player deployment, both entrances, objective room,
-and extraction region. Operative loadouts, hostile policies, objectives, and
-timers remain later vertical-slice extensions.
+and extraction region. The initial player loadouts and policy sources are a
+bundled application roster tied to this content; hostile policies, objectives,
+and timers remain later vertical-slice extensions.
 
 The loader rejects duplicate or unknown fields, malformed UTF-8/JSON,
 unsupported versions, values beyond explicit size limits, and invalid

@@ -450,6 +450,8 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 ### 13.1 Setup
 
 - Four player operatives.
+- Initial roles: Breach (breacher), Mender (medic), Scope (overwatch), and
+  Lark (scout), each with a separate bundled DSL policy and magazine loadout.
 - Three to five hostiles.
 - Compact structure with two entrances.
 - Several full and partial cover segments.
