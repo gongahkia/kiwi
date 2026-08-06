@@ -838,6 +838,8 @@ Initial target scale:
 
 Performance tests should define budgets in measured operations rather than relying on intuition.
 
+`kiwi benchmark` is the focused non-CI measurement workflow. It reports normalized nanoseconds per full compiler pipeline, VM entry evaluation, authoritative tick, retained trace capture, and replay encode/decode package. The command takes an explicit source, kernel fixture, iteration count, and tick count; it must remain headless and must not convert host-specific measurements into correctness thresholds.
+
 ## 22. Development modes
 
 ### Headless test mode

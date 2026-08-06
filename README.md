@@ -128,6 +128,8 @@ python -m pytest
 
 `make format` applies formatting. `make check` runs formatting verification, linting, static types, and tests. The equivalent `uv` commands are `uv run --extra dev python -m kiwi.cli doctor`, `uv run --extra dev ruff format --check .`, `uv run --extra dev ruff check .`, `uv run --extra dev mypy src tests`, and `uv run --extra dev pytest`.
 
+Run `make benchmark` to measure the headless compiler, VM, fixed ticks, causal trace capture, and replay encode/decode paths against the checked-in policy and kernel fixture. It is an informational local measurement rather than a CI pass/fail gate; use `uv run --extra dev python -m kiwi.cli benchmark source.dtr fixture.kfixture.json --entry choose --arg true --iterations 100 --ticks 60` to select the source, fixture, and bounded work count.
+
 Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli parse path/to/policy.dtr`; successful parses emit stable surface-AST output and invalid input emits structured diagnostics.
 
 Type-check and lower a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli check path/to/policy.dtr`; successful checks emit stable core and source-map output and invalid input emits structured diagnostics.

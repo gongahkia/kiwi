@@ -39,6 +39,7 @@ from kiwi.dsl.runtime_values import (
 )
 from kiwi.dsl.source import SourceFile, SourceFileId, SourceLoadFailure, load_utf8_file
 from kiwi.dsl.vm import run_vm
+from kiwi.performance import benchmark_report, render_performance_report
 from kiwi.replay.compatibility import check_run_compatibility
 from kiwi.replay.format import (
     ReplayDecodeFailure,
@@ -171,6 +172,74 @@ def run_policy_source(path: Path, entry_name: str, argument_texts: Sequence[str]
     if result.value is None:
         raise AssertionError("successful VM result has no value")
     print(f"value: {_format_runtime_value(result.value)}")
+    return 0
+
+
+def benchmark(
+    source_path: Path,
+    fixture_path: Path,
+    entry_name: str,
+    argument_texts: Sequence[str],
+    iterations: int,
+    ticks: int,
+) -> int:
+    """Measure the focused headless compiler, VM, simulation, trace, and replay paths."""
+    if not isinstance(iterations, int) or isinstance(iterations, bool) or iterations <= 0:
+        print("benchmark: iterations must be a positive integer", file=sys.stderr)
+        return 1
+    if not isinstance(ticks, int) or isinstance(ticks, bool) or ticks <= 0:
+        print("benchmark: ticks must be a positive integer", file=sys.stderr)
+        return 1
+    source = _load_source(source_path)
+    if source is None:
+        return 1
+    lowered = _check_and_lower(source)
+    if lowered is None:
+        return 1
+    module = compile_core(lowered.module, BytecodeHeader(source.file_id))
+    entry_function_id = _function_id_for_name(module, entry_name)
+    if entry_function_id is None:
+        print(f"{source_path}: R013_ENTRY: no function named {entry_name!r}", file=sys.stderr)
+        return 1
+    arguments: list[RuntimeValue] = []
+    for text in argument_texts:
+        value = _parse_runtime_argument(text)
+        if value is None:
+            print(
+                f"benchmark: unsupported argument {text!r}; use an integer, true, false, or unit",
+                file=sys.stderr,
+            )
+            return 1
+        arguments.append(value)
+    try:
+        fixture_bytes = fixture_path.read_bytes()
+    except OSError:
+        print(f"{fixture_path}: could not read fixture", file=sys.stderr)
+        return 1
+    fixture = load_kernel_fixture_bytes(fixture_bytes, str(fixture_path))
+    if isinstance(fixture, FixtureLoadFailure):
+        _print_fixture_failure(fixture)
+        return 1
+    state = build_initial_state(
+        MissionSeed(fixture.seed),
+        tuple(entity.position for entity in fixture.entities),
+        fixture.scheduled_trigger_ticks,
+    )
+    try:
+        report = benchmark_report(
+            source,
+            module,
+            entry_function_id,
+            tuple(arguments),
+            state,
+            FixedTickClock(TickRate(fixture.tick_rate)),
+            iterations=iterations,
+            ticks=ticks,
+        )
+    except ValueError as error:
+        print(f"benchmark: {error}", file=sys.stderr)
+        return 1
+    print(render_performance_report(report))
     return 0
 
 
@@ -581,6 +650,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_policy_parser.add_argument("source", type=Path)
     run_policy_parser.add_argument("entry")
     run_policy_parser.add_argument("--arg", action="append", default=[])
+    benchmark_parser = subparsers.add_parser("benchmark")
+    benchmark_parser.add_argument("source", type=Path)
+    benchmark_parser.add_argument("fixture", type=Path)
+    benchmark_parser.add_argument("--entry", default="choose")
+    benchmark_parser.add_argument("--arg", action="append", default=[])
+    benchmark_parser.add_argument("--iterations", type=int, default=100)
+    benchmark_parser.add_argument("--ticks", type=int, default=60)
     trace_query_parser = subparsers.add_parser("trace-query")
     trace_query_parser.add_argument("trace", type=Path)
     trace_query_parser.add_argument(
@@ -612,6 +688,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         return compile_source(arguments.source, arguments.output)
     if arguments.command == "disassemble":
         return disassemble_source(arguments.source)
+    if arguments.command == "benchmark":
+        return benchmark(
+            arguments.source,
+            arguments.fixture,
+            arguments.entry,
+            arguments.arg,
+            arguments.iterations,
+            arguments.ticks,
+        )
     if arguments.command == "trace-query":
         return trace_query(arguments.trace, arguments.query, arguments.target_id)
     if arguments.command == "replay-record":
