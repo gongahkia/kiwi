@@ -605,7 +605,8 @@ canonical policy event phase and matching state hash to retain each intention
 origin, policy-evaluation/emission/resolution event IDs, arbitration outcome,
 and competitor link. Its run projector extends that graph with every canonical
 world event and header-parent edge, bridges retained projectile provenance to
-impacts, and emits injury consequences. Retention, queries, and replay packaging
+impacts, retains the latest successful target movement as an operative-impact
+contributor, and emits injury consequences. Retention, queries, and replay packaging
 extend this boundary in later milestones. `TraceRetentionPolicy` selects Summary,
 Decision, or Full detail and applies an optional trailing-tick window plus bounded
 record and edge limits before a packet is constructed; it never changes authority.
@@ -723,6 +724,12 @@ span without invalidating an unchanged compilation result. It retains historical
 source separately and returns a typed result instead of applying historical
 offsets after current source text diverges. The workbench renderer underlines
 the focused current editor range only.
+
+The Glasshouse vertical-slice acceptance fixture exercises briefing, current
+policy compilation, headless deployment, retained injury debrief, archive-bound
+source focus, a one-metre-to-zero-metre scout revision, and replay-compatible
+headless comparison. Its causal map is intentionally compact, but it binds the
+actual shipped scout source and requires the revision to remove the injury.
 
 ## 17. Editor architecture
 

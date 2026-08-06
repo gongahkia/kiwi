@@ -44,6 +44,7 @@ from kiwi.sim.events import (
     InjuryChanged,
     IntentionEmitted,
     IntentionSelected,
+    MovementProgressed,
     MovementRouteStarted,
     PolicyEvaluated,
     ProjectileImpacted,
@@ -56,7 +57,7 @@ from kiwi.sim.runner import HeadlessRun, run_headless
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
-from kiwi.trace.model import CausalTrace, ConsequenceTrace, WorldEventTrace
+from kiwi.trace.model import CausalTrace, ConsequenceTrace, TraceEdgeKind, WorldEventTrace
 from kiwi.trace.queries import ConsequenceChainExplanation, consequence_chain
 
 PLAYER_POLICY_PATH = (
@@ -101,6 +102,13 @@ def test_causal_threshold_injury_fixture_is_deterministic_and_traceable() -> Non
     route = _only_event(first, MovementRouteStarted)
     fired = _only_event(first, FireFired)
     impact = _only_event(first, ProjectileImpacted)
+    movement = next(
+        event
+        for event in reversed(first.events)
+        if isinstance(event, MovementProgressed)
+        and (event.header.tick, event.header.event_id.value)
+        < (impact.header.tick, impact.header.event_id.value)
+    )
     damage = _only_event(first, DamageApplied)
     injury = _only_event(first, InjuryChanged)
     trace = capture_run_trace(first, hash_canonical_state(first.state))
@@ -157,6 +165,17 @@ def test_causal_threshold_injury_fixture_is_deterministic_and_traceable() -> Non
     assert injury.header.parent_event_ids == (damage.header.event_id,)
     assert injury.resolution.injury_before is InjurySeverity.SEVERE
     assert injury.resolution.injury_after is InjurySeverity.INCAPACITATED
+    world_nodes = {
+        record.event_id: record.node_id
+        for record in trace.records
+        if isinstance(record, WorldEventTrace)
+    }
+    assert any(
+        edge.source_node_id == world_nodes[movement.header.event_id]
+        and edge.target_node_id == world_nodes[impact.header.event_id]
+        and edge.kind is TraceEdgeKind.CONTRIBUTED_TO
+        for edge in trace.edges
+    )
     assert isinstance(chain, ConsequenceChainExplanation)
     assert tuple(
         record.event_kind

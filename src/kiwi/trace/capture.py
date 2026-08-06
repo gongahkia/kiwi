@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from kiwi.domain.ids import EventId, IntentionId, PolicyInvocationId, TraceNodeId
+from kiwi.domain.ids import EntityId, EventId, IntentionId, PolicyInvocationId, TraceNodeId
 from kiwi.sim.events import (
     CanonicalEvent,
     InjuryChanged,
     IntentionEmitted,
     IntentionRejected,
     IntentionSelected,
+    MovementArrived,
+    MovementProgressed,
     PolicyEvaluated,
     ProjectileImpacted,
     event_kind,
 )
 from kiwi.sim.hashing import StateHash, hash_canonical_state
 from kiwi.sim.policy_events import PolicyEventPhase
+from kiwi.sim.projectile_sweeps import ProjectileCollisionKind
 from kiwi.sim.runner import HeadlessRun
 from kiwi.trace.model import (
     CausalTrace,
@@ -197,6 +200,7 @@ def capture_run_trace(
     _append_policy_resolution_event_edges(edges, policy_records, world_nodes)
     _append_world_parent_edges(edges, run.events, world_nodes)
     _append_projectile_origin_edges(edges, run.events, policy_records, world_nodes)
+    _append_movement_impact_edges(edges, run.events, world_nodes)
     for world_node_id, consequence_node_id in consequence_nodes:
         _append_edge(edges, world_node_id, consequence_node_id, TraceEdgeKind.CONTRIBUTED_TO)
     return build_retained_trace(state_hash.digest, tuple(records), tuple(edges), retention_policy)
@@ -349,6 +353,48 @@ def _append_projectile_origin_edges(
         )
         target_node_id = _node_for_event(world_nodes, event.header.event_id)
         _append_edge_if_retained(edges, source_node_id, target_node_id, TraceEdgeKind.CAUSED_EVENT)
+
+
+def _append_movement_impact_edges(
+    edges: list[TraceEdge],
+    events: tuple[CanonicalEvent, ...],
+    world_nodes: list[tuple[EventId, TraceNodeId]],
+) -> None:
+    """Retain the latest accepted target movement as a physical impact contributor."""
+    for impact in events:
+        if (
+            not isinstance(impact, ProjectileImpacted)
+            or impact.impact.collision.kind is not ProjectileCollisionKind.OPERATIVE
+        ):
+            continue
+        target_id = impact.impact.collision.target_id
+        if not isinstance(target_id, EntityId):
+            raise AssertionError("operative projectile impact target must be an entity ID")
+        movement = _latest_successful_movement(events, impact, target_id)
+        if movement is None:
+            continue
+        _append_edge_if_retained(
+            edges,
+            _node_for_event(world_nodes, movement.header.event_id),
+            _node_for_event(world_nodes, impact.header.event_id),
+            TraceEdgeKind.CONTRIBUTED_TO,
+        )
+
+
+def _latest_successful_movement(
+    events: tuple[CanonicalEvent, ...],
+    impact: ProjectileImpacted,
+    target_id: EntityId,
+) -> MovementProgressed | MovementArrived | None:
+    impact_key = (impact.header.tick, impact.header.event_id.value)
+    for event in reversed(events):
+        if not isinstance(event, (MovementProgressed, MovementArrived)):
+            continue
+        if (event.header.tick, event.header.event_id.value) >= impact_key:
+            continue
+        if event.resolution.entity_id == target_id:
+            return event
+    return None
 
 
 def _node_for_event(
