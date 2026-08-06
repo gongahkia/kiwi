@@ -127,7 +127,10 @@ def test_glasshouse_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> 
     phosphor = amber.cycle_color_scheme()
     assert phosphor.color_scheme is GlasshouseColorScheme.PHOSPHOR
     assert phosphor.cycle_color_scheme().color_scheme is GlasshouseColorScheme.MAROON
-    assert phosphor.cycle_color_scheme().cycle_color_scheme().color_scheme is GlasshouseColorScheme.WHITE
+    assert (
+        phosphor.cycle_color_scheme().cycle_color_scheme().color_scheme
+        is GlasshouseColorScheme.WHITE
+    )
     assert (
         phosphor.cycle_color_scheme().cycle_color_scheme().cycle_color_scheme().color_scheme
         is GlasshouseColorScheme.BLACK
