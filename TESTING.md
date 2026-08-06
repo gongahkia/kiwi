@@ -192,6 +192,7 @@ Keep UI tests focused:
 - canonical development policy/fixture discovery, selection, and picker rendering;
 - retained causal timeline ordering, selection, and bitmap rendering;
 - retained event detail, causal-ancestor ordering, links, and bitmap rendering;
+- archive-bound source selection, source-map highlights, and bitmap rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
