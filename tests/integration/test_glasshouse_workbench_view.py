@@ -59,3 +59,42 @@ quit_pygame()
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_glasshouse_workbench_renders_a_focused_current_source_range() -> None:
+    source = """
+import pygame
+
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.glasshouse_workbench_view import (
+    DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
+    render_glasshouse_workbench,
+)
+from kiwi.render.pygame_lifecycle import quit_pygame
+from kiwi.ui.glasshouse_workbench import WorkbenchPolicy, create_glasshouse_workbench
+
+text = \"fn choose(value: Int) -> Int = value\"
+policies = (
+    WorkbenchPolicy(\"breacher\", \"Breach\", SourceFile(SourceFileId(\"breach.dtr\"), text)),
+    WorkbenchPolicy(\"medic\", \"Mender\", SourceFile(SourceFileId(\"medic.dtr\"), text)),
+    WorkbenchPolicy(\"overwatch\", \"Scope\", SourceFile(SourceFileId(\"scope.dtr\"), text)),
+    WorkbenchPolicy(\"scout\", \"Lark\", SourceFile(SourceFileId(\"scout.dtr\"), text)),
+)
+workbench = create_glasshouse_workbench(policies).open_workbench().select_policy(\"scout\")
+focused = workbench.focus_source(workbench.source.span(ByteOffset(3), ByteOffset(9)))
+font = load_bitmap_font()
+canvas = pygame.Surface((480, 270))
+canvas.fill((0, 0, 0))
+render_glasshouse_workbench(canvas, font, focused)
+pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}
+assert DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE.focus in pixels
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+    result = subprocess.run(
+        (sys.executable, "-c", source), check=False, capture_output=True, env=environment, text=True
+    )
+    assert result.returncode == 0, result.stderr
