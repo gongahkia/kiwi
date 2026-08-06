@@ -33,7 +33,11 @@ from kiwi.sim.reducer import reduce_one_tick
 from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.snapshot import build_presentation_snapshot
 from kiwi.sim.state import MissionPhase, MissionState
-from kiwi.ui.glasshouse_mission import GlasshouseMissionPresentation, GlasshouseSignalStatus
+from kiwi.ui.glasshouse_mission import (
+    GlasshouseMissionPresentation,
+    GlasshouseSignalStatus,
+    build_glasshouse_mission_summary,
+)
 from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase, GlasshouseWorkbench
 
 
@@ -248,8 +252,15 @@ def build_glasshouse_mission_presentation(
         )
     else:
         signal_status = None
+    objectives = execution.state.objectives.entries
+    if len(objectives) != 1:
+        raise AssertionError("Glasshouse mission presentation requires one objective")
     return GlasshouseMissionPresentation(
         build_presentation_snapshot(execution.state, projectile_events=execution.last_tick_events),
+        build_glasshouse_mission_summary(
+            objectives[0].status,
+            lockdown_active=execution.state.lockdown.active,
+        ),
         execution.remaining_lockdown_ticks,
         signal_status,
     )

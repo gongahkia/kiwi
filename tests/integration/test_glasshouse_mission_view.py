@@ -56,7 +56,7 @@ result = render_glasshouse_mission(
     Camera(pixels_per_millimetre=0.01),
 )
 pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}
-assert result.line_count == 4
+assert result.line_count == 5
 assert DEFAULT_GLASSHOUSE_MISSION_PALETTE.heading in pixels
 assert DEFAULT_GLASSHOUSE_MISSION_PALETTE.signal in pixels
 assert DEFAULT_GLASSHOUSE_MISSION_PALETTE.border in pixels

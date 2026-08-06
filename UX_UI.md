@@ -35,6 +35,10 @@ an independent in-memory editor and compile result while the player reviews
 another policy. Compilation only produces DSL diagnostics or bytecode metadata;
 it does not deploy or execute a policy.
 
+The mission HUD reports `IN PROGRESS`, `SUCCESS` after the squad objective is
+extracted, or `FAILURE` when lockdown prevents extraction. These are copied
+outcomes, not player controls or new mission phases.
+
 ## 3. Kiwi workbench
 
 Recommended layout:

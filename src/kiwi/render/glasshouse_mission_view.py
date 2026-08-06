@@ -9,7 +9,7 @@ import pygame
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.camera import Camera
 from kiwi.render.pygame_app import render_tactical_view
-from kiwi.ui.glasshouse_mission import GlasshouseMissionPresentation
+from kiwi.ui.glasshouse_mission import GlasshouseMissionOutcome, GlasshouseMissionPresentation
 
 
 def _validate_color(color: tuple[int, int, int]) -> None:
@@ -31,6 +31,7 @@ class GlasshouseMissionPalette:
     normal: tuple[int, int, int] = (206, 221, 231)
     signal: tuple[int, int, int] = (111, 216, 168)
     warning: tuple[int, int, int] = (245, 189, 74)
+    failure: tuple[int, int, int] = (235, 106, 89)
 
     def __post_init__(self) -> None:
         for color in (
@@ -40,6 +41,7 @@ class GlasshouseMissionPalette:
             self.normal,
             self.signal,
             self.warning,
+            self.failure,
         ):
             _validate_color(color)
 
@@ -106,7 +108,15 @@ def _status_lines(
     lines = presentation.panel_lines
     return (
         (lines[0], palette.heading),
-        (lines[1], palette.normal),
-        (lines[2], palette.warning),
-        (lines[3], palette.signal),
+        (
+            lines[1],
+            palette.signal
+            if presentation.summary.outcome is GlasshouseMissionOutcome.SUCCESS
+            else palette.failure
+            if presentation.summary.outcome is GlasshouseMissionOutcome.FAILURE
+            else palette.normal,
+        ),
+        (lines[2], palette.normal),
+        (lines[3], palette.warning),
+        (lines[4], palette.signal),
     )
