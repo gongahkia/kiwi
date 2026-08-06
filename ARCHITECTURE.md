@@ -694,6 +694,9 @@ that outcome; it cannot execute policies or alter editor source.
 `kiwi.ui.development_picker` discovers explicit policy and kernel-fixture roots
 in canonical order and loads only a selected file through content boundaries.
 `kiwi.render.development_picker_view` consumes that immutable picker state.
+`kiwi.ui.timeline` projects retained causal records into chronological tick and
+node-ID entries; `kiwi.render.timeline_view` renders only this read-only
+selection state.
 
 ## 18. Content architecture
 

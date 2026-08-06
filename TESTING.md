@@ -190,6 +190,7 @@ Keep UI tests focused:
 - inline source markers and canonical diagnostic panel rows;
 - workbench compilation from immutable editor text and output-panel rendering;
 - canonical development policy/fixture discovery, selection, and picker rendering;
+- retained causal timeline ordering, selection, and bitmap rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
