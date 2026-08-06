@@ -325,6 +325,12 @@ initial state, recompile one revised policy against that exact baseline, retain
 replay-bound trace/source evidence, and reject a changed initial state before
 comparison.
 
+The `glasshouse_vertical_slice` acceptance fixture joins the player-facing loop:
+briefing, scout compilation, headless mission setup, injury debrief, historical
+source focus, a threshold revision, and replay-compatible comparison. Replacing
+Lark's `1m` threshold with `0m` must remove the retained injury under the exact
+same compact causal-fixture state, commands, tick rate, and tick count.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:
