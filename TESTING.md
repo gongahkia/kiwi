@@ -17,6 +17,10 @@
 
 Use `make benchmark` or `uv run --extra dev python -m kiwi.cli benchmark source.dtr fixture.kfixture.json --entry choose --arg true --iterations 100 --ticks 60` for focused local measurements. The report covers full compilation, VM entry evaluation, headless ticks, retained trace capture, and replay packet encode/decode. It reports operation-normalized elapsed time only; host-dependent timings are not CI thresholds.
 
+### 2.0.1 Manual Glasshouse usability drill
+
+Use `make glasshouse` for an observer-led local session. Ask the participant to explain the `1m` uncertainty threshold, deploy the causal drill, identify the source selected by the injury debrief, change only `1m` to `0m`, and explain the resulting replay comparison. Record task completion, observed confusion, and verbatim feedback outside the repository with participant consent; do not commit personal data or claim results that were not collected.
+
 ### 2.1 Unit tests
 
 Cover pure functions and local invariants:
