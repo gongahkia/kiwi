@@ -20,7 +20,7 @@ from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import BooleanValue, RecordValue, StringValue
-from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.dsl.source import SourceFile, SourceFileId, SourceSpan
 from kiwi.dsl.types import BuiltinType
 from kiwi.replay.recording import RecordedReplay, record_headless_run
 from kiwi.replay.source_archive import (
@@ -50,10 +50,16 @@ from kiwi.sim.covers import (
 from kiwi.sim.hashing import hash_canonical_state
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
+from kiwi.sim.snapshot import (
+    PresentationSnapshot,
+    SnapshotRestoreFailure,
+    build_presentation_snapshot,
+    restore_authority_snapshot,
+)
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
-from kiwi.trace.model import CausalTrace
+from kiwi.trace.model import CausalTrace, IntentionTrace
 from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import (
     GlasshouseDebrief,
@@ -85,6 +91,7 @@ class GlasshouseDemoScreen(StrEnum):
     INPUT_SETUP = "input_setup"
     BRIEFING = "briefing"
     WORKBENCH = "workbench"
+    LIVE_PREVIEW = "live_preview"
     GUIDE = "guide"
     MISSION = "mission"
     DEBRIEF = "debrief"
@@ -105,6 +112,7 @@ class GlasshouseDemoRun:
     recorded: RecordedReplay
     trace: CausalTrace
     archive: ReplaySourceArchive
+    snapshots: tuple[PresentationSnapshot, ...]
     debrief: GlasshouseDebriefResult
 
     def __post_init__(self) -> None:
@@ -114,10 +122,17 @@ class GlasshouseDemoRun:
             raise TypeError("Glasshouse demo run requires a causal trace")
         if not isinstance(self.archive, ReplaySourceArchive):
             raise TypeError("Glasshouse demo run requires a source archive")
+        if not isinstance(self.snapshots, tuple) or not self.snapshots:
+            raise ValueError("Glasshouse demo run requires presentation snapshots")
+        if any(not isinstance(snapshot, PresentationSnapshot) for snapshot in self.snapshots):
+            raise TypeError("Glasshouse demo snapshots must be presentation snapshots")
         if not isinstance(self.debrief, (GlasshouseDebrief, GlasshouseDebriefUnavailable)):
             raise TypeError("Glasshouse demo run requires a debrief result")
         if self.trace.run_state_hash != hash_canonical_state(self.recorded.run.state).digest:
             raise ValueError("Glasshouse demo trace must match the recorded run")
+        checkpoint_ticks = tuple(checkpoint.tick for checkpoint in self.recorded.run.checkpoints)
+        if tuple(snapshot.tick for snapshot in self.snapshots) != checkpoint_ticks:
+            raise ValueError("Glasshouse demo snapshots must match recorded checkpoint ticks")
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +167,9 @@ class GlasshouseDemoController:
     current_run: GlasshouseDemoRun | None = None
     baseline_run: GlasshouseDemoRun | None = None
     comparison: RunComparisonView | None = None
+    preview_snapshot_index: int = 0
+    preview_playing: bool = False
+    hot_reload_enabled: bool = True
     notice: str = ""
 
     def __post_init__(self) -> None:
@@ -171,6 +189,16 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo baseline run is invalid")
         if self.comparison is not None and not isinstance(self.comparison, RunComparisonView):
             raise TypeError("Glasshouse demo comparison is invalid")
+        if (
+            not isinstance(self.preview_snapshot_index, int)
+            or isinstance(self.preview_snapshot_index, bool)
+            or self.preview_snapshot_index < 0
+        ):
+            raise ValueError("Glasshouse demo preview snapshot index is invalid")
+        if not isinstance(self.preview_playing, bool):
+            raise TypeError("Glasshouse demo preview playback flag is invalid")
+        if not isinstance(self.hot_reload_enabled, bool):
+            raise TypeError("Glasshouse demo hot reload flag is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Glasshouse demo notice must be text")
         if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
@@ -192,6 +220,13 @@ class GlasshouseDemoController:
             raise ValueError("Glasshouse demo run screens require a current run")
         if self.screen is GlasshouseDemoScreen.COMPARISON and self.comparison is None:
             raise ValueError("Glasshouse demo comparison screen requires a comparison")
+        if self.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
+            if self.current_run is not None and self.preview_snapshot_index >= len(
+                self.current_run.snapshots
+            ):
+                raise ValueError("Glasshouse demo preview snapshot index exceeds current run")
+        elif self.preview_playing:
+            raise ValueError("Glasshouse demo playback is only valid in live preview")
 
     @classmethod
     def create(
@@ -242,7 +277,7 @@ class GlasshouseDemoController:
 
     def select_policy_index(self, index: int) -> GlasshouseDemoController:
         """Select one sidebar policy by its canonical workbench index."""
-        if self.screen is not GlasshouseDemoScreen.WORKBENCH:
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError("Glasshouse demo policy index must be an integer")
@@ -256,13 +291,21 @@ class GlasshouseDemoController:
 
     def replace_selected_editor(self, editor: EditorState) -> GlasshouseDemoController:
         """Apply one already-validated non-authoritative editor operation."""
-        if self.screen is not GlasshouseDemoScreen.WORKBENCH:
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
-        return replace(self, workbench=self.workbench.replace_editor(editor), notice="")
+        source_changed = editor.buffer.text != self.workbench.editor.buffer.text
+        updated = replace(self, workbench=self.workbench.replace_editor(editor), notice="")
+        if (
+            source_changed
+            and updated.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+            and updated.hot_reload_enabled
+        ):
+            return updated.reload_preview()
+        return updated
 
     def compile_selected(self) -> GlasshouseDemoController:
         """Compile the selected closed-DSL policy without deployment."""
-        if self.screen is not GlasshouseDemoScreen.WORKBENCH:
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         compiled = self.workbench.compile_selected()
         notice = (
@@ -274,7 +317,7 @@ class GlasshouseDemoController:
 
     def select_scout_threshold(self) -> GlasshouseDemoController:
         """Select the shipped scout's caution literal without changing its source."""
-        if self.screen is not GlasshouseDemoScreen.WORKBENCH:
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         scout = self.workbench.select_policy("scout")
         marker = "<= 1m"
@@ -285,11 +328,10 @@ class GlasshouseDemoController:
             )
         start = marker_start + len("<= ")
         editor = scout.editor.select(start, start + len("1m")).reveal_cursor(12, 40)
-        focused = scout.replace_editor(editor)
+        focused = replace(self, workbench=scout).replace_selected_editor(editor)
         return replace(
-            self,
-            workbench=focused,
-            notice="Caution literal selected. Type 0m, then deploy the controlled rerun.",
+            focused,
+            notice="Caution literal selected. Type 0m to hot reload the controlled rerun.",
         )
 
     def open_guide(self) -> GlasshouseDemoController:
@@ -317,16 +359,89 @@ class GlasshouseDemoController:
         return replace(self, tutorial=self.tutorial.previous_lesson())
 
     def deploy(self, repository_root: Path = _REPOSITORY_ROOT) -> GlasshouseDemoController:
-        """Compile all policies and run the deterministic two-tick causal drill."""
-        if self.screen is not GlasshouseDemoScreen.WORKBENCH:
+        """Compile all policies and open their deterministic two-tick live preview."""
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         result = run_glasshouse_causal_drill(self.workbench, repository_root)
         if isinstance(result, GlasshouseDemoDeploymentFailure):
             return replace(
                 self,
                 workbench=result.workbench,
+                current_run=None
+                if self.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+                else self.current_run,
+                comparison=None
+                if self.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+                else self.comparison,
+                preview_snapshot_index=0,
+                preview_playing=False,
                 notice="Deployment blocked: fix a policy compile failure.",
             )
+        return self._accept_preview_run(result)
+
+    def reload_preview(self, repository_root: Path = _REPOSITORY_ROOT) -> GlasshouseDemoController:
+        """Recompile and rerun an enabled preview after one immutable source edit."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+            return self
+        result = run_glasshouse_causal_drill(self.workbench, repository_root)
+        if isinstance(result, GlasshouseDemoDeploymentFailure):
+            return replace(
+                self,
+                workbench=result.workbench,
+                current_run=None,
+                comparison=None,
+                preview_snapshot_index=0,
+                preview_playing=False,
+                notice="Hot reload blocked: fix the highlighted compile diagnostic.",
+            )
+        return self._accept_preview_run(result, notice="Hot reloaded deterministic drill.")
+
+    def toggle_hot_reload(self) -> GlasshouseDemoController:
+        """Toggle automatic compile-and-rerun after an editor change."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+            return self
+        enabled = not self.hot_reload_enabled
+        return replace(
+            self,
+            hot_reload_enabled=enabled,
+            notice=f"Hot reload {'enabled' if enabled else 'paused'}.",
+        )
+
+    def toggle_preview_playing(self) -> GlasshouseDemoController:
+        """Pause or resume non-authoritative recorded-preview playback."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        return replace(self, preview_playing=not self.preview_playing, notice="")
+
+    def pause_preview(self) -> GlasshouseDemoController:
+        """Pause non-authoritative recorded-preview playback after an explicit step."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        return replace(self, preview_playing=False, notice="")
+
+    def set_preview_snapshot(self, index: int) -> GlasshouseDemoController:
+        """Select one recorded checkpoint for visual inspection without replaying authority."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise TypeError("Glasshouse demo preview snapshot index must be an integer")
+        if not 0 <= index < len(self.current_run.snapshots):
+            raise ValueError("Glasshouse demo preview snapshot index is unavailable")
+        selected = replace(self, preview_snapshot_index=index)
+        return selected._focus_preview_source()
+
+    def advance_preview(self) -> GlasshouseDemoController:
+        """Advance one display checkpoint and loop after the final recorded tick."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        return self.set_preview_snapshot(
+            (self.preview_snapshot_index + 1) % len(self.current_run.snapshots)
+        )
+
+    def _accept_preview_run(
+        self, result: GlasshouseDemoRun, *, notice: str | None = None
+    ) -> GlasshouseDemoController:
+        """Store one successful headless rerun as an independently replayable preview."""
         comparison = (
             None
             if self.baseline_run is None
@@ -338,32 +453,66 @@ class GlasshouseDemoController:
             )
         )
         baseline = result if self.baseline_run is None else self.baseline_run
-        notice = (
+        result_notice = notice or (
             "Lark was injured. Open the debrief to inspect why."
             if isinstance(result.debrief, GlasshouseDebrief)
             else "No injury retained. Compare this controlled rerun with the baseline."
         )
-        return replace(
+        preview = replace(
             self,
-            screen=GlasshouseDemoScreen.MISSION,
+            screen=GlasshouseDemoScreen.LIVE_PREVIEW,
             workbench=_compile_all_policies(self.workbench),
             current_run=result,
             baseline_run=baseline,
             comparison=comparison,
-            notice=notice,
+            preview_snapshot_index=0,
+            preview_playing=True,
+            notice=result_notice,
         )
+        return preview._focus_preview_source()
+
+    def _focus_preview_source(self) -> GlasshouseDemoController:
+        """Focus the current scout intention span when retained trace evidence exists."""
+        span = self.preview_source_span()
+        if span is None:
+            return self
+        return replace(self, workbench=self.workbench.focus_source(span))
+
+    def preview_source_span(self) -> SourceSpan | None:
+        """Return the selected scout's retained intention span for the shown checkpoint."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return None
+        if self.workbench.selected_policy.role != "scout":
+            return None
+        snapshot = self.current_run.snapshots[self.preview_snapshot_index]
+        if snapshot.tick == 0:
+            return None
+        trace_tick = snapshot.tick - 1
+        for record in self.current_run.trace.records:
+            if (
+                isinstance(record, IntentionTrace)
+                and record.tick == trace_tick
+                and record.origin.source_span.file_id == self.workbench.source.file_id
+            ):
+                return record.origin.source_span
+        return None
 
     def open_debrief(self) -> GlasshouseDemoController:
         """Show retained causal evidence for the current completed drill."""
-        if self.screen is not GlasshouseDemoScreen.MISSION:
+        if self.screen not in (GlasshouseDemoScreen.MISSION, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         if self.current_run is None:
             raise AssertionError("mission screen has no current run")
         if not isinstance(self.current_run.debrief, GlasshouseDebrief):
             if self.comparison is not None:
-                return replace(self, screen=GlasshouseDemoScreen.COMPARISON, notice="")
+                return replace(
+                    self,
+                    screen=GlasshouseDemoScreen.COMPARISON,
+                    preview_playing=False,
+                    notice="",
+                )
             return replace(self, notice="No retained injury is available for this run.")
-        return replace(self, screen=GlasshouseDemoScreen.DEBRIEF, notice="")
+        return replace(self, screen=GlasshouseDemoScreen.DEBRIEF, preview_playing=False, notice="")
 
     def guide_revision(self) -> GlasshouseDemoController:
         """Navigate a retained injury back to unchanged editable scout source."""
@@ -395,12 +544,15 @@ class GlasshouseDemoController:
     def return_to_workbench(self) -> GlasshouseDemoController:
         """Return to source editing without changing any recorded run."""
         if self.screen not in (
+            GlasshouseDemoScreen.LIVE_PREVIEW,
             GlasshouseDemoScreen.MISSION,
             GlasshouseDemoScreen.DEBRIEF,
             GlasshouseDemoScreen.COMPARISON,
         ):
             return self
-        return replace(self, screen=GlasshouseDemoScreen.WORKBENCH, notice="")
+        return replace(
+            self, screen=GlasshouseDemoScreen.WORKBENCH, preview_playing=False, notice=""
+        )
 
 
 def load_glasshouse_workbench(repository_root: Path = _REPOSITORY_ROOT) -> GlasshouseWorkbench:
@@ -474,7 +626,25 @@ def run_glasshouse_causal_drill(
         ),
         bindings,
     )
-    return GlasshouseDemoRun(recorded, trace, archive, glasshouse_debrief(trace))
+    snapshots = _presentation_snapshots(recorded)
+    return GlasshouseDemoRun(recorded, trace, archive, snapshots, glasshouse_debrief(trace))
+
+
+def _presentation_snapshots(recorded: RecordedReplay) -> tuple[PresentationSnapshot, ...]:
+    """Copy each retained replay checkpoint into one renderer-safe tactical snapshot."""
+    snapshots: list[PresentationSnapshot] = []
+    for checkpoint in recorded.run.checkpoints:
+        restored = restore_authority_snapshot(checkpoint)
+        if isinstance(restored, SnapshotRestoreFailure):
+            raise AssertionError("recorded Glasshouse checkpoint cannot be restored")
+        event_tick = checkpoint.tick - 1
+        events = (
+            ()
+            if event_tick < 0
+            else tuple(event for event in recorded.run.events if event.header.tick == event_tick)
+        )
+        snapshots.append(build_presentation_snapshot(restored, projectile_events=events))
+    return tuple(snapshots)
 
 
 def _compile_all_policies(workbench: GlasshouseWorkbench) -> GlasshouseWorkbench:

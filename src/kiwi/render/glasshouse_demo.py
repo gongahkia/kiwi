@@ -20,6 +20,7 @@ from kiwi.render.run_comparison_view import render_run_comparison_view
 from kiwi.sim.snapshot import build_presentation_snapshot
 from kiwi.ui.editor import EditorState, TextPosition
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief
+from kiwi.ui.timeline import mission_timeline
 
 _BACKGROUND = (10, 14, 19)
 _PANEL = (20, 29, 36)
@@ -31,6 +32,7 @@ _MUTED = (192, 201, 191)
 _FOOTER_HEIGHT = 16
 _LOGICAL_SIZE = (960, 540)
 _MAX_NOTICE_CHARACTERS = 116
+_PREVIEW_STEP_MILLISECONDS = 800
 
 
 def run_glasshouse_demo() -> int:
@@ -40,6 +42,7 @@ def run_glasshouse_demo() -> int:
     font = load_bitmap_font()
     controller = GlasshouseDemoController.create()
     frame_clock = pygame.time.Clock()
+    next_preview_step_at = pygame.time.get_ticks() + _PREVIEW_STEP_MILLISECONDS
     try:
         running = True
         while running:
@@ -59,6 +62,17 @@ def run_glasshouse_demo() -> int:
                 else:
                     controller, should_quit = _handle_event(controller, event)
                 running = running and not should_quit
+            now = pygame.time.get_ticks()
+            if (
+                controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW
+                and controller.current_run is not None
+                and controller.preview_playing
+                and now >= next_preview_step_at
+            ):
+                controller = controller.advance_preview()
+                next_preview_step_at = now + _PREVIEW_STEP_MILLISECONDS
+            elif controller.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+                next_preview_step_at = now + _PREVIEW_STEP_MILLISECONDS
             _render(window.logical_canvas, font, controller)
             present(window)
             frame_clock.tick(60)
@@ -96,6 +110,8 @@ def _handle_event(
         return (controller, False)
     if controller.screen is GlasshouseDemoScreen.WORKBENCH:
         return (_handle_workbench_key(controller, event), False)
+    if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
+        return (_handle_live_preview_key(controller, event), False)
     if controller.screen is GlasshouseDemoScreen.MISSION:
         if event.key in (pygame.K_RETURN, pygame.K_d):
             return (controller.open_debrief(), False)
@@ -179,6 +195,24 @@ def _handle_workbench_key(
     return controller
 
 
+def _handle_live_preview_key(
+    controller: GlasshouseDemoController, event: pygame.event.Event
+) -> GlasshouseDemoController:
+    modifiers = event.mod
+    command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
+    if event.key in (pygame.K_RETURN, pygame.K_d):
+        return controller.open_debrief()
+    if _deploy_pressed(controller, event):
+        return controller.deploy()
+    if command and event.key == pygame.K_l:
+        return controller.toggle_hot_reload()
+    if command and event.key == pygame.K_p:
+        return controller.toggle_preview_playing()
+    if command and event.key == pygame.K_PERIOD:
+        return controller.advance_preview().pause_preview()
+    return _handle_workbench_key(controller, event)
+
+
 def _deploy_pressed(controller: GlasshouseDemoController, event: pygame.event.Event) -> bool:
     """Return whether one platform-selected deployment shortcut was pressed."""
     if event.key == pygame.K_F5:
@@ -227,6 +261,9 @@ def _render(
         render_glasshouse_tutorial(surface, font, controller.tutorial)
         _render_footer(surface, font, "Left/Right lesson | Esc workbench", controller.notice)
         return
+    if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
+        _render_live_preview(surface, font, controller)
+        return
     if controller.screen is GlasshouseDemoScreen.MISSION:
         _render_mission(surface, font, controller)
         return
@@ -234,6 +271,124 @@ def _render(
         _render_debrief(surface, font, controller)
         return
     _render_comparison(surface, font, controller)
+
+
+def _render_live_preview(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    left_rect, right_rect = _live_preview_panes(surface)
+    left = surface.subsurface(left_rect)
+    right = surface.subsurface(right_rect)
+    render_glasshouse_workbench(left, font, controller.workbench)
+    _render_workbench_controls(left, font, controller)
+    _render_preview_map(right, font, controller)
+    _render_footer(
+        surface,
+        font,
+        (
+            "Click Pause/Step/Hot reload | Cmd+P pause | Cmd+. step | "
+            "Cmd+L hot reload | D debrief | Esc edit"
+        ),
+        controller.notice,
+    )
+
+
+def _render_preview_map(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    if controller.current_run is None:
+        surface.fill(_BACKGROUND)
+        _render_preview_panel(
+            surface,
+            font,
+            (
+                "LIVE PREVIEW BLOCKED",
+                "Fix the compile diagnostic on the left.",
+                "The last valid run is not shown as current code.",
+            ),
+        )
+        _render_preview_controls(surface, font, controller)
+        return
+    snapshot = controller.current_run.snapshots[controller.preview_snapshot_index]
+    render_tactical_view(surface, snapshot, Camera(pixels_per_millimetre=0.04))
+    trace_lines = _preview_trace_lines(controller, snapshot.tick)
+    _render_preview_panel(
+        surface,
+        font,
+        (
+            f"LIVE PREVIEW  checkpoint t{snapshot.tick}",
+            *trace_lines,
+        ),
+    )
+    _render_preview_controls(surface, font, controller)
+
+
+def _preview_trace_lines(
+    controller: GlasshouseDemoController, snapshot_tick: int
+) -> tuple[str, ...]:
+    if controller.current_run is None:
+        return ()
+    if snapshot_tick == 0:
+        return (
+            "initial state; next step evaluates the scout policy",
+            "DSL policies run once per fixed tick; no unbounded loops.",
+        )
+    trace_tick = snapshot_tick - 1
+    entries = tuple(
+        entry
+        for entry in mission_timeline(controller.current_run.trace).entries
+        if entry.tick == trace_tick
+    )
+    if not entries:
+        return (f"t{trace_tick}: no retained trace entries",)
+    rows = tuple(
+        _truncate(f"t{entry.tick} {entry.kind.value}: {entry.summary}") for entry in entries[:3]
+    )
+    return rows + ("yellow source selection = emitted intention origin",)
+
+
+def _render_preview_panel(
+    surface: pygame.Surface, font: BitmapFont, lines: tuple[str, ...]
+) -> None:
+    line_height = font.measure("M")[1]
+    height = len(lines) * line_height + 8
+    pygame.draw.rect(surface, _PANEL, (4, 4, surface.get_width() - 8, height))
+    pygame.draw.rect(surface, _BORDER, (4, 4, surface.get_width() - 8, height), width=1)
+    for index, line in enumerate(lines):
+        color = _HEADING if index == 0 else _NOTICE if "intention" in line else _NORMAL
+        surface.blit(font.render(_truncate(line), color), (8, 8 + index * line_height))
+
+
+def _render_preview_controls(
+    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+) -> None:
+    play_button, step_button, reload_button, debrief_button = _preview_buttons(surface, font)
+    _render_button(
+        surface,
+        font,
+        play_button,
+        "Pause" if controller.preview_playing else "Play",
+        controller.preview_playing,
+    )
+    _render_button(surface, font, step_button, "Step", False)
+    _render_button(
+        surface,
+        font,
+        reload_button,
+        f"Hot reload {'on' if controller.hot_reload_enabled else 'off'}",
+        controller.hot_reload_enabled,
+    )
+    _render_button(surface, font, debrief_button, "Debrief", False)
+
+
+def _live_preview_panes(surface: pygame.Surface) -> tuple[pygame.Rect, pygame.Rect]:
+    width, height = surface.get_size()
+    body_height = height - _FOOTER_HEIGHT
+    left_width = width // 2
+    return (
+        pygame.Rect(0, 0, left_width, body_height),
+        pygame.Rect(left_width, 0, width - left_width, body_height),
+    )
 
 
 def _render_mission(
@@ -472,6 +627,21 @@ def _workbench_buttons(
     return (compile, deploy)
 
 
+def _preview_buttons(
+    surface: pygame.Surface, font: BitmapFont
+) -> tuple[pygame.Rect, pygame.Rect, pygame.Rect, pygame.Rect]:
+    line_height = font.measure("M")[1]
+    labels = ("Pause", "Step", "Hot reload off", "Debrief")
+    widths = tuple(font.measure(label)[0] + 12 for label in labels)
+    y = surface.get_height() - line_height - 6
+    x = 6
+    rects: list[pygame.Rect] = []
+    for width in widths:
+        rects.append(pygame.Rect(x, y, width, line_height + 4))
+        x += width + 5
+    return (rects[0], rects[1], rects[2], rects[3])
+
+
 def _handle_click(
     controller: GlasshouseDemoController, position: tuple[int, int], font: BitmapFont
 ) -> GlasshouseDemoController:
@@ -486,9 +656,37 @@ def _handle_click(
         if continue_button.collidepoint(position):
             return controller.confirm_input_mode()
         return controller
-    if controller.screen is not GlasshouseDemoScreen.WORKBENCH:
+    if controller.screen is GlasshouseDemoScreen.WORKBENCH:
+        return _handle_workbench_click(controller, position, font, _LOGICAL_SIZE)
+    if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
+        logical_surface = pygame.Surface(_LOGICAL_SIZE)
+        left_rect, right_rect = _live_preview_panes(logical_surface)
+        if left_rect.collidepoint(position):
+            return _handle_workbench_click(
+                controller,
+                position,
+                font,
+                (left_rect.width, left_rect.height),
+            )
+        if right_rect.collidepoint(position):
+            local_position = (position[0] - right_rect.x, position[1] - right_rect.y)
+            return _handle_preview_click(
+                controller,
+                local_position,
+                font,
+                (right_rect.width, right_rect.height),
+            )
         return controller
-    surface = pygame.Surface(_LOGICAL_SIZE)
+    return controller
+
+
+def _handle_workbench_click(
+    controller: GlasshouseDemoController,
+    position: tuple[int, int],
+    font: BitmapFont,
+    canvas_size: tuple[int, int],
+) -> GlasshouseDemoController:
+    surface = pygame.Surface(canvas_size)
     sidebar_rect, source_rect, _ = _workbench_rects(surface, font)
     compile_button, deploy_button = _workbench_buttons(surface, font)
     if compile_button.collidepoint(position):
@@ -503,6 +701,25 @@ def _handle_click(
         return controller
     if source_rect.collidepoint(position):
         return _move_editor_to_pointer(controller, position, source_rect, font)
+    return controller
+
+
+def _handle_preview_click(
+    controller: GlasshouseDemoController,
+    position: tuple[int, int],
+    font: BitmapFont,
+    canvas_size: tuple[int, int],
+) -> GlasshouseDemoController:
+    surface = pygame.Surface(canvas_size)
+    play_button, step_button, reload_button, debrief_button = _preview_buttons(surface, font)
+    if play_button.collidepoint(position):
+        return controller.toggle_preview_playing()
+    if step_button.collidepoint(position):
+        return controller.advance_preview().pause_preview()
+    if reload_button.collidepoint(position):
+        return controller.toggle_hot_reload()
+    if debrief_button.collidepoint(position):
+        return controller.open_debrief()
     return controller
 
 

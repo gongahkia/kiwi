@@ -82,7 +82,7 @@ controller, _ = _handle_event(
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F5, mod=0, unicode=\"\")
 )
-assert controller.screen is GlasshouseDemoScreen.MISSION
+assert controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
@@ -101,7 +101,7 @@ controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F5, mod=0, unicode=\"\")
 )
 controller, _ = _handle_event(
-    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_c, mod=0, unicode=\"c\")
+    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert controller.screen is GlasshouseDemoScreen.COMPARISON
 quit_pygame()
@@ -143,7 +143,7 @@ controller = _handle_click(controller, compile_button.center, font)
 assert controller.workbench.compile_output is not None
 assert controller.workbench.compile_output.succeeded
 controller = _handle_click(controller, deploy_button.center, font)
-assert controller.screen is GlasshouseDemoScreen.MISSION
+assert controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW
 quit_pygame()
 """
     environment = dict(os.environ)
