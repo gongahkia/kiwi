@@ -7,11 +7,13 @@ from enum import StrEnum
 from pathlib import Path
 from platform import system
 
+from kiwi.app.challenge_results import ChallengeHistory, ChallengeOutcome, ChallengeResult
 from kiwi.app.glasshouse_players import PLAYER_MEMORY_SCHEMA
 from kiwi.app.glasshouse_workbench import build_glasshouse_workbench
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader
+from kiwi.dsl.bytecode_codec import encode_bytecode
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import CompiledArtifact, compile_artifact
 from kiwi.dsl.ids import FunctionId
@@ -40,6 +42,7 @@ from kiwi.sim.contacts import (
     ContactProvenance,
     ContactStore,
 )
+from kiwi.sim.events import PolicyEvaluated
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
@@ -102,6 +105,7 @@ class GlasshouseDemoScreen(StrEnum):
     MISSION = "mission"
     DEBRIEF = "debrief"
     COMPARISON = "comparison"
+    RESULTS = "results"
 
 
 class GlasshouseInputMode(StrEnum):
@@ -188,6 +192,7 @@ class GlasshouseDemoController:
     preview_rotation_quarters: int = 0
     selected_trace_node_id: TraceNodeId | None = None
     preview_selected_entity_id: int | None = None
+    result_history: ChallengeHistory = ChallengeHistory()
     color_scheme: GlasshouseColorScheme = GlasshouseColorScheme.CYAN
     notice: str = ""
 
@@ -238,6 +243,8 @@ class GlasshouseDemoController:
             or self.preview_selected_entity_id <= 0
         ):
             raise ValueError("Glasshouse demo selected entity is invalid")
+        if not isinstance(self.result_history, ChallengeHistory):
+            raise TypeError("Glasshouse demo result history is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Glasshouse demo notice must be text")
         if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
@@ -253,6 +260,7 @@ class GlasshouseDemoController:
                 GlasshouseDemoScreen.MISSION,
                 GlasshouseDemoScreen.DEBRIEF,
                 GlasshouseDemoScreen.COMPARISON,
+                GlasshouseDemoScreen.RESULTS,
             )
             and self.current_run is None
         ):
@@ -615,10 +623,11 @@ class GlasshouseDemoController:
                 else "No injury retained. Compare this controlled rerun with the baseline."
             )
         )
+        compiled_workbench = _compile_all_policies(self.workbench)
         preview = replace(
             self,
             screen=GlasshouseDemoScreen.LIVE_PREVIEW,
-            workbench=_compile_all_policies(self.workbench),
+            workbench=compiled_workbench,
             current_run=result,
             baseline_run=baseline,
             comparison=comparison,
@@ -627,6 +636,7 @@ class GlasshouseDemoController:
             preview_stale=False,
             selected_trace_node_id=None,
             preview_selected_entity_id=None,
+            result_history=self.result_history.append(_result_for_demo_run(result, compiled_workbench)),
             notice=result_notice,
         )
         return _focus_scout_caution_literal(preview)._focus_preview_source()
@@ -703,6 +713,12 @@ class GlasshouseDemoController:
             return self
         return replace(self, screen=GlasshouseDemoScreen.COMPARISON, notice="")
 
+    def open_results(self) -> GlasshouseDemoController:
+        """Open the local multi-metric result summary for the shown recorded attempt."""
+        if self.current_run is None or not self.result_history.results:
+            return self
+        return replace(self, screen=GlasshouseDemoScreen.RESULTS, preview_playing=False, notice="")
+
     def return_to_workbench(self) -> GlasshouseDemoController:
         """Return to source editing without changing any recorded run."""
         if self.screen not in (
@@ -710,6 +726,7 @@ class GlasshouseDemoController:
             GlasshouseDemoScreen.MISSION,
             GlasshouseDemoScreen.DEBRIEF,
             GlasshouseDemoScreen.COMPARISON,
+            GlasshouseDemoScreen.RESULTS,
         ):
             return self
         return replace(
@@ -723,6 +740,37 @@ def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> S
         record.source_span
         if isinstance(record, ExpressionEvaluationTrace)
         else record.origin.source_span
+    )
+
+
+def _result_for_demo_run(
+    run: GlasshouseDemoRun, workbench: GlasshouseWorkbench
+) -> ChallengeResult:
+    """Project one recorded drill into explicit local tactical and code metrics."""
+    artifacts = tuple(
+        output.artifact
+        for output in workbench.compile_outputs
+        if output is not None and output.artifact is not None
+    )
+    if len(artifacts) != len(workbench.policies):
+        raise AssertionError("successful Glasshouse preview requires all compiled policy artifacts")
+    evaluations = tuple(
+        event for event in run.recorded.run.events if isinstance(event, PolicyEvaluated)
+    )
+    return ChallengeResult(
+        "practice_0",
+        hash_canonical_state(run.recorded.run.state).hex,
+        ChallengeOutcome.FAILURE
+        if isinstance(run.debrief, GlasshouseDebrief)
+        else ChallengeOutcome.SUCCESS,
+        1 if isinstance(run.debrief, GlasshouseDebrief) else 0,
+        run.recorded.run.state.tick,
+        sum(len(encode_bytecode(artifact.bytecode)) for artifact in artifacts),
+        sum(
+            len(event.validation.evaluation.result.expression_traces)
+            for event in evaluations
+        ),
+        len(evaluations),
     )
 
 
