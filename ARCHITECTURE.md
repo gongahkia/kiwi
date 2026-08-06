@@ -697,6 +697,9 @@ in canonical order and loads only a selected file through content boundaries.
 `kiwi.ui.timeline` projects retained causal records into chronological tick and
 node-ID entries; `kiwi.render.timeline_view` renders only this read-only
 selection state.
+`kiwi.ui.causal_chain` projects a selected retained trace node, direct links,
+and canonical causal ancestors without inferring discarded evidence.
+`kiwi.render.causal_chain_view` renders this immutable panel only.
 
 ## 18. Content architecture
 
