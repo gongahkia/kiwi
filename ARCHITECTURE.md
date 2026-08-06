@@ -685,6 +685,11 @@ selecting, editing, and compiling a policy are non-authoritative operations.
 `kiwi.render.glasshouse_workbench_view` consumes only this state through the
 bitmap font. It cannot deploy, execute, or otherwise alter mission authority.
 
+`kiwi.ui.glasshouse_tutorial` supplies a fixed, one-construct-at-a-time guide
+for the shipped scout policy. Its selection state and bitmap renderer are
+read-only presentation values; tutorial navigation cannot change a source,
+compile result, deployment, or authority state.
+
 `kiwi.app.glasshouse_execution` compiles the current four workbench buffers,
 adds the project-owned hostile policies, and queues player `StartMission` or
 Glasshouse `advance`/`hold` commands for the next exact reducer tick. It limits
