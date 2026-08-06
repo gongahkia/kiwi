@@ -47,6 +47,7 @@ def build_initial_state(
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,
+            objectives=state.objectives,
             scheduled_events=queue,
             random_streams=state.random_streams,
         )

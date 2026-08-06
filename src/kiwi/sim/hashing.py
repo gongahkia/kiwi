@@ -22,6 +22,7 @@ from kiwi.domain.ids import (
     IdKind,
     IntentionId,
     MessageId,
+    ObjectiveId,
     ObstacleId,
     PolicyInvocationId,
     ProjectileId,
@@ -72,6 +73,7 @@ from kiwi.sim.memory import (
     is_persistable_memory_value,
 )
 from kiwi.sim.messages import Message, MessageChannel, MessageLedger
+from kiwi.sim.objectives import ObjectiveStatus, ObjectiveStore, RetrievalObjective
 from kiwi.sim.pathing import Path, PathQuery
 from kiwi.sim.policy_versions import (
     POLICY_VERSION_DIGEST_BYTES,
@@ -100,7 +102,7 @@ from kiwi.sim.weapons import (
 )
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 18
+CANONICAL_STATE_VERSION = 19
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -113,6 +115,9 @@ _MESSAGE_CHANNEL_RADIO = 1
 _SIGNAL_SOURCE_PLAYER = 1
 _SIGNAL_SOURCE_SCENARIO = 2
 _RANDOM_STREAM_COUNT_V12 = 4
+_OBJECTIVE_ACTIVE = 1
+_OBJECTIVE_RETRIEVED = 2
+_OBJECTIVE_EXTRACTED = 3
 _MEMORY_INTEGER = 1
 _MEMORY_BOOLEAN = 2
 _MEMORY_UNIT = 3
@@ -174,7 +179,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 18 form."""
+    """Encode one validated mission state in canonical binary version 19 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -202,6 +207,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_contacts(writer, state.contacts)
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
+    _encode_objectives(writer, state.objectives)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -278,7 +284,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 18 requires exactly four random streams")
+        raise ValueError("state format version 19 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -305,6 +311,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     contacts = _decode_contacts(reader)
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
+    objectives = _decode_objectives(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -327,6 +334,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         contacts=contacts,
         messages=messages,
         signals=signals,
+        objectives=objectives,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -893,6 +901,78 @@ def _decode_signals(reader: _Reader) -> SignalStore:
             )
         )
     return SignalStore(tuple(signals))
+
+
+def _encode_objectives(writer: _Writer, store: ObjectiveStore) -> None:
+    writer.items(len(store.entries), "objective count")
+    for objective in store.entries:
+        writer.i64(objective.objective_id.value, "objective ID")
+        writer.u8(_encode_objective_status(objective.status), "objective status")
+        _encode_rectangle(writer, objective.retrieval_area, "objective retrieval area")
+        _encode_rectangle(writer, objective.extraction_area, "objective extraction area")
+        writer.items(len(objective.required_entity_ids), "objective required entity count")
+        for entity_id in objective.required_entity_ids:
+            writer.i64(entity_id.value, "objective required entity ID")
+        writer.i64(
+            0 if objective.retrieved_by is None else objective.retrieved_by.value,
+            "objective retriever ID",
+        )
+        writer.i64(
+            0 if objective.retrieval_event_id is None else objective.retrieval_event_id.value,
+            "objective retrieval event ID",
+        )
+
+
+def _decode_objectives(reader: _Reader) -> ObjectiveStore:
+    objectives: list[RetrievalObjective] = []
+    for _ in range(reader.items("objective count")):
+        objective_id = ObjectiveId(reader.i64())
+        status = _decode_objective_status(reader.u8(), reader.offset - 1)
+        retrieval_area = _decode_rectangle(reader)
+        extraction_area = _decode_rectangle(reader)
+        required_entity_ids = tuple(
+            EntityId(reader.i64()) for _ in range(reader.items("objective required entity count"))
+        )
+        retriever_value = reader.i64()
+        retrieval_event_value = reader.i64()
+        retrieved_by = None if retriever_value == 0 else EntityId(retriever_value)
+        retrieval_event_id = None if retrieval_event_value == 0 else EventId(retrieval_event_value)
+        objectives.append(
+            RetrievalObjective(
+                objective_id,
+                retrieval_area,
+                extraction_area,
+                required_entity_ids,
+                status,
+                retrieved_by,
+                retrieval_event_id,
+            )
+        )
+    return ObjectiveStore(tuple(objectives))
+
+
+def _encode_objective_status(status: ObjectiveStatus) -> int:
+    if status is ObjectiveStatus.ACTIVE:
+        return _OBJECTIVE_ACTIVE
+    if status is ObjectiveStatus.RETRIEVED:
+        return _OBJECTIVE_RETRIEVED
+    if status is ObjectiveStatus.EXTRACTED:
+        return _OBJECTIVE_EXTRACTED
+    raise ValueError("canonical objective status is unsupported")
+
+
+def _decode_objective_status(tag: int, offset: int) -> ObjectiveStatus:
+    if tag == _OBJECTIVE_ACTIVE:
+        return ObjectiveStatus.ACTIVE
+    if tag == _OBJECTIVE_RETRIEVED:
+        return ObjectiveStatus.RETRIEVED
+    if tag == _OBJECTIVE_EXTRACTED:
+        return ObjectiveStatus.EXTRACTED
+    raise _DecodeError(
+        StateDecodeCode.INVALID_VALUE,
+        offset,
+        f"invalid objective status tag {tag}",
+    )
 
 
 def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:

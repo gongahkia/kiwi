@@ -707,31 +707,25 @@ The outcome links back to the medical intention and any interruption cause.
 
 ## 20. Objectives
 
-MVP objective states include:
+The current retrieval objective has three states: `active`, `retrieved`, and
+`extracted`. It stores an allocated `ObjectiveId`, closed retrieval and
+extraction regions, ascending required `EntityId`s, the retrieving entity, and
+the canonical retrieval event ID.
 
-- inactive;
-- active;
-- progressing;
-- completed;
-- failed.
-
-Examples:
-
-- retrieve item;
-- enter region;
-- hold region for ticks;
-- extract listed entities;
-- survive until tick;
-- protect entity.
-
-Objective transitions are canonical events.
+After movement and combat resolution, each active objective scans the stable
+entity-ID-ordered state. The first listed entity inside its retrieval region
+retrieves it, producing `objective_retrieved`. On a later tick, a retrieved
+objective produces `objective_extracted` only when every required entity is
+inside its extraction region. The extraction event parents the retained
+retrieval event, preserving the causal chain. Objectives do not execute DSL or
+mutate entity state; the reducer alone resolves their transitions.
 
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`18` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`19` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `17`, unsupported versions, and noncanonical values are
+versions `1` through `18`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:
@@ -789,7 +783,9 @@ occupancy remain absent. The renderer may derive threat-facing rays only from
 these copied contact estimates. The snapshot carries no `MissionState`, entity,
 map, path, or canonical-event object reference and is never encoded or hashed
 as authority. It also admits one optional display objective marker; the current
-authority projection leaves it absent until objective state is implemented.
+authority projection uses the first uncompleted objective's retrieval-region
+centre, then its extraction-region centre after retrieval; the marker never
+affects authority.
 Render interpolation and overlays may derive further values from this snapshot.
 
 Do not confuse the two formats.

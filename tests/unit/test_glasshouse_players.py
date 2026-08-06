@@ -13,6 +13,7 @@ from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
 from kiwi.sim.events import IntentionEmitted, IntentionSelected, PolicyEvaluated
 from kiwi.sim.hashing import hash_canonical_state
+from kiwi.sim.objectives import ObjectiveStatus
 from kiwi.sim.runner import run_headless
 from kiwi.sim.weapons import Ammunition
 
@@ -59,6 +60,16 @@ def test_glasshouse_deploys_four_distinct_player_loadouts_and_policies() -> None
     assert tuple(
         binding.available_capabilities for binding in result.policy_bindings.entries
     ) == tuple(loadout.capabilities for loadout in GLASSHOUSE_PLAYER_LOADOUTS)
+    assert len(result.state.objectives.entries) == 1
+    objective = result.state.objectives.entries[0]
+    objective_region = mission.region_for("objective_room")
+    extraction_region = mission.region_for("extraction")
+    assert objective_region is not None
+    assert extraction_region is not None
+    assert objective.status is ObjectiveStatus.ACTIVE
+    assert objective.required_entity_ids == tuple(player.entity_id for player in result.players)
+    assert objective.retrieval_area == objective_region.bounds
+    assert objective.extraction_area == extraction_region.bounds
 
 
 def test_glasshouse_player_policies_run_deterministically() -> None:

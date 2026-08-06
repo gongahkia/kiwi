@@ -18,6 +18,7 @@ from kiwi.sim.hashing import (
 )
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
+from kiwi.sim.objectives import ObjectiveStatus
 from kiwi.sim.projectiles import Projectile
 from kiwi.sim.state import EntityState, MissionState
 from kiwi.sim.visibility import VisibleGeometry
@@ -502,6 +503,7 @@ def build_presentation_snapshot(
             )
             for entity in state.entities
         ),
+        objective_marker=_presentation_objective_marker(state),
         contacts=tuple(
             _presentation_contact(contact, state.tick) for contact in state.contacts.estimates
         ),
@@ -557,6 +559,23 @@ def _presentation_point(position: object) -> PresentationPoint:
     return PresentationPoint(
         float(position.x.value), float(position.y.value), position.elevation.value
     )
+
+
+def _presentation_objective_marker(state: MissionState) -> PresentationPoint | None:
+    for objective in state.objectives.entries:
+        if objective.status is ObjectiveStatus.EXTRACTED:
+            continue
+        area = (
+            objective.retrieval_area
+            if objective.status is ObjectiveStatus.ACTIVE
+            else objective.extraction_area
+        )
+        return PresentationPoint(
+            float((area.minimum_x.value + area.maximum_x.value) // 2),
+            float((area.minimum_y.value + area.maximum_y.value) // 2),
+            0,
+        )
+    return None
 
 
 def _presentation_projectile(projectile: object) -> PresentationProjectile:

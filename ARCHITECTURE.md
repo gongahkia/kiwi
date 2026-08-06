@@ -667,8 +667,10 @@ data until the corresponding objective and deployment rules consume them.
 
 `kiwi.app.glasshouse_players` adds the four fixed player deployments,
 generic weapon inventories, bounded compiled DSL policies, and declared
-capabilities above that mission boundary. Policy sources remain closed DSL
-files and compilation failures are structured diagnostics.
+capabilities above that mission boundary. It also binds Glasshouse's named
+objective and extraction regions to one canonical squad objective. Policy
+sources remain closed DSL files and compilation failures are structured
+diagnostics.
 
 `kiwi.app.glasshouse_hostiles` appends three project-authored hostile
 roles using the same compiled policy binding, capability, memory, weapon, and

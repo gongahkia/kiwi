@@ -29,6 +29,7 @@ from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.dsl.source import SourceFile
 from kiwi.dsl.types import BuiltinType
+from kiwi.sim.objectives import ObjectiveStore, RetrievalObjective
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
 from kiwi.sim.state import MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
@@ -227,8 +228,31 @@ def build_glasshouse_player_setup(
                 available_capabilities=loadout.capabilities,
             )
         )
-    state = replace(state, weapons=WeaponStore(tuple(weapons)))
+    state = _configure_glasshouse_objective(
+        replace(state, weapons=WeaponStore(tuple(weapons))), mission, tuple(players)
+    )
     return GlasshousePlayerSetup(state, tuple(players), PolicyBindings(tuple(bindings)))
+
+
+def _configure_glasshouse_objective(
+    state: MissionState, mission: MissionData, players: tuple[GlasshousePlayer, ...]
+) -> MissionState:
+    objective_region = mission.region_for("objective_room")
+    extraction_region = mission.region_for("extraction")
+    if objective_region is None or extraction_region is None:
+        raise ValueError("Glasshouse mission requires objective and extraction regions")
+    objective_id, allocator = state.id_allocator.allocate_objective()
+    objective = RetrievalObjective(
+        objective_id,
+        objective_region.bounds,
+        extraction_region.bounds,
+        tuple(player.entity_id for player in players),
+    )
+    return replace(
+        state,
+        id_allocator=allocator,
+        objectives=ObjectiveStore((objective,)),
+    )
 
 
 def _compile_policy(source: SourceFile) -> CompiledArtifact | GlasshousePolicyFailure:

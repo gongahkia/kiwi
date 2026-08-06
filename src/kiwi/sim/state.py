@@ -14,6 +14,7 @@ from kiwi.sim.limits import MAX_AUTHORITY_TICK
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageLedger
+from kiwi.sim.objectives import ObjectiveStore
 from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.projectiles import ProjectileStore
@@ -142,6 +143,7 @@ class MissionState:
     contacts: ContactStore = field(default_factory=ContactStore)
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
+    objectives: ObjectiveStore = field(default_factory=ObjectiveStore)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
     random_streams: RandomStreams = field(default_factory=default_random_streams)
 
@@ -184,6 +186,8 @@ class MissionState:
             raise ValueError("mission state requires a message ledger")
         if not isinstance(self.signals, SignalStore):
             raise ValueError("mission state requires a signal store")
+        if not isinstance(self.objectives, ObjectiveStore):
+            raise ValueError("mission state requires an objective store")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
         if not isinstance(self.random_streams, RandomStreams):
@@ -209,6 +213,24 @@ class MissionState:
             ):
                 raise ValueError("mission entity positions must lie within map bounds")
         entity_ids = tuple(entity.entity_id for entity in self.entities)
+        next_objective_id = self.id_allocator.next_ids[int(IdKind.OBJECTIVE)]
+        if any(
+            objective.objective_id.value >= next_objective_id
+            for objective in self.objectives.entries
+        ):
+            raise ValueError("objective IDs must be allocated by the current ID allocator")
+        if any(
+            required_id not in entity_ids
+            for objective in self.objectives.entries
+            for required_id in objective.required_entity_ids
+        ):
+            raise ValueError("objective entities must belong to mission entities")
+        if any(
+            objective.retrieval_event_id is not None
+            and objective.retrieval_event_id.value >= self.id_allocator.next_ids[int(IdKind.EVENT)]
+            for objective in self.objectives.entries
+        ):
+            raise ValueError("objective retrieval event IDs must be allocated")
         previous_movement_entity_id = 0
         next_event_id = self.id_allocator.next_ids[int(IdKind.EVENT)]
         for action in self.movement_actions:
@@ -379,6 +401,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             contacts=state.contacts,
             messages=state.messages,
             signals=state.signals,
+            objectives=state.objectives,
             scheduled_events=state.scheduled_events,
             random_streams=state.random_streams,
         ),
