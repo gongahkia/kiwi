@@ -344,7 +344,7 @@ A four-operative squad enters a small office or research structure to retrieve a
 - several cover edges;
 - one breachable or alternate entry;
 - incomplete hostile intelligence;
-- one reinforcement timer;
+- one timed lockdown;
 - an extraction zone;
 - a casualty risk created by an intentionally flawed policy.
 

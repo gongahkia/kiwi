@@ -31,6 +31,7 @@ from kiwi.dsl.source import SourceFile
 from kiwi.dsl.types import BuiltinType
 from kiwi.sim.objectives import ObjectiveStore, RetrievalObjective
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
+from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.state import MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 
@@ -134,6 +135,7 @@ type GlasshousePlayerSetupResult = GlasshousePlayerSetup | GlasshousePolicyFailu
 
 
 PLAYER_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
+GLASSHOUSE_LOCKDOWN_DELAY_SECONDS = 90
 
 
 def _position(x: int, y: int) -> WorldPosition:
@@ -248,10 +250,15 @@ def _configure_glasshouse_objective(
         extraction_region.bounds,
         tuple(player.entity_id for player in players),
     )
+    _, scheduled_events = state.scheduled_events.schedule(
+        mission.tick_rate * GLASSHOUSE_LOCKDOWN_DELAY_SECONDS,
+        ScheduledEventKind.LOCKDOWN,
+    )
     return replace(
         state,
         id_allocator=allocator,
         objectives=ObjectiveStore((objective,)),
+        scheduled_events=scheduled_events,
     )
 
 

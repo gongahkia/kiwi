@@ -459,7 +459,7 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 - Several full and partial cover segments.
 - One objective item or protected room.
 - One extraction area.
-- One timed hostile reinforcement or lockdown event.
+- One 90-second extraction-lockdown event.
 
 ### 13.2 Initial flawed kiwi
 

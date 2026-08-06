@@ -816,6 +816,18 @@ downstream causal inspection. Trace-node and authority-event IDs are
 run-local allocation detail and do not cause a changed consequence; the
 human-readable closed summary remains significant.
 
+### D-073: Glasshouse uses one scheduled extraction lockdown
+
+Glasshouse applies time pressure through a one-shot lockdown rather than dynamic
+reinforcement spawning, avoiding hidden entity or policy-binding changes during
+a run. The application adapter converts its fixed 90-second delay to the
+mission's immutable tick rate and schedules one `LOCKDOWN` event. At its exact
+tick, authority emits the existing scheduled-trigger event followed by a
+parented lockdown-activation event, persists its activation tick and event ID,
+and prevents later objective extraction. Only one pending or active lockdown is
+valid. `KWI-STATE\0` version `20` serializes this state; versions `1` through
+`19` remain unsupported because development state is disposable.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:

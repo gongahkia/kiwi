@@ -92,6 +92,7 @@ The architecture should remain simple enough for one developer and coding agents
 │       │   ├── suppression.py
 │       │   ├── firing.py
 │       │   ├── objectives.py
+│       │   ├── lockdown.py
 │       │   ├── events.py
 │       │   ├── reducer.py
 │       │   ├── snapshot.py
@@ -670,7 +671,8 @@ generic weapon inventories, bounded compiled DSL policies, and declared
 capabilities above that mission boundary. It also binds Glasshouse's named
 objective and extraction regions to one canonical squad objective. Policy
 sources remain closed DSL files and compilation failures are structured
-diagnostics.
+diagnostics. It also schedules Glasshouse's one-shot 90-second lockdown, which
+is resolved only by headless authority.
 
 `kiwi.app.glasshouse_hostiles` appends three project-authored hostile
 roles using the same compiled policy binding, capability, memory, weapon, and
