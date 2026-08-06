@@ -10,7 +10,7 @@ from kiwi.dsl.source import ByteOffset, SourceFile
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.compile_output_view import render_compile_output_panel
 from kiwi.render.diagnostics_view import render_diagnostic_panel, render_inline_diagnostics
-from kiwi.render.source_view import render_source
+from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette, render_source
 from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase, GlasshouseWorkbench
 
 
@@ -76,7 +76,9 @@ def render_glasshouse_workbench(
     *,
     scale: int = 1,
     palette: GlasshouseWorkbenchPalette = DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
+    source_palette: SourcePalette = DEFAULT_SOURCE_PALETTE,
     compact_sidebar: bool = False,
+    completions: tuple[str, ...] = (),
 ) -> GlasshouseWorkbenchRenderResult:
     """Render briefing or source-review state without changing editor or authority state."""
     if not isinstance(surface, pygame.Surface):
@@ -89,12 +91,20 @@ def render_glasshouse_workbench(
         raise ValueError("Glasshouse workbench render scale must be positive")
     if not isinstance(palette, GlasshouseWorkbenchPalette):
         raise TypeError("Glasshouse workbench render palette is invalid")
+    if not isinstance(source_palette, SourcePalette):
+        raise TypeError("Glasshouse workbench source palette is invalid")
     if not isinstance(compact_sidebar, bool):
         raise TypeError("Glasshouse workbench compact sidebar flag must be boolean")
+    if not isinstance(completions, tuple) or any(
+        not isinstance(completion, str) or not completion for completion in completions
+    ):
+        raise TypeError("Glasshouse workbench completions must be non-empty text")
     surface.fill(palette.background)
     if workbench.phase is GlasshouseFlowPhase.BRIEFING:
         return _render_briefing(surface, font, workbench, scale, palette)
-    return _render_workbench(surface, font, workbench, scale, palette, compact_sidebar)
+    return _render_workbench(
+        surface, font, workbench, scale, palette, source_palette, compact_sidebar, completions
+    )
 
 
 def _render_briefing(
@@ -123,7 +133,9 @@ def _render_workbench(
     workbench: GlasshouseWorkbench,
     scale: int,
     palette: GlasshouseWorkbenchPalette,
+    source_palette: SourcePalette,
     compact_sidebar: bool,
+    completions: tuple[str, ...],
 ) -> GlasshouseWorkbenchRenderResult:
     width, height = surface.get_size()
     line_height = font.measure("M", scale)[1]
@@ -162,12 +174,32 @@ def _render_workbench(
     previous_clip = surface.get_clip()
     surface.set_clip(source_rect.inflate(-8, -8))
     first_visible_line = workbench.editor.scroll.line
+    gutter_width = font.measure(str(workbench.editor.buffer.line_index.line_count), scale)[0] + 12
+    source_origin = (source_rect.x + gutter_width + 4, source_rect.y + 4)
+    _render_line_numbers(
+        surface,
+        font,
+        source_rect,
+        workbench.editor.buffer.line_index.line_count,
+        workbench.editor.cursor_position.line,
+        first_visible_line,
+        line_height,
+        scale,
+        palette,
+    )
+    pygame.draw.line(
+        surface,
+        palette.border,
+        (source_origin[0] - 5, source_rect.y + 4),
+        (source_origin[0] - 5, source_rect.bottom - 4),
+    )
     render_source(
         surface,
         font,
         _source_from_line(workbench.source, first_visible_line),
-        (source_rect.x + 4, source_rect.y + 4),
+        source_origin,
         scale=scale,
+        palette=source_palette,
     )
     _draw_editor_selection(
         surface,
@@ -175,7 +207,7 @@ def _render_workbench(
         workbench.source,
         workbench.editor.selection.start,
         workbench.editor.selection.end,
-        (source_rect.x + 4, source_rect.y + 4),
+        source_origin,
         line_height,
         scale,
         palette.focus,
@@ -187,11 +219,12 @@ def _render_workbench(
             font,
             workbench.source,
             workbench.compile_output.diagnostics,
-            (source_rect.x + 4, source_rect.y + 4),
+            source_origin,
             scale=scale,
             first_visible_line=first_visible_line,
         )
     surface.set_clip(previous_clip)
+    _render_completion_popup(surface, font, source_rect, completions, scale, palette)
     if workbench.compile_output is None:
         output_lines = ("COMPILE", "Cmd/Ctrl+Enter: compile selected policy")
         for index, line in enumerate(output_lines):
@@ -220,6 +253,54 @@ def _render_workbench(
             diagnostic_count = diagnostics.entry_count
         line_count = len(workbench.policies) + rendered.line_count + diagnostic_count + 2
     return GlasshouseWorkbenchRenderResult(workbench.phase, line_count)
+
+
+def _render_line_numbers(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    source_rect: pygame.Rect,
+    line_count: int,
+    cursor_line: int,
+    first_visible_line: int,
+    line_height: int,
+    scale: int,
+    palette: GlasshouseWorkbenchPalette,
+) -> None:
+    """Render the bounded current-source line-number gutter."""
+    digits = len(str(line_count))
+    visible_rows = max(1, (source_rect.height - 8) // line_height)
+    final_line = min(line_count, first_visible_line + visible_rows - 1)
+    for line_number in range(first_visible_line, final_line + 1):
+        text = str(line_number).rjust(digits)
+        color = palette.heading if line_number == cursor_line else palette.muted
+        y = source_rect.y + 4 + (line_number - first_visible_line) * line_height
+        surface.blit(font.render(text, color, scale), (source_rect.x + 4, y))
+
+
+def _render_completion_popup(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    source_rect: pygame.Rect,
+    completions: tuple[str, ...],
+    scale: int,
+    palette: GlasshouseWorkbenchPalette,
+) -> None:
+    """Show the bounded deterministic completion list inside the source pane."""
+    if not completions:
+        return
+    line_height = font.measure("M", scale)[1]
+    labels = ("COMPLETE  Tab", *completions)
+    width = min(
+        source_rect.width - 8,
+        max(font.measure(label, scale)[0] for label in labels) + 12,
+    )
+    height = len(labels) * line_height + 8
+    rect = pygame.Rect(source_rect.right - width - 4, source_rect.bottom - height - 4, width, height)
+    pygame.draw.rect(surface, palette.panel, rect)
+    pygame.draw.rect(surface, palette.border, rect, width=1)
+    for index, label in enumerate(labels):
+        color = palette.heading if index == 0 else palette.selected
+        surface.blit(font.render(label, color, scale), (rect.x + 4, rect.y + 4 + index * line_height))
 
 
 def _draw_editor_selection(

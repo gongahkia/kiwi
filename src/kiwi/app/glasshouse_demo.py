@@ -61,6 +61,7 @@ from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
 from kiwi.trace.model import CausalTrace, IntentionTrace
 from kiwi.ui.editor import EditorState
+from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
 from kiwi.ui.glasshouse_debrief import (
     GlasshouseDebrief,
     GlasshouseDebriefResult,
@@ -103,6 +104,14 @@ class GlasshouseInputMode(StrEnum):
 
     STANDARD = "standard"
     FUNCTION_KEYS = "function_keys"
+
+
+class GlasshouseColorScheme(StrEnum):
+    """The selectable presentation-only terminal palettes."""
+
+    CYAN = "cyan"
+    AMBER = "amber"
+    PHOSPHOR = "phosphor"
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +180,7 @@ class GlasshouseDemoController:
     preview_playing: bool = False
     preview_stale: bool = False
     hot_reload_enabled: bool = True
+    color_scheme: GlasshouseColorScheme = GlasshouseColorScheme.CYAN
     notice: str = ""
 
     def __post_init__(self) -> None:
@@ -202,6 +212,8 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo preview stale flag is invalid")
         if not isinstance(self.hot_reload_enabled, bool):
             raise TypeError("Glasshouse demo hot reload flag is invalid")
+        if not isinstance(self.color_scheme, GlasshouseColorScheme):
+            raise TypeError("Glasshouse demo color scheme is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Glasshouse demo notice must be text")
         if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
@@ -294,6 +306,13 @@ class GlasshouseDemoController:
             notice="",
         )
 
+    def cycle_color_scheme(self) -> GlasshouseDemoController:
+        """Cycle the local terminal palette without changing source or authority."""
+        schemes = tuple(GlasshouseColorScheme)
+        index = (schemes.index(self.color_scheme) + 1) % len(schemes)
+        scheme = schemes[index]
+        return replace(self, color_scheme=scheme, notice=f"Theme: {scheme.value}.")
+
     def replace_selected_editor(self, editor: EditorState) -> GlasshouseDemoController:
         """Apply one already-validated non-authoritative editor operation."""
         if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
@@ -313,6 +332,21 @@ class GlasshouseDemoController:
                 notice="Preview out of date: Compile + run to refresh.",
             )
         return updated
+
+    def completions(self) -> tuple[str, ...]:
+        """Return deterministic DSL completions for the selected source cursor."""
+        if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
+            return ()
+        return dsl_completions(self.workbench.source.text, self.workbench.editor.cursor_offset)
+
+    def accept_completion(self) -> GlasshouseDemoController:
+        """Insert the first displayed DSL completion without interpreting player source."""
+        options = self.completions()
+        if not options:
+            return self
+        editor = self.workbench.editor
+        suffix = dsl_completion_suffix(editor.buffer.text, editor.cursor_offset, options[0])
+        return self if not suffix else self.replace_selected_editor(editor.insert_text(suffix))
 
     def compile_selected(self) -> GlasshouseDemoController:
         """Compile the selected closed-DSL policy without deployment."""
@@ -438,6 +472,8 @@ class GlasshouseDemoController:
         if not 0 <= index < len(self.current_run.snapshots):
             raise ValueError("Glasshouse demo preview snapshot index is unavailable")
         selected = replace(self, preview_snapshot_index=index)
+        if index == 0:
+            return _focus_scout_caution_literal(selected)
         return selected._focus_preview_source()
 
     def advance_preview(self) -> GlasshouseDemoController:

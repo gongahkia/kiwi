@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pygame
 
 from kiwi.app.glasshouse_demo import (
+    GlasshouseColorScheme,
     GlasshouseDemoController,
     GlasshouseDemoScreen,
     GlasshouseInputMode,
@@ -13,10 +16,15 @@ from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
 from kiwi.render.camera import Camera
 from kiwi.render.glasshouse_debrief_view import render_glasshouse_debrief
 from kiwi.render.glasshouse_tutorial_view import render_glasshouse_tutorial
-from kiwi.render.glasshouse_workbench_view import render_glasshouse_workbench
+from kiwi.render.glasshouse_workbench_view import (
+    DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
+    GlasshouseWorkbenchPalette,
+    render_glasshouse_workbench,
+)
 from kiwi.render.pygame_app import open_pygame_window, present, render_tactical_view
 from kiwi.render.pygame_lifecycle import quit_pygame
 from kiwi.render.run_comparison_view import render_run_comparison_view
+from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
 from kiwi.sim.snapshot import build_presentation_snapshot
 from kiwi.ui.editor import EditorState, TextPosition
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief
@@ -33,6 +41,95 @@ _FOOTER_HEIGHT = 16
 _LOGICAL_SIZE = (960, 540)
 _MAX_NOTICE_CHARACTERS = 116
 _PREVIEW_STEP_MILLISECONDS = 800
+
+
+@dataclass(frozen=True, slots=True)
+class GlasshouseDemoPalette:
+    """One complete presentation palette for the local causal drill shell."""
+
+    background: tuple[int, int, int]
+    panel: tuple[int, int, int]
+    border: tuple[int, int, int]
+    heading: tuple[int, int, int]
+    normal: tuple[int, int, int]
+    notice: tuple[int, int, int]
+    muted: tuple[int, int, int]
+    workbench: GlasshouseWorkbenchPalette
+    source: SourcePalette
+
+
+_CYAN_PALETTE = GlasshouseDemoPalette(
+    _BACKGROUND,
+    _PANEL,
+    _BORDER,
+    _HEADING,
+    _NORMAL,
+    _NOTICE,
+    _MUTED,
+    DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
+    DEFAULT_SOURCE_PALETTE,
+)
+_AMBER_PALETTE = GlasshouseDemoPalette(
+    (20, 14, 8),
+    (35, 26, 16),
+    (178, 129, 61),
+    (255, 204, 105),
+    (240, 222, 190),
+    (255, 156, 82),
+    (205, 190, 160),
+    GlasshouseWorkbenchPalette(
+        background=(20, 14, 8),
+        panel=(35, 26, 16),
+        border=(178, 129, 61),
+        heading=(255, 204, 105),
+        normal=(240, 222, 190),
+        selected=(255, 222, 132),
+        focus=(255, 156, 82),
+        muted=(205, 190, 160),
+    ),
+    SourcePalette(
+        default=(240, 222, 190),
+        keyword=(255, 204, 105),
+        literal=(255, 156, 82),
+        identifier=(240, 222, 190),
+        operator=(244, 117, 94),
+        punctuation=(205, 190, 160),
+        invalid=(239, 99, 99),
+    ),
+)
+_PHOSPHOR_PALETTE = GlasshouseDemoPalette(
+    (8, 17, 11),
+    (13, 31, 20),
+    (70, 136, 85),
+    (142, 255, 162),
+    (213, 239, 216),
+    (244, 229, 115),
+    (164, 199, 169),
+    GlasshouseWorkbenchPalette(
+        background=(8, 17, 11),
+        panel=(13, 31, 20),
+        border=(70, 136, 85),
+        heading=(142, 255, 162),
+        normal=(213, 239, 216),
+        selected=(175, 255, 188),
+        focus=(244, 229, 115),
+        muted=(164, 199, 169),
+    ),
+    SourcePalette(
+        default=(213, 239, 216),
+        keyword=(142, 255, 162),
+        literal=(244, 229, 115),
+        identifier=(213, 239, 216),
+        operator=(255, 143, 117),
+        punctuation=(164, 199, 169),
+        invalid=(255, 128, 128),
+    ),
+)
+_PALETTES = {
+    GlasshouseColorScheme.CYAN: _CYAN_PALETTE,
+    GlasshouseColorScheme.AMBER: _AMBER_PALETTE,
+    GlasshouseColorScheme.PHOSPHOR: _PHOSPHOR_PALETTE,
+}
 
 
 def run_glasshouse_demo() -> int:
@@ -248,21 +345,29 @@ def _move_editor(editor: EditorState, key: int, modifiers: int) -> EditorState:
 def _render(
     surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
 ) -> None:
+    palette = _palette_for(controller.color_scheme)
     if controller.screen is GlasshouseDemoScreen.INPUT_SETUP:
         _render_input_setup(surface, font, controller)
         return
     if controller.screen in (GlasshouseDemoScreen.BRIEFING, GlasshouseDemoScreen.WORKBENCH):
-        render_glasshouse_workbench(surface, font, controller.workbench)
+        render_glasshouse_workbench(
+            surface,
+            font,
+            controller.workbench,
+            palette=palette.workbench,
+            source_palette=palette.source,
+            completions=controller.completions(),
+        )
         if controller.screen is GlasshouseDemoScreen.WORKBENCH:
-            _render_workbench_controls(surface, font, controller)
-        _render_footer(surface, font, _workbench_help(controller), controller.notice)
+            _render_workbench_controls(surface, font, controller, palette)
+        _render_footer(surface, font, _workbench_help(controller), controller.notice, palette)
         return
     if controller.screen is GlasshouseDemoScreen.GUIDE:
         render_glasshouse_tutorial(surface, font, controller.tutorial)
         _render_footer(surface, font, "Left/Right lesson | Esc workbench", controller.notice)
         return
     if controller.screen is GlasshouseDemoScreen.LIVE_PREVIEW:
-        _render_live_preview(surface, font, controller)
+        _render_live_preview(surface, font, controller, palette)
         return
     if controller.screen is GlasshouseDemoScreen.MISSION:
         _render_mission(surface, font, controller)
@@ -274,30 +379,42 @@ def _render(
 
 
 def _render_live_preview(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     left_rect, right_rect = _live_preview_panes(surface)
     left = surface.subsurface(left_rect)
     right = surface.subsurface(right_rect)
-    render_glasshouse_workbench(left, font, controller.workbench, compact_sidebar=True)
-    _render_workbench_controls(left, font, controller)
-    _render_preview_map(right, font, controller)
+    render_glasshouse_workbench(
+        left,
+        font,
+        controller.workbench,
+        palette=palette.workbench,
+        source_palette=palette.source,
+        compact_sidebar=True,
+        completions=controller.completions(),
+    )
+    _render_workbench_controls(left, font, controller, palette)
+    _render_preview_map(right, font, controller, palette)
     _render_footer(
         surface,
         font,
-        (
-            "Click Pause/Step/Hot reload | Cmd+P pause | Cmd+. step | "
-            "Cmd+L hot reload | D debrief | Esc edit"
-        ),
+        "Click controls | Cmd+P pause | Cmd+. step | Cmd+L reload | Tab complete | D debrief",
         controller.notice,
+        palette,
     )
 
 
 def _render_preview_map(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     if controller.current_run is None:
-        surface.fill(_BACKGROUND)
+        surface.fill(palette.background)
         _render_preview_panel(
             surface,
             font,
@@ -306,8 +423,9 @@ def _render_preview_map(
                 "Fix the compile diagnostic on the left.",
                 "The last valid run is not shown as current code.",
             ),
+            palette,
         )
-        _render_preview_controls(surface, font, controller)
+        _render_preview_controls(surface, font, controller, palette)
         return
     snapshot = controller.current_run.snapshots[controller.preview_snapshot_index]
     render_tactical_view(surface, snapshot, Camera(pixels_per_millimetre=0.04))
@@ -323,8 +441,9 @@ def _render_preview_map(
             ),
             *trace_lines,
         ),
+        palette,
     )
-    _render_preview_controls(surface, font, controller)
+    _render_preview_controls(surface, font, controller, palette)
 
 
 def _preview_trace_lines(
@@ -355,14 +474,17 @@ def _preview_trace_lines(
 
 
 def _render_preview_panel(
-    surface: pygame.Surface, font: BitmapFont, lines: tuple[str, ...]
+    surface: pygame.Surface,
+    font: BitmapFont,
+    lines: tuple[str, ...],
+    palette: GlasshouseDemoPalette,
 ) -> None:
     line_height = font.measure("M")[1]
     height = len(lines) * line_height + 8
-    pygame.draw.rect(surface, _PANEL, (4, 4, surface.get_width() - 8, height))
-    pygame.draw.rect(surface, _BORDER, (4, 4, surface.get_width() - 8, height), width=1)
+    pygame.draw.rect(surface, palette.panel, (4, 4, surface.get_width() - 8, height))
+    pygame.draw.rect(surface, palette.border, (4, 4, surface.get_width() - 8, height), width=1)
     for index, line in enumerate(lines):
-        color = _HEADING if index == 0 else _NOTICE if "intention" in line else _NORMAL
+        color = palette.heading if index == 0 else palette.notice if "intention" in line else palette.normal
         surface.blit(
             font.render(_fit_text(font, _truncate(line), surface.get_width() - 16), color),
             (8, 8 + index * line_height),
@@ -370,7 +492,10 @@ def _render_preview_panel(
 
 
 def _render_preview_controls(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette,
 ) -> None:
     play_button, step_button, reload_button, debrief_button = _preview_buttons(surface, font)
     _render_button(
@@ -379,16 +504,18 @@ def _render_preview_controls(
         play_button,
         "Pause" if controller.preview_playing else "Play",
         controller.preview_playing,
+        palette,
     )
-    _render_button(surface, font, step_button, "Step", False)
+    _render_button(surface, font, step_button, "Step", False, palette)
     _render_button(
         surface,
         font,
         reload_button,
         f"Hot reload {'on' if controller.hot_reload_enabled else 'off'}",
         controller.hot_reload_enabled,
+        palette,
     )
-    _render_button(surface, font, debrief_button, "Debrief", False)
+    _render_button(surface, font, debrief_button, "Debrief", False, palette)
 
 
 def _live_preview_panes(surface: pygame.Surface) -> tuple[pygame.Rect, pygame.Rect]:
@@ -476,12 +603,18 @@ def _render_panel(surface: pygame.Surface, font: BitmapFont, lines: tuple[str, .
         )
 
 
-def _render_footer(surface: pygame.Surface, font: BitmapFont, controls: str, notice: str) -> None:
+def _render_footer(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controls: str,
+    notice: str,
+    palette: GlasshouseDemoPalette = _CYAN_PALETTE,
+) -> None:
     y = surface.get_height() - _FOOTER_HEIGHT
-    pygame.draw.rect(surface, _PANEL, (0, y, surface.get_width(), _FOOTER_HEIGHT))
-    pygame.draw.line(surface, _BORDER, (0, y), (surface.get_width(), y))
+    pygame.draw.rect(surface, palette.panel, (0, y, surface.get_width(), _FOOTER_HEIGHT))
+    pygame.draw.line(surface, palette.border, (0, y), (surface.get_width(), y))
     text = notice if notice else controls
-    color = _NOTICE if notice else _MUTED
+    color = palette.notice if notice else palette.muted
     surface.blit(
         font.render(_fit_text(font, _truncate(text), surface.get_width() - 8), color),
         (4, y + 2),
@@ -492,8 +625,8 @@ def _workbench_help(controller: GlasshouseDemoController) -> str:
     if controller.screen is GlasshouseDemoScreen.BRIEFING:
         return "Enter opens workbench | Esc quits"
     if controller.input_mode is GlasshouseInputMode.STANDARD:
-        return "Cmd+G guide | Cmd+T select 1m | Cmd+Enter compile | Cmd+R deploy"
-    return "F1 guide | F2 select 1m | Cmd/Ctrl+Enter compile | F5 deploy"
+        return "Cmd+T select 1m | Cmd+Shift+T theme | Tab complete | Cmd+R deploy"
+    return "F2 select 1m | F3 theme | Tab complete | F5 deploy"
 
 
 def _deploy_label(controller: GlasshouseDemoController) -> str:
@@ -549,13 +682,18 @@ def _render_input_setup(
 
 
 def _render_workbench_controls(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette = _CYAN_PALETTE,
 ) -> None:
     compile_button, deploy_button = _workbench_buttons(surface, font)
-    _render_button(surface, font, compile_button, "Compile", False)
-    _render_button(surface, font, deploy_button, "Compile + run", True)
+    theme_button = _theme_button(surface, font)
+    _render_button(surface, font, theme_button, f"Theme: {controller.color_scheme.value}", False, palette)
+    _render_button(surface, font, compile_button, "Compile", False, palette)
+    _render_button(surface, font, deploy_button, "Compile + run", True, palette)
     if pygame.time.get_ticks() // 500 % 2 == 0:
-        _render_editor_caret(surface, font, controller)
+        _render_editor_caret(surface, font, controller, palette)
 
 
 def _render_button(
@@ -564,11 +702,12 @@ def _render_button(
     rect: pygame.Rect,
     label: str,
     emphasized: bool,
+    palette: GlasshouseDemoPalette = _CYAN_PALETTE,
 ) -> None:
-    fill = _BORDER if emphasized else _PANEL
-    text_color = _BACKGROUND if emphasized else _HEADING
+    fill = palette.border if emphasized else palette.panel
+    text_color = palette.background if emphasized else palette.heading
     pygame.draw.rect(surface, fill, rect)
-    pygame.draw.rect(surface, _HEADING, rect, width=1)
+    pygame.draw.rect(surface, palette.heading, rect, width=1)
     label_surface = font.render(label, text_color)
     surface.blit(
         label_surface,
@@ -577,7 +716,10 @@ def _render_button(
 
 
 def _render_editor_caret(
-    surface: pygame.Surface, font: BitmapFont, controller: GlasshouseDemoController
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: GlasshouseDemoController,
+    palette: GlasshouseDemoPalette = _CYAN_PALETTE,
 ) -> None:
     _, source_rect, _ = _workbench_rects(surface, font)
     editor = controller.workbench.editor
@@ -589,12 +731,13 @@ def _render_editor_caret(
     if y + font.measure("M")[1] > source_rect.bottom - 4:
         return
     line = editor.buffer.line_text(cursor.line)
-    x = source_rect.x + 4 + font.measure(line[: cursor.column - 1].expandtabs(4))[0]
+    gutter_width = font.measure(str(editor.buffer.line_index.line_count))[0] + 12
+    x = source_rect.x + gutter_width + 4 + font.measure(line[: cursor.column - 1].expandtabs(4))[0]
     if x >= source_rect.right - font.measure("M")[0]:
         return
     previous_clip = surface.get_clip()
     surface.set_clip(source_rect.inflate(-8, -8))
-    surface.blit(font.render("_", _NOTICE), (x, y))
+    surface.blit(font.render("_", palette.notice), (x, y))
     surface.set_clip(previous_clip)
 
 
@@ -641,6 +784,19 @@ def _workbench_buttons(
     deploy = pygame.Rect(output_rect.right - deploy_width - 5, y, deploy_width, line_height + 4)
     compile = pygame.Rect(deploy.left - compile_width - 6, y, compile_width, line_height + 4)
     return (compile, deploy)
+
+
+def _theme_button(surface: pygame.Surface, font: BitmapFont) -> pygame.Rect:
+    """Return the fixed-width palette selector beside the compile controls."""
+    compile_button, _ = _workbench_buttons(surface, font)
+    line_height = font.measure("M")[1]
+    width = font.measure("Theme: phosphor")[0] + 12
+    return pygame.Rect(
+        compile_button.left - width - 6,
+        compile_button.y,
+        width,
+        line_height + 4,
+    )
 
 
 def _preview_buttons(
@@ -705,10 +861,13 @@ def _handle_workbench_click(
     surface = pygame.Surface(canvas_size)
     sidebar_rect, source_rect, _ = _workbench_rects(surface, font)
     compile_button, deploy_button = _workbench_buttons(surface, font)
+    theme_button = _theme_button(surface, font)
     if compile_button.collidepoint(position):
         return controller.compile_selected()
     if deploy_button.collidepoint(position):
         return controller.deploy()
+    if theme_button.collidepoint(position):
+        return controller.cycle_color_scheme()
     if sidebar_rect.collidepoint(position):
         line_height = font.measure("M")[1]
         policy_index = (position[1] - 16) // line_height - 1
