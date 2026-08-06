@@ -95,7 +95,10 @@ class TextureAtlas:
         if cached is not None:
             return cached
         source = self._frames[name]
-        if source.x + source.width > self._image.get_width() or source.y + source.height > self._image.get_height():
+        if (
+            source.x + source.width > self._image.get_width()
+            or source.y + source.height > self._image.get_height()
+        ):
             raise ValueError("texture atlas frame exceeds source image")
         crop = self._image.subsurface(
             pygame.Rect(
