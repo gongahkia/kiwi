@@ -49,22 +49,30 @@ class GlasshouseMissionExecution:
     """Application-owned execution state around immutable authoritative ticks."""
 
     state: MissionState
+    initial_state: MissionState
     clock: FixedTickClock
     policy_bindings: PolicyBindings
+    policy_sources: tuple[SourceFile, ...]
     player_entity_ids: tuple[EntityId, ...]
     lockdown_tick: int
     next_command_sequence: int = 0
     queued_commands: tuple[ExternalCommand, ...] = ()
+    command_log: tuple[ExternalCommand, ...] = ()
     events: tuple[CanonicalEvent, ...] = ()
     last_tick_events: tuple[CanonicalEvent, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, MissionState):
             raise TypeError("Glasshouse execution requires mission state")
+        if not isinstance(self.initial_state, MissionState):
+            raise TypeError("Glasshouse execution requires initial mission state")
+        if self.initial_state.tick > self.state.tick:
+            raise ValueError("Glasshouse initial mission state must not follow current state")
         if not isinstance(self.clock, FixedTickClock):
             raise TypeError("Glasshouse execution requires a fixed tick clock")
         if not isinstance(self.policy_bindings, PolicyBindings):
             raise TypeError("Glasshouse execution requires policy bindings")
+        _validate_policy_sources(self.policy_sources, self.policy_bindings)
         if not isinstance(self.player_entity_ids, tuple) or len(self.player_entity_ids) != 4:
             raise ValueError("Glasshouse execution requires four player entity IDs")
         if any(not isinstance(entity_id, EntityId) for entity_id in self.player_entity_ids):
@@ -100,6 +108,17 @@ class GlasshouseMissionExecution:
             for command in self.queued_commands
         ):
             raise ValueError("Glasshouse queued command sequence is invalid")
+        if canonical_command_order(self.command_log) != self.command_log:
+            raise ValueError("Glasshouse command log must be canonical")
+        if any(
+            not self.initial_state.tick <= command.header.tick < self.state.tick
+            for command in self.command_log
+        ):
+            raise ValueError("Glasshouse command log must target resolved ticks")
+        if any(
+            command.header.sequence >= self.next_command_sequence for command in self.command_log
+        ):
+            raise ValueError("Glasshouse command log sequence is invalid")
         if not isinstance(self.events, tuple) or canonical_event_order(self.events) != self.events:
             raise ValueError("Glasshouse execution events must be canonical")
         if (
@@ -160,6 +179,7 @@ class GlasshouseMissionExecution:
             self,
             state=result.state,
             queued_commands=(),
+            command_log=canonical_command_order((*self.command_log, *self.queued_commands)),
             events=canonical_event_order((*self.events, *result.events)),
             last_tick_events=result.events,
         )
@@ -200,7 +220,7 @@ def build_glasshouse_mission_execution(
     hostiles = build_glasshouse_hostile_setup(players, hostile_sources)
     if isinstance(hostiles, GlasshousePolicyFailure):
         return hostiles
-    return _execution_from_setups(mission, players, hostiles)
+    return _execution_from_setups(mission, players, hostiles, workbench.sources, hostile_sources)
 
 
 def build_glasshouse_mission_presentation(
@@ -239,6 +259,8 @@ def _execution_from_setups(
     mission: MissionData,
     players: GlasshousePlayerSetup,
     hostiles: GlasshouseHostileSetup,
+    player_sources: tuple[SourceFile, ...],
+    hostile_sources: tuple[SourceFile, ...],
 ) -> GlasshouseMissionExecution:
     lockdown_events = tuple(
         event
@@ -248,9 +270,32 @@ def _execution_from_setups(
     if len(lockdown_events) != 1:
         raise AssertionError("Glasshouse mission requires exactly one lockdown event")
     return GlasshouseMissionExecution(
-        hostiles.state,
-        FixedTickClock(TickRate(mission.tick_rate)),
-        hostiles.policy_bindings,
-        tuple(player.entity_id for player in players.players),
-        lockdown_events[0].tick,
+        state=hostiles.state,
+        initial_state=hostiles.state,
+        clock=FixedTickClock(TickRate(mission.tick_rate)),
+        policy_bindings=hostiles.policy_bindings,
+        policy_sources=tuple(
+            sorted((*player_sources, *hostile_sources), key=lambda source: source.file_id)
+        ),
+        player_entity_ids=tuple(player.entity_id for player in players.players),
+        lockdown_tick=lockdown_events[0].tick,
     )
+
+
+def _validate_policy_sources(sources: tuple[SourceFile, ...], bindings: PolicyBindings) -> None:
+    if not isinstance(sources, tuple) or any(
+        not isinstance(source, SourceFile) for source in sources
+    ):
+        raise TypeError("Glasshouse policy sources must be immutable source files")
+    source_file_ids = tuple(source.file_id for source in sources)
+    if source_file_ids != tuple(sorted(source_file_ids)) or len(set(source_file_ids)) != len(
+        source_file_ids
+    ):
+        raise ValueError("Glasshouse policy sources must be unique and source-file ordered")
+    binding_file_ids = tuple(
+        sorted(
+            (binding.artifact.bytecode.header.source_file_id for binding in bindings.entries),
+        )
+    )
+    if source_file_ids != binding_file_ids:
+        raise ValueError("Glasshouse policy sources must match deployed policy bindings")

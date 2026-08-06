@@ -152,6 +152,11 @@ matching expression in the current workbench only when the current source text
 is exact. If current text differs, it keeps the historical source and does not
 apply its old offsets to the editable buffer.
 
+Rerunning Glasshouse reuses the retained initial authority state, seed, tick
+rate, and executed player command log. Only newly compiled policy bindings may
+differ. The comparison pane remains compatibility-gated and reports the policy,
+state, and retained consequence deltas without claiming a fabricated prediction.
+
 ## 5. Overlays
 
 MVP overlays:

@@ -457,6 +457,11 @@ A valid counterfactual:
 
 Do not alter one internal branch result without re-executing the simulation.
 
+Glasshouse records its resolved player command log with the initial authority
+state. A guided rerun recompiles only the policy bundle, re-executes headlessly,
+and compares replay-bound traces; changed initial state or tick rate is a typed
+unavailable result.
+
 ## 13. Retention
 
 Trace storage can be bounded by:
