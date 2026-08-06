@@ -12,6 +12,7 @@ from kiwi.app.glasshouse_demo import (
     GlasshouseDemoScreen,
     GlasshouseInputMode,
 )
+from kiwi.dsl.source import ByteOffset
 from kiwi.render.atlas import TextureAtlas, load_glasshouse_atlas
 from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
 from kiwi.render.camera import Camera, Projection, world_to_canvas
@@ -32,7 +33,6 @@ from kiwi.render.pygame_lifecycle import quit_pygame
 from kiwi.render.run_comparison_view import render_run_comparison_view
 from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
 from kiwi.sim.snapshot import build_presentation_snapshot
-from kiwi.dsl.source import ByteOffset
 from kiwi.ui.editor import EditorState, TextPosition
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief
 from kiwi.ui.timeline import mission_timeline

@@ -10,6 +10,7 @@ from platform import system
 from kiwi.app.glasshouse_players import PLAYER_MEMORY_SCHEMA
 from kiwi.app.glasshouse_workbench import build_glasshouse_workbench
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
+from kiwi.domain.ids import TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.checker import check
 from kiwi.dsl.compiler import CompiledArtifact, compile_artifact
@@ -21,7 +22,6 @@ from kiwi.dsl.parser import parse
 from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import BooleanValue, RecordValue, StringValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId, SourceSpan
-from kiwi.domain.ids import TraceNodeId
 from kiwi.dsl.types import BuiltinType
 from kiwi.replay.recording import RecordedReplay, record_headless_run
 from kiwi.replay.source_archive import (
@@ -60,7 +60,12 @@ from kiwi.sim.snapshot import (
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
-from kiwi.trace.model import CausalTrace, ExpressionEvaluationTrace, IntentionTrace, PolicyInvocationTrace
+from kiwi.trace.model import (
+    CausalTrace,
+    ExpressionEvaluationTrace,
+    IntentionTrace,
+    PolicyInvocationTrace,
+)
 from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
 from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import (
