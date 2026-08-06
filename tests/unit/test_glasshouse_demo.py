@@ -22,6 +22,10 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
     assert baseline.preview_playing
     assert baseline.workbench.selected_policy.role == "scout"
     assert baseline.workbench.editor.selected_text == "1"
+    assert len(baseline.result_history.results) == 1
+    results = baseline.open_results()
+    assert results.screen is GlasshouseDemoScreen.RESULTS
+    assert results.result_history.results[-1].casualties == 1
     wrapped = baseline.advance_preview().advance_preview().advance_preview()
     assert wrapped.preview_snapshot_index == 0
     assert wrapped.workbench.editor.selected_text == "1"
@@ -136,3 +140,12 @@ def test_glasshouse_preview_maps_entities_and_source_offsets_to_retained_trace_s
     from_source = from_map.select_preview_source_offset(ByteOffset(span.start.value))
     assert from_source.selected_trace_node_id is not None
     assert not from_source.preview_playing
+
+
+def test_glasshouse_preview_rotation_is_presentation_only() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    rotated = preview.rotate_preview().rotate_preview()
+
+    assert rotated.preview_rotation_quarters == 2
+    assert rotated.current_run == preview.current_run
+    assert rotated.workbench == preview.workbench

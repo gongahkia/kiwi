@@ -42,7 +42,6 @@ from kiwi.sim.contacts import (
     ContactProvenance,
     ContactStore,
 )
-from kiwi.sim.events import PolicyEvaluated
 from kiwi.sim.covers import (
     CoverHeight,
     CoverIntegrity,
@@ -51,6 +50,7 @@ from kiwi.sim.covers import (
     CoverSlot,
     CoverStore,
 )
+from kiwi.sim.events import PolicyEvaluated
 from kiwi.sim.hashing import hash_canonical_state
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
@@ -636,7 +636,9 @@ class GlasshouseDemoController:
             preview_stale=False,
             selected_trace_node_id=None,
             preview_selected_entity_id=None,
-            result_history=self.result_history.append(_result_for_demo_run(result, compiled_workbench)),
+            result_history=self.result_history.append(
+                _result_for_demo_run(result, compiled_workbench)
+            ),
             notice=result_notice,
         )
         return _focus_scout_caution_literal(preview)._focus_preview_source()
@@ -743,9 +745,7 @@ def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> S
     )
 
 
-def _result_for_demo_run(
-    run: GlasshouseDemoRun, workbench: GlasshouseWorkbench
-) -> ChallengeResult:
+def _result_for_demo_run(run: GlasshouseDemoRun, workbench: GlasshouseWorkbench) -> ChallengeResult:
     """Project one recorded drill into explicit local tactical and code metrics."""
     artifacts = tuple(
         output.artifact
@@ -767,8 +767,9 @@ def _result_for_demo_run(
         run.recorded.run.state.tick,
         sum(len(encode_bytecode(artifact.bytecode)) for artifact in artifacts),
         sum(
-            len(event.validation.evaluation.result.expression_traces)
-            for event in evaluations
+            len(function.instructions)
+            for artifact in artifacts
+            for function in artifact.bytecode.functions
         ),
         len(evaluations),
     )

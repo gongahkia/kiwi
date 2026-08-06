@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from enum import StrEnum
 from hashlib import blake2b
 
@@ -128,13 +127,13 @@ class GeneratedDistrict:
             raise ValueError("generated district layout hash must be a BLAKE2b-256 hex digest")
 
 
-def daily_challenge(day: date, contract_index: int = 0) -> ChallengeDefinition:
-    """Build one date-selected challenge; callers supply the date at the IO boundary."""
-    if not isinstance(day, date):
-        raise TypeError("daily challenge requires a date")
-    challenge_id = f"daily_{day.isoformat().replace('-', '_')}"
+def daily_challenge(day: str, contract_index: int = 0) -> ChallengeDefinition:
+    """Build one ISO-date-selected challenge without reading a host clock."""
+    if not _is_iso_date(day):
+        raise ValueError("daily challenge requires a valid ISO calendar date")
+    challenge_id = f"daily_{day.replace('-', '_')}"
     return _challenge(
-        ChallengeMode.DAILY, challenge_id, _hash_seed(day.isoformat()), contract_index
+        ChallengeMode.DAILY, challenge_id, _hash_seed(day), contract_index
     )
 
 
@@ -184,6 +183,26 @@ def _challenge(
     return ChallengeDefinition(mode, challenge_id, seed, DISTRICT_GENERATOR_VERSION, contract_index)
 
 
+def _is_iso_date(value: object) -> bool:
+    """Validate a Gregorian calendar day using only deterministic string arithmetic."""
+    if (
+        not isinstance(value, str)
+        or len(value) != 10
+        or value[4] != "-"
+        or value[7] != "-"
+        or not (value[:4] + value[5:7] + value[8:]).isdigit()
+    ):
+        return False
+    year = int(value[:4])
+    month = int(value[5:7])
+    day = int(value[8:])
+    if not 1 <= month <= 12:
+        return False
+    days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28, 31, 30,
+            31, 30, 31, 31, 30, 31, 30, 31)
+    return 1 <= day <= days[month - 1]
+
+
 def _bounds() -> WorldRectangle:
     return WorldRectangle(
         WorldSubunits(-_DISTRICT_HALF_WIDTH),
@@ -219,9 +238,7 @@ def _obstacles(
     )
 
 
-def _covers(
-    challenge: ChallengeDefinition, lane_x: int, lane_y: int
-) -> tuple[MissionCover, ...]:
+def _covers(challenge: ChallengeDefinition, lane_x: int, lane_y: int) -> tuple[MissionCover, ...]:
     x = (lane_x - 16) * DISTRICT_TILE_MILLIMETRES
     y = (lane_y - 16) * DISTRICT_TILE_MILLIMETRES
     values = (
@@ -317,7 +334,6 @@ def _splitmix64(value: int) -> int:
 
 def _is_identifier(value: str) -> bool:
     return bool(value) and all(
-        character.isascii()
-        and (character.islower() or character.isdigit() or character == "_")
+        character.isascii() and (character.islower() or character.isdigit() or character == "_")
         for character in value
     )

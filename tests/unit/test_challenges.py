@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from kiwi.content.challenges import (
     DISTRICT_TILE_COUNT,
     ChallengeMode,
@@ -12,7 +10,7 @@ from kiwi.content.challenges import (
 
 
 def test_daily_district_is_replay_regenerable_and_has_complete_material_grid() -> None:
-    challenge = daily_challenge(date(2026, 8, 6))
+    challenge = daily_challenge("2026-08-06")
 
     first = generate_district(challenge)
     second = generate_district(challenge)

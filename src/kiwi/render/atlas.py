@@ -119,9 +119,7 @@ class TextureAtlas:
         """Return one deterministic display-animation frame for a recorded tick."""
         if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
             raise ValueError("atlas animation tick must be non-negative")
-        animation = next(
-            (item for item in GLASSHOUSE_ATLAS_ANIMATIONS if item.name == name), None
-        )
+        animation = next((item for item in GLASSHOUSE_ATLAS_ANIMATIONS if item.name == name), None)
         if animation is None:
             raise ValueError("texture atlas animation is unavailable")
         frame = animation.frames[(tick // animation.ticks_per_frame) % len(animation.frames)]

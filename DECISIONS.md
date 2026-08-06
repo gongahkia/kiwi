@@ -828,6 +828,36 @@ and prevents later objective extraction. Only one pending or active lockdown is
 valid. `KWI-STATE\0` version `20` serializes this state; versions `1` through
 `19` remain unsupported because development state is disposable.
 
+### D-074: Glasshouse challenge districts are explicit seeded content
+
+Daily and Practice contracts construct a `ChallengeDefinition` before authority
+is built. The definition retains a mode, challenge ID, unsigned seed, generator
+version, and contract index. The generator produces a bounded 32×32 material
+grid plus normal `MissionData`; a replay or save must retain the definition, not
+depend on the host clock. Daily ISO-date selection is an application boundary, and
+Practice seeds are player-supplied. Contract escalation derives the next seed
+from the prior definition deterministically.
+
+This is modular challenge content, not a procedural campaign: it creates no
+hidden progression state, online service, or runtime dependency on pygame.
+
+### D-075: Isometric assets and audio are presentation-only
+
+The Glasshouse renderer may choose a rotatable isometric camera, texture-atlas
+sprite, fixed-tick animation frame, palette, and event-ID-deduplicated audio
+cue from copied snapshots and events. Those choices cannot change map geometry,
+hit tests, random streams, policy evaluation, tick timing, or canonical state.
+Missing art or audio falls back silently to renderer primitives.
+
+### D-076: Local optimization records have no composite score
+
+After a completed controlled run, the application may record a bounded local
+result containing the run hash, explicit outcome, casualties, ticks, encoded
+policy bytecode bytes, compiled VM instruction count, and policy evaluation count.
+Histogram buckets are a deterministic presentation projection of those local
+records. Results remain local by default and do not rank, upload, or alter the
+authoritative replay.
+
 ## 2. Prohibited shortcuts
 
 The following are not acceptable implementation substitutions:
@@ -873,13 +903,9 @@ The squad may be human, synthetic, remote, or deliberately ambiguous. The mechan
 
 ### O-003: Camera perspective
 
-Candidates:
-
-- top-down with abstracted elevation;
-- oblique top-down with discrete floor levels;
-- side-on tactical cross-section.
-
-Default for implementation: top-down 2D with discrete elevation layers and explicit cover edges.
+Resolved by D-075: the Glasshouse presentation uses a rotatable isometric
+camera over the existing discrete elevation and explicit cover model. The
+camera is excluded from authority.
 
 ### O-004: Exact static type system
 

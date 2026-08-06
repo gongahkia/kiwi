@@ -6,7 +6,7 @@ Kiwi is a single-player real-time squad tactics game in which the player program
 
 The product’s distinguishing feature is a causal debugger that maps battlefield outcomes back to program evaluations. When an operative is exposed, misses an extraction window, fires on a low-priority target, or fails to aid an ally, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and physical events that produced the result.
 
-The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer.
+The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Glasshouse lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
 ## 2. Product thesis
 
@@ -108,7 +108,7 @@ The MVP does not attempt to provide:
 
 - a broad campaign;
 - multiplayer;
-- procedural world generation;
+- procedural campaigns or open-world generation;
 - complex base building;
 - general rigid-body physics;
 - mod scripting through Python;
@@ -211,6 +211,10 @@ Build structured provenance from source evaluation through tactical consequence.
 
 Modify the kiwi and rerun under controlled inputs.
 
+### 8.9 Challenge lab
+
+The local lab offers deterministic Daily and Practice contracts. A Daily contract is selected by an application-supplied ISO calendar-date string; a Practice contract is selected by an explicit seed. Both use versioned modular 32×32 districts and deterministic escalation. Each completed attempt shows tactical outcomes alongside code-cost metrics and local histograms without a composite score, network submission, or leaderboard.
+
 ## 9. Functional requirements
 
 ### 9.1 Functional DSL
@@ -296,6 +300,9 @@ The graphical client must provide:
 - current policy version and high-level signal state;
 - event timeline markers;
 - selectable entities and events for inspection without direct command authority.
+- a rotatable isometric tactical presentation using an original texture atlas, fixed-tick animation, and event-driven local audio;
+- bidirectional source and entity selection that seeks retained trace evidence without re-running authority;
+- presentation themes that apply to the editor, tactical view, and local result page.
 
 ### 9.6 Persistence
 
