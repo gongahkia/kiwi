@@ -691,7 +691,10 @@ Glasshouse `advance`/`hold` commands for the next exact reducer tick. It limits
 targeted signals to deployed player entities, retains canonical emitted events,
 and otherwise delegates all outcomes to `kiwi.sim`. `kiwi.render.glasshouse_mission_view`
 renders only the `GlasshouseMissionPresentation` copied snapshot, lockdown
-countdown, and queued or recorded signal status.
+countdown, objective/lockdown-derived mission summary, and queued or recorded
+signal status. That summary cannot create a terminal state: it reports success
+only after authoritative extraction and failure only after authoritative
+lockdown blocks extraction.
 
 Execution retains its initial authority state, source-matched policy bundle, and
 resolved canonical command log. `kiwi.app.glasshouse_rerun` re-executes those

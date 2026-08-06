@@ -299,8 +299,10 @@ dummy-SDL bitmap rendering. They do not execute a policy or mutate authority.
 
 Glasshouse execution tests compile the current workbench sources, queue a player
 start, advance one reducer tick at a time, and verify deterministic `advance`
-and targeted `hold` signal provenance. The mission HUD test consumes the
-resulting presentation snapshot and signal status under dummy SDL.
+and targeted `hold` signal provenance. Mission-summary tests project only the
+authoritative objective lifecycle and lockdown state into in-progress, success,
+and failure HUD output. The mission HUD test consumes the resulting presentation
+snapshot, summary, and signal status under dummy SDL.
 
 Glasshouse debrief tests assert canonical retained-injury selection, rejection
 of missing trace evidence, causal-chain replacement, and dummy-SDL bitmap output.

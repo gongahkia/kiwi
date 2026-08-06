@@ -18,6 +18,7 @@ from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.sim.events import MissionStarted, SignalIssued
 from kiwi.sim.signals import signals_for
 from kiwi.sim.state import MissionPhase
+from kiwi.ui.glasshouse_mission import GlasshouseMissionOutcome
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MISSION_PATH = REPOSITORY_ROOT / "examples" / "missions" / "glasshouse.dmission.json"
@@ -65,6 +66,8 @@ def test_glasshouse_execution_starts_and_applies_a_squad_signal_deterministicall
     assert first.remaining_lockdown_ticks == first.lockdown_tick - first.state.tick
     presentation = build_glasshouse_mission_presentation(first)
     assert presentation.snapshot.tick == first.state.tick
+    assert presentation.summary.outcome is GlasshouseMissionOutcome.IN_PROGRESS
+    assert presentation.summary.panel_line == "MISSION: IN PROGRESS / objective active"
     assert presentation.signal_status is not None
     assert presentation.signal_status.panel_line == "LAST SIGNAL: advance / squad"
 
