@@ -11,6 +11,14 @@ class TerminalCutsceneBeatKind(StrEnum):
     SPRITE = "sprite"
     SOUND = "sound"
     HOLD = "hold"
+    TRANSITION = "transition"
+
+
+def _identifier(value: str) -> bool:
+    return bool(value) and all(
+        character.isascii() and (character.islower() or character.isdigit() or character == "_")
+        for character in value
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +91,7 @@ TERMINAL_CUTSCENES = (
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.SOUND, "terminal_power", 180),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "seat link detected", 800),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "KIWI // ready", 1_100),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "input_setup", 1),
         ),
     ),
     TerminalCutscene(
@@ -90,15 +99,22 @@ TERMINAL_CUTSCENES = (
         "KIWI // jacking in",
         (
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.SPRITE, "operator_linked", 400),
-            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "mapping hostile mainframe", 700),
-            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "deploying daemon bundle", 900),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "mapping hostile mainframe", 700
+            ),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "deploying daemon bundle", 900
+            ),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "live_preview", 1),
         ),
     ),
     TerminalCutscene(
         "payload_exfiltration",
         "KIWI // payload exfiltration",
         (
-            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "payload integrity verified", 900),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "payload integrity verified", 900
+            ),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.SOUND, "payload_unlock", 160),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.HOLD, "", 500),
         ),
@@ -107,7 +123,9 @@ TERMINAL_CUTSCENES = (
         "trace_lockdown",
         "KIWI // trace lockdown",
         (
-            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TERMINAL_TEXT, "black ICE acquired the route", 900),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "black ICE acquired the route", 900
+            ),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.SOUND, "trace_lock", 160),
             TerminalCutsceneBeat(TerminalCutsceneBeatKind.HOLD, "", 500),
         ),
@@ -123,10 +141,3 @@ def terminal_cutscene(cutscene_id: str) -> TerminalCutscene:
         if cutscene.cutscene_id == cutscene_id:
             return cutscene
     raise ValueError("Terminal cutscene ID is unavailable")
-
-
-def _identifier(value: str) -> bool:
-    return bool(value) and all(
-        character.isascii() and (character.islower() or character.isdigit() or character == "_")
-        for character in value
-    )

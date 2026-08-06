@@ -67,7 +67,7 @@ def test_terminal_execution_starts_and_applies_a_squad_signal_deterministically(
     presentation = build_terminal_mission_presentation(first)
     assert presentation.snapshot.tick == first.state.tick
     assert presentation.summary.outcome is TerminalMissionOutcome.IN_PROGRESS
-    assert presentation.summary.panel_line == "MISSION: IN PROGRESS / objective active"
+    assert presentation.summary.panel_line == "MISSION: IN PROGRESS / payload active"
     assert presentation.signal_status is not None
     assert presentation.signal_status.panel_line == "LAST SIGNAL: advance / squad"
 

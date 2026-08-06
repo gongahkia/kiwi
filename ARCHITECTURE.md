@@ -725,6 +725,12 @@ source separately and returns a typed result instead of applying historical
 offsets after current source text diverges. The workbench renderer underlines
 the focused current editor range only.
 
+`kiwi.ui.terminal_cutscenes`, `kiwi.content.terminal_lore`, and
+`kiwi.app.terminal_codex` define bounded scene beats, authored shard metadata,
+and versioned local unlock IDs. `kiwi.render.terminal_cutscene_view` and
+`kiwi.render.crt` consume only presentation timing, palettes, and copied
+snapshots. They cannot import or mutate authoritative mission state.
+
 The Terminal vertical-slice acceptance fixture exercises briefing, current
 policy compilation, headless deployment, retained injury debrief, archive-bound
 source focus, a one-metre-to-zero-metre scout revision, and replay-compatible

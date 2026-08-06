@@ -2,9 +2,9 @@
 
 ## 1. Product summary
 
-Kiwi is a single-player real-time squad tactics game in which the player programs the decision logic of a persistent tactical squad using a deliberately small functional language. Missions execute autonomously under incomplete information. Rather than directly moving and firing each operative, the player defines how the squad observes, prioritises, communicates, chooses cover, handles casualties, and pursues objectives.
+KIWI // Terminal is a single-player real-time netrunner programming game set against a Cyberpunk: Edgerunners-era backdrop. The player writes a deliberately small functional DSL for autonomous daemon bundles operating inside hostile netspace. The preserved deterministic simulation models their route, uncertainty, countermeasures, integrity, and payload exfiltration without direct player command.
 
-The product’s distinguishing feature is a causal debugger that maps battlefield outcomes back to program evaluations. When an operative is exposed, misses an extraction window, fires on a low-priority target, or fails to aid an ally, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and physical events that produced the result.
+The product’s distinguishing feature is a causal debugger that maps netspace outcomes back to program evaluations. When a daemon is exposed to ICE, loses a route, triggers trace containment, or misses a payload, the player can inspect the observation data, function calls, branch choices, emitted intentions, arbitration decisions, and simulation events that produced the result.
 
 The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Terminal lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
@@ -21,7 +21,7 @@ The player is not writing scripts alongside the game. **Writing, deploying, and 
 
 ## 3. Product promise
 
-> Program the kiwi. Deploy the squad. Debug the consequences.
+> Program the daemon bundle. Jack in. Debug the trace.
 
 The player should regularly experience:
 
@@ -114,7 +114,7 @@ The MVP does not attempt to provide:
 - mod scripting through Python;
 - a universal IDE;
 - many factions or enemy families;
-- cinematic narrative production;
+- branching cinematic narrative production;
 - a large item economy;
 - live-service infrastructure;
 - machine-learning agents;
@@ -345,7 +345,7 @@ All durable formats require schema versions and validation.
 
 ### 11.1 Scenario: Terminal
 
-A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
+A four-daemon bundle breaches a hostile mainframe to retrieve an encrypted payload and exfiltrate. The isometric map is a netspace visualization of relays, ICE, and subnet boundaries; it preserves the existing deterministic authority rules.
 
 - two approaches;
 - several cover edges;

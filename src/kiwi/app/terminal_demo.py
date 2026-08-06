@@ -8,6 +8,7 @@ from pathlib import Path
 from platform import system
 
 from kiwi.app.challenge_results import ChallengeHistory, ChallengeOutcome, ChallengeResult
+from kiwi.app.terminal_codex import TerminalCodex, terminal_lore_unlocks
 from kiwi.app.terminal_players import PLAYER_MEMORY_SCHEMA
 from kiwi.app.terminal_workbench import build_terminal_workbench
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
@@ -70,6 +71,7 @@ from kiwi.trace.model import (
 )
 from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
 from kiwi.ui.editor import EditorState
+from kiwi.ui.run_comparison import RunComparisonView, run_comparison_view
 from kiwi.ui.terminal_debrief import (
     TerminalDebrief,
     TerminalDebriefResult,
@@ -77,13 +79,12 @@ from kiwi.ui.terminal_debrief import (
     terminal_debrief,
 )
 from kiwi.ui.terminal_revision import (
-    TerminalGuidedRevision,
     GuidedRevisionResult,
+    TerminalGuidedRevision,
     guided_source_revision,
 )
 from kiwi.ui.terminal_tutorial import TERMINAL_LANGUAGE_TUTORIAL, TerminalTutorial
 from kiwi.ui.terminal_workbench import TerminalFlowPhase, TerminalWorkbench
-from kiwi.ui.run_comparison import RunComparisonView, run_comparison_view
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _ENEMY_SOURCE_ID = "examples/policies/terminal/causal_drill_enemy.dtr"
@@ -98,6 +99,7 @@ class TerminalDemoScreen(StrEnum):
     """The finite non-authoritative screens in the manual Terminal drill."""
 
     INPUT_SETUP = "input_setup"
+    LOADING = "loading"
     BRIEFING = "briefing"
     WORKBENCH = "workbench"
     LIVE_PREVIEW = "live_preview"
@@ -106,6 +108,7 @@ class TerminalDemoScreen(StrEnum):
     DEBRIEF = "debrief"
     COMPARISON = "comparison"
     RESULTS = "results"
+    CODEX = "codex"
 
 
 class TerminalInputMode(StrEnum):
@@ -198,6 +201,7 @@ class TerminalDemoController:
     selected_trace_node_id: TraceNodeId | None = None
     preview_selected_entity_id: int | None = None
     result_history: ChallengeHistory = ChallengeHistory()
+    codex: TerminalCodex = TerminalCodex()
     color_scheme: TerminalColorScheme = TerminalColorScheme.CYAN
     notice: str = ""
 
@@ -262,13 +266,13 @@ class TerminalDemoController:
             raise ValueError("Terminal demo selected entity is invalid")
         if not isinstance(self.result_history, ChallengeHistory):
             raise TypeError("Terminal demo result history is invalid")
+        if not isinstance(self.codex, TerminalCodex):
+            raise TypeError("Terminal demo codex is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Terminal demo notice must be text")
         if self.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
             if self.workbench.phase is not TerminalFlowPhase.BRIEFING:
-                raise ValueError(
-                    "Terminal demo pre-workbench screens require a briefing workbench"
-                )
+                raise ValueError("Terminal demo pre-workbench screens require a briefing workbench")
         elif self.workbench.phase is not TerminalFlowPhase.WORKBENCH:
             raise ValueError("Terminal demo screens after briefing require an open workbench")
         if (
@@ -299,11 +303,14 @@ class TerminalDemoController:
         cls,
         repository_root: Path = _REPOSITORY_ROOT,
         platform_name: str | None = None,
+        codex: TerminalCodex | None = None,
     ) -> TerminalDemoController:
         """Load the shipped policies into platform-aware input setup."""
         resolved_platform = system() if platform_name is None else platform_name
         if not isinstance(resolved_platform, str):
             raise TypeError("Terminal demo platform name must be text")
+        if codex is not None and not isinstance(codex, TerminalCodex):
+            raise TypeError("Terminal demo codex is invalid")
         input_mode = (
             TerminalInputMode.STANDARD
             if resolved_platform == "Darwin"
@@ -314,6 +321,7 @@ class TerminalDemoController:
             load_terminal_workbench(repository_root),
             input_mode,
             resolved_platform,
+            codex=TerminalCodex() if codex is None else codex,
         )
 
     def choose_input_mode(self, input_mode: TerminalInputMode) -> TerminalDemoController:
@@ -338,7 +346,7 @@ class TerminalDemoController:
             self,
             screen=TerminalDemoScreen.WORKBENCH,
             workbench=self.workbench.open_workbench(),
-            notice="Review Lark's scout policy, then deploy the causal drill.",
+            notice="Review Lark's route daemon, then jack into the mainframe.",
         )
 
     def select_policy_index(self, index: int) -> TerminalDemoController:
@@ -470,6 +478,18 @@ class TerminalDemoController:
                 notice="Deployment blocked: fix a policy compile failure.",
             )
         return self._accept_preview_run(result)
+
+    def begin_deploy(self) -> TerminalDemoController:
+        """Show one non-authoritative jacking-in frame before synchronous deployment."""
+        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+            return self
+        return replace(self, screen=TerminalDemoScreen.LOADING, preview_playing=False, notice="")
+
+    def finish_deploy(self, repository_root: Path = _REPOSITORY_ROOT) -> TerminalDemoController:
+        """Compile and record after the loading frame has presented once."""
+        if self.screen is not TerminalDemoScreen.LOADING:
+            return self
+        return replace(self, screen=TerminalDemoScreen.WORKBENCH).deploy(repository_root)
 
     def reload_preview(self, repository_root: Path = _REPOSITORY_ROOT) -> TerminalDemoController:
         """Recompile and rerun an enabled preview after one immutable source edit."""
@@ -653,15 +673,21 @@ class TerminalDemoController:
         )
         baseline = result if self.baseline_run is None else self.baseline_run
         result_notice = notice or (
-            "Try it: Lark's 1m decision is selected. Type 0 to prevent the exposed advance."
+            "Try it: Lark's 1m route decision is selected. Type 0 to avoid exposed ICE."
             if self.baseline_run is None
             else (
-                "Lark was injured. Open the debrief to inspect why."
+                "Lark's daemon was damaged. Open the debrief to inspect why."
                 if isinstance(result.debrief, TerminalDebrief)
                 else "No injury retained. Compare this controlled rerun with the baseline."
             )
         )
         compiled_workbench = _compile_all_policies(self.workbench)
+        updated_codex = self.codex.unlock(terminal_lore_unlocks(result.snapshots[-1]))
+        unlocked = tuple(
+            lore_id
+            for lore_id in updated_codex.unlocked_ids
+            if lore_id not in self.codex.unlocked_ids
+        )
         preview = replace(
             self,
             screen=TerminalDemoScreen.LIVE_PREVIEW,
@@ -677,7 +703,12 @@ class TerminalDemoController:
             result_history=self.result_history.append(
                 _result_for_demo_run(result, compiled_workbench)
             ),
-            notice=result_notice,
+            codex=updated_codex,
+            notice=(
+                f"Data shard recovered: {unlocked[0]}. Press L for codex."
+                if unlocked
+                else result_notice
+            ),
         )
         return _focus_scout_caution_literal(preview)._focus_preview_source()
 
@@ -759,6 +790,22 @@ class TerminalDemoController:
             return self
         return replace(self, screen=TerminalDemoScreen.RESULTS, preview_playing=False, notice="")
 
+    def open_codex(self) -> TerminalDemoController:
+        """Inspect local lore progress without exposing authority state."""
+        if self.screen in (
+            TerminalDemoScreen.INPUT_SETUP,
+            TerminalDemoScreen.LOADING,
+            TerminalDemoScreen.CODEX,
+        ):
+            return self
+        return replace(self, screen=TerminalDemoScreen.CODEX, preview_playing=False, notice="")
+
+    def close_codex(self) -> TerminalDemoController:
+        """Return from local lore inspection to the editable terminal workbench."""
+        if self.screen is not TerminalDemoScreen.CODEX:
+            return self
+        return replace(self, screen=TerminalDemoScreen.WORKBENCH, notice="")
+
     def return_to_workbench(self) -> TerminalDemoController:
         """Return to source editing without changing any recorded run."""
         if self.screen not in (
@@ -767,11 +814,11 @@ class TerminalDemoController:
             TerminalDemoScreen.DEBRIEF,
             TerminalDemoScreen.COMPARISON,
             TerminalDemoScreen.RESULTS,
+            TerminalDemoScreen.CODEX,
+            TerminalDemoScreen.LOADING,
         ):
             return self
-        return replace(
-            self, screen=TerminalDemoScreen.WORKBENCH, preview_playing=False, notice=""
-        )
+        return replace(self, screen=TerminalDemoScreen.WORKBENCH, preview_playing=False, notice="")
 
 
 def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> SourceSpan:

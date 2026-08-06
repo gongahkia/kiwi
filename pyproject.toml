@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kiwi"
 version = "0.0.0"
-description = "A deterministic programmable squad tactics game."
+description = "A deterministic programmable netrunner tactics game."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["pygame-ce>=2.5,<3"]

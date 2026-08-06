@@ -157,7 +157,7 @@ def _capabilities(*capabilities: CapabilityId) -> tuple[CapabilityId, ...]:
 TERMINAL_PLAYER_LOADOUTS = (
     TerminalPlayerLoadout(
         TerminalPlayerRole.BREACHER,
-        "Breach",
+        "Vector",
         "examples/policies/terminal/breacher.dtr",
         _position(-6_200, 600),
         6,
@@ -165,7 +165,7 @@ TERMINAL_PLAYER_LOADOUTS = (
     ),
     TerminalPlayerLoadout(
         TerminalPlayerRole.MEDIC,
-        "Mender",
+        "Patch",
         "examples/policies/terminal/medic.dtr",
         _position(-5_400, 600),
         2,
@@ -173,7 +173,7 @@ TERMINAL_PLAYER_LOADOUTS = (
     ),
     TerminalPlayerLoadout(
         TerminalPlayerRole.OVERWATCH,
-        "Scope",
+        "Watch",
         "examples/policies/terminal/overwatch.dtr",
         _position(-5_400, -600),
         4,
@@ -276,9 +276,7 @@ def _configure_flawed_scout_contact(
     players: tuple[TerminalPlayer, ...],
     objective_area: WorldRectangle,
 ) -> MissionState:
-    scouts = tuple(
-        player for player in players if player.loadout.role is TerminalPlayerRole.SCOUT
-    )
+    scouts = tuple(player for player in players if player.loadout.role is TerminalPlayerRole.SCOUT)
     if len(scouts) != 1:
         raise AssertionError("Terminal roster requires exactly one scout")
     scout = scouts[0]

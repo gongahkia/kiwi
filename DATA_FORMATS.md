@@ -368,13 +368,18 @@ Deferred until after the vertical slice. Expected fields:
 
 Do not mix replay authority with mutable campaign convenience data.
 
-## 14. Settings
+## 14. Terminal codex
 
-Settings v1 use canonical UTF-8 JSON with exactly `format` (`kiwi-settings`),
-`version`, `ui_scale`, and `font_scale` fields. UI scale is an integer from
-one through four; font scale is an integer from one through three. Invalid
-settings fall back to defaults and do not prevent headless operation. Future
-versions require an explicit decoder rather than coercing unknown fields.
+`kiwi-terminal-codex` version `1` is local presentation progress only. It stores a lexical, unique, validated list of shipped lore-drop IDs and no mission state, source, replay, or authority hash. Unknown IDs, duplicate IDs, invalid JSON, and unsupported versions are rejected.
+
+## 15. Settings
+
+Settings v2 use canonical UTF-8 JSON with exactly `format` (`kiwi-settings`),
+`version`, `ui_scale`, `font_scale`, `crt_enabled`, and `reduced_flicker`
+fields. UI scale is an integer from one through four; font scale is an integer
+from one through three; CRT preferences are booleans. The v1 decoder migrates
+to enabled CRT and disabled reduced flicker. Invalid settings fall back to
+defaults and do not prevent headless operation.
 
 Settings are non-authoritative. Examples:
 
@@ -387,7 +392,7 @@ Settings are non-authoritative. Examples:
 - last opened policy.
 
 
-## 15. Asset manifest
+## 16. Asset manifest
 
 Bundled assets should have a manifest containing:
 
@@ -400,7 +405,7 @@ Bundled assets should have a manifest containing:
 
 Generated assets should record enough provenance for repository maintenance without making “AI-generated” a gameplay dependency.
 
-## 16. Canonical hashing
+## 17. Canonical hashing
 
 Canonical hashing rules must specify:
 
@@ -422,7 +427,7 @@ Hash input should be domain-separated, for example:
 
 Select the actual hash algorithm during implementation and record it in `DECISIONS.md` if it becomes durable.
 
-## 17. Migration policy
+## 18. Migration policy
 
 A migration:
 
@@ -436,7 +441,7 @@ A migration:
 
 Before public release, destructive migration may be acceptable if clearly documented. After public release, preserve user policies and saves where practical.
 
-## 18. Security limits
+## 19. Security limits
 
 Loaders enforce:
 
@@ -449,7 +454,7 @@ Loaders enforce:
 - no dynamic Python imports;
 - no embedded executable native payloads.
 
-## 19. Acceptance criteria
+## 20. Acceptance criteria
 
 - All durable formats carry explicit versions.
 - Unknown or corrupt data fails with structured errors.

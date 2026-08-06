@@ -9,9 +9,9 @@ from kiwi.domain.ids import EntityId, TraceNodeId
 from kiwi.dsl.source import SourceFile, SourceSpan
 from kiwi.replay.source_archive import ReplaySourceArchive
 from kiwi.trace.model import CausalTrace
+from kiwi.ui.historical_source import HistoricalSourcePane
 from kiwi.ui.terminal_debrief import TerminalDebrief, TerminalDebriefUnavailable
 from kiwi.ui.terminal_workbench import TerminalFlowPhase, TerminalWorkbench
-from kiwi.ui.historical_source import HistoricalSourcePane
 from kiwi.ui.trace_navigation import (
     TraceNavigationUnavailable,
     trace_to_historical_source,

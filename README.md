@@ -1,8 +1,6 @@
-# Kiwi — Python Project Documentation
+# KIWI // Terminal — Python Project Documentation
 
-> Working title. Rename freely before public release.
-
-Kiwi is a real-time, physics-aware squad tactics game in which the player does not directly command individual operatives. The player writes a small functional program that turns incomplete observations into tactical intentions. A mission then runs in real time, and an integrated causal debugger explains how battlefield consequences arose from specific expressions, data, decisions, and physical events.
+KIWI // Terminal is a real-time netrunner programming game set against a Cyberpunk: Edgerunners-era backdrop. The player sits at a terminal, writes daemon policy in a small functional DSL, deploys it into hostile netspace, and uses causal traces to understand each failure.
 
 The project is implemented in Python. `pygame-ce` provides the desktop application shell, rendering, input, audio, and bitmap-font presentation. The authoritative simulation, functional language toolchain, deterministic virtual machine, replay system, and causal-debugger model are project-owned Python modules and must run headlessly.
 
@@ -10,7 +8,7 @@ The player-facing language is **not Python**. It is a separate functional DSL wi
 
 ## Product promise
 
-**Program the kiwi. Deploy the squad. Debug the consequences.**
+**Program the daemon bundle. Jack in. Debug the trace.**
 
 The defining loop is:
 
@@ -130,7 +128,7 @@ python -m pytest
 
 Run `make benchmark` to measure the headless compiler, VM, fixed ticks, causal trace capture, and replay encode/decode paths against the checked-in policy and kernel fixture. It is an informational local measurement rather than a CI pass/fail gate; use `uv run --extra dev python -m kiwi.cli benchmark source.dtr fixture.kfixture.json --entry choose --arg true --iterations 100 --ticks 60` to select the source, fixture, and bounded work count.
 
-Run `make terminal` (or `uv run --extra dev python -m kiwi.terminal`) for the local pygame Terminal causal drill. Before the briefing, it detects the runtime platform and lets you choose standard (`Cmd+G`, `Cmd+T`, `Cmd+Enter`, `Cmd+R`) or function-key (`F1`, `F2`, `Cmd`/`Ctrl`+`Enter`, `F5`) controls; both modes retain visible `Compile` and `Compile + run` buttons. `Compile + run` opens an editable, line-numbered source pane on the left and a recorded deterministic scenario preview on the right, selecting the `1` in Lark's `<= 1m` caution decision; type `0` to hot-reload a no-injury rerun. Hot reload is enabled by default: source-text changes recompile and rerun the same two ticks; invalid source blocks the preview with its diagnostic rather than showing stale results. The generated original atlas has a transparent background and is rendered through a rotatable, zoomable isometric camera: `Q`/`E` rotate and `+`/`-` zoom the preview; retained impacts add a short screen shake, hit flash, and expanding blast ring. Click an operative to seek its retained trace, or click source to seek the matching checkpoint. The `Theme` button, `F3`, or `Cmd`/`Ctrl`+`Shift`+`T` cycles cyan, amber, phosphor, maroon, white, and black palettes across the editor and tactical view. Typing a DSL prefix opens a bounded hard-coded completion list; `Tab` accepts its first result, or changes policy when no completion is available. Click `Pause`, `Step`, or `Hot reload`; `Cmd`/`Ctrl`+`P`, `Cmd`/`Ctrl`+`.`, and `Cmd`/`Ctrl`+`L` are alternatives. `H` opens the local result page with separate casualties, ticks, bytecode, trace, and policy-evaluation metrics plus a local tick histogram. The trace panel is backed by retained policy/intention/world-event records and selects the responsible current source span. Policies evaluate once each fixed tick; the DSL has no unbounded loops. Click the source to position the blinking cursor; `D` opens the debrief, `R` follows causal evidence to source, and `Esc` returns to the workbench or exits before the briefing. The drill is local-only and does not submit telemetry or test responses.
+Run `make terminal` (or `uv run --extra dev python -m kiwi.terminal`) for the local pygame Terminal drill. It opens with an operator-at-terminal boot sequence, then detects the runtime platform and offers standard (`Cmd+G`, `Cmd+T`, `Cmd+Enter`, `Cmd+R`) or function-key (`F1`, `F2`, `Cmd`/`Ctrl`+`Enter`, `F5`) controls. `Compile + run` shows a one-frame jacking-in loader before opening the editable deterministic netspace preview. `L` opens the persistent local data-shard codex; `Cmd`/`Ctrl`+`Shift`+`C` toggles CRT and `Cmd`/`Ctrl`+`Shift`+`F` reduces flicker. CRT, codex, sprites, audio, and cutscenes are presentation/application data only and never affect simulation or replay results.
 
 Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli parse path/to/policy.dtr`; successful parses emit stable surface-AST output and invalid input emits structured diagnostics.
 

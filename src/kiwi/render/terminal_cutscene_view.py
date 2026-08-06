@@ -35,10 +35,14 @@ def render_terminal_cutscene(
     pygame.draw.rect(surface, border, (8, 8, width - 16, height - 16), width=1)
     surface.blit(font.render(cutscene.title.upper(), heading), (20, 20))
     beats = cutscene.visible_beats(elapsed_milliseconds)
-    lines = tuple(beat.value for beat in beats if beat.kind is TerminalCutsceneBeatKind.TERMINAL_TEXT)
-    sprite = next((beat.value for beat in beats if beat.kind is TerminalCutsceneBeatKind.SPRITE), None)
+    lines = tuple(
+        beat.value for beat in beats if beat.kind is TerminalCutsceneBeatKind.TERMINAL_TEXT
+    )
+    sprite = next(
+        (beat.value for beat in beats if beat.kind is TerminalCutsceneBeatKind.SPRITE), None
+    )
     if atlas is not None and sprite is not None:
-        frame = "operator" if sprite == "operator_seated" else "operative_alert"
+        frame = "operator_seated" if sprite == "operator_seated" else "operator_linked"
         surface.blit(atlas.frame(frame, 120, heading), (width // 2 - 60, 88))
     else:
         pygame.draw.rect(surface, border, (width // 2 - 36, 96, 72, 96), width=1)

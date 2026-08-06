@@ -10,11 +10,11 @@
       "source_url": "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/BigBlueTerminal.tar.xz"
     },
     {
-      "attribution": "Original generated tactical source art for Kiwi",
+      "attribution": "Original generated Terminal netspace source art for Kiwi",
       "license_file": "TERMINAL-ATLAS-PROVENANCE.txt",
       "license_spdx": "LicenseRef-Kiwi-Generated",
       "path": "terminal_atlas.png",
-      "sha256": "79827626976211e340c55319adfc5b0bdca8655ae0c54413c7b71596a49e6524",
+      "sha256": "297c01e36f0a2f50bcb758e8f7eb5c0f63d82bbdfafbd4a8f97e0147e35a7731",
       "source_release": "2026-08-06",
       "source_url": "generated-with-openai-imagegen"
     }

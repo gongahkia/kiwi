@@ -127,10 +127,10 @@ class TerminalMissionSummary:
     def panel_line(self) -> str:
         """Return the terminal or current mission result for the mission HUD."""
         if self.outcome is TerminalMissionOutcome.SUCCESS:
-            return "MISSION: SUCCESS / objective extracted"
+            return "MISSION: SUCCESS / payload exfiltrated"
         if self.outcome is TerminalMissionOutcome.FAILURE:
-            return "MISSION: FAILURE / lockdown blocked extraction"
-        return f"MISSION: IN PROGRESS / objective {self.objective_status.value}"
+            return "MISSION: FAILURE / trace containment sealed route"
+        return f"MISSION: IN PROGRESS / payload {self.objective_status.value}"
 
 
 def build_terminal_mission_summary(
@@ -187,10 +187,10 @@ class TerminalMissionPresentation:
     def panel_lines(self) -> tuple[str, str, str, str, str]:
         """Return fixed-order mission HUD content from copied presentation data."""
         return (
-            "TERMINAL",
+            "HOSTILE MAINFRAME",
             self.summary.panel_line,
             f"PHASE: {self.snapshot.phase}  TICK: {self.snapshot.tick}",
-            f"LOCKDOWN: T-{self.remaining_lockdown_ticks} ticks",
+            f"TRACE: T-{self.remaining_lockdown_ticks} ticks",
             "SIGNALS: advance / hold"
             if self.signal_status is None
             else self.signal_status.panel_line,

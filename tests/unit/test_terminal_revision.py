@@ -27,9 +27,9 @@ from kiwi.ui.compile_output import compile_editor_source
 from kiwi.ui.editor import EditorState
 from kiwi.ui.terminal_debrief import TerminalDebrief, terminal_debrief
 from kiwi.ui.terminal_revision import (
-    TerminalGuidedRevision,
     GuidedRevisionUnavailable,
     GuidedRevisionUnavailableCode,
+    TerminalGuidedRevision,
     guided_source_revision,
 )
 from kiwi.ui.terminal_workbench import (

@@ -36,9 +36,7 @@ class TerminalBriefing:
         if not isinstance(self.time_limit, str) or not self.time_limit:
             raise ValueError("Terminal briefing time limit must be text")
         if not isinstance(self.intelligence, tuple) or not self.intelligence:
-            raise ValueError(
-                "Terminal briefing intelligence must be an immutable non-empty tuple"
-            )
+            raise ValueError("Terminal briefing intelligence must be an immutable non-empty tuple")
         if any(not isinstance(item, str) or not item for item in self.intelligence):
             raise ValueError("Terminal briefing intelligence must contain text")
 
@@ -62,13 +60,13 @@ class TerminalBriefing:
 
 
 TERMINAL_BRIEFING = TerminalBriefing(
-    "TERMINAL",
-    "Recover the protected objective, then extract.",
-    "Extraction locks exactly 90 seconds after mission start.",
+    "KIWI // HOSTILE MAINFRAME",
+    "Route daemons to the encrypted payload, then exfiltrate the bundle.",
+    "Trace containment seals the route exactly 90 seconds after deployment.",
     (
-        "Hostile intelligence is incomplete.",
-        "Lark begins with one 0.5m-uncertainty contact.",
-        "Review each policy before deployment.",
+        "Hostile ICE telemetry is incomplete.",
+        "Lark begins with one 0.5m-uncertainty ICE contact.",
+        "Review each daemon policy before jacking in.",
     ),
 )
 
@@ -92,7 +90,7 @@ class WorkbenchPolicy:
     @property
     def label(self) -> str:
         """Return the compact deterministic sidebar label."""
-        return f"{self.callsign} / {self.role}"
+        return f"{self.callsign} / daemon"
 
 
 @dataclass(frozen=True, slots=True)

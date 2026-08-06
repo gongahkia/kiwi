@@ -4,9 +4,9 @@ This file is the authoritative record of settled product and technical decisions
 
 ## 1. Settled decisions
 
-### D-001: The project is a programmable squad tactics game
+### D-001: The project is a programmable hybrid netspace tactics game
 
-The project uses an XCOM-like mission and squad-persistence structure but replaces direct turn-by-turn tactical control with programmable kiwi executed in real time.
+KIWI // Terminal uses a Cyberpunk-era netrunner terminal fiction: programmable daemon bundles confront ICE, trace pressure, and payload objectives. Existing deterministic tactical authority remains the abstract resolution model; presentation and content map it to netspace without direct player control.
 
 ### D-002: Python is the host implementation language
 
@@ -79,7 +79,7 @@ The compiler, VM, simulation, replay verifier, trace queries, and content valida
 
 ### D-015: The first vertical slice contains one mission
 
-The first complete mission is the working scenario `Terminal`: a small squad must enter a hostile structure, locate or recover an objective, and extract while incomplete information and flawed kiwi create an explainable failure.
+The first complete mission is `Terminal`: a daemon bundle breaches a hostile mainframe, reaches payload data shards, and exfiltrates before trace containment while incomplete ICE telemetry and flawed policy create an explainable failure.
 
 ### D-016: The visual terminal uses bitmap fonts
 
@@ -87,7 +87,7 @@ The source editor uses an original 8×12 or similarly readable bitmap font inspi
 
 ### D-017: No campaign complexity before the vertical slice
 
-Persistent injuries, recruitment, relationships, broad progression, procedural campaigns, multiplayer, mod marketplaces, and large content sets remain out of scope until the vertical-slice loop is proven.
+Persistent injuries, recruitment, relationships, broad progression, procedural campaigns, multiplayer, mod marketplaces, and large content sets remain out of scope until the vertical-slice loop is proven. Bounded skippable terminal cutscenes and codex lore are presentation content, not campaign systems.
 
 ### D-018: Language growth must preserve old programs intentionally
 
@@ -895,7 +895,7 @@ The following are not acceptable implementation substitutions:
 
 ### O-001: Public project name
 
-`Kiwi` is a working title only.
+Resolved: the product title is `KIWI // Terminal`.
 
 ### O-002: Operative fiction
 

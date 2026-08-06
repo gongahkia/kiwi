@@ -5,6 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def _identifier(value: str) -> bool:
+    return bool(value) and all(
+        character.isascii() and (character.islower() or character.isdigit() or character == "_")
+        for character in value
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class TerminalLoreDrop:
     """One immutable data shard addressed by a stable content identifier."""
@@ -22,11 +29,17 @@ class TerminalLoreDrop:
             raise ValueError("Terminal lore ID must be a lowercase ASCII identifier")
         if not isinstance(self.title, str) or not self.title:
             raise ValueError("Terminal lore title must be text")
-        if not isinstance(self.body, tuple) or not self.body or any(
-            not isinstance(line, str) or not line for line in self.body
+        if (
+            not isinstance(self.body, tuple)
+            or not self.body
+            or any(not isinstance(line, str) or not line for line in self.body)
         ):
             raise ValueError("Terminal lore body must be non-empty immutable text")
-        if not isinstance(self.entity_id, int) or isinstance(self.entity_id, bool) or self.entity_id <= 0:
+        if (
+            not isinstance(self.entity_id, int)
+            or isinstance(self.entity_id, bool)
+            or self.entity_id <= 0
+        ):
             raise ValueError("Terminal lore entity ID must be positive")
         if any(
             not isinstance(value, int) or isinstance(value, bool)
@@ -75,10 +88,3 @@ def terminal_lore_drop(lore_id: str) -> TerminalLoreDrop:
         if drop.lore_id == lore_id:
             return drop
     raise ValueError("Terminal lore ID is unavailable")
-
-
-def _identifier(value: str) -> bool:
-    return bool(value) and all(
-        character.isascii() and (character.islower() or character.isdigit() or character == "_")
-        for character in value
-    )

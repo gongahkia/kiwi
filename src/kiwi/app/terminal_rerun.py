@@ -29,8 +29,8 @@ from kiwi.sim.snapshot import capture_authority_snapshot
 from kiwi.sim.state import MissionState
 from kiwi.trace.capture import capture_run_trace
 from kiwi.trace.model import CausalTrace
-from kiwi.ui.terminal_workbench import TerminalWorkbench
 from kiwi.ui.run_comparison import RunComparisonView, run_comparison_view
+from kiwi.ui.terminal_workbench import TerminalWorkbench
 
 
 class TerminalRerunUnavailableCode(StrEnum):
