@@ -71,6 +71,8 @@ def trace_to_historical_source(
     trace: CausalTrace,
     archive: ReplaySourceArchive,
     node_id: TraceNodeId,
+    *,
+    eligible_entity_ids: tuple[EntityId, ...] | None = None,
 ) -> TraceToSourceResult:
     """Find the nearest retained archive-bound source reachable from one trace node."""
     if not isinstance(trace, CausalTrace):
@@ -79,6 +81,8 @@ def trace_to_historical_source(
         raise TypeError("trace-to-source navigation requires a replay source archive")
     if not isinstance(node_id, TraceNodeId):
         raise TypeError("trace-to-source navigation requires a trace node ID")
+    if eligible_entity_ids is not None:
+        _validate_entity_ids(eligible_entity_ids)
     records = {trace_record_id(record): record for record in trace.records}
     if node_id not in records:
         return TraceNavigationUnavailable(TraceNavigationUnavailableCode.NODE_NOT_RETAINED, node_id)
@@ -92,7 +96,9 @@ def trace_to_historical_source(
             records[candidate_node_id],
             invocation_entities,
         )
-        if isinstance(pane, HistoricalSourcePane):
+        if isinstance(pane, HistoricalSourcePane) and (
+            eligible_entity_ids is None or pane.entity_id in eligible_entity_ids
+        ):
             return pane
     return TraceNavigationUnavailable(TraceNavigationUnavailableCode.SOURCE_NOT_RETAINED, node_id)
 
@@ -259,3 +265,13 @@ def _validate_node_ids(node_ids: tuple[TraceNodeId, ...], label: str) -> None:
     values = tuple(node_id.value for node_id in node_ids)
     if not node_ids or values != tuple(sorted(values)) or len(set(values)) != len(values):
         raise ValueError(f"{label} node IDs must be non-empty, unique, and node-ID ordered")
+
+
+def _validate_entity_ids(entity_ids: tuple[EntityId, ...]) -> None:
+    if not isinstance(entity_ids, tuple) or any(
+        not isinstance(entity_id, EntityId) for entity_id in entity_ids
+    ):
+        raise TypeError("trace-to-source eligible entities must be immutable entity IDs")
+    values = tuple(entity_id.value for entity_id in entity_ids)
+    if values != tuple(sorted(values)) or len(set(values)) != len(values):
+        raise ValueError("trace-to-source eligible entities must be unique and entity-ID ordered")

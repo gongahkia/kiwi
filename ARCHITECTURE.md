@@ -698,6 +698,13 @@ into canonically ordered selection state and delegates the selected explanation
 to `kiwi.ui.causal_chain`. Its bitmap renderer consumes only that immutable UI
 state and cannot alter trace or simulation authority.
 
+`kiwi.ui.glasshouse_revision` filters trace-to-source navigation to policies
+that the Glasshouse workbench can edit, then focuses the selected exact source
+span without invalidating an unchanged compilation result. It retains historical
+source separately and returns a typed result instead of applying historical
+offsets after current source text diverges. The workbench renderer underlines
+the focused current editor range only.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

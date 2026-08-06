@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from kiwi.dsl.source import SourceFile
+from kiwi.dsl.source import SourceFile, SourceSpan
 from kiwi.ui.compile_output import CompileOutput, compile_editor_source
-from kiwi.ui.editor import EditorState
+from kiwi.ui.editor import EditorState, ScrollPosition, TextPosition
 
 GLASSHOUSE_POLICY_ROLES = ("breacher", "medic", "overwatch", "scout")
 
@@ -192,6 +192,23 @@ class GlasshouseWorkbench:
             editors=_replace_at(self.editors, self.selected_policy_index, editor),
             compile_outputs=_replace_at(self.compile_outputs, self.selected_policy_index, None),
         )
+
+    def focus_source(self, span: SourceSpan | None) -> GlasshouseWorkbench:
+        """Select an unchanged current-source span without invalidating compilation."""
+        if self.phase is not GlasshouseFlowPhase.WORKBENCH:
+            raise ValueError("Glasshouse briefing must be completed before source navigation")
+        if span is not None and not isinstance(span, SourceSpan):
+            raise TypeError("Glasshouse source navigation span is invalid")
+        if span is None:
+            editor = self.editor.move_cursor(0).scroll_to(ScrollPosition())
+        else:
+            start, end = self.source.positions_of(span)
+            start_offset = self.editor.buffer.offset_of(TextPosition(start.line, start.column))
+            end_offset = self.editor.buffer.offset_of(TextPosition(end.line, end.column))
+            editor = self.editor.select(start_offset, end_offset).scroll_to(
+                ScrollPosition(start.line, start.column)
+            )
+        return replace(self, editors=_replace_at(self.editors, self.selected_policy_index, editor))
 
     def compile_selected(self) -> GlasshouseWorkbench:
         """Compile only selected closed-DSL editor text without deploying it."""

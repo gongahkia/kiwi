@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import pygame
 
+from kiwi.dsl.source import ByteOffset, SourceFile
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.compile_output_view import render_compile_output_panel
 from kiwi.render.source_view import render_source
@@ -31,6 +32,7 @@ class GlasshouseWorkbenchPalette:
     heading: tuple[int, int, int] = (111, 216, 238)
     normal: tuple[int, int, int] = (206, 221, 231)
     selected: tuple[int, int, int] = (111, 216, 168)
+    focus: tuple[int, int, int] = (245, 189, 74)
     muted: tuple[int, int, int] = (192, 201, 191)
 
     def __post_init__(self) -> None:
@@ -41,6 +43,7 @@ class GlasshouseWorkbenchPalette:
             self.heading,
             self.normal,
             self.selected,
+            self.focus,
             self.muted,
         ):
             _validate_color(color)
@@ -161,6 +164,17 @@ def _render_workbench(
         (source_rect.x + 4, source_rect.y + 4),
         scale=scale,
     )
+    _draw_editor_selection(
+        surface,
+        font,
+        workbench.source,
+        workbench.editor.selection.start,
+        workbench.editor.selection.end,
+        (source_rect.x + 4, source_rect.y + 4),
+        line_height,
+        scale,
+        palette.focus,
+    )
     surface.set_clip(previous_clip)
     if workbench.compile_output is None:
         output_lines = ("COMPILE", "Cmd/Ctrl+Enter: compile selected policy")
@@ -180,3 +194,35 @@ def _render_workbench(
         )
         line_count = len(workbench.policies) + rendered.line_count + 2
     return GlasshouseWorkbenchRenderResult(workbench.phase, line_count)
+
+
+def _draw_editor_selection(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    source: SourceFile,
+    start_offset: int,
+    end_offset: int,
+    origin: tuple[int, int],
+    line_height: int,
+    scale: int,
+    color: tuple[int, int, int],
+) -> None:
+    if start_offset == end_offset:
+        return
+    span = source.span(
+        ByteOffset(len(source.text[:start_offset].encode("utf-8"))),
+        ByteOffset(len(source.text[:end_offset].encode("utf-8"))),
+    )
+    start, end = source.positions_of(span)
+    lines = source.text.split("\n")
+    for line_number in range(start.line, end.line + 1):
+        line = lines[line_number - 1].removesuffix("\r")
+        first_column = start.column if line_number == start.line else 1
+        last_column = end.column if line_number == end.line else len(line) + 1
+        if first_column == last_column:
+            continue
+        x = origin[0] + font.measure(line[: first_column - 1].expandtabs(4), scale)[0]
+        width = font.measure(line[first_column - 1 : last_column - 1].expandtabs(4), scale)[0]
+        minimum_width = font.measure("M", scale)[0]
+        y = origin[1] + line_number * line_height - 1
+        pygame.draw.line(surface, color, (x, y), (x + max(width, minimum_width) - 1, y))

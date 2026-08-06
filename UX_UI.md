@@ -146,6 +146,12 @@ order, initially selecting the first. Selecting another retained injury replaces
 the detail panel with that consequence's retained causal chain. It does not
 imply an authority change or a source edit.
 
+Guided revision follows the selected injury only to an editable player policy.
+It retains the archive-bound historical source, then selects and underlines the
+matching expression in the current workbench only when the current source text
+is exact. If current text differs, it keeps the historical source and does not
+apply its old offsets to the editable buffer.
+
 ## 5. Overlays
 
 MVP overlays:

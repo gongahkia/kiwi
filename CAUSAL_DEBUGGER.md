@@ -389,6 +389,10 @@ The debugger must navigate from trace records to:
 
 If source has changed since the run, display the historical source associated with the bytecode hash. Do not highlight current source against an old source map.
 
+Guided revision may focus an editable current buffer only when its source file
+identity and exact UTF-8 text match the retained historical source. It must
+otherwise retain the historical pane and return a typed unavailable result.
+
 ## 10. Timeline UI contract
 
 The timeline groups events by tick and category:

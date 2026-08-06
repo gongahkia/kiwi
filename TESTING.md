@@ -305,6 +305,11 @@ resulting presentation snapshot and signal status under dummy SDL.
 Glasshouse debrief tests assert canonical retained-injury selection, rejection
 of missing trace evidence, causal-chain replacement, and dummy-SDL bitmap output.
 
+Glasshouse guided-revision tests filter retained causes to editable player
+policies, preserve matching compilation output while focusing provenance, reject
+changed current source text, and render the focused workbench range under dummy
+SDL.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:
