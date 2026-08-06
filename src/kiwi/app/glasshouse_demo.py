@@ -64,7 +64,6 @@ from kiwi.trace.model import (
     CausalTrace,
     ExpressionEvaluationTrace,
     IntentionTrace,
-    PolicyInvocationTrace,
 )
 from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
 from kiwi.ui.editor import EditorState
@@ -528,38 +527,25 @@ class GlasshouseDemoController:
         if entity_id not in tuple(operative.entity_id for operative in snapshot.operatives):
             return self
         trace_tick = max(0, snapshot.tick - 1)
-        invocation = next(
+        intention = next(
             (
                 record
                 for record in self.current_run.trace.records
-                if isinstance(record, PolicyInvocationTrace)
+                if isinstance(record, IntentionTrace)
                 and record.tick == trace_tick
-                and record.entity_id.value == entity_id
+                and record.origin.issuer_entity_id.value == entity_id
             ),
             None,
         )
-        if invocation is None:
+        if intention is None:
             return replace(self, preview_selected_entity_id=entity_id, preview_playing=False)
-        source = next(
-            (
-                record
-                for record in self.current_run.trace.records
-                if isinstance(record, ExpressionEvaluationTrace)
-                and record.invocation_id == invocation.invocation_id
-            ),
-            None,
-        )
-        selected = replace(
+        return replace(
             self,
-            selected_trace_node_id=invocation.node_id,
+            selected_trace_node_id=intention.node_id,
             preview_selected_entity_id=entity_id,
             preview_playing=False,
             notice=f"Entity {entity_id}: policy evaluation at t{trace_tick}.",
-        )
-        return selected if source is None else replace(
-            selected,
-            selected_trace_node_id=source.node_id,
-            workbench=selected.workbench.focus_source(source.source_span),
+            workbench=self.workbench.focus_source(intention.origin.source_span),
         )
 
     def select_preview_source_offset(self, offset: ByteOffset) -> GlasshouseDemoController:
@@ -573,9 +559,9 @@ class GlasshouseDemoController:
             (
                 candidate
                 for candidate in self.current_run.trace.records
-                if isinstance(candidate, ExpressionEvaluationTrace)
-                and candidate.source_span.file_id == source_file_id
-                and candidate.source_span.contains(offset)
+                if isinstance(candidate, (ExpressionEvaluationTrace, IntentionTrace))
+                and _record_source_span(candidate).file_id == source_file_id
+                and _record_source_span(candidate).contains(offset)
             ),
             None,
         )
@@ -729,6 +715,15 @@ class GlasshouseDemoController:
         return replace(
             self, screen=GlasshouseDemoScreen.WORKBENCH, preview_playing=False, notice=""
         )
+
+
+def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> SourceSpan:
+    """Return source provenance from one retained source-bearing trace record."""
+    return (
+        record.source_span
+        if isinstance(record, ExpressionEvaluationTrace)
+        else record.origin.source_span
+    )
 
 
 def _focus_scout_caution_literal(
