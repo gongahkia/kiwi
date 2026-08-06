@@ -679,6 +679,8 @@ Do not build a general text-editor framework. Store source as Unicode text, whil
 `kiwi.ui.editor` provides the headless immutable source buffer, one-based
 Unicode-code-point line index, cursor selection, and logical scroll state. It
 does not import pygame, mutate authority, or define display glyph geometry.
+Edits are immutable and retain a bounded undo/redo history; clipboard exchange
+is string-only data passed to or from the platform adapter.
 
 ## 18. Content architecture
 

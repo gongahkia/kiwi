@@ -183,10 +183,10 @@ Fixtures should assert:
 
 Keep UI tests focused:
 
-- text buffer operations;
+- text insertion, deletion, newline, indentation, and clipboard handoff;
 - Unicode line indexing, cursor and directional selection;
 - bounded logical scrolling and cursor visibility;
-- undo and redo;
+- bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
 - timeline filtering;
