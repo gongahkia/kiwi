@@ -191,6 +191,7 @@ Keep UI tests focused:
 - workbench compilation from immutable editor text and output-panel rendering;
 - canonical development policy/fixture discovery, selection, and picker rendering;
 - retained causal timeline ordering, selection, and bitmap rendering;
+- retained event detail, causal-ancestor ordering, links, and bitmap rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
