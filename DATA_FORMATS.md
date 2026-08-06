@@ -374,7 +374,13 @@ Do not mix replay authority with mutable campaign convenience data.
 
 ## 14. Settings
 
-Settings are non-authoritative and may use a simple human-readable format. Examples:
+Settings v1 use canonical UTF-8 JSON with exactly `format` (`kiwi-settings`),
+`version`, `ui_scale`, and `font_scale` fields. UI scale is an integer from
+one through four; font scale is an integer from one through three. Invalid
+settings fall back to defaults and do not prevent headless operation. Future
+versions require an explicit decoder rather than coercing unknown fields.
+
+Settings are non-authoritative. Examples:
 
 - window size;
 - UI scale;
@@ -384,7 +390,6 @@ Settings are non-authoritative and may use a simple human-readable format. Examp
 - accessibility preferences;
 - last opened policy.
 
-Invalid settings fall back safely and do not prevent headless operation.
 
 ## 15. Asset manifest
 

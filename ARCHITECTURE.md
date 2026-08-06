@@ -709,6 +709,8 @@ archive-bound source and from selected historical expressions to retained descen
 `kiwi.ui.run_comparison` gates policy, state, and consequence deltas on
 the replay compatibility baseline; `kiwi.render.run_comparison_view` renders the
 read-only comparison outcome.
+`kiwi.app.settings` owns versioned non-authoritative UI/font settings with
+safe default fallback; `kiwi.render.settings_view` renders their integer scale summary.
 
 ## 18. Content architecture
 
