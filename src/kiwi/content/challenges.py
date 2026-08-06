@@ -132,9 +132,7 @@ def daily_challenge(day: str, contract_index: int = 0) -> ChallengeDefinition:
     if not _is_iso_date(day):
         raise ValueError("daily challenge requires a valid ISO calendar date")
     challenge_id = f"daily_{day.replace('-', '_')}"
-    return _challenge(
-        ChallengeMode.DAILY, challenge_id, _hash_seed(day), contract_index
-    )
+    return _challenge(ChallengeMode.DAILY, challenge_id, _hash_seed(day), contract_index)
 
 
 def practice_challenge(seed: int, contract_index: int = 0) -> ChallengeDefinition:
@@ -198,8 +196,20 @@ def _is_iso_date(value: object) -> bool:
     day = int(value[8:])
     if not 1 <= month <= 12:
         return False
-    days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28, 31, 30,
-            31, 30, 31, 31, 30, 31, 30, 31)
+    days = (
+        31,
+        29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    )
     return 1 <= day <= days[month - 1]
 
 
