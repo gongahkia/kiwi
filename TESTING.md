@@ -193,6 +193,7 @@ Keep UI tests focused:
 - retained causal timeline ordering, selection, and bitmap rendering;
 - retained event detail, causal-ancestor ordering, links, and bitmap rendering;
 - archive-bound source selection, source-map highlights, and bitmap rendering;
+- retained trace-to-source and historical-source-to-related-event navigation;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;
