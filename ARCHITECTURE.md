@@ -706,6 +706,9 @@ bytecode source-map expression spans; it never highlights current edited source.
 source-bound highlight underlines.
 `kiwi.ui.trace_navigation` follows retained causal edges from trace to
 archive-bound source and from selected historical expressions to retained descendants.
+`kiwi.ui.run_comparison` gates policy, state, and consequence deltas on
+the replay compatibility baseline; `kiwi.render.run_comparison_view` renders the
+read-only comparison outcome.
 
 ## 18. Content architecture
 
