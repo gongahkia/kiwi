@@ -37,6 +37,7 @@ from kiwi.ui.glasshouse_mission import (
     GlasshouseMissionPresentation,
     GlasshouseSignalStatus,
     build_glasshouse_mission_summary,
+    build_glasshouse_sound_cues,
 )
 from kiwi.ui.glasshouse_workbench import GlasshouseFlowPhase, GlasshouseWorkbench
 
@@ -263,6 +264,7 @@ def build_glasshouse_mission_presentation(
         ),
         execution.remaining_lockdown_ticks,
         signal_status,
+        build_glasshouse_sound_cues(execution.last_tick_events),
     )
 
 

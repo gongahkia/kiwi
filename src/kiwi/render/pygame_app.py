@@ -47,6 +47,7 @@ OBJECTIVE_RADIUS_PIXELS = 6
 CONTACT_RADIUS_PIXELS = 2
 PROJECTILE_RADIUS_PIXELS = 2
 IMPACT_RADIUS_PIXELS = 4
+IMPACT_BURST_RADIUS_PIXELS = 7
 AIM_INDICATOR_MAX_HEIGHT_PIXELS = 4
 SUPPRESSION_RING_MIN_RADIUS_PIXELS = 7
 SUPPRESSION_RING_MAX_RADIUS_PIXELS = 9
@@ -244,6 +245,7 @@ def _render_impact(
         (position[0], position[1] - IMPACT_RADIUS_PIXELS),
         (position[0], position[1] + IMPACT_RADIUS_PIXELS),
     )
+    pygame.draw.circle(logical_canvas, color, position, IMPACT_BURST_RADIUS_PIXELS, width=1)
 
 
 def _render_cover(

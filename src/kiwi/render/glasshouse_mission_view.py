@@ -8,6 +8,7 @@ import pygame
 
 from kiwi.render.bitmap_font import BitmapFont
 from kiwi.render.camera import Camera
+from kiwi.render.glasshouse_audio import GlasshouseSoundPlayer
 from kiwi.render.pygame_app import render_tactical_view
 from kiwi.ui.glasshouse_mission import GlasshouseMissionOutcome, GlasshouseMissionPresentation
 
@@ -70,6 +71,7 @@ def render_glasshouse_mission(
     *,
     scale: int = 1,
     palette: GlasshouseMissionPalette = DEFAULT_GLASSHOUSE_MISSION_PALETTE,
+    sound_player: GlasshouseSoundPlayer | None = None,
 ) -> GlasshouseMissionRenderResult:
     """Render copied mission data without accessing authority state or commands."""
     if not isinstance(surface, pygame.Surface):
@@ -84,6 +86,10 @@ def render_glasshouse_mission(
         raise ValueError("Glasshouse mission render scale must be positive")
     if not isinstance(palette, GlasshouseMissionPalette):
         raise TypeError("Glasshouse mission render palette is invalid")
+    if sound_player is not None and not isinstance(sound_player, GlasshouseSoundPlayer):
+        raise TypeError("Glasshouse mission sound player is invalid")
+    if sound_player is not None:
+        sound_player.play(presentation.sound_cues)
     render_tactical_view(
         surface,
         presentation.snapshot,
