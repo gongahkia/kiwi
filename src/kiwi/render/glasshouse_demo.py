@@ -141,10 +141,97 @@ _PHOSPHOR_PALETTE = GlasshouseDemoPalette(
         invalid=(255, 128, 128),
     ),
 )
+_MAROON_PALETTE = GlasshouseDemoPalette(
+    (24, 7, 11),
+    (43, 13, 20),
+    (143, 53, 69),
+    (255, 183, 187),
+    (247, 226, 227),
+    (238, 139, 77),
+    (207, 171, 174),
+    GlasshouseWorkbenchPalette(
+        background=(24, 7, 11),
+        panel=(43, 13, 20),
+        border=(143, 53, 69),
+        heading=(255, 183, 187),
+        normal=(247, 226, 227),
+        selected=(255, 204, 142),
+        focus=(238, 139, 77),
+        muted=(207, 171, 174),
+    ),
+    SourcePalette(
+        default=(247, 226, 227),
+        keyword=(255, 183, 187),
+        literal=(255, 204, 142),
+        identifier=(247, 226, 227),
+        operator=(244, 116, 120),
+        punctuation=(207, 171, 174),
+        invalid=(255, 113, 113),
+    ),
+)
+_WHITE_PALETTE = GlasshouseDemoPalette(
+    (242, 239, 232),
+    (255, 255, 252),
+    (91, 103, 117),
+    (23, 37, 54),
+    (39, 50, 64),
+    (166, 83, 19),
+    (103, 113, 124),
+    GlasshouseWorkbenchPalette(
+        background=(242, 239, 232),
+        panel=(255, 255, 252),
+        border=(91, 103, 117),
+        heading=(23, 37, 54),
+        normal=(39, 50, 64),
+        selected=(32, 92, 129),
+        focus=(166, 83, 19),
+        muted=(103, 113, 124),
+    ),
+    SourcePalette(
+        default=(39, 50, 64),
+        keyword=(32, 92, 129),
+        literal=(166, 83, 19),
+        identifier=(39, 50, 64),
+        operator=(180, 63, 63),
+        punctuation=(103, 113, 124),
+        invalid=(190, 44, 44),
+    ),
+)
+_BLACK_PALETTE = GlasshouseDemoPalette(
+    (5, 5, 6),
+    (17, 17, 19),
+    (93, 96, 102),
+    (244, 244, 240),
+    (211, 211, 205),
+    (255, 186, 61),
+    (143, 143, 137),
+    GlasshouseWorkbenchPalette(
+        background=(5, 5, 6),
+        panel=(17, 17, 19),
+        border=(93, 96, 102),
+        heading=(244, 244, 240),
+        normal=(211, 211, 205),
+        selected=(255, 255, 255),
+        focus=(255, 186, 61),
+        muted=(143, 143, 137),
+    ),
+    SourcePalette(
+        default=(211, 211, 205),
+        keyword=(244, 244, 240),
+        literal=(255, 186, 61),
+        identifier=(211, 211, 205),
+        operator=(255, 129, 129),
+        punctuation=(143, 143, 137),
+        invalid=(255, 93, 93),
+    ),
+)
 _PALETTES = {
     GlasshouseColorScheme.CYAN: _CYAN_PALETTE,
     GlasshouseColorScheme.AMBER: _AMBER_PALETTE,
     GlasshouseColorScheme.PHOSPHOR: _PHOSPHOR_PALETTE,
+    GlasshouseColorScheme.MAROON: _MAROON_PALETTE,
+    GlasshouseColorScheme.WHITE: _WHITE_PALETTE,
+    GlasshouseColorScheme.BLACK: _BLACK_PALETTE,
 }
 
 
@@ -347,7 +434,19 @@ def _handle_live_preview_key(
         return controller.advance_preview().pause_preview()
     if event.key in (pygame.K_q, pygame.K_e):
         return controller.rotate_preview(-1 if event.key == pygame.K_q else 1)
+    zoom_direction = _preview_zoom_direction(event)
+    if zoom_direction is not None:
+        return controller.zoom_preview(zoom_direction)
     return _handle_workbench_key(controller, event)
+
+
+def _preview_zoom_direction(event: pygame.event.Event) -> int | None:
+    """Map main and keypad plus/minus input to one presentation zoom direction."""
+    if event.key == pygame.K_KP_PLUS or event.unicode == "+":
+        return 1
+    if event.key in (pygame.K_KP_MINUS, pygame.K_MINUS) or event.unicode == "-":
+        return -1
+    return None
 
 
 def _deploy_pressed(controller: GlasshouseDemoController, event: pygame.event.Event) -> bool:
@@ -461,7 +560,7 @@ def _render_live_preview(
     _render_footer(
         surface,
         font,
-        "Click controls | Cmd+P pause | Cmd+. step | Q/E rotate | Cmd+L reload | D debrief",
+        "Click controls | Cmd+P pause | Cmd+. step | Q/E rotate | +/- zoom | D debrief",
         controller.notice,
         palette,
     )
@@ -542,7 +641,7 @@ def _preview_trace_lines(
 def _preview_camera(controller: GlasshouseDemoController) -> Camera:
     """Build one renderer-only isometric preview camera from controller UI state."""
     return Camera(
-        pixels_per_millimetre=0.027,
+        pixels_per_millimetre=0.027 * controller.preview_zoom_percent / 100,
         projection=Projection.ISOMETRIC,
         rotation_quarters=controller.preview_rotation_quarters,
     )
