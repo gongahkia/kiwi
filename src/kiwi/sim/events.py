@@ -63,6 +63,7 @@ class EventKind(StrEnum):
     DAMAGE_APPLIED = "damage_applied"
     INJURY_CHANGED = "injury_changed"
     SUPPRESSION_CHANGED = "suppression_changed"
+    LOCKDOWN_ACTIVATED = "lockdown_activated"
     OBJECTIVE_RETRIEVED = "objective_retrieved"
     OBJECTIVE_EXTRACTED = "objective_extracted"
 
@@ -589,6 +590,26 @@ class SuppressionChanged:
 
 
 @dataclass(frozen=True, slots=True)
+class LockdownActivated:
+    """One scheduled scenario timer that irrevocably closes extraction."""
+
+    header: EventHeader
+    scheduled_event: ScheduledEvent
+
+    def __post_init__(self) -> None:
+        from kiwi.sim.scheduled import ScheduledEventKind
+
+        _require_header(self.header)
+        if not isinstance(self.scheduled_event, ScheduledEvent):
+            raise ValueError("lockdown event requires a scheduled event")
+        if self.scheduled_event.kind is not ScheduledEventKind.LOCKDOWN:
+            raise ValueError("lockdown event requires a lockdown timer")
+        if len(self.header.parent_event_ids) != 1:
+            raise ValueError("lockdown event requires one scheduled-trigger parent")
+        _require_matching_tick(self.header, self.scheduled_event.tick)
+
+
+@dataclass(frozen=True, slots=True)
 class ObjectiveRetrieved:
     """One automatic retrieval transition with its authoritative objective provenance."""
 
@@ -654,6 +675,7 @@ CanonicalEvent = (
     | DamageApplied
     | InjuryChanged
     | SuppressionChanged
+    | LockdownActivated
     | ObjectiveRetrieved
     | ObjectiveExtracted
 )
@@ -715,6 +737,8 @@ def event_kind(event: CanonicalEvent) -> EventKind:
         return EventKind.INJURY_CHANGED
     if isinstance(event, SuppressionChanged):
         return EventKind.SUPPRESSION_CHANGED
+    if isinstance(event, LockdownActivated):
+        return EventKind.LOCKDOWN_ACTIVATED
     if isinstance(event, ObjectiveRetrieved):
         return EventKind.OBJECTIVE_RETRIEVED
     if isinstance(event, ObjectiveExtracted):
@@ -757,6 +781,7 @@ def canonical_event_order(events: Iterable[CanonicalEvent]) -> tuple[CanonicalEv
                 DamageApplied,
                 InjuryChanged,
                 SuppressionChanged,
+                LockdownActivated,
                 ObjectiveRetrieved,
                 ObjectiveExtracted,
             ),

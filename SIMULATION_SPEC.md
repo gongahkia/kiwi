@@ -37,8 +37,9 @@ Rendering frame time does not affect authoritative state. The graphical client m
 Scheduled events use `(tick, sequence)` ordering. The initial immutable queue
 allocates a local non-negative signed 64-bit sequence beginning at zero, sorts
 pending events by that key, and removes events only at their exact tick. Queue
-state is authoritative. Scheduled trigger dequeues are canonical events; their
-state effects are added with the reducer.
+state is authoritative. Scheduled trigger dequeues are canonical events; a
+one-shot `lockdown` timer emits a parented `lockdown_activated` event and blocks
+objective extraction from that tick onward.
 
 ### 2.4 External command ordering
 
@@ -716,16 +717,16 @@ After movement and combat resolution, each active objective scans the stable
 entity-ID-ordered state. The first listed entity inside its retrieval region
 retrieves it, producing `objective_retrieved`. On a later tick, a retrieved
 objective produces `objective_extracted` only when every required entity is
-inside its extraction region. The extraction event parents the retained
-retrieval event, preserving the causal chain. Objectives do not execute DSL or
+inside its extraction region and lockdown is inactive. The extraction event
+parents the retained retrieval event, preserving the causal chain. Objectives do not execute DSL or
 mutate entity state; the reducer alone resolves their transitions.
 
 ## 21. State hashing
 
 At configured checkpoints, serialise canonical state with `KWI-STATE\0` version
-`19` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
+`20` and hash the exact bytes with BLAKE2b-256. The binary encoder uses
 fixed-width big-endian scalars and explicitly ordered bounded collections;
-versions `1` through `18`, unsupported versions, and noncanonical values are
+versions `1` through `19`, unsupported versions, and noncanonical values are
 rejected.
 
 Exclude:

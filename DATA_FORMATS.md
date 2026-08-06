@@ -31,10 +31,10 @@ Kiwi currently uses a small deterministic binary encoding for:
 - replay checkpoints;
 - trace chunks where size matters.
 
-`KWI-STATE\0` version `18` is the canonical mission-state payload. It uses a
+`KWI-STATE\0` version `20` is the canonical mission-state payload. It uses a
 fixed big-endian field order, fixed-width scalar values, and ordered bounded
 collections; it contains no Python object serialisation. BLAKE2b-256 hashes the
-exact payload. Decoders reject versions `1` through `17`, unsupported versions,
+exact payload. Decoders reject versions `1` through `19`, unsupported versions,
 malformed values, size limits, and trailing bytes rather than reinterpreting data.
 
 ## 4. Policy source
@@ -148,11 +148,11 @@ Mission v1 uses UTF-8 `.dmission.json` documents with exact top-level fields:
 `map`, `covers`, and `regions`. The initial Glasshouse document defines the bounded
 map, obstacles, cover slots, player deployment, both entrances, objective room,
 and extraction region. The initial player loadouts and policy sources are a
-bundled application roster tied to this content; further scenario timers remain
-later vertical-slice extensions. The Glasshouse player adapter
+bundled application roster tied to this content. The Glasshouse player adapter
 binds named `objective_room` and `extraction` regions to one allocated retrieval
-objective requiring the four deployed player entity IDs; mission v1 remains a
-geometry/content format rather than a general objective schema.
+objective requiring the four deployed player entity IDs, and schedules one
+90-second lockdown. Mission v1 remains a geometry/content format rather than a
+general objective or timer schema.
 
 The loader rejects duplicate or unknown fields, malformed UTF-8/JSON,
 unsupported versions, values beyond explicit size limits, and invalid
@@ -192,7 +192,7 @@ Snapshots must contain all authority required to resume. Presentation state is e
 
 The current internal canonical-state payload is distinct from the future
 `.dsnap` container: it encodes the authority state only, starting with
-`KWI-STATE\0`, 16-bit format version `19`, tick, phase, entities, optional map
+`KWI-STATE\0`, 16-bit format version `20`, tick, phase, entities, optional map
 geometry, entity-ID ordered active movement actions, policy-memory records,
 entity-ID ordered policy-version records, cover geometry, and `(cover ID, slot
 index)`-ordered cover reservations, weapon-ID-ordered equipped weapons with
@@ -202,7 +202,8 @@ their Fire intention ID, invocation ID, expression ID, source file/span,
 policy-list index, and creation tick,
 entity-ID-ordered non-default operative conditions, objective-ID-ordered
 retrieval/extraction objectives (status, both closed regions, required entity
-IDs, and retrieval provenance event ID), type-local ID allocator
+IDs, and retrieval provenance event ID), one-shot lockdown state with activation
+tick and event ID, type-local ID allocator
 counters, scheduled-event queue, random-algorithm
 version, root seed, and named random-stream states.
 Counts are 32-bit big-endian values bounded to 65,536 items. Memory values are
@@ -212,7 +213,7 @@ rejected. Entity coordinates are signed 64-bit millimetres; elevation,
 sequences, stream state, and seed use unsigned 64-bit values. A policy-version
 record contains an entity ID and a 32-byte BLAKE2b digest of canonical `KWI-BC`
 bytes plus its selected entry function ID. Versions `1` through `4` are
-intentionally unsupported. Versions `5` through `18` are also intentionally
+intentionally unsupported. Versions `5` through `19` are also intentionally
 unsupported. A snapshot container will add content/replay metadata
 around this payload without changing its hash semantics. Milestone 5's in-memory
 `AuthoritySnapshot` carries that payload with a redundant tick and BLAKE2b-256

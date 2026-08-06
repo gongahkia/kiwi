@@ -65,6 +65,7 @@ from kiwi.sim.covers import (
     CoverStore,
 )
 from kiwi.sim.intentions import IntentionKind, IntentionOrigin
+from kiwi.sim.lockdown import LockdownState
 from kiwi.sim.map_geometry import MapGeometry, MapObstacle
 from kiwi.sim.memory import (
     MAX_POLICY_MEMORY_DEPTH,
@@ -102,7 +103,7 @@ from kiwi.sim.weapons import (
 )
 
 CANONICAL_STATE_MAGIC = b"KWI-STATE\x00"
-CANONICAL_STATE_VERSION = 19
+CANONICAL_STATE_VERSION = 20
 STATE_HASH_DIGEST_BYTES = 32
 MAX_ENCODED_STATE_BYTES = 16 * 1_024 * 1_024
 MAX_STATE_COLLECTION_ITEMS = 65_536
@@ -111,6 +112,7 @@ _PHASE_PREPARED = 1
 _PHASE_ACTIVE = 2
 _PHASE_ABORT_REQUESTED = 3
 _SCHEDULED_SCENARIO_TRIGGER = 1
+_SCHEDULED_LOCKDOWN = 2
 _MESSAGE_CHANNEL_RADIO = 1
 _SIGNAL_SOURCE_PLAYER = 1
 _SIGNAL_SOURCE_SCENARIO = 2
@@ -179,7 +181,7 @@ type StateDecodeResult = MissionState | StateDecodeFailure
 
 
 def encode_canonical_state(state: MissionState) -> bytes:
-    """Encode one validated mission state in canonical binary version 19 form."""
+    """Encode one validated mission state in canonical binary version 20 form."""
     if not isinstance(state, MissionState):
         raise TypeError("canonical state encoding requires mission state")
     writer = _Writer()
@@ -208,6 +210,7 @@ def encode_canonical_state(state: MissionState) -> bytes:
     _encode_messages(writer, state.messages)
     _encode_signals(writer, state.signals)
     _encode_objectives(writer, state.objectives)
+    _encode_lockdown(writer, state.lockdown)
     for next_id in state.id_allocator.next_ids:
         writer.u64(next_id, "ID allocator counter")
     _encode_scheduled_events(writer, state.scheduled_events)
@@ -284,7 +287,7 @@ def _encode_scheduled_events(writer: _Writer, queue: ScheduledEventQueue) -> Non
 
 def _encode_random_streams(writer: _Writer, streams: RandomStreams) -> None:
     if len(streams.states) != _RANDOM_STREAM_COUNT_V12:
-        raise ValueError("state format version 19 requires exactly four random streams")
+        raise ValueError("state format version 20 requires exactly four random streams")
     writer.u16(RANDOM_ALGORITHM_VERSION, "random algorithm version")
     writer.u64(streams.seed.value, "mission seed")
     for stream in streams.states:
@@ -312,6 +315,7 @@ def _decode_state(reader: _Reader) -> MissionState:
     messages = _decode_messages(reader)
     signals = _decode_signals(reader)
     objectives = _decode_objectives(reader)
+    lockdown = _decode_lockdown(reader)
     id_allocator = IdAllocator(tuple(reader.u64() for _ in IdKind))
     scheduled_events = _decode_scheduled_events(reader)
     random_streams = _decode_random_streams(reader)
@@ -335,6 +339,7 @@ def _decode_state(reader: _Reader) -> MissionState:
         messages=messages,
         signals=signals,
         objectives=objectives,
+        lockdown=lockdown,
         scheduled_events=scheduled_events,
         random_streams=random_streams,
     )
@@ -975,6 +980,30 @@ def _decode_objective_status(tag: int, offset: int) -> ObjectiveStatus:
     )
 
 
+def _encode_lockdown(writer: _Writer, lockdown: LockdownState) -> None:
+    writer.u8(int(lockdown.active), "lockdown active")
+    if not lockdown.active:
+        return
+    if lockdown.activation_tick is None or lockdown.activation_event_id is None:
+        raise AssertionError("active lockdown lacks activation provenance")
+    writer.u64(lockdown.activation_tick, "lockdown activation tick")
+    writer.i64(lockdown.activation_event_id.value, "lockdown activation event ID")
+
+
+def _decode_lockdown(reader: _Reader) -> LockdownState:
+    active_offset = reader.offset
+    active = reader.u8()
+    if active == 0:
+        return LockdownState()
+    if active != 1:
+        raise _DecodeError(
+            StateDecodeCode.INVALID_VALUE,
+            active_offset,
+            f"invalid lockdown active tag {active}",
+        )
+    return LockdownState(True, reader.u64(), EventId(reader.i64()))
+
+
 def _encode_memory_value(writer: _Writer, value: RuntimeValue, depth: int) -> None:
     if depth >= MAX_POLICY_MEMORY_DEPTH:
         raise ValueError("policy memory value exceeds the configured nesting limit")
@@ -1219,12 +1248,16 @@ def _decode_signal_source(tag: int, offset: int) -> CommandSource:
 def _encode_scheduled_kind(kind: ScheduledEventKind) -> int:
     if kind is ScheduledEventKind.SCENARIO_TRIGGER:
         return _SCHEDULED_SCENARIO_TRIGGER
+    if kind is ScheduledEventKind.LOCKDOWN:
+        return _SCHEDULED_LOCKDOWN
     raise TypeError("scheduled event kind is unsupported")
 
 
 def _decode_scheduled_kind(tag: int, offset: int) -> ScheduledEventKind:
     if tag == _SCHEDULED_SCENARIO_TRIGGER:
         return ScheduledEventKind.SCENARIO_TRIGGER
+    if tag == _SCHEDULED_LOCKDOWN:
+        return ScheduledEventKind.LOCKDOWN
     raise _DecodeError(
         StateDecodeCode.INVALID_VALUE, offset, f"invalid scheduled event kind tag {tag}"
     )

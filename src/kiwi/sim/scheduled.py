@@ -13,6 +13,7 @@ class ScheduledEventKind(StrEnum):
     """The currently schedulable authority event kinds."""
 
     SCENARIO_TRIGGER = "scenario_trigger"
+    LOCKDOWN = "lockdown"
 
 
 @dataclass(frozen=True, slots=True)

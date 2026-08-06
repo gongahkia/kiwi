@@ -11,6 +11,7 @@ from kiwi.sim.conditions import OperativeConditionStore
 from kiwi.sim.contacts import ContactStore
 from kiwi.sim.covers import CoverReservationStore, CoverStore
 from kiwi.sim.limits import MAX_AUTHORITY_TICK
+from kiwi.sim.lockdown import LockdownState
 from kiwi.sim.map_geometry import MapGeometry
 from kiwi.sim.memory import PolicyMemoryStore
 from kiwi.sim.messages import MessageLedger
@@ -19,7 +20,7 @@ from kiwi.sim.pathing import Path
 from kiwi.sim.policy_versions import PolicyVersionStore
 from kiwi.sim.projectiles import ProjectileStore
 from kiwi.sim.randomness import RandomStreams, default_random_streams
-from kiwi.sim.scheduled import ScheduledEventQueue
+from kiwi.sim.scheduled import ScheduledEventKind, ScheduledEventQueue
 from kiwi.sim.signals import SignalStore
 from kiwi.sim.weapons import AimStore, SuppressionStore, WeaponStore
 
@@ -144,6 +145,7 @@ class MissionState:
     messages: MessageLedger = field(default_factory=MessageLedger)
     signals: SignalStore = field(default_factory=SignalStore)
     objectives: ObjectiveStore = field(default_factory=ObjectiveStore)
+    lockdown: LockdownState = field(default_factory=LockdownState)
     scheduled_events: ScheduledEventQueue = field(default_factory=ScheduledEventQueue)
     random_streams: RandomStreams = field(default_factory=default_random_streams)
 
@@ -188,6 +190,8 @@ class MissionState:
             raise ValueError("mission state requires a signal store")
         if not isinstance(self.objectives, ObjectiveStore):
             raise ValueError("mission state requires an objective store")
+        if not isinstance(self.lockdown, LockdownState):
+            raise ValueError("mission state requires lockdown state")
         if not isinstance(self.scheduled_events, ScheduledEventQueue):
             raise ValueError("mission state requires a scheduled event queue")
         if not isinstance(self.random_streams, RandomStreams):
@@ -231,6 +235,25 @@ class MissionState:
             for objective in self.objectives.entries
         ):
             raise ValueError("objective retrieval event IDs must be allocated")
+        if (
+            self.lockdown.active
+            and self.lockdown.activation_tick is not None
+            and self.lockdown.activation_tick > self.tick
+        ):
+            raise ValueError("lockdown activation tick must not exceed mission tick")
+        if (
+            self.lockdown.activation_event_id is not None
+            and self.lockdown.activation_event_id.value
+            >= self.id_allocator.next_ids[int(IdKind.EVENT)]
+        ):
+            raise ValueError("lockdown activation event ID must be allocated")
+        lockdown_timers = tuple(
+            event
+            for event in self.scheduled_events.pending
+            if event.kind is ScheduledEventKind.LOCKDOWN
+        )
+        if len(lockdown_timers) > 1 or (self.lockdown.active and lockdown_timers):
+            raise ValueError("mission state permits one pending or active lockdown timer")
         previous_movement_entity_id = 0
         next_event_id = self.id_allocator.next_ids[int(IdKind.EVENT)]
         for action in self.movement_actions:
@@ -402,6 +425,7 @@ def add_entity(state: MissionState, position: WorldPosition) -> tuple[MissionSta
             messages=state.messages,
             signals=state.signals,
             objectives=state.objectives,
+            lockdown=state.lockdown,
             scheduled_events=state.scheduled_events,
             random_streams=state.random_streams,
         ),

@@ -31,6 +31,7 @@ from kiwi.sim.events import (
     CommandRejected,
     CommandRejectionReason,
     EventHeader,
+    LockdownActivated,
     MissionStarted,
     ObjectiveExtracted,
     ObjectiveRetrieved,
@@ -40,6 +41,7 @@ from kiwi.sim.events import (
 )
 from kiwi.sim.fallback import commit_policy_decisions, resolve_policy_decisions
 from kiwi.sim.firing import resolve_selected_fire
+from kiwi.sim.lockdown import LockdownState
 from kiwi.sim.messages import discard_expired_messages
 from kiwi.sim.movement import resolve_movement_actions
 from kiwi.sim.movement_events import emit_movement_events
@@ -59,6 +61,7 @@ from kiwi.sim.policies import (
 )
 from kiwi.sim.policy_events import emit_policy_events
 from kiwi.sim.projectile_impacts import resolve_projectile_impacts
+from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.signals import SignalObservation, add_signal, discard_signals_before
 from kiwi.sim.state import MissionPhase, MissionState
 from kiwi.sim.suppression import resolve_projectile_suppression
@@ -110,7 +113,24 @@ def reduce_one_tick(
     next_state = replace(next_state, scheduled_events=scheduled_events)
     for scheduled_event in due:
         next_state, header = _allocate_event_header(next_state)
-        emitted.append(ScheduledTriggerFired(header, scheduled_event))
+        trigger = ScheduledTriggerFired(header, scheduled_event)
+        emitted.append(trigger)
+        if scheduled_event.kind is ScheduledEventKind.LOCKDOWN:
+            next_state, allocated_header = _allocate_event_header(next_state)
+            lockdown_header = EventHeader(
+                allocated_header.event_id,
+                allocated_header.tick,
+                (trigger.header.event_id,),
+            )
+            next_state = replace(
+                next_state,
+                lockdown=LockdownState(
+                    True,
+                    next_state.tick,
+                    lockdown_header.event_id,
+                ),
+            )
+            emitted.append(LockdownActivated(lockdown_header, scheduled_event))
 
     if next_state.phase is MissionPhase.ACTIVE:
         delivery = emit_message_delivery_events(next_state)
@@ -193,7 +213,7 @@ def _resolve_objectives(state: MissionState) -> tuple[MissionState, tuple[Canoni
             state = replace(state, objectives=replace_objective(state.objectives, updated))
             emitted.append(ObjectiveRetrieved(header, updated))
             continue
-        if extraction_ready(objective, state.entities):
+        if not state.lockdown.active and extraction_ready(objective, state.entities):
             state, allocated_header = _allocate_event_header(state)
             updated = extracted_objective(objective)
             if updated.retrieval_event_id is None:

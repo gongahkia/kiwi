@@ -267,7 +267,65 @@ The renderer must:
 - keep visual state separate from semantic terminal state;
 - expose stable hooks for effects and debugger overlays.
 
-### 7.7 Effects
+- map and operative rendering;
+- camera movement and zoom;
+- objective and extraction markers;
+- visible projectiles and impacts;
+- cover and visibility overlays;
+- current policy version and high-level signal state;
+- event timeline markers;
+- selectable entities and events for inspection without direct command authority.
+
+### 9.6 Persistence
+
+The system must store:
+
+- source policies;
+- compiled policy metadata;
+- missions and fixtures;
+- replay inputs and state hashes;
+- trace files or trace references;
+- user settings;
+- later, campaign and operative state.
+
+All durable formats require schema versions and validation.
+
+## 10. User stories
+
+### 10.1 New player
+
+- As a new player, I can start from a working policy template rather than a blank file.
+- I can change one threshold and understand its type and effect.
+- The compiler tells me exactly where and why a program is invalid.
+- When the squad fails, I can click the failure and see the relevant line of code.
+
+### 10.2 Intermediate player
+
+- I can compose reusable tactical functions.
+- I can define role-specific behaviour.
+- I can account for missing or stale observations through explicit variants.
+- I can compare two policy versions against the same scenario and seed.
+
+### 10.3 Advanced player
+
+- I can define custom records and variants within supported limits.
+- I can replace standard target, cover, and coordination functions.
+- I can reason about instruction budgets and communication delays.
+- I can inspect lower-level evaluation and resolution traces.
+
+## 11. MVP vertical slice
+
+### 11.1 Scenario: Glasshouse
+
+A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
+
+- two approaches;
+- several cover edges;
+- one breachable or alternate entry;
+- incomplete hostile intelligence;
+- one timed lockdown;
+- an extraction zone;
+- a casualty risk created by an intentionally flawed policy.
 
 Effects must:
 

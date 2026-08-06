@@ -30,6 +30,7 @@ _SUMMARY_WORLD_EVENT_KINDS = frozenset(
         EventKind.ABORT_REQUESTED,
         EventKind.SIGNAL_ISSUED,
         EventKind.SCHEDULED_TRIGGER_FIRED,
+        EventKind.LOCKDOWN_ACTIVATED,
         EventKind.COMMAND_REJECTED,
         EventKind.INTENTION_SELECTED,
         EventKind.INTENTION_REJECTED,
@@ -44,6 +45,8 @@ _SUMMARY_WORLD_EVENT_KINDS = frozenset(
         EventKind.DAMAGE_APPLIED,
         EventKind.INJURY_CHANGED,
         EventKind.SUPPRESSION_CHANGED,
+        EventKind.OBJECTIVE_RETRIEVED,
+        EventKind.OBJECTIVE_EXTRACTED,
     }
 )
 

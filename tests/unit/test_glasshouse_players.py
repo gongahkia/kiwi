@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kiwi.app.glasshouse_players import (
+    GLASSHOUSE_LOCKDOWN_DELAY_SECONDS,
     GLASSHOUSE_PLAYER_LOADOUTS,
     GlasshousePlayerSetup,
     build_glasshouse_player_setup,
@@ -15,6 +16,7 @@ from kiwi.sim.events import IntentionEmitted, IntentionSelected, PolicyEvaluated
 from kiwi.sim.hashing import hash_canonical_state
 from kiwi.sim.objectives import ObjectiveStatus
 from kiwi.sim.runner import run_headless
+from kiwi.sim.scheduled import ScheduledEventKind
 from kiwi.sim.weapons import Ammunition
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -70,6 +72,10 @@ def test_glasshouse_deploys_four_distinct_player_loadouts_and_policies() -> None
     assert objective.required_entity_ids == tuple(player.entity_id for player in result.players)
     assert objective.retrieval_area == objective_region.bounds
     assert objective.extraction_area == extraction_region.bounds
+    assert result.state.scheduled_events.pending[0].tick == (
+        mission.tick_rate * GLASSHOUSE_LOCKDOWN_DELAY_SECONDS
+    )
+    assert result.state.scheduled_events.pending[0].kind is ScheduledEventKind.LOCKDOWN
 
 
 def test_glasshouse_player_policies_run_deterministically() -> None:

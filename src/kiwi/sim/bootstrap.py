@@ -48,6 +48,7 @@ def build_initial_state(
             messages=state.messages,
             signals=state.signals,
             objectives=state.objectives,
+            lockdown=state.lockdown,
             scheduled_events=queue,
             random_streams=state.random_streams,
         )

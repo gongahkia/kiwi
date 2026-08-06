@@ -228,8 +228,9 @@ Retain policy invocation, selected branches at labelled decision points, emitted
 
 Current Summary capture retains policy invocation, emitted intention and
 resolution records, consequences, and the major canonical events for mission
-lifecycle, signals/scenario triggers, command rejection, arbitration, cover and
-movement terminal outcomes, firing, impact, damage, injury, and suppression. It
+lifecycle, signals/scenario triggers and lockdown activation, command rejection, arbitration, cover and
+movement terminal outcomes, firing, impact, damage, injury, suppression, and
+objective transitions. It
 omits expression evaluations, observation facts, and non-terminal world-event
 detail such as projectile advancement.
 
