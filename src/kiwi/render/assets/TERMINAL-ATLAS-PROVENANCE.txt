@@ -1,0 +1,8 @@
+Original project asset generated with the built-in OpenAI image-generation workflow on 2026-08-06,
+then chroma-keyed and converted to a transparent RGBA PNG with the bundled imagegen helper.
+
+Prompt summary: compact original pixel-art tactical diorama source sheet; four operatives, hostile drone,
+cover, floor/wall tiles, objective, projectile, muzzle flash, and impact; teal/amber/slate industrial sci-fi.
+
+Used as presentation-only source art in the Kiwi Terminal texture atlas. No third-party game assets,
+logos, or brand identifiers were requested or used.

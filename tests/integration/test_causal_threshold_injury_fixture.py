@@ -72,13 +72,13 @@ ENEMY_POLICY_PATH = (
     / "policies"
     / "causal_threshold_injury_enemy_policy.dtr"
 )
-GLASSHOUSE_SCOUT_POLICY_PATH = (
-    Path(__file__).resolve().parents[2] / "examples" / "policies" / "glasshouse" / "scout.dtr"
+TERMINAL_SCOUT_POLICY_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "policies" / "terminal" / "scout.dtr"
 )
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PLAYER_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("committed", BuiltinType.BOOL),))
 ENEMY_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("fired", BuiltinType.BOOL),))
-GLASSHOUSE_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
+TERMINAL_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
 ADVANCE_THRESHOLD_TEXT = "contact.uncertainty_radius <= 1m"
 MOVE_TEXT = "MoveToward { target = Position { x = 1m, y = 0m } }"
 FIRE_TEXT = "Fire { target = Position { x = 0m, y = 0m }, weapon_id = 1 }"
@@ -188,15 +188,15 @@ def test_causal_threshold_injury_fixture_is_deterministic_and_traceable() -> Non
     )
 
 
-def test_glasshouse_scout_starts_with_an_explainable_advance_failure() -> None:
+def test_terminal_scout_starts_with_an_explainable_advance_failure() -> None:
     state, player, _, bindings, _, _ = _fixture_inputs()
-    player_source = _source(GLASSHOUSE_SCOUT_POLICY_PATH)
+    player_source = _source(TERMINAL_SCOUT_POLICY_PATH)
     player_artifact = _compile(player_source)
     player_binding = PolicyBinding(
         player.entity_id,
         player_artifact,
         _entry_function_id(player_artifact),
-        GLASSHOUSE_MEMORY_SCHEMA,
+        TERMINAL_MEMORY_SCHEMA,
         RecordValue("Memory", ("label",), (StringValue("scout"),)),
     )
     flawed_bindings = PolicyBindings((player_binding, bindings.entries[1]))

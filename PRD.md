@@ -6,7 +6,7 @@ Stanczyk is a programmable terminal runtime for LÖVE applications. It combines 
 
 The project should feel like a terminal emulator internally and a creative runtime externally. The parser, screen model, backend, renderer, effects, debugger, and embedding API must remain separable.
 
-The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Glasshouse lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
+The first release target is a desktop vertical slice implemented in Python with pygame-ce. The player-facing functional DSL is compiled to a project-owned deterministic bytecode VM. The authoritative simulation runs headlessly and is independent of the renderer. The Terminal lab presents generated pixel-diorama assets through a rotatable isometric camera, while retaining the same snapshot-only presentation boundary.
 
 ## 2. Problem
 
@@ -334,7 +334,7 @@ All durable formats require schema versions and validation.
 
 ## 11. MVP vertical slice
 
-### 11.1 Scenario: Glasshouse
+### 11.1 Scenario: Terminal
 
 A four-operative squad enters a small office or research structure to retrieve a protected objective and extract. The map includes:
 
@@ -522,7 +522,7 @@ User configuration must not be mixed into recordings. A recording may include me
 - The renderer maintains target responsiveness under benchmark fixtures.
 - Example embedding requires minimal setup and no internal imports.
 
-### 11.2 Product success
+### Stage 3 — Terminal vertical slice
 
 Within the first public release cycle, success would mean:
 

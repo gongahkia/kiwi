@@ -1,0 +1,233 @@
+{
+  "covers": [
+    {
+      "end": {"elevation": 0, "x": -4000, "y": -2000},
+      "height": "high",
+      "id": "approach_north",
+      "integrity": 10000,
+      "slots": [
+        {"side": "left", "x": -5500, "y": -1500},
+        {"side": "left", "x": -4500, "y": -1500}
+      ],
+      "start": {"elevation": 0, "x": -6000, "y": -2000}
+    },
+    {
+      "end": {"elevation": 0, "x": -4000, "y": 2000},
+      "height": "low",
+      "id": "approach_south",
+      "integrity": 10000,
+      "slots": [
+        {"side": "right", "x": -5500, "y": 1500},
+        {"side": "right", "x": -4500, "y": 1500}
+      ],
+      "start": {"elevation": 0, "x": -6000, "y": 2000}
+    },
+    {
+      "end": {"elevation": 0, "x": 2800, "y": 1000},
+      "height": "high",
+      "id": "central_desk",
+      "integrity": 10000,
+      "slots": [
+        {"side": "right", "x": 2300, "y": -500},
+        {"side": "right", "x": 2300, "y": 500}
+      ],
+      "start": {"elevation": 0, "x": 2800, "y": -1000}
+    },
+    {
+      "end": {"elevation": 0, "x": 8500, "y": -700},
+      "height": "low",
+      "id": "east_threshold",
+      "integrity": 10000,
+      "slots": [
+        {"side": "left", "x": 8000, "y": -1100},
+        {"side": "left", "x": 8000, "y": -800}
+      ],
+      "start": {"elevation": 0, "x": 8500, "y": -1400}
+    },
+    {
+      "end": {"elevation": 0, "x": 6500, "y": -500},
+      "height": "high",
+      "id": "objective_console",
+      "integrity": 10000,
+      "slots": [
+        {"side": "left", "x": 5700, "y": 0},
+        {"side": "left", "x": 6300, "y": 0}
+      ],
+      "start": {"elevation": 0, "x": 5500, "y": -500}
+    },
+    {
+      "end": {"elevation": 0, "x": -1300, "y": -700},
+      "height": "high",
+      "id": "west_threshold",
+      "integrity": 10000,
+      "slots": [
+        {"side": "left", "x": -1800, "y": -1100},
+        {"side": "right", "x": -800, "y": -1100}
+      ],
+      "start": {"elevation": 0, "x": -1300, "y": -1400}
+    }
+  ],
+  "format": "kiwi-mission",
+  "id": "terminal",
+  "map": {
+    "bounds": {
+      "maximum_x": 12000,
+      "maximum_y": 9000,
+      "minimum_x": -12000,
+      "minimum_y": -9000
+    },
+    "obstacles": [
+      {
+        "bounds": {
+          "maximum_x": 8000,
+          "maximum_y": 3600,
+          "minimum_x": -2500,
+          "minimum_y": 3000
+        },
+        "elevation": 0,
+        "id": "north_wall"
+      },
+      {
+        "bounds": {
+          "maximum_x": 8000,
+          "maximum_y": -3000,
+          "minimum_x": -2500,
+          "minimum_y": -3600
+        },
+        "elevation": 0,
+        "id": "south_wall"
+      },
+      {
+        "bounds": {
+          "maximum_x": -1800,
+          "maximum_y": -700,
+          "minimum_x": -2500,
+          "minimum_y": -3000
+        },
+        "elevation": 0,
+        "id": "west_wall_lower"
+      },
+      {
+        "bounds": {
+          "maximum_x": -1800,
+          "maximum_y": 3000,
+          "minimum_x": -2500,
+          "minimum_y": 700
+        },
+        "elevation": 0,
+        "id": "west_wall_upper"
+      },
+      {
+        "bounds": {
+          "maximum_x": 8000,
+          "maximum_y": -700,
+          "minimum_x": 7300,
+          "minimum_y": -3000
+        },
+        "elevation": 0,
+        "id": "east_wall_lower"
+      },
+      {
+        "bounds": {
+          "maximum_x": 8000,
+          "maximum_y": 3000,
+          "minimum_x": 7300,
+          "minimum_y": 700
+        },
+        "elevation": 0,
+        "id": "east_wall_upper"
+      },
+      {
+        "bounds": {
+          "maximum_x": 1700,
+          "maximum_y": -500,
+          "minimum_x": 1000,
+          "minimum_y": -3000
+        },
+        "elevation": 0,
+        "id": "central_divider_lower"
+      },
+      {
+        "bounds": {
+          "maximum_x": 1700,
+          "maximum_y": 3000,
+          "minimum_x": 1000,
+          "minimum_y": 500
+        },
+        "elevation": 0,
+        "id": "central_divider_upper"
+      },
+      {
+        "bounds": {
+          "maximum_x": 5300,
+          "maximum_y": 2700,
+          "minimum_x": 3300,
+          "minimum_y": 1600
+        },
+        "elevation": 0,
+        "id": "north_office"
+      },
+      {
+        "bounds": {
+          "maximum_x": 5300,
+          "maximum_y": -1600,
+          "minimum_x": 3300,
+          "minimum_y": -2700
+        },
+        "elevation": 0,
+        "id": "south_office"
+      }
+    ]
+  },
+  "regions": [
+    {
+      "bounds": {
+        "maximum_x": -4500,
+        "maximum_y": 1200,
+        "minimum_x": -7000,
+        "minimum_y": -1200
+      },
+      "id": "player_deployment"
+    },
+    {
+      "bounds": {
+        "maximum_x": -1700,
+        "maximum_y": 650,
+        "minimum_x": -2600,
+        "minimum_y": -650
+      },
+      "id": "west_entrance"
+    },
+    {
+      "bounds": {
+        "maximum_x": 8100,
+        "maximum_y": 650,
+        "minimum_x": 7200,
+        "minimum_y": -650
+      },
+      "id": "east_entrance"
+    },
+    {
+      "bounds": {
+        "maximum_x": 6800,
+        "maximum_y": 1200,
+        "minimum_x": 5000,
+        "minimum_y": -1200
+      },
+      "id": "objective_room"
+    },
+    {
+      "bounds": {
+        "maximum_x": -6500,
+        "maximum_y": -3500,
+        "minimum_x": -8500,
+        "minimum_y": -5500
+      },
+      "id": "extraction"
+    }
+  ],
+  "seed": 1779033703,
+  "tick_rate": 30,
+  "title": "Terminal",
+  "version": 1
+}

@@ -145,10 +145,10 @@ rejects trailing bytes, and validates decoded bytecode before returning it. See
 
 Mission v1 uses UTF-8 `.dmission.json` documents with exact top-level fields:
 `format` (`kiwi-mission`), `version` (1), `id`, `title`, `tick_rate`, `seed`,
-`map`, `covers`, and `regions`. The initial Glasshouse document defines the bounded
+`map`, `covers`, and `regions`. The initial Terminal document defines the bounded
 map, obstacles, cover slots, player deployment, both entrances, objective room,
 and extraction region. The initial player loadouts and policy sources are a
-bundled application roster tied to this content. The Glasshouse player adapter
+bundled application roster tied to this content. The Terminal player adapter
 binds named `objective_room` and `extraction` regions to one allocated retrieval
 objective requiring the four deployed player entity IDs, and schedules one
 90-second lockdown. Mission v1 remains a geometry/content format rather than a

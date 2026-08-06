@@ -1,4 +1,4 @@
-"""Pure seeded Glasshouse challenge definitions and modular district generation."""
+"""Pure seeded Terminal challenge definitions and modular district generation."""
 
 from __future__ import annotations
 
@@ -114,8 +114,8 @@ class GeneratedDistrict:
     def __post_init__(self) -> None:
         if not isinstance(self.challenge, ChallengeDefinition):
             raise TypeError("generated district challenge is invalid")
-        if not isinstance(self.mission, MissionData) or self.mission.mission_id != "glasshouse":
-            raise ValueError("generated district must materialise a Glasshouse mission")
+        if not isinstance(self.mission, MissionData) or self.mission.mission_id != "terminal":
+            raise ValueError("generated district must materialise a Terminal mission")
         if not isinstance(self.tiles, tuple) or len(self.tiles) != DISTRICT_TILE_COUNT**2:
             raise ValueError("generated district must contain one complete tile grid")
         expected = tuple(
@@ -143,7 +143,7 @@ def practice_challenge(seed: int, contract_index: int = 0) -> ChallengeDefinitio
 
 
 def generate_district(challenge: ChallengeDefinition) -> GeneratedDistrict:
-    """Generate one bounded, replay-regenerable Glasshouse modular district."""
+    """Generate one bounded, replay-regenerable Terminal modular district."""
     if not isinstance(challenge, ChallengeDefinition):
         raise TypeError("district generation requires a challenge definition")
     lane_x = 10 + _bounded(challenge.seed, 0, 12)
@@ -154,8 +154,8 @@ def generate_district(challenge: ChallengeDefinition) -> GeneratedDistrict:
         for x in range(DISTRICT_TILE_COUNT)
     )
     mission = MissionData(
-        "glasshouse",
-        f"Glasshouse {challenge.mode.value} / contract {challenge.contract_index + 1}",
+        "terminal",
+        f"Terminal {challenge.mode.value} / contract {challenge.contract_index + 1}",
         30,
         challenge.seed,
         _bounds(),

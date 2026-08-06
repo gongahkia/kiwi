@@ -19,7 +19,7 @@ from kiwi.sim.pathing import Path as TacticalPath
 from kiwi.sim.pathing import PathQuery, find_path
 
 MISSION_PATH = (
-    Path(__file__).resolve().parents[2] / "examples" / "missions" / "glasshouse.dmission.json"
+    Path(__file__).resolve().parents[2] / "examples" / "missions" / "terminal.dmission.json"
 )
 
 
@@ -33,14 +33,14 @@ def _region_centre(mission: MissionData, content_id: str) -> WorldPosition:
     )
 
 
-def test_glasshouse_mission_materialises_canonical_geometry_and_cover() -> None:
+def test_terminal_mission_materialises_canonical_geometry_and_cover() -> None:
     mission = load_mission_file(MISSION_PATH)
 
     assert isinstance(mission, MissionData)
     first = materialise_mission_state(mission)
     second = materialise_mission_state(mission)
 
-    assert mission.mission_id == "glasshouse"
+    assert mission.mission_id == "terminal"
     assert mission.tick_rate == 30
     assert tuple(obstacle.content_id for obstacle in mission.obstacles) == tuple(
         sorted(obstacle.content_id for obstacle in mission.obstacles)
@@ -56,7 +56,7 @@ def test_glasshouse_mission_materialises_canonical_geometry_and_cover() -> None:
     assert first.random_streams.seed.value == mission.seed
 
 
-def test_glasshouse_has_two_clear_approaches_to_the_objective_room() -> None:
+def test_terminal_has_two_clear_approaches_to_the_objective_room() -> None:
     mission = load_mission_file(MISSION_PATH)
 
     assert isinstance(mission, MissionData)

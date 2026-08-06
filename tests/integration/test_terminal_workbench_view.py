@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def test_terminal_briefing_and_workbench_render_through_bitmap_presentation() -> None:
+    source = """
+from pathlib import Path
+
+import pygame
+
+from kiwi.app.terminal_players import TERMINAL_PLAYER_LOADOUTS
+from kiwi.app.terminal_workbench import build_terminal_workbench
+from kiwi.dsl.source import SourceFile, SourceFileId
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.terminal_workbench_view import (
+    DEFAULT_TERMINAL_WORKBENCH_PALETTE,
+    render_terminal_workbench,
+)
+from kiwi.render.pygame_lifecycle import quit_pygame
+
+root = Path.cwd()
+sources = tuple(
+    SourceFile(
+        SourceFileId(loadout.policy_file_id),
+        (root / loadout.policy_file_id).read_text(encoding=\"utf-8\"),
+    )
+    for loadout in TERMINAL_PLAYER_LOADOUTS
+)
+font = load_bitmap_font()
+canvas = pygame.Surface((480, 270))
+briefing = build_terminal_workbench(sources)
+briefing_result = render_terminal_workbench(canvas, font, briefing)
+briefing_pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}
+assert briefing_result.phase.value == \"briefing\"
+assert DEFAULT_TERMINAL_WORKBENCH_PALETTE.heading in briefing_pixels
+workbench = briefing.open_workbench().select_policy(\"scout\").compile_selected()
+workbench_result = render_terminal_workbench(canvas, font, workbench)
+workbench_pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}
+assert workbench_result.phase.value == \"workbench\"
+assert DEFAULT_TERMINAL_WORKBENCH_PALETTE.selected in workbench_pixels
+assert DEFAULT_TERMINAL_WORKBENCH_PALETTE.border in workbench_pixels
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+
+    result = subprocess.run(
+        (sys.executable, "-c", source),
+        check=False,
+        capture_output=True,
+        cwd=Path(__file__).resolve().parents[2],
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_terminal_workbench_renders_a_focused_current_source_range() -> None:
+    source = """
+import pygame
+
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.terminal_workbench_view import (
+    DEFAULT_TERMINAL_WORKBENCH_PALETTE,
+    render_terminal_workbench,
+)
+from kiwi.render.pygame_lifecycle import quit_pygame
+from kiwi.ui.terminal_workbench import WorkbenchPolicy, create_terminal_workbench
+
+text = \"fn choose(value: Int) -> Int = value\"
+policies = (
+    WorkbenchPolicy(\"breacher\", \"Breach\", SourceFile(SourceFileId(\"breach.dtr\"), text)),
+    WorkbenchPolicy(\"medic\", \"Mender\", SourceFile(SourceFileId(\"medic.dtr\"), text)),
+    WorkbenchPolicy(\"overwatch\", \"Scope\", SourceFile(SourceFileId(\"scope.dtr\"), text)),
+    WorkbenchPolicy(\"scout\", \"Lark\", SourceFile(SourceFileId(\"scout.dtr\"), text)),
+)
+workbench = create_terminal_workbench(policies).open_workbench().select_policy(\"scout\")
+focused = workbench.focus_source(workbench.source.span(ByteOffset(3), ByteOffset(9)))
+font = load_bitmap_font()
+canvas = pygame.Surface((480, 270))
+canvas.fill((0, 0, 0))
+render_terminal_workbench(canvas, font, focused)
+pixels = {canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}
+assert DEFAULT_TERMINAL_WORKBENCH_PALETTE.focus in pixels
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+    result = subprocess.run(
+        (sys.executable, "-c", source), check=False, capture_output=True, env=environment, text=True
+    )
+    assert result.returncode == 0, result.stderr

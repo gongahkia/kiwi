@@ -79,7 +79,7 @@ The compiler, VM, simulation, replay verifier, trace queries, and content valida
 
 ### D-015: The first vertical slice contains one mission
 
-The first complete mission is the working scenario `Glasshouse`: a small squad must enter a hostile structure, locate or recover an objective, and extract while incomplete information and flawed kiwi create an explainable failure.
+The first complete mission is the working scenario `Terminal`: a small squad must enter a hostile structure, locate or recover an objective, and extract while incomplete information and flawed kiwi create an explainable failure.
 
 ### D-016: The visual terminal uses bitmap fonts
 
@@ -816,9 +816,9 @@ downstream causal inspection. Trace-node and authority-event IDs are
 run-local allocation detail and do not cause a changed consequence; the
 human-readable closed summary remains significant.
 
-### D-073: Glasshouse uses one scheduled extraction lockdown
+### D-073: Terminal uses one scheduled extraction lockdown
 
-Glasshouse applies time pressure through a one-shot lockdown rather than dynamic
+Terminal applies time pressure through a one-shot lockdown rather than dynamic
 reinforcement spawning, avoiding hidden entity or policy-binding changes during
 a run. The application adapter converts its fixed 90-second delay to the
 mission's immutable tick rate and schedules one `LOCKDOWN` event. At its exact
@@ -828,7 +828,7 @@ and prevents later objective extraction. Only one pending or active lockdown is
 valid. `KWI-STATE\0` version `20` serializes this state; versions `1` through
 `19` remain unsupported because development state is disposable.
 
-### D-074: Glasshouse challenge districts are explicit seeded content
+### D-074: Terminal challenge districts are explicit seeded content
 
 Daily and Practice contracts construct a `ChallengeDefinition` before authority
 is built. The definition retains a mode, challenge ID, unsigned seed, generator
@@ -843,7 +843,7 @@ hidden progression state, online service, or runtime dependency on pygame.
 
 ### D-075: Isometric assets and audio are presentation-only
 
-The Glasshouse renderer may choose a rotatable isometric camera, texture-atlas
+The Terminal renderer may choose a rotatable isometric camera, texture-atlas
 sprite, fixed-tick animation frame, palette, and event-ID-deduplicated audio
 cue from copied snapshots and events. Those choices cannot change map geometry,
 hit tests, random streams, policy evaluation, tick timing, or canonical state.
@@ -903,7 +903,7 @@ The squad may be human, synthetic, remote, or deliberately ambiguous. The mechan
 
 ### O-003: Camera perspective
 
-Resolved by D-075: the Glasshouse presentation uses a rotatable isometric
+Resolved by D-075: the Terminal presentation uses a rotatable isometric
 camera over the existing discrete elevation and explicit cover model. The
 camera is excluded from authority.
 

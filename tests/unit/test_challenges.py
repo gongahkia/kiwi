@@ -17,7 +17,7 @@ def test_daily_district_is_replay_regenerable_and_has_complete_material_grid() -
 
     assert first == second
     assert first.challenge.mode is ChallengeMode.DAILY
-    assert first.mission.mission_id == "glasshouse"
+    assert first.mission.mission_id == "terminal"
     assert len(first.tiles) == DISTRICT_TILE_COUNT**2
     assert first.layout_hash == second.layout_hash
 

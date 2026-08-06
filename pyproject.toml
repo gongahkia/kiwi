@@ -19,7 +19,7 @@ dev = [
 
 [project.scripts]
 kiwi = "kiwi.cli:main"
-kiwi-glasshouse = "kiwi.glasshouse:main"
+kiwi-terminal = "kiwi.terminal:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

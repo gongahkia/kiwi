@@ -46,7 +46,7 @@ Only after the headless path is stable, add a window, snapshot renderer, bitmap 
 
 ### Session 8 onward
 
-Continue through perception, cover, projectiles, debugger queries, run comparison, and the Glasshouse vertical slice according to the GitHub issue milestones.
+Continue through perception, cover, projectiles, debugger queries, run comparison, and the Terminal vertical slice according to the GitHub issue milestones.
 
 ## First proof policy
 

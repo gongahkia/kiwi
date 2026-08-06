@@ -445,7 +445,7 @@ Enemies may initially use project-authored deterministic policies implemented th
 
 Enemy AI must not use hidden access to player state beyond scenario-defined observations.
 
-## 13. First vertical-slice mission: Glasshouse
+## 13. First vertical-slice mission: Terminal
 
 ### 13.1 Setup
 
@@ -465,7 +465,7 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 ### 13.2 Initial flawed kiwi
 
 The bundled Lark policy treats a contact uncertainty radius at or below one
-metre as sufficient reason to advance. Glasshouse starts it with a 0.5-metre
+metre as sufficient reason to advance. Terminal starts it with a 0.5-metre
 uncertainty contact. The policy does not inspect available cover, so the source
 threshold can cause an advance past it.
 
