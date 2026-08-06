@@ -147,6 +147,7 @@ class GlasshouseDemoController:
     screen: GlasshouseDemoScreen
     workbench: GlasshouseWorkbench
     input_mode: GlasshouseInputMode
+    detected_platform: str
     tutorial: GlasshouseTutorial = GLASSHOUSE_LANGUAGE_TUTORIAL
     current_run: GlasshouseDemoRun | None = None
     baseline_run: GlasshouseDemoRun | None = None
@@ -160,6 +161,8 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo workbench is invalid")
         if not isinstance(self.input_mode, GlasshouseInputMode):
             raise TypeError("Glasshouse demo input mode is invalid")
+        if not isinstance(self.detected_platform, str) or not self.detected_platform:
+            raise ValueError("Glasshouse demo detected platform must be text")
         if not isinstance(self.tutorial, GlasshouseTutorial):
             raise TypeError("Glasshouse demo tutorial is invalid")
         if self.current_run is not None and not isinstance(self.current_run, GlasshouseDemoRun):
@@ -172,7 +175,9 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo notice must be text")
         if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
             if self.workbench.phase is not GlasshouseFlowPhase.BRIEFING:
-                raise ValueError("Glasshouse demo pre-workbench screens require a briefing workbench")
+                raise ValueError(
+                    "Glasshouse demo pre-workbench screens require a briefing workbench"
+                )
         elif self.workbench.phase is not GlasshouseFlowPhase.WORKBENCH:
             raise ValueError("Glasshouse demo screens after briefing require an open workbench")
         if (
@@ -207,6 +212,7 @@ class GlasshouseDemoController:
             GlasshouseDemoScreen.INPUT_SETUP,
             load_glasshouse_workbench(repository_root),
             input_mode,
+            resolved_platform,
         )
 
     def choose_input_mode(self, input_mode: GlasshouseInputMode) -> GlasshouseDemoController:

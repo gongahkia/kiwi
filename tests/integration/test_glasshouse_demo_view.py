@@ -20,7 +20,7 @@ font = load_bitmap_font()
 canvas = pygame.Surface((480, 270))
 _render(canvas, font, controller)
 assert len({canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}) > 2
-controller = controller.open_workbench().deploy()
+controller = controller.confirm_input_mode().open_workbench().deploy()
 _render(canvas, font, controller)
 controller = controller.open_debrief()
 _render(canvas, font, controller)
@@ -59,6 +59,15 @@ from kiwi.render.pygame_lifecycle import quit_pygame
 pygame.init()
 controller = GlasshouseDemoController.create()
 controller, quit_requested = _handle_event(
+    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_1, mod=0, unicode="1")
+)
+assert not quit_requested
+controller, quit_requested = _handle_event(
+    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode="\\r")
+)
+assert not quit_requested
+assert controller.screen is GlasshouseDemoScreen.BRIEFING
+controller, quit_requested = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert not quit_requested
@@ -95,6 +104,46 @@ controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_c, mod=0, unicode=\"c\")
 )
 assert controller.screen is GlasshouseDemoScreen.COMPARISON
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+
+    result = subprocess.run(
+        (sys.executable, "-c", source),
+        check=False,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_glasshouse_demo_clicks_position_the_editor_and_activate_compile_buttons() -> None:
+    source = """
+import pygame
+
+from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.glasshouse_demo import _handle_click, _workbench_buttons
+from kiwi.render.pygame_lifecycle import quit_pygame
+
+pygame.init()
+font = load_bitmap_font()
+controller = GlasshouseDemoController.create(platform_name="Darwin")
+controller = _handle_click(controller, (25, 160), font)
+assert controller.screen is GlasshouseDemoScreen.BRIEFING
+controller = controller.open_workbench()
+controller = _handle_click(controller, (260, 32), font)
+assert controller.workbench.editor.cursor_position.line == 1
+compile_button, deploy_button = _workbench_buttons(pygame.Surface((960, 540)), font)
+controller = _handle_click(controller, compile_button.center, font)
+assert controller.workbench.compile_output is not None
+assert controller.workbench.compile_output.succeeded
+controller = _handle_click(controller, deploy_button.center, font)
+assert controller.screen is GlasshouseDemoScreen.MISSION
 quit_pygame()
 """
     environment = dict(os.environ)

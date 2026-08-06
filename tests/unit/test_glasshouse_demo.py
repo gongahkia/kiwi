@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from kiwi.app.glasshouse_demo import GlasshouseDemoController, GlasshouseDemoScreen
+from kiwi.app.glasshouse_demo import (
+    GlasshouseDemoController,
+    GlasshouseDemoScreen,
+    GlasshouseInputMode,
+)
 from kiwi.trace.comparison import ConsequenceDifferenceKind
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief, GlasshouseDebriefUnavailable
 
 
 def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
-    baseline = GlasshouseDemoController.create().open_workbench().deploy()
+    baseline = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
 
     assert baseline.screen is GlasshouseDemoScreen.MISSION
     assert baseline.current_run is not None
@@ -36,7 +40,7 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
 
 
 def test_glasshouse_demo_blocks_deployment_after_a_policy_compile_failure() -> None:
-    opened = GlasshouseDemoController.create().open_workbench()
+    opened = GlasshouseDemoController.create().confirm_input_mode().open_workbench()
     broken = opened.replace_selected_editor(opened.workbench.editor.insert_text("@"))
 
     result = broken.deploy()
@@ -46,3 +50,17 @@ def test_glasshouse_demo_blocks_deployment_after_a_policy_compile_failure() -> N
     assert result.workbench.compile_output is not None
     assert not result.workbench.compile_output.succeeded
     assert result.notice == "Deployment blocked: fix a policy compile failure."
+
+
+def test_glasshouse_demo_detects_a_platform_default_and_requires_input_confirmation() -> None:
+    controller = GlasshouseDemoController.create(platform_name="Darwin")
+
+    assert controller.screen is GlasshouseDemoScreen.INPUT_SETUP
+    assert controller.input_mode is GlasshouseInputMode.STANDARD
+    assert controller.detected_platform == "Darwin"
+    assert controller.open_workbench() is controller
+
+    function_keys = controller.choose_input_mode(GlasshouseInputMode.FUNCTION_KEYS)
+
+    assert function_keys.input_mode is GlasshouseInputMode.FUNCTION_KEYS
+    assert function_keys.confirm_input_mode().screen is GlasshouseDemoScreen.BRIEFING
