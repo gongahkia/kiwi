@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from kiwi.app.glasshouse_demo import (
+    GlasshouseColorScheme,
     GlasshouseDemoController,
     GlasshouseDemoScreen,
     GlasshouseInputMode,
 )
 from kiwi.trace.comparison import ConsequenceDifferenceKind
+from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief, GlasshouseDebriefUnavailable
 
 
@@ -19,6 +21,9 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
     assert baseline.preview_playing
     assert baseline.workbench.selected_policy.role == "scout"
     assert baseline.workbench.editor.selected_text == "1"
+    wrapped = baseline.advance_preview().advance_preview().advance_preview()
+    assert wrapped.preview_snapshot_index == 0
+    assert wrapped.workbench.editor.selected_text == "1"
 
     focused = baseline.open_debrief().guide_revision()
 
@@ -102,3 +107,16 @@ def test_glasshouse_demo_detects_a_platform_default_and_requires_input_confirmat
 
     assert function_keys.input_mode is GlasshouseInputMode.FUNCTION_KEYS
     assert function_keys.confirm_input_mode().screen is GlasshouseDemoScreen.BRIEFING
+
+
+def test_glasshouse_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> None:
+    opened = GlasshouseDemoController.create().confirm_input_mode().open_workbench()
+    typed = opened.replace_selected_editor(EditorState.from_text("Mov").move_cursor(3))
+
+    assert typed.completions() == ("MoveToward",)
+    assert typed.accept_completion().workbench.source.text == "MoveToward"
+
+    amber = opened.cycle_color_scheme()
+
+    assert amber.color_scheme is GlasshouseColorScheme.AMBER
+    assert amber.cycle_color_scheme().color_scheme is GlasshouseColorScheme.PHOSPHOR

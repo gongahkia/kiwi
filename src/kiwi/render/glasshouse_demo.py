@@ -239,6 +239,7 @@ def _handle_workbench_key(
 ) -> GlasshouseDemoController:
     modifiers = event.mod
     command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
+    shifted = modifiers & pygame.KMOD_SHIFT
     if event.key == pygame.K_F1 or (
         controller.input_mode is GlasshouseInputMode.STANDARD
         and command
@@ -248,13 +249,24 @@ def _handle_workbench_key(
     if event.key == pygame.K_F2 or (
         controller.input_mode is GlasshouseInputMode.STANDARD
         and command
+        and not shifted
         and event.key == pygame.K_t
     ):
         return controller.select_scout_threshold()
+    if event.key == pygame.K_F3 or (
+        controller.input_mode is GlasshouseInputMode.STANDARD
+        and command
+        and shifted
+        and event.key == pygame.K_t
+    ):
+        return controller.cycle_color_scheme()
     if _deploy_pressed(controller, event):
         return controller.deploy()
     if event.key == pygame.K_TAB:
-        direction = -1 if modifiers & pygame.KMOD_SHIFT else 1
+        completed = controller.accept_completion()
+        if completed is not controller:
+            return completed
+        direction = -1 if shifted else 1
         index = (controller.workbench.selected_policy_index + direction) % len(
             controller.workbench.policies
         )
@@ -484,7 +496,13 @@ def _render_preview_panel(
     pygame.draw.rect(surface, palette.panel, (4, 4, surface.get_width() - 8, height))
     pygame.draw.rect(surface, palette.border, (4, 4, surface.get_width() - 8, height), width=1)
     for index, line in enumerate(lines):
-        color = palette.heading if index == 0 else palette.notice if "intention" in line else palette.normal
+        color = (
+            palette.heading
+            if index == 0
+            else palette.notice
+            if "intention" in line
+            else palette.normal
+        )
         surface.blit(
             font.render(_fit_text(font, _truncate(line), surface.get_width() - 16), color),
             (8, 8 + index * line_height),
@@ -689,7 +707,9 @@ def _render_workbench_controls(
 ) -> None:
     compile_button, deploy_button = _workbench_buttons(surface, font)
     theme_button = _theme_button(surface, font)
-    _render_button(surface, font, theme_button, f"Theme: {controller.color_scheme.value}", False, palette)
+    _render_button(
+        surface, font, theme_button, f"Theme: {controller.color_scheme.value}", False, palette
+    )
     _render_button(surface, font, compile_button, "Compile", False, palette)
     _render_button(surface, font, deploy_button, "Compile + run", True, palette)
     if pygame.time.get_ticks() // 500 % 2 == 0:
@@ -911,12 +931,14 @@ def _move_editor_to_pointer(
         editor.scroll.line + max(0, (position[1] - source_rect.y - 4) // line_height),
     )
     character_width = font.measure("M")[0]
+    gutter_width = font.measure(str(editor.buffer.line_index.line_count))[0] + 12
+    source_x = source_rect.x + gutter_width + 4
     column = min(
         editor.buffer.line_index.max_column(line),
-        max(1, (position[0] - source_rect.x - 4) // character_width + 1),
+        max(1, (position[0] - source_x) // character_width + 1),
     )
     rows = max(1, (source_rect.height - 8) // line_height)
-    columns = max(1, (source_rect.width - 8) // character_width)
+    columns = max(1, (source_rect.width - gutter_width - 8) // character_width)
     return controller.replace_selected_editor(
         editor.move_to(TextPosition(line, column)).reveal_cursor(rows, columns)
     )
@@ -953,3 +975,10 @@ def _fit_text(font: BitmapFont, text: str, width: int) -> str:
     while end > 0 and font.measure(text[:end] + suffix)[0] > width:
         end -= 1
     return text[:end] + suffix if end > 0 else suffix
+
+
+def _palette_for(color_scheme: GlasshouseColorScheme) -> GlasshouseDemoPalette:
+    """Return the explicit presentation palette for one controller scheme."""
+    if not isinstance(color_scheme, GlasshouseColorScheme):
+        raise TypeError("Glasshouse color scheme is invalid")
+    return _PALETTES[color_scheme]
