@@ -17,6 +17,8 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
     assert isinstance(baseline.current_run.debrief, GlasshouseDebrief)
     assert tuple(snapshot.tick for snapshot in baseline.current_run.snapshots) == (0, 1, 2)
     assert baseline.preview_playing
+    assert baseline.workbench.selected_policy.role == "scout"
+    assert baseline.workbench.editor.selected_text == "1"
 
     focused = baseline.open_debrief().guide_revision()
 
@@ -26,7 +28,7 @@ def test_glasshouse_demo_runs_the_injury_to_revision_to_comparison_loop() -> Non
 
     threshold = focused.select_scout_threshold()
     revised = threshold.replace_selected_editor(
-        threshold.workbench.editor.insert_text("0m")
+        threshold.workbench.editor.insert_text("0")
     ).deploy()
 
     assert revised.screen is GlasshouseDemoScreen.LIVE_PREVIEW
@@ -47,10 +49,10 @@ def test_glasshouse_demo_hot_reloads_only_source_changes_into_recorded_preview_t
 
     assert paused.preview_snapshot_index == 1
     assert not paused.preview_playing
-    assert paused.workbench.selected_policy.role == "breacher"
+    assert paused.workbench.selected_policy.role == "scout"
 
     focused = paused.select_scout_threshold()
-    reloaded = focused.replace_selected_editor(focused.workbench.editor.insert_text("0m"))
+    reloaded = focused.replace_selected_editor(focused.workbench.editor.insert_text("0"))
 
     assert reloaded.screen is GlasshouseDemoScreen.LIVE_PREVIEW
     assert reloaded.current_run is not None

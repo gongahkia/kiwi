@@ -76,6 +76,7 @@ def render_glasshouse_workbench(
     *,
     scale: int = 1,
     palette: GlasshouseWorkbenchPalette = DEFAULT_GLASSHOUSE_WORKBENCH_PALETTE,
+    compact_sidebar: bool = False,
 ) -> GlasshouseWorkbenchRenderResult:
     """Render briefing or source-review state without changing editor or authority state."""
     if not isinstance(surface, pygame.Surface):
@@ -88,10 +89,12 @@ def render_glasshouse_workbench(
         raise ValueError("Glasshouse workbench render scale must be positive")
     if not isinstance(palette, GlasshouseWorkbenchPalette):
         raise TypeError("Glasshouse workbench render palette is invalid")
+    if not isinstance(compact_sidebar, bool):
+        raise TypeError("Glasshouse workbench compact sidebar flag must be boolean")
     surface.fill(palette.background)
     if workbench.phase is GlasshouseFlowPhase.BRIEFING:
         return _render_briefing(surface, font, workbench, scale, palette)
-    return _render_workbench(surface, font, workbench, scale, palette)
+    return _render_workbench(surface, font, workbench, scale, palette, compact_sidebar)
 
 
 def _render_briefing(
@@ -120,6 +123,7 @@ def _render_workbench(
     workbench: GlasshouseWorkbench,
     scale: int,
     palette: GlasshouseWorkbenchPalette,
+    compact_sidebar: bool,
 ) -> GlasshouseWorkbenchRenderResult:
     width, height = surface.get_size()
     line_height = font.measure("M", scale)[1]
@@ -146,10 +150,9 @@ def _render_workbench(
     for index, policy in enumerate(workbench.policies):
         selected = index == workbench.selected_policy_index
         prefix = "> " if selected else "  "
+        label = policy.callsign if compact_sidebar else policy.label
         surface.blit(
-            font.render(
-                prefix + policy.label, palette.selected if selected else palette.normal, scale
-            ),
+            font.render(prefix + label, palette.selected if selected else palette.normal, scale),
             (16, 16 + (index + 1) * line_height),
         )
     surface.blit(

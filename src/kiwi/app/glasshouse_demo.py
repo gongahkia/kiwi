@@ -20,7 +20,7 @@ from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import BooleanValue, RecordValue, StringValue
-from kiwi.dsl.source import SourceFile, SourceFileId, SourceSpan
+from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId, SourceSpan
 from kiwi.dsl.types import BuiltinType
 from kiwi.replay.recording import RecordedReplay, record_headless_run
 from kiwi.replay.source_archive import (
@@ -331,18 +331,15 @@ class GlasshouseDemoController:
         if self.screen not in (GlasshouseDemoScreen.WORKBENCH, GlasshouseDemoScreen.LIVE_PREVIEW):
             return self
         scout = self.workbench.select_policy("scout")
-        marker = "<= 1m"
-        marker_start = scout.source.text.find(marker)
-        if marker_start < 0:
+        span = _scout_caution_span(scout.source)
+        if span is None:
             return replace(
                 self, workbench=scout, notice="The shipped 1m caution literal is no longer present."
             )
-        start = marker_start + len("<= ")
-        editor = scout.editor.select(start, start + len("1m")).reveal_cursor(12, 40)
-        focused = replace(self, workbench=scout).replace_selected_editor(editor)
+        focused = replace(self, workbench=scout.focus_source(span))
         return replace(
             focused,
-            notice="Caution literal selected. Type 0m to hot reload the controlled rerun.",
+            notice="Caution numeral selected. Type 0 to hot reload the controlled rerun.",
         )
 
     def open_guide(self) -> GlasshouseDemoController:
@@ -467,9 +464,13 @@ class GlasshouseDemoController:
         )
         baseline = result if self.baseline_run is None else self.baseline_run
         result_notice = notice or (
-            "Lark was injured. Open the debrief to inspect why."
-            if isinstance(result.debrief, GlasshouseDebrief)
-            else "No injury retained. Compare this controlled rerun with the baseline."
+            "Try it: Lark's 1m decision is selected. Type 0 to prevent the exposed advance."
+            if self.baseline_run is None
+            else (
+                "Lark was injured. Open the debrief to inspect why."
+                if isinstance(result.debrief, GlasshouseDebrief)
+                else "No injury retained. Compare this controlled rerun with the baseline."
+            )
         )
         preview = replace(
             self,
@@ -483,7 +484,7 @@ class GlasshouseDemoController:
             preview_stale=False,
             notice=result_notice,
         )
-        return preview._focus_preview_source()
+        return _focus_scout_caution_literal(preview)._focus_preview_source()
 
     def _focus_preview_source(self) -> GlasshouseDemoController:
         """Focus the current scout intention span when retained trace evidence exists."""
@@ -569,6 +570,28 @@ class GlasshouseDemoController:
         return replace(
             self, screen=GlasshouseDemoScreen.WORKBENCH, preview_playing=False, notice=""
         )
+
+
+def _focus_scout_caution_literal(
+    controller: GlasshouseDemoController,
+) -> GlasshouseDemoController:
+    """Select the editable scout caution numeral in presentation state."""
+    scout = controller.workbench.select_policy("scout")
+    span = _scout_caution_span(scout.source)
+    return replace(controller, workbench=scout if span is None else scout.focus_source(span))
+
+
+def _scout_caution_span(source: SourceFile) -> SourceSpan | None:
+    """Return the shipped `1` inside the scout's `<= 1m` caution literal."""
+    marker = "<= 1m"
+    marker_start = source.text.find(marker)
+    if marker_start < 0:
+        return None
+    start = marker_start + len("<= ")
+    return source.span(
+        ByteOffset(len(source.text[:start].encode("utf-8"))),
+        ByteOffset(len(source.text[: start + 1].encode("utf-8"))),
+    )
 
 
 def load_glasshouse_workbench(repository_root: Path = _REPOSITORY_ROOT) -> GlasshouseWorkbench:
