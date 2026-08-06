@@ -5,10 +5,12 @@ from pathlib import Path
 from kiwi.app.glasshouse_players import (
     GLASSHOUSE_LOCKDOWN_DELAY_SECONDS,
     GLASSHOUSE_PLAYER_LOADOUTS,
+    GlasshousePlayerRole,
     GlasshousePlayerSetup,
     build_glasshouse_player_setup,
 )
 from kiwi.content.missions import MissionData, load_mission_file
+from kiwi.domain.geometry import WorldSubunits
 from kiwi.dsl.source import SourceFile, SourceFileId
 from kiwi.sim.clock import FixedTickClock, TickRate
 from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
@@ -76,6 +78,14 @@ def test_glasshouse_deploys_four_distinct_player_loadouts_and_policies() -> None
         mission.tick_rate * GLASSHOUSE_LOCKDOWN_DELAY_SECONDS
     )
     assert result.state.scheduled_events.pending[0].kind is ScheduledEventKind.LOCKDOWN
+    assert len(result.state.contacts.estimates) == 1
+    initial_contact = result.state.contacts.estimates[0]
+    scout = next(
+        player for player in result.players if player.loadout.role is GlasshousePlayerRole.SCOUT
+    )
+    assert initial_contact.owner_entity_id == scout.entity_id
+    assert initial_contact.uncertainty_radius == WorldSubunits(500)
+    assert initial_contact.confidence.basis_points == 7_800
 
 
 def test_glasshouse_player_policies_run_deterministically() -> None:

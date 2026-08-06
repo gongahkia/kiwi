@@ -289,6 +289,10 @@ one-shot hostile policy. It asserts the `Some` and threshold branches, observed
 contact precision and visible cover, advance source span and route, then enemy
 fire, projectile impact, injury, and the retained physical consequence chain.
 
+The same fixture compiles the bundled Glasshouse scout policy, binds its normal
+memory schema, and verifies its one-metre contact-uncertainty threshold through
+the same advance, hostile fire, projectile impact, and injury chain.
+
 ## 7. Compiler diagnostics tests
 
 Test diagnostics as structured records:

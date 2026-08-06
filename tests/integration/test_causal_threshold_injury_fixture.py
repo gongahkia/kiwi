@@ -14,7 +14,7 @@ from kiwi.dsl.lower import lower
 from kiwi.dsl.names import resolve
 from kiwi.dsl.parser import parse
 from kiwi.dsl.policy_result import MemoryField, MemorySchema
-from kiwi.dsl.runtime_values import BooleanValue, RecordValue
+from kiwi.dsl.runtime_values import BooleanValue, RecordValue, StringValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId
 from kiwi.dsl.types import BuiltinType
 from kiwi.dsl.vm import VMBranchSelection
@@ -71,9 +71,13 @@ ENEMY_POLICY_PATH = (
     / "policies"
     / "causal_threshold_injury_enemy_policy.dtr"
 )
+GLASSHOUSE_SCOUT_POLICY_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "policies" / "glasshouse" / "scout.dtr"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PLAYER_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("committed", BuiltinType.BOOL),))
 ENEMY_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("fired", BuiltinType.BOOL),))
+GLASSHOUSE_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("label", BuiltinType.STRING),))
 ADVANCE_THRESHOLD_TEXT = "contact.uncertainty_radius <= 1m"
 MOVE_TEXT = "MoveToward { target = Position { x = 1m, y = 0m } }"
 FIRE_TEXT = "Fire { target = Position { x = 0m, y = 0m }, weapon_id = 1 }"
@@ -153,6 +157,76 @@ def test_causal_threshold_injury_fixture_is_deterministic_and_traceable() -> Non
     assert injury.header.parent_event_ids == (damage.header.event_id,)
     assert injury.resolution.injury_before is InjurySeverity.SEVERE
     assert injury.resolution.injury_after is InjurySeverity.INCAPACITATED
+    assert isinstance(chain, ConsequenceChainExplanation)
+    assert tuple(
+        record.event_kind
+        for record in chain.causal_records[:3]
+        if isinstance(record, WorldEventTrace)
+    ) == (
+        EventKind.INJURY_CHANGED,
+        EventKind.DAMAGE_APPLIED,
+        EventKind.PROJECTILE_IMPACTED,
+    )
+
+
+def test_glasshouse_scout_starts_with_an_explainable_advance_failure() -> None:
+    state, player, _, bindings, _, _ = _fixture_inputs()
+    player_source = _source(GLASSHOUSE_SCOUT_POLICY_PATH)
+    player_artifact = _compile(player_source)
+    player_binding = PolicyBinding(
+        player.entity_id,
+        player_artifact,
+        _entry_function_id(player_artifact),
+        GLASSHOUSE_MEMORY_SCHEMA,
+        RecordValue("Memory", ("label",), (StringValue("scout"),)),
+    )
+    flawed_bindings = PolicyBindings((player_binding, bindings.entries[1]))
+    first = _run_fixture(state, flawed_bindings)
+    second = _run_fixture(state, flawed_bindings)
+    pre_evaluation = invoke_policies(
+        state,
+        flawed_bindings,
+        capture_expression_trace=True,
+        capture_branch_selection_trace=True,
+        capture_observation_read_trace=True,
+    )
+    move = _emitted_for(first, player)
+    injury = _only_event(first, InjuryChanged)
+    trace = capture_run_trace(first, hash_canonical_state(first.state))
+    consequence = _only_trace_consequence(trace)
+    chain = consequence_chain(trace, consequence.node_id)
+    traced_player = next(
+        evaluation
+        for evaluation in pre_evaluation.evaluations
+        if evaluation.entity_id == player.entity_id
+    )
+
+    assert first == second
+    assert ADVANCE_THRESHOLD_TEXT in player_source.text
+    threshold_start = player_source.text.index(ADVANCE_THRESHOLD_TEXT)
+    assert any(
+        trace.source_map_entry.span.start.value
+        <= threshold_start
+        < trace.source_map_entry.span.end.value
+        for trace in traced_player.result.expression_traces
+    )
+    assert isinstance(move.candidate.intention, MoveTowardIntention)
+    assert move.candidate.origin.source_span == player_source.span(
+        ByteOffset(player_source.text.index(MOVE_TEXT)),
+        ByteOffset(player_source.text.index(MOVE_TEXT) + len(MOVE_TEXT)),
+    )
+    assert tuple(trace.selection for trace in traced_player.result.branch_selection_traces) == (
+        VMBranchSelection.SOME,
+        VMBranchSelection.THEN,
+    )
+    assert any(
+        trace.path == ("nearest_contact", "uncertainty_radius")
+        for trace in traced_player.result.observation_read_traces
+    )
+    assert first.state.conditions.condition_for(player.entity_id).injury_severity is (
+        InjurySeverity.INCAPACITATED
+    )
+    assert injury.resolution.source_intention != move.candidate.origin
     assert isinstance(chain, ConsequenceChainExplanation)
     assert tuple(
         record.event_kind

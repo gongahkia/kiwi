@@ -7,7 +7,7 @@ from enum import StrEnum
 
 from kiwi.app.mission_loading import materialise_mission_state
 from kiwi.content.missions import MissionData
-from kiwi.domain.geometry import WorldPosition, WorldSubunits
+from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import EntityId, WeaponId
 from kiwi.dsl.bytecode import BytecodeHeader
 from kiwi.dsl.capabilities import (
@@ -29,6 +29,14 @@ from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import RecordValue, StringValue
 from kiwi.dsl.source import SourceFile
 from kiwi.dsl.types import BuiltinType
+from kiwi.sim.contacts import (
+    ContactConfidence,
+    ContactEstimate,
+    ContactField,
+    ContactFieldProvenance,
+    ContactProvenance,
+    ContactStore,
+)
 from kiwi.sim.objectives import ObjectiveStore, RetrievalObjective
 from kiwi.sim.policies import PolicyBinding, PolicyBindings
 from kiwi.sim.scheduled import ScheduledEventKind
@@ -254,11 +262,51 @@ def _configure_glasshouse_objective(
         mission.tick_rate * GLASSHOUSE_LOCKDOWN_DELAY_SECONDS,
         ScheduledEventKind.LOCKDOWN,
     )
-    return replace(
+    state = replace(
         state,
         id_allocator=allocator,
         objectives=ObjectiveStore((objective,)),
         scheduled_events=scheduled_events,
+    )
+    return _configure_flawed_scout_contact(state, players, objective_region.bounds)
+
+
+def _configure_flawed_scout_contact(
+    state: MissionState,
+    players: tuple[GlasshousePlayer, ...],
+    objective_area: WorldRectangle,
+) -> MissionState:
+    scouts = tuple(
+        player for player in players if player.loadout.role is GlasshousePlayerRole.SCOUT
+    )
+    if len(scouts) != 1:
+        raise AssertionError("Glasshouse roster requires exactly one scout")
+    scout = scouts[0]
+    evidence_event_id, allocator = state.id_allocator.allocate_event()
+    contact_id, allocator = allocator.allocate_contact()
+    estimated_position = WorldPosition(
+        WorldSubunits((objective_area.minimum_x.value + objective_area.maximum_x.value) // 2),
+        WorldSubunits((objective_area.minimum_y.value + objective_area.maximum_y.value) // 2),
+    )
+    provenance = ContactProvenance(
+        tuple(ContactFieldProvenance(field, (evidence_event_id,)) for field in ContactField)
+    )
+    return replace(
+        state,
+        id_allocator=allocator,
+        contacts=ContactStore(
+            (
+                ContactEstimate(
+                    contact_id,
+                    scout.entity_id,
+                    estimated_position,
+                    WorldSubunits(500),
+                    ContactConfidence(7_800),
+                    state.tick,
+                    provenance,
+                ),
+            )
+        ),
     )
 
 

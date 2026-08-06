@@ -327,7 +327,7 @@ A four-operative squad enters a small office or research structure to retrieve a
 - an extraction zone;
 - a casualty risk created by an intentionally flawed policy.
 
-Effects must:
+The bundled scout policy treats a contact uncertainty radius at or below one metre as sufficient reason to advance without inspecting cover. Its deterministic causal fixture traces that advance through hostile fire, projectile impact, and injury.
 
 - be optional;
 - operate through a declared plugin interface;
