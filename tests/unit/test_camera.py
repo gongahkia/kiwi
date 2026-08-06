@@ -17,6 +17,12 @@ def test_camera_projects_world_coordinates_with_upward_positive_y() -> None:
     assert radius_to_canvas(125.0, camera) == 12
 
 
+def test_camera_applies_renderer_only_screen_offsets_after_projection() -> None:
+    camera = Camera(pixels_per_millimetre=0.1, screen_offset_x=3, screen_offset_y=-2)
+
+    assert world_to_canvas(PresentationPoint(0.0, 0.0, 0), (480, 270), camera) == (243, 133)
+
+
 @pytest.mark.parametrize(
     "factory",
     (

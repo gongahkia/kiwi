@@ -169,3 +169,11 @@ def test_glasshouse_preview_zoom_is_presentation_only_and_bounded() -> None:
     assert zoomed.zoom_preview(1).preview_zoom_percent == 150
     assert zoomed.current_run == preview.current_run
     assert zoomed.workbench == preview.workbench
+
+
+def test_glasshouse_preview_emits_one_presentation_feedback_pulse_for_an_impact() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    impact = preview.advance_preview().advance_preview()
+
+    assert impact.preview_feedback_pulse == 1
+    assert impact.current_run == preview.current_run
