@@ -97,6 +97,13 @@ The UI provides:
 - sample observation values from fixtures;
 - compile warnings that explain unhandled situations.
 
+Glasshouse includes a separately navigable language guide. It introduces
+one construct at a time from Lark's supplied policy: policy shape, records,
+`Option`, `match`, `if`, distance literals, then intention lists. Every lesson
+anchors its text in shipped policy syntax, distinguishes an intention request
+from a world action, and offers a safe change to try; guide navigation never
+edits source.
+
 ## 4. Mission view
 
 Recommended layout:

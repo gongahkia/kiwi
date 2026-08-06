@@ -297,6 +297,10 @@ The Glasshouse briefing/workbench tests preserve fixed briefing rows, canonical
 roster order, independent editor state, compile-result invalidation, and
 dummy-SDL bitmap rendering. They do not execute a policy or mutate authority.
 
+Glasshouse language-guide tests retain one distinct lesson for every construct
+used by the shipped scout policy, preserve bounded lesson navigation, and render
+the selected lesson under dummy SDL without reading or changing policy text.
+
 Glasshouse execution tests compile the current workbench sources, queue a player
 start, advance one reducer tick at a time, and verify deterministic `advance`
 and targeted `hold` signal provenance. Mission-summary tests project only the
