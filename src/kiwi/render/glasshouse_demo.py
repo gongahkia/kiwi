@@ -12,8 +12,9 @@ from kiwi.app.glasshouse_demo import (
     GlasshouseDemoScreen,
     GlasshouseInputMode,
 )
+from kiwi.render.atlas import TextureAtlas, load_glasshouse_atlas
 from kiwi.render.bitmap_font import BitmapFont, load_bitmap_font
-from kiwi.render.camera import Camera
+from kiwi.render.camera import Camera, Projection, world_to_canvas
 from kiwi.render.glasshouse_debrief_view import render_glasshouse_debrief
 from kiwi.render.glasshouse_tutorial_view import render_glasshouse_tutorial
 from kiwi.render.glasshouse_workbench_view import (
@@ -21,11 +22,17 @@ from kiwi.render.glasshouse_workbench_view import (
     GlasshouseWorkbenchPalette,
     render_glasshouse_workbench,
 )
-from kiwi.render.pygame_app import open_pygame_window, present, render_tactical_view
+from kiwi.render.pygame_app import (
+    TacticalPalette,
+    open_pygame_window,
+    present,
+    render_tactical_view,
+)
 from kiwi.render.pygame_lifecycle import quit_pygame
 from kiwi.render.run_comparison_view import render_run_comparison_view
 from kiwi.render.source_view import DEFAULT_SOURCE_PALETTE, SourcePalette
 from kiwi.sim.snapshot import build_presentation_snapshot
+from kiwi.dsl.source import ByteOffset
 from kiwi.ui.editor import EditorState, TextPosition
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief
 from kiwi.ui.timeline import mission_timeline
@@ -41,6 +48,7 @@ _FOOTER_HEIGHT = 16
 _LOGICAL_SIZE = (960, 540)
 _MAX_NOTICE_CHARACTERS = 116
 _PREVIEW_STEP_MILLISECONDS = 800
+_ATLAS: TextureAtlas | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +145,8 @@ def run_glasshouse_demo() -> int:
     window = open_pygame_window(logical_size=_LOGICAL_SIZE)
     pygame.display.set_caption("Kiwi — Glasshouse causal drill")
     font = load_bitmap_font()
+    global _ATLAS
+    _ATLAS = load_glasshouse_atlas()
     controller = GlasshouseDemoController.create()
     frame_clock = pygame.time.Clock()
     next_preview_step_at = pygame.time.get_ticks() + _PREVIEW_STEP_MILLISECONDS
@@ -319,6 +329,8 @@ def _handle_live_preview_key(
         return controller.toggle_preview_playing()
     if command and event.key == pygame.K_PERIOD:
         return controller.advance_preview().pause_preview()
+    if event.key in (pygame.K_q, pygame.K_e):
+        return controller.rotate_preview(-1 if event.key == pygame.K_q else 1)
     return _handle_workbench_key(controller, event)
 
 
@@ -413,7 +425,7 @@ def _render_live_preview(
     _render_footer(
         surface,
         font,
-        "Click controls | Cmd+P pause | Cmd+. step | Cmd+L reload | Tab complete | D debrief",
+        "Click controls | Cmd+P pause | Cmd+. step | Q/E rotate | Cmd+L reload | D debrief",
         controller.notice,
         palette,
     )
@@ -440,7 +452,13 @@ def _render_preview_map(
         _render_preview_controls(surface, font, controller, palette)
         return
     snapshot = controller.current_run.snapshots[controller.preview_snapshot_index]
-    render_tactical_view(surface, snapshot, Camera(pixels_per_millimetre=0.04))
+    render_tactical_view(
+        surface,
+        snapshot,
+        _preview_camera(controller),
+        palette=_tactical_palette(palette),
+        atlas=_ATLAS,
+    )
     trace_lines = _preview_trace_lines(controller, snapshot.tick)
     _render_preview_panel(
         surface,
@@ -483,6 +501,15 @@ def _preview_trace_lines(
         _truncate(f"t{entry.tick} {entry.kind.value}: {entry.summary}") for entry in entries[:3]
     )
     return rows + ("yellow source selection = emitted intention origin",)
+
+
+def _preview_camera(controller: GlasshouseDemoController) -> Camera:
+    """Build one renderer-only isometric preview camera from controller UI state."""
+    return Camera(
+        pixels_per_millimetre=0.027,
+        projection=Projection.ISOMETRIC,
+        rotation_quarters=controller.preview_rotation_quarters,
+    )
 
 
 def _render_preview_panel(
@@ -915,6 +942,27 @@ def _handle_preview_click(
         return controller.toggle_hot_reload()
     if debrief_button.collidepoint(position):
         return controller.open_debrief()
+    if controller.current_run is None:
+        return controller
+    snapshot = controller.current_run.snapshots[controller.preview_snapshot_index]
+    candidates = tuple(
+        (
+            operative.entity_id,
+            world_to_canvas(operative.position, canvas_size, _preview_camera(controller)),
+        )
+        for operative in snapshot.operatives
+    )
+    if not candidates:
+        return controller
+    entity_id, point = min(
+        candidates,
+        key=lambda candidate: (
+            (candidate[1][0] - position[0]) ** 2 + (candidate[1][1] - position[1]) ** 2,
+            candidate[0],
+        ),
+    )
+    if (point[0] - position[0]) ** 2 + (point[1] - position[1]) ** 2 <= 16**2:
+        return controller.select_preview_entity(entity_id)
     return controller
 
 
@@ -939,8 +987,14 @@ def _move_editor_to_pointer(
     )
     rows = max(1, (source_rect.height - 8) // line_height)
     columns = max(1, (source_rect.width - gutter_width - 8) // character_width)
-    return controller.replace_selected_editor(
+    updated = controller.replace_selected_editor(
         editor.move_to(TextPosition(line, column)).reveal_cursor(rows, columns)
+    )
+    if updated.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+        return updated
+    source = updated.workbench.source.text
+    return updated.select_preview_source_offset(
+        ByteOffset(len(source[: updated.workbench.editor.cursor_offset].encode("utf-8")))
     )
 
 
@@ -982,3 +1036,28 @@ def _palette_for(color_scheme: GlasshouseColorScheme) -> GlasshouseDemoPalette:
     if not isinstance(color_scheme, GlasshouseColorScheme):
         raise TypeError("Glasshouse color scheme is invalid")
     return _PALETTES[color_scheme]
+
+
+def _tactical_palette(palette: GlasshouseDemoPalette) -> TacticalPalette:
+    """Project the active terminal theme across the renderer-only tactical view."""
+    if not isinstance(palette, GlasshouseDemoPalette):
+        raise TypeError("Glasshouse tactical palette requires a demo palette")
+    return TacticalPalette(
+        background=palette.background,
+        map_fill=palette.panel,
+        map_border=palette.border,
+        obstacle=palette.muted,
+        path=palette.notice,
+        operative=palette.workbench.selected,
+        hostile=palette.source.operator,
+        objective=palette.notice,
+        visibility=palette.border,
+        visible_geometry=palette.heading,
+        contact=palette.notice,
+        contact_uncertainty=palette.source.operator,
+        projectile=palette.notice,
+        impact=palette.source.operator,
+        cover_low=palette.notice,
+        cover_high=palette.workbench.selected,
+        cover_damaged=palette.source.invalid,
+    )

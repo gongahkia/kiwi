@@ -21,6 +21,7 @@ from kiwi.dsl.parser import parse
 from kiwi.dsl.policy_result import MemoryField, MemorySchema
 from kiwi.dsl.runtime_values import BooleanValue, RecordValue, StringValue
 from kiwi.dsl.source import ByteOffset, SourceFile, SourceFileId, SourceSpan
+from kiwi.domain.ids import TraceNodeId
 from kiwi.dsl.types import BuiltinType
 from kiwi.replay.recording import RecordedReplay, record_headless_run
 from kiwi.replay.source_archive import (
@@ -59,7 +60,7 @@ from kiwi.sim.snapshot import (
 from kiwi.sim.state import EntityState, MissionState, add_entity
 from kiwi.sim.weapons import Ammunition, EquippedWeapon, WeaponStore
 from kiwi.trace.capture import capture_run_trace
-from kiwi.trace.model import CausalTrace, IntentionTrace
+from kiwi.trace.model import CausalTrace, ExpressionEvaluationTrace, IntentionTrace, PolicyInvocationTrace
 from kiwi.ui.dsl_completion import dsl_completion_suffix, dsl_completions
 from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import (
@@ -180,6 +181,9 @@ class GlasshouseDemoController:
     preview_playing: bool = False
     preview_stale: bool = False
     hot_reload_enabled: bool = True
+    preview_rotation_quarters: int = 0
+    selected_trace_node_id: TraceNodeId | None = None
+    preview_selected_entity_id: int | None = None
     color_scheme: GlasshouseColorScheme = GlasshouseColorScheme.CYAN
     notice: str = ""
 
@@ -212,8 +216,24 @@ class GlasshouseDemoController:
             raise TypeError("Glasshouse demo preview stale flag is invalid")
         if not isinstance(self.hot_reload_enabled, bool):
             raise TypeError("Glasshouse demo hot reload flag is invalid")
+        if (
+            not isinstance(self.preview_rotation_quarters, int)
+            or isinstance(self.preview_rotation_quarters, bool)
+            or not 0 <= self.preview_rotation_quarters <= 3
+        ):
+            raise ValueError("Glasshouse demo preview rotation is invalid")
         if not isinstance(self.color_scheme, GlasshouseColorScheme):
             raise TypeError("Glasshouse demo color scheme is invalid")
+        if self.selected_trace_node_id is not None and not isinstance(
+            self.selected_trace_node_id, TraceNodeId
+        ):
+            raise TypeError("Glasshouse demo selected trace node is invalid")
+        if self.preview_selected_entity_id is not None and (
+            not isinstance(self.preview_selected_entity_id, int)
+            or isinstance(self.preview_selected_entity_id, bool)
+            or self.preview_selected_entity_id <= 0
+        ):
+            raise ValueError("Glasshouse demo selected entity is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Glasshouse demo notice must be text")
         if self.screen in (GlasshouseDemoScreen.INPUT_SETUP, GlasshouseDemoScreen.BRIEFING):
@@ -451,6 +471,23 @@ class GlasshouseDemoController:
             notice=f"Hot reload {'enabled' if enabled else 'paused'}.",
         )
 
+    def rotate_preview(self, direction: int = 1) -> GlasshouseDemoController:
+        """Rotate the renderer-only isometric view without changing a recorded run."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW:
+            return self
+        if (
+            not isinstance(direction, int)
+            or isinstance(direction, bool)
+            or direction not in (-1, 1)
+        ):
+            raise ValueError("Glasshouse preview rotation direction must be minus or plus one")
+        next_rotation = (self.preview_rotation_quarters + direction) % 4
+        return replace(
+            self,
+            preview_rotation_quarters=next_rotation,
+            notice=f"View rotated to {next_rotation * 90} degrees.",
+        )
+
     def toggle_preview_playing(self) -> GlasshouseDemoController:
         """Pause or resume non-authoritative recorded-preview playback."""
         if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
@@ -475,6 +512,85 @@ class GlasshouseDemoController:
         if index == 0:
             return _focus_scout_caution_literal(selected)
         return selected._focus_preview_source()
+
+    def select_preview_entity(self, entity_id: int) -> GlasshouseDemoController:
+        """Pause on one map entity and focus its retained policy evaluation source."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        if not isinstance(entity_id, int) or isinstance(entity_id, bool) or entity_id <= 0:
+            raise ValueError("Glasshouse preview entity ID must be positive")
+        snapshot = self.current_run.snapshots[self.preview_snapshot_index]
+        if entity_id not in tuple(operative.entity_id for operative in snapshot.operatives):
+            return self
+        trace_tick = max(0, snapshot.tick - 1)
+        invocation = next(
+            (
+                record
+                for record in self.current_run.trace.records
+                if isinstance(record, PolicyInvocationTrace)
+                and record.tick == trace_tick
+                and record.entity_id.value == entity_id
+            ),
+            None,
+        )
+        if invocation is None:
+            return replace(self, preview_selected_entity_id=entity_id, preview_playing=False)
+        source = next(
+            (
+                record
+                for record in self.current_run.trace.records
+                if isinstance(record, ExpressionEvaluationTrace)
+                and record.invocation_id == invocation.invocation_id
+            ),
+            None,
+        )
+        selected = replace(
+            self,
+            selected_trace_node_id=invocation.node_id,
+            preview_selected_entity_id=entity_id,
+            preview_playing=False,
+            notice=f"Entity {entity_id}: policy evaluation at t{trace_tick}.",
+        )
+        return selected if source is None else replace(
+            selected,
+            selected_trace_node_id=source.node_id,
+            workbench=selected.workbench.focus_source(source.source_span),
+        )
+
+    def select_preview_source_offset(self, offset: ByteOffset) -> GlasshouseDemoController:
+        """Pause at the earliest retained evaluation for a clicked source offset."""
+        if self.screen is not GlasshouseDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        if not isinstance(offset, ByteOffset):
+            raise TypeError("Glasshouse preview source offset is invalid")
+        source_file_id = self.workbench.source.file_id
+        record = next(
+            (
+                candidate
+                for candidate in self.current_run.trace.records
+                if isinstance(candidate, ExpressionEvaluationTrace)
+                and candidate.source_span.file_id == source_file_id
+                and candidate.source_span.contains(offset)
+            ),
+            None,
+        )
+        if record is None:
+            return self
+        snapshot_index = next(
+            (
+                index
+                for index, snapshot in enumerate(self.current_run.snapshots)
+                if snapshot.tick >= record.tick + 1
+            ),
+            len(self.current_run.snapshots) - 1,
+        )
+        return replace(
+            self,
+            preview_snapshot_index=snapshot_index,
+            selected_trace_node_id=record.node_id,
+            preview_playing=False,
+            notice=f"Source evaluation at t{record.tick} selected.",
+        )
 
     def advance_preview(self) -> GlasshouseDemoController:
         """Advance one display checkpoint and loop after the final recorded tick."""
@@ -518,6 +634,8 @@ class GlasshouseDemoController:
             preview_snapshot_index=0,
             preview_playing=True,
             preview_stale=False,
+            selected_trace_node_id=None,
+            preview_selected_entity_id=None,
             notice=result_notice,
         )
         return _focus_scout_caution_literal(preview)._focus_preview_source()

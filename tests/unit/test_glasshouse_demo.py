@@ -6,6 +6,7 @@ from kiwi.app.glasshouse_demo import (
     GlasshouseDemoScreen,
     GlasshouseInputMode,
 )
+from kiwi.dsl.source import ByteOffset
 from kiwi.trace.comparison import ConsequenceDifferenceKind
 from kiwi.ui.editor import EditorState
 from kiwi.ui.glasshouse_debrief import GlasshouseDebrief, GlasshouseDebriefUnavailable
@@ -120,3 +121,18 @@ def test_glasshouse_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> 
 
     assert amber.color_scheme is GlasshouseColorScheme.AMBER
     assert amber.cycle_color_scheme().color_scheme is GlasshouseColorScheme.PHOSPHOR
+
+
+def test_glasshouse_preview_maps_entities_and_source_offsets_to_retained_trace_steps() -> None:
+    preview = GlasshouseDemoController.create().confirm_input_mode().open_workbench().deploy()
+    step = preview.advance_preview().pause_preview()
+
+    from_map = step.select_preview_entity(1)
+    span = from_map.preview_source_span()
+
+    assert from_map.preview_selected_entity_id == 1
+    assert from_map.selected_trace_node_id is not None
+    assert span is not None
+    from_source = from_map.select_preview_source_offset(ByteOffset(span.start.value))
+    assert from_source.selected_trace_node_id is not None
+    assert not from_source.preview_playing
