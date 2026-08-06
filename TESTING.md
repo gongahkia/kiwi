@@ -195,6 +195,7 @@ Keep UI tests focused:
 - archive-bound source selection, source-map highlights, and bitmap rendering;
 - retained trace-to-source and historical-source-to-related-event navigation;
 - compatibility-gated policy, state, consequence comparison, and bitmap rendering;
+- versioned UI/font scale settings, safe fallback, and bitmap settings rendering;
 - bounded undo and redo;
 - diagnostic navigation;
 - coordinate-to-source mapping;

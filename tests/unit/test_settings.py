@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from kiwi.app.settings import (
+    SettingsLoadFailureCode,
+    UiSettings,
+    decode_ui_settings,
+    encode_ui_settings,
+    load_ui_settings,
+    save_ui_settings,
+)
+
+
+def test_ui_settings_round_trip_and_render_scale() -> None:
+    settings = UiSettings(2, 3)
+
+    decoded = decode_ui_settings(encode_ui_settings(settings))
+
+    assert decoded.settings == settings
+    assert decoded.failure is None
+    assert settings.render_scale == 6
+    assert settings.font_pixel_height == 72
+
+
+def test_invalid_or_missing_settings_safely_use_defaults(tmp_path: Path) -> None:
+    invalid = decode_ui_settings(b"{")
+    missing = load_ui_settings(tmp_path / "missing.json")
+
+    assert invalid.settings == UiSettings()
+    assert invalid.failure is not None
+    assert invalid.failure.code is SettingsLoadFailureCode.INVALID_JSON
+    assert missing.settings == UiSettings()
+    assert missing.failure is not None
+    assert missing.failure.code is SettingsLoadFailureCode.READ_FAILED
+
+
+def test_settings_save_writes_canonical_json(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+
+    save_ui_settings(path, UiSettings(3, 2))
+
+    assert load_ui_settings(path).settings == UiSettings(3, 2)
