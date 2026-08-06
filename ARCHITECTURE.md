@@ -670,6 +670,10 @@ generic weapon inventories, bounded compiled DSL policies, and declared
 capabilities above that mission boundary. Policy sources remain closed DSL
 files and compilation failures are structured diagnostics.
 
+`kiwi.app.glasshouse_hostiles` appends three project-authored hostile
+roles using the same compiled policy binding, capability, memory, weapon, and
+headless execution interfaces as the player roster.
+
 ## 17. Editor architecture
 
 The MVP editor is project-owned and intentionally limited:

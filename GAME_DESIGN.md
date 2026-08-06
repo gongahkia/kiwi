@@ -453,6 +453,8 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 - Initial roles: Breach (breacher), Mender (medic), Scope (overwatch), and
   Lark (scout), each with a separate bundled DSL policy and magazine loadout.
 - Three to five hostiles.
+- The initial three hostile roles use the same closed policy concepts as the
+  squad: patrol, aim, and hold; they receive no hidden player-state access.
 - Compact structure with two entrances.
 - Several full and partial cover segments.
 - One objective item or protected room.
