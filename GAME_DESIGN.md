@@ -460,6 +460,7 @@ Enemy AI must not use hidden access to player state beyond scenario-defined obse
 - One objective item or protected room.
 - One extraction area.
 - One 90-second extraction-lockdown event.
+- Two permitted high-level signals: `advance` and `hold`.
 
 ### 13.2 Initial flawed kiwi
 
