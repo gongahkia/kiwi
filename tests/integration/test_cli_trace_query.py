@@ -102,6 +102,21 @@ def test_trace_query_command_reports_invalid_packets_and_target_ids(tmp_path: Pa
     assert invalid_target.stderr == "trace-query: target ID must be a positive integer\n"
 
 
+def test_trace_query_uses_the_last_complete_backup_when_the_primary_is_corrupt(
+    tmp_path: Path,
+) -> None:
+    trace_path = tmp_path / "fixture.ktrace"
+    encoded = encode_trace(_trace())
+    trace_path.with_name("fixture.ktrace.bak").write_bytes(encoded)
+    trace_path.write_bytes(b"invalid")
+
+    result = _run_trace_query(trace_path, "why-selected", "1")
+
+    assert result.returncode == 0
+    assert result.stderr == f"{trace_path}: recovered from {trace_path}.bak\n"
+    assert result.stdout.startswith("query: why-selected\n")
+
+
 def _run_trace_query(
     path: Path, query_name: str, target_id: str
 ) -> subprocess.CompletedProcess[str]:

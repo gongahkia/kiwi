@@ -929,7 +929,12 @@ The first implementation may use explicit annotations at entry points and local 
 
 ### O-009: Distribution and packaging
 
-Candidate desktop packaging approaches must be benchmarked after the vertical slice. Do not prematurely couple architecture to a packager.
+Provisional M15 selection: the measured macOS prototype uses PyInstaller 6.21.0
+to produce a one-directory arm64 application bundle with explicit render and
+Terminal-content collection. Its command, result, and release gaps are recorded
+in `PACKAGING.md`. The prototype does not alter authoritative code or make
+PyInstaller a project dependency; Developer ID signing, notarization, licence
+notices, release automation, and Linux/Windows evaluation remain open.
 
 ## 5. Decision rule for new features
 

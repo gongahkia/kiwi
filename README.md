@@ -45,7 +45,24 @@ Read these documents in order before implementation:
 
 Architecture decisions are recorded under [`docs/adr`](docs/adr).
 
-## Initial release shape
+- `PRD.md` — product requirements, scope, users, risks, success criteria, and vertical slice.
+- `GAME_DESIGN.md` — mission structure, player agency, operatives, combat, information, progression, and first scenario.
+- `DSL_SPEC.md` — functional language semantics, syntax, type system, compiler, bytecode, VM, and diagnostics.
+- `LANGUAGE_ROADMAP.md` — how the DSL can grow without invalidating the small-core design.
+- `ARCHITECTURE.md` — repository layout, module boundaries, dependency rules, runtime pipeline, and performance budgets.
+- `PYTHON_STACK.md` — Python, pygame-ce, dependency, performance, and packaging guidance.
+- `SIMULATION_SPEC.md` — deterministic time, entities, observations, intentions, movement, projectiles, cover, damage, and hashing.
+- `CAUSAL_DEBUGGER.md` — provenance model, trace levels, source linkage, queries, retention, and UI contract.
+- `UX_UI.md` — workbench, terminal, mission view, debugger, controls, accessibility, and bitmap-font direction.
+- `DATA_FORMATS.md` — source, bytecode, mission, replay, trace, save, and schema-versioning rules.
+- `TESTING.md` — test layers, determinism harnesses, compiler goldens, properties, performance, and CI.
+- `CONTRIBUTING.md` — contributor setup, focused validation, and review expectations.
+- `PACKAGING.md` — the measured macOS packaging prototype and release gaps.
+- `M15_EVIDENCE.md` — current milestone evidence and the recommended next slice.
+- `DECISIONS.md` — settled decisions, prohibited shortcuts, open decisions, and change process.
+- [GitHub Issues](https://github.com/gongahkia/kiwi/issues) — gated implementation milestones, tasks, and exit evidence.
+- `AGENTS.md` — rules for Codex and other repository agents.
+- `CODEX_HANDOFF.md` — exact initial prompt and recommended implementation workflow.
 
 The first credible public release should include:
 
@@ -139,6 +156,13 @@ Parse a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli p
 
 Type-check and lower a DSL source file headlessly with `uv run --extra dev python -m kiwi.cli check path/to/policy.dtr`; successful checks emit stable core and source-map output and invalid input emits structured diagnostics.
 
+Validate untrusted policy projects and supported content without importing pygame
+with `uv run --extra dev python -m kiwi.cli validate path/to/kiwi.policy.json`.
+The command also accepts individual `.dtr`, `.dmission.json`, and `.kfixture.json`
+files or directories containing them. It validates manifest paths under the project
+root, parameters JSON, every declared source, and each declared `policy` entry;
+it never executes player source.
+
 Compile a type-clean source file with `uv run --extra dev python -m kiwi.cli compile path/to/policy.dtr`. Add `--output path/to/policy.kbc` to write the canonical `KWI-BC\0` bytecode payload; without it, the command reports the exact encoded byte count. Inspect compiled source with `uv run --extra dev python -m kiwi.cli disassemble path/to/policy.dtr`.
 
 Run a named compiled entry headlessly with `uv run --extra dev python -m kiwi.cli run-policy path/to/policy.dtr entry --arg true`. Repeat `--arg` in parameter order; command-line arguments currently accept decimal integers, `true`, `false`, and `unit`. Milestone 4 source also supports strings, exact `ms`, `s`, `m`, `deg`, and `%` quantity literals; checked exact `+`, `-`, `<`, `<=`, `>`, and `>=` domain operations; built-in `Position { x, y }` and `Vector { dx, dy }` records; nominal immutable records declared with `type Name = { field: Type }`; closed `Option<T>` values using `Some(value)` or contextually typed `None`; exhaustive `match value with | Some(item) -> ... | None -> ...`; immutable `List<T>` literals such as `[1, 2]`; context-typed anonymous functions such as `fn item -> item`; and `value |> function(args...)` pipelines. Output renders closed runtime values. The command never evaluates Python source.
@@ -162,4 +186,4 @@ bytecode decodes with its original semantics but cannot contain version-2
 values, types, or instructions. Check the complete version-2 language example
 with `uv run --extra dev python -m kiwi.cli check examples/policies/m4-language.dtr`.
 
-Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. pygame-ce is LGPL-2.1; packaging is deferred until after the vertical slice, when licence notices and distribution effects will be evaluated. The bundled BigBlue Terminal font is CC-BY-SA-4.0; its exact licence, attribution, source release, and SHA-256 are in `kiwi.render`'s packaged asset manifest.
+Development versions are resolved in `uv.lock`; refresh them deliberately with `uv lock --upgrade`. The current macOS packaging prototype uses PyInstaller 6.21.0 without adding it as a project dependency; see `PACKAGING.md` for its measured arm64 result, reproducible command, and the remaining Developer ID signing and notarization work. pygame-ce is LGPL-2.1. The bundled BigBlue Terminal font is CC-BY-SA-4.0; its exact licence, attribution, source release, and SHA-256 are in `kiwi.render`'s packaged asset manifest.

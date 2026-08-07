@@ -43,6 +43,23 @@ def test_settings_save_writes_canonical_json(tmp_path: Path) -> None:
     assert load_ui_settings(path).settings == UiSettings(3, 2)
 
 
+def test_corrupt_settings_recover_from_the_last_complete_backup(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    first = UiSettings(2, 1)
+
+    assert save_ui_settings(path, first).failure is None
+    assert save_ui_settings(path, UiSettings(3, 1)).failure is None
+    path.write_text("{", encoding="utf-8")
+
+    recovered = load_ui_settings(path)
+
+    assert recovered.settings == first
+    assert recovered.failure is not None
+    assert recovered.failure.code is SettingsLoadFailureCode.INVALID_JSON
+    assert recovered.recovered_from_backup
+    assert load_ui_settings(path).settings == first
+
+
 def test_v1_settings_migrate_to_default_crt_preferences() -> None:
     decoded = decode_ui_settings(
         b'{"font_scale":2,"format":"kiwi-settings","ui_scale":3,"version":1}'

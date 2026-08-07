@@ -7,6 +7,8 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 
+from kiwi.app.persistence import RecoverableWriteFailure, backup_path, write_recoverable_file
+
 SETTINGS_FORMAT = "kiwi-settings"
 SETTINGS_VERSION = 2
 MAX_SETTINGS_BYTES = 65_536
@@ -84,12 +86,28 @@ class SettingsLoadFailure:
 class SettingsLoadResult:
     settings: UiSettings
     failure: SettingsLoadFailure | None = None
+    recovered_from_backup: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.settings, UiSettings):
             raise TypeError("settings load result requires UI settings")
         if self.failure is not None and not isinstance(self.failure, SettingsLoadFailure):
             raise TypeError("settings load result failure is invalid")
+        if not isinstance(self.recovered_from_backup, bool):
+            raise TypeError("settings recovery state must be boolean")
+        if self.recovered_from_backup and self.failure is None:
+            raise ValueError("settings backup recovery requires an original load failure")
+
+
+@dataclass(frozen=True, slots=True)
+class SettingsSaveResult:
+    """One non-throwing local settings write result."""
+
+    failure: RecoverableWriteFailure | None = None
+
+    def __post_init__(self) -> None:
+        if self.failure is not None and not isinstance(self.failure, RecoverableWriteFailure):
+            raise TypeError("settings save result failure is invalid")
 
 
 def encode_ui_settings(settings: UiSettings) -> bytes:
@@ -160,6 +178,17 @@ def load_ui_settings(path: Path) -> SettingsLoadResult:
     """Load one bounded settings file, safely falling back to defaults."""
     if not isinstance(path, Path):
         raise TypeError("settings path must be a Path")
+    primary = _load_ui_settings_file(path)
+    if primary.failure is None:
+        return primary
+    backup = _load_ui_settings_file(backup_path(path))
+    if backup.failure is not None:
+        return primary
+    write_recoverable_file(path, encode_ui_settings(backup.settings), retain_backup=False)
+    return SettingsLoadResult(backup.settings, primary.failure, recovered_from_backup=True)
+
+
+def _load_ui_settings_file(path: Path) -> SettingsLoadResult:
     try:
         data = path.read_bytes()
     except OSError:
@@ -167,11 +196,13 @@ def load_ui_settings(path: Path) -> SettingsLoadResult:
     return decode_ui_settings(data)
 
 
-def save_ui_settings(path: Path, settings: UiSettings) -> None:
+def save_ui_settings(path: Path, settings: UiSettings) -> SettingsSaveResult:
     """Write one canonical settings file at the application IO boundary."""
     if not isinstance(path, Path):
         raise TypeError("settings path must be a Path")
-    path.write_bytes(encode_ui_settings(settings))
+    if not isinstance(settings, UiSettings):
+        raise TypeError("settings save requires UI settings")
+    return SettingsSaveResult(write_recoverable_file(path, encode_ui_settings(settings)))
 
 
 def _failed(code: SettingsLoadFailureCode, message: str) -> SettingsLoadResult:

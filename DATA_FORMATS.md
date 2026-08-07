@@ -65,7 +65,7 @@ compatibility decoder and it is never reinterpreted as current source.
 
 ## 5. Policy project manifest
 
-Suggested file: `kiwi.policy.json`
+Implemented file: `kiwi.policy.json`
 
 Fields:
 
@@ -82,7 +82,19 @@ Fields:
 }
 ```
 
-The manifest must not allow arbitrary paths outside the policy root.
+The version-1 loader accepts exactly the shown fields. `name` is lowercase ASCII
+text with optional interior hyphens; entry names and referenced policy names are
+lowercase ASCII identifiers. Each entry reference is a POSIX
+`relative/path.dtr#policy_name` value. The optional `parameters` field is a
+root-confined relative `.json` path whose decoded value must be an object.
+
+The loader rejects duplicate JSON fields, unsupported versions, absolute paths,
+backslashes, `.` or `..` segments, missing files, and paths that escape through
+symlinks. It compiles every declared source through the closed DSL pipeline and
+requires each referenced entry to appear in that source's capability manifest
+as a declared `policy`, not merely any function. `kiwi validate` reports
+stable manifest diagnostics alongside ordinary DSL diagnostics with their
+original source spans. Validation never executes player source.
 
 ## 6. Compiled policy bundle
 
@@ -264,6 +276,12 @@ recording and verification inputs. Embedded seek snapshots, trace manifests,
 content loading, divergence reports, and completion summaries remain deferred
 to their owning replay milestones.
 
+`replay-record` rotates its prior complete primary packet to an adjacent
+`.drun.bak` before atomically replacing the primary. Replay reader commands
+may use that backup only when the primary cannot be read or decoded and the
+backup passes the same strict decoder; they print the recovery source to
+standard error and never rewrite the requested replay as a side effect.
+
 Verification restores the initial snapshot, requires the supplied
 entity-ID-ordered policy binding versions to match the packet, re-executes the
 canonical command log at the recorded fixed rate, and compares every checkpoint
@@ -345,6 +363,11 @@ before serialisation; the resulting packet stores no mutable retention range.
 Trace data does not affect authoritative state hashes. Capturing trace must not
 change simulation semantics.
 
+When a trace-query primary packet cannot be read or decoded, the CLI may use an
+adjacent `.bak` packet only if it passes the same strict trace decoder. The
+command reports that recovery on standard error and does not repair or alter
+either trace file.
+
 ## 12. Historical source
 
 Historical source navigation uses a replay-hash-bound `.dsrc` sidecar described
@@ -372,6 +395,12 @@ Do not mix replay authority with mutable campaign convenience data.
 
 `kiwi-terminal-codex` version `1` is local presentation progress only. It stores a lexical, unique, validated list of shipped lore-drop IDs and no mission state, source, replay, or authority hash. Unknown IDs, duplicate IDs, invalid JSON, and unsupported versions are rejected.
 
+The application writes the codex through an adjacent `.bak` last-complete copy.
+If the primary is corrupt or absent after an interrupted write and the backup
+validates, it loads the backup, restores the primary atomically where possible,
+and presents a concise recovery notice instead of a traceback. If neither copy
+validates, no progress is silently invented or discarded.
+
 ## 15. Settings
 
 Settings v2 use canonical UTF-8 JSON with exactly `format` (`kiwi-settings`),
@@ -390,6 +419,11 @@ Settings are non-authoritative. Examples:
 - key bindings;
 - accessibility preferences;
 - last opened policy.
+
+Settings use the same adjacent `.bak` recovery scheme as the codex. A valid
+backup is restored only after the primary fails its normal bounded decode and
+validation path; a missing first-run settings file still uses defaults without
+an application error notice.
 
 
 ## 16. Asset manifest

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+from pytest import MonkeyPatch
+
 from kiwi.app.terminal_demo import (
     TerminalColorScheme,
     TerminalDemoController,
     TerminalDemoScreen,
     TerminalInputMode,
+    _content_root,
 )
 from kiwi.dsl.source import ByteOffset
 from kiwi.trace.comparison import ConsequenceDifferenceKind
@@ -176,3 +182,15 @@ def test_terminal_preview_emits_one_presentation_feedback_pulse_for_an_impact() 
 
     assert impact.preview_feedback_pulse == 1
     assert impact.current_run == preview.current_run
+
+
+def test_terminal_content_root_uses_a_frozen_bundle_only_when_not_explicitly_supplied(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    bundled = tmp_path / "bundle"
+    explicit = tmp_path / "explicit"
+    monkeypatch.setattr(sys, "_MEIPASS", str(bundled), raising=False)
+
+    assert _content_root(None) == bundled
+    assert _content_root(explicit) == explicit
