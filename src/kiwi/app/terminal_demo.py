@@ -5,13 +5,27 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from hashlib import blake2b
 from pathlib import Path
 from platform import system
 
 from kiwi.app.challenge_results import ChallengeHistory, ChallengeOutcome, ChallengeResult
 from kiwi.app.terminal_codex import TerminalCodex, terminal_lore_unlocks
+from kiwi.app.terminal_feedback import (
+    TerminalCausalReceipt,
+    TerminalForecast,
+    terminal_causal_receipt,
+    terminal_forecast,
+)
+from kiwi.app.terminal_levels import (
+    TerminalLevelId,
+    TerminalPracticeLevel,
+    TerminalPracticeSignal,
+    terminal_practice_level,
+)
 from kiwi.app.terminal_players import PLAYER_MEMORY_SCHEMA
-from kiwi.app.terminal_workbench import build_terminal_workbench
+from kiwi.app.terminal_progress import TerminalProgress
+from kiwi.app.terminal_workbench import build_terminal_practice_workbench, build_terminal_workbench
 from kiwi.domain.geometry import WorldPosition, WorldRectangle, WorldSubunits
 from kiwi.domain.ids import TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader
@@ -34,7 +48,14 @@ from kiwi.replay.source_archive import (
     build_source_archive,
 )
 from kiwi.sim.clock import FixedTickClock, TickRate
-from kiwi.sim.commands import CommandHeader, CommandSource, StartMission
+from kiwi.sim.commands import (
+    CommandHeader,
+    CommandSource,
+    ExternalCommand,
+    IssueSignal,
+    SignalName,
+    StartMission,
+)
 from kiwi.sim.conditions import OperativeCondition, OperativeConditionStore
 from kiwi.sim.contacts import (
     ContactConfidence,
@@ -85,13 +106,12 @@ from kiwi.ui.terminal_revision import (
     guided_source_revision,
 )
 from kiwi.ui.terminal_tutorial import TERMINAL_LANGUAGE_TUTORIAL, TerminalTutorial
-from kiwi.ui.terminal_workbench import TerminalFlowPhase, TerminalWorkbench
+from kiwi.ui.terminal_workbench import TerminalBriefing, TerminalFlowPhase, TerminalWorkbench
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _ENEMY_SOURCE_ID = "examples/policies/terminal/causal_drill_enemy.dtr"
 _DEMO_APPLICATION_BUILD = "terminal-demo"
 _DEMO_SIMULATION_VERSION = "sim-v1"
-_DEMO_MISSION_HASH = b"terminal-causal-drill-demo-v1!!!"
 _DEMO_TICKS = 2
 _ENEMY_MEMORY_SCHEMA = MemorySchema("Memory", (MemoryField("fired", BuiltinType.BOOL),))
 
@@ -100,6 +120,8 @@ class TerminalDemoScreen(StrEnum):
     """The finite non-authoritative screens in the manual Terminal drill."""
 
     INPUT_SETUP = "input_setup"
+    LEVEL_SELECT = "level_select"
+    LEVEL_INTRO = "level_intro"
     LOADING = "loading"
     BRIEFING = "briefing"
     LIVE_PREVIEW = "live_preview"
@@ -109,6 +131,7 @@ class TerminalDemoScreen(StrEnum):
     COMPARISON = "comparison"
     RESULTS = "results"
     CODEX = "codex"
+    RECEIPT = "receipt"
 
 
 class TerminalInputMode(StrEnum):
@@ -187,6 +210,10 @@ class TerminalDemoController:
     workbench: TerminalWorkbench
     input_mode: TerminalInputMode
     detected_platform: str
+    level: TerminalPracticeLevel = terminal_practice_level(TerminalLevelId.FIRST_LINK)
+    progress: TerminalProgress = TerminalProgress()
+    session_seen_level_ids: tuple[TerminalLevelId, ...] = ()
+    selected_practice_signal: TerminalPracticeSignal | None = None
     tutorial: TerminalTutorial = TERMINAL_LANGUAGE_TUTORIAL
     current_run: TerminalDemoRun | None = None
     baseline_run: TerminalDemoRun | None = None
@@ -198,6 +225,7 @@ class TerminalDemoController:
     preview_rotation_quarters: int = 0
     preview_zoom_percent: int = 100
     preview_feedback_pulse: int = 0
+    editor_feedback_pulse: int = 0
     selected_trace_node_id: TraceNodeId | None = None
     preview_selected_entity_id: int | None = None
     result_history: ChallengeHistory = ChallengeHistory()
@@ -214,6 +242,27 @@ class TerminalDemoController:
             raise TypeError("Terminal demo input mode is invalid")
         if not isinstance(self.detected_platform, str) or not self.detected_platform:
             raise ValueError("Terminal demo detected platform must be text")
+        if not isinstance(self.level, TerminalPracticeLevel):
+            raise TypeError("Terminal demo level is invalid")
+        if not isinstance(self.progress, TerminalProgress):
+            raise TypeError("Terminal demo progress is invalid")
+        if not isinstance(self.session_seen_level_ids, tuple):
+            raise TypeError("Terminal demo seen-level IDs must be immutable")
+        if any(
+            not isinstance(level_id, TerminalLevelId) for level_id in self.session_seen_level_ids
+        ):
+            raise TypeError("Terminal demo seen-level IDs are invalid")
+        if len(set(self.session_seen_level_ids)) != len(self.session_seen_level_ids):
+            raise ValueError("Terminal demo seen-level IDs must be unique")
+        if self.selected_practice_signal is not None and not isinstance(
+            self.selected_practice_signal, TerminalPracticeSignal
+        ):
+            raise TypeError("Terminal demo practice signal is invalid")
+        if (
+            self.selected_practice_signal is not None
+            and self.selected_practice_signal not in self.level.permitted_signals
+        ):
+            raise ValueError("Terminal demo practice signal is unavailable for this level")
         if not isinstance(self.tutorial, TerminalTutorial):
             raise TypeError("Terminal demo tutorial is invalid")
         if self.current_run is not None and not isinstance(self.current_run, TerminalDemoRun):
@@ -254,6 +303,12 @@ class TerminalDemoController:
             or self.preview_feedback_pulse < 0
         ):
             raise ValueError("Terminal demo preview feedback pulse is invalid")
+        if (
+            not isinstance(self.editor_feedback_pulse, int)
+            or isinstance(self.editor_feedback_pulse, bool)
+            or self.editor_feedback_pulse < 0
+        ):
+            raise ValueError("Terminal demo editor feedback pulse is invalid")
         if self.selected_trace_node_id is not None and not isinstance(
             self.selected_trace_node_id, TraceNodeId
         ):
@@ -270,9 +325,15 @@ class TerminalDemoController:
             raise TypeError("Terminal demo codex is invalid")
         if not isinstance(self.notice, str):
             raise TypeError("Terminal demo notice must be text")
-        if self.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
+        if self.screen in (
+            TerminalDemoScreen.INPUT_SETUP,
+            TerminalDemoScreen.LEVEL_INTRO,
+            TerminalDemoScreen.BRIEFING,
+        ):
             if self.workbench.phase is not TerminalFlowPhase.BRIEFING:
                 raise ValueError("Terminal demo pre-workbench screens require a briefing workbench")
+        elif self.screen is TerminalDemoScreen.LEVEL_SELECT:
+            pass
         elif self.workbench.phase is not TerminalFlowPhase.WORKBENCH:
             raise ValueError("Terminal demo screens after briefing require an open workbench")
         if (
@@ -282,6 +343,7 @@ class TerminalDemoController:
                 TerminalDemoScreen.DEBRIEF,
                 TerminalDemoScreen.COMPARISON,
                 TerminalDemoScreen.RESULTS,
+                TerminalDemoScreen.RECEIPT,
             )
             and self.current_run is None
         ):
@@ -304,6 +366,7 @@ class TerminalDemoController:
         repository_root: Path | None = None,
         platform_name: str | None = None,
         codex: TerminalCodex | None = None,
+        progress: TerminalProgress | None = None,
     ) -> TerminalDemoController:
         """Load the shipped policies into platform-aware input setup."""
         resolved_platform = system() if platform_name is None else platform_name
@@ -311,6 +374,8 @@ class TerminalDemoController:
             raise TypeError("Terminal demo platform name must be text")
         if codex is not None and not isinstance(codex, TerminalCodex):
             raise TypeError("Terminal demo codex is invalid")
+        if progress is not None and not isinstance(progress, TerminalProgress):
+            raise TypeError("Terminal demo progress is invalid")
         input_mode = (
             TerminalInputMode.STANDARD
             if resolved_platform == "Darwin"
@@ -318,9 +383,10 @@ class TerminalDemoController:
         )
         return cls(
             TerminalDemoScreen.INPUT_SETUP,
-            load_terminal_workbench(_content_root(repository_root)),
+            load_terminal_workbench(_content_root(repository_root), TerminalLevelId.FIRST_LINK),
             input_mode,
             resolved_platform,
+            progress=TerminalProgress() if progress is None else progress,
             codex=TerminalCodex() if codex is None else codex,
         )
 
@@ -333,10 +399,66 @@ class TerminalDemoController:
         return replace(self, input_mode=input_mode)
 
     def confirm_input_mode(self) -> TerminalDemoController:
-        """Advance from local shortcut selection to the fixed mission briefing."""
+        """Advance from shortcuts into onboarding or the open practice dossier."""
         if self.screen is not TerminalDemoScreen.INPUT_SETUP:
             return self
+        if self.progress.onboarding_complete:
+            return replace(self, screen=TerminalDemoScreen.LEVEL_SELECT, notice="")
+        return self.select_level(TerminalLevelId.FIRST_LINK)
+
+    def select_level(
+        self, level_id: TerminalLevelId, repository_root: Path | None = None
+    ) -> TerminalDemoController:
+        """Open an available practice level through its session-gated introduction."""
+        if self.screen not in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.LEVEL_SELECT):
+            return self
+        if not isinstance(level_id, TerminalLevelId):
+            raise TypeError("Terminal practice level ID is invalid")
+        level = terminal_practice_level(level_id)
+        if not level.onboarding and not self.progress.onboarding_complete:
+            return replace(self, notice="Complete First Link before opening practice missions.")
+        opened = replace(
+            self,
+            level=level,
+            workbench=load_terminal_workbench(_content_root(repository_root), level_id),
+            current_run=None,
+            baseline_run=None,
+            comparison=None,
+            preview_snapshot_index=0,
+            preview_playing=False,
+            preview_stale=False,
+            selected_trace_node_id=None,
+            preview_selected_entity_id=None,
+            selected_practice_signal=(
+                TerminalPracticeSignal.HOLD
+                if TerminalPracticeSignal.HOLD in level.permitted_signals
+                else None
+            ),
+            notice="",
+        )
+        if level_id in self.session_seen_level_ids:
+            return replace(opened, screen=TerminalDemoScreen.BRIEFING)
+        return replace(
+            opened,
+            screen=TerminalDemoScreen.LEVEL_INTRO,
+            session_seen_level_ids=(*self.session_seen_level_ids, level_id),
+        )
+
+    def continue_level_intro(self) -> TerminalDemoController:
+        """Dismiss the finite presentation-only level intro into its briefing."""
+        if self.screen is not TerminalDemoScreen.LEVEL_INTRO:
+            return self
         return replace(self, screen=TerminalDemoScreen.BRIEFING, notice="")
+
+    def open_level_select(self) -> TerminalDemoController:
+        """Return to the open practice dossier after completing onboarding."""
+        if not self.progress.onboarding_complete:
+            return self
+        if self.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.LEVEL_INTRO):
+            return self
+        return replace(
+            self, screen=TerminalDemoScreen.LEVEL_SELECT, preview_playing=False, notice=""
+        )
 
     def open_live_preview(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Advance from briefing directly to the default code-and-preview screen."""
@@ -347,7 +469,7 @@ class TerminalDemoController:
             screen=TerminalDemoScreen.LIVE_PREVIEW,
             workbench=self.workbench.open_workbench(),
             preview_playing=False,
-            notice="Loading Lark's deterministic route preview.",
+            notice=f"Loading {self.level.title}'s deterministic route preview.",
         )
         return opened.deploy(repository_root)
 
@@ -463,7 +585,12 @@ class TerminalDemoController:
         """Compile all policies and open their deterministic two-tick live preview."""
         if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
-        result = run_terminal_causal_drill(self.workbench, _content_root(repository_root))
+        result = run_terminal_causal_drill(
+            self.workbench,
+            _content_root(repository_root),
+            self.level.level_id,
+            self.selected_practice_signal,
+        )
         if isinstance(result, TerminalDemoDeploymentFailure):
             return replace(
                 self,
@@ -493,7 +620,12 @@ class TerminalDemoController:
         """Recompile and rerun an enabled preview after one immutable source edit."""
         if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
-        result = run_terminal_causal_drill(self.workbench, _content_root(repository_root))
+        result = run_terminal_causal_drill(
+            self.workbench,
+            _content_root(repository_root),
+            self.level.level_id,
+            self.selected_practice_signal,
+        )
         if isinstance(result, TerminalDemoDeploymentFailure):
             return replace(
                 self,
@@ -517,6 +649,19 @@ class TerminalDemoController:
             hot_reload_enabled=enabled,
             notice=f"Hot reload {'enabled' if enabled else 'paused'}.",
         )
+
+    def select_practice_signal(
+        self, signal: TerminalPracticeSignal, repository_root: Path | None = None
+    ) -> TerminalDemoController:
+        """Record one permitted high-level input, then refresh its deterministic preview."""
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
+            return self
+        if not isinstance(signal, TerminalPracticeSignal):
+            raise TypeError("Terminal practice signal is invalid")
+        if signal not in self.level.permitted_signals:
+            return self
+        selected = replace(self, selected_practice_signal=signal, preview_playing=False)
+        return selected.deploy(repository_root)
 
     def rotate_preview(self, direction: int = 1) -> TerminalDemoController:
         """Rotate the renderer-only isometric view without changing a recorded run."""
@@ -670,13 +815,17 @@ class TerminalDemoController:
             )
         )
         baseline = result if self.baseline_run is None else self.baseline_run
+        completed_onboarding = self.level.onboarding and not isinstance(
+            result.debrief, TerminalDebrief
+        )
+        progress = self.progress.complete_onboarding() if completed_onboarding else self.progress
         result_notice = notice or (
-            "Try it: Lark's 1m route decision is selected. Type 0 to avoid exposed ICE."
+            self.level.try_prompt
             if self.baseline_run is None
             else (
-                "Lark's daemon was damaged. Open the debrief to inspect why."
+                "The receipt now connects your code path to the retained consequence."
                 if isinstance(result.debrief, TerminalDebrief)
-                else "No injury retained. Compare this controlled rerun with the baseline."
+                else "Safe route retained. Open the receipt or compare this controlled rerun."
             )
         )
         compiled_workbench = _compile_all_policies(self.workbench)
@@ -696,15 +845,19 @@ class TerminalDemoController:
             preview_snapshot_index=0,
             preview_playing=True,
             preview_stale=False,
+            progress=progress,
+            editor_feedback_pulse=self.editor_feedback_pulse + 1,
             selected_trace_node_id=None,
             preview_selected_entity_id=None,
             result_history=self.result_history.append(
-                _result_for_demo_run(result, compiled_workbench)
+                _result_for_demo_run(result, compiled_workbench, self.level.level_id)
             ),
             codex=updated_codex,
             notice=(
                 f"Data shard recovered: {unlocked[0]}. Press L for codex."
                 if unlocked
+                else "First Link complete. Press F4 for open practice."
+                if completed_onboarding
                 else result_notice
             ),
         )
@@ -788,12 +941,39 @@ class TerminalDemoController:
             return self
         return replace(self, screen=TerminalDemoScreen.RESULTS, preview_playing=False, notice="")
 
+    def forecast(self) -> TerminalForecast | None:
+        """Return the current trace-backed forecast without exposing hidden authority state."""
+        if self.current_run is None:
+            return None
+        return terminal_forecast(self.level, self.current_run.trace)
+
+    def causal_receipt(self) -> TerminalCausalReceipt | None:
+        """Return one retained source-to-outcome receipt for the shown run."""
+        if self.current_run is None:
+            return None
+        return terminal_causal_receipt(self.current_run.trace)
+
+    def open_receipt(self) -> TerminalDemoController:
+        """Show the compact trace-backed consequence receipt for the active level."""
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW or self.current_run is None:
+            return self
+        return replace(self, screen=TerminalDemoScreen.RECEIPT, preview_playing=False, notice="")
+
+    def close_receipt(self) -> TerminalDemoController:
+        """Return from a receipt to unchanged source and preview state."""
+        if self.screen is not TerminalDemoScreen.RECEIPT:
+            return self
+        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW, notice="")
+
     def open_codex(self) -> TerminalDemoController:
         """Inspect local lore progress without exposing authority state."""
-        if self.screen in (
-            TerminalDemoScreen.INPUT_SETUP,
-            TerminalDemoScreen.LOADING,
-            TerminalDemoScreen.CODEX,
+        if self.screen not in (
+            TerminalDemoScreen.LIVE_PREVIEW,
+            TerminalDemoScreen.MISSION,
+            TerminalDemoScreen.DEBRIEF,
+            TerminalDemoScreen.COMPARISON,
+            TerminalDemoScreen.RESULTS,
+            TerminalDemoScreen.RECEIPT,
         ):
             return self
         return replace(self, screen=TerminalDemoScreen.CODEX, preview_playing=False, notice="")
@@ -813,6 +993,7 @@ class TerminalDemoController:
             TerminalDemoScreen.COMPARISON,
             TerminalDemoScreen.RESULTS,
             TerminalDemoScreen.CODEX,
+            TerminalDemoScreen.RECEIPT,
             TerminalDemoScreen.LOADING,
         ):
             return self
@@ -830,7 +1011,9 @@ def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> S
     )
 
 
-def _result_for_demo_run(run: TerminalDemoRun, workbench: TerminalWorkbench) -> ChallengeResult:
+def _result_for_demo_run(
+    run: TerminalDemoRun, workbench: TerminalWorkbench, level_id: TerminalLevelId
+) -> ChallengeResult:
     """Project one recorded drill into explicit local tactical and code metrics."""
     artifacts = tuple(
         output.artifact
@@ -842,8 +1025,10 @@ def _result_for_demo_run(run: TerminalDemoRun, workbench: TerminalWorkbench) -> 
     evaluations = tuple(
         event for event in run.recorded.run.events if isinstance(event, PolicyEvaluated)
     )
+    if not isinstance(level_id, TerminalLevelId):
+        raise TypeError("Terminal result level ID is invalid")
     return ChallengeResult(
-        "practice_0",
+        f"practice_{level_id.value}",
         hash_canonical_state(run.recorded.run.state).hex,
         ChallengeOutcome.FAILURE
         if isinstance(run.debrief, TerminalDebrief)
@@ -882,26 +1067,63 @@ def _scout_caution_span(source: SourceFile) -> SourceSpan | None:
     )
 
 
-def load_terminal_workbench(repository_root: Path | None = None) -> TerminalWorkbench:
-    """Read the four shipped player policies at the application IO boundary."""
+def load_terminal_workbench(
+    repository_root: Path | None = None,
+    level_id: TerminalLevelId = TerminalLevelId.TERMINAL,
+) -> TerminalWorkbench:
+    """Read the shipped policy bundle under one authored practice-level brief."""
     root = _content_root(repository_root)
+    if not isinstance(level_id, TerminalLevelId):
+        raise TypeError("Terminal workbench level ID is invalid")
+    source_root = _practice_source_root(level_id)
     source_ids = tuple(
-        "examples/policies/terminal/" + name + ".dtr"
-        for name in ("breacher", "medic", "overwatch", "scout")
+        source_root + name + ".dtr" for name in ("breacher", "medic", "overwatch", "scout")
     )
     sources = tuple(_read_source(root, source_id) for source_id in source_ids)
-    return build_terminal_workbench(sources)
+    level = terminal_practice_level(level_id)
+    workbench = (
+        build_terminal_workbench(sources)
+        if level_id in (TerminalLevelId.FIRST_LINK, TerminalLevelId.TERMINAL)
+        else build_terminal_practice_workbench(sources)
+    )
+    return replace(
+        workbench,
+        briefing=TerminalBriefing(
+            level.title,
+            level.objective,
+            level.time_pressure,
+            level.known_threats,
+        ),
+    )
+
+
+def _practice_source_root(level_id: TerminalLevelId) -> str:
+    """Resolve one shipped practice bundle without filesystem discovery."""
+    if not isinstance(level_id, TerminalLevelId):
+        raise TypeError("Terminal practice source-root level ID is invalid")
+    if level_id in (TerminalLevelId.FIRST_LINK, TerminalLevelId.TERMINAL):
+        return "examples/policies/terminal/"
+    return f"examples/policies/practice/{level_id.value}/"
 
 
 def run_terminal_causal_drill(
     workbench: TerminalWorkbench,
     repository_root: Path | None = None,
+    level_id: TerminalLevelId = TerminalLevelId.TERMINAL,
+    practice_signal: TerminalPracticeSignal | None = None,
 ) -> TerminalDemoDeploymentResult:
     """Record the explainable two-tick scout threshold drill from current source buffers."""
     if not isinstance(workbench, TerminalWorkbench):
         raise TypeError("Terminal causal drill requires a workbench")
     if workbench.phase is not TerminalFlowPhase.WORKBENCH:
         raise ValueError("Terminal causal drill requires an open workbench")
+    if not isinstance(level_id, TerminalLevelId):
+        raise TypeError("Terminal causal drill level ID is invalid")
+    level = terminal_practice_level(level_id)
+    if practice_signal is not None and not isinstance(practice_signal, TerminalPracticeSignal):
+        raise TypeError("Terminal causal drill practice signal is invalid")
+    if practice_signal is not None and practice_signal not in level.permitted_signals:
+        raise ValueError("Terminal causal drill practice signal is unavailable")
     root = _content_root(repository_root)
     compiled = _compile_all_policies(workbench)
     if any(output is None or not output.succeeded for output in compiled.compile_outputs):
@@ -931,14 +1153,21 @@ def run_terminal_causal_drill(
             ),
         )
     )
+    commands: list[ExternalCommand] = [StartMission(CommandHeader(0, 0, CommandSource.SCENARIO))]
+    if practice_signal is TerminalPracticeSignal.ADVANCE:
+        commands.append(
+            IssueSignal(
+                CommandHeader(0, 1, CommandSource.PLAYER), SignalName("advance"), player.entity_id
+            )
+        )
     recorded = record_headless_run(
         initial_state,
         FixedTickClock(TickRate.HZ_30),
         _DEMO_TICKS,
         application_build=_DEMO_APPLICATION_BUILD,
         simulation_version=_DEMO_SIMULATION_VERSION,
-        mission_hash=_DEMO_MISSION_HASH,
-        commands=(StartMission(CommandHeader(0, 0, CommandSource.SCENARIO)),),
+        mission_hash=_practice_level_mission_hash(level_id),
+        commands=tuple(commands),
         policy_bindings=bindings,
     )
     trace = capture_run_trace(recorded.run, hash_canonical_state(recorded.run.state))
@@ -953,6 +1182,15 @@ def run_terminal_causal_drill(
     )
     snapshots = _presentation_snapshots(recorded)
     return TerminalDemoRun(recorded, trace, archive, snapshots, terminal_debrief(trace))
+
+
+def _practice_level_mission_hash(level_id: TerminalLevelId) -> bytes:
+    """Bind a replay to the explicit practice level without involving renderer state."""
+    if not isinstance(level_id, TerminalLevelId):
+        raise TypeError("Terminal practice mission-hash level ID is invalid")
+    return blake2b(
+        f"kiwi-terminal-practice-v1:{level_id.value}".encode("ascii"), digest_size=32
+    ).digest()
 
 
 def _presentation_snapshots(recorded: RecordedReplay) -> tuple[PresentationSnapshot, ...]:

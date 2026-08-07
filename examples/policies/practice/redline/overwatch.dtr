@@ -1,0 +1,8 @@
+type SelfObservation = { entity_id: Int, position: Position }
+type Observation = { self: SelfObservation, tick: Int }
+type Memory = { label: String }
+type Aim = {}
+type Decision = { intentions: List<Aim>, memory: Memory }
+
+policy observe(observation: Observation, memory: Memory) -> Decision =
+  Decision { intentions = [Aim {}], memory = memory }

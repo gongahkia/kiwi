@@ -19,7 +19,7 @@ Use `make benchmark` or `uv run --extra dev python -m kiwi.cli benchmark source.
 
 ### 2.0.1 Manual Terminal usability drill
 
-Use `make terminal` for an observer-led local session. After the briefing opens the default live preview, ask the participant to explain the `1m` uncertainty threshold, identify the source selected by the injury debrief, change only `1m` to `0m`, and explain the resulting replay comparison. Record task completion, observed confusion, and verbatim feedback outside the repository with participant consent; do not commit personal data or claim results that were not collected.
+Use `make terminal` for an observer-led local session. Observe a participant completing First Link, selecting a practice level, and explaining the level's known/inferred/unknown forecast labels. Ask them to identify the source selected by the injury debrief, change only `1m` to `0m`, explain the causal receipt, and use Redline's Advance or Hold policy input. Record task completion, observed confusion, and verbatim feedback outside the repository with participant consent; do not commit personal data or claim results that were not collected.
 
 ### 2.1 Unit tests
 

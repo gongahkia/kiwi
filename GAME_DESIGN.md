@@ -37,7 +37,9 @@ Kiwi is:
 ## 3. Core loop
 
 ```text
-Briefing
+Onboarding or open practice selection
+  -> skippable level intro
+  -> briefing
   -> daemon bundle and access profile
   -> kiwi editing
   -> compilation and tests
@@ -45,7 +47,7 @@ Briefing
   -> consequence selection
   -> causal explanation
   -> code revision
-  -> controlled rerun or campaign continuation
+  -> controlled rerun or open-practice continuation
 ```
 
 The player should spend meaningful time in both the workbench and the mission view. Neither should feel like a menu attached to the other.

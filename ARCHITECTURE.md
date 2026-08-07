@@ -732,6 +732,9 @@ source separately and returns a typed result instead of applying historical
 offsets after current source text diverges. The workbench renderer underlines
 the focused current editor range only.
 
+`kiwi.app.terminal_levels`, `kiwi.app.terminal_progress`, and
+`kiwi.app.terminal_feedback` define the finite practice catalog, versioned local
+onboarding completion, and provenance-safe forecast/receipt projections.
 `kiwi.ui.terminal_cutscenes`, `kiwi.content.terminal_lore`, and
 `kiwi.app.terminal_codex` define bounded scene beats, authored shard metadata,
 and versioned local unlock IDs. `kiwi.render.terminal_cutscene_view` and
@@ -744,8 +747,9 @@ source focus, a one-metre-to-zero-metre scout revision, and replay-compatible
 headless comparison. Its causal map is intentionally compact, but it binds the
 actual shipped scout source and requires the revision to remove the injury.
 
-`kiwi.terminal` is the pygame application shell for that same bounded causal
-drill. It owns screen/input state only and delegates source compilation, replay
+`kiwi.terminal` is the pygame application shell for that bounded practice
+sequence. It owns level-selection, session-only intro gating, and screen/input
+state only; it delegates source compilation, replay
 recording, trace capture, source-archive navigation, and comparison to the
 existing headless public interfaces. It uses no renderer state as authority and
 does not collect or transmit usability-test data. Its texture atlas, fixed-tick

@@ -109,6 +109,74 @@ TERMINAL_CUTSCENES = (
         ),
     ),
     TerminalCutscene(
+        "first_link_intro",
+        "FIRST LINK // SAFE ROUTE",
+        (
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.SPRITE, "operator_seated", 420),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "one visible contact; one safe change", 800
+            ),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "learn the route before the route learns you",
+                900,
+            ),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "briefing", 1),
+        ),
+    ),
+    TerminalCutscene(
+        "terminal_intro",
+        "TERMINAL // HOSTILE MAINFRAME",
+        (
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.SPRITE, "operator_linked", 420),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "payload route mapped; ICE telemetry incomplete",
+                800,
+            ),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT, "every daemon choice leaves a receipt", 900
+            ),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "briefing", 1),
+        ),
+    ),
+    TerminalCutscene(
+        "glasshouse_intro",
+        "GLASSHOUSE // COVER ROUTE",
+        (
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.SPRITE, "operator_linked", 420),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "one observed route; one cover alternative",
+                800,
+            ),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "match missing information before committing",
+                900,
+            ),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "briefing", 1),
+        ),
+    ),
+    TerminalCutscene(
+        "redline_intro",
+        "REDLINE // EXTRACTION WINDOW",
+        (
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.SPRITE, "operator_linked", 420),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "trace clock visible; hostile response remains uncertain",
+                800,
+            ),
+            TerminalCutsceneBeat(
+                TerminalCutsceneBeatKind.TERMINAL_TEXT,
+                "advance and hold remain data for your daemon",
+                900,
+            ),
+            TerminalCutsceneBeat(TerminalCutsceneBeatKind.TRANSITION, "briefing", 1),
+        ),
+    ),
+    TerminalCutscene(
         "payload_exfiltration",
         "KIWI // payload exfiltration",
         (
