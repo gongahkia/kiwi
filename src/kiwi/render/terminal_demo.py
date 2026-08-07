@@ -405,7 +405,7 @@ def _handle_event(
         return (controller, False)
     if controller.screen is TerminalDemoScreen.BRIEFING:
         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
-            return (controller.open_workbench(), False)
+            return (controller.open_live_preview(), False)
         return (controller, False)
     if controller.screen is TerminalDemoScreen.GUIDE:
         if event.key in (pygame.K_RIGHT, pygame.K_DOWN, pygame.K_SPACE):
@@ -413,8 +413,6 @@ def _handle_event(
         if event.key in (pygame.K_LEFT, pygame.K_UP):
             return (controller.previous_lesson(), False)
         return (controller, False)
-    if controller.screen is TerminalDemoScreen.WORKBENCH:
-        return (_handle_workbench_key(controller, event), False)
     if controller.screen is TerminalDemoScreen.LIVE_PREVIEW:
         return (_handle_live_preview_key(controller, event), False)
     if controller.screen is TerminalDemoScreen.MISSION:
@@ -425,7 +423,7 @@ def _handle_event(
         if event.key == pygame.K_h:
             return (controller.open_results(), False)
         if _deploy_pressed(controller, event):
-            return (controller.return_to_workbench().deploy(), False)
+            return (controller.return_to_live_preview().deploy(), False)
         return (controller, False)
     if controller.screen is TerminalDemoScreen.DEBRIEF:
         if event.key == pygame.K_r:
@@ -436,7 +434,7 @@ def _handle_event(
     if controller.screen is TerminalDemoScreen.RESULTS:
         return (controller, False)
     if controller.screen is TerminalDemoScreen.COMPARISON and _deploy_pressed(controller, event):
-        return (controller.return_to_workbench().deploy(), False)
+        return (controller.return_to_live_preview().deploy(), False)
     return (controller, False)
 
 
@@ -460,7 +458,7 @@ def _escape(controller: TerminalDemoController) -> TerminalDemoController:
         return controller
     if controller.screen is TerminalDemoScreen.GUIDE:
         return controller.close_guide()
-    return controller.return_to_workbench()
+    return controller.return_to_live_preview()
 
 
 def _handle_workbench_key(
@@ -624,7 +622,7 @@ def _render(
             atlas=_ATLAS,
         )
         return
-    if controller.screen in (TerminalDemoScreen.BRIEFING, TerminalDemoScreen.WORKBENCH):
+    if controller.screen is TerminalDemoScreen.BRIEFING:
         render_terminal_workbench(
             surface,
             font,
@@ -633,8 +631,6 @@ def _render(
             source_palette=palette.source,
             completions=controller.completions(),
         )
-        if controller.screen is TerminalDemoScreen.WORKBENCH:
-            _render_workbench_controls(surface, font, controller, palette)
         _render_footer(surface, font, _workbench_help(controller), controller.notice, palette)
         return
     if controller.screen is TerminalDemoScreen.GUIDE:
@@ -653,7 +649,7 @@ def _render(
         _render_footer(
             surface,
             font,
-            "Left/Right lesson | Esc workbench",
+            "Left/Right lesson | Esc live preview",
             controller.notice,
             palette,
         )
@@ -948,7 +944,7 @@ def _render_debrief(
                 palette.muted,
             ),
         )
-        help_text = "R trace source | H results | Esc workbench"
+        help_text = "R trace source | H results | Esc live preview"
     else:
         _render_panel(
             surface,
@@ -960,7 +956,7 @@ def _render_debrief(
             ),
             palette,
         )
-        help_text = "C compare | H results | Esc workbench"
+        help_text = "C compare | H results | Esc live preview"
     _render_footer(surface, font, help_text, controller.notice, palette)
 
 
@@ -988,7 +984,7 @@ def _render_comparison(
     _render_footer(
         surface,
         font,
-        f"H results | {_deploy_label(controller)} rerun | Esc workbench",
+        f"H results | {_deploy_label(controller)} rerun | Esc live preview",
         controller.notice,
         palette,
     )
@@ -1018,7 +1014,7 @@ def _render_results(
             palette.notice,
         ),
     )
-    _render_footer(surface, font, "Esc workbench", controller.notice, palette)
+    _render_footer(surface, font, "Esc live preview", controller.notice, palette)
 
 
 def _render_codex(
@@ -1054,7 +1050,7 @@ def _render_codex(
         y += 6
     if not controller.codex.unlocked_ids:
         surface.blit(font.render("No recovered data shards.", palette.muted), (20, y))
-    _render_footer(surface, font, "L / Enter / Esc workbench", "", palette)
+    _render_footer(surface, font, "L / Enter / Esc live preview", "", palette)
 
 
 def _render_panel(
@@ -1101,7 +1097,7 @@ def _render_footer(
 
 def _workbench_help(controller: TerminalDemoController) -> str:
     if controller.screen is TerminalDemoScreen.BRIEFING:
-        return "Enter opens workbench | Esc quits"
+        return "Enter opens live preview | Esc quits"
     if controller.input_mode is TerminalInputMode.STANDARD:
         return "Cmd+T select 1m | Cmd+Shift+T theme | Tab complete | Cmd+R deploy"
     return "F2 select 1m | F3 theme | Tab complete | F5 deploy"
@@ -1364,8 +1360,6 @@ def _handle_click(
         if continue_button.collidepoint(position):
             return controller.confirm_input_mode()
         return controller
-    if controller.screen is TerminalDemoScreen.WORKBENCH:
-        return _handle_workbench_click(controller, position, font, _LOGICAL_SIZE)
     if controller.screen is TerminalDemoScreen.LIVE_PREVIEW:
         logical_surface = pygame.Surface(_LOGICAL_SIZE)
         left_rect, right_rect = _live_preview_panes(logical_surface)

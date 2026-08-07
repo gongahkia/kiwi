@@ -19,7 +19,7 @@ from kiwi.ui.terminal_debrief import TerminalDebrief, TerminalDebriefUnavailable
 
 
 def test_terminal_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
-    baseline = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    baseline = TerminalDemoController.create().confirm_input_mode().open_live_preview()
 
     assert baseline.screen is TerminalDemoScreen.LIVE_PREVIEW
     assert baseline.current_run is not None
@@ -38,14 +38,12 @@ def test_terminal_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
 
     focused = baseline.open_debrief().guide_revision()
 
-    assert focused.screen is TerminalDemoScreen.WORKBENCH
+    assert focused.screen is TerminalDemoScreen.LIVE_PREVIEW
     assert focused.workbench.selected_policy.role == "scout"
     assert focused.workbench.editor.selected_text.startswith("MoveToward")
 
     threshold = focused.select_scout_threshold()
-    revised = threshold.replace_selected_editor(
-        threshold.workbench.editor.insert_text("0")
-    ).deploy()
+    revised = threshold.replace_selected_editor(threshold.workbench.editor.insert_text("0"))
 
     assert revised.screen is TerminalDemoScreen.LIVE_PREVIEW
     assert revised.current_run is not None
@@ -60,7 +58,7 @@ def test_terminal_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
 
 
 def test_terminal_demo_hot_reloads_only_source_changes_into_recorded_preview_ticks() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     paused = preview.advance_preview().pause_preview()
 
     assert paused.preview_snapshot_index == 1
@@ -83,7 +81,7 @@ def test_terminal_demo_hot_reloads_only_source_changes_into_recorded_preview_tic
 
 
 def test_terminal_demo_marks_preview_stale_when_hot_reload_is_disabled() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     disabled = preview.toggle_hot_reload()
     stale = disabled.replace_selected_editor(disabled.workbench.editor.insert_text(" "))
 
@@ -94,12 +92,12 @@ def test_terminal_demo_marks_preview_stale_when_hot_reload_is_disabled() -> None
 
 
 def test_terminal_demo_blocks_deployment_after_a_policy_compile_failure() -> None:
-    opened = TerminalDemoController.create().confirm_input_mode().open_workbench()
+    opened = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     broken = opened.replace_selected_editor(opened.workbench.editor.insert_text("@"))
 
     result = broken.deploy()
 
-    assert result.screen is TerminalDemoScreen.WORKBENCH
+    assert result.screen is TerminalDemoScreen.LIVE_PREVIEW
     assert result.current_run is None
     assert result.workbench.compile_output is not None
     assert not result.workbench.compile_output.succeeded
@@ -112,7 +110,7 @@ def test_terminal_demo_detects_a_platform_default_and_requires_input_confirmatio
     assert controller.screen is TerminalDemoScreen.INPUT_SETUP
     assert controller.input_mode is TerminalInputMode.STANDARD
     assert controller.detected_platform == "Darwin"
-    assert controller.open_workbench() is controller
+    assert controller.open_live_preview() is controller
 
     function_keys = controller.choose_input_mode(TerminalInputMode.FUNCTION_KEYS)
 
@@ -121,7 +119,7 @@ def test_terminal_demo_detects_a_platform_default_and_requires_input_confirmatio
 
 
 def test_terminal_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> None:
-    opened = TerminalDemoController.create().confirm_input_mode().open_workbench()
+    opened = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     typed = opened.replace_selected_editor(EditorState.from_text("Mov").move_cursor(3))
 
     assert typed.completions() == ("MoveToward",)
@@ -143,7 +141,7 @@ def test_terminal_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> No
 
 
 def test_terminal_preview_maps_entities_and_source_offsets_to_retained_trace_steps() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     step = preview.advance_preview().pause_preview()
 
     from_map = step.select_preview_entity(1)
@@ -158,7 +156,7 @@ def test_terminal_preview_maps_entities_and_source_offsets_to_retained_trace_ste
 
 
 def test_terminal_preview_rotation_is_presentation_only() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     rotated = preview.rotate_preview().rotate_preview()
 
     assert rotated.preview_rotation_quarters == 2
@@ -167,7 +165,7 @@ def test_terminal_preview_rotation_is_presentation_only() -> None:
 
 
 def test_terminal_preview_zoom_is_presentation_only_and_bounded() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     zoomed = preview.zoom_preview(1).zoom_preview(1)
 
     assert zoomed.preview_zoom_percent == 150
@@ -177,7 +175,7 @@ def test_terminal_preview_zoom_is_presentation_only_and_bounded() -> None:
 
 
 def test_terminal_preview_emits_one_presentation_feedback_pulse_for_an_impact() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     impact = preview.advance_preview().advance_preview()
 
     assert impact.preview_feedback_pulse == 1
