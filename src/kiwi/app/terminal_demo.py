@@ -102,7 +102,6 @@ class TerminalDemoScreen(StrEnum):
     INPUT_SETUP = "input_setup"
     LOADING = "loading"
     BRIEFING = "briefing"
-    WORKBENCH = "workbench"
     LIVE_PREVIEW = "live_preview"
     GUIDE = "guide"
     MISSION = "mission"
@@ -339,20 +338,22 @@ class TerminalDemoController:
             return self
         return replace(self, screen=TerminalDemoScreen.BRIEFING, notice="")
 
-    def open_workbench(self) -> TerminalDemoController:
-        """Advance from briefing to source review without starting authority."""
+    def open_live_preview(self, repository_root: Path | None = None) -> TerminalDemoController:
+        """Advance from briefing directly to the default code-and-preview screen."""
         if self.screen is not TerminalDemoScreen.BRIEFING:
             return self
-        return replace(
+        opened = replace(
             self,
-            screen=TerminalDemoScreen.WORKBENCH,
+            screen=TerminalDemoScreen.LIVE_PREVIEW,
             workbench=self.workbench.open_workbench(),
-            notice="Review Lark's route daemon, then jack into the mainframe.",
+            preview_playing=False,
+            notice="Loading Lark's deterministic route preview.",
         )
+        return opened.deploy(repository_root)
 
     def select_policy_index(self, index: int) -> TerminalDemoController:
         """Select one sidebar policy by its canonical workbench index."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         if not isinstance(index, int) or isinstance(index, bool):
             raise TypeError("Terminal demo policy index must be an integer")
@@ -373,7 +374,7 @@ class TerminalDemoController:
 
     def replace_selected_editor(self, editor: EditorState) -> TerminalDemoController:
         """Apply one already-validated non-authoritative editor operation."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         source_changed = editor.buffer.text != self.workbench.editor.buffer.text
         updated = replace(self, workbench=self.workbench.replace_editor(editor), notice="")
@@ -393,7 +394,7 @@ class TerminalDemoController:
 
     def completions(self) -> tuple[str, ...]:
         """Return deterministic DSL completions for the selected source cursor."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return ()
         return dsl_completions(self.workbench.source.text, self.workbench.editor.cursor_offset)
 
@@ -408,7 +409,7 @@ class TerminalDemoController:
 
     def compile_selected(self) -> TerminalDemoController:
         """Compile the selected closed-DSL policy without deployment."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         compiled = self.workbench.compile_selected()
         notice = (
@@ -420,7 +421,7 @@ class TerminalDemoController:
 
     def select_scout_threshold(self) -> TerminalDemoController:
         """Select the shipped scout's caution literal without changing its source."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         scout = self.workbench.select_policy("scout")
         span = _scout_caution_span(scout.source)
@@ -436,15 +437,15 @@ class TerminalDemoController:
 
     def open_guide(self) -> TerminalDemoController:
         """Open the read-only language guide without changing source or authority."""
-        if self.screen is not TerminalDemoScreen.WORKBENCH:
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         return replace(self, screen=TerminalDemoScreen.GUIDE, notice="")
 
     def close_guide(self) -> TerminalDemoController:
-        """Return from the guide to the unchanged workbench."""
+        """Return from the guide to the unchanged code-and-preview screen."""
         if self.screen is not TerminalDemoScreen.GUIDE:
             return self
-        return replace(self, screen=TerminalDemoScreen.WORKBENCH, notice="")
+        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW, notice="")
 
     def next_lesson(self) -> TerminalDemoController:
         """Advance the read-only lesson selection when the guide is open."""
@@ -460,19 +461,15 @@ class TerminalDemoController:
 
     def deploy(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Compile all policies and open their deterministic two-tick live preview."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         result = run_terminal_causal_drill(self.workbench, _content_root(repository_root))
         if isinstance(result, TerminalDemoDeploymentFailure):
             return replace(
                 self,
                 workbench=result.workbench,
-                current_run=None
-                if self.screen is TerminalDemoScreen.LIVE_PREVIEW
-                else self.current_run,
-                comparison=None
-                if self.screen is TerminalDemoScreen.LIVE_PREVIEW
-                else self.comparison,
+                current_run=None,
+                comparison=None,
                 preview_snapshot_index=0,
                 preview_playing=False,
                 preview_stale=False,
@@ -482,7 +479,7 @@ class TerminalDemoController:
 
     def begin_deploy(self) -> TerminalDemoController:
         """Show one non-authoritative jacking-in frame before synchronous deployment."""
-        if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
+        if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
         return replace(self, screen=TerminalDemoScreen.LOADING, preview_playing=False, notice="")
 
@@ -490,7 +487,7 @@ class TerminalDemoController:
         """Compile and record after the loading frame has presented once."""
         if self.screen is not TerminalDemoScreen.LOADING:
             return self
-        return replace(self, screen=TerminalDemoScreen.WORKBENCH).deploy(repository_root)
+        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW).deploy(repository_root)
 
     def reload_preview(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Recompile and rerun an enabled preview after one immutable source edit."""
@@ -773,7 +770,7 @@ class TerminalDemoController:
         if isinstance(revision, TerminalGuidedRevision):
             return replace(
                 self,
-                screen=TerminalDemoScreen.WORKBENCH,
+                screen=TerminalDemoScreen.LIVE_PREVIEW,
                 workbench=revision.workbench,
                 notice="Causal source selected. Replace only 1m with 0m, then deploy again.",
             )
@@ -802,13 +799,13 @@ class TerminalDemoController:
         return replace(self, screen=TerminalDemoScreen.CODEX, preview_playing=False, notice="")
 
     def close_codex(self) -> TerminalDemoController:
-        """Return from local lore inspection to the editable terminal workbench."""
+        """Return from local lore inspection to the code-and-preview screen."""
         if self.screen is not TerminalDemoScreen.CODEX:
             return self
-        return replace(self, screen=TerminalDemoScreen.WORKBENCH, notice="")
+        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW, notice="")
 
-    def return_to_workbench(self) -> TerminalDemoController:
-        """Return to source editing without changing any recorded run."""
+    def return_to_live_preview(self) -> TerminalDemoController:
+        """Return to source editing and its preview without changing any recorded run."""
         if self.screen not in (
             TerminalDemoScreen.LIVE_PREVIEW,
             TerminalDemoScreen.MISSION,
@@ -819,7 +816,7 @@ class TerminalDemoController:
             TerminalDemoScreen.LOADING,
         ):
             return self
-        return replace(self, screen=TerminalDemoScreen.WORKBENCH, preview_playing=False, notice="")
+        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW, preview_playing=False, notice="")
 
 
 def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> SourceSpan:
