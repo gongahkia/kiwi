@@ -24,7 +24,7 @@ assert font.measure(
 canvas = pygame.Surface((480, 270))
 _render(canvas, font, controller)
 assert len({canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}) > 2
-controller = controller.confirm_input_mode().open_live_preview()
+controller = controller.confirm_input_mode().continue_level_intro().open_live_preview()
 _render(canvas, font, controller)
 _render(canvas, font, controller.cycle_color_scheme().open_results())
 controller = controller.open_debrief()
@@ -74,6 +74,11 @@ controller, quit_requested = _handle_event(
 assert not quit_requested
 controller, quit_requested = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode="\\r")
+)
+assert not quit_requested
+assert controller.screen is TerminalDemoScreen.LEVEL_INTRO
+controller, quit_requested = _handle_event(
+    controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert not quit_requested
 assert controller.screen is TerminalDemoScreen.BRIEFING
@@ -172,8 +177,8 @@ pygame.init()
 font = load_bitmap_font()
 controller = TerminalDemoController.create(platform_name="Darwin")
 controller = _handle_click(controller, (25, 160), font)
-assert controller.screen is TerminalDemoScreen.BRIEFING
-controller = controller.open_live_preview()
+assert controller.screen is TerminalDemoScreen.LEVEL_INTRO
+controller = controller.continue_level_intro().open_live_preview()
 selected_line = controller.workbench.editor.scroll.line
 controller = _handle_click(controller, (260, 32), font)
 assert controller.workbench.editor.cursor_position.line == selected_line
@@ -225,6 +230,44 @@ def test_retained_impact_feedback_decays_without_an_authority_input() -> None:
     assert _impact_feedback(0) == ((-4, 4), 4)
     assert _impact_feedback(315) == ((1, 1), 1)
     assert _impact_feedback(360) == ((0, 0), 0)
+
+
+def test_terminal_demo_renders_practice_selection_intro_and_causal_receipt() -> None:
+    source = """
+import pygame
+
+from kiwi.app.terminal_demo import TerminalDemoController
+from kiwi.app.terminal_levels import TerminalLevelId
+from kiwi.app.terminal_progress import TerminalProgress
+from kiwi.render.bitmap_font import load_bitmap_font
+from kiwi.render.terminal_demo import _render
+from kiwi.render.pygame_lifecycle import quit_pygame
+
+pygame.init()
+font = load_bitmap_font()
+canvas = pygame.Surface((960, 540))
+controller = TerminalDemoController.create(progress=TerminalProgress(True)).confirm_input_mode()
+_render(canvas, font, controller)
+controller = controller.select_level(TerminalLevelId.REDLINE)
+_render(canvas, font, controller, elapsed_milliseconds=0)
+controller = controller.continue_level_intro().open_live_preview().open_receipt()
+_render(canvas, font, controller)
+assert len({canvas.get_at((x, y))[:3] for x in range(960) for y in range(540)}) > 2
+quit_pygame()
+"""
+    environment = dict(os.environ)
+    environment["SDL_AUDIODRIVER"] = "dummy"
+    environment["SDL_VIDEODRIVER"] = "dummy"
+
+    result = subprocess.run(
+        (sys.executable, "-c", source),
+        check=False,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_terminal_demo_only_notices_when_local_settings_need_attention(tmp_path: Path) -> None:

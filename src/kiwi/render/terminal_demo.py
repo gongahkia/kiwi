@@ -19,6 +19,12 @@ from kiwi.app.terminal_demo import (
     TerminalDemoScreen,
     TerminalInputMode,
 )
+from kiwi.app.terminal_levels import (
+    TERMINAL_PRACTICE_LEVELS,
+    TerminalLevelId,
+    TerminalPracticeSignal,
+)
+from kiwi.app.terminal_progress import load_terminal_progress, save_terminal_progress
 from kiwi.content.terminal_lore import TERMINAL_LORE_DROPS, terminal_lore_drop
 from kiwi.dsl.source import ByteOffset
 from kiwi.render.atlas import TextureAtlas, load_terminal_atlas
@@ -72,6 +78,7 @@ _ATLAS: TextureAtlas | None = None
 _USER_STATE_DIRECTORY = Path.home() / "Library" / "Application Support" / "Kiwi"
 _SETTINGS_PATH = _USER_STATE_DIRECTORY / "settings.json"
 _CODEX_PATH = _USER_STATE_DIRECTORY / "terminal_codex.json"
+_PROGRESS_PATH = _USER_STATE_DIRECTORY / "terminal_progress.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,16 +269,20 @@ def run_terminal_demo() -> int:
     saved_settings = settings
     codex_result = load_terminal_codex_result(_CODEX_PATH)
     codex = codex_result.codex
-    controller = TerminalDemoController.create(codex=codex)
+    progress = load_terminal_progress(_PROGRESS_PATH)
+    controller = TerminalDemoController.create(codex=codex, progress=progress)
     persistence_notice = _persistence_notice(settings_result, codex_result, _SETTINGS_PATH)
     if persistence_notice:
         controller = replace(controller, notice=persistence_notice)
     saved_codex = controller.codex
+    saved_progress = controller.progress
     compositor = CrtCompositor()
     frame_clock = pygame.time.Clock()
     next_preview_step_at = pygame.time.get_ticks() + _PREVIEW_STEP_MILLISECONDS
     feedback_pulse = controller.preview_feedback_pulse
     feedback_started_at = -_IMPACT_FEEDBACK_MILLISECONDS
+    intro_level_id: TerminalLevelId | None = None
+    intro_started_at = 0
     try:
         running = True
         while running:
@@ -293,6 +304,14 @@ def run_terminal_demo() -> int:
                     settings = _handle_crt_shortcuts(settings, event)
                 running = running and not should_quit
             now = pygame.time.get_ticks()
+            if controller.screen is TerminalDemoScreen.LEVEL_INTRO:
+                if intro_level_id is not controller.level.level_id:
+                    intro_level_id = controller.level.level_id
+                    intro_started_at = now
+                intro_elapsed = now - intro_started_at
+            else:
+                intro_level_id = None
+                intro_elapsed = now
             if controller.screen is TerminalDemoScreen.LOADING:
                 _render(window.logical_canvas, font, controller, elapsed_milliseconds=now)
                 compositor.apply(
@@ -326,7 +345,7 @@ def run_terminal_demo() -> int:
                 controller,
                 shake_offset=shake_offset,
                 impact_emphasis=impact_emphasis,
-                elapsed_milliseconds=now,
+                elapsed_milliseconds=intro_elapsed,
             )
             compositor.apply(
                 window.logical_canvas,
@@ -344,6 +363,17 @@ def run_terminal_demo() -> int:
                         controller,
                         notice=(
                             "Codex changes could not be saved; the previous local copy is intact."
+                        ),
+                    )
+            if controller.progress != saved_progress:
+                try:
+                    save_terminal_progress(_PROGRESS_PATH, controller.progress)
+                    saved_progress = controller.progress
+                except OSError:
+                    controller = replace(
+                        controller,
+                        notice=(
+                            "Onboarding completion could not be saved; local practice stays open."
                         ),
                     )
             if settings != saved_settings:
@@ -390,7 +420,11 @@ def _handle_event(
             return (controller.close_codex(), False)
         return (controller, False)
     if event.key == pygame.K_ESCAPE:
-        if controller.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
+        if controller.screen in (
+            TerminalDemoScreen.INPUT_SETUP,
+            TerminalDemoScreen.LEVEL_SELECT,
+            TerminalDemoScreen.BRIEFING,
+        ):
             return (controller, True)
         return (_escape(controller), False)
     if event.key == pygame.K_l:
@@ -402,6 +436,23 @@ def _handle_event(
             return (controller.choose_input_mode(TerminalInputMode.FUNCTION_KEYS), False)
         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
             return (controller.confirm_input_mode(), False)
+        return (controller, False)
+    if controller.screen is TerminalDemoScreen.LEVEL_SELECT:
+        level_by_key = {
+            pygame.K_1: TerminalLevelId.TERMINAL,
+            pygame.K_2: TerminalLevelId.GLASSHOUSE,
+            pygame.K_3: TerminalLevelId.REDLINE,
+            pygame.K_4: TerminalLevelId.FIRST_LINK,
+        }
+        level_id = level_by_key.get(event.key)
+        return (
+            (controller.select_level(level_id), False)
+            if level_id is not None
+            else (controller, False)
+        )
+    if controller.screen is TerminalDemoScreen.LEVEL_INTRO:
+        if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            return (controller.continue_level_intro(), False)
         return (controller, False)
     if controller.screen is TerminalDemoScreen.BRIEFING:
         if event.key in (pygame.K_RETURN, pygame.K_SPACE):
@@ -415,6 +466,12 @@ def _handle_event(
         return (controller, False)
     if controller.screen is TerminalDemoScreen.LIVE_PREVIEW:
         return (_handle_live_preview_key(controller, event), False)
+    if controller.screen is TerminalDemoScreen.RECEIPT:
+        if event.key in (pygame.K_RETURN, pygame.K_SPACE) or (
+            event.key == pygame.K_k and event.mod & (pygame.KMOD_CTRL | pygame.KMOD_META)
+        ):
+            return (controller.close_receipt(), False)
+        return (controller, False)
     if controller.screen is TerminalDemoScreen.MISSION:
         if event.key in (pygame.K_RETURN, pygame.K_d):
             return (controller.open_debrief(), False)
@@ -454,10 +511,18 @@ def _handle_crt_shortcuts(settings: UiSettings, event: pygame.event.Event) -> Ui
 
 
 def _escape(controller: TerminalDemoController) -> TerminalDemoController:
-    if controller.screen in (TerminalDemoScreen.INPUT_SETUP, TerminalDemoScreen.BRIEFING):
+    if controller.screen in (
+        TerminalDemoScreen.INPUT_SETUP,
+        TerminalDemoScreen.LEVEL_SELECT,
+        TerminalDemoScreen.BRIEFING,
+    ):
         return controller
+    if controller.screen is TerminalDemoScreen.LEVEL_INTRO:
+        return controller.continue_level_intro()
     if controller.screen is TerminalDemoScreen.GUIDE:
         return controller.close_guide()
+    if controller.screen is TerminalDemoScreen.RECEIPT:
+        return controller.close_receipt()
     return controller.return_to_live_preview()
 
 
@@ -534,6 +599,14 @@ def _handle_live_preview_key(
 ) -> TerminalDemoController:
     modifiers = event.mod
     command = modifiers & (pygame.KMOD_CTRL | pygame.KMOD_META)
+    if event.key == pygame.K_F4:
+        return controller.open_level_select()
+    if command and event.key == pygame.K_k:
+        return controller.open_receipt()
+    if command and event.key == pygame.K_1:
+        return controller.select_practice_signal(TerminalPracticeSignal.ADVANCE)
+    if command and event.key == pygame.K_2:
+        return controller.select_practice_signal(TerminalPracticeSignal.HOLD)
     if event.key in (pygame.K_RETURN, pygame.K_d):
         return controller.open_debrief()
     if event.key == pygame.K_h:
@@ -608,6 +681,12 @@ def _render(
     if controller.screen is TerminalDemoScreen.INPUT_SETUP:
         _render_input_setup(surface, font, controller, palette, elapsed_milliseconds)
         return
+    if controller.screen is TerminalDemoScreen.LEVEL_SELECT:
+        _render_level_select(surface, font, controller, palette)
+        return
+    if controller.screen is TerminalDemoScreen.LEVEL_INTRO:
+        _render_level_intro(surface, font, controller, palette, elapsed_milliseconds)
+        return
     if controller.screen is TerminalDemoScreen.LOADING:
         render_terminal_cutscene(
             surface,
@@ -673,10 +752,84 @@ def _render(
     if controller.screen is TerminalDemoScreen.RESULTS:
         _render_results(surface, font, controller, palette)
         return
+    if controller.screen is TerminalDemoScreen.RECEIPT:
+        _render_receipt(surface, font, controller, palette)
+        return
     if controller.screen is TerminalDemoScreen.CODEX:
         _render_codex(surface, font, controller, palette)
         return
     _render_comparison(surface, font, controller, palette)
+
+
+def _render_level_select(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+) -> None:
+    """Render the open-practice menu without reading or changing authority state."""
+    surface.fill(palette.background)
+    line_height = font.measure("M")[1]
+    surface.blit(font.render("OPEN PRACTICE // SELECT A LEVEL", palette.heading), (20, 20))
+    surface.blit(
+        font.render("Known information is clear; unobserved ICE remains unknown.", palette.normal),
+        (20, 20 + line_height + 6),
+    )
+    key_by_level = {
+        TerminalLevelId.TERMINAL: "1",
+        TerminalLevelId.GLASSHOUSE: "2",
+        TerminalLevelId.REDLINE: "3",
+        TerminalLevelId.FIRST_LINK: "4",
+    }
+    y = 72
+    for level in TERMINAL_PRACTICE_LEVELS:
+        key = key_by_level[level.level_id]
+        title = f"{key}  {level.title}"
+        pygame.draw.rect(
+            surface, palette.panel, (16, y - 4, surface.get_width() - 32, line_height * 3 + 12)
+        )
+        pygame.draw.rect(
+            surface,
+            palette.border,
+            (16, y - 4, surface.get_width() - 32, line_height * 3 + 12),
+            width=1,
+        )
+        surface.blit(font.render(title, palette.heading), (24, y))
+        surface.blit(
+            font.render(_fit_text(font, level.objective, surface.get_width() - 48), palette.normal),
+            (24, y + line_height),
+        )
+        surface.blit(
+            font.render(
+                _fit_text(font, level.try_prompt, surface.get_width() - 48), palette.notice
+            ),
+            (24, y + line_height * 2),
+        )
+        y += line_height * 3 + 20
+    _render_footer(surface, font, "1-4 select level | Esc quits", controller.notice, palette)
+
+
+def _render_level_intro(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+    elapsed_milliseconds: int,
+) -> None:
+    """Render the selected level's finite, skippable presentation intro."""
+    render_terminal_cutscene(
+        surface,
+        font,
+        terminal_cutscene(controller.level.intro_cutscene_id),
+        elapsed_milliseconds,
+        background=palette.background,
+        panel=palette.panel,
+        border=palette.border,
+        heading=palette.heading,
+        normal=palette.normal,
+        atlas=_ATLAS,
+    )
+    _render_footer(surface, font, "Enter skips to briefing", controller.level.try_prompt, palette)
 
 
 def _render_live_preview(
@@ -712,7 +865,7 @@ def _render_live_preview(
     _render_footer(
         surface,
         font,
-        "Click controls | Cmd+P pause | Cmd+. step | Q/E rotate | +/- zoom | D debrief",
+        "Cmd+P pause | Cmd+. step | Cmd+K receipt | F4 practice | D debrief",
         controller.notice,
         palette,
     )
@@ -774,11 +927,17 @@ def _preview_trace_lines(controller: TerminalDemoController, snapshot_tick: int)
     if controller.preview_stale:
         return ("source changed; Compile + run is required to refresh.",)
     if snapshot_tick == 0:
-        return (
-            "initial state; next step evaluates Lark's route daemon",
-            "TRY: type 0 to stop Lark's exposed ICE route.",
-            "DSL policies run once per fixed tick; no unbounded loops.",
+        forecast = controller.forecast()
+        if forecast is None:
+            return ("forecast unavailable until the current source compiles",)
+        lines = tuple(
+            _truncate(f"{line.certainty.value}: {line.summary}") for line in forecast.lines[:3]
         )
+        if controller.selected_practice_signal is not None:
+            return lines[:2] + (
+                f"signal: {controller.selected_practice_signal.value} (Cmd+1 advance / Cmd+2 hold)",
+            )
+        return lines
     trace_tick = snapshot_tick - 1
     entries = tuple(
         entry
@@ -872,6 +1031,17 @@ def _render_preview_controls(
         palette,
     )
     _render_button(surface, font, debrief_button, "Debrief", False, palette)
+    if controller.level.permitted_signals:
+        line_height = font.measure("M")[1]
+        selected = (
+            controller.selected_practice_signal.value
+            if controller.selected_practice_signal is not None
+            else "none"
+        )
+        surface.blit(
+            font.render(f"SIGNAL: {selected}  Cmd+1 advance / Cmd+2 hold", palette.notice),
+            (6, play_button.top - line_height - 4),
+        )
 
 
 def _live_preview_panes(surface: pygame.Surface) -> tuple[pygame.Rect, pygame.Rect]:
@@ -1015,6 +1185,47 @@ def _render_results(
         ),
     )
     _render_footer(surface, font, "Esc live preview", controller.notice, palette)
+
+
+def _render_receipt(
+    surface: pygame.Surface,
+    font: BitmapFont,
+    controller: TerminalDemoController,
+    palette: TerminalDemoPalette,
+) -> None:
+    """Render a compact source-to-consequence receipt from retained trace records."""
+    receipt = controller.causal_receipt()
+    if receipt is None:
+        raise AssertionError("Terminal receipt screen requires a current recorded run")
+    surface.fill(palette.background)
+    line_height = font.measure("M")[1]
+    surface.blit(font.render("CAUSAL RECEIPT // YOUR DAEMON", palette.heading), (20, 20))
+    surface.blit(
+        font.render(
+            _fit_text(font, controller.level.title, surface.get_width() - 40), palette.muted
+        ),
+        (20, 20 + line_height + 4),
+    )
+    y = 72
+    for line in receipt.lines:
+        pygame.draw.rect(
+            surface, palette.panel, (16, y - 4, surface.get_width() - 32, line_height * 2 + 10)
+        )
+        pygame.draw.rect(
+            surface,
+            palette.border,
+            (16, y - 4, surface.get_width() - 32, line_height * 2 + 10),
+            width=1,
+        )
+        surface.blit(font.render(line.label.upper(), palette.notice), (24, y))
+        surface.blit(
+            font.render(_fit_text(font, line.summary, surface.get_width() - 48), palette.normal),
+            (24, y + line_height),
+        )
+        y += line_height * 2 + 18
+    _render_footer(
+        surface, font, "Enter / Esc / Cmd+K returns to live preview", controller.notice, palette
+    )
 
 
 def _render_codex(
@@ -1222,7 +1433,14 @@ def _render_workbench_controls(
     _render_button(
         surface, font, theme_button, f"Theme: {controller.color_scheme.value}", False, palette
     )
-    _render_button(surface, font, compile_button, "Compile", False, palette)
+    _render_button(
+        surface,
+        font,
+        compile_button,
+        "Compile",
+        controller.editor_feedback_pulse > 0,
+        palette,
+    )
     _render_button(surface, font, deploy_button, "Compile + run", True, palette)
     if pygame.time.get_ticks() // 500 % 2 == 0:
         _render_editor_caret(surface, font, controller, palette)
@@ -1360,6 +1578,17 @@ def _handle_click(
         if continue_button.collidepoint(position):
             return controller.confirm_input_mode()
         return controller
+    if controller.screen is TerminalDemoScreen.LEVEL_SELECT:
+        line_height = font.measure("M")[1]
+        y = 72
+        for level in TERMINAL_PRACTICE_LEVELS:
+            height = line_height * 3 + 12
+            if pygame.Rect(16, y - 4, _LOGICAL_SIZE[0] - 32, height).collidepoint(position):
+                return controller.select_level(level.level_id)
+            y += line_height * 3 + 20
+        return controller
+    if controller.screen is TerminalDemoScreen.LEVEL_INTRO:
+        return controller.continue_level_intro()
     if controller.screen is TerminalDemoScreen.LIVE_PREVIEW:
         logical_surface = pygame.Surface(_LOGICAL_SIZE)
         left_rect, right_rect = _live_preview_panes(logical_surface)

@@ -77,9 +77,9 @@ The renderer reads immutable or read-only presentation snapshots and emits input
 
 The compiler, VM, simulation, replay verifier, trace queries, and content validation must run without importing or initialising pygame.
 
-### D-015: The first vertical slice contains one mission
+### D-015: The first vertical slice contains a bounded practice sequence
 
-The first complete mission is `Terminal`: a daemon bundle breaches a hostile mainframe, reaches payload data shards, and exfiltrates before trace containment while incomplete ICE telemetry and flawed policy create an explainable failure.
+The first complete practice sequence contains `First Link`, `Terminal`, `Glasshouse`, and `Redline`. `Terminal` remains the central hostile-mainframe breach: a daemon bundle reaches payload data and exfiltrates before trace containment while incomplete ICE telemetry and flawed policy create an explainable failure. The other finite drills teach the same deterministic edit, preview, trace, and revision loop; they are not a procedural campaign.
 
 ### D-016: The visual terminal uses bitmap fonts
 

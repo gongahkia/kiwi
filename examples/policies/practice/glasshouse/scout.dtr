@@ -1,0 +1,24 @@
+type SelfObservation = { entity_id: Int, position: Position }
+type Contact = {
+  age_ticks: Int,
+  confidence_basis_points: Int,
+  contact_id: Int,
+  estimated_position: Position,
+  uncertainty_radius: Distance
+}
+type Observation = { nearest_contact: Option<Contact>, self: SelfObservation }
+type Memory = { label: String }
+type MoveToward = { target: Position }
+type Decision = { intentions: List<MoveToward>, memory: Memory }
+
+policy choose_visible_route(observation: Observation, memory: Memory) -> Decision =
+  match observation.nearest_contact with
+  | Some(contact) ->
+      if contact.uncertainty_radius <= 1m then
+        Decision {
+          intentions = [MoveToward { target = Position { x = 0m, y = 0m - 1m } }],
+          memory = memory
+        }
+      else
+        Decision { intentions = [], memory = memory }
+  | None -> Decision { intentions = [], memory = memory }

@@ -344,15 +344,11 @@ A four-daemon bundle breaches a hostile mainframe to retrieve an encrypted paylo
 
 The bundled scout policy treats a contact uncertainty radius at or below one metre as sufficient reason to advance without inspecting cover. Its deterministic causal fixture traces that advance through hostile fire, projectile impact, and injury.
 
-- be optional;
-- operate through a declared plugin interface;
-- be able to subscribe to semantic events without mutating terminal state;
-- distinguish per-cell, per-row, full-frame, and post-process costs;
-- support seeded randomness;
-- declare whether deterministic export is supported;
-- fail in isolation where possible;
-- expose parameters through serialisable configuration;
-- include at least three built-in presets for v0.1.
+### 11.1.1 Practice sequence
+
+The local first slice begins with the persistent, replayable `First Link` onboarding drill, then offers an open practice list containing `Terminal`, `Glasshouse`, and `Redline`. Each level has a bounded skippable intro, an authored briefing, a concrete code prompt, and the same deterministic preview-to-causal-receipt loop. Glasshouse focuses Option matching and readable route alternatives. Redline exposes a tiny strategic input surface: Advance is a recorded typed signal observed by policy, while Hold intentionally sends no advance signal. Known threats, daemon intent, and an explicit unknown boundary are displayed separately; hidden hostile state is not forecast.
+
+### 11.2 Required player actions
 
 Recommended initial presets:
 

@@ -13,7 +13,8 @@
 
 ```text
 Terminal boot / loading
- -> fixture or terminal session
+ -> First Link onboarding or open practice dossier
+ -> skippable level intro
  -> briefing
  -> daemon bundle and access profile
  -> kiwi workbench
@@ -27,15 +28,13 @@ The vertical slice may expose `Run fixture`, `Edit policy`, and `Compare runs` d
 
 ### 2.1 Terminal entry flow
 
-Terminal opens on a skippable operator-seated boot scene, then a briefing that states the hostile-mainframe
-payload objective, 90-second trace containment, incomplete ICE telemetry, and Lark's
-initial 0.5-metre-uncertainty contact. Continuing opens the workbench. Its
+Terminal opens on a skippable operator-seated boot scene. New local progress enters the replayable First Link onboarding drill; a completed onboarding opens First Link, Terminal, Glasshouse, and Redline in an unrestricted practice dossier. A level intro plays only on the first entry to that level in a session and is always skippable. The briefing states the level objective, visible pressure, known intelligence, and one concrete code change to try. Continuing opens the workbench. Its
 canonical role sidebar is Breach, Mender, Scope, then Lark; each role retains
 an independent in-memory editor and compile result while the player reviews
 another policy. Compilation only produces DSL diagnostics or bytecode metadata;
 it does not deploy or execute a policy.
 
-`Compile + run` in the Terminal drill shows a jacking-in loading scene, then opens a live-preview split: editable
+`Compile + run` shows a jacking-in loading scene, then opens a live-preview split: editable
 source remains on the left while the right pane cycles through the initial,
 first-tick, and second-tick snapshots of one newly recorded deterministic run.
 With hot reload enabled, a source-text change recompiles and records the same
@@ -43,8 +42,7 @@ two-tick drill before replacing the preview; a failed compile blocks the current
 preview rather than showing stale results. Pause and Step inspect copied
 checkpoints only. The trace panel reports retained policy/intention/world-event
 records for the displayed tick and focuses Lark's source span when that exact
-run emitted an intention. The DSL has no unbounded loops: policies evaluate once
-per fixed tick, so the preview never implies otherwise.
+run emitted an intention. Its forecast lists only authored known information, the daemon's retained next intent, and an explicit unknown boundary. The causal receipt condenses retained source, intention, resolution, and outcome evidence without inventing a prediction. The DSL has no unbounded loops: policies evaluate once per fixed tick, so the preview never implies otherwise.
 
 The mission HUD reports `IN PROGRESS`, `SUCCESS` after the payload is
 exfiltrated, or `FAILURE` when trace containment seals the route. These are copied

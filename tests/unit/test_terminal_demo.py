@@ -12,6 +12,8 @@ from kiwi.app.terminal_demo import (
     TerminalInputMode,
     _content_root,
 )
+from kiwi.app.terminal_levels import TerminalLevelId, TerminalPracticeSignal
+from kiwi.app.terminal_progress import TerminalProgress
 from kiwi.dsl.source import ByteOffset
 from kiwi.trace.comparison import ConsequenceDifferenceKind
 from kiwi.ui.editor import EditorState
@@ -19,7 +21,12 @@ from kiwi.ui.terminal_debrief import TerminalDebrief, TerminalDebriefUnavailable
 
 
 def test_terminal_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
-    baseline = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    baseline = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
 
     assert baseline.screen is TerminalDemoScreen.LIVE_PREVIEW
     assert baseline.current_run is not None
@@ -58,7 +65,12 @@ def test_terminal_demo_runs_the_injury_to_revision_to_comparison_loop() -> None:
 
 
 def test_terminal_demo_hot_reloads_only_source_changes_into_recorded_preview_ticks() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     paused = preview.advance_preview().pause_preview()
 
     assert paused.preview_snapshot_index == 1
@@ -81,7 +93,12 @@ def test_terminal_demo_hot_reloads_only_source_changes_into_recorded_preview_tic
 
 
 def test_terminal_demo_marks_preview_stale_when_hot_reload_is_disabled() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     disabled = preview.toggle_hot_reload()
     stale = disabled.replace_selected_editor(disabled.workbench.editor.insert_text(" "))
 
@@ -92,7 +109,12 @@ def test_terminal_demo_marks_preview_stale_when_hot_reload_is_disabled() -> None
 
 
 def test_terminal_demo_blocks_deployment_after_a_policy_compile_failure() -> None:
-    opened = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    opened = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     broken = opened.replace_selected_editor(opened.workbench.editor.insert_text("@"))
 
     result = broken.deploy()
@@ -115,11 +137,16 @@ def test_terminal_demo_detects_a_platform_default_and_requires_input_confirmatio
     function_keys = controller.choose_input_mode(TerminalInputMode.FUNCTION_KEYS)
 
     assert function_keys.input_mode is TerminalInputMode.FUNCTION_KEYS
-    assert function_keys.confirm_input_mode().screen is TerminalDemoScreen.BRIEFING
+    assert function_keys.confirm_input_mode().screen is TerminalDemoScreen.LEVEL_INTRO
 
 
 def test_terminal_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> None:
-    opened = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    opened = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     typed = opened.replace_selected_editor(EditorState.from_text("Mov").move_cursor(3))
 
     assert typed.completions() == ("MoveToward",)
@@ -141,7 +168,12 @@ def test_terminal_demo_cycles_theme_and_accepts_the_first_dsl_completion() -> No
 
 
 def test_terminal_preview_maps_entities_and_source_offsets_to_retained_trace_steps() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     step = preview.advance_preview().pause_preview()
 
     from_map = step.select_preview_entity(1)
@@ -156,7 +188,12 @@ def test_terminal_preview_maps_entities_and_source_offsets_to_retained_trace_ste
 
 
 def test_terminal_preview_rotation_is_presentation_only() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     rotated = preview.rotate_preview().rotate_preview()
 
     assert rotated.preview_rotation_quarters == 2
@@ -165,7 +202,12 @@ def test_terminal_preview_rotation_is_presentation_only() -> None:
 
 
 def test_terminal_preview_zoom_is_presentation_only_and_bounded() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     zoomed = preview.zoom_preview(1).zoom_preview(1)
 
     assert zoomed.preview_zoom_percent == 150
@@ -175,7 +217,12 @@ def test_terminal_preview_zoom_is_presentation_only_and_bounded() -> None:
 
 
 def test_terminal_preview_emits_one_presentation_feedback_pulse_for_an_impact() -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
+    preview = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
     impact = preview.advance_preview().advance_preview()
 
     assert impact.preview_feedback_pulse == 1
@@ -192,3 +239,72 @@ def test_terminal_content_root_uses_a_frozen_bundle_only_when_not_explicitly_sup
 
     assert _content_root(None) == bundled
     assert _content_root(explicit) == explicit
+
+
+def test_terminal_first_link_unlocks_open_practice_and_receipts_stay_trace_backed() -> None:
+    first_link = (
+        TerminalDemoController.create()
+        .confirm_input_mode()
+        .continue_level_intro()
+        .open_live_preview()
+    )
+    fixed = first_link.select_scout_threshold().replace_selected_editor(
+        first_link.workbench.editor.insert_text("0")
+    )
+
+    assert fixed.progress == TerminalProgress(True)
+    dossier = fixed.open_level_select()
+    assert dossier.screen is TerminalDemoScreen.LEVEL_SELECT
+
+    glasshouse = dossier.select_level(TerminalLevelId.GLASSHOUSE)
+    assert glasshouse.screen is TerminalDemoScreen.LEVEL_INTRO
+    assert glasshouse.level.level_id is TerminalLevelId.GLASSHOUSE
+    preview = glasshouse.continue_level_intro().open_live_preview()
+    forecast = preview.forecast()
+    receipt = preview.causal_receipt()
+
+    assert forecast is not None
+    assert tuple(line.certainty.value for line in forecast.lines) == (
+        "known",
+        "known",
+        "inferred",
+        "unknown",
+    )
+    assert receipt is not None
+    assert tuple(line.label for line in receipt.lines) == (
+        "source",
+        "intention",
+        "resolution",
+        "outcome",
+    )
+    assert preview.open_receipt().screen is TerminalDemoScreen.RECEIPT
+    assert preview.open_receipt().close_receipt().screen is TerminalDemoScreen.LIVE_PREVIEW
+
+    revisited = preview.open_level_select().select_level(TerminalLevelId.GLASSHOUSE)
+    assert revisited.screen is TerminalDemoScreen.BRIEFING
+
+
+def test_terminal_redline_records_advance_as_typed_policy_input() -> None:
+    controller = (
+        TerminalDemoController.create(progress=TerminalProgress(True))
+        .confirm_input_mode()
+        .select_level(TerminalLevelId.REDLINE)
+        .continue_level_intro()
+        .open_live_preview()
+    )
+
+    assert controller.selected_practice_signal is TerminalPracticeSignal.HOLD
+    assert controller.current_run is not None
+    assert isinstance(controller.current_run.debrief, TerminalDebriefUnavailable)
+
+    advanced = controller.select_practice_signal(TerminalPracticeSignal.ADVANCE)
+
+    assert advanced.selected_practice_signal is TerminalPracticeSignal.ADVANCE
+    assert advanced.current_run is not None
+    assert isinstance(advanced.current_run.debrief, TerminalDebrief)
+    assert tuple(
+        type(command).__name__ for command in advanced.current_run.recorded.replay.commands
+    ) == (
+        "StartMission",
+        "IssueSignal",
+    )
