@@ -8,7 +8,19 @@ from collections.abc import Sequence
 from hashlib import blake2b
 from pathlib import Path
 
-from kiwi.content.fixtures import FixtureLoadFailure, load_kernel_fixture_bytes
+from kiwi.app.persistence import backup_path, write_recoverable_file
+from kiwi.content.fixtures import (
+    FixtureLoadFailure,
+    load_kernel_fixture_bytes,
+    load_kernel_fixture_file,
+)
+from kiwi.content.missions import MissionLoadFailure, load_mission_file
+from kiwi.content.projects import (
+    POLICY_PROJECT_FILENAME,
+    PolicyProjectDiagnostic,
+    PolicyProjectValidationFailure,
+    validate_policy_project_file,
+)
 from kiwi.domain.ids import IntentionId, TraceNodeId
 from kiwi.dsl.bytecode import BytecodeHeader, BytecodeModule
 from kiwi.dsl.bytecode_codec import encode_bytecode
@@ -243,6 +255,52 @@ def benchmark(
     return 0
 
 
+def validate_paths(paths: Sequence[Path]) -> int:
+    """Validate supported content and closed-DSL projects without importing pygame."""
+    if not isinstance(paths, Sequence) or not paths:
+        raise ValueError("validation requires at least one path")
+    files = _validation_files(paths)
+    if not files:
+        print("validate: no supported content or policy files found", file=sys.stderr)
+        return 1
+    failed = False
+    for path in files:
+        if path.name == POLICY_PROJECT_FILENAME:
+            project_result = validate_policy_project_file(path)
+            if isinstance(project_result, PolicyProjectValidationFailure):
+                _print_policy_project_failure(project_result)
+                failed = True
+            else:
+                print(f"ok: {path}: policy project entries={len(project_result.entries)}")
+            continue
+        if path.name.endswith(".dmission.json"):
+            mission_result = load_mission_file(path)
+            if isinstance(mission_result, MissionLoadFailure):
+                _print_mission_failure(mission_result)
+                failed = True
+            else:
+                print(f"ok: {path}: mission id={mission_result.mission_id}")
+            continue
+        if path.name.endswith(".kfixture.json"):
+            fixture_result = load_kernel_fixture_file(path)
+            if isinstance(fixture_result, FixtureLoadFailure):
+                _print_fixture_failure(fixture_result)
+                failed = True
+            else:
+                print(f"ok: {path}: kernel fixture id={fixture_result.fixture_id}")
+            continue
+        if path.suffix == ".dtr":
+            module = _compile_source(path)
+            if module is None:
+                failed = True
+            else:
+                print(f"ok: {path}: policy source")
+            continue
+        print(f"{path}: V001_UNSUPPORTED_PATH: unsupported validation target", file=sys.stderr)
+        failed = True
+    return 1 if failed else 0
+
+
 def trace_query(path: Path, query_name: str, target_id: int) -> int:
     """Load one trace packet and render one deterministic evidence-only query."""
     if not isinstance(path, Path):
@@ -307,10 +365,9 @@ def replay_record(
     except ValueError as error:
         print(f"replay-record: {error}", file=sys.stderr)
         return 1
-    try:
-        output.write_bytes(encoded)
-    except OSError:
-        print(f"{output}: could not write replay", file=sys.stderr)
+    write_failure = write_recoverable_file(output, encoded)
+    if write_failure is not None:
+        print(f"{output}: {write_failure.code}: {write_failure.message}", file=sys.stderr)
         return 1
     print(
         f"{output}: wrote {len(encoded)} bytes "
@@ -395,12 +452,10 @@ def _load_trace(path: Path) -> CausalTrace | None:
     try:
         data = path.read_bytes()
     except OSError:
-        print(f"{path}: could not read trace", file=sys.stderr)
-        return None
+        return _load_trace_backup(path, "TR000_READ_FAILED", "could not read trace")
     decoded = decode_trace(data)
     if isinstance(decoded, TraceDecodeFailure):
-        print(f"{path}: {decoded.code}: {decoded.message}", file=sys.stderr)
-        return None
+        return _load_trace_backup(path, decoded.code.value, decoded.message)
     return decoded
 
 
@@ -408,12 +463,40 @@ def _load_replay(path: Path) -> ReplayPacket | None:
     try:
         data = path.read_bytes()
     except OSError:
-        print(f"{path}: could not read replay", file=sys.stderr)
+        return _load_replay_backup(path, "RP000_READ_FAILED", "could not read replay")
+    decoded = decode_replay(data)
+    if isinstance(decoded, ReplayDecodeFailure):
+        return _load_replay_backup(path, decoded.code.value, decoded.message)
+    return decoded
+
+
+def _load_trace_backup(path: Path, primary_code: str, primary_message: str) -> CausalTrace | None:
+    backup = backup_path(path)
+    try:
+        data = backup.read_bytes()
+    except OSError:
+        print(f"{path}: {primary_code}: {primary_message}", file=sys.stderr)
+        return None
+    decoded = decode_trace(data)
+    if isinstance(decoded, TraceDecodeFailure):
+        print(f"{path}: {primary_code}: {primary_message}", file=sys.stderr)
+        return None
+    print(f"{path}: recovered from {backup}", file=sys.stderr)
+    return decoded
+
+
+def _load_replay_backup(path: Path, primary_code: str, primary_message: str) -> ReplayPacket | None:
+    backup = backup_path(path)
+    try:
+        data = backup.read_bytes()
+    except OSError:
+        print(f"{path}: {primary_code}: {primary_message}", file=sys.stderr)
         return None
     decoded = decode_replay(data)
     if isinstance(decoded, ReplayDecodeFailure):
-        print(f"{path}: {decoded.code}: {decoded.message}", file=sys.stderr)
+        print(f"{path}: {primary_code}: {primary_message}", file=sys.stderr)
         return None
+    print(f"{path}: recovered from {backup}", file=sys.stderr)
     return decoded
 
 
@@ -423,6 +506,61 @@ def _print_fixture_failure(failure: FixtureLoadFailure) -> None:
             f"{failure.source}:{diagnostic.path}: {diagnostic.code}: {diagnostic.message}",
             file=sys.stderr,
         )
+
+
+def _print_mission_failure(failure: MissionLoadFailure) -> None:
+    for diagnostic in failure.diagnostics:
+        print(
+            f"{failure.source}:{diagnostic.path}: {diagnostic.code}: {diagnostic.message}",
+            file=sys.stderr,
+        )
+
+
+def _print_policy_project_failure(failure: PolicyProjectValidationFailure) -> None:
+    for issue in failure.issues:
+        if isinstance(issue, PolicyProjectDiagnostic):
+            print(
+                f"{failure.manifest_path}:{issue.path}: {issue.code}: {issue.message}",
+                file=sys.stderr,
+            )
+            continue
+        source = load_utf8_file(
+            failure.manifest_path.parent / issue.primary_span.file_id.value,
+            file_id=issue.primary_span.file_id,
+        )
+        if isinstance(source, SourceLoadFailure):
+            print(
+                f"{issue.primary_span.file_id.value}@{issue.primary_span.start.value}.."
+                f"{issue.primary_span.end.value}: {issue.code}: {issue.message}",
+                file=sys.stderr,
+            )
+            continue
+        print(_format_diagnostic(source, issue), file=sys.stderr)
+
+
+def _validation_files(paths: Sequence[Path]) -> tuple[Path, ...]:
+    files: list[Path] = []
+    for path in paths:
+        if not isinstance(path, Path):
+            raise TypeError("validation paths must be paths")
+        if path.is_dir():
+            files.extend(
+                candidate
+                for candidate in path.rglob("*")
+                if candidate.is_file() and _is_validation_file(candidate)
+            )
+        else:
+            files.append(path)
+    return tuple(sorted(set(files), key=lambda candidate: candidate.as_posix()))
+
+
+def _is_validation_file(path: Path) -> bool:
+    return (
+        path.name == POLICY_PROJECT_FILENAME
+        or path.name.endswith(".dmission.json")
+        or path.name.endswith(".kfixture.json")
+        or path.suffix == ".dtr"
+    )
 
 
 def _print_selected_query(result: IntentionSelectionExplanation | TraceQueryUnavailable) -> None:
@@ -657,6 +795,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     benchmark_parser.add_argument("--arg", action="append", default=[])
     benchmark_parser.add_argument("--iterations", type=int, default=100)
     benchmark_parser.add_argument("--ticks", type=int, default=60)
+    validate_parser = subparsers.add_parser("validate")
+    validate_parser.add_argument("paths", type=Path, nargs="+")
     trace_query_parser = subparsers.add_parser("trace-query")
     trace_query_parser.add_argument("trace", type=Path)
     trace_query_parser.add_argument(
@@ -697,6 +837,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             arguments.iterations,
             arguments.ticks,
         )
+    if arguments.command == "validate":
+        return validate_paths(arguments.paths)
     if arguments.command == "trace-query":
         return trace_query(arguments.trace, arguments.query, arguments.target_id)
     if arguments.command == "replay-record":

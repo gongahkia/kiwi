@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pygame
 
-from kiwi.app.settings import UiSettings, load_ui_settings, save_ui_settings
-from kiwi.app.terminal_codex import TerminalCodex, load_terminal_codex, save_terminal_codex
+from kiwi.app.settings import SettingsLoadResult, UiSettings, load_ui_settings, save_ui_settings
+from kiwi.app.terminal_codex import (
+    TerminalCodexLoadResult,
+    load_terminal_codex_result,
+    save_terminal_codex,
+)
 from kiwi.app.terminal_demo import (
     TerminalColorScheme,
     TerminalDemoController,
@@ -256,11 +260,12 @@ def run_terminal_demo() -> int:
     settings_result = load_ui_settings(_SETTINGS_PATH)
     settings = settings_result.settings
     saved_settings = settings
-    try:
-        codex = load_terminal_codex(_CODEX_PATH)
-    except ValueError:
-        codex = TerminalCodex()
+    codex_result = load_terminal_codex_result(_CODEX_PATH)
+    codex = codex_result.codex
     controller = TerminalDemoController.create(codex=codex)
+    persistence_notice = _persistence_notice(settings_result, codex_result, _SETTINGS_PATH)
+    if persistence_notice:
+        controller = replace(controller, notice=persistence_notice)
     saved_codex = controller.codex
     compositor = CrtCompositor()
     frame_clock = pygame.time.Clock()
@@ -332,15 +337,45 @@ def run_terminal_demo() -> int:
             )
             present(window)
             if controller.codex != saved_codex:
-                save_terminal_codex(_CODEX_PATH, controller.codex)
+                codex_save = save_terminal_codex(_CODEX_PATH, controller.codex)
                 saved_codex = controller.codex
+                if codex_save.failure is not None:
+                    controller = replace(
+                        controller,
+                        notice=(
+                            "Codex changes could not be saved; the previous local copy is intact."
+                        ),
+                    )
             if settings != saved_settings:
-                save_ui_settings(_SETTINGS_PATH, settings)
+                settings_save = save_ui_settings(_SETTINGS_PATH, settings)
                 saved_settings = settings
+                if settings_save.failure is not None:
+                    controller = replace(
+                        controller,
+                        notice="Settings could not be saved; the previous local copy is intact.",
+                    )
             frame_clock.tick(60)
     finally:
         quit_pygame()
     return 0
+
+
+def _persistence_notice(
+    settings_result: SettingsLoadResult,
+    codex_result: TerminalCodexLoadResult,
+    settings_path: Path,
+) -> str:
+    """Render local-data recovery as a concise startup notice rather than a traceback."""
+    notices: list[str] = []
+    if settings_result.recovered_from_backup:
+        notices.append("Recovered settings from the last complete local copy.")
+    elif settings_result.failure is not None and settings_path.exists():
+        notices.append("Settings could not be loaded; using defaults.")
+    if codex_result.recovered_from_backup:
+        notices.append("Recovered codex progress from the last complete local copy.")
+    elif codex_result.failure is not None:
+        notices.append("Codex progress could not be loaded; no progress was changed.")
+    return " ".join(notices)
 
 
 def _handle_event(

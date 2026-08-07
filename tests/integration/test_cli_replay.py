@@ -86,6 +86,48 @@ def test_replay_compare_reports_a_structured_baseline_mismatch(tmp_path: Path) -
     assert compared.stderr == ""
 
 
+def test_replay_cli_uses_the_last_complete_backup_when_the_primary_is_corrupt(
+    tmp_path: Path,
+) -> None:
+    fixture = tmp_path / "fixture.kfixture.json"
+    replay = tmp_path / "run.drun"
+    fixture.write_text(
+        '{"format":"kiwi-kernel-fixture","version":1,"id":"minimal",'
+        '"tick_rate":30,"seed":7,"entities":{},"scheduled_triggers":[]}',
+        encoding="utf-8",
+    )
+    first = _run(
+        "replay-record",
+        str(fixture),
+        "1",
+        str(replay),
+        "--application-build",
+        "test-build",
+        "--simulation-version",
+        "sim-v1",
+    )
+    second = _run(
+        "replay-record",
+        str(fixture),
+        "2",
+        str(replay),
+        "--application-build",
+        "test-build",
+        "--simulation-version",
+        "sim-v1",
+    )
+    replay.write_bytes(b"corrupt")
+
+    verified = _run("replay-verify", str(replay))
+
+    assert first.returncode == 0
+    assert second.returncode == 0
+    assert replay.with_name("run.drun.bak").is_file()
+    assert verified.returncode == 0
+    assert verified.stdout == "verified: tick=1 checkpoints=2\n"
+    assert verified.stderr == f"{replay}: recovered from {replay}.bak\n"
+
+
 def _run(*arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "kiwi.cli", *arguments],

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_terminal_demo_renders_briefing_mission_debrief_and_comparison_states() -> None:
@@ -223,3 +224,25 @@ def test_retained_impact_feedback_decays_without_an_authority_input() -> None:
     assert _impact_feedback(0) == ((-4, 4), 4)
     assert _impact_feedback(315) == ((1, 1), 1)
     assert _impact_feedback(360) == ((0, 0), 0)
+
+
+def test_terminal_demo_only_notices_when_local_settings_need_attention(tmp_path: Path) -> None:
+    from kiwi.app.settings import load_ui_settings
+    from kiwi.app.terminal_codex import load_terminal_codex_result
+    from kiwi.render.terminal_demo import _persistence_notice
+
+    settings_path = tmp_path / "settings.json"
+    empty_notice = _persistence_notice(
+        load_ui_settings(settings_path),
+        load_terminal_codex_result(tmp_path / "codex.json"),
+        settings_path,
+    )
+    settings_path.write_text("{", encoding="utf-8")
+    corrupt_notice = _persistence_notice(
+        load_ui_settings(settings_path),
+        load_terminal_codex_result(tmp_path / "codex.json"),
+        settings_path,
+    )
+
+    assert empty_notice == ""
+    assert corrupt_notice == "Settings could not be loaded; using defaults."

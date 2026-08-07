@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
@@ -301,7 +302,7 @@ class TerminalDemoController:
     @classmethod
     def create(
         cls,
-        repository_root: Path = _REPOSITORY_ROOT,
+        repository_root: Path | None = None,
         platform_name: str | None = None,
         codex: TerminalCodex | None = None,
     ) -> TerminalDemoController:
@@ -318,7 +319,7 @@ class TerminalDemoController:
         )
         return cls(
             TerminalDemoScreen.INPUT_SETUP,
-            load_terminal_workbench(repository_root),
+            load_terminal_workbench(_content_root(repository_root)),
             input_mode,
             resolved_platform,
             codex=TerminalCodex() if codex is None else codex,
@@ -457,11 +458,11 @@ class TerminalDemoController:
             return self
         return replace(self, tutorial=self.tutorial.previous_lesson())
 
-    def deploy(self, repository_root: Path = _REPOSITORY_ROOT) -> TerminalDemoController:
+    def deploy(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Compile all policies and open their deterministic two-tick live preview."""
         if self.screen not in (TerminalDemoScreen.WORKBENCH, TerminalDemoScreen.LIVE_PREVIEW):
             return self
-        result = run_terminal_causal_drill(self.workbench, repository_root)
+        result = run_terminal_causal_drill(self.workbench, _content_root(repository_root))
         if isinstance(result, TerminalDemoDeploymentFailure):
             return replace(
                 self,
@@ -485,17 +486,17 @@ class TerminalDemoController:
             return self
         return replace(self, screen=TerminalDemoScreen.LOADING, preview_playing=False, notice="")
 
-    def finish_deploy(self, repository_root: Path = _REPOSITORY_ROOT) -> TerminalDemoController:
+    def finish_deploy(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Compile and record after the loading frame has presented once."""
         if self.screen is not TerminalDemoScreen.LOADING:
             return self
         return replace(self, screen=TerminalDemoScreen.WORKBENCH).deploy(repository_root)
 
-    def reload_preview(self, repository_root: Path = _REPOSITORY_ROOT) -> TerminalDemoController:
+    def reload_preview(self, repository_root: Path | None = None) -> TerminalDemoController:
         """Recompile and rerun an enabled preview after one immutable source edit."""
         if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
-        result = run_terminal_causal_drill(self.workbench, repository_root)
+        result = run_terminal_causal_drill(self.workbench, _content_root(repository_root))
         if isinstance(result, TerminalDemoDeploymentFailure):
             return replace(
                 self,
@@ -882,29 +883,27 @@ def _scout_caution_span(source: SourceFile) -> SourceSpan | None:
     )
 
 
-def load_terminal_workbench(repository_root: Path = _REPOSITORY_ROOT) -> TerminalWorkbench:
+def load_terminal_workbench(repository_root: Path | None = None) -> TerminalWorkbench:
     """Read the four shipped player policies at the application IO boundary."""
-    if not isinstance(repository_root, Path):
-        raise TypeError("Terminal demo repository root must be a path")
+    root = _content_root(repository_root)
     source_ids = tuple(
         "examples/policies/terminal/" + name + ".dtr"
         for name in ("breacher", "medic", "overwatch", "scout")
     )
-    sources = tuple(_read_source(repository_root, source_id) for source_id in source_ids)
+    sources = tuple(_read_source(root, source_id) for source_id in source_ids)
     return build_terminal_workbench(sources)
 
 
 def run_terminal_causal_drill(
     workbench: TerminalWorkbench,
-    repository_root: Path = _REPOSITORY_ROOT,
+    repository_root: Path | None = None,
 ) -> TerminalDemoDeploymentResult:
     """Record the explainable two-tick scout threshold drill from current source buffers."""
     if not isinstance(workbench, TerminalWorkbench):
         raise TypeError("Terminal causal drill requires a workbench")
     if workbench.phase is not TerminalFlowPhase.WORKBENCH:
         raise ValueError("Terminal causal drill requires an open workbench")
-    if not isinstance(repository_root, Path):
-        raise TypeError("Terminal causal drill repository root must be a path")
+    root = _content_root(repository_root)
     compiled = _compile_all_policies(workbench)
     if any(output is None or not output.succeeded for output in compiled.compile_outputs):
         return TerminalDemoDeploymentFailure(compiled)
@@ -912,7 +911,7 @@ def run_terminal_causal_drill(
     scout_output = scout.compile_output
     if scout_output is None or scout_output.artifact is None:
         raise AssertionError("successful scout compile output has no artifact")
-    enemy_source = _read_source(repository_root, _ENEMY_SOURCE_ID)
+    enemy_source = _read_source(root, _ENEMY_SOURCE_ID)
     enemy_artifact = _compile_trusted_source(enemy_source)
     initial_state, player, enemy = _build_drill_initial_state()
     bindings = PolicyBindings(
@@ -1039,6 +1038,18 @@ def _read_source(repository_root: Path, source_id: str) -> SourceFile:
     except OSError as error:
         raise RuntimeError(f"could not read Terminal demo policy {path}") from error
     return SourceFile(SourceFileId(source_id), text)
+
+
+def _content_root(repository_root: Path | None) -> Path:
+    """Resolve Terminal's immutable source root in development or a frozen bundle."""
+    if repository_root is not None:
+        if not isinstance(repository_root, Path):
+            raise TypeError("Terminal demo repository root must be a path")
+        return repository_root
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if isinstance(bundle_root, str):
+        return Path(bundle_root)
+    return _REPOSITORY_ROOT
 
 
 def _compile_trusted_source(source: SourceFile) -> CompiledArtifact:

@@ -667,6 +667,13 @@ and cover authority IDs from canonical content order. The resulting
 `MissionState` remains renderer-independent; named regions remain content
 data until the corresponding objective and deployment rules consume them.
 
+`kiwi.content.projects` validates versioned `kiwi.policy.json` manifests at the
+same headless boundary. It confines every manifest reference to the policy
+root, validates optional parameters JSON, compiles declared closed-DSL sources,
+and confirms that each requested entry is a declared policy. `kiwi validate`
+renders these project issues and the preserved DSL source diagnostics without
+initialising pygame.
+
 `kiwi.app.terminal_players` adds the four fixed player deployments,
 generic weapon inventories, bounded compiled DSL policies, and declared
 capabilities above that mission boundary. It also binds Terminal's named

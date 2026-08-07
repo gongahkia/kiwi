@@ -287,3 +287,63 @@ def test_run_policy_command_executes_desugared_pipelines(tmp_path: Path) -> None
     assert result.returncode == 0
     assert result.stdout == "value: Integer(7)\n"
     assert result.stderr == ""
+
+
+def test_validate_command_reports_policy_project_entry_validation(tmp_path: Path) -> None:
+    source = tmp_path / "src" / "policy.dtr"
+    source.parent.mkdir()
+    source.write_text(
+        "type Observation = { tick: Int }\n"
+        "type Memory = { label: String }\n"
+        "type Wait = { duration: Duration }\n"
+        "type Decision = { intentions: List<Wait>, memory: Memory }\n"
+        "policy hold(observation: Observation, memory: Memory) -> Decision = "
+        "Decision { intentions = [Wait { duration = 1s }], memory = memory }",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "kiwi.policy.json"
+    manifest.write_text(
+        '{"entry_points":{"operative":"src/policy.dtr#hold"},'
+        '"format":"kiwi-policy-project","language_version":2,'
+        '"name":"cautious-alpha","version":1}',
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("validate", str(manifest))
+
+    assert result.returncode == 0
+    assert result.stdout == f"ok: {manifest}: policy project entries=1\n"
+    assert result.stderr == ""
+
+
+def test_validate_command_accepts_all_shipped_examples() -> None:
+    examples = Path(__file__).parents[2] / "examples"
+
+    result = run_cli_arguments("validate", str(examples))
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert f"ok: {examples / 'policies' / 'basic.dtr'}: policy source\n" in result.stdout
+    assert (
+        f"ok: {examples / 'missions' / 'terminal.dmission.json'}: mission id=terminal\n"
+        in result.stdout
+    )
+
+
+def test_validate_command_preserves_source_diagnostics_from_policy_projects(tmp_path: Path) -> None:
+    source = tmp_path / "src" / "policy.dtr"
+    source.parent.mkdir()
+    source.write_text("policy hold(value Int) -> Int = value", encoding="utf-8")
+    manifest = tmp_path / "kiwi.policy.json"
+    manifest.write_text(
+        '{"entry_points":{"operative":"src/policy.dtr#hold"},'
+        '"format":"kiwi-policy-project","language_version":2,'
+        '"name":"cautious-alpha","version":1}',
+        encoding="utf-8",
+    )
+
+    result = run_cli_arguments("validate", str(manifest))
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == "src/policy.dtr:1:19: E201_EXPECTED_TOKEN: expected ':'\n"
