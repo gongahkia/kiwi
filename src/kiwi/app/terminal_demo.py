@@ -439,7 +439,7 @@ class TerminalDemoController:
         """Open the read-only language guide without changing source or authority."""
         if self.screen is not TerminalDemoScreen.LIVE_PREVIEW:
             return self
-        return replace(self, screen=TerminalDemoScreen.GUIDE, notice="")
+        return replace(self, screen=TerminalDemoScreen.GUIDE, preview_playing=False, notice="")
 
     def close_guide(self) -> TerminalDemoController:
         """Return from the guide to the unchanged code-and-preview screen."""
@@ -816,7 +816,9 @@ class TerminalDemoController:
             TerminalDemoScreen.LOADING,
         ):
             return self
-        return replace(self, screen=TerminalDemoScreen.LIVE_PREVIEW, preview_playing=False, notice="")
+        return replace(
+            self, screen=TerminalDemoScreen.LIVE_PREVIEW, preview_playing=False, notice=""
+        )
 
 
 def _record_source_span(record: ExpressionEvaluationTrace | IntentionTrace) -> SourceSpan:

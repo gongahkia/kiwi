@@ -13,7 +13,7 @@ from kiwi.app.terminal_demo import TerminalDemoController
 
 
 def test_policy_reached_shard_unlocks_and_persists(tmp_path: Path) -> None:
-    preview = TerminalDemoController.create().confirm_input_mode().open_workbench().deploy()
+    preview = TerminalDemoController.create().confirm_input_mode().open_live_preview()
     assert preview.current_run is not None
 
     unlocked = terminal_lore_unlocks(preview.current_run.snapshots[-1])

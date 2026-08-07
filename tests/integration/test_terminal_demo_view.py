@@ -24,7 +24,7 @@ assert font.measure(
 canvas = pygame.Surface((480, 270))
 _render(canvas, font, controller)
 assert len({canvas.get_at((x, y))[:3] for x in range(480) for y in range(270)}) > 2
-controller = controller.confirm_input_mode().open_workbench().deploy()
+controller = controller.confirm_input_mode().open_live_preview()
 _render(canvas, font, controller)
 _render(canvas, font, controller.cycle_color_scheme().open_results())
 controller = controller.open_debrief()
@@ -81,7 +81,7 @@ controller, quit_requested = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert not quit_requested
-assert controller.screen is TerminalDemoScreen.WORKBENCH
+assert controller.screen is TerminalDemoScreen.LIVE_PREVIEW
 controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F1, mod=0, unicode=\"\")
 )
@@ -125,7 +125,7 @@ controller, _ = _handle_event(
     controller, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN, mod=0, unicode=\"\\r\")
 )
 assert controller.screen is TerminalDemoScreen.COMPARISON
-controller = controller.return_to_workbench().replace_selected_editor(
+controller = controller.return_to_live_preview().replace_selected_editor(
     EditorState.from_text(\"Mov\").move_cursor(3)
 )
 controller, _ = _handle_event(
@@ -173,13 +173,15 @@ font = load_bitmap_font()
 controller = TerminalDemoController.create(platform_name="Darwin")
 controller = _handle_click(controller, (25, 160), font)
 assert controller.screen is TerminalDemoScreen.BRIEFING
-controller = controller.open_workbench()
+controller = controller.open_live_preview()
+selected_line = controller.workbench.editor.scroll.line
 controller = _handle_click(controller, (260, 32), font)
-assert controller.workbench.editor.cursor_position.line == 1
-theme_button = _theme_button(pygame.Surface((960, 540)), font)
+assert controller.workbench.editor.cursor_position.line == selected_line
+left_rect, right_rect = _live_preview_panes(pygame.Surface((960, 540)))
+theme_button = _theme_button(pygame.Surface(left_rect.size), font)
 controller = _handle_click(controller, theme_button.center, font)
 assert controller.color_scheme is TerminalColorScheme.AMBER
-compile_button, deploy_button = _workbench_buttons(pygame.Surface((960, 540)), font)
+compile_button, deploy_button = _workbench_buttons(pygame.Surface(left_rect.size), font)
 controller = _handle_click(controller, compile_button.center, font)
 assert controller.workbench.compile_output is not None
 assert controller.workbench.compile_output.succeeded
@@ -187,7 +189,6 @@ controller = _handle_click(controller, deploy_button.center, font)
 assert controller.screen is TerminalDemoScreen.LOADING
 controller = controller.finish_deploy()
 assert controller.screen is TerminalDemoScreen.LIVE_PREVIEW
-left_rect, right_rect = _live_preview_panes(pygame.Surface((960, 540)))
 play_button, step_button, reload_button, _ = _preview_buttons(pygame.Surface(right_rect.size), font)
 controller = _handle_click(
     controller, (right_rect.x + play_button.centerx, play_button.centery), font
