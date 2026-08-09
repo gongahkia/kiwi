@@ -8,4 +8,10 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
+
+# Kiwi renderer-laboratory dependencies and generated outputs.
+.deps/
+.build/
+bench/results/*.json
+!bench/results/example.json
 AGENTS.md
