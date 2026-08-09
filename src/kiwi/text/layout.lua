@@ -40,6 +40,11 @@ function Layout:invalidate_all()
   self.generation = self.generation + 1
 end
 
+function Layout:set_font_system(font_system)
+  self.font_system = assert(font_system, "text layout needs a font system")
+  self:invalidate_all()
+end
+
 function Layout:begin_frame()
   self.stats = {
     rows_invalidated = 0,
