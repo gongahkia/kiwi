@@ -55,6 +55,24 @@ local function dimensions(window, font)
   return math.max(1, math.floor(width / font.cell_width)), math.max(1, math.floor(height / font.cell_height))
 end
 
+local function content_scale(window)
+  local xscale, yscale = window:content_scale()
+  return math.max(xscale, yscale)
+end
+
+local function new_font(window)
+  local scale = content_scale(window)
+  local font = FontSystem.new({
+    pixel_height = math.max(1, math.floor(number_from_env("KIWI_FONT_PX", 20) * scale + 0.5)),
+    font_path = os.getenv("KIWI_FONT"),
+    primary_family = os.getenv("KIWI_FONT_FAMILY") or "monospace",
+    ligatures = os.getenv("KIWI_LIGATURES") == "1",
+    contextual_alternates = os.getenv("KIWI_CALT") == "1",
+  })
+  font.content_scale = scale
+  return font
+end
+
 local function run_live(options)
   local window = Window.new(1600, 960, "Kiwi M2 terminal")
   local context
@@ -64,13 +82,7 @@ local function run_live(options)
   local recorder
   local ok, result = xpcall(function()
     context = Context.new(window)
-    font = FontSystem.new({
-      pixel_height = number_from_env("KIWI_FONT_PX", 20),
-      font_path = os.getenv("KIWI_FONT"),
-      primary_family = os.getenv("KIWI_FONT_FAMILY") or "monospace",
-      ligatures = os.getenv("KIWI_LIGATURES") == "1",
-      contextual_alternates = os.getenv("KIWI_CALT") == "1",
-    })
+    font = new_font(window)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
     local state = State.new(columns, rows, {
@@ -141,13 +153,25 @@ local function run_live(options)
       end
 
       if now >= next_frame then
-        local new_columns, new_rows = dimensions(window, font)
-        if new_columns and (new_columns ~= state.columns or new_rows ~= state.rows) then
-          context:configure_surface()
-          state:resize(new_columns, new_rows)
-          pty:resize(new_columns, new_rows)
-          if recorder then recorder:resize(new_columns, new_rows) end
+        local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
+        if scale_changed then
           renderer:destroy()
+          renderer = nil
+          font:destroy()
+          font = new_font(window)
+          metrics.font = font
+        end
+        local new_columns, new_rows = dimensions(window, font)
+        if new_columns and (scale_changed or new_columns ~= state.columns or new_rows ~= state.rows) then
+          context:configure_surface()
+          if new_columns ~= state.columns or new_rows ~= state.rows then
+            state:resize(new_columns, new_rows)
+            pty:resize(new_columns, new_rows)
+            if recorder then recorder:resize(new_columns, new_rows) end
+          else
+            state:mark_all_dirty()
+          end
+          if renderer then renderer:destroy() end
           renderer = Renderer.new(context, font, state)
         end
         local frame_start = now
