@@ -576,15 +576,15 @@ class RuntimeDebugStats {
                               std::chrono::nanoseconds write_time,
                               std::chrono::steady_clock::time_point decoded_at,
                               std::chrono::steady_clock::time_point presented_at) noexcept {
-    const int64_t latency_us = std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(presented_at - decoded_at).count());
-    ++live_latency_samples_;
-    live_latency_us_ += latency_us;
-    live_max_latency_us_ = std::max(live_max_latency_us_, latency_us);
+    const int64_t decode_to_present_us = std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(presented_at - decoded_at).count());
+    ++live_decode_to_present_samples_;
+    live_decode_to_present_us_ += decode_to_present_us;
+    live_max_decode_to_present_us_ = std::max(live_max_decode_to_present_us_, decode_to_present_us);
     window_live_render_ns_ += render_time.count();
     window_live_write_ns_ += write_time.count();
-    ++window_live_latency_samples_;
-    window_live_latency_us_ += latency_us;
-    window_live_max_latency_us_ = std::max(window_live_max_latency_us_, latency_us);
+    ++window_live_decode_to_present_samples_;
+    window_live_decode_to_present_us_ += decode_to_present_us;
+    window_live_max_decode_to_present_us_ = std::max(window_live_max_decode_to_present_us_, decode_to_present_us);
   }
 
   void recordPresentedFrame(const CellBuffer& cells, const EmissionResult& emission) noexcept {
@@ -622,9 +622,9 @@ class RuntimeDebugStats {
     window_live_late_dropped_ = 0;
     window_live_render_ns_ = 0;
     window_live_write_ns_ = 0;
-    window_live_latency_samples_ = 0;
-    window_live_latency_us_ = 0;
-    window_live_max_latency_us_ = 0;
+    window_live_decode_to_present_samples_ = 0;
+    window_live_decode_to_present_us_ = 0;
+    window_live_max_decode_to_present_us_ = 0;
     return writeDebugStatusLine(terminal, line);
   }
 
@@ -649,19 +649,19 @@ class RuntimeDebugStats {
     } else {
       out << " rss=unknown";
     }
-    if (window_live_latency_samples_ > 0 || window_live_producer_replaced_ > 0 ||
+    if (window_live_decode_to_present_samples_ > 0 || window_live_producer_replaced_ > 0 ||
         window_live_consumer_discarded_ > 0 || window_live_late_dropped_ > 0) {
-      const double latency_ms = window_live_latency_samples_ > 0
-                                  ? static_cast<double>(window_live_latency_us_) /
-                                      (1000.0 * static_cast<double>(window_live_latency_samples_))
+      const double decode_to_present_ms = window_live_decode_to_present_samples_ > 0
+                                  ? static_cast<double>(window_live_decode_to_present_us_) /
+                                      (1000.0 * static_cast<double>(window_live_decode_to_present_samples_))
                                   : 0.0;
       out << " live_replace=" << window_live_producer_replaced_
           << " live_skip=" << window_live_consumer_discarded_
           << " live_late=" << window_live_late_dropped_
           << " live_render_ms=" << (static_cast<double>(window_live_render_ns_) / 1000000.0)
           << " live_write_ms=" << (static_cast<double>(window_live_write_ns_) / 1000000.0)
-          << " live_latency_ms=" << latency_ms
-          << " live_max_latency_ms=" << (static_cast<double>(window_live_max_latency_us_) / 1000.0);
+          << " live_decode_to_present_ms=" << decode_to_present_ms
+          << " live_max_decode_to_present_ms=" << (static_cast<double>(window_live_max_decode_to_present_us_) / 1000.0);
     }
     return out.str();
   }
@@ -682,17 +682,17 @@ class RuntimeDebugStats {
   int64_t live_producer_replaced_ = 0;
   int64_t live_consumer_discarded_ = 0;
   int64_t live_late_dropped_ = 0;
-  int64_t live_latency_samples_ = 0;
-  int64_t live_latency_us_ = 0;
-  int64_t live_max_latency_us_ = 0;
+  int64_t live_decode_to_present_samples_ = 0;
+  int64_t live_decode_to_present_us_ = 0;
+  int64_t live_max_decode_to_present_us_ = 0;
   int64_t window_live_producer_replaced_ = 0;
   int64_t window_live_consumer_discarded_ = 0;
   int64_t window_live_late_dropped_ = 0;
   int64_t window_live_render_ns_ = 0;
   int64_t window_live_write_ns_ = 0;
-  int64_t window_live_latency_samples_ = 0;
-  int64_t window_live_latency_us_ = 0;
-  int64_t window_live_max_latency_us_ = 0;
+  int64_t window_live_decode_to_present_samples_ = 0;
+  int64_t window_live_decode_to_present_us_ = 0;
+  int64_t window_live_max_decode_to_present_us_ = 0;
   int last_cols_ = 0;
   int last_rows_ = 0;
 };
