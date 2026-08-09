@@ -10,7 +10,15 @@ function Snapshot.value(state)
     for column = 0, state.columns - 1 do
       local cell = state:cell_at_index(state:index(column, row))
       text[#text + 1] = cell.glyph
-      cells[#cells + 1] = { bg = cell.bg, fg = cell.fg, flags = cell.flags, glyph = cell.glyph }
+      local snapshot_cell = { bg = cell.bg, fg = cell.fg, flags = cell.flags, glyph = cell.glyph }
+      if cell.continuation then
+        snapshot_cell.cluster = { anchor_column = cell.anchor_column, kind = "continuation" }
+      elseif cell.codepoints and (#cell.codepoints > 1 or cell.width == 2 or cell.display_text ~= cell.glyph) then
+        local codepoints = {}
+        for index, codepoint in ipairs(cell.codepoints) do codepoints[index] = codepoint end
+        snapshot_cell.cluster = { codepoints = codepoints, width = cell.width }
+      end
+      cells[#cells + 1] = snapshot_cell
     end
     rows[#rows + 1] = { cells = cells, text = table.concat(text) }
   end

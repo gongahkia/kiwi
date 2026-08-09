@@ -6,6 +6,11 @@ local function copy_cell(destination, source)
   destination.fg = source.fg
   destination.bg = source.bg
   destination.flags = source.flags
+  destination.codepoints = source.codepoints
+  destination.width = source.width
+  destination.continuation = source.continuation
+  destination.anchor_column = source.anchor_column
+  destination.display_text = source.display_text
 end
 
 local function new_row(columns, blank_cell)

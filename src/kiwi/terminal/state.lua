@@ -1,7 +1,11 @@
 local Attributes = require("kiwi.terminal.attributes")
 local Damage = require("kiwi.terminal.damage")
+local Grapheme = require("kiwi.unicode.grapheme")
+local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
+local Utf8 = require("kiwi.terminal.utf8")
+local Width = require("kiwi.terminal.width")
 
 local State = {}
 State.__index = State
@@ -13,10 +17,32 @@ local function copy_cell(destination, source)
   destination.fg = source.fg
   destination.bg = source.bg
   destination.flags = source.flags
+  destination.codepoints = source.codepoints
+  destination.width = source.width
+  destination.continuation = source.continuation
+  destination.anchor_column = source.anchor_column
+  destination.display_text = source.display_text
+end
+
+local function same_codepoints(left, right)
+  if left == right then return true end
+  if left == nil or right == nil or #left ~= #right then return false end
+  for index = 1, #left do
+    if left[index] ~= right[index] then return false end
+  end
+  return true
 end
 
 local function same_cell(left, right)
-  return left.glyph == right.glyph and left.fg == right.fg and left.bg == right.bg and left.flags == right.flags
+  return left.glyph == right.glyph
+    and left.fg == right.fg
+    and left.bg == right.bg
+    and left.flags == right.flags
+    and left.width == right.width
+    and left.continuation == right.continuation
+    and left.anchor_column == right.anchor_column
+    and left.display_text == right.display_text
+    and same_codepoints(left.codepoints, right.codepoints)
 end
 
 local function clamp(value, lower, upper)
@@ -29,7 +55,7 @@ function State.new(columns, rows, options)
   local self = setmetatable({
     columns = columns,
     rows = rows,
-    default_cell = { glyph = " ", fg = Attributes.default_foreground, bg = Attributes.default_background, flags = 0 },
+    default_cell = { glyph = " ", fg = Attributes.default_foreground, bg = Attributes.default_background, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
     modes = {
       autowrap = true,
@@ -44,8 +70,20 @@ function State.new(columns, rows, options)
     history_offset = 0,
     title = nil,
     responses = {},
-    stats = { mutations = 0, bells = 0, unknown = { csi = 0, esc = 0, osc = 0, string = 0 }, unknown_samples = {} },
+    width_policy = {
+      ambiguous_width = options.ambiguous_width or Width.default_policy.ambiguous_width,
+      private_use_width = options.private_use_width or Width.default_policy.private_use_width,
+    },
+    max_cluster_codepoints = options.max_cluster_codepoints or 64,
+    stats = {
+      mutations = 0,
+      bells = 0,
+      text = { over_limit_clusters = 0, width_change_clamped = 0 },
+      unknown = { csi = 0, esc = 0, osc = 0, string = 0 },
+      unknown_samples = {},
+    },
   }, State)
+  assert(self.max_cluster_codepoints >= 8, "terminal max_cluster_codepoints must be at least 8")
   self.primary = Screen.new(columns, rows, function()
     return self:blank_cell()
   end)
@@ -67,12 +105,23 @@ function State.new(columns, rows, options)
 end
 
 function State:blank_cell()
-  return { glyph = " ", fg = self.default_cell.fg, bg = self.default_cell.bg, flags = 0 }
+  return { glyph = " ", fg = self.default_cell.fg, bg = self.default_cell.bg, flags = 0, width = 1 }
 end
 
-function State:cell_from_attributes(glyph)
+function State:cell_from_attributes(glyph, metadata)
   local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
-  return { glyph = glyph, fg = foreground, bg = background, flags = flags }
+  metadata = metadata or {}
+  return {
+    glyph = glyph,
+    fg = foreground,
+    bg = background,
+    flags = flags,
+    codepoints = metadata.codepoints,
+    width = metadata.width or 1,
+    continuation = metadata.continuation,
+    anchor_column = metadata.anchor_column,
+    display_text = metadata.display_text,
+  }
 end
 
 function State:reset_tab_stops()
@@ -138,12 +187,19 @@ function State:sync_cursor_visibility()
   self.cursor.visible = self.modes.cursor_visible and self.history_offset == 0
 end
 
-function State:set_cursor(column, row)
+function State:clear_grapheme_context()
+  self.grapheme_context = nil
+end
+
+function State:set_cursor(column, row, preserve_grapheme_context)
   local cursor = self.active_screen.cursor
   local old_column, old_row = cursor.column, cursor.row
   cursor.column = clamp(column, 0, self.columns - 1)
   cursor.row = clamp(row, 0, self.rows - 1)
   cursor.pending_wrap = false
+  if not preserve_grapheme_context then
+    self:clear_grapheme_context()
+  end
   self:sync_cursor_visibility()
   self.damage:mark(self:index(old_column, old_row))
   self.damage:mark(self:index(cursor.column, cursor.row))
@@ -161,6 +217,7 @@ function State:restore_cursor()
 end
 
 function State:scroll_up(count)
+  self:clear_grapheme_context()
   local screen = self.active_screen
   local top, bottom = screen.top_margin, screen.bottom_margin
   count = clamp(count or 1, 1, bottom - top + 1)
@@ -173,6 +230,7 @@ function State:scroll_up(count)
 end
 
 function State:scroll_down(count)
+  self:clear_grapheme_context()
   local screen = self.active_screen
   local top, bottom = screen.top_margin, screen.bottom_margin
   count = clamp(count or 1, 1, bottom - top + 1)
@@ -226,7 +284,47 @@ function State:tab()
   self:set_cursor(target, cursor.row)
 end
 
-function State:write_codepoint(glyph)
+local function copied_codepoints(codepoints, extra)
+  local result = {}
+  for index, codepoint in ipairs(codepoints or {}) do
+    result[index] = codepoint
+  end
+  if extra then result[#result + 1] = extra end
+  return result
+end
+
+function State:current_grapheme_cluster()
+  local context = self.grapheme_context
+  if context == nil or context.screen ~= self.active_screen then return nil end
+  local row = context.screen.rows[context.row]
+  local cell = row and row.cells[context.column]
+  if cell == nil or cell.continuation or cell.codepoints ~= context.codepoints then
+    self:clear_grapheme_context()
+    return nil
+  end
+  return cell, context
+end
+
+function State:continuation_cell(anchor_column)
+  return self:cell_from_attributes("", { width = 0, continuation = true, anchor_column = anchor_column })
+end
+
+function State:clear_cluster_at(column, row)
+  local screen = self.active_screen
+  local cell = screen:get(column, row)
+  local anchor_column = cell.continuation and cell.anchor_column or column
+  local anchor = screen:get(anchor_column, row)
+  if anchor.continuation then
+    self:set_cell(column, row, self:blank_cell())
+    return
+  end
+  self:set_cell(anchor_column, row, self:blank_cell())
+  if anchor.width == 2 and anchor_column + 1 < self.columns then
+    self:set_cell(anchor_column + 1, row, self:blank_cell())
+  end
+end
+
+function State:prepare_cluster_write(width)
   local screen = self.active_screen
   local cursor = screen.cursor
   if cursor.pending_wrap then
@@ -238,18 +336,112 @@ function State:write_codepoint(glyph)
     end
     cursor.pending_wrap = false
   end
+  if width == 2 and cursor.column == self.columns - 1 then
+    if self.modes.autowrap then
+      screen.rows[cursor.row].wrapped = true
+      self:carriage_return()
+      self:index_line()
+      cursor = screen.cursor
+    else
+      self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
+      width = 1
+    end
+  end
   if self.modes.insert then
     self:insert_characters(1)
   end
-  self:set_cell(cursor.column, cursor.row, self:cell_from_attributes(glyph))
-  if cursor.column == self.columns - 1 then
+  return cursor, width
+end
+
+function State:write_new_cluster(glyph, codepoint)
+  self:clear_grapheme_context()
+  local codepoints = { codepoint }
+  local gcb = Properties.gcb(codepoint)
+  local leading = gcb == Properties.grapheme_break.extend
+    or gcb == Properties.grapheme_break.zwj
+    or gcb == Properties.grapheme_break.spacing_mark
+  local display_text = leading and Utf8.encode(0x25cc) .. glyph or glyph
+  local cursor, width = self:prepare_cluster_write(Width.columns(codepoints, self.width_policy))
+  local column, row = cursor.column, cursor.row
+  self:clear_cluster_at(column, row)
+  if width == 2 then self:clear_cluster_at(column + 1, row) end
+  local anchor = self:cell_from_attributes(glyph, {
+    codepoints = codepoints,
+    width = width,
+    display_text = display_text,
+  })
+  self:set_cell(column, row, anchor)
+  if width == 2 then
+    self:set_cell(column + 1, row, self:continuation_cell(column))
+  end
+  self.grapheme_context = { screen = self.active_screen, row = row, column = column, codepoints = codepoints }
+  if column + width - 1 == self.columns - 1 then
+    self:set_cursor(self.columns - 1, row, true)
     cursor.pending_wrap = true
   else
-    self:set_cursor(cursor.column + 1, cursor.row)
+    self:set_cursor(column + width, row, true)
   end
 end
 
+function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
+  local codepoints = copied_codepoints(context.codepoints, codepoint)
+  local old_width = cell.width
+  local new_width = Width.columns(codepoints, self.width_policy)
+  local updated = {
+    glyph = cell.glyph .. glyph,
+    fg = cell.fg,
+    bg = cell.bg,
+    flags = cell.flags,
+    codepoints = codepoints,
+    width = old_width,
+    display_text = (cell.display_text or cell.glyph) .. glyph,
+  }
+  local column, row = context.column, context.row
+  local cursor = self.active_screen.cursor
+  if old_width == 1 and new_width == 2 then
+    local next_cell = column + 1 < self.columns and self.active_screen:get(column + 1, row) or nil
+    if next_cell and next_cell.glyph == " " and not next_cell.continuation then
+      updated.width = 2
+      self:set_cell(column, row, updated)
+      self:set_cell(column + 1, row, self:continuation_cell(column))
+      if cursor.row == row and cursor.column == column + 1 then
+        self:set_cursor(math.min(self.columns - 1, column + 2), row, true)
+        cursor.pending_wrap = column + 1 == self.columns - 1
+      end
+    else
+      self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
+      self:set_cell(column, row, updated)
+    end
+  elseif old_width == 2 and new_width == 1 then
+    updated.width = 1
+    self:set_cell(column, row, updated)
+    self:set_cell(column + 1, row, self:blank_cell())
+    if cursor.row == row and (cursor.column == column + 2 or cursor.pending_wrap) then
+      self:set_cursor(column + 1, row, true)
+    end
+  else
+    self:set_cell(column, row, updated)
+  end
+  context.codepoints = codepoints
+  self.grapheme_context = context
+end
+
+function State:write_codepoint(glyph, codepoint)
+  codepoint = codepoint or Utf8.decode_one(glyph)
+  local cell, context = self:current_grapheme_cluster()
+  if cell and not Grapheme.should_break(context.codepoints, codepoint) then
+    if #context.codepoints < self.max_cluster_codepoints then
+      self:extend_grapheme_cluster(cell, context, glyph, codepoint)
+      return
+    end
+    self.stats.text.over_limit_clusters = self.stats.text.over_limit_clusters + 1
+  end
+  self:write_new_cluster(glyph, codepoint)
+end
+
 function State:erase_cell(column, row)
+  self:clear_grapheme_context()
+  self:clear_cluster_at(column, row)
   return self:set_cell(column, row, self:cell_from_attributes(" "))
 end
 
@@ -306,7 +498,65 @@ function State:erase_characters(count)
   cursor.pending_wrap = false
 end
 
+function State:normalize_row(row_index)
+  local row = self.active_screen.rows[row_index]
+  for column = 0, self.columns - 1 do
+    local cell = row.cells[column]
+    if cell.continuation then
+      local anchor = column > 0 and row.cells[column - 1] or nil
+      if anchor == nil or anchor.continuation or anchor.width ~= 2 then
+        self:set_cell(column, row_index, self:blank_cell())
+      elseif cell.anchor_column ~= column - 1 then
+        self:set_cell(column, row_index, {
+          glyph = "",
+          fg = anchor.fg,
+          bg = anchor.bg,
+          flags = anchor.flags,
+          width = 0,
+          continuation = true,
+          anchor_column = column - 1,
+        })
+      end
+    elseif cell.width == 2 then
+      if column == self.columns - 1 then
+        self:set_cell(column, row_index, {
+          glyph = cell.glyph,
+          fg = cell.fg,
+          bg = cell.bg,
+          flags = cell.flags,
+          codepoints = cell.codepoints,
+          width = 1,
+          display_text = cell.display_text,
+        })
+      else
+        local next_cell = row.cells[column + 1]
+        if not next_cell.continuation or next_cell.anchor_column ~= column then
+          self:set_cell(column + 1, row_index, {
+            glyph = "",
+            fg = cell.fg,
+            bg = cell.bg,
+            flags = cell.flags,
+            width = 0,
+            continuation = true,
+            anchor_column = column,
+          })
+        end
+      end
+    end
+  end
+end
+
+function State:normalize_screen(screen)
+  local previous = self.active_screen
+  self.active_screen = screen
+  for row = 0, self.rows - 1 do
+    self:normalize_row(row)
+  end
+  self.active_screen = previous
+end
+
 function State:insert_characters(count)
+  self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
   local row = self.active_screen.rows[cursor.row]
   count = math.min(count or 1, self.columns - cursor.column)
@@ -316,11 +566,13 @@ function State:insert_characters(count)
   for column = cursor.column, cursor.column + count - 1 do
     copy_cell(row.cells[column], self:cell_from_attributes(" "))
   end
+  self:normalize_row(cursor.row)
   self.damage:mark_range(self:index(cursor.column, cursor.row), self.columns - cursor.column)
   cursor.pending_wrap = false
 end
 
 function State:delete_characters(count)
+  self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
   local row = self.active_screen.rows[cursor.row]
   count = math.min(count or 1, self.columns - cursor.column)
@@ -330,11 +582,13 @@ function State:delete_characters(count)
   for column = self.columns - count, self.columns - 1 do
     copy_cell(row.cells[column], self:cell_from_attributes(" "))
   end
+  self:normalize_row(cursor.row)
   self.damage:mark_range(self:index(cursor.column, cursor.row), self.columns - cursor.column)
   cursor.pending_wrap = false
 end
 
 function State:insert_lines(count)
+  self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
   if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin then
     return
@@ -345,6 +599,7 @@ function State:insert_lines(count)
 end
 
 function State:delete_lines(count)
+  self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
   if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin then
     return
@@ -395,6 +650,7 @@ function State:clear_tab_stops(mode)
 end
 
 function State:switch_alternate(enable, save_cursor)
+  self:clear_grapheme_context()
   if enable then
     if save_cursor then
       self.primary.saved_cursor = {
@@ -456,6 +712,7 @@ function State:record_unknown(family, detail)
 end
 
 function State:reset()
+  self:clear_grapheme_context()
   self.primary = Screen.new(self.columns, self.rows, function()
     return self:blank_cell()
   end)
@@ -480,6 +737,7 @@ function State:reset()
 end
 
 function State:resize(columns, rows)
+  self:clear_grapheme_context()
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
   local was_primary = self.active_screen == self.primary
   local blank = function()
@@ -495,6 +753,8 @@ function State:resize(columns, rows)
   self.alternate.bottom_margin = rows - 1
   self.active_screen = was_primary and self.primary or self.alternate
   self.cursor = self.active_screen.cursor
+  self:normalize_screen(self.primary)
+  self:normalize_screen(self.alternate)
   self.damage = Damage.new(columns * rows)
   self.history_offset = clamp(self.history_offset, 0, self.scrollback:size())
   self:reset_tab_stops()
@@ -701,7 +961,7 @@ end
 
 function State:apply(action)
   if action.kind == "print" then
-    self:write_codepoint(action.text)
+    self:write_codepoint(action.text, action.codepoint)
   elseif action.kind == "execute" then
     self:apply_execute(action.code)
   elseif action.kind == "esc" then

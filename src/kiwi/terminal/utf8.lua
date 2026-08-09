@@ -14,6 +14,15 @@ function Utf8.encode(codepoint)
   return string.char(0xf0 + math.floor(codepoint / 0x40000), 0x80 + math.floor(codepoint / 0x1000) % 0x40, 0x80 + math.floor(codepoint / 0x40) % 0x40, 0x80 + codepoint % 0x40)
 end
 
+function Utf8.decode_one(text)
+  assert(type(text) == "string" and #text > 0, "UTF-8 text must not be empty")
+  local first, second, third, fourth = text:byte(1, 4)
+  if first <= 0x7f then return first end
+  if first <= 0xdf then return (first - 0xc0) * 0x40 + (second - 0x80) end
+  if first <= 0xef then return (first - 0xe0) * 0x1000 + (second - 0x80) * 0x40 + (third - 0x80) end
+  return (first - 0xf0) * 0x40000 + (second - 0x80) * 0x1000 + (third - 0x80) * 0x40 + (fourth - 0x80)
+end
+
 local Decoder = {}
 Decoder.__index = Decoder
 
