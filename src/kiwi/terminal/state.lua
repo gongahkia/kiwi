@@ -70,10 +70,10 @@ function State.new(columns, rows, options)
     history_offset = 0,
     title = nil,
     responses = {},
-    width_policy = {
-      ambiguous_width = options.ambiguous_width or Width.default_policy.ambiguous_width,
-      private_use_width = options.private_use_width or Width.default_policy.private_use_width,
-    },
+    width_policy = Width.normalize_policy({
+      ambiguous_width = options.ambiguous_width == nil and Width.default_policy.ambiguous_width or options.ambiguous_width,
+      private_use_width = options.private_use_width == nil and Width.default_policy.private_use_width or options.private_use_width,
+    }),
     max_cluster_codepoints = options.max_cluster_codepoints or 64,
     stats = {
       mutations = 0,

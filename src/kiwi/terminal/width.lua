@@ -10,6 +10,20 @@ local Width = {
 
 local EAW = Properties.east_asian_width
 
+local function policy_value(policy, name)
+  local value = policy[name] or Width.default_policy[name]
+  assert(value == 1 or value == 2, name .. " must be 1 or 2")
+  return value
+end
+
+function Width.normalize_policy(policy)
+  policy = policy or Width.default_policy
+  return {
+    ambiguous_width = policy_value(policy, "ambiguous_width"),
+    private_use_width = policy_value(policy, "private_use_width"),
+  }
+end
+
 local function has_codepoint(codepoints, value)
   for _, codepoint in ipairs(codepoints) do
     if codepoint == value then return true end
@@ -40,16 +54,18 @@ end
 function Width.columns(codepoints, policy)
   assert(type(codepoints) == "table" and #codepoints > 0, "terminal width needs a non-empty cluster")
   policy = policy or Width.default_policy
+  local ambiguous_width = policy_value(policy, "ambiguous_width")
+  local private_use_width = policy_value(policy, "private_use_width")
   local emoji = emoji_width(codepoints)
   if emoji then return emoji end
   for _, codepoint in ipairs(codepoints) do
     if Properties.is_private_use(codepoint) then
-      return policy.private_use_width or Width.default_policy.private_use_width
+      return private_use_width
     end
     local east_asian_width = Properties.east_asian_width_of(codepoint)
     if east_asian_width == EAW.fullwidth or east_asian_width == EAW.wide then return 2 end
     if east_asian_width == EAW.ambiguous then
-      return policy.ambiguous_width or Width.default_policy.ambiguous_width
+      return ambiguous_width
     end
   end
   return 1

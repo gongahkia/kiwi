@@ -154,5 +154,7 @@ return {
     Assert.equal(Width.columns({ 0x1f1f8, 0x1f1ec }), 2)
     Assert.equal(Width.columns({ 0x23, 0xfe0f, 0x20e3 }), 2)
     Assert.equal(Width.columns({ 0xe0b0 }), 1)
+    local ok = pcall(Width.columns, { 0x41 }, { ambiguous_width = 3, private_use_width = 1 })
+    Assert.truthy(not ok)
   end,
 }
