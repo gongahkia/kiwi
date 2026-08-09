@@ -1089,6 +1089,27 @@ else()
 endif()
 add_test(NAME renderer_result COMMAND renderer_result_tests)
 
+add_executable(renderer_lifecycle_tests tests/renderer_lifecycle_tests.cpp)
+target_compile_features(renderer_lifecycle_tests PRIVATE cxx_std_20)
+set_target_properties(renderer_lifecycle_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(renderer_lifecycle_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(renderer_lifecycle_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_lifecycle_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(renderer_lifecycle_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_lifecycle_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME renderer_lifecycle COMMAND renderer_lifecycle_tests)
+
 add_executable(etf_tests
   tests/etf_tests.cpp
   src/etf.cpp

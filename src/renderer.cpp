@@ -696,6 +696,16 @@ std::string dumpRenderGraph(const RendererConfig& config) {
   return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config)).dump();
 }
 
+RenderResult validateRendererConfiguration(const RendererConfig& config, RenderGrid grid) {
+  if (grid.cols <= 0 || grid.rows <= 0) {
+    return renderFailure(RenderStatus::InvalidConfiguration, "render grid dimensions must be positive");
+  }
+  if (const std::optional<std::string> error = renderConfigurationError(config); error.has_value()) {
+    return renderFailure(RenderStatus::InvalidConfiguration, *error);
+  }
+  return RenderResult{};
+}
+
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
