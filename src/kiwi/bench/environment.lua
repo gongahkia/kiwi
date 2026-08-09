@@ -50,7 +50,7 @@ function Environment.collect(timestamp, iterations, warmup)
     },
     system = {
       architecture = jit.arch,
-      cpu_affinity = command_output("taskset -pc $$"),
+      cpu_affinity = command_output("taskset -pc $$ | sed 's/.*: //'"),
       cpu_governor = file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
       kernel = command_output("uname -srm"),
       operating_system = jit.os,
