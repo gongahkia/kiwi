@@ -1,6 +1,8 @@
 #include <strok/renderer.hpp>
 
 #include <cstdlib>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -28,6 +30,23 @@ strok::Frame whiteFrame() {
     .h = 1,
     .rgb = {255, 255, 255},
   };
+}
+
+strok::Frame structureFrame() {
+  strok::Frame frame;
+  frame.w = 8;
+  frame.h = 8;
+  frame.rgb.resize(8U * 8U * 3U);
+  for (int row = 0; row < frame.h; ++row) {
+    for (int column = 0; column < frame.w; ++column) {
+      const uint8_t value = column < frame.w / 2 ? 0 : 255;
+      const std::size_t index = (static_cast<std::size_t>(row) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(column)) * 3U;
+      frame.rgb[index] = value;
+      frame.rgb[index + 1U] = value;
+      frame.rgb[index + 2U] = value;
+    }
+  }
+  return frame;
 }
 
 std::optional<std::filesystem::path> firstExistingFont() {
@@ -91,6 +110,49 @@ int main() {
     expect(gpu_result.stats.executed_backend == strok::RenderBackend::Cpu && gpu_result.stats.backend_fallback,
            "GPU renderer reports explicit CPU fallback");
   }
+
+  const strok::RendererConfig structure_config{
+    .cell_aspect = 1.0,
+    .mode = "structure",
+    .edge_threshold = 0.01,
+    .glyph_stickiness = 0.0,
+  };
+  const strok::RenderGrid structure_grid{.cols = 4, .rows = 4};
+  const strok::Frame structure_frame = structureFrame();
+  strok::Renderer::CreateResult cpu_structure = strok::Renderer::create(structure_config, structure_grid);
+  expect(cpu_structure.succeeded(), "CPU structure renderer construction");
+  const strok::RenderResult cpu_structure_result = cpu_structure.renderer->render(structure_frame);
+  expect(cpu_structure_result.succeeded(), "CPU structure render");
+  const strok::CellBuffer cpu_structure_cells = cpu_structure.renderer->cells();
+
+  strok::RendererConfig gpu_structure_config = structure_config;
+  gpu_structure_config.gpu = true;
+  strok::Renderer::CreateResult gpu_structure = strok::Renderer::create(gpu_structure_config, structure_grid);
+  expect(gpu_structure.succeeded(), "GPU structure renderer construction");
+  const strok::RenderResult first_gpu_structure = gpu_structure.renderer->render(structure_frame);
+  expect(first_gpu_structure.succeeded(), "first GPU structure render");
+  const strok::CellBuffer first_gpu_structure_cells = gpu_structure.renderer->cells();
+  const strok::RenderResult second_gpu_structure = gpu_structure.renderer->render(structure_frame);
+  expect(second_gpu_structure.succeeded(), "repeated GPU structure render");
+  expect(first_gpu_structure.stats.graph_topology_reuses == 1 && second_gpu_structure.stats.graph_topology_reuses == 1,
+         "GPU structure renderer reuses graph topology");
+  expect(first_gpu_structure.stats.selected_backend == second_gpu_structure.stats.selected_backend,
+         "GPU structure renderer retains selected backend");
+  expect(first_gpu_structure_cells == cpu_structure_cells && gpu_structure.renderer->cells() == cpu_structure_cells,
+         "CPU and GPU-requested structure output parity");
+  if (first_gpu_structure.stats.selected_backend == strok::RenderBackend::Cpu) {
+    expect(first_gpu_structure.stats.backend_fallback && first_gpu_structure.stats.executed_backend == strok::RenderBackend::Cpu,
+           "GPU structure renderer reports CPU fallback");
+  } else {
+    expect(first_gpu_structure.stats.executed_backend == first_gpu_structure.stats.selected_backend &&
+               second_gpu_structure.stats.executed_backend == second_gpu_structure.stats.selected_backend,
+           "available GPU executes structure analysis on repeated renders");
+  }
+  gpu_structure.renderer->reset();
+  const strok::RenderResult reset_gpu_structure = gpu_structure.renderer->render(structure_frame);
+  expect(reset_gpu_structure.succeeded() && reset_gpu_structure.stats.selected_backend == first_gpu_structure.stats.selected_backend &&
+             gpu_structure.renderer->cells() == cpu_structure_cells,
+         "GPU structure renderer reset preserves backend lifecycle and parity");
 
   strok::Renderer::CreateResult custom_charset = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0, .charset = "binary"}, strok::RenderGrid{.cols = 1, .rows = 1});
   expect(custom_charset.succeeded(), "custom charset construction");
