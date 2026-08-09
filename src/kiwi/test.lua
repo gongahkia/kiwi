@@ -14,6 +14,7 @@ local tests = {
   require("tests.test_conformance"),
   require("tests.test_parser_bench"),
   require("tests.test_pipeline_bench"),
+  require("tests.test_text_bench"),
   require("tests.test_glyph_fallback"),
   require("tests.test_keyboard"),
   require("tests.test_atlas"),

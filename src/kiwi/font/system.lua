@@ -27,6 +27,7 @@ function System.new(options)
     pixel_height = options.pixel_height or 20,
     faces = {},
     face_by_key = {},
+    face_cache_limit = options.face_cache_limit or 32,
     next_face_id = 1,
     fallback_cache = {},
     fallback_cache_count = 0,
@@ -40,7 +41,7 @@ function System.new(options)
   }, System)
   local ok, result = xpcall(function()
     local primary = options.font_path and { path = options.font_path, index = 0 } or self.resolver:primary()
-    self.primary = self:load_face(primary)
+    self.primary = assert(self:load_face(primary, true))
     self.metrics = self.primary.metrics
     self.cell_width = self.metrics.cell_width
     self.cell_height = self.metrics.cell_height
@@ -55,12 +56,21 @@ function System.new(options)
   return result
 end
 
-function System:load_face(description)
+function System:load_face(description, required)
   local key = face_key(description)
   local existing = self.face_by_key[key]
   if existing then return existing end
-  if #self.faces >= 32 then error("font face cache limit reached") end
-  local face = Face.new(self.library, description.path, description.index, self.pixel_height, self.next_face_id)
+  if #self.faces >= self.face_cache_limit then
+    if required then error("font face cache limit reached") end
+    return nil, "face-cache-limit"
+  end
+  local ok, face = xpcall(function()
+    return Face.new(self.library, description.path, description.index, self.pixel_height, self.next_face_id)
+  end, debug.traceback)
+  if not ok then
+    if required then error(face) end
+    return nil, "font-load-failed"
+  end
   self.next_face_id = self.next_face_id + 1
   self.faces[#self.faces + 1] = face
   self.face_by_key[key] = face
@@ -87,7 +97,7 @@ function System:face_for_cluster(codepoints)
     return nil, "fallback-cache-limit"
   end
   local description = self.resolver:fallback(codepoints)
-  local face = description and self:load_face(description) or nil
+  local face = description and self:load_face(description, false) or nil
   if face == nil or not face:supports(codepoints) then
     self.fallback_cache[key] = false
     self.fallback_cache_count = self.fallback_cache_count + 1

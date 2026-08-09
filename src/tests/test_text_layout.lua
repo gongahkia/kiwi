@@ -57,6 +57,13 @@ return {
     Assert.equal(system.stats.negative_fallback_hits, 1)
     system:destroy()
   end,
+  text_degrades_to_a_missing_glyph_after_the_bounded_fallback_face_cache = function()
+    local system = System.new({ pixel_height = 18, face_cache_limit = 1, atlas = { width = 512, height = 512, max_entries = 1024 } })
+    local face, reason = system:face_for_cluster({ 0x4e2d })
+    Assert.equal(face, nil)
+    Assert.equal(reason, "missing")
+    system:destroy()
+  end,
   text_layout_reuses_static_rows_and_keeps_logical_damage_separate = function()
     local system = text_system()
     local layout = Layout.new(system)
