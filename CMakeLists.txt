@@ -7,6 +7,8 @@ option(STROK_LIGHT "Build without optional GPU/protocol backends" OFF)
 option(STROK_VULKAN "Build the optional Vulkan compute backend when available" ON)
 option(STROK_FORCE_VULKAN "Prefer Vulkan over Metal when both are available" OFF)
 option(STROK_BUILD_CLI "Build the media, terminal, and output frontend" ON)
+option(STROK_BUILD_SDL_SAMPLE "Build the optional SDL CellBuffer sample" OFF)
+set(STROK_SDL_SAMPLE_FONT "" CACHE FILEPATH "Font path for the SDL sample smoke test")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-missing-field-initializers>)
@@ -291,6 +293,34 @@ else()
   endif()
 endif()
 
+if(STROK_BUILD_SDL_SAMPLE)
+  pkg_check_modules(SDL2 QUIET IMPORTED_TARGET sdl2)
+  pkg_check_modules(SDL2_TTF QUIET IMPORTED_TARGET SDL2_ttf)
+  if(TARGET PkgConfig::SDL2 AND TARGET PkgConfig::SDL2_TTF)
+    add_executable(strok_sdl_sample examples/sdl_cell_buffer.cpp)
+    target_compile_features(strok_sdl_sample PRIVATE cxx_std_20)
+    set_target_properties(strok_sdl_sample PROPERTIES
+      CXX_STANDARD 20
+      CXX_STANDARD_REQUIRED ON
+      CXX_EXTENSIONS OFF
+    )
+    target_link_libraries(strok_sdl_sample PRIVATE strok_core PkgConfig::SDL2 PkgConfig::SDL2_TTF)
+    if(MSVC)
+      target_compile_options(strok_sdl_sample PRIVATE /W4)
+      if(STROK_WARNINGS_AS_ERRORS)
+        target_compile_options(strok_sdl_sample PRIVATE /WX)
+      endif()
+    else()
+      target_compile_options(strok_sdl_sample PRIVATE -Wall -Wextra -Wpedantic)
+      if(STROK_WARNINGS_AS_ERRORS)
+        target_compile_options(strok_sdl_sample PRIVATE -Werror)
+      endif()
+    endif()
+  else()
+    message(WARNING "STROK_BUILD_SDL_SAMPLE requires SDL2 and SDL2_ttf; skipping strok_sdl_sample")
+  endif()
+endif()
+
 if(STROK_BUILD_CLI)
 add_library(strok_presentation_common STATIC
   ${STROK_PRESENTATION_COMMON_SOURCES}
@@ -517,6 +547,11 @@ else()
 endif()
 
 enable_testing()
+
+if(TARGET strok_sdl_sample AND STROK_SDL_SAMPLE_FONT)
+  add_test(NAME sdl_cell_buffer_smoke COMMAND strok_sdl_sample --smoke --font "${STROK_SDL_SAMPLE_FONT}")
+  set_tests_properties(sdl_cell_buffer_smoke PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
+endif()
 
 add_executable(luminance_tests
   tests/luminance_tests.cpp
