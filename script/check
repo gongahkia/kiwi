@@ -1,0 +1,13 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+cd "$ROOT"
+
+typeset -a lua_files
+lua_files=(${(f)"$(find src -type f -name '*.lua' -print | sort)"})
+for file in $lua_files; do
+  luajit -b "$file" /dev/null
+done
+
+print "Lua syntax check passed for ${#lua_files} files."

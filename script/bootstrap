@@ -1,0 +1,50 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly VERSION='v29.0.1.1'
+readonly ARCHIVE="wgpu-linux-x86_64-release.zip"
+readonly SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
+readonly TARGET="$ROOT/.deps/wgpu-native-$VERSION"
+readonly URL="https://github.com/gfx-rs/wgpu-native/releases/download/$VERSION/$ARCHIVE"
+
+if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
+  print -u2 "Kiwi M0 bootstrap currently supports Linux x86_64; found $(uname -s) $(uname -m)."
+  exit 1
+fi
+
+for command in luajit curl unzip sha256sum pkg-config; do
+  if ! command -v "$command" >/dev/null; then
+    print -u2 "Missing required command: $command"
+    exit 1
+  fi
+done
+
+for package in glfw3 freetype2; do
+  if ! pkg-config --exists "$package"; then
+    print -u2 "Missing pkg-config package: $package. Install the Fedora development package documented in README.md."
+    exit 1
+  fi
+done
+
+if [[ -f "$TARGET/lib/libwgpu_native.so" && -f "$TARGET/include/webgpu/webgpu.h" ]]; then
+  print "wgpu-native $VERSION is already available at $TARGET"
+  exit 0
+fi
+
+mkdir -p "$ROOT/.deps"
+archive_path="$ROOT/.deps/$ARCHIVE"
+print "Downloading wgpu-native $VERSION from the official release..."
+curl --fail --location --retry 3 --output "$archive_path" "$URL"
+actual_sha=$(sha256sum "$archive_path" | awk '{print $1}')
+if [[ "$actual_sha" != "$SHA256" ]]; then
+  print -u2 "wgpu-native archive checksum mismatch: expected $SHA256, got $actual_sha"
+  exit 1
+fi
+
+staging="$ROOT/.deps/.wgpu-native-$VERSION.staging"
+rm -rf "$staging"
+mkdir -p "$staging"
+unzip -q "$archive_path" -d "$staging"
+mv "$staging" "$TARGET"
+print "Installed wgpu-native $VERSION at $TARGET"

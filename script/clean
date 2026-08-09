@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+rm -rf "$ROOT/.build"
+print "Removed generated native build outputs from .build/."
