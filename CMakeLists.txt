@@ -548,6 +548,10 @@ endif()
 
 enable_testing()
 
+if(TARGET strok)
+  add_test(NAME cli_graph_dump COMMAND strok --graph dump)
+endif()
+
 if(TARGET strok_sdl_sample AND STROK_SDL_SAMPLE_FONT)
   add_test(NAME sdl_cell_buffer_smoke COMMAND strok_sdl_sample --smoke --font "${STROK_SDL_SAMPLE_FONT}")
   set_tests_properties(sdl_cell_buffer_smoke PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")

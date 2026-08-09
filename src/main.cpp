@@ -5,6 +5,7 @@
 #include "media_probe.hpp"
 #include "player.hpp"
 #include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "stream_resolver.hpp"
 #include "terminal_caps.hpp"
 #include "terminal.hpp"
