@@ -341,6 +341,7 @@ add_library(strok_terminal_backend STATIC
   ${STROK_TERMINAL_BACKEND_SOURCES}
 )
 target_include_directories(strok_terminal_backend PRIVATE src)
+target_include_directories(strok_terminal_backend PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_compile_features(strok_terminal_backend PRIVATE cxx_std_20)
 set_target_properties(strok_terminal_backend PROPERTIES
   CXX_STANDARD 20
@@ -348,6 +349,26 @@ set_target_properties(strok_terminal_backend PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_link_libraries(strok_terminal_backend PUBLIC strok_presentation_common)
+
+add_executable(strok_terminal_backend_consumer examples/diff_emitter_consumer.cpp)
+target_compile_features(strok_terminal_backend_consumer PRIVATE cxx_std_20)
+set_target_properties(strok_terminal_backend_consumer PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_terminal_backend_consumer PRIVATE strok_terminal_backend)
+if(MSVC)
+  target_compile_options(strok_terminal_backend_consumer PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_terminal_backend_consumer PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_terminal_backend_consumer PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_terminal_backend_consumer PRIVATE -Werror)
+  endif()
+endif()
 
 add_library(strok_raster_backend STATIC
   ${STROK_RASTER_BACKEND_SOURCES}
@@ -579,6 +600,10 @@ endif()
 
 if(TARGET strok_graphics_backend_consumer)
   add_test(NAME graphics_backend_consumer COMMAND strok_graphics_backend_consumer)
+endif()
+
+if(TARGET strok_terminal_backend_consumer)
+  add_test(NAME terminal_backend_consumer COMMAND strok_terminal_backend_consumer)
 endif()
 
 if(TARGET strok_sdl_sample AND STROK_SDL_SAMPLE_FONT)

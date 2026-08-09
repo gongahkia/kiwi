@@ -9,6 +9,7 @@
 #include "captions.hpp"
 #include "cell_buffer.hpp"
 #include "color_mode.hpp"
+#include "color_quantization.hpp"
 #include "diff_emitter.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_font.hpp"

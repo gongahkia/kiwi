@@ -104,4 +104,21 @@ int main() {
   subtle.at(0, 0) = cell(U'P', 160, 160, 160);
   const auto above_threshold = perceptual_emitter.emit(subtle, strok::EmissionOptions{.diff_oklab_eps = 0.01});
   expect(above_threshold.changed_cells == 1, "OKLab diff emits accumulated visible color change");
+
+  strok::DiffEmitter reset_emitter;
+  const auto reset_first = reset_emitter.emit(frame);
+  const auto reset_unchanged = reset_emitter.emit(frame);
+  reset_emitter.reset();
+  const auto reset_repaint = reset_emitter.emit(frame);
+  expect(reset_first.changed_cells == frame.size(), "reset fixture first frame paints all cells");
+  expect(reset_unchanged.changed_cells == 0 && reset_unchanged.bytes.empty(), "reset fixture remembers prior frame");
+  expect(reset_repaint.changed_cells == frame.size() && !reset_repaint.bytes.empty(), "reset repaints all cells");
+
+  strok::DiffEmitter first_emitter;
+  strok::DiffEmitter second_emitter;
+  (void)first_emitter.emit(frame);
+  const auto first_emitter_unchanged = first_emitter.emit(frame);
+  const auto second_emitter_first = second_emitter.emit(frame);
+  expect(first_emitter_unchanged.changed_cells == 0, "emitter instances keep independent prior frames");
+  expect(second_emitter_first.changed_cells == frame.size(), "new emitter paints independently");
 }
