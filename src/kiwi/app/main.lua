@@ -6,6 +6,8 @@ local Metrics = require("kiwi.diagnostics.metrics")
 local Pty = require("kiwi.process.pty")
 local Renderer = require("kiwi.renderer.renderer")
 local Parser = require("kiwi.terminal.parser")
+local Replay = require("kiwi.terminal.replay")
+local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 local Window = require("kiwi.platform.window")
 local glfw = require("kiwi.ffi.glfw").constants
@@ -22,6 +24,12 @@ local function parse_options()
     local value = arg[index]
     if value == "--demo" then
       options.demo = true
+    elseif value == "--record" then
+      index = index + 1
+      options.record = assert(arg[index], "--record needs a JSONL path")
+    elseif value == "--replay" then
+      index = index + 1
+      options.replay = assert(arg[index], "--replay needs a JSONL path")
     elseif value == "--" then
       options.command = {}
       for command_index = index + 1, #arg do
@@ -49,6 +57,7 @@ local function run_live(options)
   local context
   local renderer
   local pty
+  local recorder
   local ok, result = xpcall(function()
     context = Context.new(window)
     local font = FreeType.rasterize({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
@@ -63,6 +72,10 @@ local function run_live(options)
     local parser = Parser.new(function(action)
       state:apply(action)
     end)
+    if options.record then
+      recorder = Replay.Recorder.new(options.record)
+      recorder:resize(columns, rows)
+    end
     renderer = Renderer.new(context, font, state)
     local metrics = Metrics.new(context, font, state)
     local last_title
@@ -72,6 +85,7 @@ local function run_live(options)
     window:set_input_handlers(function(codepoint)
       local text = Keyboard.text(codepoint)
       if text then
+        if recorder then recorder:input(text) end
         pty:enqueue(text)
       end
     end, function(key, action, modifiers)
@@ -84,6 +98,7 @@ local function run_live(options)
       elseif encoded.local_action == "scroll_down" then
         state:scroll_history(-math.max(1, state.rows - 1))
       elseif encoded.bytes then
+        if recorder then recorder:input(encoded.bytes) end
         pty:enqueue(encoded.bytes)
       end
     end)
@@ -99,6 +114,7 @@ local function run_live(options)
 
       local output = pty:read_available()
       if #output > 0 then
+        if recorder then recorder:output(output) end
         parser:feed(output)
       end
       local responses = state:pop_responses()
@@ -118,6 +134,7 @@ local function run_live(options)
           context:configure_surface()
           state:resize(new_columns, new_rows)
           pty:resize(new_columns, new_rows)
+          if recorder then recorder:resize(new_columns, new_rows) end
           renderer:destroy()
           renderer = Renderer.new(context, font, state)
         end
@@ -149,14 +166,24 @@ local function run_live(options)
   end, debug.traceback)
 
   if pty then pty:shutdown() end
+  if recorder then recorder:close() end
   if renderer then renderer:destroy() end
   if context then context:destroy() end
   window:destroy()
   if not ok then error(result) end
 end
 
+local function run_replay(path)
+  local state = State.new(80, 24)
+  local stats = Replay.apply_file(state, path)
+  io.stdout:write(Snapshot.encode(state), "\n")
+  io.stderr:write(string.format("Kiwi replay: bytes=%d actions=%d errors=%d\n", stats.bytes, stats.actions, stats.errors))
+end
+
 local options = parse_options()
-if options.demo then
+if options.replay then
+  run_replay(options.replay)
+elseif options.demo then
   Demo.run()
 else
   run_live(options)

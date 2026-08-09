@@ -5,6 +5,7 @@ local tests = {
   require("tests.test_utf8"),
   require("tests.test_state"),
   require("tests.test_parser"),
+  require("tests.test_replay"),
   require("tests.test_keyboard"),
   require("tests.test_atlas"),
   require("tests.test_freetype"),
