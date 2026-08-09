@@ -760,6 +760,31 @@ RenderResult renderFailure(RenderStatus status, std::string message) {
   return RenderResult{.status = status, .message = std::move(message)};
 }
 
+void collectSymbolicMetrics(const CellBuffer& previous, const CellBuffer& current, RenderStats* stats) {
+  if (stats == nullptr) {
+    return;
+  }
+  if (previous.cols() != current.cols() || previous.rows() != current.rows()) {
+    const int64_t cells = static_cast<int64_t>(current.size());
+    stats->changed_glyphs += cells;
+    stats->changed_foregrounds += cells;
+    stats->changed_backgrounds += cells;
+    stats->changed_cells += cells;
+    return;
+  }
+  for (std::size_t index = 0; index < current.size(); ++index) {
+    const Cell& before = previous.cells()[index];
+    const Cell& after = current.cells()[index];
+    const bool glyph_changed = before.glyph != after.glyph;
+    const bool foreground_changed = before.fg != after.fg;
+    const bool background_changed = before.bg != after.bg;
+    stats->changed_glyphs += glyph_changed;
+    stats->changed_foregrounds += foreground_changed;
+    stats->changed_backgrounds += background_changed;
+    stats->changed_cells += glyph_changed || foreground_changed || background_changed;
+  }
+}
+
 }  // namespace
 
 std::string dumpRenderGraph(const RendererConfig& config) {
@@ -1449,6 +1474,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     }
     run_graph(std::move(passes));
     finish_stats();
+    if (config.collect_symbolic_metrics) {
+      collectSymbolicMetrics(*output, rendered_cells, &result.stats);
+    }
     *output = std::move(rendered_cells);
     return result;
   }
@@ -1487,6 +1515,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
 
   run_graph(std::move(passes));
   finish_stats();
+  if (config.collect_symbolic_metrics) {
+    collectSymbolicMetrics(*output, rendered_cells, &result.stats);
+  }
   *output = std::move(rendered_cells);
   return result;
 } catch (const std::invalid_argument& error) {

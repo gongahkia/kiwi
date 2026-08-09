@@ -12,6 +12,10 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->frames += frame.frames;
   total->cells += frame.cells;
   total->render_ns += frame.render_ns;
+  total->changed_glyphs += frame.changed_glyphs;
+  total->changed_foregrounds += frame.changed_foregrounds;
+  total->changed_backgrounds += frame.changed_backgrounds;
+  total->changed_cells += frame.changed_cells;
   total->shape_match_cells += frame.shape_match_cells;
   total->shape_match_ns += frame.shape_match_ns;
   total->optical_flow_blocks += frame.optical_flow_blocks;

@@ -17,7 +17,16 @@ enum class RenderStatus {
 struct RenderStats {
   int64_t frames = 0;
   int64_t cells = 0;
+  // Reconstruction time only; media decode and terminal or graphics emission are
+  // outside this interval.
   int64_t render_ns = 0;
+  // Exact final CellBuffer deltas relative to the output buffer before rendering.
+  // These are zero unless RendererConfig::collect_symbolic_metrics is enabled.
+  // A missing or differently sized prior buffer counts every current cell as changed.
+  int64_t changed_glyphs = 0;
+  int64_t changed_foregrounds = 0;
+  int64_t changed_backgrounds = 0;
+  int64_t changed_cells = 0;
   int64_t shape_match_cells = 0;
   int64_t shape_match_ns = 0;
   int64_t optical_flow_blocks = 0;

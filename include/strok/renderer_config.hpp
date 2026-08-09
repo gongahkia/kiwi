@@ -33,6 +33,9 @@ struct RendererConfig {
   bool fit = false;
   bool gpu = false;
   bool line_ligatures = false;
+  // Enables exact final CellBuffer delta counters in RenderStats. This is off by
+  // default so normal rendering does not scan the completed cell grid twice.
+  bool collect_symbolic_metrics = false;
   std::vector<std::string> graph_passes;
 };
 
