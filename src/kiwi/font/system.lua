@@ -37,6 +37,7 @@ function System.new(options)
       ligatures = options.ligatures == true,
       contextual_alternates = options.contextual_alternates == true,
     },
+    text_generation = 0,
     stats = { primary_hits = 0, fallback_hits = 0, fallback_misses = 0, negative_fallback_hits = 0 },
   }, System)
   local ok, result = xpcall(function()
@@ -54,6 +55,22 @@ function System.new(options)
     error(result)
   end
   return result
+end
+
+function System:set_shape_options(options)
+  options = options or {}
+  local ligatures = options.ligatures == true
+  local contextual_alternates = options.contextual_alternates == true
+  if self.shape_options.ligatures == ligatures and self.shape_options.contextual_alternates == contextual_alternates then return false end
+  self.shape_options = { ligatures = ligatures, contextual_alternates = contextual_alternates }
+  self.text_generation = self.text_generation + 1
+  return true
+end
+
+function System:clear_fallback_cache()
+  self.fallback_cache = {}
+  self.fallback_cache_count = 0
+  self.text_generation = self.text_generation + 1
 end
 
 function System:load_face(description, required)

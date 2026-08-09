@@ -38,9 +38,12 @@ function Metrics:snapshot()
   local font_stats = self.font.stats or {}
   local renderer = self.renderer or {}
   local wide_clusters = 0
+  local grapheme_clusters = 0
   if self.model.cell_at_index then
     for index = 0, self.model.columns * self.model.rows - 1 do
-      if self.model:cell_at_index(index).width == 2 then wide_clusters = wide_clusters + 1 end
+      local cell = self.model:cell_at_index(index)
+      if cell.codepoints and not cell.continuation then grapheme_clusters = grapheme_clusters + 1 end
+      if cell.width == 2 then wide_clusters = wide_clusters + 1 end
     end
   end
   return {
@@ -60,13 +63,16 @@ function Metrics:snapshot()
     atlas_occupancy = atlas:occupancy(),
     unicode_version = require("kiwi.unicode.properties").version,
     primary_font = self.font.font_path or "legacy atlas",
+    primary_face_id = self.font.primary and self.font.primary.id or nil,
     fallback_faces_loaded = self.font.faces and #self.font.faces - 1 or 0,
     wide_clusters = wide_clusters,
+    grapheme_clusters = grapheme_clusters,
     over_limit_clusters = self.model.stats and self.model.stats.text and self.model.stats.text.over_limit_clusters or 0,
     shaping_rows_invalidated = renderer.shaping_rows_invalidated or 0,
     rows_reshaped = renderer.rows_reshaped or 0,
     runs_reshaped = renderer.runs_reshaped or 0,
     glyphs_produced = renderer.glyphs_produced or 0,
+    shaping_cpu_ms = renderer.shaping_cpu_ms or 0,
     shape_cache_hits = renderer.shape_cache_hits or 0,
     shape_cache_misses = renderer.shape_cache_misses or 0,
     glyph_instances_uploaded = renderer.glyph_instances_uploaded or 0,
@@ -75,6 +81,8 @@ function Metrics:snapshot()
     atlas_hits = glyph_cache_stats.hits or 0,
     atlas_misses = glyph_cache_stats.misses or 0,
     atlas_failures = glyph_cache_stats.failures or 0,
+    color_glyphs_unsupported = glyph_cache_stats.color_unsupported or 0,
+    atlas_pages = self.font.glyph_cache and 1 or 0,
     fallback_hits = font_stats.fallback_hits or 0,
     fallback_misses = font_stats.fallback_misses or 0,
     drawable_width = self.context.width,
@@ -175,10 +183,14 @@ function Metrics:report(now)
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
   end
   io.stdout:write(string.format(
-    "text=unicode-%s primary=%s fallbacks=%d shape=%d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d/%d/%d fallback=%d/%d over-limit=%d\n",
+    "text=unicode-%s primary=%s#%s clusters=%d wide=%d fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
     item.unicode_version,
     item.primary_font,
+    item.primary_face_id or "none",
+    item.grapheme_clusters,
+    item.wide_clusters,
     item.fallback_faces_loaded,
+    item.shaping_cpu_ms,
     item.shaping_rows_invalidated,
     item.rows_reshaped,
     item.runs_reshaped,
@@ -191,6 +203,8 @@ function Metrics:report(now)
     item.atlas_hits,
     item.atlas_misses,
     item.atlas_failures,
+    item.atlas_pages,
+    item.color_glyphs_unsupported,
     item.fallback_hits,
     item.fallback_misses,
     item.over_limit_clusters

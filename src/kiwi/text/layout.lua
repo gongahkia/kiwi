@@ -47,6 +47,7 @@ function Layout:begin_frame()
     runs_reshaped = 0,
     codepoints_shaped = 0,
     glyphs_produced = 0,
+    shaping_cpu_ms = 0,
     cache_hits = 0,
     cache_misses = 0,
     missing_clusters = 0,
@@ -54,7 +55,7 @@ function Layout:begin_frame()
 end
 
 function Layout:row_is_dirty(state, row)
-  if self.rows[row] == nil or self.rows[row].generation ~= self.generation then return true end
+  if self.rows[row] == nil or self.rows[row].generation ~= self.generation or self.rows[row].text_generation ~= self.font_system.text_generation then return true end
   if state.damage.full then return true end
   for _, range in ipairs(state.damage:ranges()) do
     local first_row = math.floor(range.first / state.columns)
@@ -93,11 +94,19 @@ function Layout:append_glyph(output, face, shaped, column, row, cell, pen_x)
     cluster_column = column,
     atlas_page = 0,
     missing_reason = reason,
+    row = row,
+    shape_cluster = shaped.cluster,
+    x_advance = shaped.x_advance,
+    y_advance = shaped.y_advance,
+    x_offset = shaped.x_offset,
+    y_offset = shaped.y_offset,
   }
 end
 
 function Layout:shape_run(run, row, output)
+  local started = os.clock()
   local shaped = run.face:shape(run.text, self.font_system.shape_options)
+  self.stats.shaping_cpu_ms = self.stats.shaping_cpu_ms + (os.clock() - started) * 1000
   self.stats.runs_reshaped = self.stats.runs_reshaped + 1
   self.stats.codepoints_shaped = self.stats.codepoints_shaped + #run.codepoints
   self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped
@@ -159,7 +168,7 @@ function Layout:update(state)
     if self:row_is_dirty(state, row) then
       self.stats.rows_invalidated = self.stats.rows_invalidated + 1
       self.stats.cache_misses = self.stats.cache_misses + 1
-      self.rows[row] = { generation = self.generation, glyphs = self:shape_row(state, row) }
+      self.rows[row] = { generation = self.generation, text_generation = self.font_system.text_generation, glyphs = self:shape_row(state, row) }
       self.stats.rows_reshaped = self.stats.rows_reshaped + 1
     else
       self.stats.cache_hits = self.stats.cache_hits + 1
