@@ -31,6 +31,7 @@ function Stats.summary(values)
   end
   return {
     count = #values,
+    total = total,
     mean = total / #values,
     p50 = Stats.percentile(values, 0.50),
     p95 = Stats.percentile(values, 0.95),

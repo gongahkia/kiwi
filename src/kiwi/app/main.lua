@@ -78,6 +78,7 @@ local function run_live(options)
     local metrics = Metrics.new(context, font, state, { pty = pty, parser = parser })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
+    local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
     local next_frame = window:time()
 
     window:set_input_handlers(function(codepoint)
@@ -110,7 +111,7 @@ local function run_live(options)
       window:poll_events()
       now = window:time()
 
-      local output = pty:read_available()
+      local output = pty:read_available(pty_read_budget)
       if #output > 0 then
         if recorder then recorder:output(output) end
         parser:feed(output)

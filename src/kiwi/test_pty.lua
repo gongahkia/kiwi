@@ -55,6 +55,26 @@ test("pty_launches_shell_independent_command_and_parses_output", function()
   Assert.truthy(state:get(1, 1).fg ~= state.default_cell.fg)
 end)
 
+test("pty_read_budget_preserves_all_output_across_multiple_polls", function()
+  local pty = Pty.spawn({ "/bin/sh", "-c", "printf 'abcdefghijklmnopqrstuvwxyz'" }, 16, 4, { TERM = "kiwi" })
+  local transcript = ""
+  local status
+  for _ = 1, 400 do
+    local output = pty:read_available(4)
+    Assert.truthy(#output <= 4)
+    transcript = transcript .. output
+    status = pty:poll_exit()
+    if status and pty.eof then
+      break
+    end
+    ffi.C.usleep(5000)
+  end
+  pty:shutdown()
+  Assert.equal(transcript, "abcdefghijklmnopqrstuvwxyz")
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
 test("pty_applies_initial_winsize_and_reaps_child", function()
   local transcript, _, status = pump({ "/bin/sh", "-c", "stty size" }, 11, 7)
   Assert.truthy(transcript:find("7 11", 1, true) ~= nil)

@@ -107,20 +107,34 @@ function Pty.spawn(command, columns, rows, environment)
     exit_status = nil,
     bytes_read = 0,
     bytes_written = 0,
+    last_read_bytes = 0,
+    last_read_calls = 0,
   }, Pty)
 end
 
-function Pty:read_available()
+function Pty:read_available(max_bytes)
   if self.fd == nil or self.eof then
+    self.last_read_bytes = 0
+    self.last_read_calls = 0
     return ""
   end
+  if max_bytes ~= nil then
+    assert(type(max_bytes) == "number" and max_bytes > 0 and max_bytes == math.floor(max_bytes), "PTY read budget must be a positive integer")
+  end
+  local remaining = max_bytes or math.huge
   local chunks = {}
-  while true do
-    local amount = ffi.C.read(self.fd, self.read_buffer, 8192)
+  local bytes_read = 0
+  local read_calls = 0
+  while remaining > 0 do
+    local requested = math.min(8192, remaining)
+    local amount = tonumber(ffi.C.read(self.fd, self.read_buffer, requested))
     if amount > 0 then
       local chunk = ffi.string(self.read_buffer, amount)
       chunks[#chunks + 1] = chunk
       self.bytes_read = self.bytes_read + amount
+      bytes_read = bytes_read + amount
+      read_calls = read_calls + 1
+      remaining = remaining - amount
     elseif amount == 0 then
       self.eof = true
       break
@@ -139,6 +153,8 @@ function Pty:read_available()
       end
     end
   end
+  self.last_read_bytes = bytes_read
+  self.last_read_calls = read_calls
   return table.concat(chunks)
 end
 
@@ -163,7 +179,7 @@ function Pty:flush()
   end
   while self.pending_offset <= #self.pending do
     local pointer = ffi.cast("const char *", self.pending) + self.pending_offset - 1
-    local amount = ffi.C.write(self.fd, pointer, #self.pending - self.pending_offset + 1)
+    local amount = tonumber(ffi.C.write(self.fd, pointer, #self.pending - self.pending_offset + 1))
     if amount > 0 then
       self.pending_offset = self.pending_offset + amount
       self.bytes_written = self.bytes_written + amount
