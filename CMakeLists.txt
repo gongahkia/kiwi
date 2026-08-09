@@ -1562,6 +1562,37 @@ else()
 endif()
 add_test(NAME budget_selection COMMAND budget_selection_tests)
 
+add_executable(cost_quality_tradeoff_tests
+  tests/cost_quality_tradeoff_tests.cpp
+  src/ansi.cpp
+  src/color_dither.cpp
+  src/color_mode.cpp
+  src/color_quantization.cpp
+  src/diff_emitter.cpp
+  src/luminance.cpp
+  src/posterize.cpp
+)
+target_include_directories(cost_quality_tradeoff_tests PRIVATE src)
+target_compile_features(cost_quality_tradeoff_tests PRIVATE cxx_std_20)
+set_target_properties(cost_quality_tradeoff_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(cost_quality_tradeoff_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(cost_quality_tradeoff_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(cost_quality_tradeoff_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(cost_quality_tradeoff_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(cost_quality_tradeoff_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME cost_quality_tradeoff COMMAND cost_quality_tradeoff_tests)
+
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
 target_include_directories(motion_selection_tests PRIVATE src)
 target_compile_features(motion_selection_tests PRIVATE cxx_std_20)
