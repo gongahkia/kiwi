@@ -176,7 +176,7 @@ class LivePresentationPacer {
     }
     const double nominal_fps = source_fps.has_value() && *source_fps > 0.0 ? *source_fps : 30.0;
     const auto nominal_interval = std::chrono::microseconds(static_cast<int64_t>(std::llround(1000000.0 / nominal_fps)));
-    late_budget_ = std::min(nominal_interval, std::chrono::milliseconds(50));
+    late_budget_ = std::min(nominal_interval, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::milliseconds(50)));
   }
 
   bool ready(std::chrono::steady_clock::time_point now) {
@@ -519,10 +519,13 @@ class RuntimeDebugStats {
   }
 
   void recordLiveQueue(std::size_t producer_replaced, std::size_t consumer_discarded) noexcept {
+    const int64_t discarded = static_cast<int64_t>(producer_replaced + consumer_discarded);
     live_producer_replaced_ += static_cast<int64_t>(producer_replaced);
     live_consumer_discarded_ += static_cast<int64_t>(consumer_discarded);
     window_live_producer_replaced_ += static_cast<int64_t>(producer_replaced);
     window_live_consumer_discarded_ += static_cast<int64_t>(consumer_discarded);
+    dropped_frames_ += discarded;
+    window_dropped_frames_ += discarded;
   }
 
   void recordLiveLateDrop() noexcept {
@@ -3321,11 +3324,15 @@ int playMedia(const CliOptions& options, Logger& logger) {
 
   std::optional<DecodedAudio> decoded_audio;
   const bool camera_input = isCameraInput(*options.input);
+  const bool rtsp_input = isRtspInput(*options.input);
+  const bool latency_sensitive_input = isLatencySensitiveInput(*options.input);
   const bool remote_input = isUrlInput(*options.input);
   const bool mirror_camera = camera_input && options.mirror;
   if (camera_input) {
     STROK_LOG_INFO(logger, "no audio stream; using wall-clock pacing");
     STROK_LOG_INFO(logger, mirror_camera ? "camera mirror enabled" : "camera mirror disabled");
+  } else if (rtsp_input) {
+    STROK_LOG_INFO(logger, "RTSP audio predecode skipped; using latest-frame pacing");
   } else if (remote_input) {
     STROK_LOG_INFO(logger, "remote audio predecode skipped; using wall-clock pacing");
   } else {
@@ -3358,16 +3365,20 @@ int playMedia(const CliOptions& options, Logger& logger) {
   const auto rebuild_glyph_state = [&] {
     ramp = rampFromOptions(live_options, glyph_font_ptr);
     shape_vectors = shapeTableFromOptions(live_options, glyph_font_ptr);
-    if (shape_vectors.has_value()) {
-      STROK_LOG_INFO(logger, "shape vectors entries=" + std::to_string(shape_vectors->entries.size()) +
-                                    " features=" + std::to_string(kShapeRegionCount));
-    }
   };
   rebuild_glyph_state();
 
   TerminalSize terminal = queryTerminalSize();
-  VideoDecoder video_decoder(*live_options.input);
-  const std::optional<double> source_fps = video_decoder.averageFps();
+  std::unique_ptr<VideoDecoder> video_decoder;
+  std::unique_ptr<LiveFrameSource> live_frame_source;
+  if (latency_sensitive_input) {
+    live_frame_source = std::make_unique<LiveFrameSource>(*live_options.input);
+  } else {
+    video_decoder = std::make_unique<VideoDecoder>(*live_options.input);
+  }
+  const std::optional<double> source_fps = live_frame_source != nullptr
+                                             ? live_frame_source->averageFps()
+                                             : video_decoder->averageFps();
   const int temporal_supersample = effectiveTemporalSupersample(live_options, source_fps);
   if (live_options.temporal_supersample > 1) {
     STROK_LOG_INFO(logger, "temporal supersample requested=" + std::to_string(live_options.temporal_supersample) +
@@ -3379,10 +3390,8 @@ int playMedia(const CliOptions& options, Logger& logger) {
   CellBuffer split_left_cells;
   CellBuffer split_right_cells;
   DiffEmitter emitter;
-  RenderTemporalState temporal_state;
-  RenderTemporalState split_left_temporal_state;
-  RenderTemporalState split_right_temporal_state;
   FramePacer pacer(live_options);
+  LivePresentationPacer live_pacer(live_options, source_fps);
   std::unique_ptr<PcmPlayer> audio_player;
   if (decoded_audio.has_value()) {
     audio_player = std::make_unique<PcmPlayer>(
@@ -3412,6 +3421,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
   DriftStats drift_stats;
   RenderStats render_stats;
   RenderStats* render_stats_ptr = logger.enabled() ? &render_stats : nullptr;
+  CliRendererSession renderer_session;
+  CliRendererSession split_left_renderer_session;
+  CliRendererSession split_right_renderer_session;
   RuntimeDebugStats debug_stats(live_options, &logger);
   AudioSyncState audio_sync;
   bool quit = false;
@@ -3433,9 +3445,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
       graphics_bandwidth->reset();
     }
     graphics_state.reset();
-    temporal_state.reset();
-    split_left_temporal_state.reset();
-    split_right_temporal_state.reset();
+    renderer_session.reset();
+    split_left_renderer_session.reset();
+    split_right_renderer_session.reset();
     std::string clear_screen = "\x1b[2J";
     writeAll(STDOUT_FILENO, clear_screen);
   };
@@ -3449,7 +3461,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       pacer.reset();
     }
-    video_decoder.seekToUs(clamped_us);
+    if (video_decoder == nullptr) {
+      STROK_LOG_WARN(logger, "seek unavailable for live input");
+      return;
+    }
+    video_decoder->seekToUs(clamped_us);
     lookahead_frame.reset();
     resetSyncForSeek(&audio_sync);
     current_video_us = clamped_us;
@@ -3591,25 +3607,36 @@ int playMedia(const CliOptions& options, Logger& logger) {
       continue;
     }
 
+    std::optional<LiveFrameBatch> live_batch;
     auto frame = [&]() -> std::optional<Frame> {
+      if (live_frame_source != nullptr) {
+        live_batch = live_frame_source->waitForLatest();
+        if (!live_batch.has_value()) {
+          return std::nullopt;
+        }
+        return std::move(live_batch->latest.frame);
+      }
       if (lookahead_frame.has_value()) {
         Frame next = std::move(*lookahead_frame);
         lookahead_frame.reset();
         return next;
       }
-      return video_decoder.nextFrame();
+      return video_decoder->nextFrame();
     }();
     if (!frame.has_value()) {
-      if (video_decoder.isAnimatedImage()) {
-        video_decoder.restart();
+      if (video_decoder == nullptr) {
+        break;
+      }
+      if (video_decoder->isAnimatedImage()) {
+        video_decoder->restart();
         lookahead_frame.reset();
         pacer.reset();
         reset_render_state();
         STROK_LOG_INFO(logger, "animated image loop restarted");
         continue;
       }
-      if (live_options.loop && !video_decoder.isStillImage()) {
-        video_decoder.restart();
+      if (live_options.loop && !video_decoder->isStillImage()) {
+        video_decoder->restart();
         lookahead_frame.reset();
         if (audio_player != nullptr) {
           audio_player->seekToUs(0);
@@ -3621,12 +3648,35 @@ int playMedia(const CliOptions& options, Logger& logger) {
         STROK_LOG_INFO(logger, "input loop restarted");
         continue;
       }
-      if (video_decoder.isStillImage() && still_frame.has_value()) {
+      if (video_decoder->isStillImage() && still_frame.has_value()) {
         quit = holdStillFrame(*still_frame, ramp, live_options, &terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, &emitter, emission_options, render_stats_ptr, &debug_stats);
       }
       break;
     }
     debug_stats.recordInputFrame();
+    std::optional<std::chrono::steady_clock::time_point> live_decoded_at;
+    if (live_batch.has_value()) {
+      debug_stats.recordLiveQueue(live_batch->producer_replaced, live_batch->consumer_discarded);
+      const auto now = std::chrono::steady_clock::now();
+      if (!live_pacer.ready(now)) {
+        debug_stats.recordDroppedFrame();
+        if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+      if (live_pacer.isLate(live_batch->latest.decoded_at, now)) {
+        debug_stats.recordLiveLateDrop();
+        debug_stats.recordDroppedFrame();
+        if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
+          quit = true;
+          break;
+        }
+        continue;
+      }
+      live_decoded_at = live_batch->latest.decoded_at;
+    }
     if (mirror_camera) {
       mirrorFrameHorizontally(*frame);
     }
@@ -3656,7 +3706,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
         }
         continue;
       }
-    } else {
+    } else if (live_frame_source == nullptr) {
       pacer.waitForFrame(*frame);
     }
     if (shouldQuit()) {
@@ -3676,14 +3726,15 @@ int playMedia(const CliOptions& options, Logger& logger) {
     } else {
       current_video_us = frame->pts_us;
     }
-    if (live_options.temporal_supersample > 1 && !lookahead_frame.has_value()) {
-      lookahead_frame = video_decoder.nextFrame();
+    if (live_frame_source == nullptr && live_options.temporal_supersample > 1 && !lookahead_frame.has_value()) {
+      lookahead_frame = video_decoder->nextFrame();
     }
     const Frame* temporal_lookahead = live_options.temporal_supersample > 1 && lookahead_frame.has_value()
                                           ? &*lookahead_frame
                                           : nullptr;
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, static_cast<double>(current_video_us) / 1000000.0, &overlay_frame);
+    const auto render_started = std::chrono::steady_clock::now();
     if (split_config.has_value() && render_terminal.cols >= 3) {
       split_seam_col = clampSplitSeam(split_seam_col.value_or(defaultSplitSeam(render_terminal.cols)), render_terminal.cols);
       const SplitLayout layout = splitLayout(render_terminal.cols, *split_seam_col);
@@ -3693,13 +3744,20 @@ int playMedia(const CliOptions& options, Logger& logger) {
       right_terminal.cols = layout.right_cols;
       const CliOptions left_options = splitSideOptions(render_options, *split_config, true, left_terminal);
       const CliOptions right_options = splitSideOptions(render_options, *split_config, false, right_terminal);
-      renderFrame(render_input, temporal_lookahead, ramp, left_options, left_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_left_cells, render_stats_ptr, &split_left_temporal_state);
-      renderFrame(render_input, temporal_lookahead, ramp, right_options, right_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_right_cells, render_stats_ptr, &split_right_temporal_state);
+      const RenderResult left_result = split_left_renderer_session.render(render_input, temporal_lookahead, left_options, left_terminal, &split_left_cells, render_stats_ptr);
+      const RenderResult right_result = split_right_renderer_session.render(render_input, temporal_lookahead, right_options, right_terminal, &split_right_cells, render_stats_ptr);
+      if (!left_result.succeeded() || !right_result.succeeded()) {
+        throw std::runtime_error(!left_result.succeeded() ? left_result.message : right_result.message);
+      }
       composeSplitCells(split_left_cells, split_right_cells, layout, &cells);
     } else {
-      renderFrame(render_input, temporal_lookahead, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+      const RenderResult render_result = renderer_session.render(render_input, temporal_lookahead, render_options, render_terminal, &cells, render_stats_ptr);
+      if (!render_result.succeeded()) {
+        throw std::runtime_error(render_result.message);
+      }
     }
-    if (video_decoder.isStillImage()) {
+    const auto render_finished = std::chrono::steady_clock::now();
+    if (video_decoder != nullptr && video_decoder->isStillImage()) {
       still_frame = *frame;
     }
     EmissionResult emission;
@@ -3724,6 +3782,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
       emission = emitter.emit(cells, centeredEmissionOptions(emission_options, render_terminal, cells));
     }
     debug_stats.recordPresentedFrame(cells, emission);
+    const auto write_started = std::chrono::steady_clock::now();
     if (!emission.bytes.empty() && !writeAll(STDOUT_FILENO, emission.bytes)) {
       quit = true;
       break;
@@ -3731,6 +3790,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (!writeOsdOverlay(live_options, osd_active, terminal)) {
       quit = true;
       break;
+    }
+    const auto write_finished = std::chrono::steady_clock::now();
+    if (live_decoded_at.has_value()) {
+      debug_stats.recordLivePresentation(render_finished - render_started,
+                                         write_finished - write_started,
+                                         *live_decoded_at,
+                                         write_finished);
     }
     if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
       quit = true;
