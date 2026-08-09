@@ -1,12 +1,15 @@
 #pragma once
 
 #include "frame.hpp"
+#include "video_decoder.hpp"
 
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 
 namespace strok {
 
@@ -19,6 +22,29 @@ struct LiveFrameBatch {
   LiveFrame latest;
   std::size_t producer_replaced = 0;
   std::size_t consumer_discarded = 0;
+};
+
+enum class LiveSourceState {
+  Connecting,
+  Streaming,
+  Reconnecting,
+  Stopped,
+  Failed,
+};
+
+std::string_view liveSourceStateName(LiveSourceState state) noexcept;
+
+struct LiveSourceStatus {
+  LiveSourceState state = LiveSourceState::Connecting;
+  int reconnect_attempts = 0;
+  std::string message;
+  std::optional<double> average_fps;
+};
+
+struct LiveSourceOptions {
+  VideoDecoderOptions decoder;
+  bool reconnect = true;
+  std::chrono::milliseconds reconnect_backoff {1000};
 };
 
 class LatestFrameQueue {
@@ -43,7 +69,7 @@ class LatestFrameQueue {
 
 class LiveFrameSource {
  public:
-  explicit LiveFrameSource(const std::filesystem::path& input);
+  explicit LiveFrameSource(const std::filesystem::path& input, LiveSourceOptions options = {});
 
   LiveFrameSource(const LiveFrameSource&) = delete;
   LiveFrameSource& operator=(const LiveFrameSource&) = delete;
@@ -54,7 +80,8 @@ class LiveFrameSource {
   std::optional<LiveFrameBatch> waitForLatest();
   std::optional<LiveFrameBatch> waitForLatestFor(std::chrono::milliseconds timeout);
   bool closed() const;
-  std::optional<double> averageFps() const noexcept;
+  std::optional<double> averageFps() const;
+  LiveSourceStatus status() const;
   void stop() noexcept;
 
  private:

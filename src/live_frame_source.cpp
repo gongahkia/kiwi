@@ -1,7 +1,6 @@
 #include "live_frame_source.hpp"
 
-#include "video_decoder.hpp"
-
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -103,9 +102,25 @@ std::size_t LatestFrameQueue::capacity() const noexcept {
   return state_->capacity;
 }
 
+std::string_view liveSourceStateName(LiveSourceState state) noexcept {
+  switch (state) {
+    case LiveSourceState::Connecting:
+      return "connecting";
+    case LiveSourceState::Streaming:
+      return "streaming";
+    case LiveSourceState::Reconnecting:
+      return "reconnecting";
+    case LiveSourceState::Stopped:
+      return "stopped";
+    case LiveSourceState::Failed:
+      return "failed";
+  }
+  return "unknown";
+}
+
 struct LiveFrameSource::Impl {
-  explicit Impl(const std::filesystem::path& input)
-      : decoder(input), average_fps(decoder.averageFps()), queue(2), worker([this] { decode(); }) {}
+  explicit Impl(std::filesystem::path source_input, LiveSourceOptions source_options)
+      : input(std::move(source_input)), options(std::move(source_options)), queue(2), worker([this] { decode(); }) {}
 
   ~Impl() {
     stop();
@@ -115,26 +130,105 @@ struct LiveFrameSource::Impl {
   }
 
   void decode() {
-    try {
-      while (!stop_requested.load(std::memory_order_relaxed)) {
-        std::optional<Frame> frame = decoder.nextFrame();
-        if (!frame.has_value()) {
+    int reconnect_attempts = 0;
+    int consecutive_failures = 0;
+    while (!stop_requested.load(std::memory_order_relaxed)) {
+      updateStatus(reconnect_attempts == 0 ? LiveSourceState::Connecting : LiveSourceState::Reconnecting,
+                   reconnect_attempts,
+                   reconnect_attempts == 0 ? std::string{} : "opening live source");
+      try {
+        VideoDecoder decoder(input, options.decoder, &stop_requested);
+        const std::optional<double> average_fps = decoder.averageFps();
+        updateStatus(LiveSourceState::Streaming, reconnect_attempts, {}, average_fps);
+        bool produced_frame = false;
+        while (!stop_requested.load(std::memory_order_relaxed)) {
+          std::optional<Frame> frame = decoder.nextFrame();
+          if (!frame.has_value()) {
+            if (stop_requested.load(std::memory_order_relaxed)) {
+              break;
+            }
+            throw std::runtime_error("live input ended");
+          }
+          if (!produced_frame) {
+            produced_frame = true;
+            consecutive_failures = 0;
+          }
+          if (!queue.push(LiveFrame{
+                .frame = std::move(*frame),
+                .decoded_at = std::chrono::steady_clock::now(),
+              })) {
+            break;
+          }
+        }
+        if (stop_requested.load(std::memory_order_relaxed)) {
           break;
         }
-        if (!queue.push(LiveFrame{
-              .frame = std::move(*frame),
-              .decoded_at = std::chrono::steady_clock::now(),
-            })) {
+        if (!produced_frame) {
+          throw std::runtime_error("live input ended before a frame was decoded");
+        }
+        throw std::runtime_error("live input stopped producing frames");
+      } catch (const std::exception& exception) {
+        if (stop_requested.load(std::memory_order_relaxed)) {
           break;
         }
-      }
-    } catch (...) {
-      if (!stop_requested.load(std::memory_order_relaxed)) {
-        std::lock_guard lock(error_mutex);
-        error = std::current_exception();
+        if (!scheduleReconnect(std::current_exception(), exception.what(), &reconnect_attempts, &consecutive_failures)) {
+          break;
+        }
+      } catch (...) {
+        if (stop_requested.load(std::memory_order_relaxed)) {
+          break;
+        }
+        if (!scheduleReconnect(std::current_exception(), "unexpected live input failure", &reconnect_attempts, &consecutive_failures)) {
+          break;
+        }
       }
     }
+    if (stop_requested.load(std::memory_order_relaxed)) {
+      updateStatus(LiveSourceState::Stopped, reconnect_attempts, {});
+    }
     queue.close();
+  }
+
+  bool scheduleReconnect(std::exception_ptr attempt_error,
+                         std::string message,
+                         int* reconnect_attempts,
+                         int* consecutive_failures) {
+    if (!options.reconnect) {
+      {
+        std::lock_guard lock(error_mutex);
+        error = std::move(attempt_error);
+      }
+      updateStatus(LiveSourceState::Failed, *reconnect_attempts, std::move(message));
+      return false;
+    }
+    ++*reconnect_attempts;
+    ++*consecutive_failures;
+    const std::chrono::milliseconds delay = reconnectDelay(*consecutive_failures);
+    updateStatus(LiveSourceState::Reconnecting,
+                 *reconnect_attempts,
+                 std::move(message) + "; retrying in " + std::to_string(delay.count()) + "ms");
+    std::unique_lock lock(reconnect_mutex);
+    reconnect_ready.wait_for(lock, delay, [&] { return stop_requested.load(std::memory_order_relaxed); });
+    return !stop_requested.load(std::memory_order_relaxed);
+  }
+
+  std::chrono::milliseconds reconnectDelay(int consecutive_failures) const {
+    int64_t delay_ms = std::max<int64_t>(1, options.reconnect_backoff.count());
+    for (int attempt = 1; attempt < consecutive_failures && delay_ms < 30000; ++attempt) {
+      delay_ms = std::min<int64_t>(30000, delay_ms * 2);
+    }
+    return std::chrono::milliseconds(delay_ms);
+  }
+
+  void updateStatus(LiveSourceState state,
+                    int reconnect_attempts,
+                    std::string message,
+                    std::optional<double> average_fps = std::nullopt) {
+    std::lock_guard lock(status_mutex);
+    status.state = state;
+    status.reconnect_attempts = reconnect_attempts;
+    status.message = std::move(message);
+    status.average_fps = average_fps;
   }
 
   std::optional<LiveFrameBatch> waitForLatest() {
@@ -167,20 +261,25 @@ struct LiveFrameSource::Impl {
 
   void stop() noexcept {
     stop_requested.store(true, std::memory_order_relaxed);
-    decoder.stop();
+    reconnect_ready.notify_all();
     queue.close();
   }
 
-  VideoDecoder decoder;
-  std::optional<double> average_fps;
+  std::filesystem::path input;
+  LiveSourceOptions options;
   LatestFrameQueue queue;
   std::atomic<bool> stop_requested = false;
   std::thread worker;
   std::mutex error_mutex;
   std::exception_ptr error;
+  std::mutex reconnect_mutex;
+  std::condition_variable reconnect_ready;
+  mutable std::mutex status_mutex;
+  LiveSourceStatus status;
 };
 
-LiveFrameSource::LiveFrameSource(const std::filesystem::path& input) : impl_(std::make_unique<Impl>(input)) {}
+LiveFrameSource::LiveFrameSource(const std::filesystem::path& input, LiveSourceOptions options)
+    : impl_(std::make_unique<Impl>(input, std::move(options))) {}
 
 LiveFrameSource::~LiveFrameSource() = default;
 
@@ -196,8 +295,13 @@ bool LiveFrameSource::closed() const {
   return impl_->queue.closed();
 }
 
-std::optional<double> LiveFrameSource::averageFps() const noexcept {
-  return impl_->average_fps;
+std::optional<double> LiveFrameSource::averageFps() const {
+  return status().average_fps;
+}
+
+LiveSourceStatus LiveFrameSource::status() const {
+  std::lock_guard lock(impl_->status_mutex);
+  return impl_->status;
 }
 
 void LiveFrameSource::stop() noexcept {

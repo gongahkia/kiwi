@@ -2,6 +2,8 @@
 
 #include "frame.hpp"
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -9,9 +11,23 @@
 
 namespace strok {
 
+enum class RtspTransport {
+  Auto,
+  Tcp,
+  Udp,
+};
+
+struct VideoDecoderOptions {
+  std::chrono::milliseconds input_open_timeout {5000};
+  std::chrono::milliseconds read_timeout {5000};
+  RtspTransport rtsp_transport = RtspTransport::Auto;
+};
+
 class VideoDecoder {
  public:
-  explicit VideoDecoder(const std::filesystem::path& input);
+  explicit VideoDecoder(const std::filesystem::path& input,
+                        VideoDecoderOptions options = {},
+                        const std::atomic<bool>* external_stop_requested = nullptr);
   VideoDecoder(const VideoDecoder&) = delete;
   VideoDecoder& operator=(const VideoDecoder&) = delete;
   VideoDecoder(VideoDecoder&&) noexcept;

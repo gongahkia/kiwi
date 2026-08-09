@@ -77,9 +77,37 @@ struct SwsContextDeleter {
 
 using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
 
+struct DecoderInterruptState {
+  std::atomic<bool> stop_requested = false;
+  const std::atomic<bool>* external_stop_requested = nullptr;
+  std::atomic<int64_t> deadline_ns = 0;
+  std::atomic<bool> timed_out = false;
+};
+
+int64_t steadyNowNs() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+           std::chrono::steady_clock::now().time_since_epoch())
+    .count();
+}
+
+bool decoderStopRequested(const DecoderInterruptState& state) {
+  return state.stop_requested.load(std::memory_order_relaxed) ||
+         (state.external_stop_requested != nullptr && state.external_stop_requested->load(std::memory_order_relaxed));
+}
+
 int interruptIfStopped(void* opaque) {
-  const auto* stop_requested = static_cast<const std::atomic<bool>*>(opaque);
-  return shouldQuit() || (stop_requested != nullptr && stop_requested->load(std::memory_order_relaxed)) ? 1 : 0;
+  auto* state = static_cast<DecoderInterruptState*>(opaque);
+  if (shouldQuit() || (state != nullptr && decoderStopRequested(*state))) {
+    return 1;
+  }
+  if (state != nullptr) {
+    const int64_t deadline_ns = state->deadline_ns.load(std::memory_order_relaxed);
+    if (deadline_ns > 0 && steadyNowNs() >= deadline_ns) {
+      state->timed_out.store(true, std::memory_order_relaxed);
+      return 1;
+    }
+  }
+  return 0;
 }
 
 std::string ffmpegError(int error_code) {
@@ -198,8 +226,12 @@ Frame makeOwnedFrame(const AVFrame* frame, SwsContext** context, AVRational time
 }  // namespace
 
 struct VideoDecoder::Impl {
-  explicit Impl(std::filesystem::path media) : input(std::move(media)) {
+  explicit Impl(std::filesystem::path media,
+                VideoDecoderOptions decoder_options,
+                const std::atomic<bool>* external_stop)
+      : input(std::move(media)), options(std::move(decoder_options)) {
     av_log_set_level(AV_LOG_QUIET);
+    interrupt_state.external_stop_requested = external_stop;
     const std::string input_string = input.string();
     const std::optional<CameraInputSpec> camera = cameraInputSpec(input_string);
     if (!camera.has_value() && !looksRemote(input_string)) {
@@ -217,8 +249,9 @@ struct VideoDecoder::Impl {
 
     std::string open_input = input_string;
     const AVInputFormat* input_format = nullptr;
-    AVDictionary* options = nullptr;
+    AVDictionary* input_options = nullptr;
     live_input = isLatencySensitiveInput(input_string);
+    const std::chrono::milliseconds open_timeout = live_input ? options.input_open_timeout : std::chrono::milliseconds(0);
     if (camera.has_value()) {
       avdevice_register_all();
       input_format = av_find_input_format(camera->format.c_str());
@@ -226,16 +259,25 @@ struct VideoDecoder::Impl {
         throw std::runtime_error("FFmpeg input device unavailable: " + camera->format);
       }
       open_input = camera->device;
-      av_dict_set(&options, "video_size", "640x480", 0);
-      av_dict_set(&options, "framerate", "30", 0);
+      av_dict_set(&input_options, "video_size", "640x480", 0);
+      av_dict_set(&input_options, "framerate", "30", 0);
       if (camera->format == "avfoundation") {
-        av_dict_set(&options, "pixel_format", "nv12", 0);
+        av_dict_set(&input_options, "pixel_format", "nv12", 0);
       }
-      av_dict_set(&options, "fflags", "nobuffer", 0);
-      av_dict_set(&options, "flags", "low_delay", 0);
+      av_dict_set(&input_options, "fflags", "nobuffer", 0);
+      av_dict_set(&input_options, "flags", "low_delay", 0);
     } else if (isRtspInput(input_string)) {
-      av_dict_set(&options, "fflags", "nobuffer", 0);
-      av_dict_set(&options, "flags", "low_delay", 0);
+      av_dict_set(&input_options, "fflags", "nobuffer", 0);
+      av_dict_set(&input_options, "flags", "low_delay", 0);
+      if (options.read_timeout.count() > 0) {
+        const std::string timeout_us = std::to_string(options.read_timeout.count() * 1000);
+        av_dict_set(&input_options, "timeout", timeout_us.c_str(), 0);
+      }
+      if (options.rtsp_transport == RtspTransport::Tcp) {
+        av_dict_set(&input_options, "rtsp_transport", "tcp", 0);
+      } else if (options.rtsp_transport == RtspTransport::Udp) {
+        av_dict_set(&input_options, "rtsp_transport", "udp", 0);
+      }
     }
 
     AVFormatContext* raw_context = avformat_alloc_context();
@@ -243,12 +285,18 @@ struct VideoDecoder::Impl {
       throw std::runtime_error("failed to allocate media context");
     }
     raw_context->interrupt_callback.callback = interruptIfStopped;
-    raw_context->interrupt_callback.opaque = &stop_requested;
-    int result = avformat_open_input(&raw_context, open_input.c_str(), input_format, &options);
-    av_dict_free(&options);
+    raw_context->interrupt_callback.opaque = &interrupt_state;
+    armIoTimeout(open_timeout);
+    int result = avformat_open_input(&raw_context, open_input.c_str(), input_format, &input_options);
+    const bool open_timed_out = interrupt_state.timed_out.load(std::memory_order_relaxed);
+    disarmIoTimeout();
+    av_dict_free(&input_options);
     if (result < 0) {
       AVFormatContext* owned = raw_context;
       avformat_close_input(&owned);
+      if (open_timed_out) {
+        throw std::runtime_error("timed out opening media after " + std::to_string(open_timeout.count()) + "ms: " + input_string);
+      }
       throw std::runtime_error("could not open media: " + input_string + ": " + ffmpegError(result));
     }
     format_context.reset(raw_context);
@@ -258,8 +306,14 @@ struct VideoDecoder::Impl {
       animated_image = isAnimatedImageFormat(format_name);
     }
 
+    armIoTimeout(open_timeout);
     result = avformat_find_stream_info(format_context.get(), nullptr);
+    const bool probe_timed_out = interrupt_state.timed_out.load(std::memory_order_relaxed);
+    disarmIoTimeout();
     if (result < 0) {
+      if (probe_timed_out) {
+        throw std::runtime_error("timed out probing media after " + std::to_string(open_timeout.count()) + "ms: " + input_string);
+      }
       throw std::runtime_error("could not read stream info: " + input_string + ": " + ffmpegError(result));
     }
 
@@ -289,6 +343,24 @@ struct VideoDecoder::Impl {
     sws_freeContext(sws_context);
   }
 
+  bool stopRequested() const {
+    return decoderStopRequested(interrupt_state);
+  }
+
+  void armIoTimeout(std::chrono::milliseconds timeout) {
+    interrupt_state.timed_out.store(false, std::memory_order_relaxed);
+    if (timeout.count() <= 0) {
+      interrupt_state.deadline_ns.store(0, std::memory_order_relaxed);
+      return;
+    }
+    const int64_t timeout_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count();
+    interrupt_state.deadline_ns.store(steadyNowNs() + timeout_ns, std::memory_order_relaxed);
+  }
+
+  void disarmIoTimeout() {
+    interrupt_state.deadline_ns.store(0, std::memory_order_relaxed);
+  }
+
   std::optional<Frame> receiveFrame() {
     while (true) {
       const int result = avcodec_receive_frame(codec_context.get(), frame.get());
@@ -305,7 +377,7 @@ struct VideoDecoder::Impl {
         eof = true;
         return std::nullopt;
       }
-      if (stop_requested.load(std::memory_order_relaxed)) {
+      if (stopRequested()) {
         return std::nullopt;
       }
       throw std::runtime_error("failed to receive decoded frame: " + ffmpegError(result));
@@ -314,7 +386,7 @@ struct VideoDecoder::Impl {
 
   std::optional<Frame> decodeNextFrame() {
     while (true) {
-      if (stop_requested.load(std::memory_order_relaxed)) {
+      if (stopRequested()) {
         return std::nullopt;
       }
       if (auto decoded = receiveFrame()) {
@@ -323,7 +395,10 @@ struct VideoDecoder::Impl {
       if (eof) {
         return std::nullopt;
       }
+      armIoTimeout(live_input ? options.read_timeout : std::chrono::milliseconds(0));
       const int read_result = av_read_frame(format_context.get(), packet.get());
+      const bool read_timed_out = interrupt_state.timed_out.load(std::memory_order_relaxed);
+      disarmIoTimeout();
       if (read_result == AVERROR_EOF) {
         const int drain_result = avcodec_send_packet(codec_context.get(), nullptr);
         if (drain_result < 0 && drain_result != AVERROR_EOF) {
@@ -336,8 +411,11 @@ struct VideoDecoder::Impl {
         continue;
       }
       if (read_result < 0) {
-        if (stop_requested.load(std::memory_order_relaxed) || shouldQuit()) {
+        if (stopRequested() || shouldQuit()) {
           return std::nullopt;
+        }
+        if (read_timed_out) {
+          throw std::runtime_error("timed out reading media after " + std::to_string(options.read_timeout.count()) + "ms: " + input.string());
         }
         throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));
       }
@@ -408,14 +486,18 @@ struct VideoDecoder::Impl {
   int64_t frame_index = 0;
   bool eof = false;
   bool live_input = false;
-  std::atomic<bool> stop_requested = false;
+  VideoDecoderOptions options;
+  DecoderInterruptState interrupt_state;
   bool still_image = false;
   bool animated_image = false;
   SwsContext* sws_context = nullptr;
   std::optional<Frame> pending_frame;
 };
 
-VideoDecoder::VideoDecoder(const std::filesystem::path& input) : impl_(std::make_unique<Impl>(input)) {}
+VideoDecoder::VideoDecoder(const std::filesystem::path& input,
+                           VideoDecoderOptions options,
+                           const std::atomic<bool>* external_stop_requested)
+    : impl_(std::make_unique<Impl>(input, std::move(options), external_stop_requested)) {}
 
 VideoDecoder::VideoDecoder(VideoDecoder&&) noexcept = default;
 
@@ -428,7 +510,7 @@ std::optional<Frame> VideoDecoder::nextFrame() {
 }
 
 void VideoDecoder::stop() noexcept {
-  impl_->stop_requested.store(true, std::memory_order_relaxed);
+  impl_->interrupt_state.stop_requested.store(true, std::memory_order_relaxed);
 }
 
 void VideoDecoder::seekToUs(int64_t position_us) {

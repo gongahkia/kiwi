@@ -201,6 +201,28 @@ class LivePresentationPacer {
   std::chrono::microseconds late_budget_ {33333};
 };
 
+RtspTransport rtspTransportFromOptions(const CliOptions& options) {
+  if (options.rtsp_transport == "tcp") {
+    return RtspTransport::Tcp;
+  }
+  if (options.rtsp_transport == "udp") {
+    return RtspTransport::Udp;
+  }
+  return RtspTransport::Auto;
+}
+
+LiveSourceOptions liveSourceOptionsFromCli(const CliOptions& options) {
+  return LiveSourceOptions{
+    .decoder = VideoDecoderOptions{
+      .input_open_timeout = std::chrono::milliseconds(options.input_open_timeout_ms),
+      .read_timeout = std::chrono::milliseconds(options.read_timeout_ms),
+      .rtsp_transport = rtspTransportFromOptions(options),
+    },
+    .reconnect = options.reconnect,
+    .reconnect_backoff = std::chrono::milliseconds(options.reconnect_backoff_ms),
+  };
+}
+
 struct DriftStats {
   int64_t samples = 0;
   int64_t max_abs_us = 0;
@@ -491,6 +513,23 @@ bool writeDebugStatusLine(TerminalSize terminal, std::string_view line) {
   appendCursorMove(out, terminal.rows, 1);
   out += "\x1b[2K";
   out += clipped;
+  appendSgrReset(out);
+  return writeAll(STDOUT_FILENO, out);
+}
+
+bool writeLiveSourceStatus(const LiveSourceStatus& status, TerminalSize terminal) {
+  if (terminal.rows <= 0 || terminal.cols <= 0) {
+    return true;
+  }
+  std::string line = "live input: " + std::string(liveSourceStateName(status.state));
+  if (status.reconnect_attempts > 0) {
+    line += " (attempt " + std::to_string(status.reconnect_attempts) + ")";
+  }
+  std::string out;
+  appendSgrReset(out);
+  appendCursorMove(out, terminal.rows, 1);
+  out += "\x1b[2K";
+  out += line.substr(0, static_cast<std::size_t>(terminal.cols));
   appendSgrReset(out);
   return writeAll(STDOUT_FILENO, out);
 }
@@ -3381,7 +3420,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
   std::unique_ptr<VideoDecoder> video_decoder;
   std::unique_ptr<LiveFrameSource> live_frame_source;
   if (latency_sensitive_input) {
-    live_frame_source = std::make_unique<LiveFrameSource>(*live_options.input);
+    const LiveSourceOptions source_options = liveSourceOptionsFromCli(live_options);
+    STROK_LOG_INFO(logger,
+                   "live input open_timeout_ms=" + std::to_string(source_options.decoder.input_open_timeout.count()) +
+                     " read_timeout_ms=" + std::to_string(source_options.decoder.read_timeout.count()) +
+                     " reconnect=" + (source_options.reconnect ? std::string("on") : std::string("off")) +
+                     " reconnect_backoff_ms=" + std::to_string(source_options.reconnect_backoff.count()));
+    live_frame_source = std::make_unique<LiveFrameSource>(*live_options.input, source_options);
   } else {
     video_decoder = std::make_unique<VideoDecoder>(*live_options.input);
   }
@@ -3459,6 +3504,38 @@ int playMedia(const CliOptions& options, Logger& logger) {
     split_right_renderer_session.reset();
     std::string clear_screen = "\x1b[2J";
     writeAll(STDOUT_FILENO, clear_screen);
+  };
+
+  std::optional<LiveSourceStatus> last_live_source_status;
+  bool live_status_visible = false;
+  const auto refresh_live_source_status = [&] {
+    if (live_frame_source == nullptr) {
+      return true;
+    }
+    const LiveSourceStatus current = live_frame_source->status();
+    const bool changed = !last_live_source_status.has_value() ||
+                         current.state != last_live_source_status->state ||
+                         current.reconnect_attempts != last_live_source_status->reconnect_attempts ||
+                         current.message != last_live_source_status->message;
+    if (!changed) {
+      return true;
+    }
+    last_live_source_status = current;
+    std::string log_message = "live source state=" + std::string(liveSourceStateName(current.state)) +
+                              " reconnect_attempts=" + std::to_string(current.reconnect_attempts);
+    if (!current.message.empty()) {
+      log_message += " detail=" + current.message;
+    }
+    STROK_LOG_INFO(logger, log_message);
+    if (current.state == LiveSourceState::Connecting || current.state == LiveSourceState::Reconnecting) {
+      live_status_visible = true;
+      return writeLiveSourceStatus(current, terminal);
+    }
+    if (live_status_visible && current.state == LiveSourceState::Streaming) {
+      live_status_visible = false;
+      reset_render_state();
+    }
+    return true;
   };
 
   const auto seek_to = [&](int64_t target_us) {
@@ -3595,6 +3672,10 @@ int playMedia(const CliOptions& options, Logger& logger) {
   };
 
   while (!shouldQuit()) {
+    if (!refresh_live_source_status()) {
+      quit = true;
+      break;
+    }
     if (!apply_command(pollKeyboardCommand())) {
       quit = true;
       break;
