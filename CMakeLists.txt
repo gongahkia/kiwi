@@ -176,9 +176,59 @@ set(STROK_OUTPUT_BACKEND_SOURCES
   src/terminal_caps.cpp
 )
 
-add_executable(strok
-  ${STROK_RENDERER_CORE_SOURCES}
+add_library(strok_gpu_backend STATIC
   ${STROK_GPU_ACCELERATION_SOURCES}
+  ${STROK_GPU_SUPPORT_SOURCES}
+)
+target_include_directories(strok_gpu_backend PRIVATE src)
+target_compile_features(strok_gpu_backend PRIVATE cxx_std_20)
+set_target_properties(strok_gpu_backend PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_gpu_backend PUBLIC ${STROK_GPU_LIBS})
+if(MSVC)
+  target_compile_options(strok_gpu_backend PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_gpu_backend PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_gpu_backend PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_gpu_backend PRIVATE -Werror)
+  endif()
+endif()
+
+add_library(strok_core STATIC
+  ${STROK_RENDERER_CORE_SOURCES}
+)
+target_include_directories(strok_core PRIVATE src)
+target_include_directories(strok_core SYSTEM PRIVATE third_party)
+target_compile_features(strok_core PRIVATE cxx_std_20)
+set_target_properties(strok_core PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_compile_definitions(strok_core PRIVATE
+  STROK_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  STROK_DATA_DIR="${CMAKE_INSTALL_FULL_DATADIR}/strok"
+)
+target_link_libraries(strok_core PUBLIC Threads::Threads PkgConfig::FREETYPE strok_gpu_backend)
+if(MSVC)
+  target_compile_options(strok_core PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_core PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_core PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_core PRIVATE -Werror)
+  endif()
+endif()
+
+add_executable(strok
   ${STROK_FRONTEND_MEDIA_SOURCES}
   ${STROK_OUTPUT_BACKEND_SOURCES}
 )
@@ -190,7 +240,7 @@ set_target_properties(strok PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(strok PRIVATE STROK_VERSION="${PROJECT_VERSION}")
-target_link_libraries(strok PRIVATE PkgConfig::FFMPEG PkgConfig::FREETYPE ZLIB::ZLIB strok_audio strok_audio_decode ${STROK_GPU_LIBS})
+target_link_libraries(strok PRIVATE strok_core PkgConfig::FFMPEG ZLIB::ZLIB strok_audio strok_audio_decode)
 
 install(TARGETS strok
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -924,20 +974,16 @@ add_test(NAME golden_frame COMMAND golden_frame_tests)
 
 add_executable(reconstruction_baseline_tests
   tests/reconstruction_baseline_tests.cpp
-  ${STROK_RENDERER_CORE_SOURCES}
-  ${STROK_GPU_ACCELERATION_SOURCES}
-  ${STROK_GPU_SUPPORT_SOURCES}
   src/scene_source.cpp
 )
 target_include_directories(reconstruction_baseline_tests PRIVATE src)
-target_include_directories(reconstruction_baseline_tests SYSTEM PRIVATE third_party)
 target_compile_features(reconstruction_baseline_tests PRIVATE cxx_std_20)
 set_target_properties(reconstruction_baseline_tests PROPERTIES
   CXX_STANDARD 20
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(reconstruction_baseline_tests PRIVATE Threads::Threads PkgConfig::FREETYPE ${STROK_GPU_LIBS})
+target_link_libraries(reconstruction_baseline_tests PRIVATE strok_core)
 if(MSVC)
   target_compile_options(reconstruction_baseline_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
