@@ -29,6 +29,77 @@ bool isOneOf(std::string_view value, std::initializer_list<std::string_view> all
   return false;
 }
 
+void applyPipeline(std::string_view value, CliOptions* options);
+
+bool isProfileName(std::string_view value) {
+  return isOneOf(value, {"live", "structure", "low-bandwidth", "export"});
+}
+
+void applyProfile(std::string_view value, CliOptions* options) {
+  if (value == "live") {
+    applyPipeline("luminance", options);
+    options->style = "none";
+    options->render_mode = "text";
+    options->structure_overlay = "auto";
+    options->glyph_features = "overlap";
+    options->max_fps = 30.0;
+    options->fps.reset();
+    options->fit = true;
+    options->color_mode = "auto";
+    options->dither = "none";
+    options->diff_oklab_eps = 0.01;
+    options->line_ligatures = false;
+    options->debug_stats = false;
+    options->reconnect = true;
+    return;
+  }
+  if (value == "structure") {
+    applyPipeline("structure", options);
+    options->style = "none";
+    options->render_mode = "text";
+    options->glyph_features = "hog";
+    options->structure_overlay = "auto";
+    options->max_fps.reset();
+    options->fps.reset();
+    options->fit = true;
+    options->color_mode = "auto";
+    options->dither = "none";
+    options->diff_oklab_eps.reset();
+    options->debug_stats = false;
+    return;
+  }
+  if (value == "low-bandwidth") {
+    applyPipeline("luminance", options);
+    options->style = "none";
+    options->render_mode = "text";
+    options->structure_overlay = "auto";
+    options->glyph_features = "overlap";
+    options->max_fps = 12.0;
+    options->fps.reset();
+    options->fit = true;
+    options->color_mode = "16";
+    options->dither = "none";
+    options->diff_oklab_eps = 0.02;
+    options->line_ligatures = false;
+    options->debug_stats = false;
+    return;
+  }
+  if (value == "export") {
+    applyPipeline("structure", options);
+    options->style = "none";
+    options->render_mode = "text";
+    options->structure_overlay = "auto";
+    options->glyph_features = "hog";
+    options->max_fps.reset();
+    options->fps.reset();
+    options->fit = false;
+    options->color_mode = "truecolor";
+    options->dither = "none";
+    options->diff_oklab_eps = 0.0;
+    options->debug_stats = false;
+  }
+}
+
 std::optional<int> parsePositiveInt(std::string_view value) {
   int parsed = 0;
   const auto* first = value.data();
@@ -216,6 +287,48 @@ std::optional<CliAction> earlyAction(int argc, char** argv) {
   return std::nullopt;
 }
 
+struct ProfileSelection {
+  std::optional<std::string> name;
+  std::string error;
+};
+
+ProfileSelection findProfileSelection(int argc, char** argv) {
+  ProfileSelection selection;
+  for (int index = 1; index < argc; ++index) {
+    const std::string_view argument(argv[index]);
+    if (argument == "--") {
+      break;
+    }
+    if (!argument.starts_with("--")) {
+      continue;
+    }
+    std::string_view inline_value;
+    const std::string_view flag = stripFlagValue(argument, &inline_value);
+    if (flag != "--profile") {
+      continue;
+    }
+    std::string_view value = inline_value;
+    if (value.empty()) {
+      if (index + 1 >= argc) {
+        selection.error = "missing value for --profile";
+        return selection;
+      }
+      value = argv[++index];
+    }
+    if (!isProfileName(value)) {
+      selection.error = "invalid value for --profile: " + std::string(value) +
+                        "; expected live, structure, low-bandwidth, or export";
+      return selection;
+    }
+    if (selection.name.has_value()) {
+      selection.error = "duplicate flag: --profile";
+      return selection;
+    }
+    selection.name = std::string(value);
+  }
+  return selection;
+}
+
 std::optional<std::filesystem::path> defaultConfigPath() {
   if (const char* xdg_config_home = std::getenv("XDG_CONFIG_HOME"); xdg_config_home != nullptr && *xdg_config_home != '\0') {
     return std::filesystem::path(xdg_config_home) / "strok" / "config";
@@ -318,6 +431,10 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.action = CliAction::Version;
       return result;
     }
+    if (flag == "--doctor") {
+      result.action = CliAction::Doctor;
+      continue;
+    }
     if (flag == "--fit") {
       result.options.fit = true;
       continue;
@@ -395,6 +512,7 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--width",
           "--height",
           "--input",
+          "--profile",
           "--cell-aspect",
           "--fps",
           "--max-fps",
@@ -455,7 +573,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       return result;
     }
 
-    if (flag == "--input") {
+    if (flag == "--profile") {
+      if (!isProfileName(*value)) {
+        result.error = "invalid value for --profile: " + std::string(*value) +
+                       "; expected live, structure, low-bandwidth, or export";
+        return result;
+      }
+      result.options.profile = std::string(*value);
+    } else if (flag == "--input") {
       if (result.options.input.has_value()) {
         result.error = "unexpected argument: " + std::string(*value);
         return result;
@@ -797,6 +922,7 @@ CliParseResult loadConfigDefaults() {
   if (!config_path.has_value() || !std::filesystem::exists(*config_path)) {
     return result;
   }
+  result.config_path = *config_path;
   std::ifstream input(*config_path);
   if (!input) {
     result.error = "could not read config: " + config_path->string();
@@ -804,6 +930,7 @@ CliParseResult loadConfigDefaults() {
   }
 
   std::vector<std::string> args {"strok-config"};
+  std::optional<std::string> profile;
   std::string line;
   int line_number = 0;
   while (std::getline(input, line)) {
@@ -817,6 +944,21 @@ CliParseResult loadConfigDefaults() {
       result.error = "invalid config line " + std::to_string(line_number) + ": expected key=value";
       return result;
     }
+    const std::string key = normalizeConfigKey(view.substr(0, equals));
+    if (key == "profile") {
+      const std::string value = unquote(view.substr(equals + 1));
+      if (!isProfileName(value)) {
+        result.error = "invalid config line " + std::to_string(line_number) +
+                       ": invalid profile: expected live, structure, low-bandwidth, or export";
+        return result;
+      }
+      if (profile.has_value()) {
+        result.error = "invalid config line " + std::to_string(line_number) + ": duplicate profile";
+        return result;
+      }
+      profile = value;
+      continue;
+    }
     std::string error;
     if (!appendConfigArg(&args, view.substr(0, equals), view.substr(equals + 1), &error)) {
       result.error = "invalid config line " + std::to_string(line_number) + ": " + error;
@@ -829,7 +971,13 @@ CliParseResult loadConfigDefaults() {
   for (std::string& arg : args) {
     argv.push_back(arg.data());
   }
-  result = parseArgsFromArgv(static_cast<int>(argv.size()), argv.data(), CliOptions{});
+  CliOptions config_defaults;
+  if (profile.has_value()) {
+    applyProfile(*profile, &config_defaults);
+    config_defaults.profile = profile;
+  }
+  result = parseArgsFromArgv(static_cast<int>(argv.size()), argv.data(), std::move(config_defaults));
+  result.config_path = *config_path;
   if (!result.error.empty()) {
     result.error = "invalid config " + config_path->string() + ": " + result.error;
   }
@@ -846,7 +994,18 @@ CliParseResult parseArgs(int argc, char** argv) {
   if (!defaults.error.empty()) {
     return defaults;
   }
-  return parseArgsFromArgv(argc, argv, defaults.options);
+  const ProfileSelection profile = findProfileSelection(argc, argv);
+  if (!profile.error.empty()) {
+    return CliParseResult{.options = defaults.options, .config_path = defaults.config_path, .error = profile.error};
+  }
+  CliOptions options = defaults.options;
+  if (profile.name.has_value()) {
+    applyProfile(*profile.name, &options);
+    options.profile = profile.name;
+  }
+  CliParseResult result = parseArgsFromArgv(argc, argv, std::move(options));
+  result.config_path = defaults.config_path;
+  return result;
 }
 
 std::string helpText(std::string_view program_name) {

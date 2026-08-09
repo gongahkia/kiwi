@@ -1,5 +1,6 @@
 #include "auto_mode.hpp"
 #include "cli.hpp"
+#include "doctor.hpp"
 #include "graph_yaml.hpp"
 #include "log.hpp"
 #include "media_probe.hpp"
@@ -43,6 +44,10 @@ int runApp(int argc, char** argv) {
   }
 
   strok::CliOptions options = parsed.options;
+  if (parsed.action == strok::CliAction::Doctor) {
+    std::cout << strok::formatDoctorReport(options, parsed.config_path);
+    return 0;
+  }
   if (options.graph.has_value() && *options.graph != "dump" && options.graph->find(',') != std::string::npos && !options.split.has_value()) {
     std::cerr << "invalid value for --graph: graph pair requires --split\n";
     return 2;

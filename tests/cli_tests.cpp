@@ -597,6 +597,46 @@ int main() {
   }
 
   {
+    const char* argv[] = {"strok", "--profile", "live"};
+    const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "live profile parses");
+    expect(parsed.options.profile.has_value() && *parsed.options.profile == "live", "live profile stored");
+    expect(parsed.options.mode == "luminance", "live profile uses luminance");
+    expect(parsed.options.max_fps.has_value() && *parsed.options.max_fps == 30.0, "live profile limits presentation fps");
+    expect(parsed.options.fit, "live profile fits output");
+  }
+
+  {
+    const char* argv[] = {"strok", "--profile", "structure", "--width", "96"};
+    const auto parsed = strok::parseArgs(5, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "structure profile parses");
+    expect(parsed.options.mode == "structure", "structure profile sets mode");
+    expect(parsed.options.glyph_features == "hog", "structure profile selects HoG");
+    expect(parsed.options.width.has_value() && *parsed.options.width == 96, "cli flag overrides profile");
+  }
+
+  {
+    const char* argv[] = {"strok", "--profile", "invalid"};
+    const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "invalid profile is rejected");
+  }
+
+  {
+    const char* argv[] = {"strok", "--profile", "live", "--profile", "structure"};
+    const auto parsed = strok::parseArgs(5, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "duplicate profile is rejected");
+  }
+
+  {
+    const char* argv[] = {"strok", "--doctor", "--profile", "low-bandwidth"};
+    const auto parsed = strok::parseArgs(4, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "doctor profile parses");
+    expect(parsed.action == strok::CliAction::Doctor, "doctor action stored");
+    expect(parsed.options.profile.has_value() && *parsed.options.profile == "low-bandwidth", "doctor keeps selected profile");
+    expect(parsed.options.max_fps.has_value() && *parsed.options.max_fps == 12.0, "doctor sees effective profile settings");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"strok", "movie.mp4"};
     const auto parsed = strok::parseArgs(2, const_cast<char**>(argv));
@@ -610,9 +650,40 @@ int main() {
     expect(parsed.options.color_mode == "mono", "config mono stored");
     expect(parsed.options.debug_stats, "config debug stats stored");
     expect(parsed.options.input.has_value() && *parsed.options.input == "movie.mp4", "config keeps cli input");
+    expect(parsed.config_path.has_value(), "config source recorded");
   }
 
   {
+    writeConfig(test_root / "profile", "profile=low-bandwidth\nwidth=44\nmax-fps=9\n");
+    const char* argv[] = {"strok", "movie.mp4"};
+    const auto parsed = strok::parseArgs(2, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "config profile parses");
+    expect(parsed.options.profile.has_value() && *parsed.options.profile == "low-bandwidth", "config profile stored");
+    expect(parsed.options.mode == "luminance", "config profile sets mode");
+    expect(parsed.options.color_mode == "16", "config profile sets color mode");
+    expect(parsed.options.max_fps.has_value() && *parsed.options.max_fps == 9.0, "config entry overrides config profile");
+    expect(parsed.options.width.has_value() && *parsed.options.width == 44, "config entry keeps explicit width");
+  }
+
+  {
+    const char* argv[] = {"strok", "--profile", "export", "movie.mp4"};
+    const auto parsed = strok::parseArgs(4, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "cli profile overrides config profile");
+    expect(parsed.options.profile.has_value() && *parsed.options.profile == "export", "cli profile replaces config profile");
+    expect(parsed.options.mode == "structure", "export profile sets structure mode");
+    expect(parsed.options.color_mode == "truecolor", "export profile replaces config color mode");
+    expect(!parsed.options.fit, "export profile disables terminal fit");
+  }
+
+  {
+    const char* argv[] = {"strok", "--profile", "export", "--color-mode", "mono", "movie.mp4"};
+    const auto parsed = strok::parseArgs(6, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "cli profile with override parses");
+    expect(parsed.options.color_mode == "mono", "cli flags override cli profile");
+  }
+
+  {
+    setConfigRoot(test_root / "defaults");
     const char* argv[] = {"strok", "--pipeline", "luminance", "--charset", "@%", "--width", "44", "--no-fit", "--mirror", "--no-debug-stats", "--color-mode", "truecolor", "movie.mp4"};
     const auto parsed = strok::parseArgs(13, const_cast<char**>(argv));
     expect(parsed.error.empty(), "cli overrides config parse");

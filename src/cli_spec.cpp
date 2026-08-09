@@ -6,6 +6,8 @@ namespace {
 constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--help", "show this help"},
   {"--version", "show version"},
+  {"--doctor", "report runtime support, terminal capabilities, and configuration"},
+  {"--profile {live|structure|low-bandwidth|export}", "apply a named operating profile"},
   {"--width N", "target terminal columns"},
   {"--height N", "target terminal rows"},
   {"--input PATH|URL|cam|stdin", "input path, stream URL, camera alias, or stdin plot data"},

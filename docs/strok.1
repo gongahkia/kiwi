@@ -16,6 +16,8 @@ When audio is present, audio playback provides the master clock.
 options:
   --help                         show this help
   --version                      show version
+  --doctor                       report runtime support, terminal capabilities, and configuration
+  --profile {live|structure|low-bandwidth|export} apply a named operating profile
   --width N                      target terminal columns
   --height N                     target terminal rows
   --input PATH|URL|cam|stdin     input path, stream URL, camera alias, or stdin plot data
@@ -92,7 +94,8 @@ options:
 Defaults are read from $XDG_CONFIG_HOME/strok/config, or
 ~/.config/strok/config when XDG_CONFIG_HOME is unset.
 The file uses key=value entries matching long flag names without leading dashes.
-Command-line flags override config values.
+A profile=live|structure|low-bandwidth|export entry selects a built-in profile.
+Config profile, config entries, CLI profile, then CLI flags are applied in order.
 .SH EXAMPLES
 .nf
 strok --mode structure movie.mp4

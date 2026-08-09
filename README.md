@@ -163,7 +163,11 @@ Web embeds: `packages/strok-embed` contains the unpublished `@strok/embed` packa
 <strok-player src="/demo.cast" controls autoplay loop></strok-player>
 ```
 
-Config: defaults are read from `$XDG_CONFIG_HOME/strok/config`, or `~/.config/strok/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`; CLI flags override config defaults. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/strok/graphs/`.
+Config: defaults are read from `$XDG_CONFIG_HOME/strok/config`, or `~/.config/strok/config` when `XDG_CONFIG_HOME` is unset. The file is simple `key=value` syntax using flag names without `--`, for example `pipeline=structure`, `mode=structure`, or `charset=" .#"`. It can select one built-in profile with `profile=live`. Values compose in this order: built-in defaults, config profile, other config entries, CLI profile, then other CLI flags. `--graph FILE.yaml` loads the in-tree graph YAML subset used by examples under `share/strok/graphs/`.
+
+Profiles reduce the normal command surface to four intentional starting points. `live` uses luminance text output at up to 30 fps with fitting and perceptual color diffs; `structure` uses structure mode with HoG matching; `low-bandwidth` uses 16 colors, 12 fps, and stronger color-diff suppression; `export` uses full truecolor structure output without terminal fitting or a presentation cap. Any later flag overrides the profile, so `strok --profile live --max-fps 15 --input cam` remains explicit.
+
+Run `strok --doctor` before diagnosing an installation or live source. It is read-only: it does not open media or enter terminal raw mode. The report includes the selected config/profile, terminal capabilities, compiled and active analysis backend, FFmpeg version and RTSP/device support, shader tool discovery, and the platform default camera device. `strok --profile live --doctor` reports the effective profile settings and `--caps SPEC` can be used to inspect a capability override.
 
 ## Flag reference
 
@@ -171,6 +175,8 @@ Config: defaults are read from `$XDG_CONFIG_HOME/strok/config`, or `~/.config/st
 |---|---|
 | `--help` | Show CLI help. |
 | `--version` | Show version. |
+| `--doctor` | Print read-only configuration, runtime, terminal, FFmpeg, shader, and camera diagnostics. |
+| `--profile live\|structure\|low-bandwidth\|export` | Apply named defaults; later CLI flags override them. |
 | `--width N` | Target terminal columns or export columns. |
 | `--height N` | Target terminal rows or export rows. |
 | `--input PATH\|URL\|cam\|stdin` | Input path, stream URL, camera alias, or stdin plot data. |

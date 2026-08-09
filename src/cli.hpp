@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,10 +13,12 @@ enum class CliAction {
   Run,
   Help,
   Version,
+  Doctor,
 };
 
 struct CliOptions {
   std::optional<std::string> input;
+  std::optional<std::string> profile;
   std::optional<int> width;
   std::optional<int> height;
   double cell_aspect = 0.5;
@@ -82,6 +85,7 @@ struct CliOptions {
 struct CliParseResult {
   CliAction action = CliAction::Run;
   CliOptions options;
+  std::optional<std::filesystem::path> config_path;
   std::string error;
 };
 
