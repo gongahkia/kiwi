@@ -861,13 +861,12 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
         LuminanceField current_luminance = makeLuminanceField(activeImage());
         if (temporal_state != nullptr && temporal_supersample > 1) {
           const auto supersample_started = std::chrono::steady_clock::now();
-          if (temporal_state->next_supersample_frame.has_value()) {
-            const LuminanceField next_luminance = makeLuminanceField(colorImageViewFromValidFrame(*temporal_state->next_supersample_frame));
+          if (input.lookahead_color.has_value()) {
+            const LuminanceField next_luminance = makeLuminanceField(*input.lookahead_color);
             analysis_luminance = blendTemporalSupersample(current_luminance, next_luminance, temporal_supersample, true);
-            temporal_state->next_supersample_frame.reset();
             result.stats.temporal_supersample_frames += temporal_supersample - 1;
             result.stats.temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
-          } else if (!temporal_state->next_supersample_required && temporal_state->previous_supersample_luminance.has_value()) {
+          } else if (temporal_state->previous_supersample_luminance.has_value()) {
             analysis_luminance = blendTemporalSupersample(current_luminance, *temporal_state->previous_supersample_luminance, temporal_supersample, false);
             result.stats.temporal_supersample_frames += temporal_supersample - 1;
             result.stats.temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();

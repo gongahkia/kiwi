@@ -66,6 +66,34 @@ int main() {
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {255, 0, 0}};
   expect(created.renderer->render(frame).succeeded() && color_cells == created.renderer->cells(), "Frame adapts to color-only RenderInput");
 
+  const std::array<uint8_t, 3> future_color = {0, 0, 0};
+  const strok::ColorImageView future_color_view{
+    .data = future_color.data(),
+    .width = 1,
+    .height = 1,
+    .row_stride_bytes = 3,
+    .pixel_format = strok::ColorPixelFormat::Rgb24,
+  };
+  strok::Renderer::CreateResult no_lookahead_renderer = strok::Renderer::create(
+      strok::RendererConfig{.cell_aspect = 1.0, .temporal_supersample = 2},
+      strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(no_lookahead_renderer.succeeded(), "no-lookahead renderer construction");
+  const strok::RenderResult without_lookahead = no_lookahead_renderer.renderer->render(strok::RenderInput{.color = color_view});
+  expect(without_lookahead.succeeded() && without_lookahead.stats.temporal_supersample_frames == 0,
+         "first temporal render works without lookahead");
+
+  strok::Renderer::CreateResult lookahead_renderer = strok::Renderer::create(
+      strok::RendererConfig{.cell_aspect = 1.0, .temporal_supersample = 2},
+      strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(lookahead_renderer.succeeded(), "lookahead renderer construction");
+  const strok::RenderResult with_lookahead = lookahead_renderer.renderer->render(
+      strok::RenderInput{.color = color_view, .lookahead_color = future_color_view});
+  expect(with_lookahead.succeeded() && with_lookahead.stats.temporal_supersample_frames == 1,
+         "in-memory lookahead is used for temporal supersampling");
+  const strok::RenderResult with_history = lookahead_renderer.renderer->render(strok::RenderInput{.color = future_color_view});
+  expect(with_history.succeeded() && with_history.stats.temporal_supersample_frames == 1,
+         "temporal supersampling falls back to prior input without lookahead");
+
   const std::array<double, 2> mismatched_depth = {1.0, 2.0};
   const strok::DepthImageView wrong_depth{
     .data = mismatched_depth.data(),
@@ -80,6 +108,14 @@ int main() {
     .height = 1,
     .row_stride_bytes = 6U * sizeof(double),
   };
+  const std::array<uint8_t, 6> mismatched_lookahead = {0, 0, 0, 0, 0, 0};
+  const strok::ColorImageView wrong_lookahead{
+    .data = mismatched_lookahead.data(),
+    .width = 2,
+    .height = 1,
+    .row_stride_bytes = 6,
+    .pixel_format = strok::ColorPixelFormat::Rgb24,
+  };
   strok::CellBuffer output(1, 1);
   output.at(0, 0).glyph = U'X';
   const auto expectInvalid = [&](const strok::RenderInput& input, const char* label) {
@@ -89,6 +125,7 @@ int main() {
   };
   expectInvalid(strok::RenderInput{.color = color_view, .depth = wrong_depth}, "depth dimensions must match color");
   expectInvalid(strok::RenderInput{.color = color_view, .normals = wrong_normals}, "normal dimensions must match color");
+  expectInvalid(strok::RenderInput{.color = color_view, .lookahead_color = wrong_lookahead}, "lookahead dimensions must match color");
 
   const std::array<uint8_t, 6> shade_color = {255, 255, 255, 255, 255, 255};
   const std::array<double, 2> shade_depth = {0.0, 1.0};

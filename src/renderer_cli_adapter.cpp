@@ -1,5 +1,7 @@
 #include "renderer_cli_adapter.hpp"
 
+#include <optional>
+
 namespace strok {
 namespace {
 
@@ -54,7 +56,20 @@ RendererConfig rendererConfigFromCliOptions(const CliOptions& options) {
 }
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state) {
-  const RenderResult result = renderFrame(frame, ramp, rendererConfigFromCliOptions(options), RenderGrid{.cols = terminal.cols, .rows = terminal.rows}, shape_table, cells, temporal_state);
+  renderFrame(frame, nullptr, ramp, options, terminal, shape_table, cells, stats, temporal_state);
+}
+
+void renderFrame(const Frame& frame, const Frame* lookahead, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state) {
+  const std::optional<ColorImageView> color = colorImageViewFromFrame(frame);
+  std::optional<ColorImageView> lookahead_color;
+  if (lookahead != nullptr) {
+    lookahead_color = colorImageViewFromFrame(*lookahead).value_or(ColorImageView{});
+  }
+  const RenderInput input{
+    .color = color.value_or(ColorImageView{}),
+    .lookahead_color = lookahead_color,
+  };
+  const RenderResult result = renderFrame(input, ramp, rendererConfigFromCliOptions(options), RenderGrid{.cols = terminal.cols, .rows = terminal.rows}, shape_table, cells, temporal_state);
   accumulate(stats, result.stats);
 }
 

@@ -491,11 +491,9 @@ int main() {
     strok::CellBuffer cells;
     strok::RenderTemporalState temporal_state;
     strok::RenderStats stats;
-    temporal_state.next_supersample_frame = second;
-    strok::renderFrame(first, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
+    strok::renderFrame(first, &second, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
     expect(stats.temporal_supersample_frames == 1, "temporal supersample first frame uses lookahead blend");
-    temporal_state.next_supersample_frame.reset();
-    strok::renderFrame(second, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
+    strok::renderFrame(second, nullptr, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, &stats, &temporal_state);
     expect(stats.temporal_supersample_frames == 2, "temporal supersample falls back to adjacent history");
   }
 

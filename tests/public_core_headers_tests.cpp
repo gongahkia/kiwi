@@ -56,7 +56,7 @@ int main() {
   expect(normal.data == nullptr && normal.space == strok::NormalSpace::View, "public NormalImageView defaults");
 
   const strok::RenderInput input;
-  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value(), "public RenderInput defaults");
+  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value() && !input.lookahead_color.has_value(), "public RenderInput defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);

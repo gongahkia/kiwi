@@ -31,6 +31,14 @@ inline std::optional<std::string> renderInputError(const RenderInput& input) {
       return "normal image dimensions must match color image dimensions";
     }
   }
+  if (input.lookahead_color.has_value()) {
+    if (const std::optional<std::string> error = colorImageViewError(*input.lookahead_color); error.has_value()) {
+      return error;
+    }
+    if (input.lookahead_color->width != input.color.width || input.lookahead_color->height != input.color.height) {
+      return "lookahead color image dimensions must match color image dimensions";
+    }
+  }
   return std::nullopt;
 }
 

@@ -13,10 +13,15 @@ namespace strok {
 // exactly the same pixel dimensions as color; the initial API does not resample them.
 // Callers retain all pixel memory for the complete render call. RenderInput has no
 // timestamp: each successful Renderer render is one fixed logical temporal step.
+// lookahead_color is an optional adjacent future color image for temporal
+// supersampling; it must match color dimensions and is consumed only when that
+// RendererConfig option is enabled. Without it, temporal supersampling uses the
+// prior Renderer input when available, otherwise color alone.
 struct RenderInput {
   ColorImageView color;
   std::optional<DepthImageView> depth;
   std::optional<NormalImageView> normals;
+  std::optional<ColorImageView> lookahead_color;
 };
 
 }  // namespace strok

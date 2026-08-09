@@ -2098,15 +2098,12 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     }
     return video_decoder.nextFrame();
   };
-  const auto prepare_temporal_lookahead = [&] {
-    temporal_state.next_supersample_frame.reset();
-    temporal_state.next_supersample_required = render_options.temporal_supersample > 1;
-    if (render_options.temporal_supersample > 1) {
-      fill_lookahead();
-      if (lookahead_frame.has_value()) {
-        temporal_state.next_supersample_frame = *lookahead_frame;
-      }
+  const auto temporal_lookahead = [&]() -> const Frame* {
+    if (render_options.temporal_supersample <= 1) {
+      return nullptr;
     }
+    fill_lookahead();
+    return lookahead_frame.has_value() ? &*lookahead_frame : nullptr;
   };
 
   if (kind == ExportKind::Mp4) {
@@ -2121,8 +2118,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     fill_lookahead();
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &overlay_frame);
-    prepare_temporal_lookahead();
-    renderFrame(render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    renderFrame(render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
     RasterImage raster = rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr);
     Mp4VideoWriter writer(output_path,
@@ -2136,8 +2132,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const auto write_mp4_frame = [&](const Frame& current_frame) {
       std::optional<Frame> current_overlay_frame;
       const Frame& current_render_input = frameWithOverlay(current_frame, overlay_source, exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), &current_overlay_frame);
-      prepare_temporal_lookahead();
-      renderFrame(current_render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+      renderFrame(current_render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
       caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
       writer.writeFrame(rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr).rgb);
     };
@@ -2188,8 +2183,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(current_frame, overlay_source, timestamp, &overlay_frame);
-    prepare_temporal_lookahead();
-    renderFrame(render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    renderFrame(render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
     const std::optional<EmissionResult> emission = emit_cells(timestamp);
     if (emission.has_value()) {
@@ -2200,8 +2194,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   temporal_state.reset();
   std::optional<Frame> first_overlay_frame;
   const Frame& first_render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &first_overlay_frame);
-  prepare_temporal_lookahead();
-  renderFrame(first_render_input, ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  renderFrame(first_render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
   caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
@@ -3581,13 +3574,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     if (live_options.temporal_supersample > 1 && !lookahead_frame.has_value()) {
       lookahead_frame = video_decoder.nextFrame();
     }
-    const auto set_temporal_lookahead = [&](RenderTemporalState* state) {
-      state->next_supersample_frame.reset();
-      state->next_supersample_required = live_options.temporal_supersample > 1;
-      if (live_options.temporal_supersample > 1 && lookahead_frame.has_value()) {
-        state->next_supersample_frame = *lookahead_frame;
-      }
-    };
+    const Frame* temporal_lookahead = live_options.temporal_supersample > 1 && lookahead_frame.has_value()
+                                          ? &*lookahead_frame
+                                          : nullptr;
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, static_cast<double>(current_video_us) / 1000000.0, &overlay_frame);
     if (split_config.has_value() && render_terminal.cols >= 3) {
@@ -3599,14 +3588,11 @@ int playMedia(const CliOptions& options, Logger& logger) {
       right_terminal.cols = layout.right_cols;
       const CliOptions left_options = splitSideOptions(render_options, *split_config, true, left_terminal);
       const CliOptions right_options = splitSideOptions(render_options, *split_config, false, right_terminal);
-      set_temporal_lookahead(&split_left_temporal_state);
-      renderFrame(render_input, ramp, left_options, left_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_left_cells, render_stats_ptr, &split_left_temporal_state);
-      set_temporal_lookahead(&split_right_temporal_state);
-      renderFrame(render_input, ramp, right_options, right_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_right_cells, render_stats_ptr, &split_right_temporal_state);
+      renderFrame(render_input, temporal_lookahead, ramp, left_options, left_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_left_cells, render_stats_ptr, &split_left_temporal_state);
+      renderFrame(render_input, temporal_lookahead, ramp, right_options, right_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &split_right_cells, render_stats_ptr, &split_right_temporal_state);
       composeSplitCells(split_left_cells, split_right_cells, layout, &cells);
     } else {
-      set_temporal_lookahead(&temporal_state);
-      renderFrame(render_input, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
+      renderFrame(render_input, temporal_lookahead, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
     }
     if (video_decoder.isStillImage()) {
       still_frame = *frame;

@@ -25,8 +25,6 @@ struct RenderTemporalState {
   OrientationHysteresisState orientation_hysteresis;
   std::optional<LuminanceField> previous_luminance;
   std::optional<LuminanceField> previous_supersample_luminance;
-  std::optional<Frame> next_supersample_frame;
-  bool next_supersample_required = false;
   std::vector<CellLuminanceRegion> previous_shape_regions;
 
   void reset() {
@@ -34,8 +32,6 @@ struct RenderTemporalState {
     orientation_hysteresis.reset();
     previous_luminance.reset();
     previous_supersample_luminance.reset();
-    next_supersample_frame.reset();
-    next_supersample_required = false;
     previous_shape_regions.clear();
   }
 };
