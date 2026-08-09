@@ -15,6 +15,7 @@
 #include "lic.hpp"
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
+#include "motion_vector_view.hpp"
 #include "normal_image_view.hpp"
 #include "octant_renderer.hpp"
 #include "optical_flow.hpp"
@@ -56,6 +57,12 @@ struct ShapeMatchStats {
   int64_t ns = 0;
 };
 
+struct HistoryMotionSelection {
+  FlowField flow;
+  int64_t external_cells = 0;
+  int64_t inferred_cells = 0;
+};
+
 struct CellShadeSample {
   Rgb color;
   NormalSample normal;
@@ -66,6 +73,62 @@ struct DepthRange {
   double near = 0.0;
   double far = 0.0;
 };
+
+std::optional<FlowVector> inferredFlowForCell(const FlowField& flow, int cols, int rows, int col, int row) {
+  if (flow.width <= 0 || flow.height <= 0 || flow.block_size <= 0 ||
+      flow.blocks_x <= 0 || flow.blocks_y <= 0 ||
+      flow.vectors.size() != static_cast<std::size_t>(flow.blocks_x) * static_cast<std::size_t>(flow.blocks_y)) {
+    return std::nullopt;
+  }
+  const double pixel_x = (static_cast<double>(col) + 0.5) * flow.width / cols;
+  const double pixel_y = (static_cast<double>(row) + 0.5) * flow.height / rows;
+  const int block_x = std::clamp(static_cast<int>(pixel_x / flow.block_size), 0, flow.blocks_x - 1);
+  const int block_y = std::clamp(static_cast<int>(pixel_y / flow.block_size), 0, flow.blocks_y - 1);
+  const FlowVector vector = flow.at(block_x, block_y);
+  return FlowVector{
+    .dx = vector.dx * cols / flow.width,
+    .dy = vector.dy * rows / flow.height,
+    .error = vector.error,
+  };
+}
+
+std::optional<HistoryMotionSelection> selectHistoryMotion(const CellMotionField& external,
+                                                           const std::optional<FlowField>& inferred) {
+  if (external.cols <= 0 || external.rows <= 0 ||
+      external.vectors.size() != static_cast<std::size_t>(external.cols) * static_cast<std::size_t>(external.rows)) {
+    return std::nullopt;
+  }
+  HistoryMotionSelection selection;
+  selection.flow = FlowField{
+    .block_size = 1,
+    .width = external.cols,
+    .height = external.rows,
+    .blocks_x = external.cols,
+    .blocks_y = external.rows,
+    .vectors = {},
+  };
+  selection.flow.vectors.reserve(external.vectors.size());
+  for (int row = 0; row < external.rows; ++row) {
+    for (int col = 0; col < external.cols; ++col) {
+      const CellMotionVector& external_vector = external.at(col, row);
+      if (external_vector.validity == MotionVectorValidity::Valid) {
+        selection.flow.vectors.push_back(FlowVector{.dx = external_vector.dx, .dy = external_vector.dy});
+        ++selection.external_cells;
+        continue;
+      }
+      if (external_vector.validity != MotionVectorValidity::Invalid || !inferred.has_value()) {
+        return std::nullopt;
+      }
+      const std::optional<FlowVector> fallback = inferredFlowForCell(*inferred, external.cols, external.rows, col, row);
+      if (!fallback.has_value()) {
+        return std::nullopt;
+      }
+      selection.flow.vectors.push_back(*fallback);
+      ++selection.inferred_cells;
+    }
+  }
+  return selection;
+}
 
 PassPort renderPort(std::string name, BufferKind kind) {
   return PassPort{
@@ -744,6 +807,19 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
     temporal_state->orientation_hysteresis.resize(size.cols, size.rows);
   }
+  std::optional<CellMotionField> external_motion;
+  bool external_motion_has_invalid = false;
+  bool external_motion_has_disocclusion = false;
+  if (input.motion_vectors.has_value()) {
+    external_motion = remapMotionVectorsToCellGrid(*input.motion_vectors,
+                                                   input.motion_vector_validity.has_value() ? &*input.motion_vector_validity : nullptr,
+                                                   size.cols,
+                                                   size.rows);
+    for (const CellMotionVector& vector : external_motion->vectors) {
+      external_motion_has_invalid = external_motion_has_invalid || vector.validity == MotionVectorValidity::Invalid;
+      external_motion_has_disocclusion = external_motion_has_disocclusion || vector.validity == MotionVectorValidity::Disoccluded;
+    }
+  }
   std::vector<char32_t> previous_glyphs;
   std::vector<CellLuminanceRegion> previous_shape_regions;
   if (temporal_state != nullptr) {
@@ -1049,7 +1125,10 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
             return;
           }
           const auto flow_started = std::chrono::steady_clock::now();
-          if (temporal_state->previous_luminance.has_value() &&
+          const bool inferred_flow_needed = motion_flow_enabled ||
+                                            !external_motion.has_value() ||
+                                            (external_motion_has_invalid && !external_motion_has_disocclusion);
+          if (inferred_flow_needed && temporal_state->previous_luminance.has_value() &&
               temporal_state->previous_luminance->width == analysis_luminance->width &&
               temporal_state->previous_luminance->height == analysis_luminance->height) {
             flow_field = computeBlockOpticalFlow(*temporal_state->previous_luminance, *analysis_luminance);
@@ -1092,11 +1171,28 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .run = [&](PassContext&) {
         warped_previous_glyphs.clear();
         warped_previous_shape_regions.clear();
-        if (flow_field.has_value() && !previous_glyphs.empty()) {
+        if (!previous_glyphs.empty()) {
+          std::optional<HistoryMotionSelection> external_selection;
+          const FlowField* history_flow = nullptr;
+          if (external_motion.has_value()) {
+            external_selection = selectHistoryMotion(*external_motion, flow_field);
+            if (!external_selection.has_value()) {
+              return;
+            }
+            history_flow = &external_selection->flow;
+            result.stats.external_motion_cells += external_selection->external_cells;
+            result.stats.inferred_motion_cells += external_selection->inferred_cells;
+          } else if (flow_field.has_value()) {
+            history_flow = &*flow_field;
+            result.stats.inferred_motion_cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
+          }
+          if (history_flow == nullptr) {
+            return;
+          }
           const auto warp_started = std::chrono::steady_clock::now();
-          warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *flow_field);
+          warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *history_flow);
           if (previous_shape_regions.size() == cell_shape_regions.size()) {
-            warped_previous_shape_regions = warpCellShapeHistory(previous_shape_regions, size.cols, size.rows, *flow_field);
+            warped_previous_shape_regions = warpCellShapeHistory(previous_shape_regions, size.cols, size.rows, *history_flow);
           }
           result.stats.warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size());
           result.stats.warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();

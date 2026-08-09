@@ -22,6 +22,8 @@ struct RenderStats {
   int64_t shape_match_ns = 0;
   int64_t optical_flow_blocks = 0;
   int64_t optical_flow_ns = 0;
+  int64_t external_motion_cells = 0;
+  int64_t inferred_motion_cells = 0;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
   int64_t temporal_supersample_frames = 0;

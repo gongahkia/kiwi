@@ -16,6 +16,8 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->shape_match_ns += frame.shape_match_ns;
   total->optical_flow_blocks += frame.optical_flow_blocks;
   total->optical_flow_ns += frame.optical_flow_ns;
+  total->external_motion_cells += frame.external_motion_cells;
+  total->inferred_motion_cells += frame.inferred_motion_cells;
   total->warp_history_cells += frame.warp_history_cells;
   total->warp_history_ns += frame.warp_history_ns;
   total->temporal_supersample_frames += frame.temporal_supersample_frames;
