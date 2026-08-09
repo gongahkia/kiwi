@@ -70,9 +70,12 @@ int main() {
   const strok::RenderResult second = created.renderer->render(frame(), &cells);
   expect(second.status == strok::RenderStatus::Success && second.stats.frames == 1 && second.stats.cells == 4, "renderer reset render");
 
+  const strok::RenderResult owned = created.renderer->render(frame());
+  expect(owned.succeeded() && created.renderer->cells().cols() == 2 && created.renderer->cells().rows() == 2, "renderer owned cells");
+
   strok::Renderer::CreateResult custom_charset = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0, .charset = "binary"}, strok::RenderGrid{.cols = 1, .rows = 1});
   expect(custom_charset.succeeded(), "custom charset construction");
-  expect(custom_charset.renderer->render(whiteFrame(), &cells).succeeded() && cells.at(0, 0).glyph == U'1', "custom charset render");
+  expect(custom_charset.renderer->render(whiteFrame()).succeeded() && custom_charset.renderer->cells().at(0, 0).glyph == U'1', "custom charset render");
 
   if (const std::optional<std::filesystem::path> font_path = firstExistingFont(); font_path.has_value()) {
     const strok::Renderer::CreateResult font_renderer = strok::Renderer::create(strok::RendererConfig{

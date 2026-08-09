@@ -31,7 +31,11 @@ class Renderer {
   Renderer& operator=(Renderer&&) = delete;
   ~Renderer();
 
+  // The returned reference remains valid until the next render, reset, or destruction.
+  RenderResult render(const Frame& frame);
+  const CellBuffer& cells() const noexcept;
   RenderResult render(const Frame& frame, CellBuffer* output);
+  // Clears temporal history without changing the most recently rendered cells.
   void reset();
 
  private:

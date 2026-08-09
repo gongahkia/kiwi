@@ -65,6 +65,7 @@ struct Renderer::State {
   std::u32string ramp;
   std::optional<GlyphShapeTable> shape_table;
   RenderTemporalState temporal_state;
+  CellBuffer cells;
 
   State(RendererConfig renderer_config, RenderGrid renderer_grid)
       : config(std::move(renderer_config)), grid(renderer_grid) {
@@ -111,6 +112,14 @@ Renderer::CreateResult Renderer::create(RendererConfig config, RenderGrid grid) 
                           .message = "unexpected renderer initialization failure",
                         }};
   }
+}
+
+RenderResult Renderer::render(const Frame& frame) {
+  return render(frame, &state_->cells);
+}
+
+const CellBuffer& Renderer::cells() const noexcept {
+  return state_->cells;
 }
 
 RenderResult Renderer::render(const Frame& frame, CellBuffer* output) {
