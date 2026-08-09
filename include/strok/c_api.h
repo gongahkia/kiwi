@@ -149,6 +149,38 @@ typedef struct StrokRenderGrid {
 STROK_C_API void STROK_C_CALL strok_renderer_config_init(StrokRendererConfig* config);
 STROK_C_API void STROK_C_CALL strok_render_grid_init(StrokRenderGrid* grid);
 
+typedef struct StrokRenderer StrokRenderer;
+
+typedef uint32_t StrokStatus;
+enum {
+  STROK_STATUS_SUCCESS = UINT32_C(0),
+  STROK_STATUS_BACKEND_FALLBACK = UINT32_C(1),
+  STROK_STATUS_INVALID_ARGUMENT = UINT32_C(2),
+  STROK_STATUS_INVALID_INPUT = UINT32_C(3),
+  STROK_STATUS_INVALID_CONFIGURATION = UINT32_C(4),
+  STROK_STATUS_INTERNAL_ERROR = UINT32_C(5),
+};
+
+/*
+ * Creates a renderer that owns its C++ configuration, grid, temporal history, and
+ * output storage. On failure, out_renderer is set to null and the thread-local
+ * error message can be inspected with strok_last_error_message(). A handle is not
+ * thread-safe; callers must synchronize all calls that share one handle.
+ */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_create(const StrokRendererConfig* config,
+                                                            const StrokRenderGrid* grid,
+                                                            StrokRenderer** out_renderer);
+
+/* Resets only renderer temporal state. A null handle returns STROK_STATUS_INVALID_ARGUMENT. */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_reset(StrokRenderer* renderer);
+
+/* Safe for null, failed, and never-rendered handles. This does not modify the caller's pointer. */
+STROK_C_API void STROK_C_CALL strok_renderer_destroy(StrokRenderer* renderer);
+
+/* Returns a library-owned, NUL-terminated message for the calling thread. The pointer
+ * remains valid until the next non-query C ABI call on that thread and must not be freed. */
+STROK_C_API const char* STROK_C_CALL strok_last_error_message(void);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif
