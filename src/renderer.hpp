@@ -5,6 +5,7 @@
 #include "../include/strok/render_result.hpp"
 
 #include "cell_buffer.hpp"
+#include "color_image_view.hpp"
 #include "frame.hpp"
 #include "glyph_shape.hpp"
 #include "hysteresis.hpp"
@@ -41,6 +42,7 @@ struct RenderTemporalState {
 };
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
+RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
 RenderResult validateRendererConfiguration(const RendererConfig& config, RenderGrid grid);
 std::string dumpRenderGraph(const RendererConfig& config);
 

@@ -1,4 +1,5 @@
 #include <strok/cell_buffer.hpp>
+#include <strok/color_image_view.hpp>
 #include <strok/frame.hpp>
 #include <strok/render.hpp>
 #include <strok/renderer.hpp>
@@ -40,6 +41,9 @@ int main() {
 
   const strok::RenderResult result;
   expect(result.succeeded() && result.stats.frames == 0, "public RenderResult defaults");
+
+  const strok::ColorImageView image;
+  expect(image.data == nullptr && image.pixel_format == strok::ColorPixelFormat::Rgb24, "public ColorImageView defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   strok::CellBuffer rendered;

@@ -95,7 +95,7 @@ else()
 endif()
 endif()
 
-# The CPU reconstruction seam is Frame -> CellBuffer. Keep this list free of
+# The CPU reconstruction seam is ColorImageView/Frame -> CellBuffer. Keep this list free of
 # media acquisition, playback, terminal lifecycle, and output emitters so it
 # can become an independently linked core target without moving source files.
 set(STROK_RENDERER_CORE_SOURCES
@@ -1130,6 +1130,27 @@ else()
   endif()
 endif()
 add_test(NAME renderer_isolation COMMAND renderer_isolation_tests)
+
+add_executable(color_image_view_tests tests/color_image_view_tests.cpp)
+target_compile_features(color_image_view_tests PRIVATE cxx_std_20)
+set_target_properties(color_image_view_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(color_image_view_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(color_image_view_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(color_image_view_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(color_image_view_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(color_image_view_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME color_image_view COMMAND color_image_view_tests)
 
 add_executable(etf_tests
   tests/etf_tests.cpp

@@ -8,10 +8,14 @@
 namespace strok {
 
 Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
-  const int x0 = (col * frame.w) / cols;
-  const int x1 = std::max(x0 + 1, ((col + 1) * frame.w) / cols);
-  const int y0 = (row * frame.h) / rows;
-  const int y1 = std::max(y0 + 1, ((row + 1) * frame.h) / rows);
+  return averageRegion(colorImageViewFromFrame(frame), cols, rows, col, row);
+}
+
+Rgb averageRegion(const ColorImageView& image, int cols, int rows, int col, int row) {
+  const int x0 = (col * image.width) / cols;
+  const int x1 = std::max(x0 + 1, ((col + 1) * image.width) / cols);
+  const int y0 = (row * image.height) / rows;
+  const int y1 = std::max(y0 + 1, ((row + 1) * image.height) / rows);
 
   uint64_t r = 0;
   uint64_t g = 0;
@@ -19,10 +23,10 @@ Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
   uint64_t count = 0;
   for (int y = y0; y < y1; ++y) {
     for (int x = x0; x < x1; ++x) {
-      const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3;
-      r += frame.rgb[index];
-      g += frame.rgb[index + 1];
-      b += frame.rgb[index + 2];
+      const Rgb color = colorAt(image, x, y);
+      r += color.r;
+      g += color.g;
+      b += color.b;
       ++count;
     }
   }

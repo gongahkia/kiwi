@@ -1,5 +1,6 @@
 #pragma once
 
+#include "color_image_view.hpp"
 #include "frame.hpp"
 #include "luminance.hpp"
 
@@ -15,5 +16,6 @@ Oklab rgbToOklab(Rgb rgb) noexcept;
 Rgb oklabToRgb(Oklab color) noexcept;
 Rgb posterizeOklab(Rgb rgb, int levels);
 Frame posterizeFrameOklab(const Frame& frame, int levels);
+Frame posterizeFrameOklab(const ColorImageView& image, int levels);
 
 }  // namespace strok

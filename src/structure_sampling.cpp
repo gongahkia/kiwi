@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -12,7 +13,7 @@
 namespace strok {
 namespace {
 
-int workerCount(int rows, int items) {
+int workerCount(int rows, std::size_t items) {
   if (rows < 2 || items < 8192) {
     return 1;
   }
@@ -22,7 +23,7 @@ int workerCount(int rows, int items) {
 }
 
 template <typename Function>
-void parallelRows(int rows, int items, Function function) {
+void parallelRows(int rows, std::size_t items, Function function) {
   const int workers = workerCount(rows, items);
   if (workers == 1) {
     function(0, rows);
@@ -62,24 +63,29 @@ LuminanceField makeLuminanceField(const Frame& frame) {
   if (frame.w <= 0 || frame.h <= 0) {
     throw std::invalid_argument("frame dimensions must be positive");
   }
-  const std::size_t expected = static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h) * 3;
-  if (frame.rgb.size() != expected) {
+  const std::size_t width = static_cast<std::size_t>(frame.w);
+  const std::size_t height = static_cast<std::size_t>(frame.h);
+  if (width > std::numeric_limits<std::size_t>::max() / height ||
+      width * height > std::numeric_limits<std::size_t>::max() / 3U ||
+      frame.rgb.size() != width * height * 3U) {
     throw std::invalid_argument("frame RGB data size does not match dimensions");
+  }
+  return makeLuminanceField(colorImageViewFromFrame(frame));
+}
+
+LuminanceField makeLuminanceField(const ColorImageView& image) {
+  if (const std::optional<std::string> error = colorImageViewError(image); error.has_value()) {
+    throw std::invalid_argument(*error);
   }
 
   LuminanceField field;
-  field.width = frame.w;
-  field.height = frame.h;
-  field.values.assign(static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h), 0.0);
-  parallelRows(frame.h, frame.w * frame.h, [&](int row_begin, int row_end) {
+  field.width = image.width;
+  field.height = image.height;
+  field.values.assign(static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height), 0.0);
+  parallelRows(image.height, static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height), [&](int row_begin, int row_end) {
     for (int y = row_begin; y < row_end; ++y) {
-      for (int x = 0; x < frame.w; ++x) {
-        const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(frame.w) + static_cast<std::size_t>(x)) * 3;
-        field.values[index / 3] = relativeLuminance(Rgb{
-          .r = frame.rgb[index],
-          .g = frame.rgb[index + 1],
-          .b = frame.rgb[index + 2],
-        });
+      for (int x = 0; x < image.width; ++x) {
+        field.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) + static_cast<std::size_t>(x)] = relativeLuminance(colorAt(image, x, y));
       }
     }
   });

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cell_buffer.hpp"
+#include "color_image_view.hpp"
 #include "frame.hpp"
 #include "renderer_config.hpp"
 #include "render_grid.hpp"
@@ -33,8 +34,10 @@ class Renderer {
 
   // The returned reference remains valid until the next render, reset, or destruction.
   RenderResult render(const Frame& frame);
+  RenderResult render(const ColorImageView& image);
   const CellBuffer& cells() const noexcept;
   RenderResult render(const Frame& frame, CellBuffer* output);
+  RenderResult render(const ColorImageView& image, CellBuffer* output);
   // Clears temporal history without changing the most recently rendered cells.
   void reset();
 

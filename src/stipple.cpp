@@ -102,11 +102,11 @@ Rgb averageMasked(const std::array<Rgb, 8>& colors, uint8_t mask, bool selected,
   };
 }
 
-Rgb sampleStippleColor(const Cell& cell, const Frame* source_frame, int sample_cols, int sample_rows, int col, int row) {
-  if (source_frame == nullptr) {
+Rgb sampleStippleColor(const Cell& cell, const ColorImageView* source_image, int sample_cols, int sample_rows, int col, int row) {
+  if (source_image == nullptr) {
     return cell.fg;
   }
-  return averageRegion(*source_frame, sample_cols, sample_rows, col, row);
+  return averageRegion(*source_image, sample_cols, sample_rows, col, row);
 }
 
 void applyCellStipple(CellBuffer* cells) {
@@ -118,7 +118,7 @@ void applyCellStipple(CellBuffer* cells) {
   }
 }
 
-void applyBrailleStipple(CellBuffer* cells, const Frame* source_frame) {
+void applyBrailleStipple(CellBuffer* cells, const ColorImageView* source_image) {
   const int sample_cols = cells->cols() * 2;
   const int sample_rows = cells->rows() * 4;
   for (int row = 0; row < cells->rows(); ++row) {
@@ -130,7 +130,7 @@ void applyBrailleStipple(CellBuffer* cells, const Frame* source_frame) {
       for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 2; ++x) {
           const std::size_t index = static_cast<std::size_t>(y * 2 + x);
-          colors[index] = sampleStippleColor(cell, source_frame, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
+          colors[index] = sampleStippleColor(cell, source_image, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
           if (stippleDotEnabled(relativeLuminance(colors[index]), blueNoiseRank64(col * 2 + x, row * 4 + y))) {
             mask |= kBrailleBits[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];
             color_mask = static_cast<uint8_t>(color_mask | (1U << index));
@@ -144,7 +144,7 @@ void applyBrailleStipple(CellBuffer* cells, const Frame* source_frame) {
   }
 }
 
-void applyOctantStipple(CellBuffer* cells, const Frame* source_frame) {
+void applyOctantStipple(CellBuffer* cells, const ColorImageView* source_image) {
   const int sample_cols = cells->cols() * 2;
   const int sample_rows = cells->rows() * 4;
   for (int row = 0; row < cells->rows(); ++row) {
@@ -155,7 +155,7 @@ void applyOctantStipple(CellBuffer* cells, const Frame* source_frame) {
       for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 2; ++x) {
           const std::size_t index = static_cast<std::size_t>(y * 2 + x);
-          colors[index] = sampleStippleColor(cell, source_frame, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
+          colors[index] = sampleStippleColor(cell, source_image, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
           if (stippleDotEnabled(relativeLuminance(colors[index]), blueNoiseRank64(col * 2 + x, row * 4 + y))) {
             mask = static_cast<uint8_t>(mask | (1U << index));
           }
@@ -203,21 +203,30 @@ char32_t stippleGlyphForLuminance(double luminance, uint8_t noise_rank) {
   return U'·';
 }
 
-void applyStipple(CellBuffer* cells, StippleCarrier carrier, const Frame* source_frame) {
+void applyStipple(CellBuffer* cells, StippleCarrier carrier, const ColorImageView* source_image) {
   if (cells == nullptr) {
     throw std::invalid_argument("cells must not be null");
   }
   switch (carrier) {
     case StippleCarrier::Braille:
-      applyBrailleStipple(cells, source_frame);
+      applyBrailleStipple(cells, source_image);
       return;
     case StippleCarrier::Octant:
-      applyOctantStipple(cells, source_frame);
+      applyOctantStipple(cells, source_image);
       return;
     case StippleCarrier::Cell:
       applyCellStipple(cells);
       return;
   }
+}
+
+void applyStipple(CellBuffer* cells, StippleCarrier carrier, const Frame* source_frame) {
+  if (source_frame == nullptr) {
+    applyStipple(cells, carrier, static_cast<const ColorImageView*>(nullptr));
+    return;
+  }
+  const ColorImageView source_image = colorImageViewFromFrame(*source_frame);
+  applyStipple(cells, carrier, &source_image);
 }
 
 }  // namespace strok

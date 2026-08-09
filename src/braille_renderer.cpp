@@ -46,6 +46,10 @@ Rgb averageMasked(const std::array<Rgb, 8>& colors, uint8_t mask, bool selected)
 }  // namespace
 
 void renderBrailleFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
+  renderBrailleFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+}
+
+void renderBrailleFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {
   cells->resize(cols, rows);
   const int sample_cols = cols * 2;
   const int sample_rows = rows * 4;
@@ -56,7 +60,7 @@ void renderBrailleFrame(const Frame& frame, int cols, int rows, CellBuffer* cell
       for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 2; ++x) {
           const std::size_t index = static_cast<std::size_t>(y * 2 + x);
-          colors[index] = averageRegion(frame, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
+          colors[index] = averageRegion(image, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
           const Rgb sample = colors[index];
           if (relativeLuminance(sample) >= 0.5) {
             mask |= kBrailleBits[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)];

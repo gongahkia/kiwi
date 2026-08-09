@@ -1,5 +1,6 @@
 #pragma once
 
+#include "color_image_view.hpp"
 #include "frame.hpp"
 
 #include <cstddef>
@@ -46,6 +47,7 @@ struct CellLuminanceRegion {
 };
 
 LuminanceField makeLuminanceField(const Frame& frame);
+LuminanceField makeLuminanceField(const ColorImageView& image);
 SourceRegion cellSourceRegion(int source_width, int source_height, int cols, int rows, int col, int row);
 CellLuminanceRegion sampleCellRegion(const LuminanceField& field, int cols, int rows, int col, int row);
 

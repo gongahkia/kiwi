@@ -86,17 +86,29 @@ Rgb posterizeOklab(Rgb rgb, int levels) {
 Frame posterizeFrameOklab(const Frame& frame, int levels) {
   validateLevels(levels);
   validateFrame(frame);
-  Frame output = frame;
-  for (std::size_t index = 0; index < output.rgb.size(); index += 3U) {
-    const Rgb color{
-      .r = output.rgb[index],
-      .g = output.rgb[index + 1U],
-      .b = output.rgb[index + 2U],
-    };
-    const Rgb posterized = posterizeOklab(color, levels);
-    output.rgb[index] = posterized.r;
-    output.rgb[index + 1U] = posterized.g;
-    output.rgb[index + 2U] = posterized.b;
+  Frame output = posterizeFrameOklab(colorImageViewFromFrame(frame), levels);
+  output.pts_us = frame.pts_us;
+  return output;
+}
+
+Frame posterizeFrameOklab(const ColorImageView& image, int levels) {
+  validateLevels(levels);
+  if (const std::optional<std::string> error = colorImageViewError(image); error.has_value()) {
+    throw std::invalid_argument(*error);
+  }
+  Frame output;
+  output.w = image.width;
+  output.h = image.height;
+  output.rgb.resize(static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 3U);
+  for (int y = 0; y < image.height; ++y) {
+    for (int x = 0; x < image.width; ++x) {
+      const Rgb color = colorAt(image, x, y);
+      const Rgb posterized = posterizeOklab(color, levels);
+      const std::size_t index = (static_cast<std::size_t>(y) * static_cast<std::size_t>(image.width) + static_cast<std::size_t>(x)) * 3U;
+      output.rgb[index] = posterized.r;
+      output.rgb[index + 1U] = posterized.g;
+      output.rgb[index + 2U] = posterized.b;
+    }
   }
   return output;
 }

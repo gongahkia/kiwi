@@ -691,7 +691,12 @@ bool validFrame(const Frame& frame) {
   if (frame.w <= 0 || frame.h <= 0) {
     return false;
   }
-  const std::size_t pixels = static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h);
+  const std::size_t width = static_cast<std::size_t>(frame.w);
+  const std::size_t height = static_cast<std::size_t>(frame.h);
+  if (width > std::numeric_limits<std::size_t>::max() / height) {
+    return false;
+  }
+  const std::size_t pixels = width * height;
   return pixels <= std::numeric_limits<std::size_t>::max() / 3U && frame.rgb.size() == pixels * 3U;
 }
 
@@ -715,12 +720,12 @@ RenderResult validateRendererConfiguration(const RendererConfig& config, RenderG
   return RenderResult{};
 }
 
-RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
+RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
   }
-  if (!validFrame(frame)) {
-    return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
+  if (const std::optional<std::string> error = colorImageViewError(image); error.has_value()) {
+    return renderFailure(RenderStatus::InvalidInput, *error);
   }
   if (ramp.empty()) {
     return renderFailure(RenderStatus::InvalidInput, "glyph ramp must not be empty");
@@ -746,7 +751,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
   const auto render_started = std::chrono::steady_clock::now();
   CellBuffer rendered_cells;
   CellBuffer* cells = &rendered_cells;
-  const RenderGrid size = fitRenderGrid(frame, config, available_grid);
+  const RenderGrid size = fitRenderGrid(image, config, available_grid);
   cells->resize(size.cols, size.rows);
   if (temporal_state != nullptr) {
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
@@ -794,9 +799,9 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
   Frame posterized_frame;
-  const Frame* render_frame = &frame;
-  const auto active_frame = [&]() -> const Frame& {
-    return *render_frame;
+  ColorImageView active_image = image;
+  const auto activeImage = [&]() -> const ColorImageView& {
+    return active_image;
   };
   std::vector<ShapeMatchStats> worker_stats;
 
@@ -832,8 +837,8 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
       .outputs = {renderPort("styled-frame", BufferKind::RgbFrame)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        styled_frame = applyKuwaharaFilter(frame, 2);
-        render_frame = &styled_frame;
+        styled_frame = applyKuwaharaFilter(activeImage(), 2);
+        active_image = colorImageViewFromFrame(styled_frame);
       },
     };
   };
@@ -845,8 +850,8 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
       .outputs = {renderPort("posterized-frame", BufferKind::RgbFrame)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        posterized_frame = posterizeFrameOklab(active_frame(), *posterize_levels);
-        render_frame = &posterized_frame;
+        posterized_frame = posterizeFrameOklab(activeImage(), *posterize_levels);
+        active_image = colorImageViewFromFrame(posterized_frame);
       },
     };
   };
@@ -866,11 +871,11 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
       .outputs = {renderPort("luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        LuminanceField current_luminance = makeLuminanceField(active_frame());
+        LuminanceField current_luminance = makeLuminanceField(activeImage());
         if (temporal_state != nullptr && temporal_supersample > 1) {
           const auto supersample_started = std::chrono::steady_clock::now();
           if (temporal_state->next_supersample_frame.has_value()) {
-            const LuminanceField next_luminance = makeLuminanceField(*temporal_state->next_supersample_frame);
+            const LuminanceField next_luminance = makeLuminanceField(colorImageViewFromFrame(*temporal_state->next_supersample_frame));
             analysis_luminance = blendTemporalSupersample(current_luminance, next_luminance, temporal_supersample, true);
             temporal_state->next_supersample_frame.reset();
             result.stats.temporal_supersample_frames += temporal_supersample - 1;
@@ -898,15 +903,15 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
       .supports = {Backend::Cpu},
       .run = [&, blitter](PassContext&) {
         if (blitter == "halfblock") {
-          renderHalfBlockFrame(active_frame(), size.cols, size.rows, cells);
+          renderHalfBlockFrame(activeImage(), size.cols, size.rows, cells);
         } else if (blitter == "blocks") {
-          renderBlockSadFrame(active_frame(), size.cols, size.rows, cells);
+          renderBlockSadFrame(activeImage(), size.cols, size.rows, cells);
         } else if (blitter == "octant") {
-          renderOctantFrame(active_frame(), size.cols, size.rows, cells);
+          renderOctantFrame(activeImage(), size.cols, size.rows, cells);
         } else if (blitter == "sextant") {
-          renderSextantFrame(active_frame(), size.cols, size.rows, cells);
+          renderSextantFrame(activeImage(), size.cols, size.rows, cells);
         } else if (blitter == "braille") {
-          renderBrailleFrame(active_frame(), size.cols, size.rows, cells);
+          renderBrailleFrame(activeImage(), size.cols, size.rows, cells);
         }
       },
     });
@@ -927,7 +932,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
           for (int row = row_begin; row < row_end; ++row) {
             for (int col = 0; col < size.cols; ++col) {
               const std::size_t cell_index = static_cast<std::size_t>(row) * static_cast<std::size_t>(size.cols) + static_cast<std::size_t>(col);
-              average_colors[cell_index] = has_gpu_average ? gpu_structure_glyphs->average_colors[cell_index] : averageRegion(active_frame(), size.cols, size.rows, col, row);
+              average_colors[cell_index] = has_gpu_average ? gpu_structure_glyphs->average_colors[cell_index] : averageRegion(activeImage(), size.cols, size.rows, col, row);
             }
           }
         };
@@ -1006,7 +1011,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
         if (!glyph_hysteresis_enabled && !etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
-          gpu_structure_glyphs = computeStructureGlyphsGpu(active_frame(), *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
+          gpu_structure_glyphs = computeStructureGlyphsGpu(*analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             result.stats.shape_match_cells += gpu_structure_glyphs->shape_match_cells;
             return;
@@ -1298,7 +1303,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
         .outputs = {renderPort("stipple-cells", BufferKind::CellGlyphs)},
         .supports = {Backend::Cpu},
         .run = [&](PassContext&) {
-          applyStipple(cells, stipple_carrier, &active_frame());
+          applyStipple(cells, stipple_carrier, &activeImage());
         },
       });
       return std::string("stipple-cells");
@@ -1388,6 +1393,13 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
   return renderFailure(RenderStatus::InternalError, error.what());
 } catch (...) {
   return renderFailure(RenderStatus::InternalError, "unexpected renderer failure");
+}
+
+RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
+  if (!validFrame(frame)) {
+    return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
+  }
+  return renderFrame(colorImageViewFromFrame(frame), ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
 }
 
 }  // namespace strok

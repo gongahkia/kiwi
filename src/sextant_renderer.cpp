@@ -73,6 +73,10 @@ char32_t sextantGlyphForMask(uint8_t mask) {
 }
 
 void renderSextantFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
+  renderSextantFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+}
+
+void renderSextantFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {
   cells->resize(cols, rows);
   const int sample_cols = cols * 2;
   const int sample_rows = rows * 3;
@@ -83,7 +87,7 @@ void renderSextantFrame(const Frame& frame, int cols, int rows, CellBuffer* cell
       for (int y = 0; y < 3; ++y) {
         for (int x = 0; x < 2; ++x) {
           const std::size_t index = static_cast<std::size_t>(y * 2 + x);
-          colors[index] = averageRegion(frame, sample_cols, sample_rows, col * 2 + x, row * 3 + y);
+          colors[index] = averageRegion(image, sample_cols, sample_rows, col * 2 + x, row * 3 + y);
           samples[index] = relativeLuminance(colors[index]);
         }
       }

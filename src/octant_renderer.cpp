@@ -95,6 +95,10 @@ char32_t octantGlyphForMask(uint8_t mask) {
 }
 
 void renderOctantFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
+  renderOctantFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+}
+
+void renderOctantFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {
   cells->resize(cols, rows);
   const int sample_cols = cols * 2;
   const int sample_rows = rows * 4;
@@ -105,7 +109,7 @@ void renderOctantFrame(const Frame& frame, int cols, int rows, CellBuffer* cells
       for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 2; ++x) {
           const std::size_t index = static_cast<std::size_t>(y * 2 + x);
-          colors[index] = averageRegion(frame, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
+          colors[index] = averageRegion(image, sample_cols, sample_rows, col * 2 + x, row * 4 + y);
           samples[index] = relativeLuminance(colors[index]);
         }
       }

@@ -33,7 +33,7 @@ void validateFrame(const Frame& frame) {
   }
 }
 
-int workerCount(int rows, int items) {
+int workerCount(int rows, std::size_t items) {
   if (rows < 2 || items < 8192) {
     return 1;
   }
@@ -43,7 +43,7 @@ int workerCount(int rows, int items) {
 }
 
 template <typename Function>
-void parallelRows(int rows, int items, Function function) {
+void parallelRows(int rows, std::size_t items, Function function) {
   const int workers = workerCount(rows, items);
   if (workers == 1) {
     function(0, rows);
@@ -109,33 +109,42 @@ uint8_t meanChannel(double sum, int count) {
 
 Frame applyKuwaharaFilter(const Frame& frame, int radius) {
   validateFrame(frame);
+  Frame output = applyKuwaharaFilter(colorImageViewFromFrame(frame), radius);
+  output.pts_us = frame.pts_us;
+  return output;
+}
+
+Frame applyKuwaharaFilter(const ColorImageView& image, int radius) {
+  if (const std::optional<std::string> error = colorImageViewError(image); error.has_value()) {
+    throw std::invalid_argument(*error);
+  }
   if (radius <= 0 || radius > 8) {
     throw std::invalid_argument("Kuwahara radius must be in 1...8");
   }
 
-  Frame output = frame;
-  parallelRows(frame.h, frame.w * frame.h, [&](int row_begin, int row_end) {
+  Frame output;
+  output.w = image.width;
+  output.h = image.height;
+  output.rgb.resize(static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 3U);
+  parallelRows(image.height, static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height), [&](int row_begin, int row_end) {
     for (int y = row_begin; y < row_end; ++y) {
-      for (int x = 0; x < frame.w; ++x) {
+      for (int x = 0; x < image.width; ++x) {
         std::array<SectorStats, 8> sectors;
         for (int dy = -radius; dy <= radius; ++dy) {
-          const int sy = std::clamp(y + dy, 0, frame.h - 1);
+          const int sy = std::clamp(y + dy, 0, image.height - 1);
           for (int dx = -radius; dx <= radius; ++dx) {
             if (dx * dx + dy * dy > radius * radius) {
               continue;
             }
-            const int sx = std::clamp(x + dx, 0, frame.w - 1);
-            const std::size_t source = pixelIndex(frame, sx, sy);
-            const uint8_t r = frame.rgb[source];
-            const uint8_t g = frame.rgb[source + 1];
-            const uint8_t b = frame.rgb[source + 2];
+            const int sx = std::clamp(x + dx, 0, image.width - 1);
+            const Rgb color = colorAt(image, sx, sy);
             const int sector = sectorForOffset(dx, dy);
             if (sector < 0) {
               for (SectorStats& stats : sectors) {
-                addSample(&stats, r, g, b);
+                addSample(&stats, color.r, color.g, color.b);
               }
             } else {
-              addSample(&sectors[static_cast<std::size_t>(sector)], r, g, b);
+              addSample(&sectors[static_cast<std::size_t>(sector)], color.r, color.g, color.b);
             }
           }
         }

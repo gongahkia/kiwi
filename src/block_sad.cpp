@@ -62,6 +62,10 @@ char32_t blockGlyphForSamples(const std::array<double, 4>& samples) {
 }
 
 void renderBlockSadFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
+  renderBlockSadFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+}
+
+void renderBlockSadFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {
   cells->resize(cols, rows);
   const int sample_cols = cols * 2;
   const int sample_rows = rows * 2;
@@ -70,12 +74,12 @@ void renderBlockSadFrame(const Frame& frame, int cols, int rows, CellBuffer* cel
       std::array<double, 4> samples{};
       for (int y = 0; y < 2; ++y) {
         for (int x = 0; x < 2; ++x) {
-          samples[static_cast<std::size_t>(y * 2 + x)] = relativeLuminance(averageRegion(frame, sample_cols, sample_rows, col * 2 + x, row * 2 + y));
+          samples[static_cast<std::size_t>(y * 2 + x)] = relativeLuminance(averageRegion(image, sample_cols, sample_rows, col * 2 + x, row * 2 + y));
         }
       }
       Cell& cell = cells->at(col, row);
       cell.glyph = blockGlyphForSamples(samples);
-      cell.fg = averageRegion(frame, cols, rows, col, row);
+      cell.fg = averageRegion(image, cols, rows, col, row);
       cell.bg = Rgb{};
     }
   }
