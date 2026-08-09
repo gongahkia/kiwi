@@ -24,6 +24,7 @@ struct LiveFrameBatch {
 class LatestFrameQueue {
  public:
   explicit LatestFrameQueue(std::size_t capacity);
+  ~LatestFrameQueue();
 
   LatestFrameQueue(const LatestFrameQueue&) = delete;
   LatestFrameQueue& operator=(const LatestFrameQueue&) = delete;

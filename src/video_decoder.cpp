@@ -336,7 +336,7 @@ struct VideoDecoder::Impl {
         continue;
       }
       if (read_result < 0) {
-        if (stop_requested.load(std::memory_order_relaxed)) {
+        if (stop_requested.load(std::memory_order_relaxed) || shouldQuit()) {
           return std::nullopt;
         }
         throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));

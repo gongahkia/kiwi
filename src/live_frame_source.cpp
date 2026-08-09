@@ -30,6 +30,8 @@ struct LatestFrameQueue::State {
 
 LatestFrameQueue::LatestFrameQueue(std::size_t capacity) : state_(std::make_unique<State>(capacity)) {}
 
+LatestFrameQueue::~LatestFrameQueue() = default;
+
 bool LatestFrameQueue::push(LiveFrame frame) {
   std::lock_guard lock(state_->mutex);
   if (state_->closed) {

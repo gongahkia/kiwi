@@ -2687,6 +2687,34 @@ else()
   endif()
 endif()
 add_test(NAME video_decoder COMMAND video_decoder_tests)
+
+add_executable(live_frame_source_tests
+  tests/live_frame_source_tests.cpp
+  src/live_frame_source.cpp
+  src/video_decoder.cpp
+  src/media_input.cpp
+  src/terminal.cpp
+)
+target_include_directories(live_frame_source_tests PRIVATE src)
+target_compile_features(live_frame_source_tests PRIVATE cxx_std_20)
+set_target_properties(live_frame_source_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(live_frame_source_tests PRIVATE PkgConfig::FFMPEG Threads::Threads)
+if(MSVC)
+  target_compile_options(live_frame_source_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(live_frame_source_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(live_frame_source_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(live_frame_source_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME live_frame_source COMMAND live_frame_source_tests)
 endif()
 
 add_executable(caption_summarise_tests
