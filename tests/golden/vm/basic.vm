@@ -1,3 +1,0 @@
-choose(true): value=Integer(1)
-choose(false): value=Integer(2)
-instruction_budget(2): fault=R002_INSTRUCTION_BUDGET function=1 instruction=2 expression=2 span='basic.dtr'@69..73

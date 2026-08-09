@@ -1,8 +1,0 @@
-Original project asset generated with the built-in OpenAI image-generation workflow on 2026-08-06,
-then chroma-keyed and converted to a transparent RGBA PNG with the bundled imagegen helper.
-
-Prompt summary: original pixel-art terminal sheet; seated and linked anonymous operator, daemon states,
-black ICE, data shard, relay, countermeasure, and glitch impact; cyan/amber/maroon terminal sci-fi.
-
-Used as presentation-only source art in the Kiwi Terminal texture atlas. No third-party game assets,
-logos, or brand identifiers were requested or used.
