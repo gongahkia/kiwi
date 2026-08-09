@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(strok VERSION 0.0.0 LANGUAGES CXX)
+project(strok VERSION 0.0.0 LANGUAGES C CXX)
 
 option(STROK_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(STROK_LIGHT "Build without optional GPU/protocol backends" OFF)
@@ -1118,6 +1118,27 @@ else()
   endif()
 endif()
 add_test(NAME public_core_headers COMMAND public_core_headers_tests)
+
+add_executable(c_api_header_tests tests/c_api_header_tests.c)
+target_include_directories(c_api_header_tests PRIVATE include)
+target_compile_features(c_api_header_tests PRIVATE c_std_11)
+set_target_properties(c_api_header_tests PROPERTIES
+  C_STANDARD 11
+  C_STANDARD_REQUIRED ON
+  C_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(c_api_header_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(c_api_header_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(c_api_header_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(c_api_header_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME c_api_header COMMAND c_api_header_tests)
 
 add_executable(renderer_config_tests tests/renderer_config_tests.cpp)
 target_include_directories(renderer_config_tests PRIVATE src)
