@@ -80,6 +80,131 @@ jobs:
       - run: pnpm test:security-gates
 
   build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config ffmpeg \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config ffmpeg freetype glslang spirv-cross zlib
+
+      - name: Configure
+        run: cmake --preset ci
+
+      - name: Build
+        run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Smoke test
+        run: |
+          ./build/ci/strok --version
+          ./build/ci/strok --help >/dev/null
+          scripts/verify_terminal_paths.sh ./build/ci/strok
+
+  windows-msys:
+    name: build (windows-latest, msys2)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            cmake
+            ffmpeg
+            freetype
+            gcc
+            make
+            pkgconf
+            zlib
+
+      - name: Configure
+        run: cmake --preset ci
+
+      - name: Build
+        run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Smoke test
+        run: |
+          ./build/ci/strok --version
+          ./build/ci/strok --help >/dev/null
+
+  windows-ucrt-core:
+    name: core ABI (windows-latest, ucrt64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up UCRT64 dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build/windows-ucrt-core -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DSTROK_BUILD_CLI=OFF
+          -DSTROK_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build/windows-ucrt-core
+
+      - name: Test
+        run: ctest --test-dir build/windows-ucrt-core --output-on-failure
+
+  sanitize:
+    name: asan-ubsan (ubuntu-latest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
