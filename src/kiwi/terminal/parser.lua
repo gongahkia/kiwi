@@ -43,7 +43,7 @@ end
 function Parser:emit_print(codepoint, text, invalid)
   self.stats.actions = self.stats.actions + 1
   if self.print_sink then
-    self.print_sink:write_codepoint(text)
+    self.print_sink:write_codepoint(text, codepoint)
     return
   end
   self.emit(Actions.print(codepoint, text, invalid))
