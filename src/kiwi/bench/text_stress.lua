@@ -48,11 +48,35 @@ local function assert_row_invariants(state)
   end
 end
 
+local function row_cache_entries(layout)
+  local count = 0
+  for _ in pairs(layout.rows) do count = count + 1 end
+  return count
+end
+
+local function exercise_lifetimes(iterations)
+  local glyphs = 0
+  for _ = 1, iterations do
+    local system = FontSystem.new({
+      pixel_height = 18,
+      atlas = { width = 128, height = 128, max_entries = 32, max_bitmap_dimension = 128 },
+    })
+    local face = assert(system:face_for_cluster({ 0x4e2d }))
+    local shaped = face:shape(Utf8.encode(0x4e2d), system.shape_options)
+    for _, glyph in ipairs(shaped) do
+      if system.glyph_cache:get_or_insert(face, glyph.glyph_id) then glyphs = glyphs + 1 end
+    end
+    system:destroy()
+  end
+  return glyphs
+end
+
 function TextStress.run(options)
   options = options or {}
   local rounds = options.rounds or 400
   local atlas_entries = options.atlas_entries or 96
   local rss_limit_kib = options.rss_limit_kib or 96 * 1024
+  local lifecycle_iterations = options.lifecycle_iterations or 8
   local system = FontSystem.new({
     pixel_height = 18,
     fallback_cache_limit = 32,
@@ -70,6 +94,12 @@ function TextStress.run(options)
   local initial_failures = system.glyph_cache.stats.failures
   for round = 1, rounds do
     for _, codepoint in ipairs(inputs) do write(state, codepoint) end
+    write(state, 0x20 + (round - 1) % 95)
+    system:face_for_cluster({ 0xfdd0 + (round - 1) % 32 })
+    if round % 13 == 0 then
+      write(state, string.byte("a"))
+      for _ = 1, 16 do write(state, 0x301) end
+    end
     if round % 5 == 0 then parser:feed("\27[2P\27[1@") end
     if round % 7 == 0 then parser:feed("\r\n") end
     if round % 11 == 0 then
@@ -84,6 +114,7 @@ function TextStress.run(options)
     state.damage:clear()
   end
   parser:finish()
+  local lifetime_glyphs = exercise_lifetimes(lifecycle_iterations)
   collectgarbage("collect")
   local heap_after = collectgarbage("count")
   local rss_after = resident_kib()
@@ -92,8 +123,14 @@ function TextStress.run(options)
     atlas_entries_limit = atlas_entries,
     atlas_entries = system.glyph_cache.atlas:glyph_count(),
     atlas_occupancy = system.glyph_cache.atlas:occupancy(),
+    atlas_bytes = system.glyph_cache.pixel_bytes,
     glyph_cache = system.glyph_cache.stats,
     fallback = system.stats,
+    face_cache_entries = #system.faces,
+    fallback_cache_entries = system.fallback_cache_count,
+    shape_cache_rows = row_cache_entries(layout),
+    lifecycle_text_systems = lifecycle_iterations,
+    lifecycle_glyphs = lifetime_glyphs,
     width_change_clamped = state.stats.text.width_change_clamped,
     over_limit_clusters = state.stats.text.over_limit_clusters,
     elapsed_cpu_ms = (os.clock() - started) * 1000,
@@ -116,11 +153,13 @@ function TextStress.main()
     rounds = number_from_env("KIWI_TEXT_STRESS_ROUNDS", 400),
     atlas_entries = number_from_env("KIWI_TEXT_STRESS_ATLAS_ENTRIES", 96),
     rss_limit_kib = number_from_env("KIWI_TEXT_STRESS_MAX_RSS_KIB", 96 * 1024),
+    lifecycle_iterations = number_from_env("KIWI_TEXT_STRESS_LIFECYCLES", 64),
   })
   io.stdout:write(string.format(
-    "text-stress rounds=%d cpu=%.3fms atlas=%d/%d occupancy=%.3f failures=%d fallback=%d/%d heap=%.1f KiB rss=%s\n",
-    result.rounds, result.elapsed_cpu_ms, result.atlas_entries, result.atlas_entries_limit, result.atlas_occupancy, result.glyph_cache.failures,
-    result.fallback.fallback_hits, result.fallback.fallback_misses, result.memory.retained_heap_kib_delta,
+    "text-stress rounds=%d cpu=%.3fms atlas=%d/%d (%d B %.3f) faces=%d fallback-cache=%d shape-rows=%d lifecycles=%d/%d failures=%d fallback=%d/%d heap=%.1f KiB rss=%s\n",
+    result.rounds, result.elapsed_cpu_ms, result.atlas_entries, result.atlas_entries_limit, result.atlas_bytes, result.atlas_occupancy,
+    result.face_cache_entries, result.fallback_cache_entries, result.shape_cache_rows,
+    result.lifecycle_text_systems, result.lifecycle_glyphs, result.glyph_cache.failures, result.fallback.fallback_hits, result.fallback.fallback_misses, result.memory.retained_heap_kib_delta,
     result.memory.rss_kib_delta and string.format("%.1f KiB", result.memory.rss_kib_delta) or "unavailable"
   ))
   local timestamp = os.date("!%Y%m%dT%H%M%SZ")

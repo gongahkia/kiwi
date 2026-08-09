@@ -318,8 +318,9 @@ function State:clear_cluster_at(column, row)
     self:set_cell(column, row, self:blank_cell())
     return
   end
+  local width = anchor.width
   self:set_cell(anchor_column, row, self:blank_cell())
-  if anchor.width == 2 and anchor_column + 1 < self.columns then
+  if width == 2 and anchor_column + 1 < self.columns then
     self:set_cell(anchor_column + 1, row, self:blank_cell())
   end
 end
