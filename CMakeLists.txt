@@ -119,6 +119,7 @@ set(STROK_RENDERER_CORE_SOURCES
   src/octant_renderer.cpp
   src/optical_flow.cpp
   src/posterize.cpp
+  src/render_api.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
@@ -248,6 +249,27 @@ set_target_properties(strok_cli_adapter PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_link_libraries(strok_cli_adapter PUBLIC strok_core)
+
+add_executable(strok_core_consumer examples/core_consumer.cpp)
+target_compile_features(strok_core_consumer PRIVATE cxx_std_20)
+set_target_properties(strok_core_consumer PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_core_consumer PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(strok_core_consumer PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_core_consumer PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_core_consumer PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_core_consumer PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME core_consumer COMMAND strok_core_consumer)
 if(MSVC)
   target_compile_options(strok_cli_adapter PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)

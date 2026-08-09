@@ -1,4 +1,6 @@
 #include <strok/cell_buffer.hpp>
+#include <strok/frame.hpp>
+#include <strok/render.hpp>
 #include <strok/renderer_config.hpp>
 #include <strok/render_grid.hpp>
 #include <strok/render_result.hpp>
@@ -37,4 +39,9 @@ int main() {
 
   const strok::RenderResult result;
   expect(result.succeeded() && result.stats.frames == 0, "public RenderResult defaults");
+
+  const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
+  strok::CellBuffer rendered;
+  const strok::RenderResult render_result = strok::renderFrame(frame, U" @", strok::RendererConfig{.cell_aspect = 1.0}, strok::RenderGrid{.cols = 1, .rows = 1}, &rendered);
+  expect(render_result.succeeded() && rendered.at(0, 0).glyph == U' ', "public render function");
 }
