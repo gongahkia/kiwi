@@ -64,11 +64,13 @@ int main() {
   strok::CellBuffer cells;
   const strok::RenderResult first = created.renderer->render(frame(), &cells);
   expect(first.status == strok::RenderStatus::Success && first.stats.frames == 1 && first.stats.cells == 4, "renderer first render");
+  expect(first.stats.graph_topology_builds == 0 && first.stats.graph_topology_reuses == 1, "renderer reuses graph topology");
   expect(cells.cols() == 2 && cells.rows() == 2 && cells.at(0, 0).glyph == U' ', "renderer output");
 
   created.renderer->reset();
   const strok::RenderResult second = created.renderer->render(frame(), &cells);
   expect(second.status == strok::RenderStatus::Success && second.stats.frames == 1 && second.stats.cells == 4, "renderer reset render");
+  expect(second.stats.graph_topology_builds == 0 && second.stats.graph_topology_reuses == 1, "renderer retains topology across reset");
 
   const strok::RenderResult owned = created.renderer->render(frame());
   expect(owned.succeeded() && created.renderer->cells().cols() == 2 && created.renderer->cells().rows() == 2, "renderer owned cells");

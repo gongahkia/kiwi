@@ -110,6 +110,22 @@ void Graph::run(PassContext& context) const {
   }
 }
 
+void Graph::run(PassContext& context, const PassCallbackMap& callbacks) const {
+  if (callbacks.size() != ordered.size()) {
+    throw GraphError("render callback set does not match graph topology");
+  }
+  for (const Pass& pass : ordered) {
+    const auto callback = callbacks.find(pass.id);
+    if (callback == callbacks.end()) {
+      throw GraphError("missing render callback for pass: " + pass.id);
+    }
+    context.setBackend(pass.backend);
+    if (callback->second) {
+      callback->second(context);
+    }
+  }
+}
+
 std::string Graph::dump() const {
   std::ostringstream out;
   for (const Pass& pass : ordered) {

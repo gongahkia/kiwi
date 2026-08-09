@@ -91,6 +91,8 @@ struct Pass {
   std::function<void(PassContext&)> run;
 };
 
+using PassCallbackMap = std::unordered_map<std::string, std::function<void(PassContext&)>>;
+
 struct GraphBuildOptions {
   std::vector<std::string> external_inputs;
   std::vector<Backend> backend_preference = {Backend::Cpu};
@@ -101,6 +103,10 @@ struct Graph {
   std::vector<Pass> ordered;
 
   void run(PassContext& context) const;
+  // Executes an immutable schedule with callbacks that are scoped to one render.
+  // Every scheduled pass must have an entry; empty callbacks represent structural
+  // passes with no CPU work. This keeps borrowed frame inputs out of cached graphs.
+  void run(PassContext& context, const PassCallbackMap& callbacks) const;
   std::string dump() const;
 };
 

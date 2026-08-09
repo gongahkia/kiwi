@@ -64,6 +64,7 @@ struct Renderer::State {
   std::optional<GlyphFont> glyph_font;
   std::u32string ramp;
   std::optional<GlyphShapeTable> shape_table;
+  Graph graph;
   RenderTemporalState temporal_state;
   CellBuffer cells;
 
@@ -74,6 +75,7 @@ struct Renderer::State {
     }
     ramp = rampFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
     shape_table = shapeTableFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
+    graph = buildRendererGraphTopology(config);
   }
 };
 
@@ -139,7 +141,14 @@ const CellBuffer& Renderer::cells() const noexcept {
 }
 
 RenderResult Renderer::render(const Frame& frame, CellBuffer* output) {
-  return renderFrame(frame, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state);
+  const std::optional<ColorImageView> image = colorImageViewFromFrame(frame);
+  if (!image.has_value()) {
+    return RenderResult{
+      .status = RenderStatus::InvalidInput,
+      .message = "frame RGB buffer does not match its dimensions",
+    };
+  }
+  return render(RenderInput{.color = *image}, output);
 }
 
 RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
@@ -147,7 +156,7 @@ RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
 }
 
 RenderResult Renderer::render(const RenderInput& input, CellBuffer* output) {
-  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state);
+  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, &state_->graph);
 }
 
 void Renderer::reset() {

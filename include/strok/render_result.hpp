@@ -20,6 +20,11 @@ struct RenderStats {
   // Reconstruction time only; media decode and terminal or graphics emission are
   // outside this interval.
   int64_t render_ns = 0;
+  // Stateful Renderer instances build their immutable pass schedule at creation
+  // and report one reuse per render. Compatibility free-function calls build it
+  // per call and report that construction here instead.
+  int64_t graph_topology_builds = 0;
+  int64_t graph_topology_reuses = 0;
   // Exact final CellBuffer deltas relative to the output buffer before rendering.
   // These are zero unless RendererConfig::collect_symbolic_metrics is enabled.
   // A missing or differently sized prior buffer counts every current cell as changed.

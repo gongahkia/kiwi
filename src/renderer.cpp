@@ -827,7 +827,11 @@ int64_t modeledSymbolicUpdateUnits(const CellBuffer& previous, const CellBuffer&
 }  // namespace
 
 std::string dumpRenderGraph(const RendererConfig& config) {
-  return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config)).dump();
+  return buildRendererGraphTopology(config).dump();
+}
+
+Graph buildRendererGraphTopology(const RendererConfig& config) {
+  return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config));
 }
 
 RenderResult validateRendererConfiguration(const RendererConfig& config, RenderGrid grid) {
@@ -840,7 +844,7 @@ RenderResult validateRendererConfiguration(const RendererConfig& config, RenderG
   return RenderResult{};
 }
 
-RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) try {
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const Graph* graph_topology) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
   }
@@ -1016,9 +1020,23 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   };
 
   const auto run_graph = [&](std::vector<Pass> passes) {
-    Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(config));
     PassContext context;
-    graph.run(context);
+    if (graph_topology == nullptr) {
+      Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(config));
+      ++result.stats.graph_topology_builds;
+      graph.run(context);
+      return;
+    }
+
+    PassCallbackMap callbacks;
+    callbacks.reserve(passes.size());
+    for (Pass& pass : passes) {
+      if (!callbacks.emplace(std::move(pass.id), std::move(pass.run)).second) {
+        throw GraphError("duplicate render callback");
+      }
+    }
+    graph_topology->run(context, callbacks);
+    ++result.stats.graph_topology_reuses;
   };
 
   const auto decode_pass = [&] {
@@ -1702,8 +1720,12 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   return renderFailure(RenderStatus::InternalError, "unexpected renderer failure");
 }
 
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
+  return renderFrame(input, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
+}
+
 RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
-  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state);
+  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
 }
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
@@ -1711,7 +1733,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
   if (!image.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
   }
-  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state);
+  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
 }
 
 }  // namespace strok

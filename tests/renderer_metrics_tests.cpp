@@ -34,6 +34,8 @@ int main() {
   strok::CellBuffer disabled_cells;
   const strok::RenderResult disabled_result = strok::renderFrame(blackFrame(), U" @", disabled, grid, nullptr, &disabled_cells);
   expect(disabled_result.succeeded(), "disabled metrics render");
+  expect(disabled_result.stats.graph_topology_builds == 1 && disabled_result.stats.graph_topology_reuses == 0,
+         "free render constructs an isolated graph topology");
   expectNoChanges(disabled_result.stats, "symbolic metrics remain opt-in");
 
   const strok::RendererConfig enabled{
