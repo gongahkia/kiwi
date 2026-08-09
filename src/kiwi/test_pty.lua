@@ -95,4 +95,45 @@ test("terminal_generated_response_returns_through_pty", function()
   Assert.equal(status.kind, "exit")
 end)
 
+test("pty_interactive_shell_accepts_input_and_exits", function()
+  local pty = Pty.spawn({ "/bin/sh" }, 20, 4, { TERM = "kiwi" })
+  pty:enqueue("printf 'typed-from-pty\\n'\nexit\n")
+  pty:flush()
+  local transcript = ""
+  local status
+  for _ = 1, 400 do
+    transcript = transcript .. pty:read_available()
+    status = pty:poll_exit()
+    if status and pty.eof then
+      break
+    end
+    ffi.C.usleep(5000)
+  end
+  pty:shutdown()
+  Assert.truthy(transcript:find("typed-from-pty", 1, true) ~= nil)
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
+test("pty_ctrl_c_reaches_the_foreground_process_group", function()
+  local pty = Pty.spawn({ "/bin/sh", "-c", "trap 'printf caught-int; exit 0' INT; while :; do sleep 1; done" }, 20, 4, { TERM = "kiwi" })
+  ffi.C.usleep(20000)
+  pty:enqueue("\3")
+  pty:flush()
+  local transcript = ""
+  local status
+  for _ = 1, 400 do
+    transcript = transcript .. pty:read_available()
+    status = pty:poll_exit()
+    if status and pty.eof then
+      break
+    end
+    ffi.C.usleep(5000)
+  end
+  pty:shutdown()
+  Assert.truthy(transcript:find("caught-int", 1, true) ~= nil)
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
 io.stdout:write(string.format("%d deterministic PTY integration tests passed.\n", total))

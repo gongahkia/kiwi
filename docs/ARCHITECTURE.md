@@ -1,81 +1,82 @@
-# Kiwi M0 architecture
+# Kiwi M1 architecture
 
-Kiwi M0 is deliberately a terminal renderer laboratory. Its central boundary is `TerminalModel -> Renderer`; neither side owns the other.
+Kiwi retains M0's renderer-first boundary while replacing the normal synthetic producer with a real terminal kernel. The synthetic model and renderer benchmark remain available through `make demo` and `make bench`.
 
-```
-app/main.lua
-  -> terminal/synthetic.lua
-  -> terminal/model.lua + terminal/damage.lua
-  -> renderer/renderer.lua
-       -> renderer/passes.lua
-       -> font/freetype.lua + font/atlas.lua
-       -> gpu/context.lua
-  -> ffi/{glfw,wgpu,freetype}.lua
-  -> GLFW / FreeType / wgpu-native / Vulkan
-```
+## Live pipeline
 
-## Layers and dependency direction
-
-`terminal/` contains only logical cells (`glyph`, foreground/background packed RGBA, flags) and sparse damage. It has no GPU imports. `font/atlas.lua` owns placement policy and atlas bookkeeping; `font/freetype.lua` performs the initial basic-Latin rasterization. `renderer/` converts only dirty logical cells into 40-byte `KiwiGlyphInstance` records. `gpu/` owns native handles, surface configuration, and explicit destruction. `platform/` owns GLFW window/input/drawable-size details. `ffi/` is the sole home for native declarations.
-
-The one narrow C bridge, `native/surface.c`, is not application logic. It is compiled against the pinned wgpu header and only handles ABI-sensitive native boundaries: GLFW Wayland/X11 surface-chain construction, wgpu v29 asynchronous callback polling, and the chained WGSL source descriptor. LuaJIT FFI cannot safely receive the v29 callback signatures because they pass `WGPUStringView` by value. Terminal semantics, atlas policy, pass scheduling, buffer packing, benchmark logic, and all draw orchestration remain LuaJIT.
-
-## Logical and GPU cells
-
-```
-LogicalCell                     KiwiGlyphInstance (40 bytes, aligned 4)
------------                     -----------------------------------------
-glyph: one ASCII byte       ->  x, y: f32 cell coordinate
-fg/bg: 0xAARRGGBB           ->  u0, v0, u1, v1: f32 atlas rectangle
-flags: bold/semantic/recent ->  fg, bg, flags, glyph: u32
-```
-
-The instance structure is declared once in `renderer/packing.lua`; tests assert its 40-byte size and 4-byte alignment. WGSL uses the matching storage-buffer layout. This is a deliberate M0 bitmap-atlas format, not a commitment to a future MSDF or vector backend.
-
-## Glyph path
-
-FreeType opens the system monospace font selected by Fontconfig (or `KIWI_FONT`), sets a pixel size, and loads codepoints 32–126 with `FT_LOAD_RENDER`. `font/atlas.lua` shelf-packs the resulting bitmaps into a fixed 1024×1024 R8 atlas and tracks per-glyph UVs, bearings, and advance. The one-time atlas upload uses `wgpuQueueWriteTexture`; glyph pixels are sampled by `renderer/terminal.wgsl` in the glyph pass. The terminal is never CPU-rasterized into one texture per frame.
-
-## Render graph
-
-`renderer/passes.lua` explicitly preserves this pass order:
-
-```
-surface texture
-  -> terminal/background  clear + structured cell backgrounds + semantic/debug highlight
-  -> terminal/glyph       atlas-sampled glyph quads from structured cell data
-  -> terminal/cursor      animated outline from explicit cursor/time uniform
-  -> present
+```text
+GLFW keyboard / text callbacks
+             |
+             v
+      input/keyboard.lua
+             |
+             v
+PTY master <---------------- terminal responses (DSR/DA)
+  nonblocking read/write                    ^
+             |                              |
+             v                              |
+  terminal/parser.lua -- actions --> terminal/state.lua
+        streaming UTF-8                  |
+                                      +-- screen rows
+                                      +-- modes/cursor/attributes
+                                      +-- bounded scrollback
+                                      +-- title/responses/diagnostics
+                                             |
+                                             v
+                                        terminal/damage.lua
+                                             |
+                                             v
+M0 renderer: background -> glyph -> cursor -> wgpu-native -> Vulkan
 ```
 
-Each pass owns a named pipeline, load policy, instance count, and `encode` method. The pass abstraction is intentionally small; later semantic passes can use the same contract without introducing a generic game-engine graph.
+The parser recognizes syntax only. It emits semantic print, execute, ESC, CSI, OSC, and ignored-string actions; `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer has no parser dependency and consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
 
-`F2` makes `recent` cells visually distinct and `F3` draws cell boundaries. Both consume terminal metadata in the background pass, demonstrating semantic input rather than framebuffer post-processing.
+## PTY and process boundary
 
-## Damage and GPU updates
+`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, drains readable output, queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. `TERM=kiwi` and the project-local `TERMINFO` path are set before the child executes. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
 
-Damage is a sparse logical-index set plus a lazy full-redraw flag. Adjacent marked cells coalesce into ordered ranges when consumed.
+LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wraps the ABI-sensitive `TIOCSWINSZ` and nonblocking-fd operations, alongside the pre-existing GLFW/wgpu surface bridge. It contains no parser or terminal state.
 
+## Parser and state
+
+`terminal/parser.lua` is incremental over arbitrary byte chunks. It bounds CSI parameters/intermediates and control-string payloads, accepts OSC BEL/ST termination, discards unsupported DCS/APC/PM/SOS until ST, and uses the streaming decoder in `terminal/utf8.lua`. Invalid or truncated UTF-8 emits U+FFFD deterministically. The parser's outputs are intentionally plain action tables to keep syntax testing independent from semantic state testing.
+
+`terminal/state.lua` holds primary and alternate `Screen` values. A screen is an array of row objects; scrolling moves row references and replaces only entering rows. Full-screen primary upward scrolling offers ejected rows to a fixed-size ring scrollback. Alternate-screen scrolling never enters primary history. State owns cursor/margins/autowrap/origin/insert/application-cursor/bracketed-paste modes, SGR attributes, saved cursor, tab stops, title, and terminal responses.
+
+```text
+normal scroll inside full primary screen
+  row references shift upward
+  -> ejected row enters bounded scrollback ring
+  -> one new blank row is allocated
+  -> damage marks the affected rectangle
 ```
-TerminalModel:set()
-  -> Damage:mark(index)
-  -> Renderer:update_model()
-       -> pack each changed LogicalCell only
-       -> one wgpuQueueWriteBuffer per contiguous range
-       -> record cells, bytes, ranges, and full/partial state
-  -> Damage:clear()
+
+This supersedes the M0 synthetic scrolling object's per-cell reconstruction without changing the M0 benchmark, which deliberately continues measuring its old synthetic workload.
+
+## Resize and presentation
+
+On framebuffer resize, the live app calculates `floor(drawable pixels / font cell pixels)`, rejects zero-sized drawables, then applies the same dimensions in this order:
+
+```text
+terminal state resize -> PTY TIOCSWINSZ -> renderer buffer recreation -> next present
 ```
 
-A typing update changes 1–4 cells plus cursor endpoints; it therefore stages substantially less data than an 8,000-cell full redraw. Row churn tends to form one range. `mark_all_dirty()` represents resize/reset/full-redraw without first inserting every index into the sparse set. Buffer capacity is the current grid size; resizing a future terminal model requires creating a matching renderer/buffer capacity before presentation.
+Resizing preserves the selected screen's overlapping cells, resets margins to the full new screen, marks all logical cells dirty, and updates the child foreground process group through the kernel's normal winsize mechanism. The renderer is recreated because its storage-buffer capacity equals grid capacity.
 
-## Frame lifecycle and resource convention
+## Input, output, and responses
 
-The app polls events, waits up to the next 30 Hz tick, applies the selected synthetic scenario, stages damage, updates the cursor/time uniform, encodes the three passes, submits, and presents. A zero-sized drawable skips rendering; resize reconfigures the surface; `Esc` requests close. FIFO presentation is selected to avoid an accidental uncapped loop.
+GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.
 
-GPU resources are not left to garbage collection. `Renderer:destroy()` releases texture views, textures, buffers, samplers, bind groups, layouts, shaders, and pipelines in reverse order. `Context:destroy()` unconfigures/releases the surface, then queue, device, adapter, and instance. Failed construction tears down already-created handles before rethrowing. The native bridge captures uncaught GPU errors and device loss; the app treats either as fatal, then performs the same explicit cleanup.
+## Renderer integration and glyph fallback
 
-Diagnostics report frame and preparation CPU time, logical/dirty/uploaded cells, upload bytes/ranges, draw calls, atlas data, drawable size/scale, and adapter information. The adapter's timestamp-query capability is detected. M0 reports GPU timing as unsupported because it intentionally omits timestamp query/readback plumbing from this baseline; it does not synthesize a GPU timing value.
+Live cells retain their incoming codepoint string. The M0 FreeType atlas remains basic Latin, so the renderer selects `?` only for a missing atlas glyph while preserving the logical cell glyph for snapshots/debugging. The packed GPU record is unchanged at 40 bytes. M1 displays bold, faint, underline, and strike decoration behavior already represented in the renderer; richer typography is deferred to M2.
 
-## Future extension points
+## Replay and diagnostics
 
-M1 can replace `terminal/synthetic.lua` with a PTY/VT-backed producer while retaining `TerminalModel` and `Renderer`. M2 can provide a different font atlas source and richer glyph records. M3 can add decoration/selection/semantic passes. M4 can expose the pass/resource contract to Lua extensions after API constraints are established by measured use.
+Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.
+
+F4 diagnostics remain rate-limited to one report per second and combine M0 upload/frame/atlas data with PTY byte counters, parser counters, terminal mutations, scrollback, active screen, grid size, child state, and unknown CSI/ESC/OSC counts. Unsupported sequence samples are bounded and structured; OSC payloads are never printed.
+
+## References and intentional boundary
+
+M1 behavior follows the current [XTerm Control Sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), [ECMA-48](https://ecma-international.org/publications-and-standards/standards/ecma-48/), [ncurses terminfo](https://invisible-island.net/ncurses/man/terminfo.5.html), and Linux [`TIOCSWINSZ`](https://www.man7.org/linux/man-pages/man2/TIOCSWINSZ.2const.html) documentation. Kiwi deliberately implements only the matrix in [CONFORMANCE.md](CONFORMANCE.md), not complete xterm behavior.

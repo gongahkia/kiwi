@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo replay test test-pty smoke bench check clean
+.PHONY: bootstrap native terminfo run demo replay vttest test test-pty smoke bench check clean
 
 bootstrap:
 	./script/bootstrap
@@ -23,6 +23,10 @@ demo: native
 replay:
 	$(LUAJIT) src/kiwi/replay.lua $(REPLAY)
 
+vttest: native terminfo
+	@command -v vttest >/dev/null || { echo "vttest is not installed; install it, then run make vttest in an interactive graphical session." >&2; exit 2; }
+	$(LUAJIT) src/kiwi/app/main.lua -- vttest
+
 test:
 	$(LUAJIT) src/kiwi/test.lua
 
@@ -36,7 +40,7 @@ bench:
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/main.lua
 
-check: test test-pty
+check: test test-pty terminfo
 	./script/check
 
 clean:

@@ -74,6 +74,24 @@ function Metrics:snapshot()
   }
 end
 
+local function unknown_sample_text(sample)
+  local detail = sample.detail
+  if sample.family == "csi" and type(detail) == "table" then
+    return string.format(
+      "csi#%d private=%q parameters=%s intermediates=%q final=%q",
+      sample.count,
+      detail.private or "",
+      table.concat(detail.parameters or {}, ";"),
+      detail.intermediates or "",
+      detail.final or ""
+    )
+  end
+  if sample.family == "osc" and type(detail) == "table" then
+    return string.format("osc#%d command=%s", sample.count, tostring(detail.command))
+  end
+  return string.format("%s#%d detail=%q", sample.family, sample.count, tostring(detail))
+end
+
 function Metrics:report(now)
   if now - self.last_report < 1 then
     return
@@ -116,6 +134,13 @@ function Metrics:report(now)
     item.vendor,
     item.gpu_timing
   ))
+  if #item.unknown_samples > 0 then
+    local samples = {}
+    for index, sample in ipairs(item.unknown_samples) do
+      samples[index] = unknown_sample_text(sample)
+    end
+    io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
+  end
 end
 
 return Metrics

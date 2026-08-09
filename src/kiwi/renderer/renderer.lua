@@ -43,6 +43,16 @@ local function color_to_u32(color)
   return ffi.cast("uint32_t", color)
 end
 
+local function select_glyph(atlas, glyph_text)
+  local glyph = atlas:get(glyph_text)
+  if glyph == nil and glyph_text ~= " " then
+    return atlas:get("?"), "?"
+  end
+  return glyph, glyph_text
+end
+
+Renderer.select_glyph = select_glyph
+
 function Renderer.new(context, font, model)
   Packing.assert_layout()
   local self = setmetatable({
@@ -226,12 +236,7 @@ end
 function Renderer:pack_cell(model, index)
   local column, row = model:position(index)
   local cell = model.cells[index]
-  local glyph = self.font.atlas:get(cell.glyph)
-  local glyph_key = cell.glyph
-  if glyph == nil and cell.glyph ~= " " then
-    glyph = self.font.atlas:get("?")
-    glyph_key = "?"
-  end
+  local glyph, glyph_key = select_glyph(self.font.atlas, cell.glyph)
   local instance = self.cells[index]
   instance.x = column
   instance.y = row
