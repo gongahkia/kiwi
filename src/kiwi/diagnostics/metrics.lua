@@ -81,6 +81,7 @@ function Metrics:snapshot()
     atlas_hits = glyph_cache_stats.hits or 0,
     atlas_misses = glyph_cache_stats.misses or 0,
     atlas_failures = glyph_cache_stats.failures or 0,
+    atlas_negative_hits = glyph_cache_stats.negative_hits or 0,
     color_glyphs_unsupported = glyph_cache_stats.color_unsupported or 0,
     atlas_pages = self.font.glyph_cache and 1 or 0,
     fallback_hits = font_stats.fallback_hits or 0,
@@ -183,7 +184,7 @@ function Metrics:report(now)
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
   end
   io.stdout:write(string.format(
-    "text=unicode-%s primary=%s#%s clusters=%d wide=%d fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
+    "text=unicode-%s primary=%s#%s clusters=%d wide=%d fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
     item.unicode_version,
     item.primary_font,
     item.primary_face_id or "none",
@@ -204,6 +205,7 @@ function Metrics:report(now)
     item.atlas_misses,
     item.atlas_failures,
     item.atlas_pages,
+    item.atlas_negative_hits,
     item.color_glyphs_unsupported,
     item.fallback_hits,
     item.fallback_misses,
