@@ -103,6 +103,7 @@ endif()
 set(STROK_RENDERER_CORE_SOURCES
   src/block_sad.cpp
   src/braille_renderer.cpp
+  src/ansi_transition_cost.cpp
   src/crosshatch.cpp
   src/c_api_config.cpp
   src/c_api_renderer.cpp
@@ -1440,6 +1441,37 @@ else()
   endif()
 endif()
 add_test(NAME terminal_churn COMMAND terminal_churn_tests)
+
+add_executable(ansi_transition_cost_tests
+  tests/ansi_transition_cost_tests.cpp
+  src/ansi.cpp
+  src/color_dither.cpp
+  src/color_mode.cpp
+  src/color_quantization.cpp
+  src/diff_emitter.cpp
+  src/luminance.cpp
+  src/posterize.cpp
+)
+target_include_directories(ansi_transition_cost_tests PRIVATE src)
+target_compile_features(ansi_transition_cost_tests PRIVATE cxx_std_20)
+set_target_properties(ansi_transition_cost_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(ansi_transition_cost_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(ansi_transition_cost_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(ansi_transition_cost_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(ansi_transition_cost_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(ansi_transition_cost_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME ansi_transition_cost COMMAND ansi_transition_cost_tests)
 
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
 target_include_directories(motion_selection_tests PRIVATE src)
