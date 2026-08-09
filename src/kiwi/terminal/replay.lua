@@ -99,9 +99,7 @@ function Replay.each(path, callback)
 end
 
 function Replay.apply_file(state, path)
-  local parser = Parser.new(function(action)
-    state:apply(action)
-  end)
+  local parser = Parser.new(state)
   Replay.each(path, function(event)
     if event.event == "resize" then
       state:resize(event.cols, event.rows)

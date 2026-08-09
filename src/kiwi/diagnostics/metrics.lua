@@ -58,6 +58,8 @@ function Metrics:snapshot()
     gpu_timing = self.gpu_timing,
     pty_bytes_read = pty and pty.bytes_read or 0,
     pty_bytes_written = pty and pty.bytes_written or 0,
+    pty_last_read_bytes = pty and pty.last_read_bytes or 0,
+    pty_last_read_calls = pty and pty.last_read_calls or 0,
     parser_bytes = parser and parser.stats.bytes or 0,
     parser_actions = parser and parser.stats.actions or 0,
     parser_errors = parser and parser.stats.errors or 0,
@@ -99,7 +101,7 @@ function Metrics:report(now)
   self.last_report = now
   local item = self:snapshot()
   io.stdout:write(string.format(
-    "frame=%d cpu=%.3fms prepare=%.3fms grid=%dx%d screen=%s scrollback=%d mutations=%d dirty=%d ranges=%d upload=%d cells/%d B draws=%d pty=%d/%d B child=%s parser=%d B/%d actions/%d errors/%d ignored unknown=%d/%d/%d atlas=%d (%dx%d %.1f%%) drawable=%dx%d backend=%s adapter=%s vendor=%s gpu=%s\n",
+    "frame=%d cpu=%.3fms prepare=%.3fms grid=%dx%d screen=%s scrollback=%d mutations=%d dirty=%d ranges=%d upload=%d cells/%d B draws=%d pty=%d/%d B last-read=%d B/%d calls child=%s parser=%d B/%d actions/%d errors/%d ignored unknown=%d/%d/%d atlas=%d (%dx%d %.1f%%) drawable=%dx%d backend=%s adapter=%s vendor=%s gpu=%s\n",
     item.frame,
     item.cpu_frame_ms,
     item.cpu_prepare_ms,
@@ -115,6 +117,8 @@ function Metrics:report(now)
     item.draw_calls,
     item.pty_bytes_read,
     item.pty_bytes_written,
+    item.pty_last_read_bytes,
+    item.pty_last_read_calls,
     item.child_pid and (tostring(item.child_pid) .. ":" .. item.child_state) or item.child_state,
     item.parser_bytes,
     item.parser_actions,

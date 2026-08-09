@@ -1,6 +1,7 @@
 local ffi = require("ffi")
+local Environment = require("kiwi.bench.environment")
+local Pipeline = require("kiwi.bench.pipeline")
 local Synthetic = require("kiwi.terminal.synthetic")
-local ParserBench = require("kiwi.bench.parser")
 local Packing = require("kiwi.renderer.packing")
 local Stats = require("kiwi.bench.stats")
 local Json = require("kiwi.bench.json")
@@ -28,7 +29,7 @@ local function pack_range(model, instances, first, count)
   end
 end
 
-local function run_scenario(columns, rows, scenario, iterations)
+local function run_scenario(columns, rows, scenario, iterations, warmup)
   local model = Synthetic.new(0x4b495749, columns, rows)
   local instances = ffi.new("KiwiGlyphInstance[?]", columns * rows)
   local samples = {}
@@ -38,9 +39,14 @@ local function run_scenario(columns, rows, scenario, iterations)
   local ranges_total = 0
   local full_updates = 0
 
+  for iteration = 1, warmup do
+    Synthetic.apply(model, scenario, iteration)
+    model.damage:clear()
+  end
+
   for iteration = 1, iterations do
     local started = os.clock()
-    Synthetic.apply(model, scenario, iteration)
+    Synthetic.apply(model, scenario, iteration + warmup)
     local damage = model.damage
     local ranges = damage:ranges()
     for _, range in ipairs(ranges) do
@@ -63,6 +69,7 @@ local function run_scenario(columns, rows, scenario, iterations)
     columns = columns,
     rows = rows,
     iterations = iterations,
+    warmup_iterations = warmup,
     cells_changed = changed_total,
     cells_uploaded = uploaded_total,
     bytes_uploaded = bytes_total,
@@ -93,37 +100,18 @@ local function print_result(result)
   ))
 end
 
-local function print_parser_result(result)
-  io.stdout:write(string.format(
-    "parser %s iterations=%d bytes=%d actions=%d cpu_parse_state mean=%.4fms p50=%.4fms p95=%.4fms p99=%.4fms throughput=%.0f B/s dirty=%d cells/%d ranges heap_delta=%.1f KiB\n",
-    result.workload,
-    result.iterations,
-    result.bytes,
-    result.actions,
-    result.cpu_parse_state_ms.mean,
-    result.cpu_parse_state_ms.p50,
-    result.cpu_parse_state_ms.p95,
-    result.cpu_parse_state_ms.p99,
-    result.throughput_bytes_per_second,
-    result.dirty_cells,
-    result.dirty_ranges,
-    result.heap_kib_delta
-  ))
-end
-
-local iterations = number_from_env("KIWI_BENCH_ITERATIONS", 300)
-local results = {}
+local iterations = number_from_env("KIWI_BENCH_ITERATIONS", 50)
+local warmup = number_from_env("KIWI_BENCH_WARMUP", 10)
+local legacy_results = {}
 for _, dimensions in ipairs({ { 160, 50 }, { 240, 80 } }) do
   for _, scenario in ipairs(Synthetic.scenarios()) do
-    local result = run_scenario(dimensions[1], dimensions[2], scenario, iterations)
-    results[#results + 1] = result
+    local result = run_scenario(dimensions[1], dimensions[2], scenario, iterations, warmup)
+    legacy_results[#legacy_results + 1] = result
     print_result(result)
   end
 end
-local parser_results = ParserBench.run(iterations)
-for _, result in ipairs(parser_results) do
-  print_parser_result(result)
-end
+local pipeline_results = Pipeline.run(iterations, warmup)
+Pipeline.print_results(pipeline_results)
 
 local timestamp = os.date("!%Y%m%dT%H%M%SZ")
 local output = "bench/results/" .. timestamp .. ".json"
@@ -132,12 +120,12 @@ if not file then
   error("Unable to create " .. output .. ": " .. error_message .. ". Run through make bench so the results directory exists.")
 end
 file:write(Json.encode({
-  schema_version = 2,
-  timestamp_utc = timestamp,
-  engine = "LuaJIT terminal model, damage, packing, parser, and state benchmark",
+  schema_version = 3,
+  metadata = Environment.collect(timestamp, iterations, warmup),
+  engine = "Kiwi M1.5 terminal pipeline benchmark",
   gpu_timing = "unsupported (headless benchmark does not request timestamp-query feature)",
-  results = results,
-  parser_results = parser_results,
+  legacy_m0_synthetic_results = legacy_results,
+  m1_5_pipeline = pipeline_results,
 }), "\n")
 file:close()
 io.stdout:write("machine-readable result: " .. output .. "\n")

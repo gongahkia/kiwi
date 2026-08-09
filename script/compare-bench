@@ -1,0 +1,71 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "$#" -ne 2 ]; then
+  echo "usage: script/compare-bench BASELINE.json CANDIDATE.json" >&2
+  exit 2
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "bench comparison requires jq" >&2
+  exit 2
+fi
+
+baseline=$1
+candidate=$2
+
+jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
+  def rows($document):
+    [ $document.m1_5_pipeline
+      | to_entries[] as $layer
+      | $layer.value[]
+      | {
+          key: ($layer.key + "/" + .component + "/" + .workload),
+          mean_ms: .cpu_ms.mean,
+          p95_ms: .cpu_ms.p95,
+          p99_ms: .cpu_ms.p99,
+          throughput_bytes_per_second,
+          scope
+        }
+    ];
+  def index_by_key($items): reduce $items[] as $item ({}; .[$item.key] = $item);
+  ($baseline[0]) as $base |
+  ($candidate[0]) as $next |
+  if $base.schema_version != 3 or $next.schema_version != 3 then
+    error("both inputs must use benchmark schema version 3")
+  elif $base.metadata.methodology.cpu_scope != $next.metadata.methodology.cpu_scope then
+    error("CPU timing scopes differ; results are not comparable")
+  elif $base.metadata.configuration != $next.metadata.configuration then
+    error("iteration or warm-up configuration differs; results are not comparable")
+  else
+    (rows($base)) as $base_rows |
+    (rows($next)) as $next_rows |
+    (index_by_key($base_rows)) as $base_index |
+    (index_by_key($next_rows)) as $next_index |
+    if ($base_index | keys) != ($next_index | keys) then
+      error("M1.5 component/workload sets differ; results are not comparable")
+    elif any($next_rows[]; .scope != $base_index[.key].scope) then
+      error("component timing scope differs; results are not comparable")
+    else
+      {
+        comparable: ($base.metadata.system == $next.metadata.system and $base.metadata.runtime.luajit_version == $next.metadata.runtime.luajit_version),
+        baseline: $base.metadata.revision,
+        candidate: $next.metadata.revision,
+        rows: [ $next_rows[]
+          | . as $item
+          | $base_index[$item.key] as $previous
+          | {
+              key: $item.key,
+              mean_ms_delta: ($item.mean_ms - $previous.mean_ms),
+              p95_ms_delta: ($item.p95_ms - $previous.p95_ms),
+              p99_ms_delta: ($item.p99_ms - $previous.p99_ms),
+              throughput_delta: ($item.throughput_bytes_per_second - $previous.throughput_bytes_per_second)
+            }
+        ]
+      }
+    end
+  end
+' | jq -r '
+  "comparable_same_system=\(.comparable) baseline=\(.baseline.commit) candidate=\(.candidate.commit)",
+  (.rows[] | "\(.key) mean_delta_ms=\(.mean_ms_delta) p95_delta_ms=\(.p95_ms_delta) p99_delta_ms=\(.p99_ms_delta) throughput_delta_Bps=\(.throughput_delta)")
+'
