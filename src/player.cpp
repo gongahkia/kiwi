@@ -26,6 +26,7 @@
 #include "image_grid.hpp"
 #include "kitty_graphics.hpp"
 #include "live_frame_source.hpp"
+#include "live_presentation_pacer.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
 #include "overlay_compose.hpp"
@@ -159,46 +160,6 @@ class FramePacer {
   int64_t last_media_us_ = 0;
   int64_t frame_duration_us_ = 33333;
   int64_t frame_index_ = 0;
-};
-
-class LivePresentationPacer {
- public:
-  LivePresentationPacer(const CliOptions& options, std::optional<double> source_fps) {
-    std::optional<double> cap;
-    if (options.fps.has_value() && *options.fps > 0.0) {
-      cap = *options.fps;
-    }
-    if (options.max_fps.has_value() && *options.max_fps > 0.0) {
-      cap = cap.has_value() ? std::min(*cap, *options.max_fps) : *options.max_fps;
-    }
-    if (cap.has_value()) {
-      presentation_interval_ = std::chrono::microseconds(static_cast<int64_t>(std::llround(1000000.0 / *cap)));
-    }
-    const double nominal_fps = source_fps.has_value() && *source_fps > 0.0 ? *source_fps : 30.0;
-    const auto nominal_interval = std::chrono::microseconds(static_cast<int64_t>(std::llround(1000000.0 / nominal_fps)));
-    late_budget_ = std::min(nominal_interval, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::milliseconds(50)));
-  }
-
-  bool ready(std::chrono::steady_clock::time_point now) {
-    if (!presentation_interval_.has_value()) {
-      return true;
-    }
-    if (next_presentation_.has_value() && now < *next_presentation_) {
-      return false;
-    }
-    next_presentation_ = now + *presentation_interval_;
-    return true;
-  }
-
-  bool isLate(std::chrono::steady_clock::time_point decoded_at,
-              std::chrono::steady_clock::time_point now) const {
-    return now - decoded_at > late_budget_;
-  }
-
- private:
-  std::optional<std::chrono::microseconds> presentation_interval_;
-  std::optional<std::chrono::steady_clock::time_point> next_presentation_;
-  std::chrono::microseconds late_budget_ {33333};
 };
 
 RtspTransport rtspTransportFromOptions(const CliOptions& options) {
@@ -575,7 +536,8 @@ class RuntimeDebugStats {
   void recordLivePresentation(std::chrono::nanoseconds render_time,
                               std::chrono::nanoseconds write_time,
                               std::chrono::steady_clock::time_point decoded_at,
-                              std::chrono::steady_clock::time_point presented_at) noexcept {
+                              std::chrono::steady_clock::time_point presented_at,
+                              LivePresentationTiming presentation_timing) noexcept {
     const int64_t decode_to_present_us = std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(presented_at - decoded_at).count());
     ++live_decode_to_present_samples_;
     live_decode_to_present_us_ += decode_to_present_us;
@@ -585,6 +547,10 @@ class RuntimeDebugStats {
     ++window_live_decode_to_present_samples_;
     window_live_decode_to_present_us_ += decode_to_present_us;
     window_live_max_decode_to_present_us_ = std::max(window_live_max_decode_to_present_us_, decode_to_present_us);
+    window_live_effective_interval_us_ = presentation_timing.interval.count();
+    if (presentation_timing.terminal_overrun) {
+      ++window_live_terminal_overruns_;
+    }
   }
 
   void recordPresentedFrame(const CellBuffer& cells, const EmissionResult& emission) noexcept {
@@ -625,6 +591,8 @@ class RuntimeDebugStats {
     window_live_decode_to_present_samples_ = 0;
     window_live_decode_to_present_us_ = 0;
     window_live_max_decode_to_present_us_ = 0;
+    window_live_effective_interval_us_ = 0;
+    window_live_terminal_overruns_ = 0;
     return writeDebugStatusLine(terminal, line);
   }
 
@@ -650,7 +618,8 @@ class RuntimeDebugStats {
       out << " rss=unknown";
     }
     if (window_live_decode_to_present_samples_ > 0 || window_live_producer_replaced_ > 0 ||
-        window_live_consumer_discarded_ > 0 || window_live_late_dropped_ > 0) {
+        window_live_consumer_discarded_ > 0 || window_live_late_dropped_ > 0 ||
+        window_live_terminal_overruns_ > 0) {
       const double decode_to_present_ms = window_live_decode_to_present_samples_ > 0
                                   ? static_cast<double>(window_live_decode_to_present_us_) /
                                       (1000.0 * static_cast<double>(window_live_decode_to_present_samples_))
@@ -660,6 +629,10 @@ class RuntimeDebugStats {
           << " live_late=" << window_live_late_dropped_
           << " live_render_ms=" << (static_cast<double>(window_live_render_ns_) / 1000000.0)
           << " live_write_ms=" << (static_cast<double>(window_live_write_ns_) / 1000000.0)
+          << " live_write_overruns=" << window_live_terminal_overruns_
+          << " live_effective_fps=" << (window_live_effective_interval_us_ > 0
+                ? 1000000.0 / static_cast<double>(window_live_effective_interval_us_)
+                : 0.0)
           << " live_decode_to_present_ms=" << decode_to_present_ms
           << " live_max_decode_to_present_ms=" << (static_cast<double>(window_live_max_decode_to_present_us_) / 1000.0);
     }
@@ -693,6 +666,8 @@ class RuntimeDebugStats {
   int64_t window_live_decode_to_present_samples_ = 0;
   int64_t window_live_decode_to_present_us_ = 0;
   int64_t window_live_max_decode_to_present_us_ = 0;
+  int64_t window_live_effective_interval_us_ = 0;
+  int64_t window_live_terminal_overruns_ = 0;
   int last_cols_ = 0;
   int last_rows_ = 0;
 };
@@ -3445,7 +3420,7 @@ int playMedia(const CliOptions& options, Logger& logger) {
   CellBuffer split_right_cells;
   DiffEmitter emitter;
   FramePacer pacer(live_options);
-  LivePresentationPacer live_pacer(live_options, source_fps);
+  LivePresentationPacer live_pacer(live_options.fps, live_options.max_fps, source_fps);
   std::unique_ptr<PcmPlayer> audio_player;
   if (decoded_audio.has_value()) {
     audio_player = std::make_unique<PcmPlayer>(
@@ -3888,10 +3863,13 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
     const auto write_finished = std::chrono::steady_clock::now();
     if (live_decoded_at.has_value()) {
+      const LivePresentationTiming presentation_timing =
+        live_pacer.recordWrite(write_finished - write_started, write_finished);
       debug_stats.recordLivePresentation(render_finished - render_started,
                                          write_finished - write_started,
                                          *live_decoded_at,
-                                         write_finished);
+                                         write_finished,
+                                         presentation_timing);
     }
     if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
       quit = true;
