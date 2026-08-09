@@ -32,6 +32,8 @@ int main() {
   const auto first = emitter.emit(frame);
   expect(first.changed_cells == 3, "first frame full repaint");
   expect(first.bytes.find("\x1b[1;1H") != std::string::npos, "first cursor");
+  expect(first.bytes.find("\x1b[1;2H") == std::string::npos && first.bytes.find("\x1b[1;3H") == std::string::npos,
+         "adjacent dirty cells share one cursor run");
   expect(first.bytes.find("\x1b[38;2;255;0;0m") != std::string::npos, "red fg");
   expect(first.bytes.find("\x1b[48;2;0;0;0m") != std::string::npos, "black bg");
 
@@ -121,4 +123,25 @@ int main() {
   const auto second_emitter_first = second_emitter.emit(frame);
   expect(first_emitter_unchanged.changed_cells == 0, "emitter instances keep independent prior frames");
   expect(second_emitter_first.changed_cells == frame.size(), "new emitter paints independently");
+
+  strok::CellBuffer run_frame(3, 1);
+  run_frame.at(0, 0) = cell(U'A', 255, 0, 0);
+  run_frame.at(1, 0) = cell(U'B', 255, 0, 0);
+  run_frame.at(2, 0) = cell(U'C', 255, 0, 0);
+  strok::DiffEmitter run_emitter;
+  (void)run_emitter.emit(run_frame);
+  run_frame.at(0, 0).glyph = U'X';
+  run_frame.at(1, 0).glyph = U'Y';
+  const auto contiguous_changes = run_emitter.emit(run_frame);
+  expect(contiguous_changes.changed_cells == 2, "contiguous dirty fixture emits two cells");
+  expect(contiguous_changes.bytes.find("\x1b[1;1H") != std::string::npos, "contiguous dirty fixture positions run start");
+  expect(contiguous_changes.bytes.find("\x1b[1;2H") == std::string::npos, "contiguous dirty fixture omits second cursor move");
+  const std::string uncoalesced_bytes = "\x1b[1;1H\x1b[38;2;255;0;0m\x1b[48;2;0;0;0mX\x1b[1;2HY";
+  expect(contiguous_changes.bytes.size() < uncoalesced_bytes.size(), "cursor run reduces dense update bytes");
+
+  strok::CellBuffer wide_frame(2, 1);
+  wide_frame.at(0, 0) = cell(U'界', 255, 0, 0);
+  wide_frame.at(1, 0) = cell(U'A', 255, 0, 0);
+  const auto wide_frame_emit = strok::DiffEmitter{}.emit(wide_frame);
+  expect(wide_frame_emit.bytes.find("\x1b[1;2H") != std::string::npos, "wide glyph forces an absolute cursor move");
 }

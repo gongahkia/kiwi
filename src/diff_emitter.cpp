@@ -45,6 +45,12 @@ bool sameOptions(EmissionOptions lhs, EmissionOptions rhs) noexcept {
          lhs.origin_row == rhs.origin_row && lhs.origin_col == rhs.origin_col;
 }
 
+bool hasKnownSingleColumnWidth(char32_t glyph) noexcept {
+  return (glyph >= U' ' && glyph <= U'~') ||
+         (glyph >= U'\u2500' && glyph <= U'\u259f') ||
+         (glyph >= U'\u2800' && glyph <= U'\u28ff');
+}
+
 Rgb ditherColor(Rgb color, int row, int col, EmissionOptions options) {
   if (options.dither_mode != DitherMode::Ordered || !supportsPaletteDither(options.color_mode)) {
     return color;
@@ -110,6 +116,9 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
 
   std::optional<Rgb> active_fg;
   std::optional<Rgb> active_bg;
+  int previous_emitted_row = -1;
+  int previous_emitted_col = -1;
+  bool previous_emitted_single_column = false;
   for (int row = 0; row < current_frame->rows(); ++row) {
     for (int col = 0; col < current_frame->cols(); ++col) {
       const Cell& cell = current_frame->at(col, row);
@@ -117,7 +126,12 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
         continue;
       }
 
-      appendCursorMove(result.bytes, options.origin_row + row, options.origin_col + col);
+      const bool continues_cursor_run = previous_emitted_single_column &&
+                                        previous_emitted_row == row &&
+                                        previous_emitted_col + 1 == col;
+      if (!continues_cursor_run) {
+        appendCursorMove(result.bytes, options.origin_row + row, options.origin_col + col);
+      }
       if (color) {
         if (!active_fg.has_value() || !sameColor(*active_fg, cell.fg)) {
           appendFg(result.bytes, cell.fg, row, col, emit_options);
@@ -130,6 +144,9 @@ EmissionResult DiffEmitter::emit(const CellBuffer& current, EmissionOptions opti
       }
       appendUtf8(result.bytes, cell.glyph);
       ++result.changed_cells;
+      previous_emitted_row = row;
+      previous_emitted_col = col;
+      previous_emitted_single_column = hasKnownSingleColumnWidth(cell.glyph);
       if (!full_repaint) {
         previous_.at(col, row) = cell;
       }
