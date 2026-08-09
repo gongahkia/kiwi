@@ -17,7 +17,7 @@
  */
 
 #define STROK_C_ABI_VERSION_MAJOR 1u
-#define STROK_C_ABI_VERSION_MINOR 0u
+#define STROK_C_ABI_VERSION_MINOR 1u
 #define STROK_C_ABI_VERSION ((STROK_C_ABI_VERSION_MAJOR << 16) | STROK_C_ABI_VERSION_MINOR)
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -149,6 +149,28 @@ typedef struct StrokRenderGrid {
 STROK_C_API void STROK_C_CALL strok_renderer_config_init(StrokRendererConfig* config);
 STROK_C_API void STROK_C_CALL strok_render_grid_init(StrokRenderGrid* grid);
 
+typedef uint32_t StrokColorPixelFormat;
+enum {
+  STROK_COLOR_PIXEL_FORMAT_RGB24 = UINT32_C(0),
+  STROK_COLOR_PIXEL_FORMAT_RGBA8 = UINT32_C(1),
+  STROK_COLOR_PIXEL_FORMAT_BGRA8 = UINT32_C(2),
+};
+
+/* A borrowed read-only color image. data must remain valid and unchanged for the
+ * complete strok_renderer_render_color call. row_stride_bytes is the distance
+ * between row starts and may include padding. RGBA8 and BGRA8 ignore alpha. */
+typedef struct StrokColorImageView {
+  uint32_t version;
+  uint32_t struct_size;
+  const uint8_t* data;
+  int32_t width;
+  int32_t height;
+  uint64_t row_stride_bytes;
+  StrokColorPixelFormat pixel_format;
+} StrokColorImageView;
+
+STROK_C_API void STROK_C_CALL strok_color_image_view_init(StrokColorImageView* image);
+
 typedef struct StrokRenderer StrokRenderer;
 
 typedef uint32_t StrokStatus;
@@ -173,6 +195,12 @@ STROK_C_API StrokStatus STROK_C_CALL strok_renderer_create(const StrokRendererCo
 
 /* Resets only renderer temporal state. A null handle returns STROK_STATUS_INVALID_ARGUMENT. */
 STROK_C_API StrokStatus STROK_C_CALL strok_renderer_reset(StrokRenderer* renderer);
+
+/* Renders one borrowed RGB24, RGBA8, or BGRA8 image. Invalid image headers,
+ * formats, dimensions, or layouts return STROK_STATUS_INVALID_ARGUMENT and set
+ * strok_last_error_message(); the renderer handle remains usable. */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
+                                                                   const StrokColorImageView* image);
 
 /* Safe for null, failed, and never-rendered handles. This does not modify the caller's pointer. */
 STROK_C_API void STROK_C_CALL strok_renderer_destroy(StrokRenderer* renderer);

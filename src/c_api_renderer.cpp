@@ -1,9 +1,15 @@
 #include "c_api_config.hpp"
 
+#include "color_image_view.hpp"
+
 #include "../include/strok/renderer.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <exception>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -47,6 +53,67 @@ StrokStatus statusFromResult(const strok::RenderResult& result) noexcept {
       return STROK_STATUS_INTERNAL_ERROR;
   }
   return STROK_STATUS_INTERNAL_ERROR;
+}
+
+std::optional<strok::ColorPixelFormat> colorPixelFormatFromC(StrokColorPixelFormat pixel_format) {
+  switch (pixel_format) {
+    case STROK_COLOR_PIXEL_FORMAT_RGB24:
+      return strok::ColorPixelFormat::Rgb24;
+    case STROK_COLOR_PIXEL_FORMAT_RGBA8:
+      return strok::ColorPixelFormat::Rgba8;
+    case STROK_COLOR_PIXEL_FORMAT_BGRA8:
+      return strok::ColorPixelFormat::Bgra8;
+  }
+  return std::nullopt;
+}
+
+std::optional<strok::ColorImageView> colorImageViewFromC(const StrokColorImageView* image,
+                                                          std::string* error) {
+  if (image == nullptr) {
+    if (error != nullptr) {
+      *error = "color image view is required";
+    }
+    return std::nullopt;
+  }
+  if ((image->version >> 16U) != STROK_C_ABI_VERSION_MAJOR) {
+    if (error != nullptr) {
+      *error = "unsupported color image C ABI major version";
+    }
+    return std::nullopt;
+  }
+  if (image->struct_size < sizeof(*image)) {
+    if (error != nullptr) {
+      *error = "color image C ABI structure is smaller than the required layout";
+    }
+    return std::nullopt;
+  }
+  if (image->row_stride_bytes > std::numeric_limits<std::size_t>::max()) {
+    if (error != nullptr) {
+      *error = "color image row stride is not representable";
+    }
+    return std::nullopt;
+  }
+  const std::optional<strok::ColorPixelFormat> pixel_format = colorPixelFormatFromC(image->pixel_format);
+  if (!pixel_format.has_value()) {
+    if (error != nullptr) {
+      *error = "color image pixel format is unsupported";
+    }
+    return std::nullopt;
+  }
+  const strok::ColorImageView result{
+    .data = image->data,
+    .width = image->width,
+    .height = image->height,
+    .row_stride_bytes = static_cast<std::size_t>(image->row_stride_bytes),
+    .pixel_format = *pixel_format,
+  };
+  if (const std::optional<std::string> validation_error = strok::colorImageViewError(result); validation_error.has_value()) {
+    if (error != nullptr) {
+      *error = *validation_error;
+    }
+    return std::nullopt;
+  }
+  return result;
 }
 
 }  // namespace
@@ -98,6 +165,41 @@ StrokStatus STROK_C_CALL strok_renderer_reset(StrokRenderer* renderer) {
     return failure(STROK_STATUS_INTERNAL_ERROR, error.what());
   } catch (...) {
     return failure(STROK_STATUS_INTERNAL_ERROR, "unexpected renderer reset failure");
+  }
+}
+
+void STROK_C_CALL strok_color_image_view_init(StrokColorImageView* image) {
+  if (image == nullptr) {
+    return;
+  }
+  *image = StrokColorImageView{
+    .version = STROK_C_ABI_VERSION,
+    .struct_size = sizeof(StrokColorImageView),
+    .pixel_format = STROK_COLOR_PIXEL_FORMAT_RGB24,
+  };
+}
+
+StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
+                                                       const StrokColorImageView* image) {
+  if (renderer == nullptr || renderer->renderer == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer handle is required");
+  }
+  try {
+    std::string error;
+    const std::optional<strok::ColorImageView> color = colorImageViewFromC(image, &error);
+    if (!color.has_value()) {
+      return failure(STROK_STATUS_INVALID_ARGUMENT, error);
+    }
+    const strok::RenderResult result = renderer->renderer->render(*color);
+    if (!result.succeeded()) {
+      return failure(statusFromResult(result), result.message);
+    }
+    clearLastError();
+    return statusFromResult(result);
+  } catch (const std::exception& error) {
+    return failure(STROK_STATUS_INTERNAL_ERROR, error.what());
+  } catch (...) {
+    return failure(STROK_STATUS_INTERNAL_ERROR, "unexpected color render failure");
   }
 }
 
