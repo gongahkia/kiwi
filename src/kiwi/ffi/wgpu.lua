@@ -85,6 +85,7 @@ void wgpuInstanceProcessEvents(WGPUInstance instance);
 void wgpuInstanceRelease(WGPUInstance instance);
 WGPUFuture wgpuAdapterRequestDevice(WGPUAdapter adapter, const WGPUDeviceDescriptor* descriptor, WGPURequestDeviceCallbackInfo callbackInfo);
 uint32_t wgpuAdapterGetInfo(WGPUAdapter adapter, WGPUAdapterInfo* info);
+WGPUBool wgpuAdapterHasFeature(WGPUAdapter adapter, uint32_t feature);
 void wgpuAdapterInfoFreeMembers(WGPUAdapterInfo adapterInfo);
 void wgpuAdapterRelease(WGPUAdapter adapter);
 WGPUQueue wgpuDeviceGetQueue(WGPUDevice device);
@@ -134,7 +135,7 @@ void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
-const char* kiwi_shader_diagnostics(WGPUInstance instance, WGPUShaderModule shader);
+WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char* source_code);
 const char* kiwi_surface_last_error(void);
 ]]
 

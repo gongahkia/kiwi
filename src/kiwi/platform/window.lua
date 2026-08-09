@@ -29,12 +29,14 @@ function Window.new(width, height, title)
   local self = setmetatable({
     handle = handle,
     resized = true,
+    minimized = false,
     debug_dirty = false,
     debug_boundaries = false,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
-    self.resized = drawable_width > 0 and drawable_height > 0
+    self.resized = true
+    self.minimized = drawable_width <= 0 or drawable_height <= 0
   end)
   self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action)
     if action ~= glfw.constants.press then

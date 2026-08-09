@@ -20,36 +20,42 @@ end
 
 function Context.new(window)
   local self = setmetatable({ window = window, native = wgpu }, Context)
-  local api = wgpu.lib
-  local constants = wgpu.constants
+  local ok, result = xpcall(function()
+    local api = wgpu.lib
+    local instance_descriptor = ffi.new("WGPUInstanceDescriptor")
+    self.instance = assert_handle(api.wgpuCreateInstance(instance_descriptor), "wgpuCreateInstance")
+    self.surface = assert_handle(wgpu.surface.kiwi_surface_from_glfw(self.instance, window.handle), "kiwi_surface_from_glfw: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
 
-  local instance_descriptor = ffi.new("WGPUInstanceDescriptor")
-  self.instance = assert_handle(api.wgpuCreateInstance(instance_descriptor), "wgpuCreateInstance")
-  self.surface = assert_handle(wgpu.surface.kiwi_surface_from_glfw(self.instance, window.handle), "kiwi_surface_from_glfw: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+    self.adapter = wgpu.surface.kiwi_request_adapter_sync(self.instance, self.surface)
+    if self.adapter == nil then
+      error("Unable to request a Vulkan-capable adapter: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+    end
 
-  self.adapter = wgpu.surface.kiwi_request_adapter_sync(self.instance, self.surface)
-  if self.adapter == nil then
-    error("Unable to request a Vulkan-capable adapter: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+    local adapter_info = ffi.new("WGPUAdapterInfo")
+    if api.wgpuAdapterGetInfo(self.adapter, adapter_info) ~= 1 then
+      error("wgpuAdapterGetInfo failed")
+    end
+    self.adapter_info = {
+      vendor = message_text(adapter_info.vendor),
+      device = message_text(adapter_info.device),
+      description = message_text(adapter_info.description),
+      backend = adapter_info.backendType,
+      backend_name = adapter_info.backendType == 6 and "Vulkan" or ("backend-" .. adapter_info.backendType),
+    }
+    api.wgpuAdapterInfoFreeMembers(adapter_info)
+    self.timestamp_query_supported = api.wgpuAdapterHasFeature(self.adapter, 9) ~= 0
+
+    self.device = wgpu.surface.kiwi_request_device_sync(self.instance, self.adapter)
+    if self.device == nil then
+      error("Unable to create a wgpu device: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+    end
+    self.queue = assert_handle(api.wgpuDeviceGetQueue(self.device), "wgpuDeviceGetQueue")
+    self:configure_surface()
+  end, debug.traceback)
+  if not ok then
+    self:destroy()
+    error(result)
   end
-
-  local adapter_info = ffi.new("WGPUAdapterInfo")
-  if api.wgpuAdapterGetInfo(self.adapter, adapter_info) ~= 1 then
-    error("wgpuAdapterGetInfo failed")
-  end
-  self.adapter_info = {
-    vendor = message_text(adapter_info.vendor),
-    device = message_text(adapter_info.device),
-    description = message_text(adapter_info.description),
-    backend = adapter_info.backendType,
-  }
-  api.wgpuAdapterInfoFreeMembers(adapter_info)
-
-  self.device = wgpu.surface.kiwi_request_device_sync(self.instance, self.adapter)
-  if self.device == nil then
-    error("Unable to create a wgpu device: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
-  end
-  self.queue = assert_handle(api.wgpuDeviceGetQueue(self.device), "wgpuDeviceGetQueue")
-  self:configure_surface()
   return self
 end
 

@@ -21,6 +21,7 @@ smoke: native
 	./script/smoke
 
 bench:
+	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/main.lua
 
 check: test

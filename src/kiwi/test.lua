@@ -3,7 +3,10 @@ local tests = {
   require("tests.test_terminal"),
   require("tests.test_synthetic"),
   require("tests.test_atlas"),
+  require("tests.test_freetype"),
   require("tests.test_packing"),
+  require("tests.test_color"),
+  require("tests.test_json"),
   require("tests.test_stats"),
 }
 
