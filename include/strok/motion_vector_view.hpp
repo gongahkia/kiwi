@@ -30,8 +30,13 @@ enum class MotionVectorValidity : std::uint8_t {
 // identifies the immediately preceding source-image coordinate (x + dx, y + dy).
 // +x points right and +y points down. Values are source-color pixel units, never
 // normalized coordinates; RenderInput requires this view to match color dimensions.
-// No invalid or disoccluded sentinel is defined yet. An absent view leaves current
-// reconstruction behavior unchanged and allows internally inferred optical flow.
+// Cell-grid remapping samples the source pixel nearest each cell center, inverts this
+// current-to-previous direction, and scales dx by grid_cols / width and dy by
+// grid_rows / height. Vectors whose previous source coordinate is out of bounds are
+// remapped as Invalid before temporal history can use them.
+// Validity and disocclusion state is carried by MotionVectorValidityView rather than
+// a vector sentinel. An absent view leaves current reconstruction behavior unchanged
+// and allows internally inferred optical flow.
 struct MotionVectorView {
   const float* data = nullptr;
   int width = 0;
@@ -48,6 +53,7 @@ struct MotionVectorView {
 // future history reuse. Any other value is invalid input. An absent view means all
 // supplied vectors are Valid. The caller keeps data valid and unchanged for the
 // complete render call; RenderInput requires this view to match color dimensions.
+// Cell-grid remapping preserves sampled Invalid and Disoccluded statuses.
 struct MotionVectorValidityView {
   const std::uint8_t* data = nullptr;
   int width = 0;

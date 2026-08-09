@@ -2,11 +2,15 @@
 
 #include "../include/strok/motion_vector_view.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace strok {
 
@@ -98,6 +102,87 @@ inline std::optional<std::string> motionVectorValidityViewError(const MotionVect
 inline MotionVectorValidity motionVectorValidityAt(const MotionVectorValidityView& image, int x, int y) noexcept {
   const auto* row = image.data + static_cast<std::size_t>(y) * image.row_stride_bytes;
   return static_cast<MotionVectorValidity>(row[x]);
+}
+
+struct CellMotionVector {
+  // Previous-to-current cell displacement, matching FlowVector's warp convention.
+  double dx = 0.0;
+  double dy = 0.0;
+  MotionVectorValidity validity = MotionVectorValidity::Invalid;
+};
+
+struct CellMotionField {
+  int cols = 0;
+  int rows = 0;
+  std::vector<CellMotionVector> vectors;
+
+  const CellMotionVector& at(int col, int row) const {
+    if (col < 0 || row < 0 || col >= cols || row >= rows) {
+      throw std::out_of_range("cell motion index out of range");
+    }
+    return vectors.at(static_cast<std::size_t>(row) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(col));
+  }
+};
+
+inline CellMotionField remapMotionVectorsToCellGrid(const MotionVectorView& motion_vectors,
+                                                     const MotionVectorValidityView* validity,
+                                                     int cols,
+                                                     int rows) {
+  if (const std::optional<std::string> error = motionVectorViewError(motion_vectors); error.has_value()) {
+    throw std::invalid_argument(*error);
+  }
+  if (cols <= 0 || rows <= 0) {
+    throw std::invalid_argument("cell motion dimensions must be positive");
+  }
+  if (validity != nullptr) {
+    if (const std::optional<std::string> error = motionVectorValidityViewError(*validity); error.has_value()) {
+      throw std::invalid_argument(*error);
+    }
+    if (validity->width != motion_vectors.width || validity->height != motion_vectors.height) {
+      throw std::invalid_argument("motion vector validity dimensions must match motion vectors");
+    }
+    for (int y = 0; y < validity->height; ++y) {
+      for (int x = 0; x < validity->width; ++x) {
+        if (!motionVectorValidityDefined(motionVectorValidityAt(*validity, x, y))) {
+          throw std::invalid_argument("motion vector validity contains an unsupported value");
+        }
+      }
+    }
+  }
+
+  CellMotionField field;
+  field.cols = cols;
+  field.rows = rows;
+  field.vectors.reserve(static_cast<std::size_t>(cols) * static_cast<std::size_t>(rows));
+  for (int row = 0; row < rows; ++row) {
+    const int source_y = std::min(static_cast<int>((static_cast<double>(row) + 0.5) * motion_vectors.height / rows), motion_vectors.height - 1);
+    for (int col = 0; col < cols; ++col) {
+      const int source_x = std::min(static_cast<int>((static_cast<double>(col) + 0.5) * motion_vectors.width / cols), motion_vectors.width - 1);
+      const MotionVectorValidity sample_validity = validity == nullptr
+                                                      ? MotionVectorValidity::Valid
+                                                      : motionVectorValidityAt(*validity, source_x, source_y);
+      if (sample_validity != MotionVectorValidity::Valid) {
+        field.vectors.push_back(CellMotionVector{.validity = sample_validity});
+        continue;
+      }
+
+      const MotionVectorSample vector = motionVectorAt(motion_vectors, source_x, source_y);
+      const double previous_x = static_cast<double>(source_x) + static_cast<double>(vector.x);
+      const double previous_y = static_cast<double>(source_y) + static_cast<double>(vector.y);
+      if (!std::isfinite(vector.x) || !std::isfinite(vector.y) ||
+          previous_x < 0.0 || previous_x >= motion_vectors.width ||
+          previous_y < 0.0 || previous_y >= motion_vectors.height) {
+        field.vectors.push_back(CellMotionVector{});
+        continue;
+      }
+      field.vectors.push_back(CellMotionVector{
+          .dx = -static_cast<double>(vector.x) * cols / motion_vectors.width,
+          .dy = -static_cast<double>(vector.y) * rows / motion_vectors.height,
+          .validity = MotionVectorValidity::Valid,
+      });
+    }
+  }
+  return field;
 }
 
 }  // namespace strok

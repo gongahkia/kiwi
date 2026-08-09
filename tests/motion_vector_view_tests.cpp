@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 
 namespace {
 
@@ -150,4 +151,58 @@ int main() {
                           .row_stride_bytes = std::numeric_limits<std::size_t>::max(),
                         },
                         "overflowing motion-vector validity layout");
+
+  std::array<float, 8U * 4U * 2U> remap_vectors{};
+  for (int y = 0; y < 4; ++y) {
+    for (int x = 0; x < 8; ++x) {
+      const std::size_t index = (static_cast<std::size_t>(y) * 8U + static_cast<std::size_t>(x)) * 2U;
+      remap_vectors[index] = -2.0F;
+      remap_vectors[index + 1U] = -1.0F;
+    }
+  }
+  const strok::MotionVectorView remap_view{
+    .data = remap_vectors.data(),
+    .width = 8,
+    .height = 4,
+    .row_stride_bytes = 8U * 2U * sizeof(float),
+  };
+  std::array<std::uint8_t, 8U * 4U> remap_validity{};
+  remap_validity.fill(static_cast<std::uint8_t>(strok::MotionVectorValidity::Valid));
+  remap_validity[3U * 8U + 5U] = static_cast<std::uint8_t>(strok::MotionVectorValidity::Disoccluded);
+  remap_validity[3U * 8U + 7U] = static_cast<std::uint8_t>(strok::MotionVectorValidity::Invalid);
+  const strok::MotionVectorValidityView remap_validity_view{
+    .data = remap_validity.data(),
+    .width = 8,
+    .height = 4,
+    .row_stride_bytes = 8,
+  };
+  const strok::CellMotionField remapped = strok::remapMotionVectorsToCellGrid(remap_view, &remap_validity_view, 4, 2);
+  expect(remapped.cols == 4 && remapped.rows == 2 && remapped.vectors.size() == 8U, "motion vectors remap to cell grid");
+  expect(remapped.at(0, 0).validity == strok::MotionVectorValidity::Invalid, "out-of-bounds vector invalidated before history use");
+  const strok::CellMotionVector scaled = remapped.at(1, 0);
+  expect(scaled.validity == strok::MotionVectorValidity::Valid && scaled.dx == 1.0 && scaled.dy == 0.5,
+         "source current-to-previous vector converts to scaled cell previous-to-current displacement");
+  expect(remapped.at(2, 1).validity == strok::MotionVectorValidity::Disoccluded,
+         "disocclusion status survives cell remapping");
+  expect(remapped.at(3, 1).validity == strok::MotionVectorValidity::Invalid,
+         "invalid status survives cell remapping");
+
+  remap_vectors[(1U * 8U + 3U) * 2U] = std::numeric_limits<float>::quiet_NaN();
+  const strok::CellMotionField nonfinite_remapped = strok::remapMotionVectorsToCellGrid(remap_view, nullptr, 4, 2);
+  expect(nonfinite_remapped.at(1, 0).validity == strok::MotionVectorValidity::Invalid,
+         "non-finite motion vector invalidated before history use");
+
+  const strok::MotionVectorValidityView mismatched_validity_view{
+    .data = remap_validity.data(),
+    .width = 7,
+    .height = 4,
+    .row_stride_bytes = 7,
+  };
+  bool mismatched_validity = false;
+  try {
+    (void)strok::remapMotionVectorsToCellGrid(remap_view, &mismatched_validity_view, 4, 2);
+  } catch (const std::invalid_argument&) {
+    mismatched_validity = true;
+  }
+  expect(mismatched_validity, "motion-vector remap rejects mismatched validity dimensions");
 }
