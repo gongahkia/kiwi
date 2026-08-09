@@ -1,44 +1,94 @@
-local Window = require("kiwi.platform.window")
 local Context = require("kiwi.gpu.context")
-local Synthetic = require("kiwi.terminal.synthetic")
+local Demo = require("kiwi.app.demo")
 local FreeType = require("kiwi.font.freetype")
-local Renderer = require("kiwi.renderer.renderer")
+local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
+local Pty = require("kiwi.process.pty")
+local Renderer = require("kiwi.renderer.renderer")
+local Parser = require("kiwi.terminal.parser")
+local State = require("kiwi.terminal.state")
+local Window = require("kiwi.platform.window")
+local glfw = require("kiwi.ffi.glfw").constants
 
 local function number_from_env(name, fallback)
   local value = tonumber(os.getenv(name))
   return value and value >= 0 and value or fallback
 end
 
-local function run()
-  local window = Window.new(1600, 960, "Kiwi M0 renderer laboratory")
+local function parse_options()
+  local options = { demo = os.getenv("KIWI_DEMO") == "1" }
+  local index = 1
+  while index <= #arg do
+    local value = arg[index]
+    if value == "--demo" then
+      options.demo = true
+    elseif value == "--" then
+      options.command = {}
+      for command_index = index + 1, #arg do
+        options.command[#options.command + 1] = arg[command_index]
+      end
+      break
+    else
+      error("unknown option: " .. value .. "; use --demo or -- <command> [args...]")
+    end
+    index = index + 1
+  end
+  return options
+end
+
+local function dimensions(window, font)
+  local width, height = window:drawable_size()
+  if width <= 0 or height <= 0 then
+    return nil
+  end
+  return math.max(1, math.floor(width / font.cell_width)), math.max(1, math.floor(height / font.cell_height))
+end
+
+local function run_live(options)
+  local window = Window.new(1600, 960, "Kiwi M1 terminal")
   local context
   local renderer
+  local pty
   local ok, result = xpcall(function()
     context = Context.new(window)
-    local model = Synthetic.new(number_from_env("KIWI_SEED", 0x4b495749), 160, 50)
     local font = FreeType.rasterize({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
-    renderer = Renderer.new(context, font, model)
-    local metrics = Metrics.new(context, font, model)
-    local scenario = os.getenv("KIWI_SCENARIO") or "typing"
+    local columns, rows = dimensions(window, font)
+    assert(columns ~= nil, "window has no drawable size")
+    local state = State.new(columns, rows, { scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000) })
+    local root = os.getenv("KIWI_ROOT") or "."
+    pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
+      TERM = "kiwi",
+      TERMINFO = root .. "/.build/terminfo",
+    })
+    local parser = Parser.new(function(action)
+      state:apply(action)
+    end)
+    renderer = Renderer.new(context, font, state)
+    local metrics = Metrics.new(context, font, state)
+    local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
-    local frame_interval = 1 / 30
-    local scenario_interval = 0.20
     local next_frame = window:time()
-    local next_scenario = next_frame + scenario_interval
-    local tick = 0
 
-    io.stdout:write(string.format(
-      "Kiwi M0: Vulkan adapter=%s vendor=%s grid=%dx%d atlas=%d glyphs (%dx%d)\n",
-      context.adapter_info.device,
-      context.adapter_info.vendor,
-      model.columns,
-      model.rows,
-      font.atlas:glyph_count(),
-      font.atlas.width,
-      font.atlas.height
-    ))
+    window:set_input_handlers(function(codepoint)
+      local text = Keyboard.text(codepoint)
+      if text then
+        pty:enqueue(text)
+      end
+    end, function(key, action, modifiers)
+      local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
+      if not encoded then
+        return
+      end
+      if encoded.local_action == "scroll_up" then
+        state:scroll_history(math.max(1, state.rows - 1))
+      elseif encoded.local_action == "scroll_down" then
+        state:scroll_history(-math.max(1, state.rows - 1))
+      elseif encoded.bytes then
+        pty:enqueue(encoded.bytes)
+      end
+    end)
 
+    io.stdout:write(string.format("Kiwi M1: TERM=kiwi child=%s grid=%dx%d atlas=%d glyphs\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.atlas:glyph_count()))
     while not window:should_close() do
       local now = window:time()
       if now < next_frame then
@@ -46,45 +96,68 @@ local function run()
       end
       window:poll_events()
       now = window:time()
+
+      local output = pty:read_available()
+      if #output > 0 then
+        parser:feed(output)
+      end
+      local responses = state:pop_responses()
+      if #responses > 0 then
+        pty:enqueue(table.concat(responses))
+      end
+      pty:flush()
+      local child_status = pty:poll_exit()
+      if state.title and state.title ~= last_title then
+        window:set_title(state.title)
+        last_title = state.title
+      end
+
       if now >= next_frame then
-        if now >= next_scenario then
-          tick = tick + 1
-          Synthetic.apply(model, scenario, tick)
-          next_scenario = now + scenario_interval
+        local new_columns, new_rows = dimensions(window, font)
+        if new_columns and (new_columns ~= state.columns or new_rows ~= state.rows) then
+          context:configure_surface()
+          state:resize(new_columns, new_rows)
+          pty:resize(new_columns, new_rows)
+          renderer:destroy()
+          renderer = Renderer.new(context, font, state)
         end
         local frame_start = now
         local prepare_start = window:time()
-        renderer:update_model(model)
+        renderer:update_model(state)
         local prepare_elapsed = window:time() - prepare_start
-        local rendered, reason = renderer:render(model, now, window.debug_dirty, window.debug_boundaries)
+        local rendered, reason = renderer:render(state, now, window.debug_dirty, window.debug_boundaries)
         if not rendered and reason ~= "zero-sized drawable" then
           if reason:sub(1, 17) == "native GPU error:" then
             error(reason)
-          else
-            context.window.resized = true
           end
+          context.window.resized = true
         end
-        local frame_elapsed = window:time() - frame_start
-        metrics:record(frame_elapsed, prepare_elapsed, renderer)
-        metrics:report(now)
-        next_frame = now + frame_interval
+        metrics:record(window:time() - frame_start, prepare_elapsed, renderer)
+        if window.debug_metrics then
+          metrics:report(now)
+        end
+        next_frame = now + 1 / 30
         if max_frames > 0 and metrics.frame_number >= max_frames then
           break
         end
       end
+      if child_status and pty.eof then
+        window:request_close()
+      end
     end
+    parser:finish()
   end, debug.traceback)
 
-  if renderer then
-    renderer:destroy()
-  end
-  if context then
-    context:destroy()
-  end
+  if pty then pty:shutdown() end
+  if renderer then renderer:destroy() end
+  if context then context:destroy() end
   window:destroy()
-  if not ok then
-    error(result)
-  end
+  if not ok then error(result) end
 end
 
-run()
+local options = parse_options()
+if options.demo then
+  Demo.run()
+else
+  run_live(options)
+end

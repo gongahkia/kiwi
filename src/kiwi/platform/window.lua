@@ -32,27 +32,44 @@ function Window.new(width, height, title)
     minimized = false,
     debug_dirty = false,
     debug_boundaries = false,
+    debug_metrics = false,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
     self.resized = true
     self.minimized = drawable_width <= 0 or drawable_height <= 0
   end)
-  self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action)
-    if action ~= glfw.constants.press then
-      return
-    end
-    if key == glfw.constants.key_escape then
-      glfw.lib.glfwSetWindowShouldClose(self.handle, 1)
-    elseif key == glfw.constants.key_f2 then
+  self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action, modifiers)
+    if action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
-    elseif key == glfw.constants.key_f3 then
+    elseif action == glfw.constants.press and key == glfw.constants.key_f3 then
       self.debug_boundaries = not self.debug_boundaries
+    elseif action == glfw.constants.press and key == glfw.constants.key_f4 then
+      self.debug_metrics = not self.debug_metrics
+    elseif self.on_key then
+      self.on_key(key, action, modifiers)
+    elseif action == glfw.constants.press and key == glfw.constants.key_escape then
+      glfw.lib.glfwSetWindowShouldClose(self.handle, 1)
+    end
+  end)
+  self.callbacks.character = ffi.cast("GLFWcharfun", function(_, codepoint)
+    if self.on_text then
+      self.on_text(codepoint)
     end
   end)
   glfw.lib.glfwSetFramebufferSizeCallback(handle, self.callbacks.resize)
   glfw.lib.glfwSetKeyCallback(handle, self.callbacks.key)
+  glfw.lib.glfwSetCharCallback(handle, self.callbacks.character)
   return self
+end
+
+function Window:set_input_handlers(on_text, on_key)
+  self.on_text = on_text
+  self.on_key = on_key
+end
+
+function Window:set_title(title)
+  glfw.lib.glfwSetWindowTitle(self.handle, title)
 end
 
 function Window:drawable_size()
@@ -71,6 +88,10 @@ end
 
 function Window:should_close()
   return glfw.lib.glfwWindowShouldClose(self.handle) ~= 0
+end
+
+function Window:request_close()
+  glfw.lib.glfwSetWindowShouldClose(self.handle, 1)
 end
 
 function Window:poll_events()

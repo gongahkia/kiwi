@@ -8,5 +8,5 @@ if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
 fi
 
 cd "$ROOT"
-KIWI_MAX_FRAMES=3 make run
+KIWI_MAX_FRAMES=120 make run ARGS='-- /usr/bin/printf "\033[32mkiwi-live-smoke\033[0m\n"'
 print "GPU/window smoke test passed."

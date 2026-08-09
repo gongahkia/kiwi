@@ -16,7 +16,7 @@ struct FrameData {
   time: f32,
   show_dirty: f32,
   show_boundaries: f32,
-  _padding: f32,
+  cursor_visible: f32,
 }
 
 struct RasterOut {
@@ -97,12 +97,17 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
     discard;
   }
   let coverage = textureSample(glyph_atlas, glyph_sampler, input.uv).r;
-  if (coverage < 0.30) {
+  let decoration = ((input.flags & 32u) != 0u && input.local_position.y > 0.88)
+    || ((input.flags & 256u) != 0u && input.local_position.y > 0.46 && input.local_position.y < 0.54);
+  if (coverage < 0.30 && !decoration) {
     discard;
   }
   var color = input.fg;
   if ((input.flags & 1u) != 0u) {
     color = vec4<f32>(min(vec3<f32>(1.0), color.rgb * 1.16), color.a);
+  }
+  if ((input.flags & 8u) != 0u) {
+    color = vec4<f32>(color.rgb * 0.65, color.a);
   }
   return color;
 }
@@ -126,6 +131,9 @@ fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
 
 @fragment
 fn cursor_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if (frame.cursor_visible < 0.5) {
+    discard;
+  }
   if (abs(sin(frame.time * 3.0)) < 0.15) {
     discard;
   }

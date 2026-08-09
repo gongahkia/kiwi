@@ -628,7 +628,7 @@ function State:apply_csi(action)
   elseif final == "G" then
     self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
   elseif final == "d" then
-    self:set_cursor(self.cursor.column, parameter(parameters, 1, 1) - 1)
+    self:move_cursor(parameter(parameters, 1, 1), self.cursor.column + 1)
   elseif final == "H" or final == "f" then
     self:move_cursor(parameter(parameters, 1, 1), parameter(parameters, 2, 1))
   elseif final == "J" then

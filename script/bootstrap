@@ -13,7 +13,7 @@ if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
   exit 1
 fi
 
-for command in luajit curl unzip sha256sum pkg-config; do
+for command in luajit curl unzip sha256sum pkg-config tic infocmp; do
   if ! command -v "$command" >/dev/null; then
     print -u2 "Missing required command: $command"
     exit 1
