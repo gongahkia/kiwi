@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 
 namespace {
 
@@ -19,6 +20,16 @@ strok::CellBuffer render(const strok::ColorImageView& image) {
   expect(created.succeeded(), "renderer construction");
   expect(created.renderer->render(image).succeeded(), "multi-format render");
   return created.renderer->cells();
+}
+
+void expectInvalid(const strok::ColorImageView& image, const char* label) {
+  strok::Renderer::CreateResult created = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0}, strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(created.succeeded(), "invalid-layout renderer construction");
+  strok::CellBuffer output(1, 1);
+  output.at(0, 0).glyph = U'X';
+  const strok::RenderResult result = created.renderer->render(image, &output);
+  expect(result.status == strok::RenderStatus::InvalidInput, label);
+  expect(output.cols() == 1 && output.rows() == 1 && output.at(0, 0).glyph == U'X', "invalid multi-format layout preserves output");
 }
 
 }  // namespace
@@ -85,4 +96,29 @@ int main() {
   expect(rgb_cells == bgra_cells, "BGRA8 channel order preserves RGB reconstruction");
   expect(rgb_cells == padded_rgba_cells, "padded RGBA8 reconstruction");
   expect(rgb_cells == padded_bgra_cells, "padded BGRA8 reconstruction");
+
+  expectInvalid(strok::ColorImageView{
+                  .data = nullptr,
+                  .width = 1,
+                  .height = 1,
+                  .row_stride_bytes = 4,
+                  .pixel_format = strok::ColorPixelFormat::Rgba8,
+                },
+                "RGBA8 null data");
+  expectInvalid(strok::ColorImageView{
+                  .data = rgba.data(),
+                  .width = 2,
+                  .height = 1,
+                  .row_stride_bytes = 7,
+                  .pixel_format = strok::ColorPixelFormat::Rgba8,
+                },
+                "undersized RGBA8 row stride");
+  expectInvalid(strok::ColorImageView{
+                  .data = bgra.data(),
+                  .width = 1,
+                  .height = std::numeric_limits<int>::max(),
+                  .row_stride_bytes = std::numeric_limits<std::size_t>::max(),
+                  .pixel_format = strok::ColorPixelFormat::Bgra8,
+                },
+                "overflowing BGRA8 layout");
 }
