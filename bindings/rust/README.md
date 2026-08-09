@@ -8,9 +8,11 @@ call.
 
 `strok-bevy` is an optional CPU/readback-first Bevy App/ECS integration. It
 stores the thread-confined safe `Renderer` as a Bevy non-send resource, accepts
-packed RGB/RGBA/BGRA `CpuColorFrame` resources, and copies the resulting
-CellBuffer into a Bevy-owned `CellGrid`. It deliberately does not perform Bevy
-GPU texture interop or hidden readback.
+packed RGB/RGBA/BGRA `CpuColorFrame` resources with optional Float64 depth and
+Float64x3 view-space normals, and copies glyph/foreground/background cells into
+a Bevy-owned `CellGrid`. The renderer resets temporal state after source resize
+or an explicit stream epoch change. It deliberately does not perform Bevy GPU
+texture interop or hidden readback.
 
 For a development build, first build `build/core` with the C ABI target and run:
 
