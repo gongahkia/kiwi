@@ -12,6 +12,17 @@
 
 namespace strok {
 
+inline std::size_t colorBytesPerPixel(ColorPixelFormat pixel_format) noexcept {
+  switch (pixel_format) {
+    case ColorPixelFormat::Rgb24:
+      return 3U;
+    case ColorPixelFormat::Rgba8:
+    case ColorPixelFormat::Bgra8:
+      return 4U;
+  }
+  return 0U;
+}
+
 inline std::optional<std::string> colorImageViewError(const ColorImageView& image) {
   if (image.data == nullptr) {
     return "color image data is required";
@@ -19,7 +30,8 @@ inline std::optional<std::string> colorImageViewError(const ColorImageView& imag
   if (image.width <= 0 || image.height <= 0) {
     return "color image dimensions must be positive";
   }
-  if (image.pixel_format != ColorPixelFormat::Rgb24) {
+  const std::size_t bytes_per_pixel = colorBytesPerPixel(image.pixel_format);
+  if (bytes_per_pixel == 0U) {
     return "color image pixel format is unsupported";
   }
 
@@ -28,12 +40,12 @@ inline std::optional<std::string> colorImageViewError(const ColorImageView& imag
   if (width > std::numeric_limits<std::size_t>::max() / height) {
     return "color image dimensions overflow";
   }
-  if (width > std::numeric_limits<std::size_t>::max() / 3U) {
+  if (width > std::numeric_limits<std::size_t>::max() / bytes_per_pixel) {
     return "color image row size overflows";
   }
-  const std::size_t row_bytes = width * 3U;
+  const std::size_t row_bytes = width * bytes_per_pixel;
   if (image.row_stride_bytes < row_bytes) {
-    return "color image row stride is smaller than RGB24 row size";
+    return "color image row stride is smaller than pixel row size";
   }
 
   const std::size_t rows_before_last = height - 1U;
@@ -57,12 +69,23 @@ inline ColorImageView colorImageViewFromValidFrame(const Frame& frame) noexcept 
 
 inline Rgb colorAt(const ColorImageView& image, int x, int y) noexcept {
   const std::size_t row = static_cast<std::size_t>(y) * image.row_stride_bytes;
-  const std::size_t pixel = row + static_cast<std::size_t>(x) * 3U;
-  return Rgb{
-    .r = image.data[pixel],
-    .g = image.data[pixel + 1U],
-    .b = image.data[pixel + 2U],
-  };
+  const std::size_t pixel = row + static_cast<std::size_t>(x) * colorBytesPerPixel(image.pixel_format);
+  switch (image.pixel_format) {
+    case ColorPixelFormat::Rgb24:
+    case ColorPixelFormat::Rgba8:
+      return Rgb{
+        .r = image.data[pixel],
+        .g = image.data[pixel + 1U],
+        .b = image.data[pixel + 2U],
+      };
+    case ColorPixelFormat::Bgra8:
+      return Rgb{
+        .r = image.data[pixel + 2U],
+        .g = image.data[pixel + 1U],
+        .b = image.data[pixel],
+      };
+  }
+  return Rgb{};
 }
 
 }  // namespace strok
