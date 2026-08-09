@@ -59,8 +59,10 @@ struct ShapeMatchStats {
 
 struct HistoryMotionSelection {
   FlowField flow;
+  std::vector<bool> history_available;
   int64_t external_cells = 0;
   int64_t inferred_cells = 0;
+  int64_t suppressed_cells = 0;
 };
 
 struct CellShadeSample {
@@ -92,11 +94,11 @@ std::optional<FlowVector> inferredFlowForCell(const FlowField& flow, int cols, i
   };
 }
 
-std::optional<HistoryMotionSelection> selectHistoryMotion(const CellMotionField& external,
-                                                           const std::optional<FlowField>& inferred) {
+HistoryMotionSelection selectHistoryMotion(const CellMotionField& external,
+                                           const std::optional<FlowField>& inferred) {
   if (external.cols <= 0 || external.rows <= 0 ||
       external.vectors.size() != static_cast<std::size_t>(external.cols) * static_cast<std::size_t>(external.rows)) {
-    return std::nullopt;
+    throw std::invalid_argument("invalid cell motion field");
   }
   HistoryMotionSelection selection;
   selection.flow = FlowField{
@@ -108,23 +110,28 @@ std::optional<HistoryMotionSelection> selectHistoryMotion(const CellMotionField&
     .vectors = {},
   };
   selection.flow.vectors.reserve(external.vectors.size());
+  selection.history_available.reserve(external.vectors.size());
   for (int row = 0; row < external.rows; ++row) {
     for (int col = 0; col < external.cols; ++col) {
       const CellMotionVector& external_vector = external.at(col, row);
       if (external_vector.validity == MotionVectorValidity::Valid) {
         selection.flow.vectors.push_back(FlowVector{.dx = external_vector.dx, .dy = external_vector.dy});
+        selection.history_available.push_back(true);
         ++selection.external_cells;
         continue;
       }
-      if (external_vector.validity != MotionVectorValidity::Invalid || !inferred.has_value()) {
-        return std::nullopt;
+      if (external_vector.validity == MotionVectorValidity::Invalid && inferred.has_value()) {
+        const std::optional<FlowVector> fallback = inferredFlowForCell(*inferred, external.cols, external.rows, col, row);
+        if (fallback.has_value()) {
+          selection.flow.vectors.push_back(*fallback);
+          selection.history_available.push_back(true);
+          ++selection.inferred_cells;
+          continue;
+        }
       }
-      const std::optional<FlowVector> fallback = inferredFlowForCell(*inferred, external.cols, external.rows, col, row);
-      if (!fallback.has_value()) {
-        return std::nullopt;
-      }
-      selection.flow.vectors.push_back(*fallback);
-      ++selection.inferred_cells;
+      selection.flow.vectors.push_back(FlowVector{});
+      selection.history_available.push_back(false);
+      ++selection.suppressed_cells;
     }
   }
   return selection;
@@ -809,7 +816,6 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   }
   std::optional<CellMotionField> external_motion;
   bool external_motion_has_invalid = false;
-  bool external_motion_has_disocclusion = false;
   if (input.motion_vectors.has_value()) {
     external_motion = remapMotionVectorsToCellGrid(*input.motion_vectors,
                                                    input.motion_vector_validity.has_value() ? &*input.motion_vector_validity : nullptr,
@@ -817,7 +823,6 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                                                    size.rows);
     for (const CellMotionVector& vector : external_motion->vectors) {
       external_motion_has_invalid = external_motion_has_invalid || vector.validity == MotionVectorValidity::Invalid;
-      external_motion_has_disocclusion = external_motion_has_disocclusion || vector.validity == MotionVectorValidity::Disoccluded;
     }
   }
   std::vector<char32_t> previous_glyphs;
@@ -841,6 +846,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   std::vector<CellLuminanceRegion> cell_shape_regions;
   std::vector<char32_t> warped_previous_glyphs;
   std::vector<CellLuminanceRegion> warped_previous_shape_regions;
+  std::vector<bool> warped_history_available;
   const double edge_threshold = effectiveEdgeThresholdFromConfig(config);
   const double orient_stickiness = orientationStickinessFromConfig(config);
   const bool overlay_enabled = structureOverlayEnabled(config);
@@ -1127,7 +1133,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
           const auto flow_started = std::chrono::steady_clock::now();
           const bool inferred_flow_needed = motion_flow_enabled ||
                                             !external_motion.has_value() ||
-                                            (external_motion_has_invalid && !external_motion_has_disocclusion);
+                                            external_motion_has_invalid;
           if (inferred_flow_needed && temporal_state->previous_luminance.has_value() &&
               temporal_state->previous_luminance->width == analysis_luminance->width &&
               temporal_state->previous_luminance->height == analysis_luminance->height) {
@@ -1171,19 +1177,20 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .run = [&](PassContext&) {
         warped_previous_glyphs.clear();
         warped_previous_shape_regions.clear();
+        warped_history_available.clear();
         if (!previous_glyphs.empty()) {
           std::optional<HistoryMotionSelection> external_selection;
           const FlowField* history_flow = nullptr;
           if (external_motion.has_value()) {
             external_selection = selectHistoryMotion(*external_motion, flow_field);
-            if (!external_selection.has_value()) {
-              return;
-            }
             history_flow = &external_selection->flow;
+            warped_history_available = external_selection->history_available;
             result.stats.external_motion_cells += external_selection->external_cells;
             result.stats.inferred_motion_cells += external_selection->inferred_cells;
+            result.stats.history_suppressed_cells += external_selection->suppressed_cells;
           } else if (flow_field.has_value()) {
             history_flow = &*flow_field;
+            warped_history_available.assign(static_cast<std::size_t>(size.cols) * static_cast<std::size_t>(size.rows), true);
             result.stats.inferred_motion_cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
           }
           if (history_flow == nullptr) {
@@ -1211,6 +1218,15 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext&) {
         std::vector<Cell>& cell_values = cells->cells();
+        const auto historyAvailable = [&](std::size_t cell_index) {
+          if (!external_motion.has_value()) {
+            return true;
+          }
+          if (glyph_hysteresis_enabled) {
+            return cell_index < warped_history_available.size() && warped_history_available[cell_index];
+          }
+          return external_motion->vectors.at(cell_index).validity == MotionVectorValidity::Valid;
+        };
         if (gpu_structure_glyphs.has_value() && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           for (std::size_t index = 0; index < cell_values.size(); ++index) {
             const char32_t gpu_glyph = gpu_structure_glyphs->glyphs[index];
@@ -1251,14 +1267,19 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                                                        : match_region(cell_shape_regions[cell_index]);
                 if (glyph_hysteresis_enabled) {
                   const GlyphShapeMatch best = matchGlyphShapeWithScore(features, *shape_table);
-                  const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
-                  const std::optional<char32_t> history_glyph = history_glyphs.empty() ? std::nullopt : std::optional<char32_t>(history_glyphs[cell_index]);
-                  const char32_t previous_glyph = history_glyph.value_or(cell.glyph);
-                  const std::vector<double> previous_features = warped_previous_shape_regions.empty()
-                                                                  ? features
-                                                                  : match_region(warped_previous_shape_regions[cell_index]);
-                  const double previous_score = scoreGlyphShape(previous_features, *shape_table, previous_glyph);
-                  cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, history_glyph).glyph;
+                  if (!historyAvailable(cell_index)) {
+                    temporal_state->glyph_hysteresis.clear(cell_index);
+                    cell.glyph = best.glyph;
+                  } else {
+                    const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
+                    const std::optional<char32_t> history_glyph = history_glyphs.empty() ? std::nullopt : std::optional<char32_t>(history_glyphs[cell_index]);
+                    const char32_t previous_glyph = history_glyph.value_or(cell.glyph);
+                    const std::vector<double> previous_features = warped_previous_shape_regions.empty()
+                                                                    ? features
+                                                                    : match_region(warped_previous_shape_regions[cell_index]);
+                    const double previous_score = scoreGlyphShape(previous_features, *shape_table, previous_glyph);
+                    cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, history_glyph).glyph;
+                  }
                 } else {
                   cell.glyph = matchGlyphShape(features, *shape_table);
                 }
@@ -1267,6 +1288,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
               } else {
                 char32_t directional_glyph = *edge_glyph;
                 if (orientation_hysteresis_enabled) {
+                  if (!historyAvailable(cell_index)) {
+                    temporal_state->orientation_hysteresis.clear(cell_index);
+                  }
                   directional_glyph = temporal_state->orientation_hysteresis.choose(cell_index, directional_glyph, gradient.orientation, orient_stickiness).glyph;
                 }
                 cell.glyph = directional_glyph;

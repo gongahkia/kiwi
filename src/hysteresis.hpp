@@ -24,6 +24,7 @@ class GlyphHysteresisState {
  public:
   void reset();
   void resize(int cols, int rows);
+  void clear(std::size_t index);
   GlyphHysteresisDecision choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph = std::nullopt);
 
  private:
@@ -42,6 +43,7 @@ class OrientationHysteresisState {
  public:
   void reset();
   void resize(int cols, int rows);
+  void clear(std::size_t index);
   OrientationHysteresisDecision choose(std::size_t index, char32_t glyph, double orientation, double stickiness);
 
  private:

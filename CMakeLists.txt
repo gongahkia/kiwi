@@ -1389,6 +1389,7 @@ endif()
 add_test(NAME temporal_stability COMMAND temporal_stability_tests)
 
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
+target_include_directories(motion_selection_tests PRIVATE src)
 target_compile_features(motion_selection_tests PRIVATE cxx_std_20)
 set_target_properties(motion_selection_tests PROPERTIES
   CXX_STANDARD 20

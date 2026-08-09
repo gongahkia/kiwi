@@ -1,5 +1,7 @@
 #include <strok/renderer.hpp>
 
+#include "renderer.hpp"
+
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -38,6 +40,23 @@ strok::Frame textureFrame(int offset) {
   return frame;
 }
 
+strok::Frame angledEdgeFrame(int numerator, int denominator) {
+  strok::Frame frame{
+    .w = kWidth,
+    .h = kHeight,
+    .rgb = {},
+  };
+  frame.rgb.reserve(static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight) * 3U);
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x) {
+      const int distance = x * denominator + y * numerator - ((kWidth / 2) * denominator);
+      const std::uint8_t value = distance < 0 ? 0U : 255U;
+      frame.rgb.insert(frame.rgb.end(), {value, value, value});
+    }
+  }
+  return frame;
+}
+
 strok::ColorImageView viewFor(const strok::Frame& frame) {
   return strok::ColorImageView{
     .data = frame.rgb.data(),
@@ -48,12 +67,12 @@ strok::ColorImageView viewFor(const strok::Frame& frame) {
   };
 }
 
-strok::Renderer::CreateResult createRenderer() {
+strok::Renderer::CreateResult createRenderer(double glyph_stickiness = 0.05) {
   strok::RendererConfig config;
   config.cell_aspect = 1.0;
   config.mode = "structure";
   config.edge_threshold = 0.01;
-  config.glyph_stickiness = 0.05;
+  config.glyph_stickiness = glyph_stickiness;
   return strok::Renderer::create(config, strok::RenderGrid{.cols = kCols, .rows = kRows});
 }
 
@@ -121,4 +140,62 @@ int main() {
   expect(mixed.stats.external_motion_cells == kCols * kRows - 1 && mixed.stats.inferred_motion_cells == 1,
          "mixed validity selects external and inferred history per cell");
   expect(mixed.stats.warp_history_cells > 0, "mixed validity still warps temporal history");
+
+  std::vector<std::uint8_t> disoccluded_validity(static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight),
+                                                  static_cast<std::uint8_t>(strok::MotionVectorValidity::Valid));
+  disoccluded_validity[static_cast<std::size_t>(kHeight / 4) * static_cast<std::size_t>(kWidth) + static_cast<std::size_t>(kWidth / 4)] =
+      static_cast<std::uint8_t>(strok::MotionVectorValidity::Disoccluded);
+  disoccluded_validity[static_cast<std::size_t>(kHeight / 4) * static_cast<std::size_t>(kWidth) + static_cast<std::size_t>(kWidth * 3 / 4)] =
+      static_cast<std::uint8_t>(strok::MotionVectorValidity::Invalid);
+  strok::Renderer::CreateResult disoccluded_renderer = createRenderer(1.0);
+  expect(disoccluded_renderer.succeeded(), "disocclusion renderer construction");
+  expect(disoccluded_renderer.renderer->render(textureFrame(0)).succeeded(), "disocclusion initial frame");
+  const strok::RenderResult disoccluded = disoccluded_renderer.renderer->render(strok::RenderInput{
+      .color = current_view,
+      .motion_vectors = motionViewFor(mixed_vectors),
+      .motion_vector_validity = strok::MotionVectorValidityView{
+        .data = disoccluded_validity.data(),
+        .width = kWidth,
+        .height = kHeight,
+        .row_stride_bytes = static_cast<std::size_t>(kWidth),
+      },
+    });
+  expect(disoccluded.succeeded() && disoccluded.stats.history_suppressed_cells == 1,
+         "disoccluded cell reports history suppression");
+  expect(disoccluded.stats.optical_flow_blocks > 0 &&
+             disoccluded.stats.external_motion_cells == kCols * kRows - 2 && disoccluded.stats.inferred_motion_cells == 1,
+         "disocclusion suppresses only its cell while invalid motion uses fallback");
+  strok::Renderer::CreateResult current_only_renderer = createRenderer(1.0);
+  expect(current_only_renderer.succeeded() && current_only_renderer.renderer->render(current).succeeded(),
+         "current-only comparison renderer");
+  expect(disoccluded_renderer.renderer->cells().at(0, 0) == current_only_renderer.renderer->cells().at(0, 0),
+         "disoccluded cell reconstructs from current frame instead of stale history");
+
+  strok::RendererConfig orientation_config;
+  orientation_config.cell_aspect = 1.0;
+  orientation_config.mode = "structure";
+  orientation_config.edge_threshold = 0.01;
+  orientation_config.glyph_stickiness = 0.0;
+  orientation_config.orient_stickiness = 0.60;
+  strok::RenderTemporalState orientation_state;
+  strok::CellBuffer orientation_cells;
+  expect(strok::renderFrame(angledEdgeFrame(0, 1), U" @", orientation_config, strok::RenderGrid{.cols = 1, .rows = 1}, nullptr, &orientation_cells, &orientation_state).succeeded() &&
+             orientation_cells.at(0, 0).glyph == U'|',
+         "orientation suppression fixture starts vertical");
+  const std::vector<float> orientation_vectors = zeroMotionVectors();
+  std::vector<std::uint8_t> orientation_disoccluded(static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight),
+                                                     static_cast<std::uint8_t>(strok::MotionVectorValidity::Disoccluded));
+  const strok::Frame orientation_current = angledEdgeFrame(1, 2);
+  expect(strok::renderFrame(strok::RenderInput{
+      .color = viewFor(orientation_current),
+      .motion_vectors = motionViewFor(orientation_vectors),
+      .motion_vector_validity = strok::MotionVectorValidityView{
+        .data = orientation_disoccluded.data(),
+        .width = kWidth,
+        .height = kHeight,
+        .row_stride_bytes = static_cast<std::size_t>(kWidth),
+      },
+    }, U" @", orientation_config, strok::RenderGrid{.cols = 1, .rows = 1}, nullptr, &orientation_cells, &orientation_state).succeeded(),
+         "orientation disocclusion frame");
+  expect(orientation_cells.at(0, 0).glyph == U'/', "disocclusion clears orientation hysteresis");
 }

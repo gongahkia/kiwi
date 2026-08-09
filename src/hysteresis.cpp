@@ -37,6 +37,13 @@ void GlyphHysteresisState::resize(int cols, int rows) {
   entries_.assign(static_cast<std::size_t>(cols_) * static_cast<std::size_t>(rows_), Entry{});
 }
 
+void GlyphHysteresisState::clear(std::size_t index) {
+  if (index >= entries_.size()) {
+    throw std::out_of_range("hysteresis cell index out of range");
+  }
+  entries_[index] = Entry{};
+}
+
 GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph) {
   if (index >= entries_.size()) {
     throw std::out_of_range("hysteresis cell index out of range");
@@ -70,6 +77,13 @@ void OrientationHysteresisState::resize(int cols, int rows) {
   cols_ = cols;
   rows_ = rows;
   entries_.assign(static_cast<std::size_t>(cols_) * static_cast<std::size_t>(rows_), Entry{});
+}
+
+void OrientationHysteresisState::clear(std::size_t index) {
+  if (index >= entries_.size()) {
+    throw std::out_of_range("orientation hysteresis cell index out of range");
+  }
+  entries_[index] = Entry{};
 }
 
 OrientationHysteresisDecision OrientationHysteresisState::choose(std::size_t index, char32_t glyph, double orientation, double stickiness) {

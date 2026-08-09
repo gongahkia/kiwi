@@ -19,8 +19,9 @@ namespace strok {
 // RendererConfig option is enabled. Without it, temporal supersampling uses the
 // prior Renderer input when available, otherwise color alone.
 // motion_vectors is an optional source-resolution current-to-previous vector field.
-// It is retained for future temporal history selection; current reconstruction
-// continues to use internally inferred optical flow when appropriate.
+// Temporal reconstruction uses valid remapped vectors for history warping, uses
+// inferred optical flow for Invalid cells when prior luminance is available, and
+// suppresses history reuse for Disoccluded or otherwise unfallbackable cells.
 // motion_vector_validity, when present, describes the matching motion_vectors view.
 struct RenderInput {
   ColorImageView color;

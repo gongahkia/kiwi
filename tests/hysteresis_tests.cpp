@@ -83,6 +83,10 @@ int main() {
   auto warped_tie = state.choose(0, strok::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 0.98, 0.05, U'-');
   expect(warped_tie.glyph == U'-' && warped_tie.kept_previous, "warped near-tied glyph keeps motion-compensated history");
 
+  state.clear(0);
+  auto after_clear = state.choose(0, strok::GlyphShapeMatch{.glyph = U'/', .score = 1.0}, 0.98, 0.05, U'-');
+  expect(after_clear.glyph == U'/' && !after_clear.kept_previous, "cleared glyph history cannot be reused");
+
   state.resize(2, 1);
   auto after_resize = state.choose(1, strok::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 1.0, 0.05);
   expect(after_resize.glyph == U'\\' && !after_resize.kept_previous, "resize clears glyph history");
@@ -116,6 +120,10 @@ int main() {
 
   auto orient_far = orientation_state.choose(0, U'/', 0.50, 0.15);
   expect(orient_far.glyph == U'/' && !orient_far.kept_previous, "far orientation bucket switches glyph");
+
+  orientation_state.clear(0);
+  auto orient_after_clear = orientation_state.choose(0, U'|', 0.10, 0.15);
+  expect(orient_after_clear.glyph == U'|' && !orient_after_clear.kept_previous, "cleared orientation history cannot be reused");
 
   orientation_state.reset();
   orientation_state.resize(1, 1);
