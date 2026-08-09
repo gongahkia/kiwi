@@ -31,7 +31,7 @@ class Renderer {
   Renderer& operator=(Renderer&&) = delete;
   ~Renderer();
 
-  RenderResult render(const Frame& frame, std::u32string_view ramp, CellBuffer* output);
+  RenderResult render(const Frame& frame, CellBuffer* output);
   void reset();
 
  private:

@@ -14,7 +14,9 @@ struct RendererConfig {
   std::string mode = "luminance";
   std::string style = "none";
   std::string structure_overlay = "auto";
+  std::optional<std::string> font_path;
   std::string glyph_features = "overlap";
+  bool ramp_sort = false;
   std::optional<std::string> charset;
   std::optional<double> edge_threshold;
   std::optional<double> edge_strength;

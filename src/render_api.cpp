@@ -1,18 +1,79 @@
 #include "../include/strok/render.hpp"
 #include "../include/strok/renderer.hpp"
 
+#include "glyph_font.hpp"
+#include "glyph_hog.hpp"
+#include "glyph_kdtree.hpp"
+#include "glyph_ramp.hpp"
+#include "glyph_sdf.hpp"
+#include "glyph_shape.hpp"
 #include "renderer.hpp"
+#include "structure_overlay.hpp"
 
 #include <exception>
 #include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace strok {
+namespace {
+
+std::u32string rampFromConfig(const RendererConfig& config, const GlyphFont* glyph_font) {
+  std::u32string ramp = kDefaultGlyphRamp.data();
+  const bool packed_braille = config.charset.has_value() && isBrailleCharset(*config.charset);
+  if (config.charset.has_value() && !packed_braille) {
+    ramp = resolveCharsetRamp(*config.charset);
+  }
+  if (config.ramp_sort && !packed_braille) {
+    if (glyph_font == nullptr) {
+      throw std::invalid_argument("ramp sorting requires a font path");
+    }
+    ramp = sortRampByInkDensity(ramp, *glyph_font, 10, 14);
+  }
+  return ramp;
+}
+
+std::optional<GlyphShapeTable> shapeTableFromConfig(const RendererConfig& config, const GlyphFont* glyph_font) {
+  if (!structureOverlayEnabled(config)) {
+    return std::nullopt;
+  }
+  if (config.glyph_features == "hog") {
+    GlyphShapeTable table = glyph_font == nullptr
+                              ? buildHogGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14)
+                              : buildHogGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+    attachGlyphKdTree(&table);
+    return table;
+  }
+  if (config.glyph_features == "sdf") {
+    return glyph_font == nullptr
+             ? buildSdfGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14)
+             : buildSdfGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+  }
+  return glyph_font == nullptr
+           ? buildGlyphShapeTable(kDefaultStructureShapeGlyphs, 10, 14)
+           : buildGlyphShapeTable(*glyph_font, kDefaultStructureShapeGlyphs, 10, 14);
+}
+
+}  // namespace
 
 struct Renderer::State {
   RendererConfig config;
   RenderGrid grid;
+  std::optional<GlyphFont> glyph_font;
+  std::u32string ramp;
+  std::optional<GlyphShapeTable> shape_table;
   RenderTemporalState temporal_state;
+
+  State(RendererConfig renderer_config, RenderGrid renderer_grid)
+      : config(std::move(renderer_config)), grid(renderer_grid) {
+    if (config.font_path.has_value()) {
+      glyph_font.emplace(*config.font_path);
+    }
+    ramp = rampFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
+    shape_table = shapeTableFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
+  }
 };
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, CellBuffer* output) {
@@ -20,10 +81,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
 }
 
 Renderer::Renderer(RendererConfig config, RenderGrid grid)
-    : state_(std::make_unique<State>(State{
-        .config = std::move(config),
-        .grid = grid,
-      })) {}
+    : state_(std::make_unique<State>(std::move(config), grid)) {}
 
 Renderer::~Renderer() = default;
 
@@ -37,6 +95,11 @@ Renderer::CreateResult Renderer::create(RendererConfig config, RenderGrid grid) 
       .renderer = std::unique_ptr<Renderer>(new Renderer(std::move(config), grid)),
       .result = RenderResult{},
     };
+  } catch (const std::runtime_error& error) {
+    return CreateResult{.result = RenderResult{
+                          .status = RenderStatus::InvalidConfiguration,
+                          .message = error.what(),
+                        }};
   } catch (const std::exception& error) {
     return CreateResult{.result = RenderResult{
                           .status = RenderStatus::InternalError,
@@ -50,8 +113,8 @@ Renderer::CreateResult Renderer::create(RendererConfig config, RenderGrid grid) 
   }
 }
 
-RenderResult Renderer::render(const Frame& frame, std::u32string_view ramp, CellBuffer* output) {
-  return renderFrame(frame, ramp, state_->config, state_->grid, nullptr, output, &state_->temporal_state, nullptr);
+RenderResult Renderer::render(const Frame& frame, CellBuffer* output) {
+  return renderFrame(frame, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, nullptr);
 }
 
 void Renderer::reset() {

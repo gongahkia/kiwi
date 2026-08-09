@@ -654,6 +654,15 @@ std::optional<std::string> renderConfigurationError(const RendererConfig& config
   if (config.glyph_features != "overlap" && config.glyph_features != "hog" && config.glyph_features != "sdf") {
     return "unknown glyph feature mode";
   }
+  if (config.font_path.has_value() && config.font_path->empty()) {
+    return "font path must not be empty";
+  }
+  if (config.ramp_sort && !config.font_path.has_value()) {
+    return "ramp sorting requires a font path";
+  }
+  if (config.charset.has_value() && !isValidCharset(*config.charset)) {
+    return "invalid charset";
+  }
   if ((config.edge_threshold.has_value() && !finiteAtLeast(*config.edge_threshold, 0.0)) ||
       (config.edge_strength.has_value() && !finiteAtLeast(*config.edge_strength, 0.0)) ||
       (config.dog_sigma.has_value() && !finiteAtLeast(*config.dog_sigma, 0.0)) ||

@@ -43,7 +43,9 @@ int main() {
   options.mode = "structure";
   options.style = "hatch";
   options.structure_overlay = "on";
+  options.font_path = "/tmp/test-font.ttf";
   options.glyph_features = "sdf";
+  options.ramp_sort = true;
   options.charset = "braille";
   options.edge_threshold = 0.2;
   options.edge_strength = 0.6;
@@ -65,7 +67,7 @@ int main() {
   const strok::RendererConfig config = strok::rendererConfigFromCliOptions(options);
   expect(config.width == options.width && config.height == options.height && config.cell_aspect == options.cell_aspect, "grid configuration conversion");
   expect(config.mode == options.mode && config.style == options.style && config.structure_overlay == options.structure_overlay, "mode configuration conversion");
-  expect(config.glyph_features == options.glyph_features && config.charset == options.charset, "glyph configuration conversion");
+  expect(config.font_path == options.font_path && config.glyph_features == options.glyph_features && config.ramp_sort == options.ramp_sort && config.charset == options.charset, "glyph configuration conversion");
   expect(config.edge_threshold == options.edge_threshold && config.edge_strength == options.edge_strength, "edge configuration conversion");
   expect(config.dog_sigma == options.dog_sigma && config.dog_sigma2 == options.dog_sigma2 && config.dog_threshold == options.dog_threshold, "DoG configuration conversion");
   expect(config.etf_iters == options.etf_iters && config.lic_length == options.lic_length && config.posterize == options.posterize, "style configuration conversion");
