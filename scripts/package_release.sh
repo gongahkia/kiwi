@@ -145,7 +145,7 @@ if [[ "$(uname -s)" == "Linux" ]]; then
     echo "Debian package version does not match release version $version" >&2
     exit 1
   fi
-  dpkg-deb --contents "$deb" | grep -q '/usr/bin/strok$'
+  dpkg-deb --contents "$deb" | grep '/usr/bin/strok$' >/dev/null
   artifacts+=("$deb")
 fi
 

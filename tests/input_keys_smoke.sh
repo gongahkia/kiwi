@@ -27,12 +27,12 @@ ffmpeg -hide_banner -loglevel error \
 run_pty() {
   local output="$1"
   shift
-  if script -q "$tmp/probe.typescript" /bin/echo ok >/dev/null 2>&1; then
-    script -q "$output" "$@" >/dev/null
+  local command
+  printf -v command '%q ' "$@"
+  if script -q -c '/bin/true' "$tmp/probe.typescript" >/dev/null 2>&1; then
+    script -q -c "stty rows 24 cols 80 || exit 1; exec $command" "$output" >/dev/null
   else
-    local command
-    printf -v command '%q ' "$@"
-    script -q -c "$command" "$output" >/dev/null
+    script -q "$output" /bin/sh -c 'stty rows 24 cols 80 || exit 1; exec "$@"' sh "$@" >/dev/null
   fi
 }
 
@@ -40,15 +40,25 @@ run_pty "$typescript" "$bin" \
   --input-keys ism246q \
   --width 40 \
   --height 12 \
-  --fps 1000 \
+  --fps 12 \
+  --loop \
   --color-mode mono \
   --log "$log" \
   "$input"
 
-grep -q "scripted input keys queued count=7" "$log"
-grep -q "osd shown" "$log"
-grep -q "live style mode=luminance style=painterly" "$log"
-grep -q "live mode mode=structure style=painterly" "$log"
-grep -q "live edge .* edge=0.40" "$log"
-grep -q "live dog .* dog=0.10" "$log"
-grep -q "live contrast .* contrast=0.10" "$log"
+expect_log() {
+  local pattern="$1"
+  if ! grep -q "$pattern" "$log"; then
+    echo "missing log pattern '$pattern'" >&2
+    sed -n '1,200p' "$log" >&2
+    exit 1
+  fi
+}
+
+expect_log "scripted input keys queued count=7"
+expect_log "osd shown"
+expect_log "live style mode=luminance style=painterly"
+expect_log "live mode mode=structure style=painterly"
+expect_log "live edge .* edge=0.40"
+expect_log "live dog .* dog=0.10"
+expect_log "live contrast .* contrast=0.10"

@@ -27,12 +27,12 @@ ffmpeg -hide_banner -loglevel error \
 run_pty() {
   local output="$1"
   shift
-  if script -q "$tmp/probe.typescript" /bin/echo ok >/dev/null 2>&1; then
-    script -q "$output" "$@" >/dev/null
+  local command
+  printf -v command '%q ' "$@"
+  if script -q -c '/bin/true' "$tmp/probe.typescript" >/dev/null 2>&1; then
+    script -q -c "stty rows 24 cols 80 || exit 1; exec $command" "$output" >/dev/null
   else
-    local command
-    printf -v command '%q ' "$@"
-    script -q -c "$command" "$output" >/dev/null
+    script -q "$output" /bin/sh -c 'stty rows 24 cols 80 || exit 1; exec "$@"' sh "$@" >/dev/null
   fi
 }
 

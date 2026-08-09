@@ -840,9 +840,7 @@ CliParseResult loadConfigDefaults() {
 
 CliParseResult parseArgs(int argc, char** argv) {
   if (const auto action = earlyAction(argc, argv); action.has_value()) {
-    CliParseResult result;
-    result.action = *action;
-    return result;
+    return CliParseResult{.action = *action};
   }
   CliParseResult defaults = loadConfigDefaults();
   if (!defaults.error.empty()) {

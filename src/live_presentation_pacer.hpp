@@ -33,7 +33,7 @@ class LivePresentationPacer {
   }
 
   bool ready(std::chrono::steady_clock::time_point now) const {
-    return !next_presentation_.has_value() || now >= *next_presentation_;
+    return !has_next_presentation_ || now >= next_presentation_;
   }
 
   bool isLate(std::chrono::steady_clock::time_point decoded_at,
@@ -51,8 +51,9 @@ class LivePresentationPacer {
                                                   : write_interval;
     if (interval.count() > 0) {
       next_presentation_ = completed_at + interval;
+      has_next_presentation_ = true;
     } else {
-      next_presentation_.reset();
+      has_next_presentation_ = false;
     }
     return LivePresentationTiming{
       .interval = interval,
@@ -66,7 +67,8 @@ class LivePresentationPacer {
   }
 
   std::optional<std::chrono::microseconds> requested_interval_;
-  std::optional<std::chrono::steady_clock::time_point> next_presentation_;
+  std::chrono::steady_clock::time_point next_presentation_ {};
+  bool has_next_presentation_ = false;
   std::chrono::microseconds source_interval_ {33333};
   std::chrono::microseconds late_budget_ {33333};
 };

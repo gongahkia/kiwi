@@ -13,6 +13,10 @@ if [[ ! -x "$bin" ]]; then
   echo "missing executable: $bin" >&2
   exit 1
 fi
+if ! command -v script >/dev/null 2>&1; then
+  echo "script(1) unavailable; skipping shutdown path smoke"
+  exit 77
+fi
 
 timeout_bin="$(command -v timeout || true)"
 if [[ -z "$timeout_bin" && -x /opt/homebrew/bin/timeout ]]; then
@@ -28,7 +32,7 @@ ffmpeg -hide_banner -loglevel error \
   -pix_fmt yuv420p -y "$tmp/fixture.mp4"
 
 script_style="bsd"
-if ! script -q "$tmp/script-style.typescript" /bin/echo ok >/dev/null 2>&1; then
+if script -q -c '/bin/true' "$tmp/script-style.typescript" >/dev/null 2>&1; then
   script_style="util"
 fi
 

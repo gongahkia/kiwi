@@ -1,4 +1,4 @@
-.TH STROK 1 "2026-06-25" "strok 0.0.0" "User Commands"
+.TH STROK 1 "2026-08-09" "strok 0.0.0" "User Commands"
 .SH NAME
 strok \- structure-aware ASCII terminal media renderer
 .SH SYNOPSIS
@@ -24,6 +24,12 @@ options:
   --no-fit                       disable config-default fit
   --fps N                        override source fps
   --max-fps N                    cap render fps
+  --input-open-timeout MS        live-input open/probe timeout in milliseconds; 0 disables
+  --read-timeout MS              live-input read timeout in milliseconds; 0 disables
+  --rtsp-transport {auto|tcp|udp} RTSP transport preference
+  --reconnect                    reconnect live camera/RTSP input after failure (default)
+  --no-reconnect                 stop after a live camera/RTSP input failure
+  --reconnect-backoff MS         initial live reconnect delay, capped exponentially
   --mode {auto|luminance|structure|halfblock|blocks|octant|sextant|braille}
   --style {none|painterly|hatch|stipple|flow|cell-shade}
   --render-mode {auto|text|pixel|hybrid}

@@ -13,9 +13,13 @@ if [[ ! -x "$bin" ]]; then
   echo "missing executable: $bin" >&2
   exit 1
 fi
+if ! command -v script >/dev/null 2>&1; then
+  echo "script(1) unavailable; skipping terminal path smoke"
+  exit 77
+fi
 
 script_style="bsd"
-if ! script -q "$tmp/script-style.typescript" /bin/echo ok >/dev/null 2>&1; then
+if script -q -c '/bin/true' "$tmp/script-style.typescript" >/dev/null 2>&1; then
   script_style="util"
 fi
 
