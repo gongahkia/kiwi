@@ -53,6 +53,8 @@ function Layout:begin_frame()
     codepoints_shaped = 0,
     glyphs_produced = 0,
     shaping_cpu_ms = 0,
+    visible_runs = 0,
+    visible_glyphs = 0,
     cache_hits = 0,
     cache_misses = 0,
     missing_clusters = 0,
@@ -173,13 +175,22 @@ function Layout:update(state)
     if self:row_is_dirty(state, row) then
       self.stats.rows_invalidated = self.stats.rows_invalidated + 1
       self.stats.cache_misses = self.stats.cache_misses + 1
-      self.rows[row] = { generation = self.generation, text_generation = self.font_system.text_generation, glyphs = self:shape_row(state, row) }
+      local runs_before = self.stats.runs_reshaped
+      local glyphs = self:shape_row(state, row)
+      self.rows[row] = {
+        generation = self.generation,
+        text_generation = self.font_system.text_generation,
+        glyphs = glyphs,
+        runs = self.stats.runs_reshaped - runs_before,
+      }
       self.stats.rows_reshaped = self.stats.rows_reshaped + 1
     else
       self.stats.cache_hits = self.stats.cache_hits + 1
     end
+    self.stats.visible_runs = self.stats.visible_runs + self.rows[row].runs
     for _, glyph in ipairs(self.rows[row].glyphs) do glyphs[#glyphs + 1] = glyph end
   end
+  self.stats.visible_glyphs = #glyphs
   return glyphs
 end
 

@@ -63,7 +63,7 @@ FreeType BGRA/color glyph bitmaps are rejected safely by the grayscale atlas. On
 
 ## Diagnostics and inspection
 
-F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
+F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, visible shaped run/glyph totals, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
 
 Run a bounded native text laboratory child with:
 

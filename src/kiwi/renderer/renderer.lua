@@ -80,6 +80,8 @@ function Renderer.new(context, font, model)
       shaping_rows_invalidated = 0,
       runs_reshaped = 0,
       glyphs_produced = 0,
+      visible_shaped_runs = 0,
+      visible_shaped_glyphs = 0,
       shaping_cpu_ms = 0,
       shape_cache_hits = 0,
       shape_cache_misses = 0,
@@ -329,6 +331,8 @@ function Renderer:update_model(model)
   self.diagnostics.shaping_rows_invalidated = self.layout.stats.rows_invalidated
   self.diagnostics.runs_reshaped = self.layout.stats.runs_reshaped
   self.diagnostics.glyphs_produced = self.layout.stats.glyphs_produced
+  self.diagnostics.visible_shaped_runs = self.layout.stats.visible_runs
+  self.diagnostics.visible_shaped_glyphs = self.layout.stats.visible_glyphs
   self.diagnostics.shaping_cpu_ms = self.layout.stats.shaping_cpu_ms
   self.diagnostics.shape_cache_hits = self.layout.stats.cache_hits
   self.diagnostics.shape_cache_misses = self.layout.stats.cache_misses
