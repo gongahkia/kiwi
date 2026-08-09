@@ -117,7 +117,7 @@ Fresh-source install, one line: macOS `brew install cmake pkg-config ffmpeg free
 
 ## Runtime notes
 
-With audio present in local files, video is paced from the audio playback clock. Camera and RTSP/RTSPS input decode on a worker thread into a two-frame latest-only queue: the renderer discards older queued frames and renders the newest available frame, avoiding unbounded capture backlog. Frames that are already late by more than one source interval (capped at 50ms) are discarded before rendering. `--max-fps N` limits presentation for these live inputs as well as audio-backed playback; `--log FILE` records rendered/dropped frame counts and live queue/latency diagnostics when `--debug-stats` is enabled.
+With audio present in local files, video is paced from the audio playback clock. Camera and RTSP/RTSPS input open, probe, and decode on a worker thread into a two-frame latest-only queue, so an unreachable live source does not block terminal setup. The renderer discards older queued frames and renders the newest available frame, avoiding unbounded capture backlog. Live inputs time out after five seconds for opening/probing and reads by default, then reconnect with capped exponential backoff; `0` disables either timeout and `--no-reconnect` surfaces the failure instead. A bottom-line `connecting` or `reconnecting` state remains visible until frames resume. Frames that are already late by more than one source interval (capped at 50ms) are discarded before rendering. `--max-fps N` limits presentation for these live inputs as well as audio-backed playback; `--log FILE` records rendered/dropped frame counts and live queue/latency diagnostics when `--debug-stats` is enabled.
 
 Structure overlay replaces high-edge cell glyphs while preserving the active blitter colors. `--structure-overlay auto` enables it for `--mode structure` or structure-tuning flags, `on` forces it for modes such as octant/sextant/braille/halfblock/blocks, and `off` disables it. `--line-ligatures` post-processes structure edges into box-drawing joins. `--edge-strength 0` disables edge picks, values below `1` make edges stricter, and values above `1` make edges more aggressive.
 
@@ -176,6 +176,11 @@ Config: defaults are read from `$XDG_CONFIG_HOME/strok/config`, or `~/.config/st
 | `--fit`, `--no-fit` | Clamp output to terminal, or disable config-default fit. |
 | `--fps N` | Override source fps for playback/export pacing. |
 | `--max-fps N` | Cap rendered fps while preserving audio timing. |
+| `--input-open-timeout MS` | Live camera/RTSP open and probe timeout; default `5000`, `0` disables. |
+| `--read-timeout MS` | Live camera/RTSP packet-read timeout; default `5000`, `0` disables. |
+| `--rtsp-transport auto\|tcp\|udp` | RTSP transport preference; `auto` leaves FFmpeg’s default unchanged. |
+| `--reconnect`, `--no-reconnect` | Retry failed live camera/RTSP connections, or return the failure immediately. |
+| `--reconnect-backoff MS` | Initial reconnect delay; doubles per consecutive failure and caps at 30 seconds. |
 | `--mode auto\|luminance\|structure\|halfblock\|blocks\|octant\|sextant\|braille` | Select renderer. |
 | `--style none\|painterly\|hatch\|stipple\|flow\|cell-shade` | Insert a stylized render-graph pre/pass set. |
 | `--render-mode auto\|text\|pixel\|hybrid` | Select text, graphics-protocol pixel, or hybrid output; `auto` falls back to text when unsupported. |

@@ -49,6 +49,36 @@ int main() {
   }
 
   {
+    const char* argv[] = {
+      "strok",
+      "--input-open-timeout", "1200",
+      "--read-timeout", "2400",
+      "--rtsp-transport", "tcp",
+      "--no-reconnect",
+      "--reconnect-backoff", "750",
+    };
+    const auto parsed = strok::parseArgs(10, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "live input options parse");
+    expect(parsed.options.input_open_timeout_ms == 1200, "open timeout stored");
+    expect(parsed.options.read_timeout_ms == 2400, "read timeout stored");
+    expect(parsed.options.rtsp_transport == "tcp", "rtsp transport stored");
+    expect(!parsed.options.reconnect, "reconnect disabled");
+    expect(parsed.options.reconnect_backoff_ms == 750, "reconnect backoff stored");
+  }
+
+  {
+    const char* argv[] = {"strok", "--rtsp-transport", "sctp"};
+    const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "rtsp transport rejects invalid value");
+  }
+
+  {
+    const char* argv[] = {"strok", "--read-timeout", "-1"};
+    const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "read timeout rejects negative value");
+  }
+
+  {
     const char* argv[] = {"strok", "--dog-sigma", "0.8,1.6", "--dog-threshold", "0.04"};
     const auto parsed = strok::parseArgs(5, const_cast<char**>(argv));
     expect(parsed.error.empty(), "dog sigma pair parses");

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 
@@ -59,4 +60,29 @@ int main() {
   expect(queue.closed(), "queue reports closure");
   expect(!queue.push(frame(5000)), "closed queue rejects frames");
   expect(!queue.waitForLatest().has_value(), "closed empty queue finishes");
+
+  const strok::LiveSourceOptions unavailable_options{
+    .decoder = strok::VideoDecoderOptions{
+      .input_open_timeout = std::chrono::milliseconds(100),
+      .read_timeout = std::chrono::milliseconds(100),
+      .rtsp_transport = strok::RtspTransport::Auto,
+    },
+    .reconnect = false,
+    .reconnect_backoff = std::chrono::milliseconds(10),
+  };
+  const auto source_started = std::chrono::steady_clock::now();
+  strok::LiveFrameSource unavailable("v4l2:/definitely-missing-strok-camera", unavailable_options);
+  const auto construction_elapsed = std::chrono::steady_clock::now() - source_started;
+  expect(construction_elapsed < std::chrono::milliseconds(500), "live source construction does not wait for open");
+
+  bool reported_failure = false;
+  for (int attempt = 0; attempt < 100 && !reported_failure; ++attempt) {
+    try {
+      (void)unavailable.waitForLatestFor(std::chrono::milliseconds(20));
+    } catch (const std::runtime_error&) {
+      reported_failure = true;
+    }
+  }
+  expect(reported_failure, "worker reports unavailable live input failure");
+  expect(unavailable.status().state == strok::LiveSourceState::Failed, "unavailable live input reaches failed state");
 }
