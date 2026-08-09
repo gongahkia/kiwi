@@ -36,6 +36,26 @@ int main() {
   const strok::MotionVectorSample fourth = strok::motionVectorAt(padded, 0, 3);
   expect(fourth.x == 7.0F && fourth.y == -8.0F, "padded Float32x2 motion-vector sampling");
 
+  const std::array<std::uint8_t, 8> validity = {
+    static_cast<std::uint8_t>(strok::MotionVectorValidity::Valid), 99U,
+    static_cast<std::uint8_t>(strok::MotionVectorValidity::Invalid), 101U,
+    static_cast<std::uint8_t>(strok::MotionVectorValidity::Disoccluded), 103U,
+    static_cast<std::uint8_t>(strok::MotionVectorValidity::Valid), 105U,
+  };
+  const strok::MotionVectorValidityView padded_validity{
+    .data = validity.data(),
+    .width = 1,
+    .height = 4,
+    .row_stride_bytes = 2,
+  };
+  expect(!strok::motionVectorValidityViewError(padded_validity).has_value(), "padded motion-vector validity layout");
+  expect(strok::motionVectorValidityAt(padded_validity, 0, 1) == strok::MotionVectorValidity::Invalid &&
+             strok::motionVectorValidityAt(padded_validity, 0, 2) == strok::MotionVectorValidity::Disoccluded,
+         "padded motion-vector validity sampling");
+  expect(strok::motionVectorValidityDefined(strok::MotionVectorValidity::Valid) &&
+             !strok::motionVectorValidityDefined(static_cast<strok::MotionVectorValidity>(99)),
+         "defined motion-vector validity values");
+
   const auto expectInvalid = [&](const strok::MotionVectorView& image, const char* label) {
     expect(strok::motionVectorViewError(image).has_value(), label);
   };
@@ -98,4 +118,36 @@ int main() {
                   .row_stride_bytes = std::numeric_limits<std::size_t>::max() / sizeof(float) * sizeof(float),
                 },
                 "overflowing motion-vector layout");
+
+  const auto expectInvalidValidity = [&](const strok::MotionVectorValidityView& image, const char* label) {
+    expect(strok::motionVectorValidityViewError(image).has_value(), label);
+  };
+  expectInvalidValidity(strok::MotionVectorValidityView{
+                          .data = nullptr,
+                          .width = 1,
+                          .height = 1,
+                          .row_stride_bytes = 1,
+                        },
+                        "null motion-vector validity data");
+  expectInvalidValidity(strok::MotionVectorValidityView{
+                          .data = validity.data(),
+                          .width = 0,
+                          .height = 1,
+                          .row_stride_bytes = 1,
+                        },
+                        "invalid motion-vector validity dimensions");
+  expectInvalidValidity(strok::MotionVectorValidityView{
+                          .data = validity.data(),
+                          .width = 2,
+                          .height = 1,
+                          .row_stride_bytes = 1,
+                        },
+                        "undersized motion-vector validity stride");
+  expectInvalidValidity(strok::MotionVectorValidityView{
+                          .data = validity.data(),
+                          .width = 1,
+                          .height = std::numeric_limits<int>::max(),
+                          .row_stride_bytes = std::numeric_limits<std::size_t>::max(),
+                        },
+                        "overflowing motion-vector validity layout");
 }

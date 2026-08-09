@@ -3,12 +3,37 @@ node_modules/
 .env.*
 !.env.example
 dist/
-.next/
-coverage/
-.wxt/
-.output/
-reports/corpus-refresh-pr.md
-artifacts/security/
-playwright-report/
-test-results/
-.wat-slack-installs.json
+bin/
+lib/
+_CPack_Packages/
+*.tar.gz
+*.deb
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# compiled artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.app
+*.dSYM/
+
+# editor/local
+.cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+CLAUDE.md
+
+AGENTS.md

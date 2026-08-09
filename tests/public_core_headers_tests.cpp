@@ -59,8 +59,11 @@ int main() {
   const strok::MotionVectorView motion_vectors;
   expect(motion_vectors.data == nullptr && motion_vectors.direction == strok::MotionVectorDirection::CurrentToPrevious && motion_vectors.unit == strok::MotionVectorUnit::SourcePixels, "public MotionVectorView defaults");
 
+  const strok::MotionVectorValidityView motion_vector_validity;
+  expect(motion_vector_validity.data == nullptr, "public MotionVectorValidityView defaults");
+
   const strok::RenderInput input;
-  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value() && !input.lookahead_color.has_value() && !input.motion_vectors.has_value(), "public RenderInput defaults");
+  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value() && !input.lookahead_color.has_value() && !input.motion_vectors.has_value() && !input.motion_vector_validity.has_value(), "public RenderInput defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);

@@ -21,12 +21,14 @@ namespace strok {
 // motion_vectors is an optional source-resolution current-to-previous vector field.
 // It is retained for future temporal history selection; current reconstruction
 // continues to use internally inferred optical flow when appropriate.
+// motion_vector_validity, when present, describes the matching motion_vectors view.
 struct RenderInput {
   ColorImageView color;
   std::optional<DepthImageView> depth;
   std::optional<NormalImageView> normals;
   std::optional<ColorImageView> lookahead_color;
   std::optional<MotionVectorView> motion_vectors;
+  std::optional<MotionVectorValidityView> motion_vector_validity;
 };
 
 }  // namespace strok

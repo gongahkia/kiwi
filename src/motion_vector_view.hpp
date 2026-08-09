@@ -65,4 +65,39 @@ inline MotionVectorSample motionVectorAt(const MotionVectorView& image, int x, i
   return vector;
 }
 
+inline bool motionVectorValidityDefined(MotionVectorValidity validity) noexcept {
+  return validity == MotionVectorValidity::Valid ||
+         validity == MotionVectorValidity::Invalid ||
+         validity == MotionVectorValidity::Disoccluded;
+}
+
+inline std::optional<std::string> motionVectorValidityViewError(const MotionVectorValidityView& image) {
+  if (image.data == nullptr) {
+    return "motion vector validity data is required";
+  }
+  if (image.width <= 0 || image.height <= 0) {
+    return "motion vector validity dimensions must be positive";
+  }
+
+  const std::size_t width = static_cast<std::size_t>(image.width);
+  const std::size_t height = static_cast<std::size_t>(image.height);
+  if (width > std::numeric_limits<std::size_t>::max() / height) {
+    return "motion vector validity dimensions overflow";
+  }
+  if (image.row_stride_bytes < width) {
+    return "motion vector validity row stride is smaller than byte row size";
+  }
+
+  const std::size_t rows_before_last = height - 1U;
+  if (rows_before_last > 0 && image.row_stride_bytes > (std::numeric_limits<std::size_t>::max() - width) / rows_before_last) {
+    return "motion vector validity layout overflows";
+  }
+  return std::nullopt;
+}
+
+inline MotionVectorValidity motionVectorValidityAt(const MotionVectorValidityView& image, int x, int y) noexcept {
+  const auto* row = image.data + static_cast<std::size_t>(y) * image.row_stride_bytes;
+  return static_cast<MotionVectorValidity>(row[x]);
+}
+
 }  // namespace strok

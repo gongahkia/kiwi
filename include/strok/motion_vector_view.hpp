@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace strok {
 
@@ -15,6 +16,12 @@ enum class MotionVectorDirection {
 
 enum class MotionVectorUnit {
   SourcePixels,
+};
+
+enum class MotionVectorValidity : std::uint8_t {
+  Valid = 0,
+  Invalid = 1,
+  Disoccluded = 2,
 };
 
 // A read-only borrowed motion-vector image. The caller keeps data valid and
@@ -33,6 +40,19 @@ struct MotionVectorView {
   MotionVectorPixelFormat pixel_format = MotionVectorPixelFormat::Float32x2;
   MotionVectorDirection direction = MotionVectorDirection::CurrentToPrevious;
   MotionVectorUnit unit = MotionVectorUnit::SourcePixels;
+};
+
+// A read-only borrowed per-pixel status for a MotionVectorView. Values are one
+// byte per source-color pixel: Valid selects the supplied vector, Invalid permits
+// future fallback to internally inferred optical flow, and Disoccluded forbids
+// future history reuse. Any other value is invalid input. An absent view means all
+// supplied vectors are Valid. The caller keeps data valid and unchanged for the
+// complete render call; RenderInput requires this view to match color dimensions.
+struct MotionVectorValidityView {
+  const std::uint8_t* data = nullptr;
+  int width = 0;
+  int height = 0;
+  std::size_t row_stride_bytes = 0;
 };
 
 }  // namespace strok

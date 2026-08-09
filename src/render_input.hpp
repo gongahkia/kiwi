@@ -48,6 +48,24 @@ inline std::optional<std::string> renderInputError(const RenderInput& input) {
       return "motion vector dimensions must match color image dimensions";
     }
   }
+  if (input.motion_vector_validity.has_value()) {
+    if (!input.motion_vectors.has_value()) {
+      return "motion vector validity requires motion vectors";
+    }
+    if (const std::optional<std::string> error = motionVectorValidityViewError(*input.motion_vector_validity); error.has_value()) {
+      return error;
+    }
+    if (input.motion_vector_validity->width != input.color.width || input.motion_vector_validity->height != input.color.height) {
+      return "motion vector validity dimensions must match color image dimensions";
+    }
+    for (int y = 0; y < input.motion_vector_validity->height; ++y) {
+      for (int x = 0; x < input.motion_vector_validity->width; ++x) {
+        if (!motionVectorValidityDefined(motionVectorValidityAt(*input.motion_vector_validity, x, y))) {
+          return "motion vector validity contains an unsupported value";
+        }
+      }
+    }
+  }
   return std::nullopt;
 }
 
