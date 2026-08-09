@@ -2,6 +2,7 @@ local Assert = require("tests.assert")
 local Actions = require("kiwi.terminal.actions")
 local Metrics = require("kiwi.diagnostics.metrics")
 local State = require("kiwi.terminal.state")
+local Utf8 = require("kiwi.terminal.utf8")
 
 local function metrics_for(state, runtime)
   local context = {
@@ -27,6 +28,7 @@ end
 return {
   diagnostics_expose_terminal_runtime_without_logging_payloads = function()
     local state = State.new(4, 2)
+    state:write_codepoint(Utf8.encode(0x4e2d), 0x4e2d)
     state:apply(Actions.csi({ 1000 }, "?", "", "h"))
     state:apply(Actions.osc(9, "unreported payload"))
     local metrics = metrics_for(state, {
@@ -39,6 +41,8 @@ return {
     Assert.equal(snapshot.parser_actions, 4)
     Assert.equal(snapshot.terminal_mutations, state.stats.mutations)
     Assert.equal(snapshot.active_screen, "primary")
+    Assert.equal(snapshot.grapheme_clusters, 1)
+    Assert.equal(snapshot.wide_clusters, 1)
     Assert.equal(snapshot.unknown_csi, 1)
     Assert.equal(snapshot.unknown_osc, 1)
     Assert.equal(snapshot.unknown_samples[1].detail.private, "?")

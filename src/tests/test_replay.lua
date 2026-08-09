@@ -7,6 +7,7 @@ local State = require("kiwi.terminal.state")
 
 local LIVE_RECORDING = "src/tests/fixtures/replay/live-color-cr.jsonl"
 local UNICODE_RECORDING = "src/tests/fixtures/replay/unicode-clusters.jsonl"
+local RIGHT_MARGIN_UNICODE_RECORDING = "src/tests/fixtures/replay/unicode-right-margin.jsonl"
 
 local function with_temporary_recording(callback)
   local path = os.tmpname()
@@ -76,6 +77,16 @@ return {
     Assert.truthy(state:get(2, 0).continuation)
     Assert.equal(state:get(3, 0).width, 2)
     Assert.truthy(state:get(4, 0).continuation)
+    Assert.equal(stats.errors, 0)
+  end,
+  unicode_replay_preserves_width_changing_right_margin_wrap = function()
+    local state = State.new(1, 1)
+    local stats = Replay.apply_file(state, RIGHT_MARGIN_UNICODE_RECORDING)
+    Assert.equal(state:get(0, 0).glyph, "A")
+    Assert.equal(state:get(1, 0).glyph, "\226\157\164\239\184\143")
+    Assert.equal(state:get(1, 0).width, 2)
+    Assert.truthy(state:get(2, 0).continuation)
+    Assert.equal(state:get(0, 1).glyph, "B")
     Assert.equal(stats.errors, 0)
   end,
 }

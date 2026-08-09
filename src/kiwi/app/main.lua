@@ -176,7 +176,7 @@ local function run_live(options)
     end
     parser:finish()
     if options.inspect then
-      io.stdout:write(TextInspector.format(TextInspector.describe(state, font, state.cursor.column, state.cursor.row)), "\n")
+      io.stdout:write(TextInspector.format(TextInspector.describe(state, font, state.cursor.column, state.cursor.row, renderer.layout)), "\n")
     end
   end, debug.traceback)
 
