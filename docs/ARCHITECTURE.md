@@ -1,6 +1,6 @@
-# Kiwi M1 architecture
+# Kiwi M2 architecture
 
-Kiwi retains M0's renderer-first boundary while replacing the normal synthetic producer with a real terminal kernel. The synthetic model and renderer benchmark remain available through `make demo` and `make bench`.
+Kiwi retains M0's renderer-first boundary while replacing the normal synthetic producer with a real terminal kernel and native text path. The synthetic model and renderer benchmark remain available through `make demo` and `make bench`; M2 native-text measurements are separate under `make bench-text`.
 
 ## Live pipeline
 
@@ -17,7 +17,7 @@ PTY master <---------------- terminal responses (DSR/DA)
              v                              |
   terminal/parser.lua -- actions/direct print --> terminal/state.lua
         streaming UTF-8                  |
-                                      +-- screen rows
+                       Unicode 17 EGC/width +-- screen rows: cluster anchors/continuations
                                       +-- modes/cursor/attributes
                                       +-- bounded scrollback
                                       +-- title/responses/diagnostics
@@ -26,7 +26,10 @@ PTY master <---------------- terminal responses (DSR/DA)
                                         terminal/damage.lua
                                              |
                                              v
-M0 renderer: background -> glyph -> cursor -> wgpu-native -> Vulkan
+text/layout.lua -> HarfBuzz glyph IDs -> bounded alpha atlas
+                                             |
+                                             v
+renderer: background -> shaped glyph -> cursor -> wgpu-native -> Vulkan
 ```
 
 The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
@@ -67,15 +70,19 @@ Resizing preserves the selected screen's overlapping cells, resets margins to th
 
 GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.
 
-## Renderer integration and glyph fallback
+## Unicode grid, shaping, and glyph fallback
 
-Live cells retain their incoming codepoint string. The M0 FreeType atlas remains basic Latin, so the renderer selects `?` only for a missing atlas glyph while preserving the logical cell glyph for snapshots/debugging. The packed GPU record is unchanged at 40 bytes. M1 displays bold, faint, underline, and strike decoration behavior already represented in the renderer; richer typography is deferred to M2.
+The parser remains syntax-only and the state remains the sole mutator, but state now stores one Unicode 17 UAX #29 extended grapheme cluster at an anchor cell plus a continuation for every two-column footprint. It retains raw code points and applies a versioned terminal-width policy independently of font metrics. Incoming chunks are not normalized; combining/ZWJ extensions join the prior adjacent cluster when valid. All destructive grid operations normalize anchors and continuations.
+
+`text/layout.lua` observes logical damage and reuses stable rows. Dirty rows are grouped into same-face runs, shaped with HarfBuzz monotone grapheme clusters and explicit LTR direction, then mapped back to terminal columns. Fontconfig resolves primary/fallback faces; FreeType rasterizes resulting glyph IDs. Font face, fallback, glyph, and atlas resources have fixed bounds and failures render `?` or omit a glyph safely. The alpha atlas is one 1024×1024 grayscale page; M2 does not claim color-emoji or bidi rendering.
+
+The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Decorations/cursor remain semantic passes, not part of a terminal bitmap.
 
 ## Replay and diagnostics
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.
 
-F4 diagnostics remain rate-limited to one report per second and combine M0 upload/frame/atlas data with PTY byte counters, the most recent PTY read byte/count, parser counters, terminal mutations, scrollback, active screen, grid size, child state, and unknown CSI/ESC/OSC counts. Unsupported sequence samples are bounded and structured; OSC payloads are never printed.
+F4 diagnostics remain rate-limited to one report per second and combine M0 upload/frame data with PTY byte counters, the most recent PTY read byte/count, parser counters, terminal mutations, scrollback, active screen, grid size, child state, and unknown CSI/ESC/OSC counts. M2 adds Unicode version, font/fallback selection, EGC bound count, shaping invalidation/cache metrics, glyph-buffer uploads/drops, and alpha-atlas cache metrics. Unsupported sequence samples are bounded and structured; OSC payloads are never printed. `--inspect` explains the cursor cell's original code points, anchor, width, fallback choice, and resolved face.
 
 ## References and intentional boundary
 

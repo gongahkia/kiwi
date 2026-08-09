@@ -14,9 +14,9 @@ PTY, shell lifecycle, deliberately scoped VT parser/state, resize propagation, b
 
 Layered parser/state/damage/packing/scroll benchmarks, LuaJIT profiler evidence, bounded PTY service turns, real-PTY burst/response checks, schema-versioned result metadata, and performance decision records are implemented. This milestone retains M1's terminal semantics and renderer boundary; it does not add M2 text functionality.
 
-## M2 — serious text
+## M2 — complete: bounded native text foundation
 
-HarfBuzz shaping, Unicode, fallback, combining/wide characters, emoji strategy, Nerd Font validation, and HiDPI/text-quality work.
+Pinned Unicode 17 data and full UAX #29 EGC conformance, deterministic terminal width, grapheme/anchor/continuation cells, HarfBuzz shaping, Fontconfig fallback, glyph-ID alpha atlas rendering, diagnostics, native-text benchmarks, and bounded stress checks are implemented. M2 deliberately remains LTR-only, grayscale-atlas-only, and startup-configured; bidi, color emoji, atlas paging/eviction, runtime reflow, and text-quality expansion remain deferred.
 
 ## M3 — rendering architecture expansion
 

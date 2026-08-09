@@ -1,4 +1,4 @@
-# Kiwi M1.5 pipeline benchmarks
+# Kiwi M1.5 and M2 benchmarks
 
 M1.5 measures the real LuaJIT terminal pipeline in layers instead of inferring terminal performance from the older synthetic renderer model. The benchmarks are reproducible CPU measurements, not a claim of end-to-end terminal or GPU latency.
 
@@ -34,6 +34,23 @@ The full CPU pipeline intentionally excludes PTY syscalls, `wgpuQueueWriteBuffer
 Heap fields are diagnostic signals, not allocation totals: retained delta is measured after an explicit collection and peak delta is allocator-sensitive. Peak values include the fresh per-iteration setup needed by the component. Use them to spot growth or runaway retention, not to compare unrelated layers by a few KiB.
 
 The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scrolling reconstruction and M1.5's row-reference terminal scrolling have different scopes and must not be presented as before/after performance evidence.
+
+## M2 native-text measurements
+
+`make bench-text` is deliberately separate from `make bench`: it defaults to 10 measured iterations and 3 warmups, writes `bench/results/<UTC timestamp>-text.json` with schema version 1, and does not alter the M1.5 schema. It reports each ASCII, combining, CJK, emoji, and mixed workload at these layers:
+
+| Layer | Timed work |
+| --- | --- |
+| UAX #29 segmentation | decoded code points through EGC segmentation |
+| terminal width | segmentation plus the versioned M2 width policy |
+| HarfBuzz cold | shaping against a fresh pre-created Fontconfig/FreeType/HarfBuzz/fallback context |
+| HarfBuzz/glyph-cache hot | shaping against persistent fallback and prepopulated glyph caches |
+| row layout cold | first logical-row layout against fresh pre-created state/font/layout objects |
+| row layout cached | a static, already-shaped row with cleared logical damage |
+
+Each JSON result carries the exact scope, input bytes, clusters/glyphs, cache/fallback counters, CPU samples, and Lua heap deltas. Object construction occurs before the timed operation, matching the M1.5 methodology; a “cold” operation means a fresh cache/context, not that native library construction time is attributed to shaping. None of these layers measure GPU queue writes, GPU execution, compositor delay, or presentation.
+
+`make bench-text-stress` writes `*-text-stress.json`. It mixes combining sequences, CJK, emoji, PUA, an unsupported code point, CSI edit operations, resize, and layout in one long-lived system. It checks anchor/continuation invariants, atlas entries against its configured limit, fallback-cache bounds, and (when `/proc/self/status` is available) a 96 MiB RSS delta guard. Defaults are 400 rounds and 96 glyph entries; `KIWI_TEXT_STRESS_ROUNDS`, `KIWI_TEXT_STRESS_ATLAS_ENTRIES`, and `KIWI_TEXT_STRESS_MAX_RSS_KIB` are explicit overrides. The stress output is a bounded regression check, not a frames-per-second claim.
 
 `make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, component/workload set, and each component's exact scope before producing deltas. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 

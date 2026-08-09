@@ -1,4 +1,4 @@
-# Kiwi M1 terminal conformance
+# Kiwi M2 terminal conformance
 
 Kiwi implements a deliberately scoped xterm/VT-style behavioral subset. It is neither VT100 nor xterm certified, and `TERM=kiwi` advertises only the terminfo capabilities implemented here. Authoritative behavior sources are [XTerm Control Sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), [ECMA-48](https://ecma-international.org/publications-and-standards/standards/ecma-48/), and [ncurses terminfo](https://invisible-island.net/ncurses/man/terminfo.5.html).
 
@@ -35,6 +35,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
+| Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
 
 ## TERM contract
 
@@ -42,9 +43,15 @@ The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti`
 
 The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or extended keyboard protocols. Adding or removing an advertised capability requires updating both the source entry and this matrix.
 
+## Unicode conformance
+
+`make test-unicode` runs all 766 cases from the checked-in official Unicode 17.0.0 `GraphemeBreakTest.txt`. The ordinary deterministic suite also tests chunk-boundary invariance, combining extensions, variation-selector width changes, CJK overwrite/erase, wide-cell row invariants through edit/resize/scroll/alternate transitions, cluster bounds, state snapshots, HarfBuzz output against `hb-shape` when available, CJK fallback caching, bounded glyph cache, fallback face-cache degradation, and native-text benchmark/stress schemas.
+
+M2 terminal-width outcomes are deterministic rather than a claim to emulate the host libc or another terminal. It treats EAW W/F and documented emoji sequences as 2 cells, defaults EAW A and private-use to 1, and supports `KIWI_AMBIGUOUS_WIDTH=2` at startup. The full policy, data provenance, and resource bounds are in [TEXT.md](TEXT.md).
+
 ## Known unsupported/deferred behavior
 
-M1 does not provide character-set designation, width/grapheme correctness, combining marks, shaping, bidi, CJK/emoji fallback, clipboard, mouse protocols, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the M1 bitmap renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, mouse protocols, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 
