@@ -637,6 +637,33 @@ int main() {
   }
 
   {
+    setConfigRoot(test_root / "empty");
+    const char* argv[] = {"strok", "--log", "/tmp/strok.log", "--ffmpeg-log", "warning", "--metrics-jsonl", "/tmp/strok.metrics.jsonl"};
+    const auto parsed = strok::parseArgs(7, const_cast<char**>(argv));
+    expect(parsed.error.empty(), "FFmpeg diagnostics and metrics options parse");
+    expect(parsed.options.ffmpeg_log_level == "warning", "FFmpeg log level stored");
+    expect(parsed.options.metrics_jsonl_file.has_value() && *parsed.options.metrics_jsonl_file == "/tmp/strok.metrics.jsonl", "metrics JSONL path stored");
+  }
+
+  {
+    const char* argv[] = {"strok", "--ffmpeg-log", "debug"};
+    const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "FFmpeg diagnostics require a log file");
+  }
+
+  {
+    const char* argv[] = {"strok", "--log", "/tmp/strok.log", "--ffmpeg-log", "verbose"};
+    const auto parsed = strok::parseArgs(5, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "invalid FFmpeg log level is rejected");
+  }
+
+  {
+    const char* argv[] = {"strok", "--metrics-jsonl", "/tmp/strok.metrics.jsonl", "--export", "/tmp/strok.ansi", "movie.mp4"};
+    const auto parsed = strok::parseArgs(6, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "metrics JSONL rejects offline export");
+  }
+
+  {
     writeConfig(test_root / "defaults", "pipeline=structure\ncharset=\" .#\"\nwidth=33\nfit=true\nmirror=false\nmono=true\ndebug-stats=true\n");
     const char* argv[] = {"strok", "movie.mp4"};
     const auto parsed = strok::parseArgs(2, const_cast<char**>(argv));

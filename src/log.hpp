@@ -1,7 +1,7 @@
 #pragma once
 
 #include <filesystem>
-#include <fstream>
+#include <memory>
 #include <string_view>
 
 namespace strok {
@@ -17,9 +17,11 @@ class Logger {
   void error(std::string_view message);
 
  private:
+  struct State;
+
   void write(std::string_view level, std::string_view message);
 
-  std::ofstream sink_;
+  std::shared_ptr<State> state_;
 };
 
 }  // namespace strok

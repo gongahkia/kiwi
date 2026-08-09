@@ -10,13 +10,14 @@ cmake --build build/ci --target live_input_acceptance
 
 The target starts an isolated MediaMTX server using `bluenviron/mediamtx:1` with host networking, publishes a 30 fps no-audio FFmpeg `testsrc2` stream, and reads it through both TCP and UDP RTSP transports. MediaMTX documents this image and its host-networking requirement, while its FFmpeg guide documents RTSP publishing with FFmpeg. See <https://mediamtx.org/docs/kickoff/install> and <https://mediamtx.org/docs/publish/ffmpeg>.
 
-The run has two traces per transport. The pressure trace uses `STROK_TEST_WRITE_DELAY_MS=120` to model a slow terminal acceptance path; the capped trace sets `--fps 30 --max-fps 5`. Both use `--debug-stats`, a deterministic 80x24 PTY, a 3 second live open/read timeout, and reconnect backoff. The harness requires nonzero queue replacement or consumer skip and a write overrun in the pressure trace. It requires `live_effective_fps=5.0` in the capped trace. This exercises no-audio live scheduling without claiming a universal end-to-end latency bound.
+The run has two traces per transport. The pressure trace uses `STROK_TEST_WRITE_DELAY_MS=120` to model a slow terminal acceptance path; the capped trace sets `--fps 30 --max-fps 5`. Both use `--debug-stats`, `--metrics-jsonl`, a deterministic 80x24 PTY, a 3 second live open/read timeout, and reconnect backoff. The harness requires nonzero queue replacement or consumer discard and a write overrun in the pressure trace. It requires `live_effective_fps=5.0` in the capped trace. It also requires a decoded-frame-to-present percentile sample in the JSONL artifact. This exercises no-audio live scheduling without claiming a universal end-to-end latency bound.
 
 Set `STROK_LIVE_ACCEPTANCE_OUTPUT` to retain a known result directory. Otherwise the script prints a newly created temporary directory. Each trace writes:
 
 - `.env`: source (with RTSP credentials redacted), command parameters, binary version, kernel, and FFmpeg version;
 - `.log`: unmodified strok diagnostics;
-- `.metrics`: one key-value debug sample per line, suitable for later JSONL/metrics ingestion;
+- `.metrics`: one key-value debug sample per line, retained for quick inspection;
+- `.metrics.jsonl`: versioned structured playback metrics, used for the harness assertions; see [`metrics-jsonl.md`](metrics-jsonl.md);
 - `.typescript`: the PTY transcript.
 
 Use a physical or V4L2-loopback camera separately; never add a hardware device to the default test suite:

@@ -35,6 +35,10 @@ bool isProfileName(std::string_view value) {
   return isOneOf(value, {"live", "structure", "low-bandwidth", "export"});
 }
 
+bool isFfmpegLogLevel(std::string_view value) {
+  return isOneOf(value, {"off", "error", "warning", "info", "debug", "trace"});
+}
+
 void applyProfile(std::string_view value, CliOptions* options) {
   if (value == "live") {
     applyPipeline("luminance", options);
@@ -546,6 +550,8 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--bandwidth-cap",
           "--input-keys",
           "--log",
+          "--ffmpeg-log",
+          "--metrics-jsonl",
           "--export",
           "--still",
           "--still-at",
@@ -810,6 +816,18 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.options.input_keys = std::string(*value);
     } else if (flag == "--log") {
       result.options.log_file = std::string(*value);
+    } else if (flag == "--ffmpeg-log") {
+      if (!isFfmpegLogLevel(*value)) {
+        result.error = "invalid value for --ffmpeg-log: expected off, error, warning, info, debug, or trace";
+        return result;
+      }
+      result.options.ffmpeg_log_level = std::string(*value);
+    } else if (flag == "--metrics-jsonl") {
+      if (value->empty()) {
+        result.error = "invalid value for --metrics-jsonl: expected output path";
+        return result;
+      }
+      result.options.metrics_jsonl_file = std::string(*value);
     } else if (flag == "--export") {
       result.options.export_file = std::string(*value);
     } else if (flag == "--still") {
@@ -1005,6 +1023,15 @@ CliParseResult parseArgs(int argc, char** argv) {
   }
   CliParseResult result = parseArgsFromArgv(argc, argv, std::move(options));
   result.config_path = defaults.config_path;
+  if (result.error.empty() && result.options.ffmpeg_log_level != "off" && !result.options.log_file.has_value()) {
+    result.error = "--ffmpeg-log requires --log FILE";
+  }
+  if (result.error.empty() && result.options.metrics_jsonl_file.has_value() &&
+      (result.options.export_file.has_value() || result.options.still_file.has_value() ||
+       result.options.captions_file.has_value() || result.options.dump_frame.has_value() ||
+       result.options.dump_png.has_value())) {
+    result.error = "--metrics-jsonl is only supported during terminal playback";
+  }
   return result;
 }
 

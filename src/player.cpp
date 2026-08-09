@@ -29,6 +29,7 @@
 #include "live_presentation_pacer.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
+#include "metrics_jsonl.hpp"
 #include "overlay_compose.hpp"
 #include "png_writer.hpp"
 #include "raster_compose.hpp"
@@ -512,14 +513,18 @@ bool writeLiveSourceStatus(const LiveSourceStatus& status, TerminalSize terminal
 class RuntimeDebugStats {
  public:
   RuntimeDebugStats(const CliOptions& options, Logger* logger)
-      : enabled_(options.debug_stats),
+      : display_enabled_(options.debug_stats),
         logger_(logger),
         started_(std::chrono::steady_clock::now()),
         last_sample_(started_),
-        last_metrics_(sampleProcessMetrics()) {}
+        last_metrics_(sampleProcessMetrics()) {
+    if (options.metrics_jsonl_file.has_value()) {
+      metrics_writer_ = std::make_unique<MetricsJsonlWriter>(*options.metrics_jsonl_file);
+    }
+  }
 
   bool enabled() const noexcept {
-    return enabled_;
+    return display_enabled_ || metrics_writer_ != nullptr;
   }
 
   void recordInputFrame() noexcept {
@@ -561,6 +566,9 @@ class RuntimeDebugStats {
     ++window_live_decode_to_present_samples_;
     window_live_decode_to_present_us_ += decode_to_present_us;
     window_live_max_decode_to_present_us_ = std::max(window_live_max_decode_to_present_us_, decode_to_present_us);
+    appendMetricSample(&window_live_decode_to_present_samples_us_, decode_to_present_us);
+    appendMetricSample(&window_live_render_samples_us_, std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(render_time).count()));
+    appendMetricSample(&window_live_write_samples_us_, std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(write_time).count()));
     window_live_effective_interval_us_ = presentation_timing.interval.count();
     if (presentation_timing.terminal_overrun) {
       ++window_live_terminal_overruns_;
@@ -577,7 +585,7 @@ class RuntimeDebugStats {
   }
 
   bool maybeReport(TerminalSize terminal, bool force = false) {
-    if (!enabled_) {
+    if (!enabled()) {
       return true;
     }
     const auto now = std::chrono::steady_clock::now();
@@ -587,8 +595,14 @@ class RuntimeDebugStats {
     }
     const ProcessMetrics metrics = sampleProcessMetrics();
     const std::string line = formatLine(now, metrics, std::max(window_elapsed.count(), 0.001));
-    if (logger_ != nullptr && logger_->enabled()) {
+    if (display_enabled_ && logger_ != nullptr && logger_->enabled()) {
       STROK_LOG_INFO(*logger_, line);
+    }
+    if (metrics_writer_ != nullptr && !metrics_writer_->write(formatJsonl(now, metrics, std::max(window_elapsed.count(), 0.001)))) {
+      if (logger_ != nullptr) {
+        STROK_LOG_ERROR(*logger_, "failed to write metrics JSONL sample");
+      }
+      return false;
     }
     last_sample_ = now;
     last_metrics_ = metrics;
@@ -607,10 +621,92 @@ class RuntimeDebugStats {
     window_live_max_decode_to_present_us_ = 0;
     window_live_effective_interval_us_ = 0;
     window_live_terminal_overruns_ = 0;
-    return writeDebugStatusLine(terminal, line);
+    window_live_decode_to_present_samples_us_.clear();
+    window_live_render_samples_us_.clear();
+    window_live_write_samples_us_.clear();
+    window_live_metric_sample_overflow_ = 0;
+    return !display_enabled_ || writeDebugStatusLine(terminal, line);
   }
 
  private:
+  static constexpr std::size_t kMaxMetricSamples = 2048;
+
+  void appendMetricSample(std::vector<int64_t>* samples, int64_t value) noexcept {
+    if (samples->size() >= kMaxMetricSamples) {
+      ++window_live_metric_sample_overflow_;
+      return;
+    }
+    samples->push_back(value);
+  }
+
+  static std::optional<double> percentileMs(std::vector<int64_t> samples, double percentile) {
+    if (samples.empty()) {
+      return std::nullopt;
+    }
+    std::sort(samples.begin(), samples.end());
+    const double rank = percentile * static_cast<double>(samples.size());
+    const std::size_t index = std::min(samples.size() - 1U,
+                                       static_cast<std::size_t>(std::ceil(rank)) - 1U);
+    return static_cast<double>(samples[index]) / 1000.0;
+  }
+
+  static void appendJsonNumber(std::ostringstream* out, std::string_view name, std::optional<double> value) {
+    *out << '"' << name << "\":";
+    if (!value.has_value()) {
+      *out << "null";
+      return;
+    }
+    *out << std::fixed << std::setprecision(3) << *value;
+  }
+
+  std::string formatJsonl(std::chrono::steady_clock::time_point now,
+                          ProcessMetrics metrics,
+                          double window_seconds) const {
+    const std::chrono::duration<double> elapsed = now - started_;
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(3)
+        << "{\"schema_version\":1"
+        << ",\"event\":\"metrics\""
+        << ",\"elapsed_s\":" << elapsed.count()
+        << ",\"window_s\":" << window_seconds
+        << ",\"input_frames\":" << window_input_frames_
+        << ",\"presented_frames\":" << window_presented_frames_
+        << ",\"dropped_frames\":" << window_dropped_frames_
+        << ",\"changed_cells\":" << window_changed_cells_
+        << ",\"emitted_bytes\":" << window_emitted_bytes_
+        << ",\"cpu_percent\":" << std::max(0.0, 100.0 * ((metrics.cpuSeconds() - last_metrics_.cpuSeconds()) / window_seconds))
+        << ",\"rss_bytes\":" << metrics.rss_bytes
+        << ",\"live_producer_replaced\":" << window_live_producer_replaced_
+        << ",\"live_consumer_discarded\":" << window_live_consumer_discarded_
+        << ",\"live_late_dropped\":" << window_live_late_dropped_
+        << ",\"live_write_overruns\":" << window_live_terminal_overruns_
+        << ",\"live_effective_fps\":" << (window_live_effective_interval_us_ > 0
+              ? 1000000.0 / static_cast<double>(window_live_effective_interval_us_)
+              : 0.0)
+        << ",\"live_metric_sample_overflow\":" << window_live_metric_sample_overflow_
+        << ",\"live_decode_to_present_samples\":" << window_live_decode_to_present_samples_us_.size()
+        << ',';
+    appendJsonNumber(&out, "live_decode_to_present_ms_p50", percentileMs(window_live_decode_to_present_samples_us_, 0.50));
+    out << ',';
+    appendJsonNumber(&out, "live_decode_to_present_ms_p95", percentileMs(window_live_decode_to_present_samples_us_, 0.95));
+    out << ',';
+    appendJsonNumber(&out, "live_decode_to_present_ms_p99", percentileMs(window_live_decode_to_present_samples_us_, 0.99));
+    out << ',';
+    appendJsonNumber(&out, "live_render_ms_p50", percentileMs(window_live_render_samples_us_, 0.50));
+    out << ',';
+    appendJsonNumber(&out, "live_render_ms_p95", percentileMs(window_live_render_samples_us_, 0.95));
+    out << ',';
+    appendJsonNumber(&out, "live_render_ms_p99", percentileMs(window_live_render_samples_us_, 0.99));
+    out << ',';
+    appendJsonNumber(&out, "live_write_ms_p50", percentileMs(window_live_write_samples_us_, 0.50));
+    out << ',';
+    appendJsonNumber(&out, "live_write_ms_p95", percentileMs(window_live_write_samples_us_, 0.95));
+    out << ',';
+    appendJsonNumber(&out, "live_write_ms_p99", percentileMs(window_live_write_samples_us_, 0.99));
+    out << '}';
+    return out.str();
+  }
+
   std::string formatLine(std::chrono::steady_clock::time_point now, ProcessMetrics metrics, double window_seconds) const {
     const std::chrono::duration<double> elapsed = now - started_;
     const double cpu_pct = 100.0 * ((metrics.cpuSeconds() - last_metrics_.cpuSeconds()) / window_seconds);
@@ -653,8 +749,9 @@ class RuntimeDebugStats {
     return out.str();
   }
 
-  bool enabled_ = false;
+  bool display_enabled_ = false;
   Logger* logger_ = nullptr;
+  std::unique_ptr<MetricsJsonlWriter> metrics_writer_;
   std::chrono::steady_clock::time_point started_;
   std::chrono::steady_clock::time_point last_sample_;
   ProcessMetrics last_metrics_;
@@ -682,6 +779,10 @@ class RuntimeDebugStats {
   int64_t window_live_max_decode_to_present_us_ = 0;
   int64_t window_live_effective_interval_us_ = 0;
   int64_t window_live_terminal_overruns_ = 0;
+  int64_t window_live_metric_sample_overflow_ = 0;
+  std::vector<int64_t> window_live_decode_to_present_samples_us_;
+  std::vector<int64_t> window_live_render_samples_us_;
+  std::vector<int64_t> window_live_write_samples_us_;
   int last_cols_ = 0;
   int last_rows_ = 0;
 };

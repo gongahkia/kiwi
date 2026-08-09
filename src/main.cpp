@@ -1,6 +1,7 @@
 #include "auto_mode.hpp"
 #include "cli.hpp"
 #include "doctor.hpp"
+#include "ffmpeg_log.hpp"
 #include "graph_yaml.hpp"
 #include "log.hpp"
 #include "media_probe.hpp"
@@ -60,6 +61,7 @@ int runApp(int argc, char** argv) {
     logger = strok::Logger(*options.log_file);
     STROK_LOG_INFO(logger, "logger initialized");
   }
+  strok::FfmpegLogScope ffmpeg_log_scope(options.ffmpeg_log_level, logger);
 
   std::optional<strok::TerminalCaps> terminal_caps;
   const auto get_caps = [&]() -> const strok::TerminalCaps& {
@@ -108,7 +110,11 @@ int runApp(int argc, char** argv) {
     }
     const bool diagnostic_probe = options.dump_frame.has_value() || options.dump_png.has_value();
     const bool stdin_playback = *options.input == "stdin";
-    if ((stdin_playback || strok::terminalSessionAvailable()) && !diagnostic_probe) {
+    const bool terminal_playback = stdin_playback || strok::terminalSessionAvailable();
+    if (options.metrics_jsonl_file.has_value() && !terminal_playback) {
+      throw std::runtime_error("--metrics-jsonl requires terminal playback");
+    }
+    if (terminal_playback && !diagnostic_probe) {
       return strok::playMedia(options, logger);
     }
 

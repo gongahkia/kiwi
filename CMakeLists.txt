@@ -155,9 +155,11 @@ set(STROK_FRONTEND_MEDIA_SOURCES
   src/cli.cpp
   src/cli_spec.cpp
   src/doctor.cpp
+  src/ffmpeg_log.cpp
   src/graph_yaml.cpp
   src/image_grid.cpp
   src/log.cpp
+  src/metrics_jsonl.cpp
   src/live_frame_source.cpp
   src/main.cpp
   src/media_input.cpp
@@ -915,6 +917,56 @@ else()
   endif()
 endif()
 add_test(NAME cli COMMAND cli_tests)
+
+add_executable(ffmpeg_log_tests
+  tests/ffmpeg_log_tests.cpp
+  src/ffmpeg_log.cpp
+  src/log.cpp
+)
+target_include_directories(ffmpeg_log_tests PRIVATE src)
+target_compile_features(ffmpeg_log_tests PRIVATE cxx_std_20)
+set_target_properties(ffmpeg_log_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(ffmpeg_log_tests PRIVATE PkgConfig::FFMPEG)
+if(MSVC)
+  target_compile_options(ffmpeg_log_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(ffmpeg_log_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(ffmpeg_log_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(ffmpeg_log_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME ffmpeg_log COMMAND ffmpeg_log_tests)
+
+add_executable(metrics_jsonl_tests
+  tests/metrics_jsonl_tests.cpp
+  src/metrics_jsonl.cpp
+)
+target_include_directories(metrics_jsonl_tests PRIVATE src)
+target_compile_features(metrics_jsonl_tests PRIVATE cxx_std_20)
+set_target_properties(metrics_jsonl_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(metrics_jsonl_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(metrics_jsonl_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(metrics_jsonl_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(metrics_jsonl_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME metrics_jsonl COMMAND metrics_jsonl_tests)
 
 add_executable(help_manpage_parity_tests
   tests/help_manpage_parity_tests.cpp

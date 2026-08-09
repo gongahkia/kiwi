@@ -217,7 +217,6 @@ void receiveAudioFrames(AVCodecContext* codec_context, AVFrame* frame, const Aud
 }  // namespace
 
 DecodedAudio decodeAudioFile(const std::filesystem::path& input, const AudioDecodeOptions& options) {
-  av_log_set_level(AV_LOG_QUIET);
   if (options.sample_rate <= 0) {
     throw std::runtime_error("audio output sample rate must be positive");
   }

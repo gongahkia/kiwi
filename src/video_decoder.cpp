@@ -230,7 +230,6 @@ struct VideoDecoder::Impl {
                 VideoDecoderOptions decoder_options,
                 const std::atomic<bool>* external_stop)
       : input(std::move(media)), options(std::move(decoder_options)) {
-    av_log_set_level(AV_LOG_QUIET);
     interrupt_state.external_stop_requested = external_stop;
     const std::string input_string = input.string();
     const std::optional<CameraInputSpec> camera = cameraInputSpec(input_string);

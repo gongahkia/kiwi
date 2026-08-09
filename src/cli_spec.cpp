@@ -55,6 +55,8 @@ constexpr CliOptionSpec kCliOptionSpecs[] = {
   {"--mirror", "mirror camera input horizontally"},
   {"--no-mirror", "disable camera mirroring"},
   {"--log FILE", "write diagnostics to file"},
+  {"--ffmpeg-log {off|error|warning|info|debug|trace}", "route FFmpeg diagnostics into --log"},
+  {"--metrics-jsonl FILE", "write per-window playback metrics as JSON lines"},
   {"--gpu", "request gpu analysis path"},
   {"--no-gpu", "disable config-default gpu request"},
   {"--line-ligatures", "use box-drawing joins for structure edges"},

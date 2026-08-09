@@ -140,6 +140,7 @@ run_trace() {
   local log="$output_dir/$label.log"
   local transcript="$output_dir/$label.typescript"
   local metrics="$output_dir/$label.metrics"
+  local metrics_jsonl="$output_dir/$label.metrics.jsonl"
   write_metadata "$label" "$input" "$transport" "$max_fps" "$write_delay"
 
   set +e
@@ -148,7 +149,7 @@ run_trace() {
     "$bin" --input "$input" --rtsp-transport "$transport" \
       --input-open-timeout 3000 --read-timeout 3000 --reconnect --reconnect-backoff 100 \
       --width 80 --height 22 --no-fit --fps 30 --max-fps "$max_fps" \
-      --mode luminance --color-mode mono --debug-stats --log "$log"
+      --mode luminance --color-mode mono --debug-stats --log "$log" --metrics-jsonl "$metrics_jsonl"
   local status=$?
   set -e
   if [[ "$status" -ne 0 && "$status" -ne 124 && "$status" -ne 130 ]]; then
@@ -164,13 +165,18 @@ run_trace() {
     sed -n '1,220p' "$log" >&2
     exit 1
   fi
-  require_log "$metrics" 'live_effective_fps='
-  require_log "$metrics" 'live_decode_to_present_ms='
+  if [[ ! -s "$metrics_jsonl" ]]; then
+    echo "no JSONL metrics were captured for $label" >&2
+    sed -n '1,220p' "$log" >&2
+    exit 1
+  fi
+  require_log "$metrics_jsonl" '"schema_version":1'
+  require_log "$metrics_jsonl" '"live_decode_to_present_ms_p50":[0-9]'
   if [[ "$write_delay" -gt 0 ]]; then
-    require_log "$metrics" 'live_(replace|skip)=[1-9]'
-    require_log "$metrics" 'live_write_overruns=[1-9]'
+    require_log "$metrics_jsonl" '"live_(producer_replaced|consumer_discarded)":[1-9]'
+    require_log "$metrics_jsonl" '"live_write_overruns":[1-9]'
   else
-    require_log "$metrics" "live_effective_fps=${max_fps}\\.0"
+    require_log "$metrics_jsonl" "\"live_effective_fps\":${max_fps}\\.0+"
   fi
 }
 
