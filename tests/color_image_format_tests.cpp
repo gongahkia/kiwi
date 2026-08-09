@@ -1,7 +1,6 @@
 #include <strok/renderer.hpp>
 
 #include <array>
-#include <cstddef>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
@@ -13,22 +12,6 @@ void expect(bool condition, const char* label) {
     std::cerr << label << '\n';
     std::exit(1);
   }
-}
-
-bool sameCells(const strok::CellBuffer& left, const strok::CellBuffer& right) {
-  if (left.cols() != right.cols() || left.rows() != right.rows() || left.size() != right.size()) {
-    return false;
-  }
-  for (std::size_t index = 0; index < left.size(); ++index) {
-    const strok::Cell& lhs = left.cells()[index];
-    const strok::Cell& rhs = right.cells()[index];
-    if (lhs.glyph != rhs.glyph ||
-        lhs.fg.r != rhs.fg.r || lhs.fg.g != rhs.fg.g || lhs.fg.b != rhs.fg.b ||
-        lhs.bg.r != rhs.bg.r || lhs.bg.g != rhs.bg.g || lhs.bg.b != rhs.bg.b) {
-      return false;
-    }
-  }
-  return true;
 }
 
 strok::CellBuffer render(const strok::ColorImageView& image) {
@@ -98,8 +81,8 @@ int main() {
     .pixel_format = strok::ColorPixelFormat::Bgra8,
   });
 
-  expect(sameCells(rgb_cells, rgba_cells), "RGBA8 ignores alpha and preserves RGB reconstruction");
-  expect(sameCells(rgb_cells, bgra_cells), "BGRA8 channel order preserves RGB reconstruction");
-  expect(sameCells(rgb_cells, padded_rgba_cells), "padded RGBA8 reconstruction");
-  expect(sameCells(rgb_cells, padded_bgra_cells), "padded BGRA8 reconstruction");
+  expect(rgb_cells == rgba_cells, "RGBA8 ignores alpha and preserves RGB reconstruction");
+  expect(rgb_cells == bgra_cells, "BGRA8 channel order preserves RGB reconstruction");
+  expect(rgb_cells == padded_rgba_cells, "padded RGBA8 reconstruction");
+  expect(rgb_cells == padded_bgra_cells, "padded BGRA8 reconstruction");
 }

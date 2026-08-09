@@ -18,21 +18,6 @@ void expect(bool condition, const char* label) {
   }
 }
 
-bool sameCells(const strok::CellBuffer& left, const strok::CellBuffer& right) {
-  if (left.cols() != right.cols() || left.rows() != right.rows()) {
-    return false;
-  }
-  for (std::size_t index = 0; index < left.cells().size(); ++index) {
-    const strok::Cell& lhs = left.cells()[index];
-    const strok::Cell& rhs = right.cells()[index];
-    if (lhs.glyph != rhs.glyph || lhs.fg.r != rhs.fg.r || lhs.fg.g != rhs.fg.g || lhs.fg.b != rhs.fg.b ||
-        lhs.bg.r != rhs.bg.r || lhs.bg.g != rhs.bg.g || lhs.bg.b != rhs.bg.b) {
-      return false;
-    }
-  }
-  return true;
-}
-
 }  // namespace
 
 int main() {
@@ -90,5 +75,5 @@ int main() {
   strok::CellBuffer config_cells;
   strok::renderFrame(frame, U" @", render_options, terminal, nullptr, &legacy_cells);
   strok::renderFrame(frame, U" @", strok::rendererConfigFromCliOptions(render_options), grid, nullptr, &config_cells);
-  expect(sameCells(legacy_cells, config_cells), "render adapter parity");
+  expect(legacy_cells == config_cells, "render adapter parity");
 }

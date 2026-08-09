@@ -16,6 +16,8 @@ struct Cell {
   char32_t glyph = U' ';
   Rgb fg {};
   Rgb bg {};
+
+  bool operator==(const Cell&) const = default;
 };
 
 // An owning, contiguous row-major grid of cells. Copying duplicates cells; moving
@@ -24,7 +26,8 @@ struct Cell {
 // cells to their defaults, while resizing to the same dimensions preserves storage and
 // contents. at(col, row) uses zero-based coordinates and throws std::out_of_range when
 // either coordinate is outside [0, cols) x [0, rows). cells()[row * cols() + col]
-// addresses the same cell for valid coordinates.
+// addresses the same cell for valid coordinates. Equality compares dimensions and every
+// Cell value in row-major order exactly.
 class CellBuffer {
  public:
   CellBuffer() = default;
@@ -63,6 +66,8 @@ class CellBuffer {
   std::vector<Cell>& cells() noexcept {
     return cells_;
   }
+
+  bool operator==(const CellBuffer&) const = default;
 
   const Cell& at(int col, int row) const {
     return cells_.at(index(col, row));

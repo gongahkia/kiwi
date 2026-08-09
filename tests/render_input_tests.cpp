@@ -2,7 +2,6 @@
 #include <strok/renderer.hpp>
 
 #include <array>
-#include <cstddef>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
@@ -14,22 +13,6 @@ void expect(bool condition, const char* label) {
     std::cerr << label << '\n';
     std::exit(1);
   }
-}
-
-bool sameCells(const strok::CellBuffer& left, const strok::CellBuffer& right) {
-  if (left.cols() != right.cols() || left.rows() != right.rows() || left.size() != right.size()) {
-    return false;
-  }
-  for (std::size_t index = 0; index < left.size(); ++index) {
-    const strok::Cell& lhs = left.cells()[index];
-    const strok::Cell& rhs = right.cells()[index];
-    if (lhs.glyph != rhs.glyph ||
-        lhs.fg.r != rhs.fg.r || lhs.fg.g != rhs.fg.g || lhs.fg.b != rhs.fg.b ||
-        lhs.bg.r != rhs.bg.r || lhs.bg.g != rhs.bg.g || lhs.bg.b != rhs.bg.b) {
-      return false;
-    }
-  }
-  return true;
 }
 
 strok::Renderer::CreateResult createRenderer() {
@@ -74,14 +57,14 @@ int main() {
              free_cells.at(0, 0).fg.b == 0,
          "free RenderInput output");
   expect(created.renderer->render(strok::RenderInput{.color = color_view, .depth = depth_view}).succeeded(), "color and depth RenderInput");
-  expect(sameCells(color_cells, created.renderer->cells()), "depth input preserves current RGB reconstruction");
+  expect(color_cells == created.renderer->cells(), "depth input preserves current RGB reconstruction");
   expect(created.renderer->render(strok::RenderInput{.color = color_view, .normals = normal_view}).succeeded(), "color and normal RenderInput");
-  expect(sameCells(color_cells, created.renderer->cells()), "normal input preserves current RGB reconstruction");
+  expect(color_cells == created.renderer->cells(), "normal input preserves current RGB reconstruction");
   expect(created.renderer->render(strok::RenderInput{.color = color_view, .depth = depth_view, .normals = normal_view}).succeeded(), "full RenderInput");
-  expect(sameCells(color_cells, created.renderer->cells()), "combined input preserves current RGB reconstruction");
+  expect(color_cells == created.renderer->cells(), "combined input preserves current RGB reconstruction");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {255, 0, 0}};
-  expect(created.renderer->render(frame).succeeded() && sameCells(color_cells, created.renderer->cells()), "Frame adapts to color-only RenderInput");
+  expect(created.renderer->render(frame).succeeded() && color_cells == created.renderer->cells(), "Frame adapts to color-only RenderInput");
 
   const std::array<double, 2> mismatched_depth = {1.0, 2.0};
   const strok::DepthImageView wrong_depth{

@@ -2,7 +2,6 @@
 #include <strok/renderer.hpp>
 
 #include <array>
-#include <cstddef>
 #include <cstdlib>
 #include <cstdint>
 #include <iostream>
@@ -16,22 +15,6 @@ void expect(bool condition, const char* label) {
     std::cerr << label << '\n';
     std::exit(1);
   }
-}
-
-bool sameCells(const strok::CellBuffer& left, const strok::CellBuffer& right) {
-  if (left.cols() != right.cols() || left.rows() != right.rows() || left.size() != right.size()) {
-    return false;
-  }
-  for (std::size_t index = 0; index < left.size(); ++index) {
-    const strok::Cell& lhs = left.cells()[index];
-    const strok::Cell& rhs = right.cells()[index];
-    if (lhs.glyph != rhs.glyph ||
-        lhs.fg.r != rhs.fg.r || lhs.fg.g != rhs.fg.g || lhs.fg.b != rhs.fg.b ||
-        lhs.bg.r != rhs.bg.r || lhs.bg.g != rhs.bg.g || lhs.bg.b != rhs.bg.b) {
-      return false;
-    }
-  }
-  return true;
 }
 
 strok::Renderer::CreateResult createRenderer() {
@@ -74,7 +57,7 @@ int main() {
   expect(!strok::colorImageViewFromFrame(malformed_frame).has_value(), "Frame RGB24 view adapter rejects malformed storage");
   strok::Renderer::CreateResult frame_renderer = createRenderer();
   expect(frame_renderer.succeeded() && frame_renderer.renderer->render(frame).succeeded(), "legacy Frame render");
-  expect(sameCells(borrowed_cells, frame_renderer.renderer->cells()), "borrowed RGB24 matches legacy Frame");
+  expect(borrowed_cells == frame_renderer.renderer->cells(), "borrowed RGB24 matches legacy Frame");
 
   strok::CellBuffer output(1, 1);
   output.at(0, 0).glyph = U'X';

@@ -19,5 +19,10 @@ int main() {
     return 1;
   }
   const strok::Cell& top_left = cells.at(0, 0);
-  return top_left.glyph == U' ' && top_left.fg.r == 0 && top_left.fg.g == 0 && top_left.fg.b == 0 ? 0 : 1;
+  strok::CellBuffer copied = cells;
+  if (top_left.glyph != U' ' || top_left.fg.r != 0 || top_left.fg.g != 0 || top_left.fg.b != 0 || copied != cells) {
+    return 1;
+  }
+  copied.at(0, 0).glyph = U'X';
+  return copied != cells ? 0 : 1;
 }

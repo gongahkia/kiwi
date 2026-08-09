@@ -42,10 +42,13 @@ int main() {
   buffer.at(1, 1).glyph = U'界';
   const strok::CellBuffer copied = buffer;
   expect(copied.at(1, 1).glyph == U'界', "copy preserves Unicode code point");
+  expect(copied == buffer, "equal cell buffers compare equal");
   buffer.at(1, 1).glyph = U'X';
   expect(copied.at(1, 1).glyph == U'界', "copy owns independent cells");
+  expect(copied != buffer, "different cells compare unequal");
   strok::CellBuffer moved = std::move(buffer);
   expect(moved.cols() == 2 && moved.rows() == 2 && moved.at(1, 1).glyph == U'X', "move transfers cell buffer");
+  expect(moved != strok::CellBuffer(1, 4), "dimensions participate in equality");
 
   bool threw = false;
   try {
