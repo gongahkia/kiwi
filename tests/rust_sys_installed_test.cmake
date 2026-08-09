@@ -50,5 +50,7 @@ run_checked(
   "${STROK_CARGO_EXECUTABLE}"
   test
   --locked
+  --workspace
+  --all-targets
   --manifest-path "${STROK_CARGO_MANIFEST}"
 )

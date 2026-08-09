@@ -1,0 +1,14 @@
+[package]
+name = "strok-bevy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy_app = "0.19.0"
+bevy_ecs = "0.19.0"
+strok = { path = "../strok" }
+
+[[example]]
+name = "cpu_color"
+path = "examples/cpu_color.rs"
+test = true

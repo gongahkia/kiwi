@@ -6,6 +6,12 @@ optional depth and normal input, and read-only CellBuffer access. All safe image
 views validate their layout against the C ABI and are borrowed only for a render
 call.
 
+`strok-bevy` is an optional CPU/readback-first Bevy App/ECS integration. It
+stores the thread-confined safe `Renderer` as a Bevy non-send resource, accepts
+packed RGB/RGBA/BGRA `CpuColorFrame` resources, and copies the resulting
+CellBuffer into a Bevy-owned `CellGrid`. It deliberately does not perform Bevy
+GPU texture interop or hidden readback.
+
 For a development build, first build `build/core` with the C ABI target and run:
 
 ```sh
