@@ -64,6 +64,18 @@ return {
     Assert.equal(reason, "missing")
     system:destroy()
   end,
+  optional_nerd_font_private_use_glyph_uses_the_glyph_id_cache = function()
+    local system = System.new({ pixel_height = 18, primary_family = "MartianMono Nerd Font", atlas = { width = 512, height = 512, max_entries = 1024 } })
+    if not system.font_path:find("MartianMonoNerdFont", 1, true) then
+      system:destroy()
+      return
+    end
+    local face = assert(system:face_for_cluster({ 0xe0b0 }))
+    local glyph_id = face:glyph_index(0xe0b0)
+    Assert.truthy(glyph_id > 0)
+    Assert.truthy(system.glyph_cache:get_or_insert(face, glyph_id) ~= nil)
+    system:destroy()
+  end,
   text_layout_reuses_static_rows_and_keeps_logical_damage_separate = function()
     local system = text_system()
     local layout = Layout.new(system)
