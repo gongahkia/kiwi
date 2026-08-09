@@ -27,8 +27,8 @@ double alternatingGlyphChangeRate(double stickiness) {
     for (std::size_t index = 0; index < kCells; ++index) {
       const char32_t best_glyph = ((frame + static_cast<int>(index)) % 2 == 0) ? U'|' : U'/';
       const auto decision = state.choose(index,
-                                         strok::GlyphShapeMatch{.glyph = best_glyph, .score = 1.0},
-                                         0.97,
+                                         strok::GlyphCandidate{.glyph = best_glyph, .score = strok::CandidateScore{.reconstruction = 1.0}},
+                                         strok::CandidateScore{.reconstruction = 0.97},
                                          stickiness);
       if (previous[index] != U'\0') {
         changes += decision.glyph != previous[index] ? 1 : 0;
@@ -52,8 +52,8 @@ double decisiveMotionChangeRate(double stickiness) {
     for (std::size_t index = 0; index < kCells; ++index) {
       const char32_t best_glyph = ((frame + static_cast<int>(index)) % 2 == 0) ? U'|' : U'/';
       const auto decision = state.choose(index,
-                                         strok::GlyphShapeMatch{.glyph = best_glyph, .score = 1.0},
-                                         0.50,
+                                         strok::GlyphCandidate{.glyph = best_glyph, .score = strok::CandidateScore{.reconstruction = 1.0}},
+                                         strok::CandidateScore{.reconstruction = 0.50},
                                          stickiness);
       if (previous[index] != U'\0') {
         changes += decision.glyph != previous[index] ? 1 : 0;
@@ -71,34 +71,34 @@ int main() {
   strok::GlyphHysteresisState state;
   state.resize(1, 1);
 
-  auto first = state.choose(0, strok::GlyphShapeMatch{.glyph = U'|', .score = 1.0}, 0.0, 0.05);
+  auto first = state.choose(0, strok::GlyphCandidate{.glyph = U'|', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{}, 0.05);
   expect(first.glyph == U'|' && !first.kept_previous, "first glyph stores without hysteresis");
 
-  auto near_tie = state.choose(0, strok::GlyphShapeMatch{.glyph = U'/', .score = 1.0}, 0.96, 0.05);
+  auto near_tie = state.choose(0, strok::GlyphCandidate{.glyph = U'/', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.96}, 0.05);
   expect(near_tie.glyph == U'|' && near_tie.kept_previous, "near-tied glyph keeps previous");
 
-  auto clear_winner = state.choose(0, strok::GlyphShapeMatch{.glyph = U'/', .score = 1.0}, 0.90, 0.05);
+  auto clear_winner = state.choose(0, strok::GlyphCandidate{.glyph = U'/', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.90}, 0.05);
   expect(clear_winner.glyph == U'/' && !clear_winner.kept_previous, "clear winner switches glyph");
 
-  auto warped_tie = state.choose(0, strok::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 0.98, 0.05, U'-');
+  auto warped_tie = state.choose(0, strok::GlyphCandidate{.glyph = U'\\', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.98}, 0.05, U'-');
   expect(warped_tie.glyph == U'-' && warped_tie.kept_previous, "warped near-tied glyph keeps motion-compensated history");
 
   state.clear(0);
-  auto after_clear = state.choose(0, strok::GlyphShapeMatch{.glyph = U'/', .score = 1.0}, 0.98, 0.05, U'-');
+  auto after_clear = state.choose(0, strok::GlyphCandidate{.glyph = U'/', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.98}, 0.05, U'-');
   expect(after_clear.glyph == U'/' && !after_clear.kept_previous, "cleared glyph history cannot be reused");
 
   state.resize(2, 1);
-  auto after_resize = state.choose(1, strok::GlyphShapeMatch{.glyph = U'\\', .score = 1.0}, 1.0, 0.05);
+  auto after_resize = state.choose(1, strok::GlyphCandidate{.glyph = U'\\', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 1.0}, 0.05);
   expect(after_resize.glyph == U'\\' && !after_resize.kept_previous, "resize clears glyph history");
 
   state.reset();
   state.resize(1, 1);
-  auto after_reset = state.choose(0, strok::GlyphShapeMatch{.glyph = U'-', .score = 1.0}, 1.0, 0.05);
+  auto after_reset = state.choose(0, strok::GlyphCandidate{.glyph = U'-', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 1.0}, 0.05);
   expect(after_reset.glyph == U'-' && !after_reset.kept_previous, "reset clears glyph history");
 
   bool out_of_range = false;
   try {
-    (void)state.choose(2, strok::GlyphShapeMatch{.glyph = U'-', .score = 1.0}, 1.0, 0.05);
+    (void)state.choose(2, strok::GlyphCandidate{.glyph = U'-', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 1.0}, 0.05);
   } catch (const std::out_of_range&) {
     out_of_range = true;
   }

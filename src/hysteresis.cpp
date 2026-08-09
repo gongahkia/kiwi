@@ -44,7 +44,11 @@ void GlyphHysteresisState::clear(std::size_t index) {
   entries_[index] = Entry{};
 }
 
-GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph) {
+GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index,
+                                                      GlyphCandidate best,
+                                                      CandidateScore previous_score,
+                                                      double stickiness,
+                                                      std::optional<char32_t> history_glyph) {
   if (index >= entries_.size()) {
     throw std::out_of_range("hysteresis cell index out of range");
   }
@@ -52,8 +56,7 @@ GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index, GlyphSha
   const char32_t candidate_glyph = history_glyph.value_or(previous.glyph);
   GlyphHysteresisDecision decision{.glyph = best.glyph, .score = best.score, .kept_previous = false};
   if (previous.valid && candidate_glyph != best.glyph && stickiness > 0.0) {
-    const double margin = std::clamp(stickiness, 0.0, 1.0);
-    if (previous_score >= best.score * (1.0 - margin)) {
+    if (candidateWithinTemporalMargin(previous_score, best.score, stickiness)) {
       decision = GlyphHysteresisDecision{.glyph = candidate_glyph, .score = previous_score, .kept_previous = true};
     }
   }

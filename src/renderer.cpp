@@ -1337,7 +1337,12 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                     const std::optional<char32_t> candidate_glyph = temporal_candidate == nullptr
                                                                        ? history_glyph
                                                                        : std::optional<char32_t>(temporal_candidate->glyph);
-                    const GlyphHysteresisDecision decision = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, candidate_glyph);
+                    const GlyphHysteresisDecision decision = temporal_state->glyph_hysteresis.choose(
+                      cell_index,
+                      GlyphCandidate{.glyph = best.glyph, .score = CandidateScore{.reconstruction = best.score}},
+                      CandidateScore{.reconstruction = previous_score},
+                      glyph_stickiness,
+                      candidate_glyph);
                     if (temporal_candidate != nullptr && decision.kept_previous && decision.glyph == temporal_candidate->glyph) {
                       cell = *temporal_candidate;
                       ++local_stats->temporal_reused_cells;

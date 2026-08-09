@@ -45,13 +45,13 @@ double panClipMismatchRate(bool pass_warped_history) {
   strok::GlyphHysteresisState state;
   state.resize(kCols, 1);
   for (int col = 0; col < kCols; ++col) {
-    (void)state.choose(static_cast<std::size_t>(col), strok::GlyphShapeMatch{.glyph = previous[static_cast<std::size_t>(col)], .score = 1.0}, 0.0, 0.05);
+    (void)state.choose(static_cast<std::size_t>(col), strok::GlyphCandidate{.glyph = previous[static_cast<std::size_t>(col)], .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{}, 0.05);
   }
 
   int mismatches = 0;
   for (int col = 0; col < kCols; ++col) {
     const char32_t history_glyph = history[static_cast<std::size_t>(col)];
-    const auto decision = state.choose(static_cast<std::size_t>(col), strok::GlyphShapeMatch{.glyph = U'.', .score = 1.0}, 0.98, 0.05, history_glyph);
+    const auto decision = state.choose(static_cast<std::size_t>(col), strok::GlyphCandidate{.glyph = U'.', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.98}, 0.05, history_glyph);
     mismatches += decision.glyph == warped[static_cast<std::size_t>(col)] ? 0 : 1;
   }
   return static_cast<double>(mismatches) / static_cast<double>(kCols);

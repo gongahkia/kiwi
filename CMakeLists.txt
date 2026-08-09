@@ -101,6 +101,7 @@ endif()
 # media acquisition, playback, terminal lifecycle, and output emitters so it
 # can become an independently linked core target without moving source files.
 set(STROK_RENDERER_CORE_SOURCES
+  src/candidate_scoring.cpp
   src/block_sad.cpp
   src/braille_renderer.cpp
   src/ansi_transition_cost.cpp
@@ -1473,6 +1474,28 @@ else()
 endif()
 add_test(NAME ansi_transition_cost COMMAND ansi_transition_cost_tests)
 
+add_executable(candidate_scoring_tests tests/candidate_scoring_tests.cpp)
+target_include_directories(candidate_scoring_tests PRIVATE src)
+target_compile_features(candidate_scoring_tests PRIVATE cxx_std_20)
+set_target_properties(candidate_scoring_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(candidate_scoring_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(candidate_scoring_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(candidate_scoring_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(candidate_scoring_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(candidate_scoring_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME candidate_scoring COMMAND candidate_scoring_tests)
+
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
 target_include_directories(motion_selection_tests PRIVATE src)
 target_compile_features(motion_selection_tests PRIVATE cxx_std_20)
@@ -1871,6 +1894,7 @@ add_test(NAME optical_flow COMMAND optical_flow_tests)
 
 add_executable(hysteresis_tests
   tests/hysteresis_tests.cpp
+  src/candidate_scoring.cpp
   src/hysteresis.cpp
 )
 target_include_directories(hysteresis_tests PRIVATE src)
@@ -1895,6 +1919,7 @@ add_test(NAME hysteresis COMMAND hysteresis_tests)
 
 add_executable(warp_history_tests
   tests/warp_history_tests.cpp
+  src/candidate_scoring.cpp
   src/hysteresis.cpp
   src/optical_flow.cpp
   src/warp_history.cpp

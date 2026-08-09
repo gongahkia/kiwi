@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glyph_shape.hpp"
+#include "candidate_scoring.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -10,7 +10,7 @@ namespace strok {
 
 struct GlyphHysteresisDecision {
   char32_t glyph = U' ';
-  double score = 0.0;
+  CandidateScore score;
   bool kept_previous = false;
 };
 
@@ -25,12 +25,16 @@ class GlyphHysteresisState {
   void reset();
   void resize(int cols, int rows);
   void clear(std::size_t index);
-  GlyphHysteresisDecision choose(std::size_t index, GlyphShapeMatch best, double previous_score, double stickiness, std::optional<char32_t> history_glyph = std::nullopt);
+  GlyphHysteresisDecision choose(std::size_t index,
+                                 GlyphCandidate best,
+                                 CandidateScore previous_score,
+                                 double stickiness,
+                                 std::optional<char32_t> history_glyph = std::nullopt);
 
  private:
   struct Entry {
     char32_t glyph = U' ';
-    double score = 0.0;
+    CandidateScore score;
     bool valid = false;
   };
 
