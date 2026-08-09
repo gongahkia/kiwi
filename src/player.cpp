@@ -25,6 +25,7 @@
 #include "hybrid_emitter.hpp"
 #include "image_grid.hpp"
 #include "kitty_graphics.hpp"
+#include "live_frame_source.hpp"
 #include "luminance.hpp"
 #include "media_input.hpp"
 #include "overlay_compose.hpp"
@@ -158,6 +159,46 @@ class FramePacer {
   int64_t last_media_us_ = 0;
   int64_t frame_duration_us_ = 33333;
   int64_t frame_index_ = 0;
+};
+
+class LivePresentationPacer {
+ public:
+  LivePresentationPacer(const CliOptions& options, std::optional<double> source_fps) {
+    std::optional<double> cap;
+    if (options.fps.has_value() && *options.fps > 0.0) {
+      cap = *options.fps;
+    }
+    if (options.max_fps.has_value() && *options.max_fps > 0.0) {
+      cap = cap.has_value() ? std::min(*cap, *options.max_fps) : *options.max_fps;
+    }
+    if (cap.has_value()) {
+      presentation_interval_ = std::chrono::microseconds(static_cast<int64_t>(std::llround(1000000.0 / *cap)));
+    }
+    const double nominal_fps = source_fps.has_value() && *source_fps > 0.0 ? *source_fps : 30.0;
+    const auto nominal_interval = std::chrono::microseconds(static_cast<int64_t>(std::llround(1000000.0 / nominal_fps)));
+    late_budget_ = std::min(nominal_interval, std::chrono::milliseconds(50));
+  }
+
+  bool ready(std::chrono::steady_clock::time_point now) {
+    if (!presentation_interval_.has_value()) {
+      return true;
+    }
+    if (next_presentation_.has_value() && now < *next_presentation_) {
+      return false;
+    }
+    next_presentation_ = now + *presentation_interval_;
+    return true;
+  }
+
+  bool isLate(std::chrono::steady_clock::time_point decoded_at,
+              std::chrono::steady_clock::time_point now) const {
+    return now - decoded_at > late_budget_;
+  }
+
+ private:
+  std::optional<std::chrono::microseconds> presentation_interval_;
+  std::optional<std::chrono::steady_clock::time_point> next_presentation_;
+  std::chrono::microseconds late_budget_ {33333};
 };
 
 struct DriftStats {
@@ -477,6 +518,33 @@ class RuntimeDebugStats {
     ++window_dropped_frames_;
   }
 
+  void recordLiveQueue(std::size_t producer_replaced, std::size_t consumer_discarded) noexcept {
+    live_producer_replaced_ += static_cast<int64_t>(producer_replaced);
+    live_consumer_discarded_ += static_cast<int64_t>(consumer_discarded);
+    window_live_producer_replaced_ += static_cast<int64_t>(producer_replaced);
+    window_live_consumer_discarded_ += static_cast<int64_t>(consumer_discarded);
+  }
+
+  void recordLiveLateDrop() noexcept {
+    ++live_late_dropped_;
+    ++window_live_late_dropped_;
+  }
+
+  void recordLivePresentation(std::chrono::nanoseconds render_time,
+                              std::chrono::nanoseconds write_time,
+                              std::chrono::steady_clock::time_point decoded_at,
+                              std::chrono::steady_clock::time_point presented_at) noexcept {
+    const int64_t latency_us = std::max<int64_t>(0, std::chrono::duration_cast<std::chrono::microseconds>(presented_at - decoded_at).count());
+    ++live_latency_samples_;
+    live_latency_us_ += latency_us;
+    live_max_latency_us_ = std::max(live_max_latency_us_, latency_us);
+    window_live_render_ns_ += render_time.count();
+    window_live_write_ns_ += write_time.count();
+    ++window_live_latency_samples_;
+    window_live_latency_us_ += latency_us;
+    window_live_max_latency_us_ = std::max(window_live_max_latency_us_, latency_us);
+  }
+
   void recordPresentedFrame(const CellBuffer& cells, const EmissionResult& emission) noexcept {
     ++presented_frames_;
     ++window_presented_frames_;
@@ -507,6 +575,14 @@ class RuntimeDebugStats {
     window_dropped_frames_ = 0;
     window_changed_cells_ = 0;
     window_emitted_bytes_ = 0;
+    window_live_producer_replaced_ = 0;
+    window_live_consumer_discarded_ = 0;
+    window_live_late_dropped_ = 0;
+    window_live_render_ns_ = 0;
+    window_live_write_ns_ = 0;
+    window_live_latency_samples_ = 0;
+    window_live_latency_us_ = 0;
+    window_live_max_latency_us_ = 0;
     return writeDebugStatusLine(terminal, line);
   }
 
@@ -531,6 +607,20 @@ class RuntimeDebugStats {
     } else {
       out << " rss=unknown";
     }
+    if (window_live_latency_samples_ > 0 || window_live_producer_replaced_ > 0 ||
+        window_live_consumer_discarded_ > 0 || window_live_late_dropped_ > 0) {
+      const double latency_ms = window_live_latency_samples_ > 0
+                                  ? static_cast<double>(window_live_latency_us_) /
+                                      (1000.0 * static_cast<double>(window_live_latency_samples_))
+                                  : 0.0;
+      out << " live_replace=" << window_live_producer_replaced_
+          << " live_skip=" << window_live_consumer_discarded_
+          << " live_late=" << window_live_late_dropped_
+          << " live_render_ms=" << (static_cast<double>(window_live_render_ns_) / 1000000.0)
+          << " live_write_ms=" << (static_cast<double>(window_live_write_ns_) / 1000000.0)
+          << " live_latency_ms=" << latency_ms
+          << " live_max_latency_ms=" << (static_cast<double>(window_live_max_latency_us_) / 1000.0);
+    }
     return out.str();
   }
 
@@ -547,6 +637,20 @@ class RuntimeDebugStats {
   int64_t window_dropped_frames_ = 0;
   int64_t window_changed_cells_ = 0;
   int64_t window_emitted_bytes_ = 0;
+  int64_t live_producer_replaced_ = 0;
+  int64_t live_consumer_discarded_ = 0;
+  int64_t live_late_dropped_ = 0;
+  int64_t live_latency_samples_ = 0;
+  int64_t live_latency_us_ = 0;
+  int64_t live_max_latency_us_ = 0;
+  int64_t window_live_producer_replaced_ = 0;
+  int64_t window_live_consumer_discarded_ = 0;
+  int64_t window_live_late_dropped_ = 0;
+  int64_t window_live_render_ns_ = 0;
+  int64_t window_live_write_ns_ = 0;
+  int64_t window_live_latency_samples_ = 0;
+  int64_t window_live_latency_us_ = 0;
+  int64_t window_live_max_latency_us_ = 0;
   int last_cols_ = 0;
   int last_rows_ = 0;
 };

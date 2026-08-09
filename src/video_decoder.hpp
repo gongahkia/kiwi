@@ -19,6 +19,7 @@ class VideoDecoder {
   ~VideoDecoder();
 
   std::optional<Frame> nextFrame();
+  void stop() noexcept;
   void seekToUs(int64_t position_us);
   void restart();
   bool isStillImage() const noexcept;

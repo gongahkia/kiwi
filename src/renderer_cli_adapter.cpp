@@ -12,6 +12,8 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->frames += frame.frames;
   total->cells += frame.cells;
   total->render_ns += frame.render_ns;
+  total->graph_topology_builds += frame.graph_topology_builds;
+  total->graph_topology_reuses += frame.graph_topology_reuses;
   total->changed_glyphs += frame.changed_glyphs;
   total->changed_foregrounds += frame.changed_foregrounds;
   total->changed_backgrounds += frame.changed_backgrounds;
@@ -36,6 +38,39 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->warp_history_ns += frame.warp_history_ns;
   total->temporal_supersample_frames += frame.temporal_supersample_frames;
   total->temporal_supersample_ns += frame.temporal_supersample_ns;
+}
+
+bool sameConfig(const RendererConfig& left, const RendererConfig& right) {
+  return left.width == right.width &&
+         left.height == right.height &&
+         left.cell_aspect == right.cell_aspect &&
+         left.mode == right.mode &&
+         left.style == right.style &&
+         left.structure_overlay == right.structure_overlay &&
+         left.font_path == right.font_path &&
+         left.glyph_features == right.glyph_features &&
+         left.ramp_sort == right.ramp_sort &&
+         left.charset == right.charset &&
+         left.edge_threshold == right.edge_threshold &&
+         left.edge_strength == right.edge_strength &&
+         left.dog_sigma == right.dog_sigma &&
+         left.dog_sigma2 == right.dog_sigma2 &&
+         left.dog_threshold == right.dog_threshold &&
+         left.etf_iters == right.etf_iters &&
+         left.lic_length == right.lic_length &&
+         left.posterize == right.posterize &&
+         left.contrast == right.contrast &&
+         left.glyph_stickiness == right.glyph_stickiness &&
+         left.orient_stickiness == right.orient_stickiness &&
+         left.presentation_cost_weight == right.presentation_cost_weight &&
+         left.symbolic_update_budget == right.symbolic_update_budget &&
+         left.temporal_supersample == right.temporal_supersample &&
+         left.temporal_cell_reuse == right.temporal_cell_reuse &&
+         left.fit == right.fit &&
+         left.gpu == right.gpu &&
+         left.line_ligatures == right.line_ligatures &&
+         left.collect_symbolic_metrics == right.collect_symbolic_metrics &&
+         left.graph_passes == right.graph_passes;
 }
 
 }  // namespace
@@ -69,6 +104,57 @@ RendererConfig rendererConfigFromCliOptions(const CliOptions& options) {
     .line_ligatures = options.line_ligatures,
     .graph_passes = options.graph_passes,
   };
+}
+
+RenderResult CliRendererSession::render(const Frame& frame,
+                                        const Frame* lookahead,
+                                        const CliOptions& options,
+                                        TerminalSize terminal,
+                                        CellBuffer* cells,
+                                        RenderStats* stats) {
+  const std::optional<ColorImageView> color = colorImageViewFromFrame(frame);
+  std::optional<ColorImageView> lookahead_color;
+  if (lookahead != nullptr) {
+    lookahead_color = colorImageViewFromFrame(*lookahead).value_or(ColorImageView{});
+  }
+  return render(RenderInput{
+                    .color = color.value_or(ColorImageView{}),
+                    .lookahead_color = lookahead_color,
+                  },
+                options,
+                terminal,
+                cells,
+                stats);
+}
+
+RenderResult CliRendererSession::render(const RenderInput& input,
+                                        const CliOptions& options,
+                                        TerminalSize terminal,
+                                        CellBuffer* cells,
+                                        RenderStats* stats) {
+  const RendererConfig config = rendererConfigFromCliOptions(options);
+  const RenderGrid grid{.cols = terminal.cols, .rows = terminal.rows};
+  if (renderer_ == nullptr || !config_.has_value() || !sameConfig(*config_, config) ||
+      grid_.cols != grid.cols || grid_.rows != grid.rows) {
+    Renderer::CreateResult created = Renderer::create(config, grid);
+    if (!created.succeeded()) {
+      accumulate(stats, created.result.stats);
+      return created.result;
+    }
+    renderer_ = std::move(created.renderer);
+    config_ = config;
+    grid_ = grid;
+  }
+
+  const RenderResult result = renderer_->render(input, cells);
+  accumulate(stats, result.stats);
+  return result;
+}
+
+void CliRendererSession::reset() {
+  renderer_.reset();
+  config_.reset();
+  grid_ = {};
 }
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state) {

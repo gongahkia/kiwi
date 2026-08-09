@@ -13,5 +13,7 @@ struct CameraInputSpec {
 
 std::optional<CameraInputSpec> cameraInputSpec(std::string_view input);
 bool isCameraInput(std::string_view input) noexcept;
+bool isRtspInput(std::string_view input) noexcept;
+bool isLatencySensitiveInput(std::string_view input) noexcept;
 
 }  // namespace strok

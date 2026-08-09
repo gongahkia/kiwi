@@ -152,6 +152,7 @@ set(STROK_FRONTEND_MEDIA_SOURCES
   src/graph_yaml.cpp
   src/image_grid.cpp
   src/log.cpp
+  src/live_frame_source.cpp
   src/main.cpp
   src/media_input.cpp
   src/media_probe.cpp

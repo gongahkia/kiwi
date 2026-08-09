@@ -33,4 +33,12 @@ bool isCameraInput(std::string_view input) noexcept {
   return cameraInputSpec(input).has_value();
 }
 
+bool isRtspInput(std::string_view input) noexcept {
+  return input.starts_with("rtsp://") || input.starts_with("rtsps://");
+}
+
+bool isLatencySensitiveInput(std::string_view input) noexcept {
+  return isCameraInput(input) || isRtspInput(input);
+}
+
 }  // namespace strok

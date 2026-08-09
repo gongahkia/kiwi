@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -76,8 +77,9 @@ struct SwsContextDeleter {
 
 using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
 
-int interruptIfQuit(void*) {
-  return shouldQuit() ? 1 : 0;
+int interruptIfStopped(void* opaque) {
+  const auto* stop_requested = static_cast<const std::atomic<bool>*>(opaque);
+  return shouldQuit() || (stop_requested != nullptr && stop_requested->load(std::memory_order_relaxed)) ? 1 : 0;
 }
 
 std::string ffmpegError(int error_code) {
@@ -156,7 +158,7 @@ CodecContextPtr openVideoDecoder(const AVCodecParameters* codec_parameters) {
   return codec_context;
 }
 
-Frame makeOwnedFrame(const AVFrame* frame, SwsContext** context, std::vector<uint8_t>* scratch, AVRational time_base, int64_t frame_index, std::optional<double> average_fps) {
+Frame makeOwnedFrame(const AVFrame* frame, SwsContext** context, AVRational time_base, int64_t frame_index, std::optional<double> average_fps) {
   const auto format = static_cast<AVPixelFormat>(frame->format);
   if (frame->width <= 0 || frame->height <= 0 || format == AV_PIX_FMT_NONE) {
     throw std::runtime_error("decoded frame has invalid geometry or pixel format");
@@ -178,18 +180,17 @@ Frame makeOwnedFrame(const AVFrame* frame, SwsContext** context, std::vector<uin
   }
   *context = converted_context;
 
-  scratch->assign(static_cast<std::size_t>(frame->width) * static_cast<std::size_t>(frame->height) * 3, 0);
-  uint8_t* dst_data[4] {scratch->data(), nullptr, nullptr, nullptr};
+  Frame owned;
+  owned.w = frame->width;
+  owned.h = frame->height;
+  owned.rgb.assign(static_cast<std::size_t>(frame->width) * static_cast<std::size_t>(frame->height) * 3, 0);
+  uint8_t* dst_data[4] {owned.rgb.data(), nullptr, nullptr, nullptr};
   int dst_linesize[4] {frame->width * 3, 0, 0, 0};
   const int scaled = sws_scale(*context, frame->data, frame->linesize, 0, frame->height, dst_data, dst_linesize);
   if (scaled != frame->height) {
     throw std::runtime_error("failed to convert frame to RGB24");
   }
 
-  Frame owned;
-  owned.w = frame->width;
-  owned.h = frame->height;
-  owned.rgb = *scratch;
   owned.pts_us = framePtsUs(frame, time_base, frame_index, average_fps);
   return owned;
 }
@@ -217,7 +218,7 @@ struct VideoDecoder::Impl {
     std::string open_input = input_string;
     const AVInputFormat* input_format = nullptr;
     AVDictionary* options = nullptr;
-    live_input = camera.has_value();
+    live_input = isLatencySensitiveInput(input_string);
     if (camera.has_value()) {
       avdevice_register_all();
       input_format = av_find_input_format(camera->format.c_str());
@@ -232,13 +233,17 @@ struct VideoDecoder::Impl {
       }
       av_dict_set(&options, "fflags", "nobuffer", 0);
       av_dict_set(&options, "flags", "low_delay", 0);
+    } else if (isRtspInput(input_string)) {
+      av_dict_set(&options, "fflags", "nobuffer", 0);
+      av_dict_set(&options, "flags", "low_delay", 0);
     }
 
     AVFormatContext* raw_context = avformat_alloc_context();
     if (raw_context == nullptr) {
       throw std::runtime_error("failed to allocate media context");
     }
-    raw_context->interrupt_callback.callback = interruptIfQuit;
+    raw_context->interrupt_callback.callback = interruptIfStopped;
+    raw_context->interrupt_callback.opaque = &stop_requested;
     int result = avformat_open_input(&raw_context, open_input.c_str(), input_format, &options);
     av_dict_free(&options);
     if (result < 0) {
@@ -288,7 +293,7 @@ struct VideoDecoder::Impl {
     while (true) {
       const int result = avcodec_receive_frame(codec_context.get(), frame.get());
       if (result == 0) {
-        Frame owned = makeOwnedFrame(frame.get(), &sws_context, &rgb_scratch, stream->time_base, frame_index, average_fps);
+        Frame owned = makeOwnedFrame(frame.get(), &sws_context, stream->time_base, frame_index, average_fps);
         ++frame_index;
         av_frame_unref(frame.get());
         return owned;
@@ -300,12 +305,18 @@ struct VideoDecoder::Impl {
         eof = true;
         return std::nullopt;
       }
+      if (stop_requested.load(std::memory_order_relaxed)) {
+        return std::nullopt;
+      }
       throw std::runtime_error("failed to receive decoded frame: " + ffmpegError(result));
     }
   }
 
   std::optional<Frame> decodeNextFrame() {
     while (true) {
+      if (stop_requested.load(std::memory_order_relaxed)) {
+        return std::nullopt;
+      }
       if (auto decoded = receiveFrame()) {
         return decoded;
       }
@@ -325,6 +336,9 @@ struct VideoDecoder::Impl {
         continue;
       }
       if (read_result < 0) {
+        if (stop_requested.load(std::memory_order_relaxed)) {
+          return std::nullopt;
+        }
         throw std::runtime_error("failed to read packet: " + ffmpegError(read_result));
       }
       if (packet->stream_index == video_stream_index) {
@@ -394,10 +408,10 @@ struct VideoDecoder::Impl {
   int64_t frame_index = 0;
   bool eof = false;
   bool live_input = false;
+  std::atomic<bool> stop_requested = false;
   bool still_image = false;
   bool animated_image = false;
   SwsContext* sws_context = nullptr;
-  std::vector<uint8_t> rgb_scratch;
   std::optional<Frame> pending_frame;
 };
 
@@ -411,6 +425,10 @@ VideoDecoder::~VideoDecoder() = default;
 
 std::optional<Frame> VideoDecoder::nextFrame() {
   return impl_->nextFrame();
+}
+
+void VideoDecoder::stop() noexcept {
+  impl_->stop_requested.store(true, std::memory_order_relaxed);
 }
 
 void VideoDecoder::seekToUs(int64_t position_us) {
