@@ -21,6 +21,11 @@ struct CliOptions {
   double cell_aspect = 0.5;
   std::optional<double> fps;
   std::optional<double> max_fps;
+  int input_open_timeout_ms = 5000;
+  int read_timeout_ms = 5000;
+  std::string rtsp_transport = "auto";
+  bool reconnect = true;
+  int reconnect_backoff_ms = 1000;
   std::string mode = "luminance";
   std::string style = "none";
   std::string render_mode = "text";

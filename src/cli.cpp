@@ -227,7 +227,7 @@ std::optional<std::filesystem::path> defaultConfigPath() {
 }
 
 bool isConfigBooleanKey(std::string_view key) {
-  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats", "ramp-sort", "line-ligatures"});
+  return isOneOf(key, {"fit", "loop", "mirror", "gpu", "mono", "debug-stats", "ramp-sort", "line-ligatures", "reconnect"});
 }
 
 std::optional<bool> parseConfigBool(std::string_view value) {
@@ -334,6 +334,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.options.loop = false;
       continue;
     }
+    if (flag == "--reconnect") {
+      result.options.reconnect = true;
+      continue;
+    }
+    if (flag == "--no-reconnect") {
+      result.options.reconnect = false;
+      continue;
+    }
     if (flag == "--mirror") {
       result.options.mirror = true;
       continue;
@@ -390,6 +398,10 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
           "--cell-aspect",
           "--fps",
           "--max-fps",
+          "--input-open-timeout",
+          "--read-timeout",
+          "--rtsp-transport",
+          "--reconnect-backoff",
           "--mode",
           "--style",
           "--render-mode",
@@ -484,6 +496,33 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
         return result;
       }
       result.options.max_fps = *parsed;
+    } else if (flag == "--input-open-timeout") {
+      const auto parsed = parseNonNegativeInt(*value);
+      if (!parsed.has_value() || *parsed > 300000) {
+        result.error = "invalid value for --input-open-timeout: expected milliseconds in 0..300000";
+        return result;
+      }
+      result.options.input_open_timeout_ms = *parsed;
+    } else if (flag == "--read-timeout") {
+      const auto parsed = parseNonNegativeInt(*value);
+      if (!parsed.has_value() || *parsed > 300000) {
+        result.error = "invalid value for --read-timeout: expected milliseconds in 0..300000";
+        return result;
+      }
+      result.options.read_timeout_ms = *parsed;
+    } else if (flag == "--rtsp-transport") {
+      if (!isOneOf(*value, {"auto", "tcp", "udp"})) {
+        result.error = "invalid value for --rtsp-transport: expected auto, tcp, or udp";
+        return result;
+      }
+      result.options.rtsp_transport = std::string(*value);
+    } else if (flag == "--reconnect-backoff") {
+      const auto parsed = parsePositiveInt(*value);
+      if (!parsed.has_value() || *parsed > 60000) {
+        result.error = "invalid value for --reconnect-backoff: expected milliseconds in 1..60000";
+        return result;
+      }
+      result.options.reconnect_backoff_ms = *parsed;
     } else if (flag == "--mode") {
       if (!isOneOf(*value, {"auto", "luminance", "structure", "halfblock", "blocks", "octant", "sextant", "braille"})) {
         result.error = "invalid value for --mode: " + std::string(*value);
