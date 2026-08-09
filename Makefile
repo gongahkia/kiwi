@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -19,6 +19,9 @@ run: native terminfo
 
 demo: native
 	KIWI_DEMO=1 $(LUAJIT) src/kiwi/app/main.lua
+
+text-demo: native terminfo
+	KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-240} $(LUAJIT) src/kiwi/app/main.lua -- ./script/text-demo-child
 
 replay:
 	$(LUAJIT) src/kiwi/replay.lua $(REPLAY)

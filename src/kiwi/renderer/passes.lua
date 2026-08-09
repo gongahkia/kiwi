@@ -18,7 +18,7 @@ function Passes.build(renderer)
       return model.columns * model.rows
     end),
     Pass.new("terminal/glyph", renderer.glyph_pipeline, c.load_load, function(model)
-      return model.columns * model.rows
+      return renderer.glyph_count or 0
     end),
     Pass.new("terminal/cursor", renderer.cursor_pipeline, c.load_load, function()
       return 1
