@@ -247,58 +247,58 @@ void applySceneDepthShade(CellBuffer* cells, const SceneGBuffer& gbuffer, std::u
   }
 }
 
-DogOptions dogOptionsFromCli(const CliOptions& options) {
-  const double sigma1 = options.dog_sigma.value_or(0.0);
+DogOptions dogOptionsFromConfig(const RendererConfig& config) {
+  const double sigma1 = config.dog_sigma.value_or(0.0);
   return DogOptions{
     .sigma1 = sigma1,
-    .sigma2 = options.dog_sigma2.value_or(sigma1 > 0.0 ? sigma1 * 2.0 : 0.0),
-    .threshold = options.dog_threshold.value_or(kDefaultDogThreshold),
+    .sigma2 = config.dog_sigma2.value_or(sigma1 > 0.0 ? sigma1 * 2.0 : 0.0),
+    .threshold = config.dog_threshold.value_or(kDefaultDogThreshold),
   };
 }
 
-double contrastFromCli(const CliOptions& options) {
-  return options.contrast.value_or(0.0);
+double contrastFromConfig(const RendererConfig& config) {
+  return config.contrast.value_or(0.0);
 }
 
-double edgeThresholdFromCli(const CliOptions& options) {
-  return options.edge_threshold.value_or(kDefaultEdgeThreshold);
+double edgeThresholdFromConfig(const RendererConfig& config) {
+  return config.edge_threshold.value_or(kDefaultEdgeThreshold);
 }
 
-double effectiveEdgeThresholdFromCli(const CliOptions& options) {
-  const double strength = options.edge_strength.value_or(kDefaultEdgeStrength);
+double effectiveEdgeThresholdFromConfig(const RendererConfig& config) {
+  const double strength = config.edge_strength.value_or(kDefaultEdgeStrength);
   if (strength <= 0.0) {
     return std::numeric_limits<double>::infinity();
   }
-  return edgeThresholdFromCli(options) / strength;
+  return edgeThresholdFromConfig(config) / strength;
 }
 
-int etfIterationsFromCli(const CliOptions& options) {
-  const bool graph_etf = std::find(options.graph_passes.begin(), options.graph_passes.end(), "etf") != options.graph_passes.end();
-  return options.etf_iters.value_or(options.style == "hatch" || options.style == "flow" || graph_etf ? 2 : 0);
+int etfIterationsFromConfig(const RendererConfig& config) {
+  const bool graph_etf = std::find(config.graph_passes.begin(), config.graph_passes.end(), "etf") != config.graph_passes.end();
+  return config.etf_iters.value_or(config.style == "hatch" || config.style == "flow" || graph_etf ? 2 : 0);
 }
 
-int licLengthFromCli(const CliOptions& options) {
-  return options.lic_length.value_or(8);
+int licLengthFromConfig(const RendererConfig& config) {
+  return config.lic_length.value_or(8);
 }
 
-double glyphStickinessFromCli(const CliOptions& options) {
-  return options.glyph_stickiness.value_or(0.05);
+double glyphStickinessFromConfig(const RendererConfig& config) {
+  return config.glyph_stickiness.value_or(0.05);
 }
 
-bool glyphTemporalEnabledFromCli(const CliOptions& options) {
-  return glyphStickinessFromCli(options) > 0.0;
+bool glyphTemporalEnabledFromConfig(const RendererConfig& config) {
+  return glyphStickinessFromConfig(config) > 0.0;
 }
 
-double orientationStickinessFromCli(const CliOptions& options) {
-  return options.orient_stickiness.value_or(0.0);
+double orientationStickinessFromConfig(const RendererConfig& config) {
+  return config.orient_stickiness.value_or(0.0);
 }
 
-bool orientationTemporalEnabledFromCli(const CliOptions& options) {
-  return orientationStickinessFromCli(options) > 0.0;
+bool orientationTemporalEnabledFromConfig(const RendererConfig& config) {
+  return orientationStickinessFromConfig(config) > 0.0;
 }
 
-int temporalSupersampleFromCli(const CliOptions& options) {
-  return std::clamp(options.temporal_supersample, 1, 8);
+int temporalSupersampleFromConfig(const RendererConfig& config) {
+  return std::clamp(config.temporal_supersample, 1, 8);
 }
 
 LuminanceField blendTemporalSupersample(const LuminanceField& current, const LuminanceField& adjacent, int samples, bool adjacent_is_future) {
@@ -326,31 +326,31 @@ LuminanceField blendTemporalSupersample(const LuminanceField& current, const Lum
   return blended;
 }
 
-bool painterlyStyleEnabled(const CliOptions& options) {
-  return options.style == "painterly" ||
-         std::find(options.graph_passes.begin(), options.graph_passes.end(), "kuwahara") != options.graph_passes.end();
+bool painterlyStyleEnabled(const RendererConfig& config) {
+  return config.style == "painterly" ||
+         std::find(config.graph_passes.begin(), config.graph_passes.end(), "kuwahara") != config.graph_passes.end();
 }
 
-bool hatchStyleEnabled(const CliOptions& options) {
-  return options.style == "hatch" ||
-         std::find(options.graph_passes.begin(), options.graph_passes.end(), "crosshatch") != options.graph_passes.end();
+bool hatchStyleEnabled(const RendererConfig& config) {
+  return config.style == "hatch" ||
+         std::find(config.graph_passes.begin(), config.graph_passes.end(), "crosshatch") != config.graph_passes.end();
 }
 
-bool stippleStyleEnabled(const CliOptions& options) {
-  return options.style == "stipple" ||
-         std::find(options.graph_passes.begin(), options.graph_passes.end(), "stipple") != options.graph_passes.end();
+bool stippleStyleEnabled(const RendererConfig& config) {
+  return config.style == "stipple" ||
+         std::find(config.graph_passes.begin(), config.graph_passes.end(), "stipple") != config.graph_passes.end();
 }
 
-bool flowStyleEnabled(const CliOptions& options) {
-  return options.style == "flow" ||
-         std::find(options.graph_passes.begin(), options.graph_passes.end(), "lic") != options.graph_passes.end();
+bool flowStyleEnabled(const RendererConfig& config) {
+  return config.style == "flow" ||
+         std::find(config.graph_passes.begin(), config.graph_passes.end(), "lic") != config.graph_passes.end();
 }
 
-std::optional<int> posterizeLevelsFromCli(const CliOptions& options) {
-  if (options.posterize.has_value()) {
-    return options.posterize;
+std::optional<int> posterizeLevelsFromConfig(const RendererConfig& config) {
+  if (config.posterize.has_value()) {
+    return config.posterize;
   }
-  if (options.style == "cell-shade") {
+  if (config.style == "cell-shade") {
     return 4;
   }
   return std::nullopt;
@@ -365,12 +365,12 @@ int renderWorkerCount(int cols, int rows) {
   return std::min(rows, max_workers);
 }
 
-GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
+GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config) {
   GraphBuildOptions graph_options;
-  if (options.style == "cell-shade") {
+  if (config.style == "cell-shade") {
     graph_options.external_inputs = {"scene-depth", "scene-normals"};
   }
-  graph_options.backend_preference = options.gpu
+  graph_options.backend_preference = config.gpu
                                        ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
                                        : std::vector<Backend>{Backend::Cpu};
   graph_options.available_backends = {Backend::Cpu};
@@ -380,27 +380,27 @@ GraphBuildOptions renderGraphBuildOptions(const CliOptions& options) {
   return graph_options;
 }
 
-std::optional<std::string> directBlitterMode(const CliOptions& options) {
-  if (options.mode == "halfblock" || options.mode == "blocks" || options.mode == "octant" || options.mode == "sextant" || options.mode == "braille") {
-    return options.mode;
+std::optional<std::string> directBlitterMode(const RendererConfig& config) {
+  if (config.mode == "halfblock" || config.mode == "blocks" || config.mode == "octant" || config.mode == "sextant" || config.mode == "braille") {
+    return config.mode;
   }
-  if (options.charset.has_value() && isBrailleCharset(*options.charset)) {
+  if (config.charset.has_value() && isBrailleCharset(*config.charset)) {
     return "braille";
   }
   return std::nullopt;
 }
 
-std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
-  const bool overlay_enabled = structureOverlayEnabled(options);
-  const bool etf_enabled = etfIterationsFromCli(options) > 0;
-  const bool painterly_enabled = painterlyStyleEnabled(options);
-  const bool hatch_enabled = hatchStyleEnabled(options);
-  const bool stipple_enabled = stippleStyleEnabled(options);
-  const bool flow_enabled = flowStyleEnabled(options);
-  const bool scene_cell_shade_enabled = options.style == "cell-shade";
-  const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
+std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
+  const bool overlay_enabled = structureOverlayEnabled(config);
+  const bool etf_enabled = etfIterationsFromConfig(config) > 0;
+  const bool painterly_enabled = painterlyStyleEnabled(config);
+  const bool hatch_enabled = hatchStyleEnabled(config);
+  const bool stipple_enabled = stippleStyleEnabled(config);
+  const bool flow_enabled = flowStyleEnabled(config);
+  const bool scene_cell_shade_enabled = config.style == "cell-shade";
+  const std::optional<int> posterize_levels = posterizeLevelsFromConfig(config);
   const bool posterize_enabled = posterize_levels.has_value();
-  const bool glyph_temporal_enabled = glyphTemporalEnabledFromCli(options);
+  const bool glyph_temporal_enabled = glyphTemporalEnabledFromConfig(config);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   const auto decode_pass = [] {
@@ -511,7 +511,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
     });
   };
   const auto append_line_ligatures = [&](std::vector<Pass>* passes) {
-    if (!options.line_ligatures || !overlay_enabled) {
+    if (!config.line_ligatures || !overlay_enabled) {
       return std::string("cells");
     }
     passes->push_back(Pass{
@@ -573,7 +573,7 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
       .supports = {Backend::Cpu},
     });
   }
-  if (const std::optional<std::string> blitter = directBlitterMode(options)) {
+  if (const std::optional<std::string> blitter = directBlitterMode(config)) {
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
     passes.push_back(Pass{
       .id = *blitter,
@@ -626,13 +626,13 @@ std::vector<Pass> renderGraphSkeleton(const CliOptions& options) {
 
 }  // namespace
 
-std::string dumpRenderGraph(const CliOptions& options) {
-  return buildGraph(renderGraphSkeleton(options), renderGraphBuildOptions(options)).dump();
+std::string dumpRenderGraph(const RendererConfig& config) {
+  return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config)).dump();
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-  const RenderSize size = fitRenderSize(frame, options, terminal);
+  const RenderSize size = fitRenderSize(frame, config, terminal);
   cells->resize(size.cols, size.rows);
   if (temporal_state != nullptr) {
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
@@ -661,23 +661,23 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   std::vector<CellLuminanceRegion> cell_shape_regions;
   std::vector<char32_t> warped_previous_glyphs;
   std::vector<CellLuminanceRegion> warped_previous_shape_regions;
-  const double edge_threshold = effectiveEdgeThresholdFromCli(options);
-  const double orient_stickiness = orientationStickinessFromCli(options);
-  const bool overlay_enabled = structureOverlayEnabled(options);
-  const bool etf_enabled = etfIterationsFromCli(options) > 0;
-  const bool painterly_enabled = painterlyStyleEnabled(options);
-  const bool hatch_enabled = hatchStyleEnabled(options);
-  const bool stipple_enabled = stippleStyleEnabled(options);
-  const StippleCarrier stipple_carrier = stippleCarrierFromMode(options.mode);
-  const bool flow_enabled = flowStyleEnabled(options);
-  const bool scene_cell_shade_enabled = options.style == "cell-shade";
-  const std::optional<int> posterize_levels = posterizeLevelsFromCli(options);
+  const double edge_threshold = effectiveEdgeThresholdFromConfig(config);
+  const double orient_stickiness = orientationStickinessFromConfig(config);
+  const bool overlay_enabled = structureOverlayEnabled(config);
+  const bool etf_enabled = etfIterationsFromConfig(config) > 0;
+  const bool painterly_enabled = painterlyStyleEnabled(config);
+  const bool hatch_enabled = hatchStyleEnabled(config);
+  const bool stipple_enabled = stippleStyleEnabled(config);
+  const StippleCarrier stipple_carrier = stippleCarrierFromMode(config.mode);
+  const bool flow_enabled = flowStyleEnabled(config);
+  const bool scene_cell_shade_enabled = config.style == "cell-shade";
+  const std::optional<int> posterize_levels = posterizeLevelsFromConfig(config);
   const bool posterize_enabled = posterize_levels.has_value();
-  const double glyph_stickiness = glyphStickinessFromCli(options);
-  const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromCli(options);
-  const bool orientation_hysteresis_enabled = temporal_state != nullptr && orientationTemporalEnabledFromCli(options);
+  const double glyph_stickiness = glyphStickinessFromConfig(config);
+  const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromConfig(config);
+  const bool orientation_hysteresis_enabled = temporal_state != nullptr && orientationTemporalEnabledFromConfig(config);
   const bool motion_flow_enabled = flow_enabled && temporal_state != nullptr;
-  const int temporal_supersample = temporalSupersampleFromCli(options);
+  const int temporal_supersample = temporalSupersampleFromConfig(config);
   const std::string source_frame_input = painterly_enabled ? "styled-frame" : "frame";
   const std::string frame_input = posterize_enabled ? "posterized-frame" : source_frame_input;
   Frame styled_frame;
@@ -702,7 +702,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
   };
 
   const auto run_graph = [&](std::vector<Pass> passes) {
-    Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(options));
+    Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(config));
     PassContext context;
     graph.run(context);
   };
@@ -870,7 +870,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        analysis_luminance = applyStructureContrast(*analysis_luminance, contrastFromCli(options));
+        analysis_luminance = applyStructureContrast(*analysis_luminance, contrastFromConfig(config));
       },
     });
     passes->push_back(Pass{
@@ -879,7 +879,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .supports = {Backend::Cpu, Backend::Metal},
       .run = [&](PassContext& context) {
-        const DogOptions dog_options = dogOptionsFromCli(options);
+        const DogOptions dog_options = dogOptionsFromConfig(config);
         if (!dog_options.enabled()) {
           return;
         }
@@ -921,7 +921,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
         .supports = {Backend::Cpu},
         .run = [&](PassContext&) {
           if (structure_gradients.has_value()) {
-            structure_gradients = smoothEtfGradients(*structure_gradients, etfIterationsFromCli(options));
+            structure_gradients = smoothEtfGradients(*structure_gradients, etfIterationsFromConfig(config));
           }
         },
       });
@@ -1128,9 +1128,9 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         if (flow_field.has_value()) {
-          applyLicMotionFlow(cells, *flow_field, size.cols, size.rows, licLengthFromCli(options), edge_threshold);
+          applyLicMotionFlow(cells, *flow_field, size.cols, size.rows, licLengthFromConfig(config), edge_threshold);
         } else if (structure_gradients.has_value()) {
-          applyLicFlow(cells, *structure_gradients, size.cols, size.rows, licLengthFromCli(options), edge_threshold);
+          applyLicFlow(cells, *structure_gradients, size.cols, size.rows, licLengthFromConfig(config), edge_threshold);
         }
       },
     };
@@ -1202,14 +1202,14 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions&
       return std::string("stipple-cells");
     };
     std::string output = "cells";
-    if (options.line_ligatures && overlay_enabled) {
+    if (config.line_ligatures && overlay_enabled) {
       passes->push_back(line_ligatures_pass());
       output = "ligature-cells";
     }
     passes->push_back(emit_pass(append_stipple_pass(append_scene_cell_shade_passes(passes, output))));
   };
 
-  if (const std::optional<std::string> blitter = directBlitterMode(options)) {
+  if (const std::optional<std::string> blitter = directBlitterMode(config)) {
     std::vector<Pass> passes;
     const std::string blitter_output = overlay_enabled ? "base-cells" : "cells";
     passes.push_back(decode_pass());

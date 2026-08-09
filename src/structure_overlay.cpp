@@ -3,8 +3,8 @@
 namespace strok {
 namespace {
 
-bool graphImpliesStructure(const CliOptions& options) {
-  for (const std::string& pass : options.graph_passes) {
+bool graphImpliesStructure(const RendererConfig& config) {
+  for (const std::string& pass : config.graph_passes) {
     if (pass == "dog" || pass == "sobel" || pass == "etf" || pass == "edge-field" ||
         pass == "cell-shape" || pass == "overlay-structure" || pass == "shape-match" ||
         pass == "crosshatch" || pass == "lic") {
@@ -16,28 +16,28 @@ bool graphImpliesStructure(const CliOptions& options) {
 
 }  // namespace
 
-bool structureOverlayImplied(const CliOptions& options) {
-  return options.mode == "structure" ||
-         options.style == "hatch" ||
-         options.style == "flow" ||
-         graphImpliesStructure(options) ||
-         options.edge_threshold.has_value() ||
-         options.edge_strength.has_value() ||
-         options.dog_sigma.has_value() ||
-         options.dog_threshold.has_value() ||
-         options.etf_iters.has_value() ||
-         options.contrast.has_value() ||
-         options.glyph_features != "overlap";
+bool structureOverlayImplied(const RendererConfig& config) {
+  return config.mode == "structure" ||
+         config.style == "hatch" ||
+         config.style == "flow" ||
+         graphImpliesStructure(config) ||
+         config.edge_threshold.has_value() ||
+         config.edge_strength.has_value() ||
+         config.dog_sigma.has_value() ||
+         config.dog_threshold.has_value() ||
+         config.etf_iters.has_value() ||
+         config.contrast.has_value() ||
+         config.glyph_features != "overlap";
 }
 
-bool structureOverlayEnabled(const CliOptions& options) {
-  if (options.structure_overlay == "on") {
+bool structureOverlayEnabled(const RendererConfig& config) {
+  if (config.structure_overlay == "on") {
     return true;
   }
-  if (options.structure_overlay == "off") {
+  if (config.structure_overlay == "off") {
     return false;
   }
-  return structureOverlayImplied(options);
+  return structureOverlayImplied(config);
 }
 
 }  // namespace strok

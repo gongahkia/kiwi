@@ -1241,7 +1241,7 @@ std::u32string rampFromOptions(const CliOptions& options, const GlyphFont* glyph
 }
 
 std::optional<GlyphShapeTable> shapeTableFromOptions(const CliOptions& options, const GlyphFont* glyph_font) {
-  if (!structureOverlayEnabled(options)) {
+  if (!structureOverlayEnabled(rendererConfigFromCliOptions(options))) {
     return std::nullopt;
   }
   if (options.glyph_features == "hog") {

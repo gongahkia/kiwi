@@ -122,6 +122,7 @@ set(STROK_RENDERER_CORE_SOURCES
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
+  src/renderer_config.cpp
   src/sextant_renderer.cpp
   src/stipple.cpp
   src/structure_edges.cpp
@@ -999,6 +1000,28 @@ else()
   endif()
 endif()
 add_test(NAME public_core_headers COMMAND public_core_headers_tests)
+
+add_executable(renderer_config_tests tests/renderer_config_tests.cpp)
+target_include_directories(renderer_config_tests PRIVATE src)
+target_compile_features(renderer_config_tests PRIVATE cxx_std_20)
+set_target_properties(renderer_config_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(renderer_config_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(renderer_config_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_config_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(renderer_config_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_config_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME renderer_config COMMAND renderer_config_tests)
 
 add_executable(etf_tests
   tests/etf_tests.cpp
@@ -2191,7 +2214,6 @@ add_test(NAME terminal_caps COMMAND terminal_caps_tests)
 add_executable(auto_mode_tests
   tests/auto_mode_tests.cpp
   src/auto_mode.cpp
-  src/structure_overlay.cpp
 )
 target_include_directories(auto_mode_tests PRIVATE src)
 target_compile_features(auto_mode_tests PRIVATE cxx_std_20)
@@ -2200,6 +2222,7 @@ set_target_properties(auto_mode_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
+target_link_libraries(auto_mode_tests PRIVATE strok_core)
 if(MSVC)
   target_compile_options(auto_mode_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)

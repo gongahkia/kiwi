@@ -1,5 +1,6 @@
 #include "auto_mode.hpp"
 
+#include "renderer.hpp"
 #include "structure_overlay.hpp"
 
 namespace strok {
@@ -24,7 +25,7 @@ void resolveAutoMode(CliOptions* options, const TerminalCaps& caps) {
     options->mode = "halfblock";
     return;
   }
-  options->mode = structureOverlayEnabled(*options) ? "structure" : "luminance";
+  options->mode = structureOverlayEnabled(rendererConfigFromCliOptions(*options)) ? "structure" : "luminance";
 }
 
 }  // namespace strok

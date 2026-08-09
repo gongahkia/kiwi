@@ -1,4 +1,5 @@
 #include <strok/cell_buffer.hpp>
+#include <strok/renderer_config.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -25,4 +26,7 @@ int main() {
   expect(cells.cols() == 2 && cells.rows() == 1, "public CellBuffer dimensions");
   expect(cells.at(1, 0).glyph == U'X', "public Cell glyph");
   expect(cells.at(1, 0).fg.g == 34 && cells.at(1, 0).bg.b == 123, "public Cell colors");
+
+  const strok::RendererConfig config;
+  expect(config.mode == "luminance" && config.style == "none", "public RendererConfig defaults");
 }

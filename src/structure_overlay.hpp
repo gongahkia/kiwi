@@ -1,10 +1,10 @@
 #pragma once
 
-#include "cli.hpp"
+#include "../include/strok/renderer_config.hpp"
 
 namespace strok {
 
-bool structureOverlayImplied(const CliOptions& options);
-bool structureOverlayEnabled(const CliOptions& options);
+bool structureOverlayImplied(const RendererConfig& config);
+bool structureOverlayEnabled(const RendererConfig& config);
 
 }  // namespace strok

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "cli.hpp"
+#include "../include/strok/renderer_config.hpp"
+
 #include "frame.hpp"
 #include "terminal.hpp"
 
@@ -16,7 +17,7 @@ struct RenderOrigin {
   int col = 1;
 };
 
-RenderSize fitRenderSize(const Frame& frame, const CliOptions& options, TerminalSize terminal);
+RenderSize fitRenderSize(const Frame& frame, const RendererConfig& config, TerminalSize terminal);
 RenderOrigin centeredOrigin(RenderSize size, TerminalSize terminal);
 
 }  // namespace strok
