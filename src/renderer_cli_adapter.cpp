@@ -1,6 +1,4 @@
-#include "renderer.hpp"
-
-#include "structure_overlay.hpp"
+#include "renderer_cli_adapter.hpp"
 
 namespace strok {
 

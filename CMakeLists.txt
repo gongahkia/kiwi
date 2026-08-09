@@ -122,7 +122,6 @@ set(STROK_RENDERER_CORE_SOURCES
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
-  src/renderer_config.cpp
   src/sextant_renderer.cpp
   src/stipple.cpp
   src/structure_edges.cpp
@@ -239,6 +238,27 @@ else()
   endif()
 endif()
 
+add_library(strok_cli_adapter STATIC src/renderer_cli_adapter.cpp)
+target_include_directories(strok_cli_adapter PRIVATE src)
+target_compile_features(strok_cli_adapter PRIVATE cxx_std_20)
+set_target_properties(strok_cli_adapter PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_cli_adapter PUBLIC strok_core)
+if(MSVC)
+  target_compile_options(strok_cli_adapter PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_cli_adapter PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_cli_adapter PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_cli_adapter PRIVATE -Werror)
+  endif()
+endif()
+
 if(STROK_BUILD_CLI)
 add_executable(strok
   ${STROK_FRONTEND_MEDIA_SOURCES}
@@ -252,7 +272,7 @@ set_target_properties(strok PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(strok PRIVATE STROK_VERSION="${PROJECT_VERSION}")
-target_link_libraries(strok PRIVATE strok_core PkgConfig::FFMPEG ZLIB::ZLIB strok_audio strok_audio_decode)
+target_link_libraries(strok PRIVATE strok_cli_adapter PkgConfig::FFMPEG ZLIB::ZLIB strok_audio strok_audio_decode)
 
 install(TARGETS strok
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -941,7 +961,7 @@ set_target_properties(golden_frame_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(golden_frame_tests PRIVATE strok_core)
+target_link_libraries(golden_frame_tests PRIVATE strok_core strok_cli_adapter)
 if(MSVC)
   target_compile_options(golden_frame_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -966,7 +986,7 @@ set_target_properties(reconstruction_baseline_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(reconstruction_baseline_tests PRIVATE strok_core)
+target_link_libraries(reconstruction_baseline_tests PRIVATE strok_core strok_cli_adapter)
 if(MSVC)
   target_compile_options(reconstruction_baseline_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -1009,7 +1029,7 @@ set_target_properties(renderer_config_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(renderer_config_tests PRIVATE strok_core)
+target_link_libraries(renderer_config_tests PRIVATE strok_cli_adapter)
 if(MSVC)
   target_compile_options(renderer_config_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -2222,7 +2242,7 @@ set_target_properties(auto_mode_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(auto_mode_tests PRIVATE strok_core)
+target_link_libraries(auto_mode_tests PRIVATE strok_cli_adapter)
 if(MSVC)
   target_compile_options(auto_mode_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)

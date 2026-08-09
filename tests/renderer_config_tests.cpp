@@ -1,7 +1,7 @@
 #include <strok/renderer_config.hpp>
 
-#include "cli.hpp"
 #include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "structure_overlay.hpp"
 
 #include <cstdlib>

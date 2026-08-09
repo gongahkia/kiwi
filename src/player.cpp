@@ -32,6 +32,7 @@
 #include "render_mode.hpp"
 #include "render_layout.hpp"
 #include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "split.hpp"
 #include "shader_runtime.hpp"
 #include "shader_source.hpp"

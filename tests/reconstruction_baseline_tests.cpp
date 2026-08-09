@@ -1,6 +1,7 @@
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "scene_source.hpp"
 
 #include <cstdint>

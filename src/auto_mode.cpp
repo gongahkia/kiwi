@@ -1,6 +1,6 @@
 #include "auto_mode.hpp"
 
-#include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "structure_overlay.hpp"
 
 namespace strok {

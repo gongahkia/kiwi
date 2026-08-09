@@ -8,6 +8,7 @@
 #include "image_grid.hpp"
 #include "raster_compose.hpp"
 #include "renderer.hpp"
+#include "renderer_cli_adapter.hpp"
 #include "scene_source.hpp"
 #include "stdin_data.hpp"
 
