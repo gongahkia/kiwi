@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -52,6 +52,14 @@ bench:
 bench-burst: native
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/burst.lua
+
+bench-text: native
+	mkdir -p bench/results
+	$(LUAJIT) src/kiwi/bench/text.lua
+
+bench-text-stress: native
+	mkdir -p bench/results
+	$(LUAJIT) src/kiwi/bench/text_stress.lua
 
 bench-compare:
 	./script/compare-bench "$(BASELINE)" "$(CANDIDATE)"
