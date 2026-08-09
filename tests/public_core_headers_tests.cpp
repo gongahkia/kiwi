@@ -1,5 +1,6 @@
 #include <strok/cell_buffer.hpp>
 #include <strok/renderer_config.hpp>
+#include <strok/render_grid.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -29,4 +30,7 @@ int main() {
 
   const strok::RendererConfig config;
   expect(config.mode == "luminance" && config.style == "none", "public RendererConfig defaults");
+
+  const strok::RenderGrid grid{.cols = 2, .rows = 1};
+  expect(grid.cols == 2 && grid.rows == 1, "public RenderGrid dimensions");
 }

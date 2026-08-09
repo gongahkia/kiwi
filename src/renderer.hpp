@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../include/strok/renderer_config.hpp"
+#include "../include/strok/render_grid.hpp"
 
 #include "cell_buffer.hpp"
 #include "frame.hpp"
@@ -8,7 +9,6 @@
 #include "hysteresis.hpp"
 #include "luminance.hpp"
 #include "structure_sampling.hpp"
-#include "terminal.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -54,7 +54,7 @@ struct RenderTemporalState {
   }
 };
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
+void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
 std::string dumpRenderGraph(const RendererConfig& config);
 
 }  // namespace strok

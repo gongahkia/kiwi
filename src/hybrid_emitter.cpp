@@ -2,7 +2,7 @@
 
 #include "ansi.hpp"
 #include "color_dither.hpp"
-#include "render_layout.hpp"
+#include "terminal_layout.hpp"
 
 #include <optional>
 
@@ -41,7 +41,7 @@ void appendOverlayFg(std::string& out, Rgb color, int row, int col, EmissionOpti
 }  // namespace
 
 HybridFrameResult emitHybridFrame(const CellBuffer& cells, const HybridFrameOptions& options) {
-  const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, options.terminal);
+  const TerminalRenderOrigin origin = centeredTerminalOrigin(cells.cols(), cells.rows(), options.terminal);
   GraphicsFrameResult graphics = emitGraphicsFrame(cells, options.graphics);
   std::string bytes;
   appendCursorMove(bytes, origin.row, origin.col);

@@ -32,7 +32,7 @@ RendererConfig rendererConfigFromCliOptions(const CliOptions& options) {
 }
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
-  renderFrame(frame, ramp, rendererConfigFromCliOptions(options), terminal, shape_table, cells, stats, temporal_state, scene_gbuffer);
+  renderFrame(frame, ramp, rendererConfigFromCliOptions(options), RenderGrid{.cols = terminal.cols, .rows = terminal.rows}, shape_table, cells, stats, temporal_state, scene_gbuffer);
 }
 
 std::string dumpRenderGraph(const CliOptions& options) {

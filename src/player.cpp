@@ -30,7 +30,6 @@
 #include "png_writer.hpp"
 #include "raster_compose.hpp"
 #include "render_mode.hpp"
-#include "render_layout.hpp"
 #include "renderer.hpp"
 #include "renderer_cli_adapter.hpp"
 #include "split.hpp"
@@ -42,6 +41,7 @@
 #include "stdin_data.hpp"
 #include "stream_resolver.hpp"
 #include "terminal_caps.hpp"
+#include "terminal_layout.hpp"
 #include "terminal.hpp"
 #include "video_decoder.hpp"
 
@@ -734,7 +734,7 @@ bool writeAll(int fd, const std::string& bytes) {
 }
 
 EmissionOptions centeredEmissionOptions(EmissionOptions options, TerminalSize terminal, const CellBuffer& cells) {
-  const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, terminal);
+  const TerminalRenderOrigin origin = centeredTerminalOrigin(cells.cols(), cells.rows(), terminal);
   options.origin_row = origin.row;
   options.origin_col = origin.col;
   return options;
@@ -1378,7 +1378,7 @@ TerminalCaps detectGraphicsCaps(const CliOptions& options) {
 }
 
 std::string graphicsFrameBytes(const CellBuffer& cells, const GraphicsFrameOptions& graphics_options, TerminalSize terminal, GraphicsFrameState* graphics_state = nullptr) {
-  const RenderOrigin origin = centeredOrigin(RenderSize{.cols = cells.cols(), .rows = cells.rows()}, terminal);
+  const TerminalRenderOrigin origin = centeredTerminalOrigin(cells.cols(), cells.rows(), terminal);
   std::string bytes;
   appendCursorMove(bytes, origin.row, origin.col);
   bytes += emitGraphicsFrame(cells, graphics_options, graphics_state).bytes;

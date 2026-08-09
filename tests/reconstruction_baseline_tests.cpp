@@ -1,8 +1,9 @@
 #include "glyph_ramp.hpp"
 #include "glyph_shape.hpp"
 #include "renderer.hpp"
-#include "renderer_cli_adapter.hpp"
 #include "scene_source.hpp"
+
+#include <strok/render_grid.hpp>
 
 #include <cstdint>
 #include <cstdlib>
@@ -45,8 +46,8 @@ strok::Rgb gray(uint8_t value) {
   return strok::Rgb{.r = value, .g = value, .b = value};
 }
 
-strok::TerminalSize terminal(int cols, int rows) {
-  return strok::TerminalSize{.cols = cols, .rows = rows, .xpixel = 0, .ypixel = 0};
+strok::RenderGrid grid(int cols, int rows) {
+  return strok::RenderGrid{.cols = cols, .rows = rows};
 }
 
 void expectDimensions(const strok::CellBuffer& cells, int cols, int rows, const char* label) {
@@ -69,8 +70,8 @@ std::string serializeCells(const strok::CellBuffer& cells) {
   return out.str();
 }
 
-strok::CliOptions reconstructionOptions(int width, int height) {
-  strok::CliOptions options;
+strok::RendererConfig reconstructionOptions(int width, int height) {
+  strok::RendererConfig options;
   options.width = width;
   options.height = height;
   options.cell_aspect = 1.0;
@@ -88,9 +89,9 @@ int main() {
       gray(0), gray(255),
       gray(255), gray(0),
     });
-    strok::CliOptions options = reconstructionOptions(2, 2);
+    strok::RendererConfig options = reconstructionOptions(2, 2);
     strok::CellBuffer cells;
-    strok::renderFrame(frame, U" @", options, terminal(2, 2), nullptr, &cells);
+    strok::renderFrame(frame, U" @", options, grid(2, 2), nullptr, &cells);
     expectDimensions(cells, 2, 2, "luminance fixture dimensions");
     expectEqual(serializeCells(cells),
                 "2x2\n"
@@ -106,12 +107,12 @@ int main() {
       gray(0), gray(0), gray(255), gray(255),
       gray(0), gray(0), gray(255), gray(255),
     });
-    strok::CliOptions options = reconstructionOptions(2, 2);
+    strok::RendererConfig options = reconstructionOptions(2, 2);
     options.mode = "structure";
     options.edge_threshold = 0.01;
     const strok::GlyphShapeTable shape_table = strok::buildGlyphShapeTable(strok::kDefaultStructureShapeGlyphs, 10, 14);
     strok::CellBuffer cells;
-    strok::renderFrame(frame, strok::kDefaultGlyphRamp, options, terminal(2, 2), &shape_table, &cells);
+    strok::renderFrame(frame, strok::kDefaultGlyphRamp, options, grid(2, 2), &shape_table, &cells);
     expectDimensions(cells, 2, 2, "shape fixture dimensions");
     expectEqual(serializeCells(cells),
                 "2x2\n"
@@ -128,10 +129,10 @@ int main() {
       "vn 0 0 1\n"
       "f 1//1 2//1 3//1\n");
     const strok::SceneGBuffer gbuffer = strok::renderSceneGBuffer(mesh, strok::SceneRenderOptions{.width = 4, .height = 4});
-    strok::CliOptions options = reconstructionOptions(2, 2);
+    strok::RendererConfig options = reconstructionOptions(2, 2);
     options.style = "cell-shade";
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, grid(2, 2), nullptr, &cells, nullptr, nullptr, &gbuffer);
     expectDimensions(cells, 2, 2, "scene fixture dimensions");
     expectEqual(serializeCells(cells),
                 "2x2\n"

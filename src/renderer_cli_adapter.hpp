@@ -2,6 +2,7 @@
 
 #include "cli.hpp"
 #include "renderer.hpp"
+#include "terminal.hpp"
 
 namespace strok {
 

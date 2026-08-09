@@ -1,4 +1,5 @@
 #include <strok/renderer_config.hpp>
+#include <strok/render_grid.hpp>
 
 #include "renderer.hpp"
 #include "renderer_cli_adapter.hpp"
@@ -80,11 +81,12 @@ int main() {
     .rgb = {0, 0, 0, 255, 255, 255, 128, 128, 128, 64, 64, 64},
   };
   const strok::TerminalSize terminal{.cols = 2, .rows = 2};
+  const strok::RenderGrid grid{.cols = 2, .rows = 2};
   strok::CliOptions render_options;
   render_options.cell_aspect = 1.0;
   strok::CellBuffer legacy_cells;
   strok::CellBuffer config_cells;
   strok::renderFrame(frame, U" @", render_options, terminal, nullptr, &legacy_cells);
-  strok::renderFrame(frame, U" @", strok::rendererConfigFromCliOptions(render_options), terminal, nullptr, &config_cells);
+  strok::renderFrame(frame, U" @", strok::rendererConfigFromCliOptions(render_options), grid, nullptr, &config_cells);
   expect(sameCells(legacy_cells, config_cells), "render adapter parity");
 }

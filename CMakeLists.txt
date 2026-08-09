@@ -179,6 +179,7 @@ set(STROK_OUTPUT_BACKEND_SOURCES
   src/raster_compose.cpp
   src/sixel.cpp
   src/terminal_caps.cpp
+  src/terminal_layout.cpp
 )
 
 add_library(strok_gpu_backend STATIC
@@ -869,6 +870,7 @@ add_test(NAME sextant_renderer COMMAND sextant_renderer_tests)
 add_executable(render_layout_tests
   tests/render_layout_tests.cpp
   src/render_layout.cpp
+  src/terminal_layout.cpp
 )
 target_include_directories(render_layout_tests PRIVATE src)
 target_compile_features(render_layout_tests PRIVATE cxx_std_20)
@@ -986,7 +988,7 @@ set_target_properties(reconstruction_baseline_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(reconstruction_baseline_tests PRIVATE strok_core strok_cli_adapter)
+target_link_libraries(reconstruction_baseline_tests PRIVATE strok_core)
 if(MSVC)
   target_compile_options(reconstruction_baseline_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -1543,7 +1545,7 @@ add_executable(hybrid_emitter_tests
   src/png_writer.cpp
   src/posterize.cpp
   src/raster_compose.cpp
-  src/render_layout.cpp
+  src/terminal_layout.cpp
   src/render_mode.cpp
   src/sixel.cpp
 )

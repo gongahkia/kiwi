@@ -630,9 +630,9 @@ std::string dumpRenderGraph(const RendererConfig& config) {
   return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config)).dump();
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
+void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
   const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
-  const RenderSize size = fitRenderSize(frame, config, terminal);
+  const RenderGrid size = fitRenderGrid(frame, config, available_grid);
   cells->resize(size.cols, size.rows);
   if (temporal_state != nullptr) {
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);

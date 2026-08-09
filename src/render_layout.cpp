@@ -5,12 +5,12 @@
 
 namespace strok {
 
-RenderSize fitRenderSize(const Frame& frame, const RendererConfig& config, TerminalSize terminal) {
-  int max_cols = std::max(1, config.width.value_or(terminal.cols));
-  int max_rows = std::max(1, config.height.value_or(terminal.rows));
+RenderGrid fitRenderGrid(const Frame& frame, const RendererConfig& config, RenderGrid available_grid) {
+  int max_cols = std::max(1, config.width.value_or(available_grid.cols));
+  int max_rows = std::max(1, config.height.value_or(available_grid.rows));
   if (config.fit) {
-    max_cols = std::min(max_cols, std::max(1, terminal.cols));
-    max_rows = std::min(max_rows, std::max(1, terminal.rows));
+    max_cols = std::min(max_cols, std::max(1, available_grid.cols));
+    max_rows = std::min(max_rows, std::max(1, available_grid.rows));
   }
   const double img_aspect = static_cast<double>(frame.w) / static_cast<double>(frame.h);
   const auto rows_for_cols = [&](int cols) {
@@ -22,16 +22,9 @@ RenderSize fitRenderSize(const Frame& frame, const RendererConfig& config, Termi
 
   const int rows = rows_for_cols(max_cols);
   if (rows <= max_rows) {
-    return RenderSize{.cols = max_cols, .rows = rows};
+    return RenderGrid{.cols = max_cols, .rows = rows};
   }
-  return RenderSize{.cols = cols_for_rows(max_rows), .rows = max_rows};
-}
-
-RenderOrigin centeredOrigin(RenderSize size, TerminalSize terminal) {
-  return RenderOrigin{
-    .row = std::max(1, ((terminal.rows - size.rows) / 2) + 1),
-    .col = std::max(1, ((terminal.cols - size.cols) / 2) + 1),
-  };
+  return RenderGrid{.cols = cols_for_rows(max_rows), .rows = max_rows};
 }
 
 }  // namespace strok
