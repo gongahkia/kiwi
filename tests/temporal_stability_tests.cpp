@@ -1,8 +1,8 @@
 #include <strok/renderer.hpp>
 
 #include "renderer.hpp"
+#include "temporal_stability_metric.hpp"
 
-#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -19,46 +19,6 @@ void expect(bool condition, const char* label) {
     std::cerr << label << '\n';
     std::exit(1);
   }
-}
-
-struct TemporalStability {
-  // Cell churn is changed_cells / compared_cells. Keep its exact numerator and
-  // denominator so this renderer-only metric is repeatable and does not imply
-  // anything about terminal emission cost.
-  std::uint64_t compared_cells = 0;
-  std::uint64_t changed_cells = 0;
-  std::uint64_t glyph_changes = 0;
-  std::uint64_t color_changes = 0;
-
-  bool operator==(const TemporalStability&) const = default;
-};
-
-TemporalStability measureChurn(const strok::CellBuffer& previous, const strok::CellBuffer& current) {
-  expect(previous.cols() == current.cols() && previous.rows() == current.rows(), "temporal metric dimensions match");
-  TemporalStability metric;
-  metric.compared_cells = static_cast<std::uint64_t>(current.size());
-  for (std::size_t index = 0; index < current.size(); ++index) {
-    const strok::Cell& before = previous.cells()[index];
-    const strok::Cell& after = current.cells()[index];
-    const bool glyph_changed = before.glyph != after.glyph;
-    const bool color_changed = before.fg != after.fg || before.bg != after.bg;
-    metric.glyph_changes += glyph_changed ? 1U : 0U;
-    metric.color_changes += color_changed ? 1U : 0U;
-    metric.changed_cells += glyph_changed || color_changed ? 1U : 0U;
-  }
-  return metric;
-}
-
-TemporalStability measureSequence(const std::vector<strok::CellBuffer>& frames) {
-  TemporalStability total;
-  for (std::size_t index = 1; index < frames.size(); ++index) {
-    const TemporalStability frame_metric = measureChurn(frames[index - 1], frames[index]);
-    total.compared_cells += frame_metric.compared_cells;
-    total.changed_cells += frame_metric.changed_cells;
-    total.glyph_changes += frame_metric.glyph_changes;
-    total.color_changes += frame_metric.color_changes;
-  }
-  return total;
 }
 
 std::uint8_t textureValue(int x, int y) {
@@ -117,7 +77,7 @@ strok::Frame solidColorFrame(std::uint8_t red, std::uint8_t green, std::uint8_t 
 struct HistorySequence {
   std::vector<strok::CellBuffer> cells;
   std::vector<strok::RenderStats> stats;
-  TemporalStability metric;
+  strok_test::TemporalStability metric;
 };
 
 HistorySequence renderHistorySequence(double glyph_stickiness) {
@@ -136,7 +96,7 @@ HistorySequence renderHistorySequence(double glyph_stickiness) {
     sequence.cells.push_back(created.renderer->cells());
     sequence.stats.push_back(result.stats);
   }
-  sequence.metric = measureSequence(sequence.cells);
+  sequence.metric = strok_test::measureSequence(sequence.cells);
   return sequence;
 }
 
@@ -181,7 +141,7 @@ int main() {
   const strok::CellBuffer unstuck_orientation = renderOrientationSequence(0.0, &unstuck_orientation_state);
   expect(sticky_orientation.at(0, 0).glyph == U'|', "orientation stickiness retains near vertical history");
   expect(unstuck_orientation.at(0, 0).glyph == U'/', "orientation fixture changes without history");
-  const TemporalStability orientation_metric = measureChurn(sticky_orientation, unstuck_orientation);
+  const strok_test::TemporalStability orientation_metric = strok_test::measureChurn(sticky_orientation, unstuck_orientation);
   expect(orientation_metric.glyph_changes == 1 && orientation_metric.color_changes == 0,
          "temporal metric separates orientation glyph churn from color churn");
 
@@ -191,7 +151,7 @@ int main() {
   expect(color_renderer.renderer->render(solidColorFrame(100, 100, 100)).succeeded(), "color metric first frame");
   const strok::CellBuffer color_first = color_renderer.renderer->cells();
   expect(color_renderer.renderer->render(solidColorFrame(100, 104, 96)).succeeded(), "color metric second frame");
-  const TemporalStability color_metric = measureChurn(color_first, color_renderer.renderer->cells());
+  const strok_test::TemporalStability color_metric = strok_test::measureChurn(color_first, color_renderer.renderer->cells());
   expect(color_metric.glyph_changes == 0 && color_metric.color_changes == 1 && color_metric.changed_cells == 1,
          "temporal metric observes color-only CellBuffer churn without terminal output");
 }
