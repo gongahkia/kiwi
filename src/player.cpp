@@ -255,7 +255,7 @@ CliOptions withTemporalSupersample(const CliOptions& options, int samples) {
   return copy;
 }
 
-bool writeAll(int fd, const std::string& bytes);
+bool writeAll(int fd, std::string_view bytes);
 
 std::chrono::milliseconds testWriteDelay() {
   const char* value = std::getenv("STROK_TEST_WRITE_DELAY_MS");
@@ -955,17 +955,9 @@ FrameAction waitForAudioClock(const Frame& frame, const CliOptions& options, Pcm
   return FrameAction::Quit;
 }
 
-bool writeAll(int fd, const std::string& bytes) {
-  std::size_t written = 0;
-  while (written < bytes.size()) {
-    const ssize_t n = ::write(fd, bytes.data() + written, bytes.size() - written);
-    if (n < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      return false;
-    }
-    written += static_cast<std::size_t>(n);
+bool writeAll(int fd, std::string_view bytes) {
+  if (!writeTerminalAll(fd, bytes)) {
+    return false;
   }
   // test-only pressure injection used by the opt-in live-input acceptance harness.
   if (const std::chrono::milliseconds delay = testWriteDelay(); delay.count() > 0) {

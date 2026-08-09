@@ -21,22 +21,25 @@ void handleResizeSignal(int) {
   g_was_resized = 1;
 }
 
-bool writeAll(int fd, const char* data, std::size_t size) noexcept {
+}  // namespace
+
+bool writeTerminalAll(int fd, std::string_view bytes) noexcept {
   std::size_t written = 0;
-  while (written < size) {
-    const ssize_t n = ::write(fd, data + written, size - written);
+  while (written < bytes.size()) {
+    const ssize_t n = ::write(fd, bytes.data() + written, bytes.size() - written);
     if (n < 0) {
       if (errno == EINTR) {
         continue;
       }
       return false;
     }
+    if (n == 0) {
+      return false;
+    }
     written += static_cast<std::size_t>(n);
   }
   return true;
 }
-
-}  // namespace
 
 TerminalSession::TerminalSession() {
   if (!terminalSessionAvailable()) {
@@ -57,7 +60,7 @@ TerminalSession::TerminalSession() {
   }
 
   constexpr const char* enter = "\x1b[?1049h\x1b[?25l";
-  if (!writeAll(STDOUT_FILENO, enter, std::char_traits<char>::length(enter))) {
+  if (!writeTerminalAll(STDOUT_FILENO, enter)) {
     ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_);
     throw std::runtime_error("failed to enter terminal alternate screen");
   }
@@ -73,7 +76,7 @@ void TerminalSession::restore() noexcept {
     return;
   }
   constexpr const char* leave = "\x1b[?25h\x1b[?1049l";
-  writeAll(STDOUT_FILENO, leave, std::char_traits<char>::length(leave));
+  writeTerminalAll(STDOUT_FILENO, leave);
   ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_);
   active_ = false;
 }

@@ -2,6 +2,8 @@
 
 #include <termios.h>
 
+#include <string_view>
+
 namespace strok {
 
 struct TerminalSize {
@@ -28,6 +30,7 @@ class TerminalSession {
 };
 
 bool terminalSessionAvailable() noexcept;
+bool writeTerminalAll(int fd, std::string_view bytes) noexcept;
 TerminalSize queryTerminalSize();
 void installQuitSignalHandlers();
 void installResizeSignalHandler();
