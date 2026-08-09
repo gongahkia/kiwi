@@ -11,6 +11,9 @@ local State = {}
 State.__index = State
 
 State.flags = Attributes.flags
+local GCB = Properties.grapheme_break
+local ascii_codepoints = {}
+for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
 
 local function copy_cell(destination, source)
   destination.glyph = source.glyph
@@ -70,6 +73,7 @@ function State.new(columns, rows, options)
     history_offset = 0,
     title = nil,
     responses = {},
+    grapheme_context_storage = {},
     width_policy = Width.normalize_policy({
       ambiguous_width = options.ambiguous_width == nil and Width.default_policy.ambiguous_width or options.ambiguous_width,
       private_use_width = options.private_use_width == nil and Width.default_policy.private_use_width or options.private_use_width,
@@ -121,6 +125,19 @@ function State:cell_from_attributes(glyph, metadata)
     continuation = metadata.continuation,
     anchor_column = metadata.anchor_column,
     display_text = metadata.display_text,
+  }
+end
+
+function State:ascii_cell(glyph, codepoints)
+  local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  return {
+    glyph = glyph,
+    fg = foreground,
+    bg = background,
+    flags = flags,
+    codepoints = codepoints,
+    width = 1,
+    display_text = glyph,
   }
 end
 
@@ -337,7 +354,10 @@ function State:prepare_cluster_write(width)
     end
     cursor.pending_wrap = false
   end
-  if width == 2 and cursor.column == self.columns - 1 then
+  if width == 2 and self.columns < 2 then
+    self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
+    width = 1
+  elseif width == 2 and cursor.column == self.columns - 1 then
     if self.modes.autowrap then
       screen.rows[cursor.row].wrapped = true
       self:carriage_return()
@@ -364,18 +384,28 @@ function State:write_new_cluster(glyph, codepoint)
   local display_text = leading and Utf8.encode(0x25cc) .. glyph or glyph
   local cursor, width = self:prepare_cluster_write(Width.columns(codepoints, self.width_policy))
   local column, row = cursor.column, cursor.row
-  self:clear_cluster_at(column, row)
-  if width == 2 then self:clear_cluster_at(column + 1, row) end
+  local occupied = self.active_screen:get(column, row)
+  if occupied.continuation or occupied.width == 2 then self:clear_cluster_at(column, row) end
+  if width == 2 and column + 1 < self.columns then
+    local next_cell = self.active_screen:get(column + 1, row)
+    if next_cell.continuation or next_cell.width == 2 then self:clear_cluster_at(column + 1, row) end
+  end
   local anchor = self:cell_from_attributes(glyph, {
     codepoints = codepoints,
     width = width,
     display_text = display_text,
   })
   self:set_cell(column, row, anchor)
-  if width == 2 then
+  if width == 2 and column + 1 < self.columns then
     self:set_cell(column + 1, row, self:continuation_cell(column))
   end
-  self.grapheme_context = { screen = self.active_screen, row = row, column = column, codepoints = codepoints }
+  local context = self.grapheme_context_storage
+  context.screen = self.active_screen
+  context.row = row
+  context.column = column
+  context.codepoints = codepoints
+  context.last_gcb = gcb
+  self.grapheme_context = context
   if column + width - 1 == self.columns - 1 then
     self:set_cursor(self.columns - 1, row, true)
     cursor.pending_wrap = true
@@ -424,11 +454,39 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     self:set_cell(column, row, updated)
   end
   context.codepoints = codepoints
+  context.last_gcb = Properties.gcb(codepoint)
   self.grapheme_context = context
+end
+
+function State:write_ascii_cluster(glyph, codepoint)
+  self:clear_grapheme_context()
+  local cursor = self:prepare_cluster_write(1)
+  local column, row = cursor.column, cursor.row
+  local occupied = self.active_screen:get(column, row)
+  if occupied.continuation or occupied.width == 2 then self:clear_cluster_at(column, row) end
+  local codepoints = ascii_codepoints[codepoint]
+  self:set_cell(column, row, self:ascii_cell(glyph, codepoints))
+  local context = self.grapheme_context_storage
+  context.screen = self.active_screen
+  context.row = row
+  context.column = column
+  context.codepoints = codepoints
+  context.last_gcb = GCB.other
+  self.grapheme_context = context
+  if column == self.columns - 1 then
+    cursor.pending_wrap = true
+  else
+    self:set_cursor(column + 1, row, true)
+  end
 end
 
 function State:write_codepoint(glyph, codepoint)
   codepoint = codepoint or Utf8.decode_one(glyph)
+  local context = self.grapheme_context
+  if codepoint >= 0x20 and codepoint <= 0x7e and (context == nil or context.last_gcb ~= GCB.prepend) then
+    self:write_ascii_cluster(glyph, codepoint)
+    return
+  end
   local cell, context = self:current_grapheme_cluster()
   if cell and not Grapheme.should_break(context.codepoints, codepoint) then
     if #context.codepoints < self.max_cluster_codepoints then
