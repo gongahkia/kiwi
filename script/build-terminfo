@@ -1,0 +1,16 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly SOURCE="$ROOT/terminfo/kiwi.ti"
+readonly OUTPUT="$ROOT/.build/terminfo"
+
+if ! command -v tic >/dev/null || ! command -v infocmp >/dev/null; then
+  print -u2 "Kiwi M1 needs tic and infocmp from ncurses to build its project-local terminfo entry."
+  exit 1
+fi
+
+mkdir -p "$OUTPUT"
+tic -x -o "$OUTPUT" "$SOURCE"
+TERMINFO="$OUTPUT" infocmp kiwi >/dev/null
+print "Built project-local Kiwi terminfo at $OUTPUT"

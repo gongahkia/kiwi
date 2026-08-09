@@ -73,4 +73,16 @@ return {
     Assert.equal(responses[2], "\27[2;3R")
     Assert.equal(responses[3], "\27[?1;0c")
   end,
+  terminal_state_resize_preserves_the_active_screen_and_marks_full_damage = function()
+    local state = State.new(4, 2)
+    state:set_cell(0, 0, state:cell_from_attributes("P"))
+    state:switch_alternate(true, true)
+    state:set_cell(0, 0, state:cell_from_attributes("A"))
+    state:resize(6, 3)
+    Assert.equal(state.active_screen, state.alternate)
+    Assert.equal(state:get(0, 0).glyph, "A")
+    Assert.truthy(state.damage.full)
+    state:switch_alternate(false, true)
+    Assert.equal(state:get(0, 0).glyph, "P")
+  end,
 }

@@ -11,7 +11,7 @@ typedef struct {
   float time;
   float show_dirty;
   float show_boundaries;
-  float padding;
+  float cursor_visible;
 } KiwiFrameUniform;
 ]]
 
@@ -227,6 +227,11 @@ function Renderer:pack_cell(model, index)
   local column, row = model:position(index)
   local cell = model.cells[index]
   local glyph = self.font.atlas:get(cell.glyph)
+  local glyph_key = cell.glyph
+  if glyph == nil and cell.glyph ~= " " then
+    glyph = self.font.atlas:get("?")
+    glyph_key = "?"
+  end
   local instance = self.cells[index]
   instance.x = column
   instance.y = row
@@ -238,7 +243,7 @@ function Renderer:pack_cell(model, index)
     instance.v0 = glyph.v0
     instance.u1 = glyph.u1
     instance.v1 = glyph.v1
-    instance.glyph = string.byte(cell.glyph)
+    instance.glyph = string.byte(glyph_key)
   else
     instance.u0 = 0
     instance.v0 = 0
@@ -276,6 +281,7 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].time = time
   self.frame[0].show_dirty = debug_dirty and 1 or 0
   self.frame[0].show_boundaries = debug_boundaries and 1 or 0
+  self.frame[0].cursor_visible = model.cursor.visible == false and 0 or 1
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
 end
 
