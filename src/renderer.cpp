@@ -15,6 +15,7 @@
 #include "lic.hpp"
 #include "line_ligatures.hpp"
 #include "luminance.hpp"
+#include "normal_image_view.hpp"
 #include "octant_renderer.hpp"
 #include "optical_flow.hpp"
 #include "posterize.hpp"
@@ -78,6 +79,18 @@ DepthImageView sceneDepthImageView(const SceneGBuffer& gbuffer) {
   };
 }
 
+NormalImageView sceneNormalImageView(const SceneGBuffer& gbuffer) {
+  static_assert(sizeof(SceneVec3) == 3U * sizeof(double));
+  const std::size_t width = gbuffer.albedo.w > 0 ? static_cast<std::size_t>(gbuffer.albedo.w) : 0U;
+  const std::size_t row_stride = width <= std::numeric_limits<std::size_t>::max() / (3U * sizeof(double)) ? width * 3U * sizeof(double) : 0U;
+  return NormalImageView{
+    .data = reinterpret_cast<const double*>(gbuffer.normals.data()),
+    .width = gbuffer.albedo.w,
+    .height = gbuffer.albedo.h,
+    .row_stride_bytes = row_stride,
+  };
+}
+
 PassPort renderPort(std::string name, BufferKind kind) {
   return PassPort{
     .name = std::move(name),
@@ -107,7 +120,8 @@ bool sceneGBufferUsable(const SceneGBuffer& gbuffer) {
          gbuffer.albedo.rgb.size() == pixels * 3U &&
          gbuffer.depth.size() == pixels &&
          gbuffer.normals.size() == pixels &&
-         !depthImageViewError(sceneDepthImageView(gbuffer)).has_value();
+         !depthImageViewError(sceneDepthImageView(gbuffer)).has_value() &&
+         !normalImageViewError(sceneNormalImageView(gbuffer)).has_value();
 }
 
 std::optional<SceneDepthRange> sceneDepthRange(const SceneGBuffer& gbuffer) {
@@ -142,6 +156,7 @@ std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int 
   double nz = 0.0;
   double depth_sum = 0.0;
   uint64_t count = 0;
+  const NormalImageView normals = sceneNormalImageView(gbuffer);
   for (int y = y0; y < y1; ++y) {
     for (int x = x0; x < x1; ++x) {
       const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(gbuffer.albedo.w) + static_cast<std::size_t>(x);
@@ -152,9 +167,10 @@ std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int 
       r += gbuffer.albedo.rgb[index * 3U];
       g += gbuffer.albedo.rgb[index * 3U + 1U];
       b += gbuffer.albedo.rgb[index * 3U + 2U];
-      nx += gbuffer.normals[index].x;
-      ny += gbuffer.normals[index].y;
-      nz += gbuffer.normals[index].z;
+      const NormalSample normal = normalizedNormalSampleOrViewFacing(normalAt(normals, x, y));
+      nx += normal.x;
+      ny += normal.y;
+      nz += normal.z;
       depth_sum += depth;
       ++count;
     }

@@ -2,6 +2,7 @@
 #include <strok/color_image_view.hpp>
 #include <strok/depth_image_view.hpp>
 #include <strok/frame.hpp>
+#include <strok/normal_image_view.hpp>
 #include <strok/render.hpp>
 #include <strok/renderer.hpp>
 #include <strok/renderer_config.hpp>
@@ -49,6 +50,9 @@ int main() {
 
   const strok::DepthImageView depth;
   expect(depth.data == nullptr && depth.interpretation == strok::DepthInterpretation::CameraLinear, "public DepthImageView defaults");
+
+  const strok::NormalImageView normal;
+  expect(normal.data == nullptr && normal.space == strok::NormalSpace::View, "public NormalImageView defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);
