@@ -70,7 +70,7 @@ LuminanceField makeLuminanceField(const Frame& frame) {
       frame.rgb.size() != width * height * 3U) {
     throw std::invalid_argument("frame RGB data size does not match dimensions");
   }
-  return makeLuminanceField(colorImageViewFromFrame(frame));
+  return makeLuminanceField(colorImageViewFromValidFrame(frame));
 }
 
 LuminanceField makeLuminanceField(const ColorImageView& image) {

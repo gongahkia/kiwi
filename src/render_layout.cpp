@@ -6,7 +6,7 @@
 namespace strok {
 
 RenderGrid fitRenderGrid(const Frame& frame, const RendererConfig& config, RenderGrid available_grid) {
-  return fitRenderGrid(colorImageViewFromFrame(frame), config, available_grid);
+  return fitRenderGrid(colorImageViewFromValidFrame(frame), config, available_grid);
 }
 
 RenderGrid fitRenderGrid(const ColorImageView& image, const RendererConfig& config, RenderGrid available_grid) {

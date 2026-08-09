@@ -687,19 +687,6 @@ std::optional<std::string> renderConfigurationError(const RendererConfig& config
   return std::nullopt;
 }
 
-bool validFrame(const Frame& frame) {
-  if (frame.w <= 0 || frame.h <= 0) {
-    return false;
-  }
-  const std::size_t width = static_cast<std::size_t>(frame.w);
-  const std::size_t height = static_cast<std::size_t>(frame.h);
-  if (width > std::numeric_limits<std::size_t>::max() / height) {
-    return false;
-  }
-  const std::size_t pixels = width * height;
-  return pixels <= std::numeric_limits<std::size_t>::max() / 3U && frame.rgb.size() == pixels * 3U;
-}
-
 RenderResult renderFailure(RenderStatus status, std::string message) {
   return RenderResult{.status = status, .message = std::move(message)};
 }
@@ -838,7 +825,7 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         styled_frame = applyKuwaharaFilter(activeImage(), 2);
-        active_image = colorImageViewFromFrame(styled_frame);
+        active_image = colorImageViewFromValidFrame(styled_frame);
       },
     };
   };
@@ -851,7 +838,7 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
         posterized_frame = posterizeFrameOklab(activeImage(), *posterize_levels);
-        active_image = colorImageViewFromFrame(posterized_frame);
+        active_image = colorImageViewFromValidFrame(posterized_frame);
       },
     };
   };
@@ -875,7 +862,7 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
         if (temporal_state != nullptr && temporal_supersample > 1) {
           const auto supersample_started = std::chrono::steady_clock::now();
           if (temporal_state->next_supersample_frame.has_value()) {
-            const LuminanceField next_luminance = makeLuminanceField(colorImageViewFromFrame(*temporal_state->next_supersample_frame));
+            const LuminanceField next_luminance = makeLuminanceField(colorImageViewFromValidFrame(*temporal_state->next_supersample_frame));
             analysis_luminance = blendTemporalSupersample(current_luminance, next_luminance, temporal_supersample, true);
             temporal_state->next_supersample_frame.reset();
             result.stats.temporal_supersample_frames += temporal_supersample - 1;
@@ -1396,10 +1383,11 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
 }
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
-  if (!validFrame(frame)) {
+  const std::optional<ColorImageView> image = colorImageViewFromFrame(frame);
+  if (!image.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
   }
-  return renderFrame(colorImageViewFromFrame(frame), ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
+  return renderFrame(*image, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
 }
 
 }  // namespace strok

@@ -12,7 +12,8 @@ enum class ColorPixelFormat {
 
 // A read-only borrowed color image. The caller keeps data valid and unchanged for
 // the complete render call. row_stride_bytes is the byte distance between row starts
-// and may exceed the RGB24 row size to represent padding.
+// and may exceed the RGB24 row size to represent padding. Source timing remains
+// frontend-owned and is intentionally outside this color-only contract.
 struct ColorImageView {
   const uint8_t* data = nullptr;
   int width = 0;

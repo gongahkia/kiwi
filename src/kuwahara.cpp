@@ -109,7 +109,7 @@ uint8_t meanChannel(double sum, int count) {
 
 Frame applyKuwaharaFilter(const Frame& frame, int radius) {
   validateFrame(frame);
-  Frame output = applyKuwaharaFilter(colorImageViewFromFrame(frame), radius);
+  Frame output = applyKuwaharaFilter(colorImageViewFromValidFrame(frame), radius);
   output.pts_us = frame.pts_us;
   return output;
 }

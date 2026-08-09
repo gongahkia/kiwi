@@ -86,7 +86,7 @@ Rgb posterizeOklab(Rgb rgb, int levels) {
 Frame posterizeFrameOklab(const Frame& frame, int levels) {
   validateLevels(levels);
   validateFrame(frame);
-  Frame output = posterizeFrameOklab(colorImageViewFromFrame(frame), levels);
+  Frame output = posterizeFrameOklab(colorImageViewFromValidFrame(frame), levels);
   output.pts_us = frame.pts_us;
   return output;
 }

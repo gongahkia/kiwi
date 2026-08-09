@@ -8,7 +8,7 @@
 namespace strok {
 
 Rgb averageRegion(const Frame& frame, int cols, int rows, int col, int row) {
-  return averageRegion(colorImageViewFromFrame(frame), cols, rows, col, row);
+  return averageRegion(colorImageViewFromValidFrame(frame), cols, rows, col, row);
 }
 
 Rgb averageRegion(const ColorImageView& image, int cols, int rows, int col, int row) {

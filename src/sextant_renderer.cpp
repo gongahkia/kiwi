@@ -73,7 +73,7 @@ char32_t sextantGlyphForMask(uint8_t mask) {
 }
 
 void renderSextantFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
-  renderSextantFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+  renderSextantFrame(colorImageViewFromValidFrame(frame), cols, rows, cells);
 }
 
 void renderSextantFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {

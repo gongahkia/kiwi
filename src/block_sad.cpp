@@ -62,7 +62,7 @@ char32_t blockGlyphForSamples(const std::array<double, 4>& samples) {
 }
 
 void renderBlockSadFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
-  renderBlockSadFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+  renderBlockSadFrame(colorImageViewFromValidFrame(frame), cols, rows, cells);
 }
 
 void renderBlockSadFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {

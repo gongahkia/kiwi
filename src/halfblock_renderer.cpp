@@ -5,7 +5,7 @@
 namespace strok {
 
 void renderHalfBlockFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
-  renderHalfBlockFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+  renderHalfBlockFrame(colorImageViewFromValidFrame(frame), cols, rows, cells);
 }
 
 void renderHalfBlockFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {

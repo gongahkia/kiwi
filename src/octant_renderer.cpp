@@ -95,7 +95,7 @@ char32_t octantGlyphForMask(uint8_t mask) {
 }
 
 void renderOctantFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
-  renderOctantFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+  renderOctantFrame(colorImageViewFromValidFrame(frame), cols, rows, cells);
 }
 
 void renderOctantFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {

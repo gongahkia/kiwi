@@ -9,6 +9,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 
 namespace {
 
@@ -46,6 +47,8 @@ int main() {
   expect(image.data == nullptr && image.pixel_format == strok::ColorPixelFormat::Rgb24, "public ColorImageView defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
+  const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);
+  expect(frame_image.has_value() && frame_image->data == frame.rgb.data() && frame_image->row_stride_bytes == 3, "public Frame RGB24 adapter");
   strok::CellBuffer rendered;
   const strok::RenderResult render_result = strok::renderFrame(frame, U" @", strok::RendererConfig{.cell_aspect = 1.0}, strok::RenderGrid{.cols = 1, .rows = 1}, &rendered);
   expect(render_result.succeeded() && rendered.at(0, 0).glyph == U' ', "public render function");

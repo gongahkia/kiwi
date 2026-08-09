@@ -43,7 +43,7 @@ inline std::optional<std::string> colorImageViewError(const ColorImageView& imag
   return std::nullopt;
 }
 
-inline ColorImageView colorImageViewFromFrame(const Frame& frame) noexcept {
+inline ColorImageView colorImageViewFromValidFrame(const Frame& frame) noexcept {
   const std::size_t width = frame.w > 0 ? static_cast<std::size_t>(frame.w) : 0U;
   const std::size_t row_stride = width <= std::numeric_limits<std::size_t>::max() / 3U ? width * 3U : 0U;
   return ColorImageView{

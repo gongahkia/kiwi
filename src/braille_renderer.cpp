@@ -46,7 +46,7 @@ Rgb averageMasked(const std::array<Rgb, 8>& colors, uint8_t mask, bool selected)
 }  // namespace
 
 void renderBrailleFrame(const Frame& frame, int cols, int rows, CellBuffer* cells) {
-  renderBrailleFrame(colorImageViewFromFrame(frame), cols, rows, cells);
+  renderBrailleFrame(colorImageViewFromValidFrame(frame), cols, rows, cells);
 }
 
 void renderBrailleFrame(const ColorImageView& image, int cols, int rows, CellBuffer* cells) {

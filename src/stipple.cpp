@@ -225,7 +225,7 @@ void applyStipple(CellBuffer* cells, StippleCarrier carrier, const Frame* source
     applyStipple(cells, carrier, static_cast<const ColorImageView*>(nullptr));
     return;
   }
-  const ColorImageView source_image = colorImageViewFromFrame(*source_frame);
+  const ColorImageView source_image = colorImageViewFromValidFrame(*source_frame);
   applyStipple(cells, carrier, &source_image);
 }
 

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <optional>
 
 namespace {
 
@@ -64,7 +65,13 @@ int main() {
     .w = 2,
     .h = 2,
     .rgb = {0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255},
+    .pts_us = 123,
   };
+  const std::optional<strok::ColorImageView> frame_view = strok::colorImageViewFromFrame(frame);
+  expect(frame_view.has_value() && frame_view->data == frame.rgb.data() && frame_view->row_stride_bytes == 6, "Frame RGB24 view adapter");
+  strok::Frame malformed_frame = frame;
+  malformed_frame.rgb.pop_back();
+  expect(!strok::colorImageViewFromFrame(malformed_frame).has_value(), "Frame RGB24 view adapter rejects malformed storage");
   strok::Renderer::CreateResult frame_renderer = createRenderer();
   expect(frame_renderer.succeeded() && frame_renderer.renderer->render(frame).succeeded(), "legacy Frame render");
   expect(sameCells(borrowed_cells, frame_renderer.renderer->cells()), "borrowed RGB24 matches legacy Frame");
