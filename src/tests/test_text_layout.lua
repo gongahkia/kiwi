@@ -34,6 +34,18 @@ return {
     Assert.truthy(system.stats.fallback_hits >= 2)
     system:destroy()
   end,
+  text_layout_shapes_documented_cjk_categories_with_fallback_faces = function()
+    local system = text_system()
+    local layout = Layout.new(system)
+    local state = State.new(12, 1)
+    for _, codepoint in ipairs({ 0x4e2d, 0x3042, 0x30ab, 0xd55c, 0xff01, 0xff76 }) do write(state, codepoint) end
+    local glyphs = layout:update(state)
+    Assert.equal(state:get(0, 0).width, 2)
+    Assert.equal(state:get(10, 0).width, 1)
+    Assert.truthy(#glyphs >= 6)
+    Assert.truthy(system.stats.fallback_hits >= 5)
+    system:destroy()
+  end,
   dynamic_glyph_cache_keys_by_face_and_glyph_id_and_bounds_growth = function()
     local system = text_system()
     local primary = assert(system:face_for_cluster({ string.byte("A") }))
@@ -91,6 +103,8 @@ return {
     local initial = layout:update(state)
     Assert.truthy(#initial >= 2)
     Assert.equal(layout.stats.rows_reshaped, 2)
+    Assert.truthy(layout.stats.visible_runs >= 1)
+    Assert.equal(layout.stats.visible_glyphs, #initial)
     state.damage:clear()
     local static = layout:update(state)
     Assert.equal(#static, #initial)

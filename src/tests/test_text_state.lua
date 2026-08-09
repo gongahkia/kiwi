@@ -70,6 +70,27 @@ return {
       Assert.equal(snapshot_with_chunks(input, { split }), whole, "Unicode stream split " .. split)
     end
   end,
+  terminal_text_keeps_documented_emoji_sequences_as_independent_wide_clusters = function()
+    local state = State.new(16, 1)
+    local sequences = {
+      { 0x1f600 },
+      { 0x1f44d, 0x1f3fd },
+      { 0x1f1f8, 0x1f1ec },
+      { 0x23, 0xfe0f, 0x20e3 },
+      { 0x1f469, 0x200d, 0x1f4bb },
+      { 0x00a9, 0xfe0f },
+    }
+    local column = 0
+    for _, sequence in ipairs(sequences) do
+      for _, codepoint in ipairs(sequence) do write(state, codepoint) end
+      local anchor = state:get(column, 0)
+      Assert.equal(anchor.width, 2)
+      Assert.equal(#anchor.codepoints, #sequence)
+      Assert.truthy(state:get(column + 1, 0).continuation)
+      column = column + 2
+    end
+    Assert.equal(state.cursor.column, column)
+  end,
   terminal_text_upgrades_an_emoji_variation_cluster_to_two_columns = function()
     local state = State.new(4, 1)
     write(state, 0x2764)

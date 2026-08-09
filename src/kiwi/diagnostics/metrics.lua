@@ -72,6 +72,8 @@ function Metrics:snapshot()
     rows_reshaped = renderer.rows_reshaped or 0,
     runs_reshaped = renderer.runs_reshaped or 0,
     glyphs_produced = renderer.glyphs_produced or 0,
+    visible_shaped_runs = renderer.visible_shaped_runs or 0,
+    visible_shaped_glyphs = renderer.visible_shaped_glyphs or 0,
     shaping_cpu_ms = renderer.shaping_cpu_ms or 0,
     shape_cache_hits = renderer.shape_cache_hits or 0,
     shape_cache_misses = renderer.shape_cache_misses or 0,
@@ -184,12 +186,14 @@ function Metrics:report(now)
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
   end
   io.stdout:write(string.format(
-    "text=unicode-%s primary=%s#%s clusters=%d wide=%d fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
+    "text=unicode-%s primary=%s#%s clusters=%d wide=%d visible=%d runs/%d glyphs fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
     item.unicode_version,
     item.primary_font,
     item.primary_face_id or "none",
     item.grapheme_clusters,
     item.wide_clusters,
+    item.visible_shaped_runs,
+    item.visible_shaped_glyphs,
     item.fallback_faces_loaded,
     item.shaping_cpu_ms,
     item.shaping_rows_invalidated,
