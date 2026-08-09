@@ -1,0 +1,23 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly WGPU="$ROOT/.deps/wgpu-native-v29.0.1.1"
+readonly OUTPUT="$ROOT/.build/native/libkiwi_surface.so"
+
+if [[ ! -f "$WGPU/include/webgpu/webgpu.h" || ! -f "$WGPU/lib/libwgpu_native.so" ]]; then
+  print -u2 "wgpu-native v29.0.1.1 is missing; run make bootstrap first."
+  exit 1
+fi
+
+mkdir -p "${OUTPUT:h}"
+cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
+  -I"$WGPU/include" \
+  $(pkg-config --cflags glfw3) \
+  "$ROOT/native/surface.c" \
+  -L"$WGPU/lib" -lwgpu_native \
+  $(pkg-config --libs glfw3) \
+  -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' \
+  -o "$OUTPUT"
+
+print "Built $OUTPUT"
