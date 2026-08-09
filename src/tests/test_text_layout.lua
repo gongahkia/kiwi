@@ -116,6 +116,36 @@ return {
     Assert.equal(layout.stats.rows_reshaped, 1)
     system:destroy()
   end,
+  text_layout_invalidates_on_font_replacement_resize_screen_switch_and_reset = function()
+    local first = text_system()
+    local layout = Layout.new(first)
+    local state = State.new(8, 1)
+    write(state, string.byte("A"))
+    layout:update(state)
+    state.damage:clear()
+
+    local second = System.new({ pixel_height = 20, atlas = { width = 512, height = 512, max_entries = 1024 } })
+    layout:set_font_system(second)
+    first:destroy()
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 1)
+    state.damage:clear()
+
+    state:resize(8, 2)
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 2)
+    state.damage:clear()
+
+    state:switch_alternate(true, true)
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 2)
+    state.damage:clear()
+
+    state:reset()
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 2)
+    second:destroy()
+  end,
   text_inspector_exposes_shaped_glyph_mapping_for_an_anchor = function()
     local system = text_system()
     local layout = Layout.new(system)
