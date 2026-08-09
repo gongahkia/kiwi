@@ -1,0 +1,139 @@
+local Assert = require("tests.assert")
+local Attributes = require("kiwi.terminal.attributes")
+local Corpus = require("tests.fixtures.vt")
+local Parser = require("kiwi.terminal.parser")
+local Snapshot = require("kiwi.terminal.snapshot")
+local State = require("kiwi.terminal.state")
+
+local function chunks_for_randomized_boundaries(length, seed)
+  local chunks = {}
+  local remaining = length
+  while remaining > 0 do
+    seed = (seed * 17 + 11) % 97
+    local count = math.min(remaining, seed % 7 + 1)
+    chunks[#chunks + 1] = count
+    remaining = remaining - count
+  end
+  return chunks
+end
+
+local function run(fixture, chunks)
+  local state = State.new(fixture.columns, fixture.rows, { scrollback_limit = 16 })
+  local parser = Parser.new(function(action)
+    state:apply(action)
+  end, fixture.parser_options)
+  local offset = 1
+  for _, count in ipairs(chunks) do
+    if offset > #fixture.input then
+      break
+    end
+    parser:feed(fixture.input:sub(offset, offset + count - 1))
+    offset = offset + count
+  end
+  if offset <= #fixture.input then
+    parser:feed(fixture.input:sub(offset))
+  end
+  parser:finish()
+  return state, parser, Snapshot.encode(state)
+end
+
+local function row_text(state, row)
+  local text = {}
+  for column = 0, state.columns - 1 do
+    text[#text + 1] = state:get(column, row).glyph
+  end
+  return table.concat(text)
+end
+
+local function assert_sequence(actual, expected, label)
+  Assert.equal(#actual, #expected, label .. " count")
+  for index, value in ipairs(expected) do
+    Assert.equal(actual[index], value, label .. " item " .. index)
+  end
+end
+
+local function assert_expected(fixture, state, parser)
+  local expected = fixture.expected
+  for row, text in ipairs(expected.rows or {}) do
+    Assert.equal(row_text(state, row - 1), text, fixture.id .. " row " .. row)
+  end
+  if expected.cursor then
+    Assert.equal(state.cursor.column, expected.cursor.column, fixture.id .. " cursor column")
+    Assert.equal(state.cursor.row, expected.cursor.row, fixture.id .. " cursor row")
+    if expected.cursor.pending_wrap ~= nil then
+      Assert.equal(state.cursor.pending_wrap, expected.cursor.pending_wrap, fixture.id .. " pending wrap")
+    end
+  end
+  if expected.active_screen then
+    Assert.equal(state.active_screen == state.primary and "primary" or "alternate", expected.active_screen, fixture.id .. " active screen")
+  end
+  if expected.margins then
+    Assert.equal(state.active_screen.top_margin, expected.margins.top, fixture.id .. " top margin")
+    Assert.equal(state.active_screen.bottom_margin, expected.margins.bottom, fixture.id .. " bottom margin")
+  end
+  if expected.modes then
+    for name, value in pairs(expected.modes) do
+      Assert.equal(state.modes[name], value, fixture.id .. " mode " .. name)
+    end
+  end
+  if expected.scrollback_lines then
+    Assert.equal(state.scrollback:size(), expected.scrollback_lines, fixture.id .. " scrollback")
+  end
+  if expected.title then
+    Assert.equal(state.title, expected.title, fixture.id .. " title")
+  end
+  if expected.unknown then
+    for family, count in pairs(expected.unknown) do
+      Assert.equal(state.stats.unknown[family], count, fixture.id .. " unknown " .. family)
+    end
+  end
+  if expected.parser then
+    for name, value in pairs(expected.parser) do
+      Assert.equal(parser.stats[name], value, fixture.id .. " parser " .. name)
+    end
+  end
+  if expected.responses then
+    assert_sequence(state:pop_responses(), expected.responses, fixture.id .. " responses")
+  end
+  for _, cell_expected in ipairs(expected.cells or {}) do
+    local cell = state:get(cell_expected.column, cell_expected.row)
+    if cell_expected.flags ~= nil then
+      Assert.equal(cell.flags, cell_expected.flags, fixture.id .. " cell flags")
+    end
+    if cell_expected.default_fg then
+      Assert.equal(cell.fg, Attributes.default_foreground, fixture.id .. " default foreground")
+    end
+    if cell_expected.fg then
+      local foreground = Attributes.resolve({ fg = cell_expected.fg })
+      Assert.equal(cell.fg, foreground, fixture.id .. " cell foreground")
+    end
+  end
+end
+
+return {
+  conformance_corpus_matches_declared_terminal_semantics = function()
+    for _, fixture in ipairs(Corpus) do
+      local state, parser = run(fixture, { #fixture.input })
+      assert_expected(fixture, state, parser)
+    end
+  end,
+  conformance_corpus_is_chunk_boundary_invariant = function()
+    for _, fixture in ipairs(Corpus) do
+      local _, _, whole = run(fixture, { #fixture.input })
+      for split = 1, #fixture.input - 1 do
+        local _, _, split_snapshot = run(fixture, { split, #fixture.input - split })
+        Assert.equal(split_snapshot, whole, fixture.id .. " split " .. split)
+      end
+      local one_byte = {}
+      for _ = 1, #fixture.input do
+        one_byte[#one_byte + 1] = 1
+      end
+      local _, _, one_byte_snapshot = run(fixture, one_byte)
+      Assert.equal(one_byte_snapshot, whole, fixture.id .. " one-byte chunks")
+      for seed = 1, 8 do
+        local _, _, randomized_snapshot = run(fixture, chunks_for_randomized_boundaries(#fixture.input, seed))
+        Assert.equal(randomized_snapshot, whole, fixture.id .. " randomized chunks " .. seed)
+      end
+    end
+  end,
+}

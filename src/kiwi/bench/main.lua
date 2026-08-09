@@ -1,5 +1,6 @@
 local ffi = require("ffi")
 local Synthetic = require("kiwi.terminal.synthetic")
+local ParserBench = require("kiwi.bench.parser")
 local Packing = require("kiwi.renderer.packing")
 local Stats = require("kiwi.bench.stats")
 local Json = require("kiwi.bench.json")
@@ -92,6 +93,24 @@ local function print_result(result)
   ))
 end
 
+local function print_parser_result(result)
+  io.stdout:write(string.format(
+    "parser %s iterations=%d bytes=%d actions=%d cpu_parse_state mean=%.4fms p50=%.4fms p95=%.4fms p99=%.4fms throughput=%.0f B/s dirty=%d cells/%d ranges heap_delta=%.1f KiB\n",
+    result.workload,
+    result.iterations,
+    result.bytes,
+    result.actions,
+    result.cpu_parse_state_ms.mean,
+    result.cpu_parse_state_ms.p50,
+    result.cpu_parse_state_ms.p95,
+    result.cpu_parse_state_ms.p99,
+    result.throughput_bytes_per_second,
+    result.dirty_cells,
+    result.dirty_ranges,
+    result.heap_kib_delta
+  ))
+end
+
 local iterations = number_from_env("KIWI_BENCH_ITERATIONS", 300)
 local results = {}
 for _, dimensions in ipairs({ { 160, 50 }, { 240, 80 } }) do
@@ -101,6 +120,10 @@ for _, dimensions in ipairs({ { 160, 50 }, { 240, 80 } }) do
     print_result(result)
   end
 end
+local parser_results = ParserBench.run(iterations)
+for _, result in ipairs(parser_results) do
+  print_parser_result(result)
+end
 
 local timestamp = os.date("!%Y%m%dT%H%M%SZ")
 local output = "bench/results/" .. timestamp .. ".json"
@@ -109,11 +132,12 @@ if not file then
   error("Unable to create " .. output .. ": " .. error_message .. ". Run through make bench so the results directory exists.")
 end
 file:write(Json.encode({
-  schema_version = 1,
+  schema_version = 2,
   timestamp_utc = timestamp,
-  engine = "LuaJIT terminal-model/damage/packing benchmark",
+  engine = "LuaJIT terminal model, damage, packing, parser, and state benchmark",
   gpu_timing = "unsupported (headless benchmark does not request timestamp-query feature)",
   results = results,
+  parser_results = parser_results,
 }), "\n")
 file:close()
 io.stdout:write("machine-readable result: " .. output .. "\n")

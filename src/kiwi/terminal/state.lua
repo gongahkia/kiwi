@@ -447,7 +447,11 @@ end
 function State:record_unknown(family, detail)
   self.stats.unknown[family] = (self.stats.unknown[family] or 0) + 1
   if #self.stats.unknown_samples < 16 then
-    self.stats.unknown_samples[#self.stats.unknown_samples + 1] = detail
+    self.stats.unknown_samples[#self.stats.unknown_samples + 1] = {
+      family = family,
+      count = self.stats.unknown[family],
+      detail = detail,
+    }
   end
 end
 
@@ -510,8 +514,18 @@ local function parameter(parameters, index, fallback)
   return value
 end
 
-local function sequence_detail(action)
-  return string.format("%s%s%s%s", action.private or "", table.concat(action.parameters or {}, ";"), action.intermediates or "", action.final or "")
+local function csi_detail(action)
+  local parameters = {}
+  for index, value in ipairs(action.parameters or {}) do
+    parameters[index] = value
+  end
+  return {
+    private = action.private or "",
+    parameters = parameters,
+    intermediates = action.intermediates or "",
+    final = action.final or "",
+    colon = action.colon or false,
+  }
 end
 
 function State:apply_execute(code)
@@ -581,7 +595,7 @@ function State:apply_private_mode(parameters, enabled)
     elseif mode == 2004 then
       self.modes.bracketed_paste = enabled
     else
-      self:record_unknown("csi", string.format("?%d%s", mode, enabled and "h" or "l"))
+      self:record_unknown("csi", { private = "?", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
   end
 end
@@ -591,14 +605,14 @@ function State:apply_standard_mode(parameters, enabled)
     if mode == 4 then
       self.modes.insert = enabled
     else
-      self:record_unknown("csi", string.format("%d%s", mode, enabled and "h" or "l"))
+      self:record_unknown("csi", { private = "", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
   end
 end
 
 function State:apply_csi(action)
   if action.colon then
-    self:record_unknown("csi", "colon parameters " .. sequence_detail(action))
+    self:record_unknown("csi", csi_detail(action))
     return
   end
   local parameters = action.parameters
@@ -608,7 +622,7 @@ function State:apply_csi(action)
     return
   end
   if action.private ~= "" then
-    self:record_unknown("csi", sequence_detail(action))
+    self:record_unknown("csi", csi_detail(action))
     return
   end
   if final == "A" then
@@ -668,12 +682,12 @@ function State:apply_csi(action)
     elseif request == 6 then
       self:respond(string.format("\27[%d;%dR", self.cursor.row + 1, self.cursor.column + 1))
     else
-      self:record_unknown("csi", sequence_detail(action))
+      self:record_unknown("csi", csi_detail(action))
     end
   elseif final == "c" then
     self:respond("\27[?1;0c")
   else
-    self:record_unknown("csi", sequence_detail(action))
+    self:record_unknown("csi", csi_detail(action))
   end
 end
 
@@ -681,7 +695,7 @@ function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
   elseif action.command ~= 7 and action.command ~= 8 and action.command ~= 133 then
-    self:record_unknown("osc", tostring(action.command or "missing"))
+    self:record_unknown("osc", { command = action.command })
   end
 end
 

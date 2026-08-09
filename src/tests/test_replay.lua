@@ -5,6 +5,8 @@ local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 
+local LIVE_RECORDING = "src/tests/fixtures/replay/live-color-cr.jsonl"
+
 local function with_temporary_recording(callback)
   local path = os.tmpname()
   local ok, result = xpcall(function()
@@ -51,5 +53,17 @@ return {
       local ok = pcall(Replay.apply_file, state, path)
       Assert.equal(ok, false)
     end)
+  end,
+  live_recording_fixture_replays_to_expected_cells = function()
+    local state = State.new(1, 1)
+    local stats = Replay.apply_file(state, LIVE_RECORDING)
+    Assert.equal(state.columns, 133)
+    Assert.equal(state.rows, 40)
+    Assert.equal(state:get(0, 0).glyph, "X")
+    Assert.equal(state:get(1, 0).glyph, "e")
+    Assert.equal(state:get(0, 0).fg, state:get(6, 0).fg)
+    Assert.truthy(state:get(1, 0).fg ~= state:get(6, 0).fg)
+    Assert.equal(stats.bytes, 18)
+    Assert.equal(stats.errors, 0)
   end,
 }
