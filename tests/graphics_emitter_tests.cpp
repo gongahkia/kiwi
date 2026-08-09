@@ -1,4 +1,5 @@
 #include "graphics_emitter.hpp"
+#include "iterm_inline.hpp"
 #include "raster_compose.hpp"
 
 #include <cstdlib>
@@ -120,13 +121,16 @@ int main() {
     expect(frame.raster_bytes == 1U * strok::kRasterCellPixelWidth * strok::kRasterCellPixelHeight * 3U, "iTerm raster byte count");
     expect(frame.bytes.find("\x1b]1337;File=inline=1") == 0, "iTerm frame escape prefix");
     expect(frame.bytes.find(";width=1;height=1;") != std::string::npos, "iTerm cell dimensions");
-    expectEqual(hexBytes(frame.bytes),
-                "1b5d313333373b46696c653d696e6c696e653d313b6e616d653d63335279623273756347356e"
-                "3b73697a653d37373b77696474683d313b6865696768743d313b7072657365727665417370656374526174696f3d303a"
-                "6956424f5277304b47676f414141414e5355684555674141414167414141414d43414941414144512f47764b414141"
-                "4146456c4551565234415750347a3843414657455842536f6475524941613952666f574939456e5941414141415355"
-                "564f524b35435949493d07",
-                "iTerm graphics frame golden bytes");
+    std::vector<uint8_t> expected_raster(frame.raster_bytes, 0);
+    for (std::size_t pixel = 0; pixel < expected_raster.size(); pixel += 3U) {
+      expected_raster[pixel] = 255;
+    }
+    expectEqual(frame.bytes,
+                strok::encodeITermInlineRgb24(expected_raster,
+                                               strok::kRasterCellPixelWidth,
+                                               strok::kRasterCellPixelHeight,
+                                               strok::ITermInlineOptions{.width = "1", .height = "1"}),
+                "iTerm graphics frame bytes");
   }
 
   {
