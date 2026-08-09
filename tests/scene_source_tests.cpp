@@ -81,6 +81,14 @@ int main() {
   expect(rendered.normals.size() == 16U * 16U, "scene render normal size");
   expect(anyFiniteDepth(rendered), "scene render writes depth");
   expect(anyNormal(rendered), "scene render writes normals");
+  const std::optional<strok::RenderInput> input = strok::renderInputFromSceneGBuffer(rendered);
+  expect(input.has_value(), "scene input adapter accepts complete buffer");
+  expect(input->color.data == rendered.albedo.rgb.data(), "scene input adapter borrows albedo");
+  expect(input->depth.has_value() && input->depth->data == rendered.depth.data(), "scene input adapter borrows depth");
+  expect(input->normals.has_value() && input->normals->data == reinterpret_cast<const double*>(rendered.normals.data()), "scene input adapter borrows normals");
+  strok::SceneGBuffer incomplete = rendered;
+  incomplete.depth.pop_back();
+  expect(!strok::renderInputFromSceneGBuffer(incomplete).has_value(), "scene input adapter rejects incomplete depth");
 
   const strok::SceneGBuffer rotated = strok::renderSceneGBuffer(triangle, strok::SceneRenderOptions{.width = 16, .height = 16, .time_seconds = 0.5});
   expect(anyFiniteDepth(rotated), "rotated scene render writes depth");

@@ -21,7 +21,6 @@
 #include "posterize.hpp"
 #include "render_graph.hpp"
 #include "render_layout.hpp"
-#include "scene_source.hpp"
 #include "sextant_renderer.hpp"
 #include "stipple.hpp"
 #include "structure_edges.hpp"
@@ -57,39 +56,16 @@ struct ShapeMatchStats {
   int64_t ns = 0;
 };
 
-struct SceneCellSample {
+struct CellShadeSample {
   Rgb color;
-  SceneVec3 normal;
+  NormalSample normal;
   double depth = 0.0;
 };
 
-struct SceneDepthRange {
+struct DepthRange {
   double near = 0.0;
   double far = 0.0;
 };
-
-DepthImageView sceneDepthImageView(const SceneGBuffer& gbuffer) {
-  const std::size_t width = gbuffer.albedo.w > 0 ? static_cast<std::size_t>(gbuffer.albedo.w) : 0U;
-  const std::size_t row_stride = width <= std::numeric_limits<std::size_t>::max() / sizeof(double) ? width * sizeof(double) : 0U;
-  return DepthImageView{
-    .data = gbuffer.depth.data(),
-    .width = gbuffer.albedo.w,
-    .height = gbuffer.albedo.h,
-    .row_stride_bytes = row_stride,
-  };
-}
-
-NormalImageView sceneNormalImageView(const SceneGBuffer& gbuffer) {
-  static_assert(sizeof(SceneVec3) == 3U * sizeof(double));
-  const std::size_t width = gbuffer.albedo.w > 0 ? static_cast<std::size_t>(gbuffer.albedo.w) : 0U;
-  const std::size_t row_stride = width <= std::numeric_limits<std::size_t>::max() / (3U * sizeof(double)) ? width * 3U * sizeof(double) : 0U;
-  return NormalImageView{
-    .data = reinterpret_cast<const double*>(gbuffer.normals.data()),
-    .width = gbuffer.albedo.w,
-    .height = gbuffer.albedo.h,
-    .row_stride_bytes = row_stride,
-  };
-}
 
 PassPort renderPort(std::string name, BufferKind kind) {
   return PassPort{
@@ -98,56 +74,39 @@ PassPort renderPort(std::string name, BufferKind kind) {
   };
 }
 
-SceneVec3 normalizeSceneVec(SceneVec3 value) {
-  const double length = std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-  if (length <= 1.0e-12) {
-    return SceneVec3{.z = 1.0};
-  }
-  return SceneVec3{.x = value.x / length, .y = value.y / length, .z = value.z / length};
+bool cellShadeInputAvailable(const RenderInput& input) {
+  return input.depth.has_value() && input.normals.has_value();
 }
 
-bool sceneGBufferUsable(const SceneGBuffer& gbuffer) {
-  if (gbuffer.albedo.w <= 0 || gbuffer.albedo.h <= 0) {
-    return false;
-  }
-  const std::size_t width = static_cast<std::size_t>(gbuffer.albedo.w);
-  const std::size_t height = static_cast<std::size_t>(gbuffer.albedo.h);
-  if (width > std::numeric_limits<std::size_t>::max() / height) {
-    return false;
-  }
-  const std::size_t pixels = width * height;
-  return pixels <= std::numeric_limits<std::size_t>::max() / 3U &&
-         gbuffer.albedo.rgb.size() == pixels * 3U &&
-         gbuffer.depth.size() == pixels &&
-         gbuffer.normals.size() == pixels &&
-         !depthImageViewError(sceneDepthImageView(gbuffer)).has_value() &&
-         !normalImageViewError(sceneNormalImageView(gbuffer)).has_value();
-}
-
-std::optional<SceneDepthRange> sceneDepthRange(const SceneGBuffer& gbuffer) {
-  std::optional<SceneDepthRange> range;
-  for (const double depth : gbuffer.depth) {
-    if (!depthSampleValid(depth)) {
-      continue;
+std::optional<DepthRange> depthRange(const DepthImageView& depth_image) {
+  std::optional<DepthRange> range;
+  for (int y = 0; y < depth_image.height; ++y) {
+    for (int x = 0; x < depth_image.width; ++x) {
+      const double depth = depthAt(depth_image, x, y);
+      if (!depthSampleValid(depth)) {
+        continue;
+      }
+      if (!range.has_value()) {
+        range = DepthRange{.near = depth, .far = depth};
+        continue;
+      }
+      range->near = std::min(range->near, depth);
+      range->far = std::max(range->far, depth);
     }
-    if (!range.has_value()) {
-      range = SceneDepthRange{.near = depth, .far = depth};
-      continue;
-    }
-    range->near = std::min(range->near, depth);
-    range->far = std::max(range->far, depth);
   }
   return range;
 }
 
-std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int cols, int rows, int col, int row) {
-  if (!sceneGBufferUsable(gbuffer) || cols <= 0 || rows <= 0) {
+std::optional<CellShadeSample> sampleCellShadeInput(const RenderInput& input, int cols, int rows, int col, int row) {
+  if (!cellShadeInputAvailable(input) || cols <= 0 || rows <= 0) {
     return std::nullopt;
   }
-  const int x0 = (col * gbuffer.albedo.w) / cols;
-  const int x1 = std::max(x0 + 1, ((col + 1) * gbuffer.albedo.w) / cols);
-  const int y0 = (row * gbuffer.albedo.h) / rows;
-  const int y1 = std::max(y0 + 1, ((row + 1) * gbuffer.albedo.h) / rows);
+  const int width = input.color.width;
+  const int height = input.color.height;
+  const int x0 = static_cast<int>((static_cast<int64_t>(col) * width) / cols);
+  const int x1 = std::max(x0 + 1, static_cast<int>((static_cast<int64_t>(col + 1) * width) / cols));
+  const int y0 = static_cast<int>((static_cast<int64_t>(row) * height) / rows);
+  const int y1 = std::max(y0 + 1, static_cast<int>((static_cast<int64_t>(row + 1) * height) / rows));
   uint64_t r = 0;
   uint64_t g = 0;
   uint64_t b = 0;
@@ -156,18 +115,19 @@ std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int 
   double nz = 0.0;
   double depth_sum = 0.0;
   uint64_t count = 0;
-  const NormalImageView normals = sceneNormalImageView(gbuffer);
+  const DepthImageView& depth_image = *input.depth;
+  const NormalImageView& normal_image = *input.normals;
   for (int y = y0; y < y1; ++y) {
     for (int x = x0; x < x1; ++x) {
-      const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(gbuffer.albedo.w) + static_cast<std::size_t>(x);
-      const double depth = gbuffer.depth[index];
+      const double depth = depthAt(depth_image, x, y);
       if (!depthSampleValid(depth)) {
         continue;
       }
-      r += gbuffer.albedo.rgb[index * 3U];
-      g += gbuffer.albedo.rgb[index * 3U + 1U];
-      b += gbuffer.albedo.rgb[index * 3U + 2U];
-      const NormalSample normal = normalizedNormalSampleOrViewFacing(normalAt(normals, x, y));
+      const Rgb color = colorAt(input.color, x, y);
+      r += color.r;
+      g += color.g;
+      b += color.b;
+      const NormalSample normal = normalizedNormalSampleOrViewFacing(normalAt(normal_image, x, y));
       nx += normal.x;
       ny += normal.y;
       nz += normal.z;
@@ -178,13 +138,13 @@ std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int 
   if (count == 0) {
     return std::nullopt;
   }
-  return SceneCellSample{
+  return CellShadeSample{
     .color = Rgb{
       .r = static_cast<uint8_t>(r / count),
       .g = static_cast<uint8_t>(g / count),
       .b = static_cast<uint8_t>(b / count),
     },
-    .normal = normalizeSceneVec(SceneVec3{.x = nx, .y = ny, .z = nz}),
+    .normal = normalizedNormalSampleOrViewFacing(NormalSample{.x = nx, .y = ny, .z = nz}),
     .depth = depth_sum / static_cast<double>(count),
   };
 }
@@ -238,13 +198,13 @@ Rgb scaleRgb(Rgb color, double factor) {
   };
 }
 
-void applySceneNormalOrient(CellBuffer* cells, const SceneGBuffer& gbuffer, int cols, int rows) {
+void applyNormalOrient(CellBuffer* cells, const RenderInput& input, int cols, int rows) {
   if (cells == nullptr || cells->cols() != cols || cells->rows() != rows) {
     return;
   }
   for (int row = 0; row < rows; ++row) {
     for (int col = 0; col < cols; ++col) {
-      const std::optional<SceneCellSample> sample = sampleSceneCell(gbuffer, cols, rows, col, row);
+      const std::optional<CellShadeSample> sample = sampleCellShadeInput(input, cols, rows, col, row);
       if (!sample.has_value()) {
         continue;
       }
@@ -257,18 +217,21 @@ void applySceneNormalOrient(CellBuffer* cells, const SceneGBuffer& gbuffer, int 
   }
 }
 
-void applySceneDepthShade(CellBuffer* cells, const SceneGBuffer& gbuffer, std::u32string_view ramp, int cols, int rows) {
+void applyDepthShade(CellBuffer* cells, const RenderInput& input, std::u32string_view ramp, int cols, int rows) {
   if (cells == nullptr || cells->cols() != cols || cells->rows() != rows) {
     return;
   }
-  const std::optional<SceneDepthRange> range = sceneDepthRange(gbuffer);
+  if (!input.depth.has_value()) {
+    return;
+  }
+  const std::optional<DepthRange> range = depthRange(*input.depth);
   if (!range.has_value()) {
     return;
   }
   const double span = std::max(range->far - range->near, 1.0e-9);
   for (int row = 0; row < rows; ++row) {
     for (int col = 0; col < cols; ++col) {
-      const std::optional<SceneCellSample> sample = sampleSceneCell(gbuffer, cols, rows, col, row);
+      const std::optional<CellShadeSample> sample = sampleCellShadeInput(input, cols, rows, col, row);
       Cell& cell = cells->at(col, row);
       if (!sample.has_value()) {
         cell = Cell{};
@@ -407,7 +370,7 @@ int renderWorkerCount(int cols, int rows) {
 GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config) {
   GraphBuildOptions graph_options;
   if (config.style == "cell-shade") {
-    graph_options.external_inputs = {"scene-depth", "scene-normals"};
+    graph_options.external_inputs = {"input-depth", "input-normals"};
   }
   graph_options.backend_preference = config.gpu
                                        ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
@@ -436,7 +399,7 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
   const bool hatch_enabled = hatchStyleEnabled(config);
   const bool stipple_enabled = stippleStyleEnabled(config);
   const bool flow_enabled = flowStyleEnabled(config);
-  const bool scene_cell_shade_enabled = config.style == "cell-shade";
+  const bool cell_shade_enabled = config.style == "cell-shade";
   const std::optional<int> posterize_levels = posterizeLevelsFromConfig(config);
   const bool posterize_enabled = posterize_levels.has_value();
   const bool glyph_temporal_enabled = glyphTemporalEnabledFromConfig(config);
@@ -573,26 +536,26 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
     });
     return std::string("stipple-cells");
   };
-  const auto append_scene_cell_shade = [&](std::vector<Pass>* passes, const std::string& input) {
-    if (!scene_cell_shade_enabled) {
+  const auto append_cell_shade = [&](std::vector<Pass>* passes, const std::string& input) {
+    if (!cell_shade_enabled) {
       return input;
     }
     passes->push_back(Pass{
       .id = "normal-orient",
-      .inputs = {renderPort("scene-normals", BufferKind::NormalBuffer), renderPort(input, BufferKind::CellGlyphs)},
+      .inputs = {renderPort("input-normals", BufferKind::NormalBuffer), renderPort(input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("normal-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
     });
     passes->push_back(Pass{
       .id = "depth-shade",
-      .inputs = {renderPort("scene-depth", BufferKind::DepthBuffer), renderPort("scene-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
-      .outputs = {renderPort("scene-cells", BufferKind::CellGlyphs)},
+      .inputs = {renderPort("input-depth", BufferKind::DepthBuffer), renderPort("input-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("shaded-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
     });
-    return std::string("scene-cells");
+    return std::string("shaded-cells");
   };
   const auto emit_styled = [&](std::vector<Pass>* passes, const std::string& input) {
-    passes->push_back(emit_pass(append_stipple(passes, append_scene_cell_shade(passes, input))));
+    passes->push_back(emit_pass(append_stipple(passes, append_cell_shade(passes, input))));
   };
   std::vector<Pass> passes;
   passes.push_back(decode_pass());
@@ -743,7 +706,7 @@ RenderResult validateRendererConfiguration(const RendererConfig& config, RenderG
   return RenderResult{};
 }
 
-RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
   }
@@ -757,8 +720,8 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   if (const std::optional<std::string> error = renderConfigurationError(config); error.has_value()) {
     return renderFailure(RenderStatus::InvalidConfiguration, *error);
   }
-  if (config.style == "cell-shade" && scene_gbuffer == nullptr) {
-    return renderFailure(RenderStatus::InvalidInput, "cell-shade rendering requires a scene gbuffer");
+  if (config.style == "cell-shade" && !cellShadeInputAvailable(input)) {
+    return renderFailure(RenderStatus::InvalidInput, "cell-shade rendering requires depth and normal inputs");
   }
 
   RenderResult result;
@@ -811,7 +774,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   const bool stipple_enabled = stippleStyleEnabled(config);
   const StippleCarrier stipple_carrier = stippleCarrierFromMode(config.mode);
   const bool flow_enabled = flowStyleEnabled(config);
-  const bool scene_cell_shade_enabled = config.style == "cell-shade";
+  const bool cell_shade_enabled = config.style == "cell-shade";
   const std::optional<int> posterize_levels = posterizeLevelsFromConfig(config);
   const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromConfig(config);
@@ -1267,16 +1230,14 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     };
   };
 
-  const auto normal_orient_pass = [&](const std::string& input) {
+  const auto normal_orient_pass = [&](const std::string& base_input) {
     return Pass{
       .id = "normal-orient",
-      .inputs = {renderPort("scene-normals", BufferKind::NormalBuffer), renderPort(input, BufferKind::CellGlyphs)},
+      .inputs = {renderPort("input-normals", BufferKind::NormalBuffer), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("normal-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        if (scene_gbuffer != nullptr) {
-          applySceneNormalOrient(cells, *scene_gbuffer, size.cols, size.rows);
-        }
+        applyNormalOrient(cells, input, size.cols, size.rows);
       },
     };
   };
@@ -1284,24 +1245,22 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   const auto depth_shade_pass = [&] {
     return Pass{
       .id = "depth-shade",
-      .inputs = {renderPort("scene-depth", BufferKind::DepthBuffer), renderPort("scene-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
-      .outputs = {renderPort("scene-cells", BufferKind::CellGlyphs)},
+      .inputs = {renderPort("input-depth", BufferKind::DepthBuffer), renderPort("input-normals", BufferKind::NormalBuffer), renderPort("normal-cells", BufferKind::CellGlyphs)},
+      .outputs = {renderPort("shaded-cells", BufferKind::CellGlyphs)},
       .supports = {Backend::Cpu},
       .run = [&](PassContext&) {
-        if (scene_gbuffer != nullptr) {
-          applySceneDepthShade(cells, *scene_gbuffer, ramp, size.cols, size.rows);
-        }
+        applyDepthShade(cells, input, ramp, size.cols, size.rows);
       },
     };
   };
 
-  const auto append_scene_cell_shade_passes = [&](std::vector<Pass>* passes, const std::string& input) {
-    if (!scene_cell_shade_enabled) {
+  const auto append_cell_shade_passes = [&](std::vector<Pass>* passes, const std::string& input) {
+    if (!cell_shade_enabled) {
       return input;
     }
     passes->push_back(normal_orient_pass(input));
     passes->push_back(depth_shade_pass());
-    return std::string("scene-cells");
+    return std::string("shaded-cells");
   };
 
   const auto line_ligatures_pass = [&] {
@@ -1337,7 +1296,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       passes->push_back(line_ligatures_pass());
       output = "ligature-cells";
     }
-    passes->push_back(emit_pass(append_stipple_pass(append_scene_cell_shade_passes(passes, output))));
+    passes->push_back(emit_pass(append_stipple_pass(append_cell_shade_passes(passes, output))));
   };
 
   if (const std::optional<std::string> blitter = directBlitterMode(config)) {
@@ -1419,16 +1378,16 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   return renderFailure(RenderStatus::InternalError, "unexpected renderer failure");
 }
 
-RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
-  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
+RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
+  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state);
 }
 
-RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
+RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
   const std::optional<ColorImageView> image = colorImageViewFromFrame(frame);
   if (!image.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
   }
-  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
+  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state);
 }
 
 }  // namespace strok

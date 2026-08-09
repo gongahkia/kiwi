@@ -325,4 +325,38 @@ SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions option
   return buffer;
 }
 
+std::optional<RenderInput> renderInputFromSceneGBuffer(const SceneGBuffer& buffer) noexcept {
+  const std::optional<ColorImageView> color = colorImageViewFromFrame(buffer.albedo);
+  if (!color.has_value()) {
+    return std::nullopt;
+  }
+  const std::size_t width = static_cast<std::size_t>(color->width);
+  const std::size_t height = static_cast<std::size_t>(color->height);
+  if (width > std::numeric_limits<std::size_t>::max() / height) {
+    return std::nullopt;
+  }
+  const std::size_t pixels = width * height;
+  if (buffer.depth.size() != pixels || buffer.normals.size() != pixels ||
+      width > std::numeric_limits<std::size_t>::max() / sizeof(double) ||
+      width > std::numeric_limits<std::size_t>::max() / (3U * sizeof(double))) {
+    return std::nullopt;
+  }
+  static_assert(sizeof(SceneVec3) == 3U * sizeof(double));
+  return RenderInput{
+    .color = *color,
+    .depth = DepthImageView{
+      .data = buffer.depth.data(),
+      .width = color->width,
+      .height = color->height,
+      .row_stride_bytes = width * sizeof(double),
+    },
+    .normals = NormalImageView{
+      .data = reinterpret_cast<const double*>(buffer.normals.data()),
+      .width = color->width,
+      .height = color->height,
+      .row_stride_bytes = width * 3U * sizeof(double),
+    },
+  };
+}
+
 }  // namespace strok

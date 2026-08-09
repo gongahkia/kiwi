@@ -2294,7 +2294,7 @@ int writeStillSnapshot(const CliOptions& options, Logger& logger) {
     CellBuffer cells;
     RenderTemporalState temporal_state;
     RenderStats render_stats;
-    renderFrame(gbuffer.albedo, ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state, &gbuffer);
+    renderFrame(renderInputFromSceneGBuffer(gbuffer).value_or(RenderInput{}), ramp, options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
     const RasterImage raster = rasterComposeCells(cells, color_mode, dither_mode, glyph_font_ptr);
     writePngRgb24(*options.still_file, raster.width, raster.height, raster.rgb);
     STROK_LOG_INFO(logger, "still snapshot path=" + *options.still_file +
@@ -2775,7 +2775,7 @@ int playSceneInput(const CliOptions& options, Logger& logger) {
 
     const TerminalSize render_terminal = debugRenderTerminal(terminal, options);
     const CliOptions render_options = debugRenderOptions(options, terminal);
-    renderFrame(frame, ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state, &gbuffer);
+    renderFrame(renderInputFromSceneGBuffer(gbuffer).value_or(RenderInput{}), ramp, render_options, render_terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, render_stats_ptr, &temporal_state);
     EmissionResult emission;
     if (graphics_options.has_value()) {
       emission = EmissionResult{

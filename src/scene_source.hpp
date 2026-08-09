@@ -1,6 +1,7 @@
 #pragma once
 
 #include "frame.hpp"
+#include "../include/strok/render_input.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -56,5 +57,6 @@ std::optional<std::filesystem::path> resolveBundledScene(std::string_view input)
 SceneMesh parseObjScene(std::string_view text);
 SceneMesh loadObjScene(const std::filesystem::path& path);
 SceneGBuffer renderSceneGBuffer(const SceneMesh& mesh, SceneRenderOptions options);
+std::optional<RenderInput> renderInputFromSceneGBuffer(const SceneGBuffer& buffer) noexcept;
 
 }  // namespace strok

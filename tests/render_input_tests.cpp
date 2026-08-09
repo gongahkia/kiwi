@@ -106,4 +106,37 @@ int main() {
   };
   expectInvalid(strok::RenderInput{.color = color_view, .depth = wrong_depth}, "depth dimensions must match color");
   expectInvalid(strok::RenderInput{.color = color_view, .normals = wrong_normals}, "normal dimensions must match color");
+
+  const std::array<uint8_t, 6> shade_color = {255, 255, 255, 255, 255, 255};
+  const std::array<double, 2> shade_depth = {0.0, 1.0};
+  const std::array<double, 6> shade_normals = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+  strok::Renderer::CreateResult cell_shade = strok::Renderer::create(
+      strok::RendererConfig{.cell_aspect = 1.0, .style = "cell-shade"},
+      strok::RenderGrid{.cols = 2, .rows = 1});
+  expect(cell_shade.succeeded(), "cell-shade renderer construction");
+  expect(cell_shade.renderer->render(strok::RenderInput{
+      .color = strok::ColorImageView{
+          .data = shade_color.data(),
+          .width = 2,
+          .height = 1,
+          .row_stride_bytes = 6,
+          .pixel_format = strok::ColorPixelFormat::Rgb24,
+      },
+      .depth = strok::DepthImageView{
+          .data = shade_depth.data(),
+          .width = 2,
+          .height = 1,
+          .row_stride_bytes = 2U * sizeof(double),
+      },
+      .normals = strok::NormalImageView{
+          .data = shade_normals.data(),
+          .width = 2,
+          .height = 1,
+          .row_stride_bytes = 6U * sizeof(double),
+      },
+    }).succeeded(),
+         "generic cell-shade RenderInput");
+  const strok::CellBuffer& shaded_cells = cell_shade.renderer->cells();
+  expect(shaded_cells.at(0, 0).fg.r > shaded_cells.at(1, 0).fg.r, "generic depth input darkens far cell");
+  expect(shaded_cells.at(0, 0).glyph != shaded_cells.at(1, 0).glyph, "generic depth input shifts ramp glyph");
 }

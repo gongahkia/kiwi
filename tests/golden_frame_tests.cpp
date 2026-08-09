@@ -727,7 +727,9 @@ int main() {
     options.height = 2;
     options.cell_aspect = 1.0;
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    const std::optional<strok::RenderInput> input = strok::renderInputFromSceneGBuffer(gbuffer);
+    expect(input.has_value(), "scene input adapter");
+    strok::renderFrame(*input, strok::kDefaultGlyphRamp, options, terminal(2, 2), nullptr, &cells);
     expectEqual(serializeCells(cells),
                 "2x2\n"
                 "58:127,127,255:0,0,0|32:0,0,0:0,0,0|\n"
@@ -752,7 +754,9 @@ int main() {
     options.height = 1;
     options.cell_aspect = 1.0;
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    const std::optional<strok::RenderInput> input = strok::renderInputFromSceneGBuffer(gbuffer);
+    expect(input.has_value(), "scene normal input adapter");
+    strok::renderFrame(*input, strok::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells);
     expect(cells.at(0, 0).glyph == U'─', "scene normal-orient uses x normal");
     expect(cells.at(1, 0).glyph == U'│', "scene normal-orient uses y normal");
   }
@@ -774,7 +778,9 @@ int main() {
     options.height = 1;
     options.cell_aspect = 1.0;
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    const std::optional<strok::RenderInput> input = strok::renderInputFromSceneGBuffer(gbuffer);
+    expect(input.has_value(), "scene depth input adapter");
+    strok::renderFrame(*input, strok::kDefaultGlyphRamp, options, terminal(2, 1), nullptr, &cells);
     expect(cells.at(0, 0).fg.r > cells.at(1, 0).fg.r, "scene depth-shade darkens far cell");
     expect(cells.at(0, 0).glyph != cells.at(1, 0).glyph, "scene depth-shade shifts ramp glyph");
   }
@@ -1021,9 +1027,9 @@ int main() {
                 "luminance(cpu)  posterized-frame:RgbFrame -> luminance:LuminanceField\n"
                 "cell-average(cpu)  posterized-frame:RgbFrame -> cell-colors:CellColors\n"
                 "ramp-pick(cpu)  cell-colors:CellColors, luminance:LuminanceField -> cells:CellGlyphs\n"
-                "normal-orient(cpu)  scene-normals:NormalBuffer, cells:CellGlyphs -> normal-cells:CellGlyphs\n"
-                "depth-shade(cpu)  scene-depth:DepthBuffer, scene-normals:NormalBuffer, normal-cells:CellGlyphs -> scene-cells:CellGlyphs\n"
-                "emit(cpu)  scene-cells:CellGlyphs -> \n",
+                "normal-orient(cpu)  input-normals:NormalBuffer, cells:CellGlyphs -> normal-cells:CellGlyphs\n"
+                "depth-shade(cpu)  input-depth:DepthBuffer, input-normals:NormalBuffer, normal-cells:CellGlyphs -> shaded-cells:CellGlyphs\n"
+                "emit(cpu)  shaded-cells:CellGlyphs -> \n",
                 "cell-shade graph dump golden");
   }
 

@@ -132,7 +132,9 @@ int main() {
     strok::RendererConfig options = reconstructionOptions(2, 2);
     options.style = "cell-shade";
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, grid(2, 2), nullptr, &cells, nullptr, &gbuffer);
+    const std::optional<strok::RenderInput> input = strok::renderInputFromSceneGBuffer(gbuffer);
+    expect(input.has_value(), "scene input adapter");
+    strok::renderFrame(*input, strok::kDefaultGlyphRamp, options, grid(2, 2), nullptr, &cells);
     expectDimensions(cells, 2, 2, "scene fixture dimensions");
     expectEqual(serializeCells(cells),
                 "2x2\n"

@@ -78,15 +78,15 @@ struct Renderer::State {
 };
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, CellBuffer* output) {
-  return renderFrame(frame, ramp, config, available_grid, nullptr, output, nullptr, nullptr);
+  return renderFrame(frame, ramp, config, available_grid, nullptr, output, nullptr);
 }
 
 RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, CellBuffer* output) {
-  return renderFrame(image, ramp, config, available_grid, nullptr, output, nullptr, nullptr);
+  return renderFrame(image, ramp, config, available_grid, nullptr, output, nullptr);
 }
 
 RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, CellBuffer* output) {
-  return renderFrame(input, ramp, config, available_grid, nullptr, output, nullptr, nullptr);
+  return renderFrame(input, ramp, config, available_grid, nullptr, output, nullptr);
 }
 
 Renderer::Renderer(RendererConfig config, RenderGrid grid)
@@ -139,7 +139,7 @@ const CellBuffer& Renderer::cells() const noexcept {
 }
 
 RenderResult Renderer::render(const Frame& frame, CellBuffer* output) {
-  return renderFrame(frame, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, nullptr);
+  return renderFrame(frame, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state);
 }
 
 RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
@@ -147,7 +147,7 @@ RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
 }
 
 RenderResult Renderer::render(const RenderInput& input, CellBuffer* output) {
-  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, nullptr);
+  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state);
 }
 
 void Renderer::reset() {
