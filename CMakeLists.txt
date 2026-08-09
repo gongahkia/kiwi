@@ -903,6 +903,61 @@ else()
 endif()
 add_test(NAME golden_frame COMMAND golden_frame_tests)
 
+add_executable(reconstruction_baseline_tests
+  tests/reconstruction_baseline_tests.cpp
+  src/block_sad.cpp
+  src/braille_renderer.cpp
+  src/crosshatch.cpp
+  src/etf.cpp
+  src/frame_sampling.cpp
+  src/glyph_font.cpp
+  src/glyph_hog.cpp
+  src/glyph_ramp.cpp
+  src/glyph_sdf.cpp
+  src/glyph_shape.cpp
+  ${STROK_GPU_SOBEL_SOURCE}
+  ${STROK_GPU_SUPPORT_SOURCES}
+  src/halfblock_renderer.cpp
+  src/hysteresis.cpp
+  src/kuwahara.cpp
+  src/lic.cpp
+  src/line_ligatures.cpp
+  src/luminance.cpp
+  src/octant_renderer.cpp
+  src/optical_flow.cpp
+  src/posterize.cpp
+  src/render_graph.cpp
+  src/render_layout.cpp
+  src/renderer.cpp
+  src/scene_source.cpp
+  src/sextant_renderer.cpp
+  src/stipple.cpp
+  src/structure_edges.cpp
+  src/structure_overlay.cpp
+  src/structure_sampling.cpp
+  src/warp_history.cpp
+)
+target_include_directories(reconstruction_baseline_tests PRIVATE src)
+target_compile_features(reconstruction_baseline_tests PRIVATE cxx_std_20)
+set_target_properties(reconstruction_baseline_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(reconstruction_baseline_tests PRIVATE Threads::Threads PkgConfig::FREETYPE ${STROK_GPU_LIBS})
+if(MSVC)
+  target_compile_options(reconstruction_baseline_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(reconstruction_baseline_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(reconstruction_baseline_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(reconstruction_baseline_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME reconstruction_baseline COMMAND reconstruction_baseline_tests)
+
 add_executable(etf_tests
   tests/etf_tests.cpp
   src/etf.cpp
