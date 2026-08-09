@@ -29,6 +29,9 @@ struct RendererConfig {
   std::optional<double> contrast;
   std::optional<double> glyph_stickiness;
   std::optional<double> orient_stickiness;
+  // ANSI-specific score penalty per estimated changed-cell byte. This is off
+  // unless set to a positive value; it is not a whole-frame emitter optimum.
+  std::optional<double> presentation_cost_weight;
   int temporal_supersample = 1;
   // Makes a valid prior CellBuffer an opt-in structure candidate. Reuse requires
   // the existing glyph stickiness margin, current shape score, and exact colors.

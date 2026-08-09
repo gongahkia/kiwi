@@ -37,6 +37,12 @@ struct RenderStats {
   int64_t history_suppressed_cells = 0;
   int64_t temporal_cell_candidate_cells = 0;
   int64_t temporal_cell_reused_cells = 0;
+  // Sums over the current and retained candidates evaluated where valid
+  // full-cell temporal history exists. They are score diagnostics, not output
+  // emitter measurements.
+  double temporal_candidate_reconstruction_score = 0.0;
+  double temporal_candidate_temporal_score = 0.0;
+  double temporal_candidate_presentation_cost = 0.0;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
   int64_t temporal_supersample_frames = 0;

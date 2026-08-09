@@ -1496,6 +1496,28 @@ else()
 endif()
 add_test(NAME candidate_scoring COMMAND candidate_scoring_tests)
 
+add_executable(presentation_scoring_tests tests/presentation_scoring_tests.cpp)
+target_include_directories(presentation_scoring_tests PRIVATE src)
+target_compile_features(presentation_scoring_tests PRIVATE cxx_std_20)
+set_target_properties(presentation_scoring_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(presentation_scoring_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(presentation_scoring_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(presentation_scoring_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(presentation_scoring_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(presentation_scoring_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME presentation_scoring COMMAND presentation_scoring_tests)
+
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
 target_include_directories(motion_selection_tests PRIVATE src)
 target_compile_features(motion_selection_tests PRIVATE cxx_std_20)

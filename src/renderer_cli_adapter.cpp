@@ -25,6 +25,9 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->history_suppressed_cells += frame.history_suppressed_cells;
   total->temporal_cell_candidate_cells += frame.temporal_cell_candidate_cells;
   total->temporal_cell_reused_cells += frame.temporal_cell_reused_cells;
+  total->temporal_candidate_reconstruction_score += frame.temporal_candidate_reconstruction_score;
+  total->temporal_candidate_temporal_score += frame.temporal_candidate_temporal_score;
+  total->temporal_candidate_presentation_cost += frame.temporal_candidate_presentation_cost;
   total->warp_history_cells += frame.warp_history_cells;
   total->warp_history_ns += frame.warp_history_ns;
   total->temporal_supersample_frames += frame.temporal_supersample_frames;

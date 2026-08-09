@@ -1,5 +1,6 @@
 #include "renderer.hpp"
 
+#include "ansi_transition_cost.hpp"
 #include "block_sad.hpp"
 #include "braille_renderer.hpp"
 #include "crosshatch.hpp"
@@ -57,6 +58,9 @@ struct ShapeMatchStats {
   int64_t ns = 0;
   int64_t temporal_candidate_cells = 0;
   int64_t temporal_reused_cells = 0;
+  double temporal_candidate_reconstruction_score = 0.0;
+  double temporal_candidate_temporal_score = 0.0;
+  double temporal_candidate_presentation_cost = 0.0;
 };
 
 struct HistoryMotionSelection {
@@ -357,6 +361,10 @@ int licLengthFromConfig(const RendererConfig& config) {
 
 double glyphStickinessFromConfig(const RendererConfig& config) {
   return config.glyph_stickiness.value_or(0.05);
+}
+
+double presentationCostWeightFromConfig(const RendererConfig& config) {
+  return config.presentation_cost_weight.value_or(0.0);
 }
 
 bool glyphTemporalEnabledFromConfig(const RendererConfig& config) {
@@ -752,7 +760,8 @@ std::optional<std::string> renderConfigurationError(const RendererConfig& config
   }
   if ((config.glyph_stickiness.has_value() && !finiteAtLeast(*config.glyph_stickiness, 0.0)) ||
       (config.glyph_stickiness.has_value() && *config.glyph_stickiness > 1.0) ||
-      (config.orient_stickiness.has_value() && (!finiteAtLeast(*config.orient_stickiness, 0.0) || *config.orient_stickiness > kPi))) {
+      (config.orient_stickiness.has_value() && (!finiteAtLeast(*config.orient_stickiness, 0.0) || *config.orient_stickiness > kPi)) ||
+      (config.presentation_cost_weight.has_value() && !finiteAtLeast(*config.presentation_cost_weight, 0.0))) {
     return "renderer temporal options are out of range";
   }
   return std::nullopt;
@@ -894,6 +903,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   const std::optional<int> posterize_levels = posterizeLevelsFromConfig(config);
   const bool posterize_enabled = posterize_levels.has_value();
   const double glyph_stickiness = glyphStickinessFromConfig(config);
+  const double presentation_cost_weight = presentationCostWeightFromConfig(config);
   const bool glyph_hysteresis_enabled = temporal_state != nullptr && shape_table != nullptr && glyphTemporalEnabledFromConfig(config);
   const bool orientation_hysteresis_enabled = temporal_state != nullptr && orientationTemporalEnabledFromConfig(config);
   const bool motion_flow_enabled = flow_enabled && temporal_state != nullptr;
@@ -917,6 +927,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       result.stats.shape_match_ns += local_stats.ns;
       result.stats.temporal_cell_candidate_cells += local_stats.temporal_candidate_cells;
       result.stats.temporal_cell_reused_cells += local_stats.temporal_reused_cells;
+      result.stats.temporal_candidate_reconstruction_score += local_stats.temporal_candidate_reconstruction_score;
+      result.stats.temporal_candidate_temporal_score += local_stats.temporal_candidate_temporal_score;
+      result.stats.temporal_candidate_presentation_cost += local_stats.temporal_candidate_presentation_cost;
     }
     result.stats.render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
   };
@@ -1337,10 +1350,26 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                     const std::optional<char32_t> candidate_glyph = temporal_candidate == nullptr
                                                                        ? history_glyph
                                                                        : std::optional<char32_t>(temporal_candidate->glyph);
+                    CandidateScore current_score{.reconstruction = best.score};
+                    CandidateScore previous_candidate_score{.reconstruction = previous_score};
+                    if (temporal_candidate != nullptr) {
+                      if (presentation_cost_weight > 0.0) {
+                        Cell current_cell = cell;
+                        current_cell.glyph = best.glyph;
+                        const AnsiTransitionEstimate transition = estimateAnsiCellTransition(
+                          *temporal_candidate, current_cell, row + 1, col + 1);
+                        current_score.presentation_cost = presentation_cost_weight * static_cast<double>(transition.ansi_bytes);
+                      }
+                      local_stats->temporal_candidate_reconstruction_score +=
+                        current_score.reconstruction + previous_candidate_score.reconstruction;
+                      local_stats->temporal_candidate_temporal_score += current_score.temporal + previous_candidate_score.temporal;
+                      local_stats->temporal_candidate_presentation_cost +=
+                        current_score.presentation_cost + previous_candidate_score.presentation_cost;
+                    }
                     const GlyphHysteresisDecision decision = temporal_state->glyph_hysteresis.choose(
                       cell_index,
-                      GlyphCandidate{.glyph = best.glyph, .score = CandidateScore{.reconstruction = best.score}},
-                      CandidateScore{.reconstruction = previous_score},
+                      GlyphCandidate{.glyph = best.glyph, .score = current_score},
+                      previous_candidate_score,
                       glyph_stickiness,
                       candidate_glyph);
                     if (temporal_candidate != nullptr && decision.kept_previous && decision.glyph == temporal_candidate->glyph) {
