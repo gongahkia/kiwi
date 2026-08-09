@@ -43,6 +43,10 @@ struct RenderStats {
   double temporal_candidate_reconstruction_score = 0.0;
   double temporal_candidate_temporal_score = 0.0;
   double temporal_candidate_presentation_cost = 0.0;
+  // Zero unless RendererConfig::symbolic_update_budget is enabled. These use
+  // the side-effect-free symbolic update-unit model, not terminal I/O results.
+  int64_t modeled_symbolic_update_units = 0;
+  bool symbolic_update_budget_exceeded = false;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
   int64_t temporal_supersample_frames = 0;

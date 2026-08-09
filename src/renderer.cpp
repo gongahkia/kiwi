@@ -764,6 +764,9 @@ std::optional<std::string> renderConfigurationError(const RendererConfig& config
       (config.presentation_cost_weight.has_value() && !finiteAtLeast(*config.presentation_cost_weight, 0.0))) {
     return "renderer temporal options are out of range";
   }
+  if (config.symbolic_update_budget.has_value() && *config.symbolic_update_budget < 0) {
+    return "symbolic update budget must be non-negative";
+  }
   return std::nullopt;
 }
 
@@ -794,6 +797,23 @@ void collectSymbolicMetrics(const CellBuffer& previous, const CellBuffer& curren
     stats->changed_backgrounds += background_changed;
     stats->changed_cells += glyph_changed || foreground_changed || background_changed;
   }
+}
+
+int64_t modeledSymbolicUpdateUnits(const CellBuffer& previous, const CellBuffer& current) {
+  if (previous.cols() != current.cols() || previous.rows() != current.rows()) {
+    return static_cast<int64_t>(current.size());
+  }
+  AnsiTransitionContext context;
+  int64_t total = 0;
+  for (int row = 0; row < current.rows(); ++row) {
+    for (int col = 0; col < current.cols(); ++col) {
+      const AnsiTransitionEstimate estimate = estimateAnsiCellTransition(
+        previous.at(col, row), current.at(col, row), row + 1, col + 1, context);
+      total += static_cast<int64_t>(estimate.update_units);
+      context = estimate.next_context;
+    }
+  }
+  return total;
 }
 
 }  // namespace
@@ -932,6 +952,15 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       result.stats.temporal_candidate_presentation_cost += local_stats.temporal_candidate_presentation_cost;
     }
     result.stats.render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
+  };
+
+  const auto collectBudgetStatus = [&](const CellBuffer& rendered_cells) {
+    if (!config.symbolic_update_budget.has_value()) {
+      return;
+    }
+    result.stats.modeled_symbolic_update_units = modeledSymbolicUpdateUnits(*output, rendered_cells);
+    result.stats.symbolic_update_budget_exceeded =
+      result.stats.modeled_symbolic_update_units > *config.symbolic_update_budget;
   };
 
   const auto run_graph = [&](std::vector<Pass> passes) {
@@ -1548,6 +1577,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     }
     run_graph(std::move(passes));
     finish_stats();
+    collectBudgetStatus(rendered_cells);
     if (config.collect_symbolic_metrics) {
       collectSymbolicMetrics(*output, rendered_cells, &result.stats);
     }
@@ -1592,6 +1622,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
 
   run_graph(std::move(passes));
   finish_stats();
+  collectBudgetStatus(rendered_cells);
   if (config.collect_symbolic_metrics) {
     collectSymbolicMetrics(*output, rendered_cells, &result.stats);
   }

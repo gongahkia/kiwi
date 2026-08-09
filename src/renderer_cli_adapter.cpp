@@ -28,6 +28,8 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->temporal_candidate_reconstruction_score += frame.temporal_candidate_reconstruction_score;
   total->temporal_candidate_temporal_score += frame.temporal_candidate_temporal_score;
   total->temporal_candidate_presentation_cost += frame.temporal_candidate_presentation_cost;
+  total->modeled_symbolic_update_units += frame.modeled_symbolic_update_units;
+  total->symbolic_update_budget_exceeded = total->symbolic_update_budget_exceeded || frame.symbolic_update_budget_exceeded;
   total->warp_history_cells += frame.warp_history_cells;
   total->warp_history_ns += frame.warp_history_ns;
   total->temporal_supersample_frames += frame.temporal_supersample_frames;

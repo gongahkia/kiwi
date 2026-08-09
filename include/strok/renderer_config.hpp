@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -32,6 +33,11 @@ struct RendererConfig {
   // ANSI-specific score penalty per estimated changed-cell byte. This is off
   // unless set to a positive value; it is not a whole-frame emitter optimum.
   std::optional<double> presentation_cost_weight;
+  // Maximum modeled symbolic update units per completed CellBuffer frame. One
+  // unit is one changed cell in the ANSI transition model; this does not control
+  // terminal writes, transport lifetime, or frame scheduling. Unset disables
+  // budget observation and does not change reconstruction choices.
+  std::optional<int64_t> symbolic_update_budget;
   int temporal_supersample = 1;
   // Makes a valid prior CellBuffer an opt-in structure candidate. Reuse requires
   // the existing glyph stickiness margin, current shape score, and exact colors.
