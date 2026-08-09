@@ -69,9 +69,7 @@ local function run_live(options)
       TERM = "kiwi",
       TERMINFO = root .. "/.build/terminfo",
     })
-    local parser = Parser.new(function(action)
-      state:apply(action)
-    end)
+    local parser = Parser.new(state)
     if options.record then
       recorder = Replay.Recorder.new(options.record)
       recorder:resize(columns, rows)

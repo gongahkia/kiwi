@@ -10,8 +10,18 @@ end
 
 function Parser.new(emit, options)
   options = options or {}
+  local action_emit = emit
+  local print_sink
+  if type(emit) == "table" then
+    assert(type(emit.apply) == "function" and type(emit.write_codepoint) == "function", "parser state sink must implement apply and write_codepoint")
+    print_sink = emit
+    action_emit = function(action)
+      emit:apply(action)
+    end
+  end
   local self = setmetatable({
-    emit = assert(emit, "parser needs an action callback"),
+    emit = assert(action_emit, "parser needs an action callback or terminal state sink"),
+    print_sink = print_sink,
     mode = "ground",
     max_parameters = options.max_parameters or 32,
     max_parameter_value = options.max_parameter_value or 1000000,
@@ -20,7 +30,7 @@ function Parser.new(emit, options)
     stats = { bytes = 0, actions = 0, errors = 0, ignored = 0 },
   }, Parser)
   self.utf8 = Utf8.Decoder.new(function(codepoint, text, invalid)
-    self:emit_action(Actions.print(codepoint, text, invalid))
+    self:emit_print(codepoint, text, invalid)
   end)
   return self
 end
@@ -28,6 +38,15 @@ end
 function Parser:emit_action(action)
   self.stats.actions = self.stats.actions + 1
   self.emit(action)
+end
+
+function Parser:emit_print(codepoint, text, invalid)
+  self.stats.actions = self.stats.actions + 1
+  if self.print_sink then
+    self.print_sink:write_codepoint(text)
+    return
+  end
+  self.emit(Actions.print(codepoint, text, invalid))
 end
 
 function Parser:reset_csi()

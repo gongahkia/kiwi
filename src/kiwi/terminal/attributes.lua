@@ -1,4 +1,3 @@
-local bit = require("bit")
 local Color = require("kiwi.renderer.color")
 
 local Attributes = {}
@@ -95,11 +94,15 @@ function Attributes.resolve(value)
     foreground = background
   end
   local flags = 0
-  for name, flag in pairs(Attributes.flags) do
-    if value[name] then
-      flags = bit.bor(flags, flag)
-    end
-  end
+  if value.bold then flags = flags + Attributes.flags.bold end
+  if value.semantic then flags = flags + Attributes.flags.semantic end
+  if value.recent then flags = flags + Attributes.flags.recent end
+  if value.faint then flags = flags + Attributes.flags.faint end
+  if value.italic then flags = flags + Attributes.flags.italic end
+  if value.underline then flags = flags + Attributes.flags.underline end
+  if value.inverse then flags = flags + Attributes.flags.inverse end
+  if value.concealed then flags = flags + Attributes.flags.concealed end
+  if value.strike then flags = flags + Attributes.flags.strike end
   return foreground, background, flags
 end
 
