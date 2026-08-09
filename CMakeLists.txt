@@ -918,45 +918,15 @@ add_executable(golden_frame_tests
   src/asciinema_in.cpp
   src/asciinema_source.cpp
   src/asciinema_vte.cpp
-  src/block_sad.cpp
-  src/braille_renderer.cpp
   src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
-  src/crosshatch.cpp
   src/diff_emitter.cpp
-  src/etf.cpp
-  src/frame_sampling.cpp
-  src/glyph_font.cpp
-  src/glyph_hog.cpp
-  src/glyph_ramp.cpp
-  src/glyph_sdf.cpp
-  src/glyph_shape.cpp
   src/graph_yaml.cpp
-  ${STROK_GPU_SOBEL_SOURCE}
-  ${STROK_GPU_SUPPORT_SOURCES}
-  src/halfblock_renderer.cpp
-  src/hysteresis.cpp
   src/image_grid.cpp
-  src/kuwahara.cpp
-  src/lic.cpp
-  src/line_ligatures.cpp
-  src/luminance.cpp
-  src/octant_renderer.cpp
-  src/optical_flow.cpp
-  src/posterize.cpp
   src/raster_compose.cpp
-  src/render_graph.cpp
-  src/render_layout.cpp
-  src/renderer.cpp
   src/scene_source.cpp
-  src/sextant_renderer.cpp
-  src/stipple.cpp
   src/stdin_data.cpp
-  src/structure_edges.cpp
-  src/structure_overlay.cpp
-  src/structure_sampling.cpp
-  src/warp_history.cpp
 )
 target_include_directories(golden_frame_tests PRIVATE src)
 target_compile_features(golden_frame_tests PRIVATE cxx_std_20)
@@ -965,7 +935,7 @@ set_target_properties(golden_frame_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(golden_frame_tests PRIVATE Threads::Threads PkgConfig::FREETYPE ${STROK_GPU_LIBS})
+target_link_libraries(golden_frame_tests PRIVATE strok_core)
 if(MSVC)
   target_compile_options(golden_frame_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
