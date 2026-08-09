@@ -139,6 +139,8 @@ Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to li
 
 Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`. Live capture requests 640x480 at 30 fps for low-latency structure analysis. The two-frame queue bounds decoded-frame backlog, but slow rendering or terminal writes can still add per-frame latency; `--debug-stats` reports decoded-frame-to-present timing, not physical sensor-to-terminal latency. Camera playback mirrors horizontally by default; pass `--no-mirror` for sensor-native orientation.
 
+Live acceptance: [`docs/live-input-acceptance.md`](docs/live-input-acceptance.md) documents an opt-in MediaMTX RTSP fixture, physical-camera and remote-RTSP trace collection, and the artifacts required for hardware acceptance. It is deliberately separate from default CTest because it needs a PTY and host media resources.
+
 Capability detection uses environment variables, an allowlist, and optional FreeType font cmap checks only; it does not issue terminal query escapes. `--caps dump` prints the resolved capability set; override specs are comma-separated, for example `--caps unicode=16,octant,truecolor`.
 
 Pixel render mode uses Kitty graphics, Sixel, or iTerm inline images when capability detection or `--caps` selects them. Kitty supports persistent delta uploads; iTerm and Sixel currently use full-frame uploads. Sixel output is bandwidth-heavy and best suited for stills or low-rate playback on terminals with Sixel enabled.

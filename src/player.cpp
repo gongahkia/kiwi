@@ -256,6 +256,20 @@ CliOptions withTemporalSupersample(const CliOptions& options, int samples) {
 
 bool writeAll(int fd, const std::string& bytes);
 
+std::chrono::milliseconds testWriteDelay() {
+  const char* value = std::getenv("STROK_TEST_WRITE_DELAY_MS");
+  if (value == nullptr || *value == '\0') {
+    return {};
+  }
+  char* end = nullptr;
+  errno = 0;
+  const long milliseconds = std::strtol(value, &end, 10);
+  if (errno != 0 || end == value || *end != '\0' || milliseconds <= 0 || milliseconds > 10000) {
+    return {};
+  }
+  return std::chrono::milliseconds(milliseconds);
+}
+
 double timevalSeconds(timeval value) {
   return static_cast<double>(value.tv_sec) + (static_cast<double>(value.tv_usec) / 1000000.0);
 }
@@ -851,6 +865,10 @@ bool writeAll(int fd, const std::string& bytes) {
       return false;
     }
     written += static_cast<std::size_t>(n);
+  }
+  // test-only pressure injection used by the opt-in live-input acceptance harness.
+  if (const std::chrono::milliseconds delay = testWriteDelay(); delay.count() > 0) {
+    std::this_thread::sleep_for(delay);
   }
   return true;
 }
@@ -3498,6 +3516,9 @@ int playMedia(const CliOptions& options, Logger& logger) {
     last_live_source_status = current;
     std::string log_message = "live source state=" + std::string(liveSourceStateName(current.state)) +
                               " reconnect_attempts=" + std::to_string(current.reconnect_attempts);
+    if (current.average_fps.has_value()) {
+      log_message += " source_fps=" + formatLiveDouble(*current.average_fps);
+    }
     if (!current.message.empty()) {
       log_message += " detail=" + current.message;
     }

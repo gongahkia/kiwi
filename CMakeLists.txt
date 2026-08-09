@@ -3268,6 +3268,12 @@ if(BASH_EXECUTABLE)
   )
   set_tests_properties(shader_toolchain_smoke PROPERTIES SKIP_RETURN_CODE 77)
   if(STROK_BUILD_CLI)
+  add_custom_target(live_input_acceptance
+    COMMAND ${CMAKE_COMMAND} -E env STROK_LIVE_ACCEPTANCE_ALLOW_SKIP=1
+      ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/verify_live_inputs.sh" $<TARGET_FILE:strok>
+    USES_TERMINAL
+    COMMENT "run opt-in live camera and RTSP acceptance traces"
+  )
   add_test(NAME input_keys_smoke
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/input_keys_smoke.sh" $<TARGET_FILE:strok>
   )
