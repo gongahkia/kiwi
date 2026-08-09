@@ -53,6 +53,13 @@ constexpr double kDefaultEdgeThreshold = 0.35;
 constexpr double kDefaultEdgeStrength = 1.0;
 constexpr double kPi = 3.14159265358979323846;
 
+struct BudgetCandidate {
+  std::size_t cell_index = 0;
+  Cell temporal_cell;
+  CandidateScore current_score;
+  CandidateScore previous_score;
+};
+
 struct ShapeMatchStats {
   int64_t cells = 0;
   int64_t ns = 0;
@@ -61,6 +68,7 @@ struct ShapeMatchStats {
   double temporal_candidate_reconstruction_score = 0.0;
   double temporal_candidate_temporal_score = 0.0;
   double temporal_candidate_presentation_cost = 0.0;
+  std::vector<BudgetCandidate> budget_candidates;
 };
 
 struct HistoryMotionSelection {
@@ -963,6 +971,50 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       result.stats.modeled_symbolic_update_units > *config.symbolic_update_budget;
   };
 
+  const auto applyBudgetPressure = [&] {
+    if (!config.symbolic_update_budget.has_value() || temporal_state == nullptr ||
+        output->cols() != rendered_cells.cols() || output->rows() != rendered_cells.rows()) {
+      return;
+    }
+    int64_t remaining_updates = modeledSymbolicUpdateUnits(*output, rendered_cells);
+    if (remaining_updates <= *config.symbolic_update_budget) {
+      return;
+    }
+
+    std::vector<BudgetCandidate> candidates;
+    for (const ShapeMatchStats& local_stats : worker_stats) {
+      candidates.insert(candidates.end(), local_stats.budget_candidates.begin(), local_stats.budget_candidates.end());
+    }
+    std::sort(candidates.begin(), candidates.end(), [](const BudgetCandidate& left, const BudgetCandidate& right) {
+      const double left_loss = std::max(0.0, left.current_score.reconstruction - left.previous_score.reconstruction);
+      const double right_loss = std::max(0.0, right.current_score.reconstruction - right.previous_score.reconstruction);
+      if (left_loss != right_loss) {
+        return left_loss < right_loss;
+      }
+      return left.cell_index < right.cell_index;
+    });
+
+    for (const BudgetCandidate& candidate : candidates) {
+      if (remaining_updates <= *config.symbolic_update_budget) {
+        break;
+      }
+      const Cell& previous_cell = output->cells()[candidate.cell_index];
+      Cell& current_cell = rendered_cells.cells()[candidate.cell_index];
+      // Retention must eliminate a modeled update, not merely exchange one
+      // changed cell for another after motion compensation.
+      if (current_cell == candidate.temporal_cell || previous_cell != candidate.temporal_cell) {
+        continue;
+      }
+      current_cell = candidate.temporal_cell;
+      temporal_state->glyph_hysteresis.replace(candidate.cell_index, candidate.temporal_cell.glyph, candidate.previous_score);
+      --remaining_updates;
+      ++result.stats.temporal_cell_reused_cells;
+      ++result.stats.budget_suppressed_updates;
+      result.stats.budget_reconstruction_score_loss +=
+        std::max(0.0, candidate.current_score.reconstruction - candidate.previous_score.reconstruction);
+    }
+  };
+
   const auto run_graph = [&](std::vector<Pass> passes) {
     Graph graph = buildGraph(std::move(passes), renderGraphBuildOptions(config));
     PassContext context;
@@ -1394,6 +1446,15 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                       local_stats->temporal_candidate_temporal_score += current_score.temporal + previous_candidate_score.temporal;
                       local_stats->temporal_candidate_presentation_cost +=
                         current_score.presentation_cost + previous_candidate_score.presentation_cost;
+                      if (config.symbolic_update_budget.has_value() &&
+                          candidatePreferred(previous_candidate_score, CandidateScore{})) {
+                        local_stats->budget_candidates.push_back(BudgetCandidate{
+                          .cell_index = cell_index,
+                          .temporal_cell = *temporal_candidate,
+                          .current_score = current_score,
+                          .previous_score = previous_candidate_score,
+                        });
+                      }
                     }
                     const GlyphHysteresisDecision decision = temporal_state->glyph_hysteresis.choose(
                       cell_index,
@@ -1577,6 +1638,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     }
     run_graph(std::move(passes));
     finish_stats();
+    applyBudgetPressure();
     collectBudgetStatus(rendered_cells);
     if (config.collect_symbolic_metrics) {
       collectSymbolicMetrics(*output, rendered_cells, &result.stats);
@@ -1622,6 +1684,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
 
   run_graph(std::move(passes));
   finish_stats();
+  applyBudgetPressure();
   collectBudgetStatus(rendered_cells);
   if (config.collect_symbolic_metrics) {
     collectSymbolicMetrics(*output, rendered_cells, &result.stats);

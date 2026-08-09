@@ -25,6 +25,7 @@ class GlyphHysteresisState {
   void reset();
   void resize(int cols, int rows);
   void clear(std::size_t index);
+  void replace(std::size_t index, char32_t glyph, CandidateScore score);
   GlyphHysteresisDecision choose(std::size_t index,
                                  GlyphCandidate best,
                                  CandidateScore previous_score,

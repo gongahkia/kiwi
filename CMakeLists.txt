@@ -1540,6 +1540,28 @@ else()
 endif()
 add_test(NAME symbolic_budget COMMAND symbolic_budget_tests)
 
+add_executable(budget_selection_tests tests/budget_selection_tests.cpp)
+target_include_directories(budget_selection_tests PRIVATE src)
+target_compile_features(budget_selection_tests PRIVATE cxx_std_20)
+set_target_properties(budget_selection_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(budget_selection_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(budget_selection_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(budget_selection_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(budget_selection_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(budget_selection_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME budget_selection COMMAND budget_selection_tests)
+
 add_executable(motion_selection_tests tests/motion_selection_tests.cpp)
 target_include_directories(motion_selection_tests PRIVATE src)
 target_compile_features(motion_selection_tests PRIVATE cxx_std_20)

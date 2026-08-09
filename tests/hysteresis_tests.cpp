@@ -91,6 +91,10 @@ int main() {
   auto after_resize = state.choose(1, strok::GlyphCandidate{.glyph = U'\\', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 1.0}, 0.05);
   expect(after_resize.glyph == U'\\' && !after_resize.kept_previous, "resize clears glyph history");
 
+  state.replace(0, U'=', strok::CandidateScore{.reconstruction = 0.98});
+  auto after_replace = state.choose(0, strok::GlyphCandidate{.glyph = U'/', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 0.98}, 0.05);
+  expect(after_replace.glyph == U'=' && after_replace.kept_previous, "replacement updates stored glyph history");
+
   state.reset();
   state.resize(1, 1);
   auto after_reset = state.choose(0, strok::GlyphCandidate{.glyph = U'-', .score = strok::CandidateScore{.reconstruction = 1.0}}, strok::CandidateScore{.reconstruction = 1.0}, 0.05);

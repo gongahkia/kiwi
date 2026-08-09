@@ -47,6 +47,11 @@ struct RenderStats {
   // the side-effect-free symbolic update-unit model, not terminal I/O results.
   int64_t modeled_symbolic_update_units = 0;
   bool symbolic_update_budget_exceeded = false;
+  // Budget policy diagnostics. A suppressed update retains a prior full-cell
+  // candidate, and reconstruction loss is summed relative to the baseline
+  // candidate that it replaced.
+  int64_t budget_suppressed_updates = 0;
+  double budget_reconstruction_score_loss = 0.0;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
   int64_t temporal_supersample_frames = 0;

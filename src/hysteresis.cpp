@@ -44,6 +44,13 @@ void GlyphHysteresisState::clear(std::size_t index) {
   entries_[index] = Entry{};
 }
 
+void GlyphHysteresisState::replace(std::size_t index, char32_t glyph, CandidateScore score) {
+  if (index >= entries_.size()) {
+    throw std::out_of_range("hysteresis cell index out of range");
+  }
+  entries_[index] = Entry{.glyph = glyph, .score = score, .valid = true};
+}
+
 GlyphHysteresisDecision GlyphHysteresisState::choose(std::size_t index,
                                                       GlyphCandidate best,
                                                       CandidateScore previous_score,
