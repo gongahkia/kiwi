@@ -72,6 +72,9 @@ int main() {
 
   const strok::RenderResult owned = created.renderer->render(frame());
   expect(owned.succeeded() && created.renderer->cells().cols() == 2 && created.renderer->cells().rows() == 2, "renderer owned cells");
+  const strok::CellBuffer cells_before_reset = created.renderer->cells();
+  created.renderer->reset();
+  expect(created.renderer->cells() == cells_before_reset, "reset preserves owned cells");
 
   strok::Renderer::CreateResult custom_charset = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0, .charset = "binary"}, strok::RenderGrid{.cols = 1, .rows = 1});
   expect(custom_charset.succeeded(), "custom charset construction");

@@ -85,4 +85,8 @@ int main() {
   const strok::RenderResult second_followup = second_stream.renderer->render(checkerboardFrame(false, 30000000));
   expect(first_followup.succeeded() && first_followup.stats.optical_flow_blocks == 1, "first stream uses only its history");
   expect(second_followup.succeeded() && second_followup.stats.optical_flow_blocks == 1, "PTS does not change fixed-step temporal history");
+
+  first_stream.renderer->reset();
+  const strok::RenderResult after_reset = first_stream.renderer->render(checkerboardFrame(false, 2));
+  expect(after_reset.succeeded() && after_reset.stats.optical_flow_blocks == 0, "reset clears temporal flow history");
 }

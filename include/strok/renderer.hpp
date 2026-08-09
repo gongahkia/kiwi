@@ -18,6 +18,8 @@ namespace strok {
 // successful render call and use no wall clock, timestamp, or inferred delta; Frame
 // PTS metadata remains frontend-owned. Use one Renderer per independent stream and
 // call reset before a source discontinuity or when intentionally starting a sequence.
+// RendererConfig and RenderGrid are fixed at creation. To change either, create a new
+// Renderer; its temporal history starts empty and cannot be shared with the old one.
 class Renderer {
  public:
   struct CreateResult {
@@ -47,7 +49,8 @@ class Renderer {
   RenderResult render(const Frame& frame, CellBuffer* output);
   RenderResult render(const ColorImageView& image, CellBuffer* output);
   RenderResult render(const RenderInput& input, CellBuffer* output);
-  // Clears temporal history without changing the most recently rendered cells.
+  // Synchronously clears temporal history without changing the most recently rendered
+  // cells. Callers use this explicit operation to acknowledge a source discontinuity.
   void reset();
 
  private:
