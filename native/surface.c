@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-static char kiwi_surface_error[160];
+static char kiwi_surface_error[2048];
 
 static void kiwi_copy_message(WGPUStringView message) {
   size_t length = message.length;
@@ -78,6 +78,34 @@ static void kiwi_uncaptured_error(const WGPUDevice *device, WGPUErrorType type,
     }
     memcpy(kiwi_surface_error + prefix, message.data, length);
     kiwi_surface_error[prefix + length] = '\0';
+  }
+}
+
+static void kiwi_compilation_callback(WGPUCompilationInfoRequestStatus status,
+                                      const WGPUCompilationInfo *info,
+                                      void *userdata1, void *userdata2) {
+  (void)userdata2;
+  KiwiRequestResult *result = userdata1;
+  result->status = status;
+  if (status != WGPUCompilationInfoRequestStatus_Success || info == NULL) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "unable to retrieve WGSL compilation diagnostics");
+    return;
+  }
+  kiwi_surface_error[0] = '\0';
+  for (size_t index = 0; index < info->messageCount; ++index) {
+    const WGPUCompilationMessage *message = &info->messages[index];
+    size_t used = strlen(kiwi_surface_error);
+    if (used >= sizeof(kiwi_surface_error) - 1) {
+      break;
+    }
+    int written = snprintf(kiwi_surface_error + used, sizeof(kiwi_surface_error) - used,
+                           "line %llu:%llu: %.*s\n",
+                           (unsigned long long)message->lineNum,
+                           (unsigned long long)message->linePos,
+                           (int)message->message.length, message->message.data);
+    if (written < 0) {
+      break;
+    }
   }
 }
 
@@ -159,4 +187,18 @@ WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter) 
     return NULL;
   }
   return result.device;
+}
+
+const char *kiwi_shader_diagnostics(WGPUInstance instance, WGPUShaderModule shader) {
+  KiwiRequestResult result = {0};
+  WGPUCompilationInfoCallbackInfo callback = WGPU_COMPILATION_INFO_CALLBACK_INFO_INIT;
+  kiwi_surface_error[0] = '\0';
+  callback.mode = WGPUCallbackMode_AllowProcessEvents;
+  callback.callback = kiwi_compilation_callback;
+  callback.userdata1 = &result;
+  (void)wgpuShaderModuleGetCompilationInfo(shader, callback);
+  if (!kiwi_wait_for_request(instance, &result)) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timed out waiting for WGSL compilation diagnostics");
+  }
+  return kiwi_surface_error;
 }

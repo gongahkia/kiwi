@@ -81,6 +81,7 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCom
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallbackInfo callbackInfo);
 uint32_t wgpuInstanceWaitAny(WGPUInstance instance, size_t futureCount, WGPUFutureWaitInfo* futures, uint64_t timeoutNS);
+void wgpuInstanceProcessEvents(WGPUInstance instance);
 void wgpuInstanceRelease(WGPUInstance instance);
 WGPUFuture wgpuAdapterRequestDevice(WGPUAdapter adapter, const WGPUDeviceDescriptor* descriptor, WGPURequestDeviceCallbackInfo callbackInfo);
 uint32_t wgpuAdapterGetInfo(WGPUAdapter adapter, WGPUAdapterInfo* info);
@@ -133,6 +134,7 @@ void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
+const char* kiwi_shader_diagnostics(WGPUInstance instance, WGPUShaderModule shader);
 const char* kiwi_surface_last_error(void);
 ]]
 
