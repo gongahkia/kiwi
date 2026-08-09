@@ -1,0 +1,7 @@
+[package]
+name = "strok"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strok-sys = { path = "../strok-sys" }
