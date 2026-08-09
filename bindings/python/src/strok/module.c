@@ -2,6 +2,7 @@
 #include <Python.h>
 
 #include <limits.h>
+#include <string.h>
 
 #include <strok/c_api.h>
 
@@ -18,6 +19,24 @@ typedef struct {
   int32_t columns;
   int32_t rows;
 } StrokCellBufferObject;
+
+typedef struct {
+  Py_buffer buffer;
+  StrokColorImageView image;
+  int acquired;
+} StrokColorArrayView;
+
+typedef struct {
+  Py_buffer buffer;
+  StrokDepthImageView image;
+  int acquired;
+} StrokDepthArrayView;
+
+typedef struct {
+  Py_buffer buffer;
+  StrokNormalImageView image;
+  int acquired;
+} StrokNormalArrayView;
 
 static PyObject* StrokStaleResultError;
 
@@ -45,6 +64,212 @@ static int strok_renderer_require_open(const StrokRendererObject* self) {
     return -1;
   }
   return 0;
+}
+
+static int strok_require_numpy_array(PyObject* object) {
+  PyObject* numpy = PyImport_ImportModule("numpy");
+  PyObject* array_type;
+  int is_array;
+
+  if (numpy == NULL) {
+    return -1;
+  }
+  array_type = PyObject_GetAttrString(numpy, "ndarray");
+  Py_DECREF(numpy);
+  if (array_type == NULL) {
+    return -1;
+  }
+  is_array = PyObject_IsInstance(object, array_type);
+  Py_DECREF(array_type);
+  if (is_array < 0) {
+    return -1;
+  }
+  if (is_array == 0) {
+    PyErr_SetString(PyExc_TypeError, "expected a numpy.ndarray");
+    return -1;
+  }
+  return 0;
+}
+
+static int strok_array_dimensions(Py_ssize_t height, Py_ssize_t width, int32_t* out_width, int32_t* out_height) {
+  if (width <= 0 || height <= 0) {
+    PyErr_SetString(PyExc_ValueError, "array dimensions must be positive");
+    return -1;
+  }
+  if (width > INT32_MAX || height > INT32_MAX) {
+    PyErr_SetString(PyExc_ValueError, "array dimensions exceed the strok C ABI range");
+    return -1;
+  }
+  *out_width = (int32_t)width;
+  *out_height = (int32_t)height;
+  return 0;
+}
+
+static void strok_color_array_view_release(StrokColorArrayView* view) {
+  if (view->acquired) {
+    PyBuffer_Release(&view->buffer);
+    view->acquired = 0;
+  }
+}
+
+static void strok_depth_array_view_release(StrokDepthArrayView* view) {
+  if (view->acquired) {
+    PyBuffer_Release(&view->buffer);
+    view->acquired = 0;
+  }
+}
+
+static void strok_normal_array_view_release(StrokNormalArrayView* view) {
+  if (view->acquired) {
+    PyBuffer_Release(&view->buffer);
+    view->acquired = 0;
+  }
+}
+
+static int strok_color_array_view_init(StrokColorArrayView* view, PyObject* array) {
+  Py_ssize_t height;
+  Py_ssize_t width;
+  Py_ssize_t channels;
+  Py_ssize_t pixel_bytes;
+  int32_t c_width;
+  int32_t c_height;
+
+  memset(view, 0, sizeof(*view));
+  if (strok_require_numpy_array(array) < 0 ||
+      PyObject_GetBuffer(array, &view->buffer, PyBUF_FORMAT | PyBUF_STRIDES | PyBUF_ND) < 0) {
+    return -1;
+  }
+  view->acquired = 1;
+  if (view->buffer.ndim != 3 || view->buffer.format == NULL || strcmp(view->buffer.format, "B") != 0 ||
+      view->buffer.itemsize != 1) {
+    PyErr_SetString(PyExc_ValueError, "color array must have dtype uint8 and shape (height, width, 3 or 4)");
+    goto invalid;
+  }
+  height = view->buffer.shape[0];
+  width = view->buffer.shape[1];
+  channels = view->buffer.shape[2];
+  if (channels != 3 && channels != 4) {
+    PyErr_SetString(PyExc_ValueError, "color array must have 3 RGB or 4 RGBA channels");
+    goto invalid;
+  }
+  if (strok_array_dimensions(height, width, &c_width, &c_height) < 0) {
+    goto invalid;
+  }
+  pixel_bytes = channels;
+  if (width > PY_SSIZE_T_MAX / pixel_bytes) {
+    PyErr_SetString(PyExc_ValueError, "color array row size overflows");
+    goto invalid;
+  }
+  if (view->buffer.strides[2] != 1 || view->buffer.strides[1] != pixel_bytes ||
+      view->buffer.strides[0] < width * pixel_bytes) {
+    PyErr_SetString(PyExc_ValueError, "color array must have contiguous channels and pixels with a positive row stride");
+    goto invalid;
+  }
+  strok_color_image_view_init(&view->image);
+  view->image.data = view->buffer.buf;
+  view->image.width = c_width;
+  view->image.height = c_height;
+  view->image.row_stride_bytes = (uint64_t)view->buffer.strides[0];
+  view->image.pixel_format = channels == 3 ? STROK_COLOR_PIXEL_FORMAT_RGB24 : STROK_COLOR_PIXEL_FORMAT_RGBA8;
+  return 0;
+
+invalid:
+  strok_color_array_view_release(view);
+  return -1;
+}
+
+static int strok_depth_array_view_init(StrokDepthArrayView* view, PyObject* array) {
+  Py_ssize_t height;
+  Py_ssize_t width;
+  int32_t c_width;
+  int32_t c_height;
+
+  memset(view, 0, sizeof(*view));
+  if (strok_require_numpy_array(array) < 0 ||
+      PyObject_GetBuffer(array, &view->buffer, PyBUF_FORMAT | PyBUF_STRIDES | PyBUF_ND) < 0) {
+    return -1;
+  }
+  view->acquired = 1;
+  if (view->buffer.ndim != 2 || view->buffer.format == NULL || strcmp(view->buffer.format, "d") != 0 ||
+      view->buffer.itemsize != sizeof(double)) {
+    PyErr_SetString(PyExc_ValueError, "depth array must have dtype float64 and shape (height, width)");
+    goto invalid;
+  }
+  height = view->buffer.shape[0];
+  width = view->buffer.shape[1];
+  if (strok_array_dimensions(height, width, &c_width, &c_height) < 0) {
+    goto invalid;
+  }
+  if (width > PY_SSIZE_T_MAX / (Py_ssize_t)sizeof(double)) {
+    PyErr_SetString(PyExc_ValueError, "depth array row size overflows");
+    goto invalid;
+  }
+  if (view->buffer.strides[1] != (Py_ssize_t)sizeof(double) ||
+      view->buffer.strides[0] < width * (Py_ssize_t)sizeof(double) ||
+      view->buffer.strides[0] % (Py_ssize_t)sizeof(double) != 0) {
+    PyErr_SetString(PyExc_ValueError, "depth array must have contiguous float64 pixels with an aligned positive row stride");
+    goto invalid;
+  }
+  strok_depth_image_view_init(&view->image);
+  view->image.data = view->buffer.buf;
+  view->image.width = c_width;
+  view->image.height = c_height;
+  view->image.row_stride_bytes = (uint64_t)view->buffer.strides[0];
+  return 0;
+
+invalid:
+  strok_depth_array_view_release(view);
+  return -1;
+}
+
+static int strok_normal_array_view_init(StrokNormalArrayView* view, PyObject* array) {
+  Py_ssize_t height;
+  Py_ssize_t width;
+  Py_ssize_t components;
+  int32_t c_width;
+  int32_t c_height;
+  const Py_ssize_t pixel_bytes = 3 * (Py_ssize_t)sizeof(double);
+
+  memset(view, 0, sizeof(*view));
+  if (strok_require_numpy_array(array) < 0 ||
+      PyObject_GetBuffer(array, &view->buffer, PyBUF_FORMAT | PyBUF_STRIDES | PyBUF_ND) < 0) {
+    return -1;
+  }
+  view->acquired = 1;
+  if (view->buffer.ndim != 3 || view->buffer.format == NULL || strcmp(view->buffer.format, "d") != 0 ||
+      view->buffer.itemsize != sizeof(double)) {
+    PyErr_SetString(PyExc_ValueError, "normal array must have dtype float64 and shape (height, width, 3)");
+    goto invalid;
+  }
+  height = view->buffer.shape[0];
+  width = view->buffer.shape[1];
+  components = view->buffer.shape[2];
+  if (components != 3) {
+    PyErr_SetString(PyExc_ValueError, "normal array must have exactly 3 components per pixel");
+    goto invalid;
+  }
+  if (strok_array_dimensions(height, width, &c_width, &c_height) < 0) {
+    goto invalid;
+  }
+  if (width > PY_SSIZE_T_MAX / pixel_bytes) {
+    PyErr_SetString(PyExc_ValueError, "normal array row size overflows");
+    goto invalid;
+  }
+  if (view->buffer.strides[2] != (Py_ssize_t)sizeof(double) || view->buffer.strides[1] != pixel_bytes ||
+      view->buffer.strides[0] < width * pixel_bytes || view->buffer.strides[0] % (Py_ssize_t)sizeof(double) != 0) {
+    PyErr_SetString(PyExc_ValueError, "normal array must have contiguous Float64x3 pixels with an aligned positive row stride");
+    goto invalid;
+  }
+  strok_normal_image_view_init(&view->image);
+  view->image.data = view->buffer.buf;
+  view->image.width = c_width;
+  view->image.height = c_height;
+  view->image.row_stride_bytes = (uint64_t)view->buffer.strides[0];
+  return 0;
+
+invalid:
+  strok_normal_array_view_release(view);
+  return -1;
 }
 
 static int strok_cell_buffer_require_current(const StrokCellBufferObject* self) {
@@ -174,6 +399,64 @@ static PyObject* strok_renderer_render_rgb(StrokRendererObject* self, PyObject* 
   Py_RETURN_NONE;
 }
 
+static PyObject* strok_renderer_render_numpy(StrokRendererObject* self, PyObject* arguments, PyObject* keywords) {
+  static char* keyword_names[] = {"color", "depth", "normals", NULL};
+  PyObject* color = NULL;
+  PyObject* depth = Py_None;
+  PyObject* normals = Py_None;
+  StrokColorArrayView color_view;
+  StrokDepthArrayView depth_view;
+  StrokNormalArrayView normal_view;
+  StrokRenderInput input;
+  StrokStatus status;
+
+  memset(&color_view, 0, sizeof(color_view));
+  memset(&depth_view, 0, sizeof(depth_view));
+  memset(&normal_view, 0, sizeof(normal_view));
+  if (!PyArg_ParseTupleAndKeywords(arguments, keywords, "O|OO:render_numpy", keyword_names,
+                                   &color, &depth, &normals)) {
+    return NULL;
+  }
+  if (strok_renderer_require_open(self) < 0 || strok_color_array_view_init(&color_view, color) < 0) {
+    goto failed;
+  }
+  if (depth != Py_None && strok_depth_array_view_init(&depth_view, depth) < 0) {
+    goto failed;
+  }
+  if (normals != Py_None && strok_normal_array_view_init(&normal_view, normals) < 0) {
+    goto failed;
+  }
+  if (depth_view.acquired &&
+      (depth_view.image.width != color_view.image.width || depth_view.image.height != color_view.image.height)) {
+    PyErr_SetString(PyExc_ValueError, "depth array dimensions must match color array dimensions");
+    goto failed;
+  }
+  if (normal_view.acquired &&
+      (normal_view.image.width != color_view.image.width || normal_view.image.height != color_view.image.height)) {
+    PyErr_SetString(PyExc_ValueError, "normal array dimensions must match color array dimensions");
+    goto failed;
+  }
+  strok_render_input_init(&input);
+  input.color = &color_view.image;
+  input.depth = depth_view.acquired ? &depth_view.image : NULL;
+  input.normals = normal_view.acquired ? &normal_view.image : NULL;
+  status = strok_renderer_render_input(self->renderer, &input);
+  strok_normal_array_view_release(&normal_view);
+  strok_depth_array_view_release(&depth_view);
+  strok_color_array_view_release(&color_view);
+  if (!strok_status_succeeded(status)) {
+    return strok_set_status_error(status), NULL;
+  }
+  self->generation += 1;
+  Py_RETURN_NONE;
+
+failed:
+  strok_normal_array_view_release(&normal_view);
+  strok_depth_array_view_release(&depth_view);
+  strok_color_array_view_release(&color_view);
+  return NULL;
+}
+
 static PyTypeObject StrokCellBufferType;
 
 static PyObject* strok_renderer_cells(StrokRendererObject* self, PyObject* ignored) {
@@ -207,6 +490,8 @@ static PyMethodDef strok_renderer_methods[] = {
     {"reset", (PyCFunction)strok_python_renderer_reset, METH_NOARGS, "Reset renderer temporal state."},
     {"render_rgb", (PyCFunction)strok_renderer_render_rgb, METH_VARARGS,
      "Render a contiguous RGB24 buffer without retaining it."},
+    {"render_numpy", (PyCFunction)(void(*)(void))strok_renderer_render_numpy, METH_VARARGS | METH_KEYWORDS,
+     "Render NumPy RGB/RGBA color with optional Float64 depth and normals without copying."},
     {"cells", (PyCFunction)strok_renderer_cells, METH_NOARGS,
      "Return the CellBuffer from the most recent successful render."},
     {NULL, NULL, 0, NULL},

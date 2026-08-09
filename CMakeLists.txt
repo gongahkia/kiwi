@@ -1410,10 +1410,15 @@ if(CARGO_EXECUTABLE)
   )
 endif()
 
-function(strok_find_python_with_headers output)
+function(strok_find_python_with_headers output require_numpy)
+  if(require_numpy)
+    set(python_probe "import numpy; import pathlib, sysconfig; raise SystemExit(not pathlib.Path(sysconfig.get_path('include'), 'Python.h').is_file())")
+  else()
+    set(python_probe "import pathlib, sysconfig; raise SystemExit(not pathlib.Path(sysconfig.get_path('include'), 'Python.h').is_file())")
+  endif()
   foreach(candidate python3.15 python3.14 python3.13 python3.12 python3.11 python3.10 python3.9 python3 python)
     execute_process(
-      COMMAND "${candidate}" -c "import pathlib, sysconfig; raise SystemExit(not pathlib.Path(sysconfig.get_path('include'), 'Python.h').is_file())"
+      COMMAND "${candidate}" -c "${python_probe}"
       RESULT_VARIABLE status
       OUTPUT_QUIET
       ERROR_QUIET
@@ -1430,7 +1435,7 @@ function(strok_find_python_with_headers output)
   endforeach()
 endfunction()
 
-strok_find_python_with_headers(STROK_PYTHON_EXECUTABLE)
+strok_find_python_with_headers(STROK_PYTHON_EXECUTABLE FALSE)
 if(STROK_PYTHON_EXECUTABLE)
   add_test(NAME python_c_api_installed
     COMMAND ${CMAKE_COMMAND}
@@ -1439,6 +1444,22 @@ if(STROK_PYTHON_EXECUTABLE)
       -DSTROK_PYTHON_EXECUTABLE=${STROK_PYTHON_EXECUTABLE}
       -DSTROK_PYTHON_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/bindings/python
       -DSTROK_PYTHON_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}/python_c_api_build
+      -DSTROK_PYTHON_TEST_SCRIPT=smoke.py
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/python_c_api_install_test.cmake
+  )
+endif()
+
+strok_find_python_with_headers(STROK_NUMPY_PYTHON_EXECUTABLE TRUE)
+if(STROK_NUMPY_PYTHON_EXECUTABLE)
+  add_test(NAME python_numpy_installed
+    COMMAND ${CMAKE_COMMAND}
+      -DSTROK_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -DSTROK_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/python_numpy_install_prefix
+      -DSTROK_PYTHON_EXECUTABLE=${STROK_NUMPY_PYTHON_EXECUTABLE}
+      -DSTROK_PYTHON_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/bindings/python
+      -DSTROK_PYTHON_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}/python_numpy_build
+      -DSTROK_PYTHON_TEST_SCRIPT=numpy_smoke.py
+      -DSTROK_PYTHON_INSTALL=ON
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/python_c_api_install_test.cmake
   )
 endif()

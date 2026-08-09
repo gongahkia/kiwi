@@ -7,3 +7,4 @@ name = "strok"
 version = "0.1.0"
 description = "Python bindings for the strok C ABI"
 requires-python = ">=3.9"
+dependencies = ["numpy>=1.24"]
