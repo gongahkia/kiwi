@@ -743,13 +743,14 @@ RenderResult validateRendererConfiguration(const RendererConfig& config, RenderG
   return RenderResult{};
 }
 
-RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
   }
-  if (const std::optional<std::string> error = colorImageViewError(image); error.has_value()) {
+  if (const std::optional<std::string> error = renderInputError(input); error.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, *error);
   }
+  const ColorImageView& image = input.color;
   if (ramp.empty()) {
     return renderFailure(RenderStatus::InvalidInput, "glyph ramp must not be empty");
   }
@@ -1418,12 +1419,16 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
   return renderFailure(RenderStatus::InternalError, "unexpected renderer failure");
 }
 
+RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
+  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
+}
+
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
   const std::optional<ColorImageView> image = colorImageViewFromFrame(frame);
   if (!image.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
   }
-  return renderFrame(*image, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
+  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state, scene_gbuffer);
 }
 
 }  // namespace strok

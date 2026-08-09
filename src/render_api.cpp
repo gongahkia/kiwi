@@ -85,6 +85,10 @@ RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, 
   return renderFrame(image, ramp, config, available_grid, nullptr, output, nullptr, nullptr);
 }
 
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, CellBuffer* output) {
+  return renderFrame(input, ramp, config, available_grid, nullptr, output, nullptr, nullptr);
+}
+
 Renderer::Renderer(RendererConfig config, RenderGrid grid)
     : state_(std::make_unique<State>(std::move(config), grid)) {}
 
@@ -123,7 +127,11 @@ RenderResult Renderer::render(const Frame& frame) {
 }
 
 RenderResult Renderer::render(const ColorImageView& image) {
-  return render(image, &state_->cells);
+  return render(RenderInput{.color = image}, &state_->cells);
+}
+
+RenderResult Renderer::render(const RenderInput& input) {
+  return render(input, &state_->cells);
 }
 
 const CellBuffer& Renderer::cells() const noexcept {
@@ -135,7 +143,11 @@ RenderResult Renderer::render(const Frame& frame, CellBuffer* output) {
 }
 
 RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
-  return renderFrame(image, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, nullptr);
+  return render(RenderInput{.color = image}, output);
+}
+
+RenderResult Renderer::render(const RenderInput& input, CellBuffer* output) {
+  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, nullptr);
 }
 
 void Renderer::reset() {

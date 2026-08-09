@@ -5,6 +5,7 @@
 #include "frame.hpp"
 #include "renderer_config.hpp"
 #include "render_grid.hpp"
+#include "render_input.hpp"
 #include "render_result.hpp"
 
 #include <memory>
@@ -35,9 +36,11 @@ class Renderer {
   // The returned reference remains valid until the next render, reset, or destruction.
   RenderResult render(const Frame& frame);
   RenderResult render(const ColorImageView& image);
+  RenderResult render(const RenderInput& input);
   const CellBuffer& cells() const noexcept;
   RenderResult render(const Frame& frame, CellBuffer* output);
   RenderResult render(const ColorImageView& image, CellBuffer* output);
+  RenderResult render(const RenderInput& input, CellBuffer* output);
   // Clears temporal history without changing the most recently rendered cells.
   void reset();
 
