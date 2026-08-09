@@ -2140,8 +2140,6 @@ int exportMedia(const CliOptions& options, Logger& logger) {
 
   std::optional<GlyphFont> glyph_font = glyphFontFromOptions(options, logger);
   const GlyphFont* glyph_font_ptr = glyph_font.has_value() ? &*glyph_font : nullptr;
-  const std::u32string ramp = rampFromOptions(options, glyph_font_ptr);
-  std::optional<GlyphShapeTable> shape_vectors = shapeTableFromOptions(options, glyph_font_ptr);
   TerminalSize terminal = exportTerminalSize(options);
   const ColorMode color_mode = resolveColorMode(options.color_mode, "xterm-256color", std::getenv("COLORTERM"), std::getenv("NO_COLOR"));
   const DitherMode dither_mode = ditherModeFromString(options.dither);
@@ -2161,8 +2159,8 @@ int exportMedia(const CliOptions& options, Logger& logger) {
   }
   CellBuffer cells;
   DiffEmitter emitter;
-  RenderTemporalState temporal_state;
   RenderStats render_stats;
+  CliRendererSession renderer_session;
   const int64_t first_pts_us = frame->pts_us;
   int64_t frame_index = 0;
   int64_t exported_frames = 0;
@@ -2213,6 +2211,17 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     fill_lookahead();
     return lookahead_frame.has_value() ? &*lookahead_frame : nullptr;
   };
+  const auto render_with_session = [&](const Frame& current_frame, const Frame* lookahead) {
+    const RenderResult result = renderer_session.render(current_frame,
+                                                        lookahead,
+                                                        render_options,
+                                                        terminal,
+                                                        &cells,
+                                                        logger.enabled() ? &render_stats : nullptr);
+    if (!result.succeeded()) {
+      throw std::runtime_error(result.message);
+    }
+  };
 
   if (kind == ExportKind::Mp4) {
     std::optional<DecodedAudio> export_audio;
@@ -2226,7 +2235,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     fill_lookahead();
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &overlay_frame);
-    renderFrame(render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    render_with_session(render_input, temporal_lookahead());
     caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
     RasterImage raster = rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr);
     Mp4VideoWriter writer(output_path,
@@ -2240,7 +2249,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const auto write_mp4_frame = [&](const Frame& current_frame) {
       std::optional<Frame> current_overlay_frame;
       const Frame& current_render_input = frameWithOverlay(current_frame, overlay_source, exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options), &current_overlay_frame);
-      renderFrame(current_render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+      render_with_session(current_render_input, temporal_lookahead());
       caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
       writer.writeFrame(rasterComposeCells(cells, color_mode, emission_options.dither_mode, glyph_font_ptr).rgb);
     };
@@ -2291,7 +2300,7 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     const double timestamp = exportFrameTimeSeconds(current_frame, first_pts_us, frame_index, options);
     std::optional<Frame> overlay_frame;
     const Frame& render_input = frameWithOverlay(current_frame, overlay_source, timestamp, &overlay_frame);
-    renderFrame(render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+    render_with_session(render_input, temporal_lookahead());
     caption_writer.recordFrame(current_frame, captionFrameTimeUs(current_frame, first_pts_us, frame_index, options));
     const std::optional<EmissionResult> emission = emit_cells(timestamp);
     if (emission.has_value()) {
@@ -2299,10 +2308,10 @@ int exportMedia(const CliOptions& options, Logger& logger) {
     }
   };
 
-  temporal_state.reset();
+  renderer_session.reset();
   std::optional<Frame> first_overlay_frame;
   const Frame& first_render_input = frameWithOverlay(*frame, overlay_source, exportFrameTimeSeconds(*frame, first_pts_us, frame_index, options), &first_overlay_frame);
-  renderFrame(first_render_input, temporal_lookahead(), ramp, render_options, terminal, shape_vectors.has_value() ? &*shape_vectors : nullptr, &cells, logger.enabled() ? &render_stats : nullptr, &temporal_state);
+  render_with_session(first_render_input, temporal_lookahead());
   caption_writer.recordFrame(*frame, captionFrameTimeUs(*frame, first_pts_us, frame_index, options));
   const int export_cols = cells.cols();
   const int export_rows = cells.rows();
@@ -3608,21 +3617,26 @@ int playMedia(const CliOptions& options, Logger& logger) {
     }
 
     std::optional<LiveFrameBatch> live_batch;
-    auto frame = [&]() -> std::optional<Frame> {
-      if (live_frame_source != nullptr) {
-        live_batch = live_frame_source->waitForLatest();
-        if (!live_batch.has_value()) {
-          return std::nullopt;
+    std::optional<Frame> frame;
+    if (live_frame_source != nullptr) {
+      live_batch = live_frame_source->waitForLatestFor(std::chrono::milliseconds(10));
+      if (!live_batch.has_value()) {
+        if (live_frame_source->closed()) {
+          break;
         }
-        return std::move(live_batch->latest.frame);
+        if (!debug_stats.maybeReport(liveDebugTerminal(terminal, osd_active))) {
+          quit = true;
+          break;
+        }
+        continue;
       }
-      if (lookahead_frame.has_value()) {
-        Frame next = std::move(*lookahead_frame);
-        lookahead_frame.reset();
-        return next;
-      }
-      return video_decoder->nextFrame();
-    }();
+      frame = std::move(live_batch->latest.frame);
+    } else if (lookahead_frame.has_value()) {
+      frame = std::move(*lookahead_frame);
+      lookahead_frame.reset();
+    } else {
+      frame = video_decoder->nextFrame();
+    }
     if (!frame.has_value()) {
       if (video_decoder == nullptr) {
         break;

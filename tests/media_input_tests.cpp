@@ -23,6 +23,7 @@ int main() {
   expect(strok::cameraInputSpec("dshow:video=Integrated Camera")->format == "dshow", "dshow alias");
   expect(strok::isRtspInput("rtsp://camera.example/live"), "rtsp input");
   expect(strok::isRtspInput("rtsps://camera.example/live"), "rtsps input");
+  expect(strok::isRtspInput("RTSP://camera.example/live"), "uppercase RTSP input");
   expect(!strok::isRtspInput("https://example.com/live.m3u8"), "https is not RTSP");
   expect(strok::isLatencySensitiveInput("rtsp://camera.example/live"), "rtsp is latency sensitive");
   expect(!strok::isLatencySensitiveInput("https://example.com/live.m3u8"), "https is not latency sensitive");

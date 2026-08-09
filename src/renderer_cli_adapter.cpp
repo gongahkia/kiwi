@@ -1,6 +1,7 @@
 #include "renderer_cli_adapter.hpp"
 
 #include <optional>
+#include <utility>
 
 namespace strok {
 namespace {

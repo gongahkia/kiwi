@@ -39,6 +39,7 @@ int main() {
 
   strok::LatestFrameQueue queue(2);
   expect(queue.capacity() == 2, "queue capacity");
+  expect(!queue.waitForLatestFor(std::chrono::milliseconds(0)).has_value(), "empty queue timed wait");
   expect(queue.push(frame(1000)), "first frame accepted");
   expect(queue.push(frame(2000)), "second frame accepted");
   expect(queue.push(frame(3000)), "third frame replaces oldest");
@@ -55,6 +56,7 @@ int main() {
   expect(second->producer_replaced == 0 && second->consumer_discarded == 0, "counts reset after drain");
 
   queue.close();
+  expect(queue.closed(), "queue reports closure");
   expect(!queue.push(frame(5000)), "closed queue rejects frames");
   expect(!queue.waitForLatest().has_value(), "closed empty queue finishes");
 }

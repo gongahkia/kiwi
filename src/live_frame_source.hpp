@@ -31,7 +31,9 @@ class LatestFrameQueue {
 
   bool push(LiveFrame frame);
   std::optional<LiveFrameBatch> waitForLatest();
+  std::optional<LiveFrameBatch> waitForLatestFor(std::chrono::milliseconds timeout);
   void close();
+  bool closed() const;
   std::size_t capacity() const noexcept;
 
  private:
@@ -50,6 +52,8 @@ class LiveFrameSource {
   ~LiveFrameSource();
 
   std::optional<LiveFrameBatch> waitForLatest();
+  std::optional<LiveFrameBatch> waitForLatestFor(std::chrono::milliseconds timeout);
+  bool closed() const;
   std::optional<double> averageFps() const noexcept;
   void stop() noexcept;
 

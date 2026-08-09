@@ -4,6 +4,8 @@
 #include "renderer.hpp"
 #include "terminal.hpp"
 
+#include <strok/renderer.hpp>
+
 #include <memory>
 #include <optional>
 

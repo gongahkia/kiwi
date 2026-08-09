@@ -1,5 +1,8 @@
 #include "media_input.hpp"
 
+#include <cctype>
+#include <cstddef>
+
 namespace strok {
 
 std::optional<CameraInputSpec> cameraInputSpec(std::string_view input) {
@@ -34,7 +37,18 @@ bool isCameraInput(std::string_view input) noexcept {
 }
 
 bool isRtspInput(std::string_view input) noexcept {
-  return input.starts_with("rtsp://") || input.starts_with("rtsps://");
+  const auto hasScheme = [input](std::string_view scheme) {
+    if (input.size() < scheme.size()) {
+      return false;
+    }
+    for (std::size_t index = 0; index < scheme.size(); ++index) {
+      if (std::tolower(static_cast<unsigned char>(input[index])) != scheme[index]) {
+        return false;
+      }
+    }
+    return true;
+  };
+  return hasScheme("rtsp://") || hasScheme("rtsps://");
 }
 
 bool isLatencySensitiveInput(std::string_view input) noexcept {

@@ -1531,6 +1531,28 @@ else()
 endif()
 add_test(NAME renderer_lifecycle COMMAND renderer_lifecycle_tests)
 
+add_executable(renderer_cli_adapter_tests tests/renderer_cli_adapter_tests.cpp)
+target_include_directories(renderer_cli_adapter_tests PRIVATE src)
+target_compile_features(renderer_cli_adapter_tests PRIVATE cxx_std_20)
+set_target_properties(renderer_cli_adapter_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(renderer_cli_adapter_tests PRIVATE strok_cli_adapter)
+if(MSVC)
+  target_compile_options(renderer_cli_adapter_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_cli_adapter_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(renderer_cli_adapter_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(renderer_cli_adapter_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME renderer_cli_adapter COMMAND renderer_cli_adapter_tests)
+
 add_executable(gpu_backend_lifecycle_tests tests/gpu_backend_lifecycle_tests.cpp)
 target_include_directories(gpu_backend_lifecycle_tests PRIVATE src)
 target_compile_features(gpu_backend_lifecycle_tests PRIVATE cxx_std_20)

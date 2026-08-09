@@ -65,12 +65,38 @@ std::optional<LiveFrameBatch> LatestFrameQueue::waitForLatest() {
   return batch;
 }
 
+std::optional<LiveFrameBatch> LatestFrameQueue::waitForLatestFor(std::chrono::milliseconds timeout) {
+  std::unique_lock lock(state_->mutex);
+  if (!state_->ready.wait_for(lock, timeout, [&] { return state_->closed || !state_->frames.empty(); })) {
+    return std::nullopt;
+  }
+  if (state_->frames.empty()) {
+    return std::nullopt;
+  }
+
+  const std::size_t consumer_discarded = state_->frames.size() - 1U;
+  LiveFrame latest = std::move(state_->frames.back());
+  state_->frames.clear();
+  LiveFrameBatch batch{
+    .latest = std::move(latest),
+    .producer_replaced = state_->producer_replaced,
+    .consumer_discarded = consumer_discarded,
+  };
+  state_->producer_replaced = 0;
+  return batch;
+}
+
 void LatestFrameQueue::close() {
   {
     std::lock_guard lock(state_->mutex);
     state_->closed = true;
   }
   state_->ready.notify_all();
+}
+
+bool LatestFrameQueue::closed() const {
+  std::lock_guard lock(state_->mutex);
+  return state_->closed;
 }
 
 std::size_t LatestFrameQueue::capacity() const noexcept {
@@ -113,7 +139,21 @@ struct LiveFrameSource::Impl {
 
   std::optional<LiveFrameBatch> waitForLatest() {
     const std::optional<LiveFrameBatch> batch = queue.waitForLatest();
+    rethrowWorkerErrorIfClosed(batch);
+    return batch;
+  }
+
+  std::optional<LiveFrameBatch> waitForLatestFor(std::chrono::milliseconds timeout) {
+    const std::optional<LiveFrameBatch> batch = queue.waitForLatestFor(timeout);
+    rethrowWorkerErrorIfClosed(batch);
+    return batch;
+  }
+
+  void rethrowWorkerErrorIfClosed(const std::optional<LiveFrameBatch>& batch) {
     if (!batch.has_value()) {
+      if (!queue.closed()) {
+        return;
+      }
       std::exception_ptr worker_error;
       {
         std::lock_guard lock(error_mutex);
@@ -123,7 +163,6 @@ struct LiveFrameSource::Impl {
         std::rethrow_exception(worker_error);
       }
     }
-    return batch;
   }
 
   void stop() noexcept {
@@ -147,6 +186,14 @@ LiveFrameSource::~LiveFrameSource() = default;
 
 std::optional<LiveFrameBatch> LiveFrameSource::waitForLatest() {
   return impl_->waitForLatest();
+}
+
+std::optional<LiveFrameBatch> LiveFrameSource::waitForLatestFor(std::chrono::milliseconds timeout) {
+  return impl_->waitForLatestFor(timeout);
+}
+
+bool LiveFrameSource::closed() const {
+  return impl_->queue.closed();
 }
 
 std::optional<double> LiveFrameSource::averageFps() const noexcept {
