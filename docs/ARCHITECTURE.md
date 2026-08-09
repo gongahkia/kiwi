@@ -12,10 +12,10 @@ GLFW keyboard / text callbacks
              |
              v
 PTY master <---------------- terminal responses (DSR/DA)
-  nonblocking read/write                    ^
+  nonblocking, 4 KiB/tick read budget        ^
              |                              |
              v                              |
-  terminal/parser.lua -- actions --> terminal/state.lua
+  terminal/parser.lua -- actions/direct print --> terminal/state.lua
         streaming UTF-8                  |
                                       +-- screen rows
                                       +-- modes/cursor/attributes
@@ -29,11 +29,11 @@ PTY master <---------------- terminal responses (DSR/DA)
 M0 renderer: background -> glyph -> cursor -> wgpu-native -> Vulkan
 ```
 
-The parser recognizes syntax only. It emits semantic print, execute, ESC, CSI, OSC, and ignored-string actions; `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer has no parser dependency and consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
+The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
 
 ## PTY and process boundary
 
-`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, drains readable output, queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. `TERM=kiwi` and the project-local `TERMINFO` path are set before the child executes. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
+`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. `TERM=kiwi` and the project-local `TERMINFO` path are set before the child executes. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
 
 LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wraps the ABI-sensitive `TIOCSWINSZ` and nonblocking-fd operations, alongside the pre-existing GLFW/wgpu surface bridge. It contains no parser or terminal state.
 
@@ -75,7 +75,7 @@ Live cells retain their incoming codepoint string. The M0 FreeType atlas remains
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.
 
-F4 diagnostics remain rate-limited to one report per second and combine M0 upload/frame/atlas data with PTY byte counters, parser counters, terminal mutations, scrollback, active screen, grid size, child state, and unknown CSI/ESC/OSC counts. Unsupported sequence samples are bounded and structured; OSC payloads are never printed.
+F4 diagnostics remain rate-limited to one report per second and combine M0 upload/frame/atlas data with PTY byte counters, the most recent PTY read byte/count, parser counters, terminal mutations, scrollback, active screen, grid size, child state, and unknown CSI/ESC/OSC counts. Unsupported sequence samples are bounded and structured; OSC payloads are never printed.
 
 ## References and intentional boundary
 

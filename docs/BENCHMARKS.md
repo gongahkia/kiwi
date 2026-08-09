@@ -1,63 +1,83 @@
-# Kiwi M0 and M1 component benchmarks
+# Kiwi M1.5 pipeline benchmarks
 
-Run the deterministic benchmark suite with:
+M1.5 measures the real LuaJIT terminal pipeline in layers instead of inferring terminal performance from the older synthetic renderer model. The benchmarks are reproducible CPU measurements, not a claim of end-to-end terminal or GPU latency.
 
 ```sh
 make bench
-KIWI_BENCH_ITERATIONS=50 make bench
+KIWI_BENCH_ITERATIONS=100 KIWI_BENCH_WARMUP=20 make bench
+make bench-burst
+KIWI_BURST_10MB=1 make bench-burst
+make bench-compare BASELINE=bench/results/baseline.json CANDIDATE=bench/results/candidate.json
 ```
 
-The default is 300 iterations. The command writes machine-readable schema-version-2 JSON to `bench/results/<UTC timestamp>.json`; generated results are not source-controlled. It retains M0 model/damage/packing measurements and adds M1 parser/state component measurements.
+`make bench` defaults to 50 measured iterations and 10 warm-up iterations. It writes schema-version-3 JSON to `bench/results/<UTC timestamp>.json`. `make bench-burst` uses the real nonblocking PTY and writes a separate `*-burst.json` result. Generated results are intentionally not source-controlled.
 
-## M0 renderer-model workloads
+## Method and scope
 
-Each M0 iteration uses the synthetic `TerminalModel`, damage tracking, contiguous range discovery, and the same 40-byte `KiwiGlyphInstance` packing used before GPU uploads. It reports CPU mean/p50/p95/p99, changed/uploaded cells, bytes, dirty ranges, full updates, and the stable three draw calls per frame at 160×50 and 240×80.
+Each measured iteration starts after its parser/state/setup object exists. Inputs and pre-materialized action streams are constructed before timing. CPU samples use `os.clock` process CPU time and report total, mean, p50, p95, and p99. LuaJIT version, enabled JIT features, architecture/kernel, revision/dirty state, CFLAGS value, iteration count, warm-up count, and exact scope are embedded in every result.
 
-| Scenario | Purpose |
+The component suite covers these layers:
+
+| Layer | Timed work |
 | --- | --- |
-| static | populated screen with no logical changes |
-| typing | 1–4 adjacent edits |
-| line-churn | one full-row update |
-| scrolling | synthetic content-row churn |
-| full-redraw | lazy all-cells-dirty mark |
+| byte/UTF-8 | byte iteration and incremental UTF-8 decoding, including valid multibyte and invalid input |
+| parser-only | streaming parser plus observable action-table callback; state is excluded |
+| state-only | pre-materialized actions applied to a fresh terminal state and damage tracker |
+| parser/state | production direct-print parser sink plus state/damage |
+| damage | contiguous and deliberately fragmented interval coalescing, range discovery, and clear |
+| packing | the real `Renderer:pack_cell` CPU path with a deterministic atlas stub; GPU calls are excluded |
+| real scroll | primary full-screen, large-grid, and margin `State:scroll_up` paths |
+| full CPU pipeline | in-memory PTY bytes through parser, state, damage ranges, and `Renderer:pack_cell` |
 
-## M0 scrolling investigation
+The full CPU pipeline intentionally excludes PTY syscalls, `wgpuQueueWriteBuffer`, GPU execution, compositor scheduling, and presentation. The packing layer calls the renderer's actual packing method, but the atlas stub makes it a CPU-only test. `make smoke` remains the native presentation correctness check.
 
-The original M0 scrolling result being slower than `full-redraw` is expected from the measured workload shape, not evidence that packing every cell is intrinsically faster. `Synthetic.apply("scrolling")` loops through content rows, constructs intermediate strings/tables, and mutates/copies each row's cells before packing. `full-redraw` only sets the lazy full-damage flag before packing. The former therefore includes substantial Lua object allocation and mutation work that the latter intentionally omits.
+Heap fields are diagnostic signals, not allocation totals: retained delta is measured after an explicit collection and peak delta is allocator-sensitive. Peak values include the fresh per-iteration setup needed by the component. Use them to spot growth or runaway retention, not to compare unrelated layers by a few KiB.
 
-Representative pre-M1 M0 profiling measured scrolling mutate/range/pack costs of 0.744/0.011/0.040 ms at 160×50 and 2.028/0.027/0.228 ms at 240×80. M1 does not micro-optimise that deliberately synthetic test. Its real `Screen` scrolling shifts row references, creates entering rows only, and marks a rectangular damage range; primary scrollback is a bounded ring.
+The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scrolling reconstruction and M1.5's row-reference terminal scrolling have different scopes and must not be presented as before/after performance evidence.
 
-## M1 parser/state workloads
+`make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, component/workload set, and each component's exact scope before producing deltas. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 
-The additional workloads feed a fresh 80×24 `State` through the streaming parser each iteration:
+## Profiling and changes
 
-| Workload | Stream shape |
-| --- | --- |
-| printable-ascii | ordinary printable output and CR/LF |
-| sgr-heavy | standard, indexed, and RGB SGR output |
-| cursor-erase-tui | cursor positioning, erase, ICH, and DCH |
-| scrolling-newlines | long newline-heavy output into bounded history |
-| mixed-captured-style | title, alternate screen, SGR, UTF-8, mode changes, and DSR |
+The initial unchanged printable-output profile used 1,000 parser/state iterations with LuaJIT's sampling profiler. `Damage:mark_range`/`mark` accounted for 42% of samples and `Attributes.resolve` for 9%. LuaJIT trace output also showed repeated damage-loop unroll fallbacks. The M1.5 follow-up profile, using the production direct state sink, reduced damage to 6%; expected row allocation during scrolling then dominated the printable workload. `perf` was unavailable on this host, so the profile evidence is LuaJIT `-jp` sampling and `-jv` trace diagnostics.
 
-For every workload the JSON and terminal output include bytes, actions, dirty cells/ranges, elapsed CPU percentiles, bytes per CPU second, and a cheap Lua heap-delta proxy. Heap delta is allocator-state-sensitive and is diagnostic only. Parser bytes per second is a component measurement, not input latency, render latency, GPU timing, or a cross-terminal comparison.
+The resulting changes are intentionally local:
 
-The benchmark is headless. It does not submit GPU work or synthesize a GPU frame time; `make smoke` is the separate native presentation correctness check. Results vary with CPU frequency, LuaJIT/JIT state, allocator state, system load, thermal conditions, and the selected iteration count.
+- a direct state sink avoids allocating a print action table for each production glyph while retaining callback/action-table mode for parser and conformance tests;
+- common append-only damage updates extend the active tail range in place; arbitrary insertion/merge behavior remains covered by tests;
+- attribute flag resolution uses fixed fields instead of iterating the flag map per glyph;
+- the live loop caps one PTY service turn at 4 KiB by default and exposes the last read size/count in F4 diagnostics.
 
-## Representative local run
+Before those changes, the untouched M1 schema-version-2 parser/state run used 300 iterations but no warm-up or normalized memory methodology. It recorded 13.1891 ms printable ASCII, 7.6687 ms SGR-heavy, 29.5513 ms cursor/erase, 31.3167 ms scrolling-newlines, and 44.4182 ms mixed-captured-style mean CPU time. Those numbers establish the original measured state, but they are not a valid before/after comparison: M1.5 changes both the production print sink and the benchmark methodology. The schema separates such legacy data from M1.5 results for that reason.
 
-`make bench` with the default 300 iterations produced the following local component data on 2026-08-10. These values are retained as a reproducibility reference, not a cross-terminal comparison.
+## Representative local baseline
 
-| M0 scenario | Grid | mean CPU update | p95 | p99 |
+This host ran Fedora 43/Linux 7.1.6-101.fc43.x86_64 on an Intel Core i7-1355U (12 online logical CPUs, frequency scaling reported at 28%), Intel Iris Xe Graphics, and LuaJIT 2.1.1767980792 with the default enabled JIT features. The following `make bench` run used 50 measured iterations and 10 warm-ups on a dirty worktree at `1e0ab88`; it is a reproducibility reference only.
+
+| Full CPU workload | Mean | p95 | p99 | Bytes/CPU second |
 | --- | ---: | ---: | ---: | ---: |
-| scrolling | 160×50 | 1.7304 ms | 4.3843 ms | 5.8495 ms |
-| full-redraw | 160×50 | 0.0524 ms | 0.0631 ms | 0.0730 ms |
-| scrolling | 240×80 | 15.4648 ms | 20.9447 ms | 22.6366 ms |
-| full-redraw | 240×80 | 0.5013 ms | 0.6160 ms | 0.9012 ms |
+| printable ASCII | 3.8209 ms | 7.8896 ms | 10.4395 ms | 1,432,123 |
+| SGR-heavy | 2.7940 ms | 6.7903 ms | 7.1824 ms | 2,061,531 |
+| cursor/erase TUI | 9.4808 ms | 13.1117 ms | 13.3690 ms | 546,790 |
+| scrolling newlines | 7.9497 ms | 12.2654 ms | 15.4407 ms | 1,908,006 |
+| mixed captured style | 46.7382 ms | 62.9112 ms | 65.1599 ms | 168,428 |
 
-| M1 workload | total bytes | mean parse/state | p95 | p99 | bytes/CPU second |
-| --- | ---: | ---: | ---: | ---: |
-| printable-ascii | 1,641,600 | 13.2149 ms | 16.9395 ms | 18.4733 ms | 414,077 |
-| sgr-heavy | 1,728,000 | 9.6024 ms | 22.6227 ms | 26.7626 ms | 599,849 |
-| cursor-erase-tui | 1,555,200 | 39.2198 ms | 47.3481 ms | 55.0223 ms | 132,178 |
-| scrolling-newlines | 4,550,400 | 33.0351 ms | 41.3251 ms | 51.2209 ms | 459,148 |
-| mixed-captured-style | 2,361,600 | 53.5484 ms | 61.3316 ms | 69.0994 ms | 147,007 |
+The 80x24 contiguous damage microbenchmark averaged 0.0142 ms; the intentional fragmented case averaged 25.1135 ms. The difference is expected: the latter creates 640 disjoint intervals and remains a useful regression boundary for range-list behavior.
+
+The same run measured real full-screen scroll at 0.0336 ms mean for 80x24 and 0.0604 ms for 240x80. Those measurements include row-reference movement, entering-row allocation, bounded scrollback handoff, damage discovery, and clear; they are not the M0 synthetic scrolling workload.
+
+## Real-PTY burst checks and thresholds
+
+`make bench-burst` validates bounded live service rather than only in-memory parsing. It sends 1 MiB printable output, at least 1 MiB of mixed ANSI output, and an interleaved DSR-response stream through `forkpty`. The optional 10 MiB printable case is enabled with `KIWI_BURST_10MB=1`.
+
+The checked limits are exact defaults, overrideable only for deliberately different test environments:
+
+- `KIWI_PTY_READ_BUDGET=4096`: no one live-loop turn reads more than 4 KiB;
+- `KIWI_BURST_MAX_SERVICE_MS=250`: a service turn above 250 ms fails the run;
+- `KIWI_BURST_MAX_HEAP_KIB=65536`: retained Lua heap growth above 64 MiB fails the run.
+
+The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
+
+On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
+
+Results depend on CPU governor, thermals, JIT state, allocator state, kernel load, and host graphics stack. Do not compare these values with other terminal emulators or treat them as a latency service-level objective.

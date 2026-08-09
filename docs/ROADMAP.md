@@ -10,6 +10,10 @@ LuaJIT + wgpu-native, deterministic synthetic terminal data, FreeType bitmap atl
 
 PTY, shell lifecycle, deliberately scoped VT parser/state, resize propagation, bounded scrollback, terminfo, keyboard input, diagnostics, conformance fixtures, and deterministic replay are implemented and validated against an interactive shell and `top`. M1 does not claim full xterm compatibility.
 
+## M1.5 — complete: measured pipeline hardening
+
+Layered parser/state/damage/packing/scroll benchmarks, LuaJIT profiler evidence, bounded PTY service turns, real-PTY burst/response checks, schema-versioned result metadata, and performance decision records are implemented. This milestone retains M1's terminal semantics and renderer boundary; it does not add M2 text functionality.
+
 ## M2 — serious text
 
 HarfBuzz shaping, Unicode, fallback, combining/wide characters, emoji strategy, Nerd Font validation, and HiDPI/text-quality work.
