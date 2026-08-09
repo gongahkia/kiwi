@@ -1,5 +1,5 @@
 local Context = require("kiwi.gpu.context")
-local FreeType = require("kiwi.font.freetype")
+local FontSystem = require("kiwi.font.system")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Renderer = require("kiwi.renderer.renderer")
 local Synthetic = require("kiwi.terminal.synthetic")
@@ -16,10 +16,11 @@ function Demo.run()
   local window = Window.new(1600, 960, "Kiwi M1 synthetic renderer laboratory")
   local context
   local renderer
+  local font
   local ok, result = xpcall(function()
     context = Context.new(window)
     local model = Synthetic.new(number_from_env("KIWI_SEED", 0x4b495749), 160, 50)
-    local font = FreeType.rasterize({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
+    font = FontSystem.new({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
     renderer = Renderer.new(context, font, model)
     local metrics = Metrics.new(context, font, model)
     local scenario = os.getenv("KIWI_SCENARIO") or "typing"
@@ -27,7 +28,7 @@ function Demo.run()
     local next_frame = window:time()
     local next_scenario = next_frame + 0.20
     local tick = 0
-    io.stdout:write(string.format("Kiwi M1 demo: grid=%dx%d atlas=%d glyphs\n", model.columns, model.rows, font.atlas:glyph_count()))
+    io.stdout:write(string.format("Kiwi M2 demo: Unicode=17.0 grid=%dx%d primary=%s\n", model.columns, model.rows, font.font_path))
     while not window:should_close() do
       local now = window:time()
       if now < next_frame then
@@ -61,6 +62,7 @@ function Demo.run()
     end
   end, debug.traceback)
   if renderer then renderer:destroy() end
+  if font then font:destroy() end
   if context then context:destroy() end
   window:destroy()
   if not ok then error(result) end

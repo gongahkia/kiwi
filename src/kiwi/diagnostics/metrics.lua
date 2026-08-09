@@ -33,21 +33,50 @@ function Metrics:snapshot()
   local pty = self.runtime.pty
   local parser = self.runtime.parser
   local child_status = pty and pty.exit_status
+  local atlas = self.font.glyph_cache and self.font.glyph_cache.atlas or self.font.atlas
+  local glyph_cache_stats = self.font.glyph_cache and self.font.glyph_cache.stats or {}
+  local font_stats = self.font.stats or {}
+  local renderer = self.renderer or {}
+  local wide_clusters = 0
+  if self.model.cell_at_index then
+    for index = 0, self.model.columns * self.model.rows - 1 do
+      if self.model:cell_at_index(index).width == 2 then wide_clusters = wide_clusters + 1 end
+    end
+  end
   return {
     frame = self.frame_number,
     cpu_frame_ms = self.cpu_frame_ms,
     cpu_prepare_ms = self.cpu_prepare_ms,
     terminal_cells = self.model.columns * self.model.rows,
-    dirty_cells = self.renderer.dirty_cells,
-    dirty_ranges = self.renderer.dirty_ranges,
-    cells_uploaded = self.renderer.cells_uploaded,
-    bytes_uploaded = self.renderer.bytes_uploaded,
-    full_update = self.renderer.full_update,
-    draw_calls = self.renderer.draw_calls,
-    glyph_count = self.font.atlas:glyph_count(),
-    atlas_width = self.font.atlas.width,
-    atlas_height = self.font.atlas.height,
-    atlas_occupancy = self.font.atlas:occupancy(),
+    dirty_cells = renderer.dirty_cells or 0,
+    dirty_ranges = renderer.dirty_ranges or 0,
+    cells_uploaded = renderer.cells_uploaded or 0,
+    bytes_uploaded = renderer.bytes_uploaded or 0,
+    full_update = renderer.full_update or false,
+    draw_calls = renderer.draw_calls or 0,
+    glyph_count = atlas:glyph_count(),
+    atlas_width = atlas.width,
+    atlas_height = atlas.height,
+    atlas_occupancy = atlas:occupancy(),
+    unicode_version = require("kiwi.unicode.properties").version,
+    primary_font = self.font.font_path or "legacy atlas",
+    fallback_faces_loaded = self.font.faces and #self.font.faces - 1 or 0,
+    wide_clusters = wide_clusters,
+    over_limit_clusters = self.model.stats and self.model.stats.text and self.model.stats.text.over_limit_clusters or 0,
+    shaping_rows_invalidated = renderer.shaping_rows_invalidated or 0,
+    rows_reshaped = renderer.rows_reshaped or 0,
+    runs_reshaped = renderer.runs_reshaped or 0,
+    glyphs_produced = renderer.glyphs_produced or 0,
+    shape_cache_hits = renderer.shape_cache_hits or 0,
+    shape_cache_misses = renderer.shape_cache_misses or 0,
+    glyph_instances_uploaded = renderer.glyph_instances_uploaded or 0,
+    glyph_bytes_uploaded = renderer.glyph_bytes_uploaded or 0,
+    glyph_instances_dropped = renderer.glyph_instances_dropped or 0,
+    atlas_hits = glyph_cache_stats.hits or 0,
+    atlas_misses = glyph_cache_stats.misses or 0,
+    atlas_failures = glyph_cache_stats.failures or 0,
+    fallback_hits = font_stats.fallback_hits or 0,
+    fallback_misses = font_stats.fallback_misses or 0,
     drawable_width = self.context.width,
     drawable_height = self.context.height,
     content_scale_x = xscale,
@@ -145,6 +174,27 @@ function Metrics:report(now)
     end
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
   end
+  io.stdout:write(string.format(
+    "text=unicode-%s primary=%s fallbacks=%d shape=%d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d/%d/%d fallback=%d/%d over-limit=%d\n",
+    item.unicode_version,
+    item.primary_font,
+    item.fallback_faces_loaded,
+    item.shaping_rows_invalidated,
+    item.rows_reshaped,
+    item.runs_reshaped,
+    item.glyphs_produced,
+    item.shape_cache_hits,
+    item.shape_cache_misses,
+    item.glyph_instances_uploaded,
+    item.glyph_bytes_uploaded,
+    item.glyph_instances_dropped,
+    item.atlas_hits,
+    item.atlas_misses,
+    item.atlas_failures,
+    item.fallback_hits,
+    item.fallback_misses,
+    item.over_limit_clusters
+  ))
 end
 
 return Metrics

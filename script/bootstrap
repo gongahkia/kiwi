@@ -20,7 +20,7 @@ for command in luajit curl unzip sha256sum pkg-config tic infocmp; do
   fi
 done
 
-for package in glfw3 freetype2; do
+for package in glfw3 freetype2 harfbuzz fontconfig; do
   if ! pkg-config --exists "$package"; then
     print -u2 "Missing pkg-config package: $package. Install the Fedora development package documented in README.md."
     exit 1

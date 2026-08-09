@@ -1,6 +1,7 @@
 local Context = require("kiwi.gpu.context")
 local Demo = require("kiwi.app.demo")
-local FreeType = require("kiwi.font.freetype")
+local TextInspector = require("kiwi.diagnostics.text_inspector")
+local FontSystem = require("kiwi.font.system")
 local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Pty = require("kiwi.process.pty")
@@ -30,6 +31,8 @@ local function parse_options()
     elseif value == "--replay" then
       index = index + 1
       options.replay = assert(arg[index], "--replay needs a JSONL path")
+    elseif value == "--inspect" then
+      options.inspect = true
     elseif value == "--" then
       options.command = {}
       for command_index = index + 1, #arg do
@@ -37,7 +40,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --demo or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --demo, --inspect, or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -53,17 +56,27 @@ local function dimensions(window, font)
 end
 
 local function run_live(options)
-  local window = Window.new(1600, 960, "Kiwi M1 terminal")
+  local window = Window.new(1600, 960, "Kiwi M2 terminal")
   local context
   local renderer
+  local font
   local pty
   local recorder
   local ok, result = xpcall(function()
     context = Context.new(window)
-    local font = FreeType.rasterize({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
+    font = FontSystem.new({
+      pixel_height = number_from_env("KIWI_FONT_PX", 20),
+      font_path = os.getenv("KIWI_FONT"),
+      primary_family = os.getenv("KIWI_FONT_FAMILY") or "monospace",
+      ligatures = os.getenv("KIWI_LIGATURES") == "1",
+      contextual_alternates = os.getenv("KIWI_CALT") == "1",
+    })
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
-    local state = State.new(columns, rows, { scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000) })
+    local state = State.new(columns, rows, {
+      scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000),
+      ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
+    })
     local root = os.getenv("KIWI_ROOT") or "."
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
       TERM = "kiwi",
@@ -102,7 +115,7 @@ local function run_live(options)
       end
     end)
 
-    io.stdout:write(string.format("Kiwi M1: TERM=kiwi child=%s grid=%dx%d atlas=%d glyphs\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.atlas:glyph_count()))
+    io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
     while not window:should_close() do
       local now = window:time()
       if now < next_frame then
@@ -162,11 +175,15 @@ local function run_live(options)
       end
     end
     parser:finish()
+    if options.inspect then
+      io.stdout:write(TextInspector.format(TextInspector.describe(state, font, state.cursor.column, state.cursor.row)), "\n")
+    end
   end, debug.traceback)
 
   if pty then pty:shutdown() end
   if recorder then recorder:close() end
   if renderer then renderer:destroy() end
+  if font then font:destroy() end
   if context then context:destroy() end
   window:destroy()
   if not ok then error(result) end

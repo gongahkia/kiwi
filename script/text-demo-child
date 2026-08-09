@@ -1,0 +1,13 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+printf '%s\n' \
+  'Kiwi M2 text laboratory — Unicode 17.0' \
+  'ASCII: The quick brown fox -> != <= >= ffi' \
+  'accent: é  decomposed: é  stack: ạ̊́' \
+  'Greek/Cyrillic: Ελληνικά Привет' \
+  'CJK: 漢字 日本語 カタカナ 한글　！' \
+  'box: ┌─┬─┐  │ │ │  └─┴─┘  blocks: █▓▒░' \
+  'emoji: 😀 ❤️ ♥️ 👍🏽 👩‍💻 🇸🇬 1️⃣ ©️ ™️' \
+  'private use:   ' \
+  'right margin and cursor coverage are inspected manually.'

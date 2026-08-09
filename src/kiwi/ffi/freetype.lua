@@ -17,6 +17,7 @@ typedef struct FT_LibraryRec_* FT_Library;
 typedef struct FT_FaceRec_* FT_Face;
 typedef struct FT_GlyphSlotRec_* FT_GlyphSlot;
 typedef struct FT_SizeRec_* FT_Size;
+typedef struct FT_Size_InternalRec_* FT_Size_Internal;
 typedef struct FT_CharMapRec_* FT_CharMap;
 typedef struct FT_DriverRec_* FT_Driver;
 typedef struct FT_MemoryRec_* FT_Memory;
@@ -28,6 +29,7 @@ typedef void (*FT_Generic_Finalizer)(void* object);
 typedef struct { void* data; FT_Generic_Finalizer finalizer; } FT_Generic;
 typedef struct { FT_Pos xMin; FT_Pos yMin; FT_Pos xMax; FT_Pos yMax; } FT_BBox;
 typedef struct { FT_Pos x; FT_Pos y; } FT_Vector;
+typedef struct { FT_UShort x_ppem; FT_UShort y_ppem; FT_Fixed x_scale; FT_Fixed y_scale; FT_Pos ascender; FT_Pos descender; FT_Pos height; FT_Pos max_advance; } FT_Size_Metrics;
 typedef struct { FT_Pos width; FT_Pos height; FT_Pos horiBearingX; FT_Pos horiBearingY; FT_Pos horiAdvance; FT_Pos vertBearingX; FT_Pos vertBearingY; FT_Pos vertAdvance; } FT_Glyph_Metrics;
 typedef struct { FT_UInt rows; FT_UInt width; FT_Int pitch; FT_Byte* buffer; FT_UShort num_grays; FT_Byte pixel_mode; FT_Byte palette_mode; void* palette; } FT_Bitmap;
 typedef struct { FT_Short n_contours; FT_Short n_points; FT_Vector* points; FT_Byte* tags; FT_Short* contours; FT_Int flags; } FT_Outline;
@@ -41,6 +43,7 @@ typedef struct FT_FaceRec_ {
   FT_GlyphSlot glyph; FT_Size size; FT_CharMap charmap; FT_Driver driver; FT_Memory memory; FT_Stream stream;
   FT_ListRec sizes_list; FT_Generic autohint; void* extensions; FT_Face_Internal internal;
 } FT_FaceRec;
+typedef struct FT_SizeRec_ { FT_Face face; FT_Generic generic; FT_Size_Metrics metrics; FT_Size_Internal internal; } FT_SizeRec;
 typedef struct FT_GlyphSlotRec_ {
   FT_Library library; FT_Face face; FT_GlyphSlot next; FT_UInt glyph_index; FT_Generic generic;
   FT_Glyph_Metrics metrics; FT_Fixed linearHoriAdvance; FT_Fixed linearVertAdvance; FT_Vector advance;
@@ -52,8 +55,11 @@ FT_Error FT_Init_FreeType(FT_Library* alibrary);
 FT_Error FT_Done_FreeType(FT_Library library);
 FT_Error FT_New_Face(FT_Library library, const char* filepathname, FT_Long face_index, FT_Face* aface);
 FT_Error FT_Done_Face(FT_Face face);
+FT_Error FT_Reference_Face(FT_Face face);
 FT_Error FT_Set_Pixel_Sizes(FT_Face face, FT_UInt pixel_width, FT_UInt pixel_height);
 FT_Error FT_Load_Char(FT_Face face, FT_ULong char_code, FT_Int32 load_flags);
+FT_Error FT_Load_Glyph(FT_Face face, FT_UInt glyph_index, FT_Int32 load_flags);
+FT_UInt FT_Get_Char_Index(FT_Face face, FT_ULong charcode);
 ]]
 
 local ok, freetype = pcall(ffi.load, "freetype")
@@ -65,4 +71,7 @@ return {
   ffi = ffi,
   lib = freetype,
   load_render = 0x4,
+  load_color = 0x100000,
+  pixel_mode_gray = 2,
+  pixel_mode_bgra = 7,
 }

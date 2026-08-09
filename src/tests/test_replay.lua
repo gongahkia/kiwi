@@ -6,6 +6,7 @@ local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 
 local LIVE_RECORDING = "src/tests/fixtures/replay/live-color-cr.jsonl"
+local UNICODE_RECORDING = "src/tests/fixtures/replay/unicode-clusters.jsonl"
 
 local function with_temporary_recording(callback)
   local path = os.tmpname()
@@ -64,6 +65,17 @@ return {
     Assert.equal(state:get(0, 0).fg, state:get(6, 0).fg)
     Assert.truthy(state:get(1, 0).fg ~= state:get(6, 0).fg)
     Assert.equal(stats.bytes, 18)
+    Assert.equal(stats.errors, 0)
+  end,
+  unicode_replay_preserves_split_clusters_and_wide_occupancy = function()
+    local state = State.new(1, 1)
+    local stats = Replay.apply_file(state, UNICODE_RECORDING)
+    Assert.equal(state:get(0, 0).glyph, "e\204\129")
+    Assert.equal(state:get(0, 0).width, 1)
+    Assert.equal(state:get(1, 0).width, 2)
+    Assert.truthy(state:get(2, 0).continuation)
+    Assert.equal(state:get(3, 0).width, 2)
+    Assert.truthy(state:get(4, 0).continuation)
     Assert.equal(stats.errors, 0)
   end,
 }
