@@ -1410,6 +1410,39 @@ if(CARGO_EXECUTABLE)
   )
 endif()
 
+function(strok_find_python_with_headers output)
+  foreach(candidate python3.15 python3.14 python3.13 python3.12 python3.11 python3.10 python3.9 python3 python)
+    execute_process(
+      COMMAND "${candidate}" -c "import pathlib, sysconfig; raise SystemExit(not pathlib.Path(sysconfig.get_path('include'), 'Python.h').is_file())"
+      RESULT_VARIABLE status
+      OUTPUT_QUIET
+      ERROR_QUIET
+    )
+    if(status EQUAL 0)
+      execute_process(
+        COMMAND "${candidate}" -c "import sys; print(sys.executable)"
+        OUTPUT_VARIABLE executable
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      set(${output} "${executable}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+endfunction()
+
+strok_find_python_with_headers(STROK_PYTHON_EXECUTABLE)
+if(STROK_PYTHON_EXECUTABLE)
+  add_test(NAME python_c_api_installed
+    COMMAND ${CMAKE_COMMAND}
+      -DSTROK_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -DSTROK_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/python_c_api_install_prefix
+      -DSTROK_PYTHON_EXECUTABLE=${STROK_PYTHON_EXECUTABLE}
+      -DSTROK_PYTHON_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/bindings/python
+      -DSTROK_PYTHON_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}/python_c_api_build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/python_c_api_install_test.cmake
+  )
+endif()
+
 add_executable(renderer_config_tests tests/renderer_config_tests.cpp)
 target_include_directories(renderer_config_tests PRIVATE src)
 target_compile_features(renderer_config_tests PRIVATE cxx_std_20)
