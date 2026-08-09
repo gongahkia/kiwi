@@ -3,6 +3,7 @@
 #include "block_sad.hpp"
 #include "braille_renderer.hpp"
 #include "crosshatch.hpp"
+#include "depth_image_view.hpp"
 #include "etf.hpp"
 #include "frame_sampling.hpp"
 #include "glyph_hog.hpp"
@@ -66,6 +67,17 @@ struct SceneDepthRange {
   double far = 0.0;
 };
 
+DepthImageView sceneDepthImageView(const SceneGBuffer& gbuffer) {
+  const std::size_t width = gbuffer.albedo.w > 0 ? static_cast<std::size_t>(gbuffer.albedo.w) : 0U;
+  const std::size_t row_stride = width <= std::numeric_limits<std::size_t>::max() / sizeof(double) ? width * sizeof(double) : 0U;
+  return DepthImageView{
+    .data = gbuffer.depth.data(),
+    .width = gbuffer.albedo.w,
+    .height = gbuffer.albedo.h,
+    .row_stride_bytes = row_stride,
+  };
+}
+
 PassPort renderPort(std::string name, BufferKind kind) {
   return PassPort{
     .name = std::move(name),
@@ -82,18 +94,26 @@ SceneVec3 normalizeSceneVec(SceneVec3 value) {
 }
 
 bool sceneGBufferUsable(const SceneGBuffer& gbuffer) {
-  const std::size_t pixels = static_cast<std::size_t>(gbuffer.albedo.w) * static_cast<std::size_t>(gbuffer.albedo.h);
-  return gbuffer.albedo.w > 0 &&
-         gbuffer.albedo.h > 0 &&
+  if (gbuffer.albedo.w <= 0 || gbuffer.albedo.h <= 0) {
+    return false;
+  }
+  const std::size_t width = static_cast<std::size_t>(gbuffer.albedo.w);
+  const std::size_t height = static_cast<std::size_t>(gbuffer.albedo.h);
+  if (width > std::numeric_limits<std::size_t>::max() / height) {
+    return false;
+  }
+  const std::size_t pixels = width * height;
+  return pixels <= std::numeric_limits<std::size_t>::max() / 3U &&
          gbuffer.albedo.rgb.size() == pixels * 3U &&
          gbuffer.depth.size() == pixels &&
-         gbuffer.normals.size() == pixels;
+         gbuffer.normals.size() == pixels &&
+         !depthImageViewError(sceneDepthImageView(gbuffer)).has_value();
 }
 
 std::optional<SceneDepthRange> sceneDepthRange(const SceneGBuffer& gbuffer) {
   std::optional<SceneDepthRange> range;
   for (const double depth : gbuffer.depth) {
-    if (!std::isfinite(depth)) {
+    if (!depthSampleValid(depth)) {
       continue;
     }
     if (!range.has_value()) {
@@ -126,7 +146,7 @@ std::optional<SceneCellSample> sampleSceneCell(const SceneGBuffer& gbuffer, int 
     for (int x = x0; x < x1; ++x) {
       const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(gbuffer.albedo.w) + static_cast<std::size_t>(x);
       const double depth = gbuffer.depth[index];
-      if (!std::isfinite(depth)) {
+      if (!depthSampleValid(depth)) {
         continue;
       }
       r += gbuffer.albedo.rgb[index * 3U];

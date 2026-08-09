@@ -1,5 +1,6 @@
 #include <strok/cell_buffer.hpp>
 #include <strok/color_image_view.hpp>
+#include <strok/depth_image_view.hpp>
 #include <strok/frame.hpp>
 #include <strok/render.hpp>
 #include <strok/renderer.hpp>
@@ -45,6 +46,9 @@ int main() {
 
   const strok::ColorImageView image;
   expect(image.data == nullptr && image.pixel_format == strok::ColorPixelFormat::Rgb24, "public ColorImageView defaults");
+
+  const strok::DepthImageView depth;
+  expect(depth.data == nullptr && depth.interpretation == strok::DepthInterpretation::CameraLinear, "public DepthImageView defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);
