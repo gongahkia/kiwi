@@ -67,12 +67,13 @@ strok::ColorImageView viewFor(const strok::Frame& frame) {
   };
 }
 
-strok::Renderer::CreateResult createRenderer(double glyph_stickiness = 0.05) {
+strok::Renderer::CreateResult createRenderer(double glyph_stickiness = 0.05, bool temporal_cell_reuse = false) {
   strok::RendererConfig config;
   config.cell_aspect = 1.0;
   config.mode = "structure";
   config.edge_threshold = 0.01;
   config.glyph_stickiness = glyph_stickiness;
+  config.temporal_cell_reuse = temporal_cell_reuse;
   return strok::Renderer::create(config, strok::RenderGrid{.cols = kCols, .rows = kRows});
 }
 
@@ -147,7 +148,7 @@ int main() {
       static_cast<std::uint8_t>(strok::MotionVectorValidity::Disoccluded);
   disoccluded_validity[static_cast<std::size_t>(kHeight / 4) * static_cast<std::size_t>(kWidth) + static_cast<std::size_t>(kWidth * 3 / 4)] =
       static_cast<std::uint8_t>(strok::MotionVectorValidity::Invalid);
-  strok::Renderer::CreateResult disoccluded_renderer = createRenderer(1.0);
+  strok::Renderer::CreateResult disoccluded_renderer = createRenderer(1.0, true);
   expect(disoccluded_renderer.succeeded(), "disocclusion renderer construction");
   expect(disoccluded_renderer.renderer->render(textureFrame(0)).succeeded(), "disocclusion initial frame");
   const strok::RenderResult disoccluded = disoccluded_renderer.renderer->render(strok::RenderInput{

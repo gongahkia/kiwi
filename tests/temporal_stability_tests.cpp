@@ -61,6 +61,22 @@ strok::Frame angledEdgeFrame(int numerator, int denominator) {
   return frame;
 }
 
+strok::Frame splitEdgeFrame(bool vertical) {
+  strok::Frame frame{
+    .w = kFrameWidth,
+    .h = kFrameHeight,
+    .rgb = {},
+  };
+  frame.rgb.reserve(static_cast<std::size_t>(kFrameWidth) * static_cast<std::size_t>(kFrameHeight) * 3U);
+  for (int y = 0; y < kFrameHeight; ++y) {
+    for (int x = 0; x < kFrameWidth; ++x) {
+      const std::uint8_t value = (vertical ? x < kFrameWidth / 2 : y < kFrameHeight / 2) ? 0U : 255U;
+      frame.rgb.insert(frame.rgb.end(), {value, value, value});
+    }
+  }
+  return frame;
+}
+
 strok::Frame solidColorFrame(std::uint8_t red, std::uint8_t green, std::uint8_t blue) {
   strok::Frame frame{
     .w = 8,
@@ -80,12 +96,13 @@ struct HistorySequence {
   strok_test::TemporalStability metric;
 };
 
-HistorySequence renderHistorySequence(double glyph_stickiness) {
+HistorySequence renderHistorySequence(double glyph_stickiness, bool temporal_cell_reuse = false) {
   strok::RendererConfig config;
   config.cell_aspect = 1.0;
   config.mode = "structure";
   config.edge_threshold = 0.01;
   config.glyph_stickiness = glyph_stickiness;
+  config.temporal_cell_reuse = temporal_cell_reuse;
   const strok::Renderer::CreateResult created = strok::Renderer::create(config, strok::RenderGrid{.cols = kGridCols, .rows = kGridRows});
   expect(created.succeeded(), "history renderer construction");
 
@@ -134,6 +151,46 @@ int main() {
          "temporal metric counts every adjacent CellBuffer pair");
   expect(sticky_first.metric.glyph_changes > 0, "temporal metric records glyph churn");
   expect(sticky_first.metric.color_changes > 0, "temporal metric records color churn");
+  strok::RendererConfig retaining_candidate_config;
+  retaining_candidate_config.cell_aspect = 1.0;
+  retaining_candidate_config.mode = "structure";
+  retaining_candidate_config.edge_threshold = 0.01;
+  retaining_candidate_config.glyph_stickiness = 1.0;
+  retaining_candidate_config.temporal_cell_reuse = true;
+  const strok::Renderer::CreateResult retaining_candidate_renderer = strok::Renderer::create(
+    retaining_candidate_config, strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(retaining_candidate_renderer.succeeded() && retaining_candidate_renderer.renderer->render(splitEdgeFrame(true)).succeeded(),
+         "retaining candidate renderer starts a sequence");
+  const strok::Cell retained_cell = retaining_candidate_renderer.renderer->cells().at(0, 0);
+  const strok::RenderResult retained_candidate = retaining_candidate_renderer.renderer->render(splitEdgeFrame(false));
+  expect(retained_candidate.succeeded() && retained_candidate.stats.temporal_cell_candidate_cells == 1 &&
+             retained_candidate.stats.temporal_cell_reused_cells == 1,
+         "near-tied temporal candidates can retain their full prior CellBuffer value");
+  expect(retaining_candidate_renderer.renderer->cells().at(0, 0) == retained_cell,
+         "temporal reuse retains the prior glyph and colors together");
+  retaining_candidate_config.glyph_stickiness = 0.05;
+  const strok::Renderer::CreateResult rejected_candidate_renderer = strok::Renderer::create(
+    retaining_candidate_config, strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(rejected_candidate_renderer.succeeded() && rejected_candidate_renderer.renderer->render(splitEdgeFrame(true)).succeeded(),
+         "rejected candidate renderer starts a sequence");
+  const strok::RenderResult rejected_candidate = rejected_candidate_renderer.renderer->render(splitEdgeFrame(false));
+  expect(rejected_candidate.succeeded() && rejected_candidate.stats.temporal_cell_candidate_cells == 1 &&
+             rejected_candidate.stats.temporal_cell_reused_cells == 0,
+         "current shape scoring rejects temporal candidates outside the stickiness margin");
+
+  strok::RendererConfig reset_candidate_config;
+  reset_candidate_config.cell_aspect = 1.0;
+  reset_candidate_config.mode = "structure";
+  reset_candidate_config.edge_threshold = 0.01;
+  reset_candidate_config.temporal_cell_reuse = true;
+  const strok::Renderer::CreateResult reset_candidate_renderer = strok::Renderer::create(
+    reset_candidate_config, strok::RenderGrid{.cols = kGridCols, .rows = kGridRows});
+  expect(reset_candidate_renderer.succeeded() && reset_candidate_renderer.renderer->render(translatedTextureFrame(0)).succeeded(),
+         "candidate reset renderer starts a sequence");
+  reset_candidate_renderer.renderer->reset();
+  const strok::RenderResult after_candidate_reset = reset_candidate_renderer.renderer->render(translatedTextureFrame(1));
+  expect(after_candidate_reset.succeeded() && after_candidate_reset.stats.temporal_cell_candidate_cells == 0,
+         "reset clears prior CellBuffer candidates");
 
   strok::RenderTemporalState sticky_orientation_state;
   const strok::CellBuffer sticky_orientation = renderOrientationSequence(0.60, &sticky_orientation_state);

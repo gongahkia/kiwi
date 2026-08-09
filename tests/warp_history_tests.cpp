@@ -75,6 +75,14 @@ int main() {
   expect(shifted_shapes[1].values == shapes[0].values, "shape warp second samples previous left cell");
   expect(shifted_shapes[2].values == shapes[1].values, "shape warp third samples previous middle cell");
 
+  const std::vector<strok::Cell> cells{
+    strok::Cell{.glyph = U'A', .fg = strok::Rgb{.r = 1}, .bg = strok::Rgb{.b = 1}},
+    strok::Cell{.glyph = U'B', .fg = strok::Rgb{.g = 2}, .bg = strok::Rgb{.r = 2}},
+    strok::Cell{.glyph = U'C', .fg = strok::Rgb{.b = 3}, .bg = strok::Rgb{.g = 3}},
+  };
+  const std::vector<strok::Cell> warped_cells = strok::warpCellHistory(cells, 3, 1, uniformFlow(30, 10, 10, 10.0, 0.0));
+  expect(warped_cells == std::vector<strok::Cell>{cells[0], cells[0], cells[1]}, "cell warp preserves full symbolic history");
+
   const double hysteresis_only_mismatch = panClipMismatchRate(false);
   const double warped_mismatch = panClipMismatchRate(true);
   expect(hysteresis_only_mismatch >= 0.60, "pan clip baseline keeps stale same-cell history");

@@ -26,6 +26,7 @@ struct RenderTemporalState {
   std::optional<LuminanceField> previous_luminance;
   std::optional<LuminanceField> previous_supersample_luminance;
   std::vector<CellLuminanceRegion> previous_shape_regions;
+  std::optional<CellBuffer> previous_cells;
 
   void reset() {
     glyph_hysteresis.reset();
@@ -33,6 +34,7 @@ struct RenderTemporalState {
     previous_luminance.reset();
     previous_supersample_luminance.reset();
     previous_shape_regions.clear();
+    previous_cells.reset();
   }
 };
 

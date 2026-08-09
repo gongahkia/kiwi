@@ -55,6 +55,8 @@ constexpr double kPi = 3.14159265358979323846;
 struct ShapeMatchStats {
   int64_t cells = 0;
   int64_t ns = 0;
+  int64_t temporal_candidate_cells = 0;
+  int64_t temporal_reused_cells = 0;
 };
 
 struct HistoryMotionSelection {
@@ -839,6 +841,12 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     temporal_state->glyph_hysteresis.resize(size.cols, size.rows);
     temporal_state->orientation_hysteresis.resize(size.cols, size.rows);
   }
+  const bool temporal_cell_reuse_enabled = temporal_state != nullptr && shape_table != nullptr && config.temporal_cell_reuse;
+  const CellBuffer* previous_cell_history = nullptr;
+  if (temporal_cell_reuse_enabled && temporal_state->previous_cells.has_value() &&
+      temporal_state->previous_cells->cols() == size.cols && temporal_state->previous_cells->rows() == size.rows) {
+    previous_cell_history = &*temporal_state->previous_cells;
+  }
   std::optional<CellMotionField> external_motion;
   bool external_motion_has_invalid = false;
   if (input.motion_vectors.has_value()) {
@@ -871,6 +879,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   std::vector<CellLuminanceRegion> cell_shape_regions;
   std::vector<char32_t> warped_previous_glyphs;
   std::vector<CellLuminanceRegion> warped_previous_shape_regions;
+  std::vector<Cell> warped_previous_cells;
   std::vector<bool> warped_history_available;
   const double edge_threshold = effectiveEdgeThresholdFromConfig(config);
   const double orient_stickiness = orientationStickinessFromConfig(config);
@@ -906,6 +915,8 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     for (const ShapeMatchStats& local_stats : worker_stats) {
       result.stats.shape_match_cells += local_stats.cells;
       result.stats.shape_match_ns += local_stats.ns;
+      result.stats.temporal_cell_candidate_cells += local_stats.temporal_candidate_cells;
+      result.stats.temporal_cell_reused_cells += local_stats.temporal_reused_cells;
     }
     result.stats.render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
   };
@@ -1202,6 +1213,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .run = [&](PassContext&) {
         warped_previous_glyphs.clear();
         warped_previous_shape_regions.clear();
+        warped_previous_cells.clear();
         warped_history_available.clear();
         if (!previous_glyphs.empty()) {
           std::optional<HistoryMotionSelection> external_selection;
@@ -1226,7 +1238,10 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
           if (previous_shape_regions.size() == cell_shape_regions.size()) {
             warped_previous_shape_regions = warpCellShapeHistory(previous_shape_regions, size.cols, size.rows, *history_flow);
           }
-          result.stats.warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size());
+          if (previous_cell_history != nullptr) {
+            warped_previous_cells = warpCellHistory(previous_cell_history->cells(), size.cols, size.rows, *history_flow);
+          }
+          result.stats.warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size() + warped_previous_cells.size());
           result.stats.warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();
         }
       },
@@ -1296,14 +1311,39 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                     temporal_state->glyph_hysteresis.clear(cell_index);
                     cell.glyph = best.glyph;
                   } else {
+                    const Cell* temporal_candidate = nullptr;
+                    if (previous_cell_history != nullptr) {
+                      const Cell& history_cell = warped_previous_cells.empty()
+                                                   ? previous_cell_history->cells()[cell_index]
+                                                   : warped_previous_cells[cell_index];
+                      // Full-cell reuse needs zero color error until candidate scoring
+                      // explicitly models color fidelity.
+                      if (history_cell.fg == cell.fg && history_cell.bg == cell.bg) {
+                        temporal_candidate = &history_cell;
+                      }
+                    }
+                    if (temporal_candidate != nullptr) {
+                      ++local_stats->temporal_candidate_cells;
+                    }
                     const std::vector<char32_t>& history_glyphs = warped_previous_glyphs.empty() ? previous_glyphs : warped_previous_glyphs;
                     const std::optional<char32_t> history_glyph = history_glyphs.empty() ? std::nullopt : std::optional<char32_t>(history_glyphs[cell_index]);
-                    const char32_t previous_glyph = history_glyph.value_or(cell.glyph);
+                    const char32_t previous_glyph = temporal_candidate == nullptr ? history_glyph.value_or(cell.glyph) : temporal_candidate->glyph;
                     const std::vector<double> previous_features = warped_previous_shape_regions.empty()
                                                                     ? features
                                                                     : match_region(warped_previous_shape_regions[cell_index]);
-                    const double previous_score = scoreGlyphShape(previous_features, *shape_table, previous_glyph);
-                    cell.glyph = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, history_glyph).glyph;
+                    const double previous_score = temporal_candidate == nullptr
+                                                    ? scoreGlyphShape(previous_features, *shape_table, previous_glyph)
+                                                    : scoreGlyphShape(features, *shape_table, previous_glyph);
+                    const std::optional<char32_t> candidate_glyph = temporal_candidate == nullptr
+                                                                       ? history_glyph
+                                                                       : std::optional<char32_t>(temporal_candidate->glyph);
+                    const GlyphHysteresisDecision decision = temporal_state->glyph_hysteresis.choose(cell_index, best, previous_score, glyph_stickiness, candidate_glyph);
+                    if (temporal_candidate != nullptr && decision.kept_previous && decision.glyph == temporal_candidate->glyph) {
+                      cell = *temporal_candidate;
+                      ++local_stats->temporal_reused_cells;
+                    } else {
+                      cell.glyph = decision.glyph;
+                    }
                   }
                 } else {
                   cell.glyph = matchGlyphShape(features, *shape_table);
@@ -1477,6 +1517,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     if (config.collect_symbolic_metrics) {
       collectSymbolicMetrics(*output, rendered_cells, &result.stats);
     }
+    if (temporal_cell_reuse_enabled) {
+      temporal_state->previous_cells = rendered_cells;
+    }
     *output = std::move(rendered_cells);
     return result;
   }
@@ -1517,6 +1560,9 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   finish_stats();
   if (config.collect_symbolic_metrics) {
     collectSymbolicMetrics(*output, rendered_cells, &result.stats);
+  }
+  if (temporal_cell_reuse_enabled) {
+    temporal_state->previous_cells = rendered_cells;
   }
   *output = std::move(rendered_cells);
   return result;

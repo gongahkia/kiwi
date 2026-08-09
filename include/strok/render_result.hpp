@@ -35,6 +35,8 @@ struct RenderStats {
   int64_t external_motion_cells = 0;
   int64_t inferred_motion_cells = 0;
   int64_t history_suppressed_cells = 0;
+  int64_t temporal_cell_candidate_cells = 0;
+  int64_t temporal_cell_reused_cells = 0;
   int64_t warp_history_cells = 0;
   int64_t warp_history_ns = 0;
   int64_t temporal_supersample_frames = 0;

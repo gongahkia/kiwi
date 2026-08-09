@@ -30,6 +30,9 @@ struct RendererConfig {
   std::optional<double> glyph_stickiness;
   std::optional<double> orient_stickiness;
   int temporal_supersample = 1;
+  // Makes a valid prior CellBuffer an opt-in structure candidate. Reuse requires
+  // the existing glyph stickiness margin, current shape score, and exact colors.
+  bool temporal_cell_reuse = false;
   bool fit = false;
   bool gpu = false;
   bool line_ligatures = false;

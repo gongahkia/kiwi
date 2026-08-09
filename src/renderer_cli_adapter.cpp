@@ -23,6 +23,8 @@ void accumulate(RenderStats* total, const RenderStats& frame) {
   total->external_motion_cells += frame.external_motion_cells;
   total->inferred_motion_cells += frame.inferred_motion_cells;
   total->history_suppressed_cells += frame.history_suppressed_cells;
+  total->temporal_cell_candidate_cells += frame.temporal_cell_candidate_cells;
+  total->temporal_cell_reused_cells += frame.temporal_cell_reused_cells;
   total->warp_history_cells += frame.warp_history_cells;
   total->warp_history_ns += frame.warp_history_ns;
   total->temporal_supersample_frames += frame.temporal_supersample_frames;

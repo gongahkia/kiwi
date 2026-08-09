@@ -65,4 +65,17 @@ std::vector<CellLuminanceRegion> warpCellShapeHistory(std::span<const CellLumina
   return warped;
 }
 
+std::vector<Cell> warpCellHistory(std::span<const Cell> previous_cells, int cols, int rows, const FlowField& flow) {
+  validateWarpInputs(previous_cells.size(), cols, rows, flow, "warp history cell count mismatch");
+
+  std::vector<Cell> warped(previous_cells.size());
+  for (int row = 0; row < rows; ++row) {
+    for (int col = 0; col < cols; ++col) {
+      warped[static_cast<std::size_t>(row) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(col)] =
+        previous_cells[warpedSourceIndex(col, row, cols, rows, flow)];
+    }
+  }
+  return warped;
+}
+
 }  // namespace strok
