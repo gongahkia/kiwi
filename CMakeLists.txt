@@ -140,6 +140,7 @@ set(STROK_FRONTEND_MEDIA_SOURCES
   src/asciinema_in.cpp
   src/asciinema_source.cpp
   src/asciinema_vte.cpp
+  src/captions.cpp
   src/cli.cpp
   src/cli_spec.cpp
   src/graph_yaml.cpp
@@ -162,25 +163,33 @@ set(STROK_FRONTEND_MEDIA_SOURCES
   src/video_decoder.cpp
 )
 
-set(STROK_OUTPUT_BACKEND_SOURCES
-  src/ansi.cpp
-  src/base64.cpp
-  src/bandwidth_guard.cpp
-  src/captions.cpp
+set(STROK_PRESENTATION_COMMON_SOURCES
   src/color_dither.cpp
   src/color_mode.cpp
   src/color_quantization.cpp
+)
+
+set(STROK_TERMINAL_BACKEND_SOURCES
+  src/ansi.cpp
+  src/bandwidth_guard.cpp
   src/diff_emitter.cpp
+  src/terminal_caps.cpp
+  src/terminal_layout.cpp
+)
+
+set(STROK_RASTER_BACKEND_SOURCES
+  src/base64.cpp
   src/graphics_alignment.cpp
-  src/graphics_emitter.cpp
-  src/hybrid_emitter.cpp
   src/iterm_inline.cpp
   src/kitty_graphics.cpp
   src/png_writer.cpp
   src/raster_compose.cpp
   src/sixel.cpp
-  src/terminal_caps.cpp
-  src/terminal_layout.cpp
+)
+
+set(STROK_GRAPHICS_BACKEND_SOURCES
+  src/graphics_emitter.cpp
+  src/hybrid_emitter.cpp
 )
 
 add_library(strok_gpu_backend STATIC
@@ -283,9 +292,74 @@ else()
 endif()
 
 if(STROK_BUILD_CLI)
+add_library(strok_presentation_common STATIC
+  ${STROK_PRESENTATION_COMMON_SOURCES}
+)
+target_include_directories(strok_presentation_common PRIVATE src)
+target_compile_features(strok_presentation_common PRIVATE cxx_std_20)
+set_target_properties(strok_presentation_common PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_presentation_common PUBLIC strok_core)
+
+add_library(strok_terminal_backend STATIC
+  ${STROK_TERMINAL_BACKEND_SOURCES}
+)
+target_include_directories(strok_terminal_backend PRIVATE src)
+target_compile_features(strok_terminal_backend PRIVATE cxx_std_20)
+set_target_properties(strok_terminal_backend PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_terminal_backend PUBLIC strok_presentation_common)
+
+add_library(strok_raster_backend STATIC
+  ${STROK_RASTER_BACKEND_SOURCES}
+)
+target_include_directories(strok_raster_backend PRIVATE src)
+target_compile_features(strok_raster_backend PRIVATE cxx_std_20)
+set_target_properties(strok_raster_backend PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_raster_backend PUBLIC strok_presentation_common ZLIB::ZLIB)
+
+add_library(strok_graphics_backend STATIC
+  ${STROK_GRAPHICS_BACKEND_SOURCES}
+)
+target_include_directories(strok_graphics_backend PRIVATE src)
+target_compile_features(strok_graphics_backend PRIVATE cxx_std_20)
+set_target_properties(strok_graphics_backend PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_graphics_backend PUBLIC strok_terminal_backend strok_raster_backend)
+
+foreach(strok_presentation_target IN ITEMS
+    strok_presentation_common
+    strok_terminal_backend
+    strok_raster_backend
+    strok_graphics_backend)
+  if(MSVC)
+    target_compile_options(${strok_presentation_target} PRIVATE /W4)
+    if(STROK_WARNINGS_AS_ERRORS)
+      target_compile_options(${strok_presentation_target} PRIVATE /WX)
+    endif()
+  else()
+    target_compile_options(${strok_presentation_target} PRIVATE -Wall -Wextra -Wpedantic)
+    if(STROK_WARNINGS_AS_ERRORS)
+      target_compile_options(${strok_presentation_target} PRIVATE -Werror)
+    endif()
+  endif()
+endforeach()
+
 add_executable(strok
   ${STROK_FRONTEND_MEDIA_SOURCES}
-  ${STROK_OUTPUT_BACKEND_SOURCES}
 )
 target_include_directories(strok SYSTEM PRIVATE third_party)
 target_compile_features(strok PRIVATE cxx_std_20)
@@ -295,7 +369,7 @@ set_target_properties(strok PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_compile_definitions(strok PRIVATE STROK_VERSION="${PROJECT_VERSION}")
-target_link_libraries(strok PRIVATE strok_cli_adapter PkgConfig::FFMPEG ZLIB::ZLIB strok_audio strok_audio_decode)
+target_link_libraries(strok PRIVATE strok_cli_adapter strok_terminal_backend strok_graphics_backend PkgConfig::FFMPEG strok_audio strok_audio_decode)
 
 install(TARGETS strok
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
