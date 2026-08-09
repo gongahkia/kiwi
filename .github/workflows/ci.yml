@@ -114,33 +114,54 @@ jobs:
       WAT_DATABASE_URL: postgres://wat:wat@localhost:5432/wat_ci
       WAT_VALIDATE_ENV: "false"
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm db:migrate
-      - run: pnpm db:seed:public
-      - run: pnpm release:check
-      - run: pnpm audit:deps
-      - run: pnpm audit:licenses
-      - run: pnpm security:gates
-      - run: pnpm test:security-gates
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm test:e2e:web
-      - run: pnpm test:e2e:extension
-      - run: pnpm test:error-tracking-smoke
-      - run: pnpm test:backup-verify
-      - run: pnpm test:dashboard
-      - run: pnpm test:fly-config
-      - run: pnpm test:launch-metrics
-      - run: pnpm test:helm
-      - run: pnpm alerts:check
-      - run: pnpm dashboard:check
-      - run: pnpm infra:fly:check
-      - run: pnpm build:all
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config ffmpeg valgrind \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libfreetype-dev zlib1g-dev
+
+      - name: Configure
+        run: cmake --preset ci
+
+      - name: Build
+        run: cmake --build --preset ci --target strok
+
+      - name: Shutdown path leak checks
+        run: |
+          cat >/tmp/strok-valgrind-wrapper <<'EOF'
+          #!/usr/bin/env bash
+          exec valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=99 \
+            ./build/ci/strok "$@"
+          EOF
+          chmod +x /tmp/strok-valgrind-wrapper
+          scripts/verify_shutdown_paths.sh /tmp/strok-valgrind-wrapper
+
+  homebrew:
+    name: homebrew formula (macos-latest)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate Homebrew source checkout
+        env:
+          STROK_REPOSITORY_TOKEN: ${{ github.token }}
+        run: |
+          git config --global url."https://x-access-token:${STROK_REPOSITORY_TOKEN}@github.com/${GITHUB_REPOSITORY}.git".insteadOf "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Install formula from source
+        run: |
+          brew untap local/strok >/dev/null 2>&1 || true
+          brew tap-new local/strok
+          cp packaging/homebrew/strok.rb "$(brew --repo local/strok)/Formula/strok.rb"
+          brew install --HEAD --build-from-source local/strok/strok
+
+      - name: Test formula
+        run: |
+          strok --version
+          brew test local/strok/strok
