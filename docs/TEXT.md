@@ -1,0 +1,89 @@
+# Kiwi M2 text architecture
+
+Kiwi M2 makes text a semantic terminal concern followed by a native shaping and rasterization pipeline. It is deliberately not a general Unicode layout engine: grid geometry comes from the terminal-width contract, HarfBuzz determines glyph IDs and placement inside that geometry, and bidi/reordering is outside this milestone.
+
+## Unicode contract
+
+The checked-in source is Unicode **17.0.0**. `unicode/17.0.0/SHA256SUMS` pins the exact official UCD inputs: GraphemeBreakProperty, GraphemeBreakTest, DerivedCoreProperties, EastAsianWidth, emoji-data, and emoji-variation-sequences. `src/kiwi/unicode/generated.lua` is generated data, not hand-maintained policy.
+
+```sh
+./script/fetch-unicode       # refetches only the pinned Unicode 17.0.0 inputs and records hashes
+make generate-unicode        # regenerates generated.lua deterministically
+make test-unicode            # runs the complete checked-in official GraphemeBreakTest corpus
+```
+
+`test_unicode.lua` validates all 766 cases in the pinned GraphemeBreakTest file. `unicode/grapheme.lua` implements extended grapheme cluster (EGC) boundaries under UAX #29, including CR/LF/control, Hangul, Extend/ZWJ/SpacingMark/Prepend, Indic_Conjunct_Break, Extended_Pictographic ZWJ, and regional-indicator rules. The input decoder, parser, and state accept arbitrary chunks; segmentation is independent of PTY read boundaries.
+
+Kiwi retains original code points and does no normalization, NFC/NFD conversion, case folding, or rewrite. A leading combining mark, ZWJ, or spacing mark is stored as received and is rendered with a dotted-circle display fallback so it remains visible. A cluster is capped at 64 code points by default (`max_cluster_codepoints`); further non-breaking code points begin a new visible cluster and increment `over_limit_clusters`. This is a deliberate resource bound for hostile streams, not a Unicode normalization policy.
+
+## Terminal-width policy
+
+`terminal/width.lua` is the only authority for terminal columns. Its policy ID is `kiwi-m2-width-v1` and it never delegates widths to font advances, HarfBuzz, Fontconfig, or the host `wcwidth` implementation.
+
+| Input class | Columns |
+| --- | ---: |
+| Normal EGC | 1 |
+| East Asian Width `W` or `F` | 2 |
+| EAW `A` | 1 by default; `KIWI_AMBIGUOUS_WIDTH=2` selects 2 |
+| Private-use code point | 1 |
+| Emoji presentation, VS16 emoji sequence, keycap, regional-indicator sequence, or emoji ZWJ sequence | 2 |
+| VS15 text presentation | normal EAW/private-use result |
+
+`KIWI_AMBIGUOUS_WIDTH` is a startup configuration and accepts the documented terminal choices `1` (default) or `2`; changing width policy during a session is intentionally not supported because it would require semantic reflow of the live terminal grid. The active policy is passed to every cluster width decision and is deterministic for replay. Private-use width is represented by the same policy object and defaults to 1; M2 does not expose a separate user switch yet.
+
+When an extending code point changes a cluster from one to two columns, Kiwi takes the adjacent blank cell only if it is still available. Otherwise it preserves the old footprint and increments `width_change_clamped`; this avoids overwriting a subsequent cluster. At the right margin a two-column cluster wraps early with DECAWM enabled, or is displayed in one column with DECAWM disabled. The same `width_change_clamped` counter reports this safe degradation.
+
+## Grid and mutation model
+
+Each semantic cell stores `glyph`, original `codepoints`, `display_text`, SGR attributes, and width. A two-column cluster has one anchor (`width=2`) followed by one continuation (`width=0`, `continuation=true`, `anchor_column=<anchor>`). Continuation cells have no independently drawable text. Parser writes route code points to the terminal state, which joins an EGC only when its previous cluster is still adjacent on the same active screen; cursor movement, edits, scrolling, resize, alternate-screen changes, and reset clear that context.
+
+Overwrite, erase, insert/delete character, resize, scroll, and alternate-screen transitions normalize rows so an anchor is never left without its continuation and a continuation is never left without its anchor. A clipped right-edge wide anchor degrades to one cell during normalization. Snapshots expose structured cluster metadata only when needed, preserving legacy ASCII fixture readability.
+
+Logical grid damage and shaped-glyph invalidation are separate. Terminal mutations mark cell damage. `text/layout.lua` reshapes only rows intersecting that damage (or all rows for resize/reset/alternate transition); static rows reuse their cached glyph list. The renderer still uploads background cell records only for logical damage, while the shaped-glyph buffer represents the visual layer.
+
+## Native shaping, fallback, and rendering
+
+The native path is FreeType + HarfBuzz + Fontconfig through narrow LuaJIT FFI declarations. `FontSystem` owns the FreeType library, `Face` owns a FreeType face and its HarfBuzz font, and destruction runs in reverse ownership order: HarfBuzz font, FreeType face, then FreeType library. Construction failures clean up partially acquired native handles.
+
+For a contiguous same-face run, the layout concatenates its cluster display text and shapes it with `hb_ft_font_create_referenced`, a fresh HarfBuzz buffer, `HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES`, and explicit LTR direction. Glyph cluster byte offsets are mapped back to terminal columns. `liga` and `calt` are disabled by default to preserve terminal-cell behavior; `KIWI_LIGATURES=1` and `KIWI_CALT=1` enable them at startup. These options change glyph placement only; they never change terminal cell width.
+
+Fontconfig chooses the configured primary family (`KIWI_FONT_FAMILY`, default `monospace`) or `KIWI_FONT` path. Missing clusters are matched by their full code-point set, then cached. The primary face is required; fallback face loading, face-cache exhaustion (default 32 faces), unavailable code points, and negative matches degrade to the missing-glyph path instead of expanding unboundedly or crashing the rendering path. The sequence fallback cache is capped at 1024 entries, including negative entries.
+
+Rasterization is by **glyph ID**, not the first Unicode scalar. The dynamic grayscale atlas has one 1024×1024 `r8unorm` page, a default 8,192-entry bound, 512-pixel bitmap-dimension bound, and no eviction. It keys entries by face ID, glyph ID, size, and raster mode. On glyph-cache or page exhaustion, unsupported bitmap format, missing glyph, or a glyph-instance capacity overflow, Kiwi emits the existing `?` fallback or omits that glyph safely and records diagnostics. An atlas generation upload currently sends the whole alpha page; this is simple and bounded but is an acknowledged performance limitation.
+
+The GPU has separate cell/background, shaped-glyph, dynamic alpha-atlas, sampler, and frame bindings. `KiwiGlyphInstance` remains the 40-byte legacy cell record for M0/M1.5 measurements. `KiwiTextGlyphInstance` is a separate, asserted 48-byte record carrying float glyph geometry, UVs, color/flags, glyph ID, and terminal cluster column. The terminal is rendered as background, glyph, then cursor passes—not as a precomposed bitmap.
+
+FreeType BGRA/color glyph bitmaps are rejected safely by the grayscale atlas. On the verified Fedora host, Fontconfig selected a monochrome fallback for the default emoji case and direct Noto Color Emoji COLRv1 rasterization did not yield a usable grayscale bitmap. Therefore M2 provides semantic emoji clustering, width, fallback selection, and monochrome glyph rendering where a usable face exists; it does **not** claim color emoji rendering. Private-use/Nerd Font characters use ordinary Fontconfig fallback and the same glyph-ID path; their appearance depends on installed fonts. Ligatures are opt-in and are not treated as terminal-width features.
+
+## Diagnostics and inspection
+
+F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
+
+Run a bounded native text laboratory child with:
+
+```sh
+KIWI_MAX_FRAMES=240 make text-demo
+```
+
+`--inspect` prints the cell at the terminal cursor after the child exits: raw code points, anchor/continuation status, width, selected face path/ID, fallback decision, and stored text. It is a single-cell inspector, not an interactive selection UI; inspect a cursor on populated text for a meaningful result.
+
+## Measurement and stress
+
+```sh
+make bench-text
+KIWI_TEXT_BENCH_ITERATIONS=100 KIWI_TEXT_BENCH_WARMUP=20 make bench-text
+make bench-text-stress
+KIWI_TEXT_STRESS_ROUNDS=2000 make bench-text-stress
+```
+
+`bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, fallback, glyph cache, cold row layout, and static-row layout. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` repeatedly mixes combining, CJK, emoji, PUA, invalid fallback, CSI edits, resize, and row layout while asserting grid invariants, glyph-atlas entries, fallback-cache bounds, and an RSS guard. It writes `*-text-stress.json`.
+
+The native smoke target and a windowed `make text-demo` exercise shader compilation and the GPU path; they are not pixel-comparison or color-emoji conformance tests. See [BENCHMARKS.md](BENCHMARKS.md) for output semantics and [CONFORMANCE.md](CONFORMANCE.md) for deterministic test coverage.
+
+## Explicit M2 boundaries
+
+- Logical LTR shaping only; no bidi, Arabic joining/reordering policy, or Unicode line-break algorithm.
+- No color emoji atlas, COLR/CBDT/SVG compositor, variable-font UI, font hot reload, or atlas eviction/multipage growth.
+- No runtime width-policy switch or grid reflow; choose the width convention at terminal startup.
+- No proof that a particular installed Nerd Font covers a private-use code point; missing coverage uses normal fallback behavior.
+- No visual equality claim against other terminal emulators. Deterministic state and HarfBuzz differential tests cover the bounded behavior implemented here.
