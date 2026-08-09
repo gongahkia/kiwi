@@ -73,7 +73,9 @@ Before those changes, the untouched M1 schema-version-2 parser/state run used 30
 
 ### M2 ASCII investigation
 
-On 2026-08-10, the M2 tree and the exact pre-M2 M1.5 commit `d05e5de` were measured in detached worktrees on this host with the same 50 measured iterations and 10 warm-ups. In the parser/state printable-ASCII scope (parser plus state/damage, no shaping or GPU), M1.5 measured 0.7690 ms p50 and 1.8193 ms p99; M2 measured 5.2075 ms p50 and 7.6321 ms p99. This exceeds the project's 25% p50 / 50% p99 investigation thresholds. The added cost is in cluster-bearing terminal-state writes rather than UTF-8 decoding, parser-only action construction, glyph shaping, or GPU packing. M2 keeps the text pipeline separately measured and bounds its native caches, but it does not claim the M1.5 ASCII kernel cost is regression-free; reducing single-cluster terminal metadata cost is a future performance hardening task.
+On 2026-08-10, the M2 tree and the exact pre-M2 M1.5 commit `d05e5de` were measured in detached worktrees on this host with an identical 100-iteration warm-up and 500 measured parser/state printable-ASCII iterations. M1.5 measured 0.7110 ms p50 and 2.0400 ms p99; the initial M2 path measured 5.2075 ms p50 and 7.6321 ms p99. M2 now uses a safe ASCII fast path that skips Unicode property classification, interns singleton ASCII code-point lists, and reuses its transient grapheme context. The controlled M2 result fell to 1.7480 ms p50 and 4.4120 ms p99.
+
+The remaining 146% p50 and 116% p99 difference still exceeds the project's 25% p50 / 50% p99 investigation thresholds. The added cost is in cluster-bearing terminal-state writes rather than UTF-8 decoding, parser-only action construction, glyph shaping, or GPU packing. M2 keeps the text pipeline separately measured and bounds its native caches, but it does not claim the M1.5 ASCII kernel cost is regression-free; reducing single-cluster terminal metadata cost remains future performance hardening work.
 
 ## Representative local baseline
 

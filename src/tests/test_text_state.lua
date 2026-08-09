@@ -70,6 +70,21 @@ return {
       Assert.equal(snapshot_with_chunks(input, { split }), whole, "Unicode stream split " .. split)
     end
   end,
+  terminal_text_ascii_fast_path_respects_prepend_boundaries = function()
+    local state = State.new(4, 1)
+    write(state, 0x0600)
+    write(state, string.byte("A"))
+    local prepended = state:get(0, 0)
+    Assert.equal(#prepended.codepoints, 2)
+    Assert.equal(prepended.codepoints[1], 0x0600)
+    Assert.equal(prepended.codepoints[2], string.byte("A"))
+
+    local plain = State.new(4, 1)
+    write(plain, string.byte("A"))
+    write(plain, string.byte("B"))
+    Assert.equal(plain:get(0, 0).codepoints[1], string.byte("A"))
+    Assert.equal(plain:get(1, 0).codepoints[1], string.byte("B"))
+  end,
   terminal_text_keeps_documented_emoji_sequences_as_independent_wide_clusters = function()
     local state = State.new(16, 1)
     local sequences = {
@@ -115,6 +130,13 @@ return {
     state:erase_cell(1, 0)
     assert_blank(state:get(0, 0))
     assert_blank(state:get(1, 0))
+  end,
+  terminal_text_clamps_wide_clusters_in_a_one_column_grid = function()
+    local state = State.new(1, 1)
+    write(state, 0x4e2d)
+    Assert.equal(state:get(0, 0).width, 1)
+    Assert.truthy(not state:get(0, 0).continuation)
+    Assert.equal(state.stats.text.width_change_clamped, 1)
   end,
   terminal_text_wide_edit_operations_never_leave_orphan_spans = function()
     local overwrite_anchor = State.new(6, 1)
