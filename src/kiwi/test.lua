@@ -3,6 +3,7 @@ local tests = {
   require("tests.test_terminal"),
   require("tests.test_synthetic"),
   require("tests.test_utf8"),
+  require("tests.test_unicode"),
   require("tests.test_state"),
   require("tests.test_parser"),
   require("tests.test_replay"),
