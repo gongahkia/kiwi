@@ -90,24 +90,13 @@ else()
   endif()
 endif()
 
-add_executable(strok
-  src/ansi.cpp
-  src/auto_mode.cpp
-  src/asciinema_in.cpp
-  src/asciinema_source.cpp
-  src/asciinema_vte.cpp
-  src/base64.cpp
-  src/bandwidth_guard.cpp
+# The CPU reconstruction seam is Frame -> CellBuffer. Keep this list free of
+# media acquisition, playback, terminal lifecycle, and output emitters so it
+# can become an independently linked core target without moving source files.
+set(STROK_RENDERER_CORE_SOURCES
   src/block_sad.cpp
   src/braille_renderer.cpp
-  src/captions.cpp
-  src/cli.cpp
-  src/cli_spec.cpp
-  src/color_dither.cpp
-  src/color_mode.cpp
-  src/color_quantization.cpp
   src/crosshatch.cpp
-  src/diff_emitter.cpp
   src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
@@ -116,52 +105,82 @@ add_executable(strok
   src/glyph_ramp.cpp
   src/glyph_sdf.cpp
   src/glyph_shape.cpp
-  src/graphics_alignment.cpp
-  src/graphics_emitter.cpp
-  src/graph_yaml.cpp
-  src/image_grid.cpp
-  ${STROK_GPU_SOBEL_SOURCE}
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
-  src/hybrid_emitter.cpp
-  src/iterm_inline.cpp
   src/kuwahara.cpp
-  src/kitty_graphics.cpp
   src/lic.cpp
   src/line_ligatures.cpp
   src/luminance.cpp
-  src/log.cpp
-  src/main.cpp
-  src/media_input.cpp
-  src/media_probe.cpp
   src/octant_renderer.cpp
   src/optical_flow.cpp
-  src/overlay_compose.cpp
   src/posterize.cpp
-  src/png_writer.cpp
-  src/player.cpp
-  src/raster_compose.cpp
-  src/render_mode.cpp
   src/render_graph.cpp
   src/render_layout.cpp
   src/renderer.cpp
-  src/scene_source.cpp
   src/sextant_renderer.cpp
-  src/shader_compiler.cpp
-  ${STROK_SHADER_RUNTIME_SOURCE}
-  src/shader_source.cpp
-  src/sixel.cpp
-  src/split.cpp
-  src/stdin_data.cpp
   src/stipple.cpp
   src/structure_edges.cpp
   src/structure_overlay.cpp
   src/structure_sampling.cpp
+  src/warp_history.cpp
+)
+
+set(STROK_GPU_ACCELERATION_SOURCES
+  ${STROK_GPU_SOBEL_SOURCE}
+)
+
+set(STROK_FRONTEND_MEDIA_SOURCES
+  src/auto_mode.cpp
+  src/asciinema_in.cpp
+  src/asciinema_source.cpp
+  src/asciinema_vte.cpp
+  src/cli.cpp
+  src/cli_spec.cpp
+  src/graph_yaml.cpp
+  src/image_grid.cpp
+  src/log.cpp
+  src/main.cpp
+  src/media_input.cpp
+  src/media_probe.cpp
+  src/overlay_compose.cpp
+  src/player.cpp
+  src/render_mode.cpp
+  src/scene_source.cpp
+  src/shader_compiler.cpp
+  ${STROK_SHADER_RUNTIME_SOURCE}
+  src/shader_source.cpp
+  src/split.cpp
+  src/stdin_data.cpp
   src/stream_resolver.cpp
   src/terminal.cpp
-  src/terminal_caps.cpp
   src/video_decoder.cpp
-  src/warp_history.cpp
+)
+
+set(STROK_OUTPUT_BACKEND_SOURCES
+  src/ansi.cpp
+  src/base64.cpp
+  src/bandwidth_guard.cpp
+  src/captions.cpp
+  src/color_dither.cpp
+  src/color_mode.cpp
+  src/color_quantization.cpp
+  src/diff_emitter.cpp
+  src/graphics_alignment.cpp
+  src/graphics_emitter.cpp
+  src/hybrid_emitter.cpp
+  src/iterm_inline.cpp
+  src/kitty_graphics.cpp
+  src/png_writer.cpp
+  src/raster_compose.cpp
+  src/sixel.cpp
+  src/terminal_caps.cpp
+)
+
+add_executable(strok
+  ${STROK_RENDERER_CORE_SOURCES}
+  ${STROK_GPU_ACCELERATION_SOURCES}
+  ${STROK_FRONTEND_MEDIA_SOURCES}
+  ${STROK_OUTPUT_BACKEND_SOURCES}
 )
 target_include_directories(strok SYSTEM PRIVATE third_party)
 target_compile_features(strok PRIVATE cxx_std_20)
@@ -905,39 +924,13 @@ add_test(NAME golden_frame COMMAND golden_frame_tests)
 
 add_executable(reconstruction_baseline_tests
   tests/reconstruction_baseline_tests.cpp
-  src/block_sad.cpp
-  src/braille_renderer.cpp
-  src/crosshatch.cpp
-  src/etf.cpp
-  src/frame_sampling.cpp
-  src/glyph_font.cpp
-  src/glyph_hog.cpp
-  src/glyph_ramp.cpp
-  src/glyph_sdf.cpp
-  src/glyph_shape.cpp
-  ${STROK_GPU_SOBEL_SOURCE}
+  ${STROK_RENDERER_CORE_SOURCES}
+  ${STROK_GPU_ACCELERATION_SOURCES}
   ${STROK_GPU_SUPPORT_SOURCES}
-  src/halfblock_renderer.cpp
-  src/hysteresis.cpp
-  src/kuwahara.cpp
-  src/lic.cpp
-  src/line_ligatures.cpp
-  src/luminance.cpp
-  src/octant_renderer.cpp
-  src/optical_flow.cpp
-  src/posterize.cpp
-  src/render_graph.cpp
-  src/render_layout.cpp
-  src/renderer.cpp
   src/scene_source.cpp
-  src/sextant_renderer.cpp
-  src/stipple.cpp
-  src/structure_edges.cpp
-  src/structure_overlay.cpp
-  src/structure_sampling.cpp
-  src/warp_history.cpp
 )
 target_include_directories(reconstruction_baseline_tests PRIVATE src)
+target_include_directories(reconstruction_baseline_tests SYSTEM PRIVATE third_party)
 target_compile_features(reconstruction_baseline_tests PRIVATE cxx_std_20)
 set_target_properties(reconstruction_baseline_tests PROPERTIES
   CXX_STANDARD 20
