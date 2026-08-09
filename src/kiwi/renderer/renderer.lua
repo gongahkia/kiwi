@@ -1,5 +1,6 @@
 local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
+local Passes = require("kiwi.renderer.passes")
 
 ffi.cdef[[
 typedef struct {
@@ -61,9 +62,15 @@ function Renderer.new(context, font, model)
       draw_calls = 0,
     },
   }, Renderer)
-  self:create_resources()
-  model:mark_all_dirty()
-  self:update_model(model)
+  local ok, result = xpcall(function()
+    self:create_resources()
+    model:mark_all_dirty()
+    self:update_model(model)
+  end, debug.traceback)
+  if not ok then
+    self:destroy()
+    error(result)
+  end
   return self
 end
 
@@ -174,23 +181,13 @@ function Renderer:create_resources()
 
   local root = os.getenv("KIWI_ROOT") or "."
   self.shader_code = read_file(root .. "/src/kiwi/renderer/terminal.wgsl")
-  local shader_source = ffi.new("WGPUShaderSourceWGSL")
-  shader_source.chain.sType = 2
-  shader_source.code = string_view(self.shader_code)
-  local shader_descriptor = ffi.new("WGPUShaderModuleDescriptor")
-  shader_descriptor.label = string_view("terminal-wgsl")
-  shader_descriptor.nextInChain = ffi.cast("WGPUChainedStruct*", shader_source)
-  self.shader = assert_handle(api.wgpuDeviceCreateShaderModule(self.context.device, shader_descriptor), "terminal WGSL module creation")
-  local shader_diagnostics = ffi.string(self.native.surface.kiwi_shader_diagnostics(self.context.instance, self.shader))
-  if #shader_diagnostics > 0 then
-    api.wgpuShaderModuleRelease(self.shader)
-    error("terminal WGSL module creation failed:\n" .. shader_diagnostics)
-  end
+  self.shader = assert_handle(self.native.surface.kiwi_shader_from_wgsl(self.context.device, self.shader_code), "terminal WGSL module creation")
   self.resources[#self.resources + 1] = { handle = self.shader, release = api.wgpuShaderModuleRelease }
 
   self.background_pipeline = self:create_pipeline("background-pass", "background_vs", "background_fs")
   self.glyph_pipeline = self:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
   self.cursor_pipeline = self:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
+  self.passes = Passes.build(self)
 end
 
 function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
@@ -282,29 +279,32 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
 end
 
-function Renderer:encode_pass(encoder, view, label, pipeline, load_op, instance_count)
+function Renderer:encode_semantic_pass(pass_info, encoder, view, model)
   local attachment = ffi.new("WGPURenderPassColorAttachment")
   attachment.view = view
   attachment.depthSlice = 0xffffffff
-  attachment.loadOp = load_op
+  attachment.loadOp = pass_info.load_op
   attachment.storeOp = self.native.constants.store_store
   attachment.clearValue.r = 0.075
   attachment.clearValue.g = 0.09
   attachment.clearValue.b = 0.12
   attachment.clearValue.a = 1
   local descriptor = ffi.new("WGPURenderPassDescriptor")
-  descriptor.label = string_view(label)
+  descriptor.label = string_view(pass_info.name)
   descriptor.colorAttachmentCount = 1
   descriptor.colorAttachments = attachment
-  local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. label)
-  self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pipeline)
+  local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. pass_info.name)
+  self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.native.lib.wgpuRenderPassEncoderSetBindGroup(pass, 0, self.bind_group, 0, nil)
-  self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, instance_count, 0, 0)
+  self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, pass_info.instances(model), 0, 0)
   self.native.lib.wgpuRenderPassEncoderEnd(pass)
   self.native.lib.wgpuRenderPassEncoderRelease(pass)
 end
 
 function Renderer:render(model, time, debug_dirty, debug_boundaries)
+  if self.context.window.minimized then
+    return false, "zero-sized drawable"
+  end
   if self.context.window.resized and not self.context:configure_surface() then
     return false, "zero-sized drawable"
   end
@@ -317,9 +317,9 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
   local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
-  self:encode_pass(encoder, view, "terminal/background", self.background_pipeline, c.load_clear, self.capacity)
-  self:encode_pass(encoder, view, "terminal/glyph", self.glyph_pipeline, c.load_load, self.capacity)
-  self:encode_pass(encoder, view, "terminal/cursor", self.cursor_pipeline, c.load_load, 1)
+  for _, pass_info in ipairs(self.passes) do
+    pass_info:encode(self, encoder, view, model)
+  end
   local commands = ffi.new("WGPUCommandBuffer[1]")
   commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
   self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
@@ -333,6 +333,11 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   if present_status ~= 1 then
     return false, "surface present status " .. tonumber(present_status)
+  end
+  self.native.lib.wgpuInstanceProcessEvents(self.context.instance)
+  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
+  if #native_error > 0 then
+    return false, "native GPU error: " .. native_error
   end
   self.diagnostics.draw_calls = 3
   return true

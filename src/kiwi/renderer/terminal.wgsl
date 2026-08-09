@@ -25,8 +25,8 @@ struct RasterOut {
   @location(1) local_position: vec2<f32>,
   @location(2) fg: vec4<f32>,
   @location(3) bg: vec4<f32>,
-  @location(4) flags: u32,
-  @location(5) glyph: u32,
+  @interpolate(flat) @location(4) flags: u32,
+  @interpolate(flat) @location(5) glyph: u32,
 }
 
 @group(0) @binding(0) var<storage, read> cells: array<GpuCell>;
@@ -75,13 +75,13 @@ fn background_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_ind
 fn background_fs(input: RasterOut) -> @location(0) vec4<f32> {
   var color = input.bg;
   if ((input.flags & 2u) != 0u) {
-    color.rgb = mix(color.rgb, vec3<f32>(0.45, 0.72, 0.86), 0.24);
+    color = vec4<f32>(mix(color.rgb, vec3<f32>(0.45, 0.72, 0.86), 0.24), color.a);
   }
   if (frame.show_dirty > 0.5 && (input.flags & 4u) != 0u) {
-    color.rgb = mix(color.rgb, vec3<f32>(1.0, 0.75, 0.20), 0.42);
+    color = vec4<f32>(mix(color.rgb, vec3<f32>(1.0, 0.75, 0.20), 0.42), color.a);
   }
   if (frame.show_boundaries > 0.5 && (input.local_position.x < 0.025 || input.local_position.y < 0.035)) {
-    color.rgb = vec3<f32>(0.18, 0.52, 0.61);
+    color = vec4<f32>(0.18, 0.52, 0.61, color.a);
   }
   return color;
 }
@@ -102,7 +102,7 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
   }
   var color = input.fg;
   if ((input.flags & 1u) != 0u) {
-    color.rgb = min(vec3<f32>(1.0), color.rgb * 1.16);
+    color = vec4<f32>(min(vec3<f32>(1.0), color.rgb * 1.16), color.a);
   }
   return color;
 }

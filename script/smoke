@@ -1,0 +1,12 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "SKIP GPU/window smoke test: neither DISPLAY nor WAYLAND_DISPLAY is available."
+  exit 0
+fi
+
+cd "$ROOT"
+KIWI_MAX_FRAMES=3 make run
+print "GPU/window smoke test passed."
