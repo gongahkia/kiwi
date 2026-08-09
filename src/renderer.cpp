@@ -10,6 +10,7 @@
 #include "glyph_hog.hpp"
 #include "glyph_ramp.hpp"
 #include "glyph_sdf.hpp"
+#include "gpu_backend.hpp"
 #include "gpu_sobel.hpp"
 #include "halfblock_renderer.hpp"
 #include "kuwahara.hpp"
@@ -455,19 +456,37 @@ int renderWorkerCount(int cols, int rows) {
   return std::min(rows, max_workers);
 }
 
-GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config) {
+Backend detectedGpuBackend() {
+  if (!gpuSobelAvailable()) {
+    return Backend::Cpu;
+  }
+  const std::string_view name = gpuSobelBackendName();
+  if (name == "Metal") {
+    return Backend::Metal;
+  }
+  if (name == "Vulkan") {
+    return Backend::Vulkan;
+  }
+  return Backend::Cpu;
+}
+
+GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config, Backend gpu_backend) {
   GraphBuildOptions graph_options;
   if (config.style == "cell-shade") {
     graph_options.external_inputs = {"input-depth", "input-normals"};
   }
-  graph_options.backend_preference = config.gpu
-                                       ? std::vector<Backend>{Backend::Metal, Backend::Cpu}
+  graph_options.backend_preference = config.gpu && gpu_backend != Backend::Cpu
+                                       ? std::vector<Backend>{gpu_backend, Backend::Cpu}
                                        : std::vector<Backend>{Backend::Cpu};
   graph_options.available_backends = {Backend::Cpu};
-  if (gpuSobelAvailable()) {
-    graph_options.available_backends.push_back(Backend::Metal);
+  if (gpu_backend != Backend::Cpu) {
+    graph_options.available_backends.push_back(gpu_backend);
   }
   return graph_options;
+}
+
+GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config) {
+  return renderGraphBuildOptions(config, detectedGpuBackend());
 }
 
 std::optional<std::string> directBlitterMode(const RendererConfig& config) {
@@ -527,13 +546,13 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
       .id = "dog",
       .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
     });
     passes->push_back(Pass{
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort(sobel_output, BufferKind::GradientField)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
     });
     if (etf_enabled) {
       passes->push_back(Pass{
@@ -597,7 +616,7 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
                   ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)}
                   : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
     });
   };
   const auto append_line_ligatures = [&](std::vector<Pass>* passes) {
@@ -686,7 +705,7 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
       .id = "cell-average",
       .inputs = {renderPort(frame_input, BufferKind::RgbFrame), renderPort("gradients", BufferKind::GradientField)},
       .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
     });
     passes.push_back(Pass{
       .id = "ramp-pick",
@@ -702,7 +721,7 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
     .id = "cell-average",
     .inputs = {renderPort(frame_input, BufferKind::RgbFrame)},
     .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
-    .supports = {Backend::Cpu, Backend::Metal},
+    .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
   });
   passes.push_back(Pass{
     .id = "ramp-pick",
@@ -831,7 +850,11 @@ std::string dumpRenderGraph(const RendererConfig& config) {
 }
 
 Graph buildRendererGraphTopology(const RendererConfig& config) {
-  return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config));
+  return buildRendererGraphTopology(config, detectedGpuBackend());
+}
+
+Graph buildRendererGraphTopology(const RendererConfig& config, Backend gpu_backend) {
+  return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config, gpu_backend));
 }
 
 RenderResult validateRendererConfiguration(const RendererConfig& config, RenderGrid grid) {
@@ -844,7 +867,7 @@ RenderResult validateRendererConfiguration(const RendererConfig& config, RenderG
   return RenderResult{};
 }
 
-RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const Graph* graph_topology) try {
+RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const Graph* graph_topology, const GpuAnalysisBackend* gpu_backend) try {
   if (output == nullptr) {
     return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
   }
@@ -870,7 +893,11 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     }
   };
 
-  if (config.gpu && !gpuSobelAvailable()) {
+  const bool gpu_available = gpu_backend == nullptr
+                               ? gpuSobelAvailable()
+                               : gpu_backend->backend() != Backend::Cpu;
+  const bool gpu_requested = gpu_backend == nullptr ? config.gpu : gpu_backend->requested();
+  if (gpu_requested && !gpu_available) {
     mark_backend_fallback("GPU analysis requested but unavailable; used CPU fallback");
   }
   const auto render_started = std::chrono::steady_clock::now();
@@ -1138,7 +1165,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .id = "cell-average",
       .inputs = std::move(inputs),
       .outputs = {renderPort("cell-colors", BufferKind::CellColors)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
       .run = [&](PassContext&) {
         const std::vector<Cell>& cell_values = cells->cells();
         average_colors.assign(cell_values.size(), Rgb{});
@@ -1204,14 +1231,17 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .id = "dog",
       .inputs = {renderPort("contrast-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
       .run = [&](PassContext& context) {
         const DogOptions dog_options = dogOptionsFromConfig(config);
         if (!dog_options.enabled()) {
           return;
         }
-        if (context.backend() == Backend::Metal) {
-          if (auto gpu_dog = differenceOfGaussiansGpu(*analysis_luminance, dog_options)) {
+        if (context.backend() != Backend::Cpu) {
+          const std::optional<LuminanceField> gpu_dog = gpu_backend == nullptr
+                                                          ? differenceOfGaussiansGpu(*analysis_luminance, dog_options)
+                                                          : gpu_backend->differenceOfGaussians(*analysis_luminance, dog_options);
+          if (gpu_dog.has_value()) {
             analysis_luminance = std::move(*gpu_dog);
             return;
           }
@@ -1224,15 +1254,19 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       .id = "sobel",
       .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
       .outputs = {renderPort(etf_enabled ? "raw-gradients" : "gradients", BufferKind::GradientField)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
       .run = [&](PassContext& context) {
-        if (!glyph_hysteresis_enabled && !etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
-          gpu_structure_glyphs = computeStructureGlyphsGpu(*analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
+        if (!glyph_hysteresis_enabled && !etf_enabled && context.backend() != Backend::Cpu && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
+          gpu_structure_glyphs = gpu_backend == nullptr
+                                   ? computeStructureGlyphsGpu(*analysis_luminance, size.cols, size.rows, edge_threshold, shape_table)
+                                   : gpu_backend->structureGlyphs(*analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             result.stats.shape_match_cells += gpu_structure_glyphs->shape_match_cells;
             return;
           }
-          structure_gradients = computeSobelGradientsGpu(*analysis_luminance);
+          structure_gradients = gpu_backend == nullptr
+                                  ? computeSobelGradientsGpu(*analysis_luminance)
+                                  : gpu_backend->sobelGradients(*analysis_luminance);
           if (!structure_gradients.has_value()) {
             mark_backend_fallback("GPU Sobel analysis unavailable; used CPU fallback");
           }
@@ -1367,7 +1401,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                   ? std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort("warped-history", BufferKind::CellGlyphs), renderPort("warped-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)}
                   : std::vector<PassPort>{renderPort("edge-field", BufferKind::EdgeField), renderPort("cell-shapes", BufferKind::CellShapeVectors), renderPort(base_input, BufferKind::CellGlyphs)},
       .outputs = {renderPort("cells", BufferKind::CellGlyphs)},
-      .supports = {Backend::Cpu, Backend::Metal},
+      .supports = {Backend::Cpu, Backend::Metal, Backend::Vulkan},
       .run = [&](PassContext&) {
         std::vector<Cell>& cell_values = cells->cells();
         const auto historyAvailable = [&](std::size_t cell_index) {
@@ -1721,11 +1755,11 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
 }
 
 RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
-  return renderFrame(input, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
+  return renderFrame(input, ramp, config, available_grid, shape_table, output, temporal_state, nullptr, nullptr);
 }
 
 RenderResult renderFrame(const ColorImageView& image, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
-  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
+  return renderFrame(RenderInput{.color = image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr, nullptr);
 }
 
 RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state) {
@@ -1733,7 +1767,7 @@ RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const Ren
   if (!image.has_value()) {
     return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
   }
-  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr);
+  return renderFrame(RenderInput{.color = *image}, ramp, config, available_grid, shape_table, output, temporal_state, nullptr, nullptr);
 }
 
 }  // namespace strok

@@ -78,6 +78,11 @@ int main() {
   created.renderer->reset();
   expect(created.renderer->cells() == cells_before_reset, "reset preserves owned cells");
 
+  const strok::Renderer::CreateResult gpu_created = strok::Renderer::create(
+    strok::RendererConfig{.cell_aspect = 1.0, .gpu = true}, grid);
+  expect(gpu_created.succeeded(), "GPU renderer construction");
+  expect(gpu_created.renderer->render(frame()).succeeded(), "GPU renderer uses its owned backend or CPU fallback");
+
   strok::Renderer::CreateResult custom_charset = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0, .charset = "binary"}, strok::RenderGrid{.cols = 1, .rows = 1});
   expect(custom_charset.succeeded(), "custom charset construction");
   expect(custom_charset.renderer->render(whiteFrame()).succeeded() && custom_charset.renderer->cells().at(0, 0).glyph == U'1', "custom charset render");

@@ -7,6 +7,7 @@
 #include "glyph_ramp.hpp"
 #include "glyph_sdf.hpp"
 #include "glyph_shape.hpp"
+#include "gpu_backend.hpp"
 #include "renderer.hpp"
 #include "structure_overlay.hpp"
 
@@ -64,6 +65,7 @@ struct Renderer::State {
   std::optional<GlyphFont> glyph_font;
   std::u32string ramp;
   std::optional<GlyphShapeTable> shape_table;
+  std::unique_ptr<GpuAnalysisBackend> gpu_backend;
   Graph graph;
   RenderTemporalState temporal_state;
   CellBuffer cells;
@@ -75,7 +77,8 @@ struct Renderer::State {
     }
     ramp = rampFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
     shape_table = shapeTableFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
-    graph = buildRendererGraphTopology(config);
+    gpu_backend = createGpuAnalysisBackend(config.gpu);
+    graph = buildRendererGraphTopology(config, gpu_backend->backend());
   }
 };
 
@@ -156,7 +159,7 @@ RenderResult Renderer::render(const ColorImageView& image, CellBuffer* output) {
 }
 
 RenderResult Renderer::render(const RenderInput& input, CellBuffer* output) {
-  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, &state_->graph);
+  return renderFrame(input, state_->ramp, state_->config, state_->grid, state_->shape_table.has_value() ? &*state_->shape_table : nullptr, output, &state_->temporal_state, &state_->graph, state_->gpu_backend.get());
 }
 
 void Renderer::reset() {

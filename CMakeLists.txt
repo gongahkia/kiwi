@@ -115,6 +115,7 @@ set(STROK_RENDERER_CORE_SOURCES
   src/glyph_ramp.cpp
   src/glyph_sdf.cpp
   src/glyph_shape.cpp
+  src/gpu_backend.cpp
   src/halfblock_renderer.cpp
   src/hysteresis.cpp
   src/kuwahara.cpp
@@ -1528,6 +1529,28 @@ else()
   endif()
 endif()
 add_test(NAME renderer_lifecycle COMMAND renderer_lifecycle_tests)
+
+add_executable(gpu_backend_lifecycle_tests tests/gpu_backend_lifecycle_tests.cpp)
+target_include_directories(gpu_backend_lifecycle_tests PRIVATE src)
+target_compile_features(gpu_backend_lifecycle_tests PRIVATE cxx_std_20)
+set_target_properties(gpu_backend_lifecycle_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(gpu_backend_lifecycle_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(gpu_backend_lifecycle_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(gpu_backend_lifecycle_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(gpu_backend_lifecycle_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(gpu_backend_lifecycle_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME gpu_backend_lifecycle COMMAND gpu_backend_lifecycle_tests)
 
 add_executable(renderer_isolation_tests tests/renderer_isolation_tests.cpp)
 target_compile_features(renderer_isolation_tests PRIVATE cxx_std_20)
