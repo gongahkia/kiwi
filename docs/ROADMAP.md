@@ -2,13 +2,13 @@
 
 Kiwi is renderer-first: each milestone should preserve the terminal-model/renderer boundary while adding measured capability.
 
-## M0 — renderer laboratory
+## M0 — complete: renderer laboratory
 
 LuaJIT + wgpu-native, deterministic synthetic terminal data, FreeType bitmap atlas, damage tracking, semantic render passes, diagnostics, and reproducible benchmarks.
 
-## M1 — real terminal kernel
+## M1 — real terminal kernel (validation in progress)
 
-PTY, shell lifecycle, deliberately scoped VT parser/state, resize propagation, basic scrollback, and deterministic parser/replay tests.
+PTY, shell lifecycle, deliberately scoped VT parser/state, resize propagation, bounded scrollback, terminfo, keyboard input, diagnostics, conformance fixtures, and deterministic replay are implemented. M1 remains in validation until its manual interactive shell/TUI acceptance checks are completed; it does not claim full xterm compatibility.
 
 ## M2 — serious text
 

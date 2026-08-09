@@ -9,6 +9,7 @@ local tests = {
   require("tests.test_diagnostics"),
   require("tests.test_conformance"),
   require("tests.test_parser_bench"),
+  require("tests.test_glyph_fallback"),
   require("tests.test_keyboard"),
   require("tests.test_atlas"),
   require("tests.test_freetype"),

@@ -1,62 +1,62 @@
 # Kiwi
 
-Kiwi is a rendering-first terminal research platform: M0 is a LuaJIT + wgpu-native laboratory that turns a deterministic, structured terminal-cell model into ordered GPU passes, rather than treating a terminal as a pre-rendered bitmap.
+Kiwi is a rendering-first terminal research platform. M1 turns the M0 GPU renderer laboratory into an interactive Linux terminal with a LuaJIT-owned PTY lifecycle, streaming VT/xterm-style parser, bounded terminal state, and deterministic replay. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
 
-## Status
+## Current scope
 
-M0 is a renderer laboratory, not a usable terminal emulator. It opens a native GLFW window, selects a Vulkan adapter through wgpu-native, rasterizes basic-Latin glyphs with FreeType, and renders a synthetic 160×50 screen through background, glyph, and cursor passes. PTYs, shells, VT parsing, scrollback, Unicode shaping, and terminal graphics protocols are intentionally absent.
+`make run` opens a native GLFW/Vulkan window and starts `$SHELL` when it is an absolute path, otherwise `/bin/sh`. An explicit child follows `--`:
 
-## Architecture at a glance
-
-```
-LuaJIT app
-  -> synthetic TerminalModel (logical cells + damage)
-  -> Renderer (background -> glyph -> cursor)
-  -> LuaJIT FFI + narrow C ABI bridge
-  -> wgpu-native v29.0.1.1 -> Vulkan
-
-FreeType -> bitmap glyph atlas -> GPU texture
-GLFW -> native Wayland/X11 window + drawable size
+```sh
+make run
+make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
 ```
 
-More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The consequential choices are recorded under [docs/adr](docs/adr).
+The child receives `TERM=kiwi` and `TERMINFO=$PWD/.build/terminfo`. Kiwi owns the version-controlled [terminfo source](terminfo/kiwi.ti); build and inspect it with:
+
+```sh
+make terminfo
+TERMINFO="$PWD/.build/terminfo" infocmp kiwi
+```
+
+The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, basic SGR, and application cursor keys. The parser/state can represent 256-colour and RGB SGR values, but Kiwi does not advertise truecolour with `COLORTERM` in M1.
+
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, margins, deferred autowrap, bounded primary scrollback, basic keyboard encoding, PTY resize propagation, DSR/DA replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 ## Fedora prerequisites
 
-Kiwi M0 currently supports Linux x86_64. On Fedora 43, install the development toolchain and the system libraries:
+Kiwi currently supports Linux x86_64. On Fedora 43:
 
 ```sh
-sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config \
+sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
   glfw-devel freetype-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
-`make bootstrap` verifies LuaJIT, `pkg-config` metadata for GLFW and FreeType, downloads the pinned official wgpu-native Linux archive, verifies its SHA-256, and keeps it under `.deps/`.
+`make bootstrap` validates the local tools, GLFW/FreeType metadata, `tic`/`infocmp`, and the pinned official wgpu-native archive.
 
 ## Commands
 
 ```sh
-make bootstrap  # resolve pinned wgpu-native and validate prerequisites
-make test       # deterministic model, atlas, packing, statistics, and JSON tests
-make check      # normal non-interactive test and Lua syntax suite
-make run        # open the native renderer-laboratory window
-make smoke      # run a short native window/GPU smoke test; skips without a display
-make bench      # run deterministic terminal-model/update benchmarks and write JSON
-make clean      # remove generated native build output from .build/
+make bootstrap                         # validate prerequisites and fetch pinned wgpu-native
+make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
+make test                              # deterministic unit, conformance, replay, and parser-bench tests
+make test-pty                          # deterministic real-PTY integration tests
+make run                               # launch the default shell
+make demo                              # retain the M0 synthetic renderer mode
+make smoke                             # bounded native live-terminal GPU smoke test; skips without display
+make bench                             # M0 and parser/state component benchmarks, with JSON output
+make replay REPLAY=path/session.jsonl  # headless deterministic replay and canonical snapshot
+make vttest                            # launch vttest if installed, in an interactive graphical session
 ```
 
-`make run` uses a 30 Hz, vsynced FIFO presentation cadence because the animated semantic cursor needs redraws. It waits for window events between frames instead of spinning uncapped. `Esc` closes the window; `F2` toggles dirty-cell highlighting; `F3` toggles cell boundaries.
+During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. Other supported keys encode terminal input; closing the window shuts down the child process group.
 
-## Benchmarking
+## Replay
 
-`make bench` runs static, typing, line-churn, scrolling-like, and full-redraw workloads at 160×50 and 240×80. It reports mean/p50/p95/p99 CPU update times, changed/uploaded cells, uploaded bytes, dirty ranges, full updates, and draw calls; it writes machine-readable output to `bench/results/<UTC timestamp>.json`.
+`--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
 
-The benchmark is deliberately headless and measures logical mutation, damage coalescing, and CPU packing in the same cell layout used for GPU uploads. It does not claim GPU frame timing or compare Kiwi with other terminals. See [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+## Deliberate limits
 
-## Current scope and non-features
+M1 does not implement Unicode width/grapheme rules, shaping, combining marks, bidi, CJK/emoji fallback, mouse reporting, clipboard, hyperlinks, images, OSC shell integration, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics.
 
-M0 demonstrates a real bitmap glyph atlas and GPU text draw path for readable ASCII/basic Latin. It does not claim Unicode correctness: HarfBuzz shaping, ligatures, combining marks, RTL, CJK fallback, emoji, Nerd Font validation, and MSDF/vector paths are deferred. The synthetic model is a stable renderer input, not a VT emulator.
-
-## Roadmap
-
-The renderer-first direction through M8 is summarized in [docs/ROADMAP.md](docs/ROADMAP.md). The next coherent step is M1: retain this renderer boundary while introducing a PTY, shell lifecycle, deliberately scoped VT state/parser, resize propagation, scrollback, and deterministic replay tests.
+The renderer remains structured: terminal cells and damage feed background, glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
