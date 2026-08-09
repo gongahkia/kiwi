@@ -27,11 +27,12 @@ strok::Frame solidFrame(uint8_t value) {
   };
 }
 
-strok::Frame checkerboardFrame(bool inverted) {
+strok::Frame checkerboardFrame(bool inverted, int64_t pts_us) {
   strok::Frame frame{
     .w = 4,
     .h = 4,
     .rgb = {},
+    .pts_us = pts_us,
   };
   frame.rgb.reserve(4U * 4U * 3U);
   for (int row = 0; row < frame.h; ++row) {
@@ -75,13 +76,13 @@ int main() {
   strok::Renderer::CreateResult second_stream = createRenderer(std::move(flow_config));
   expect(first_stream.succeeded() && second_stream.succeeded(), "temporal renderer construction");
 
-  const strok::RenderResult first_initial = first_stream.renderer->render(checkerboardFrame(false));
-  const strok::RenderResult second_initial = second_stream.renderer->render(checkerboardFrame(true));
+  const strok::RenderResult first_initial = first_stream.renderer->render(checkerboardFrame(false, 0));
+  const strok::RenderResult second_initial = second_stream.renderer->render(checkerboardFrame(true, 10000000));
   expect(first_initial.succeeded() && first_initial.stats.optical_flow_blocks == 0, "first stream starts without history");
   expect(second_initial.succeeded() && second_initial.stats.optical_flow_blocks == 0, "second stream starts without first stream history");
 
-  const strok::RenderResult first_followup = first_stream.renderer->render(checkerboardFrame(true));
-  const strok::RenderResult second_followup = second_stream.renderer->render(checkerboardFrame(false));
+  const strok::RenderResult first_followup = first_stream.renderer->render(checkerboardFrame(true, 1));
+  const strok::RenderResult second_followup = second_stream.renderer->render(checkerboardFrame(false, 30000000));
   expect(first_followup.succeeded() && first_followup.stats.optical_flow_blocks == 1, "first stream uses only its history");
-  expect(second_followup.succeeded() && second_followup.stats.optical_flow_blocks == 1, "second stream uses only its history");
+  expect(second_followup.succeeded() && second_followup.stats.optical_flow_blocks == 1, "PTS does not change fixed-step temporal history");
 }

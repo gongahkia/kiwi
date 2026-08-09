@@ -15,6 +15,8 @@ struct Frame {
   int w = 0;
   int h = 0;
   std::vector<uint8_t> rgb;
+  // Source presentation timestamp metadata in microseconds. The core Renderer does
+  // not read it; frontends own pacing and pass ordered frames to render calls.
   int64_t pts_us = 0;
 };
 
