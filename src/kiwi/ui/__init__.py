@@ -1,1 +1,0 @@
-"""User-interface presentation adapters."""

@@ -1,1 +1,0 @@
-"""Validated versioned content interfaces."""

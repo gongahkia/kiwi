@@ -1,8 +1,0 @@
-type Point = { value: Int }
-fn missing() -> Point = Point { }
-fn bare() -> Int = None
-fn incomplete(value: Option<Int>) -> Int = match value with | Some(item) -> item
-fn values() -> Int = []
-fn callback() -> Int = fn item -> item
-fn map() -> List<Int> = List.map([1])
-fn measure() -> Distance = 1m + 1s

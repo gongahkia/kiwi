@@ -1,1 +1,0 @@
-"""Stable authoritative value definitions."""

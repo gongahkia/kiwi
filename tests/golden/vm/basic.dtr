@@ -1,2 +1,0 @@
-fn identity(x: Int) -> Int = x
-policy choose(flag: Bool) -> Int = if flag then identity(1) else 2
