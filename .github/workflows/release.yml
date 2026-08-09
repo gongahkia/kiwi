@@ -14,6 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       STROK_PACKAGE_BUILD_JOBS: 2
+      STROK_PACKAGE_VERSION: ${{ github.ref_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +45,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y ./strok-*.deb
-          strok --version
+          test "$(strok --version)" = "strok ${GITHUB_REF_NAME#v}"
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
@@ -53,4 +54,5 @@ jobs:
           body: |
             strok release packages are dynamically linked against system FFmpeg, FreeType, and zlib.
             Install those runtime libraries with the platform package manager before using `.tar.gz` artifacts; the Linux `.deb` declares shared-library dependencies through CPack shlibdeps.
+            Each platform artifact includes a matching `.sha256` manifest for integrity verification.
             Static-FFmpeg bundles are not shipped until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations.

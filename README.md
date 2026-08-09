@@ -105,7 +105,7 @@ Package locally:
 scripts/package_release.sh
 ```
 
-The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. Static bundles are withheld until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations. A head-only Homebrew formula is available at `packaging/homebrew/strok.rb`:
+The package script emits a `.tar.gz` on macOS/Linux and a `.deb` on Linux, verifies the packaged CLI version and installed C API consumer, and writes a matching `.sha256` manifest. Pass `STROK_PACKAGE_VERSION=1.2.3` for a non-default local release version; tag workflows derive it from the `v1.2.3` tag. These packages still link system FFmpeg/FreeType/zlib; static-FFmpeg release packaging is not implemented. Static bundles are withheld until the build records FFmpeg configure flags and the resulting LGPL/GPL obligations. A head-only Homebrew formula is available at `packaging/homebrew/strok.rb`:
 
 ```sh
 brew tap-new local/strok

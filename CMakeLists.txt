@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(strok VERSION 0.0.0 LANGUAGES C CXX)
+set(STROK_VERSION "0.0.0" CACHE STRING "strok release version (numeric major.minor.patch)")
+if(NOT STROK_VERSION MATCHES "^[0-9]+(\\.[0-9]+)?(\\.[0-9]+)?(\\.[0-9]+)?$")
+  message(FATAL_ERROR "STROK_VERSION must contain one to four numeric dot-separated components")
+endif()
+
+project(strok VERSION ${STROK_VERSION} LANGUAGES C CXX)
 
 option(STROK_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(STROK_LIGHT "Build without optional GPU/protocol backends" OFF)
