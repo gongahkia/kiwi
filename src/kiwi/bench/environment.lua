@@ -2,6 +2,17 @@ local jit = require("jit")
 
 local Environment = {}
 
+local function file_text(path)
+  local file = io.open(path, "r")
+  if not file then
+    return "unavailable"
+  end
+  local output = file:read("*a")
+  file:close()
+  output = output:gsub("%s+$", "")
+  return #output > 0 and output or "unavailable"
+end
+
 local function command_output(command)
   local handle = io.popen(command, "r")
   if not handle then
@@ -39,6 +50,8 @@ function Environment.collect(timestamp, iterations, warmup)
     },
     system = {
       architecture = jit.arch,
+      cpu_affinity = command_output("taskset -pc $$"),
+      cpu_governor = file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
       kernel = command_output("uname -srm"),
       operating_system = jit.os,
     },
