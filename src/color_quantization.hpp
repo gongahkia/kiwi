@@ -1,17 +1,13 @@
 #pragma once
 
+#include "../include/strok/raster.hpp"
+
 #include "luminance.hpp"
 
 #include <cstdint>
 #include <string>
 
 namespace strok {
-
-enum class DitherMode {
-  None,
-  Ordered,
-  FloydSteinberg,
-};
 
 DitherMode ditherModeFromString(const std::string& value);
 Rgb applyOrderedDither(Rgb color, int row, int col, int amplitude);

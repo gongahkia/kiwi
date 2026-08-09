@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../include/strok/graphics_emitter.hpp"
+
 #include "cli.hpp"
 #include "terminal_caps.hpp"
 
@@ -11,13 +13,6 @@ enum class ResolvedRenderMode {
   Text,
   Pixel,
   Hybrid,
-};
-
-enum class GraphicsProtocol {
-  None,
-  Kitty,
-  Sixel,
-  ITermInline,
 };
 
 struct RenderModeResolution {

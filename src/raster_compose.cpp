@@ -1,5 +1,8 @@
 #include "raster_compose.hpp"
 
+#include "color_dither.hpp"
+#include "glyph_font.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>

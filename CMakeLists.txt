@@ -326,6 +326,7 @@ add_library(strok_presentation_common STATIC
   ${STROK_PRESENTATION_COMMON_SOURCES}
 )
 target_include_directories(strok_presentation_common PRIVATE src)
+target_include_directories(strok_presentation_common PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_compile_features(strok_presentation_common PRIVATE cxx_std_20)
 set_target_properties(strok_presentation_common PROPERTIES
   CXX_STANDARD 20
@@ -350,6 +351,7 @@ add_library(strok_raster_backend STATIC
   ${STROK_RASTER_BACKEND_SOURCES}
 )
 target_include_directories(strok_raster_backend PRIVATE src)
+target_include_directories(strok_raster_backend PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_compile_features(strok_raster_backend PRIVATE cxx_std_20)
 set_target_properties(strok_raster_backend PROPERTIES
   CXX_STANDARD 20
@@ -362,6 +364,7 @@ add_library(strok_graphics_backend STATIC
   ${STROK_GRAPHICS_BACKEND_SOURCES}
 )
 target_include_directories(strok_graphics_backend PRIVATE src)
+target_include_directories(strok_graphics_backend PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_compile_features(strok_graphics_backend PRIVATE cxx_std_20)
 set_target_properties(strok_graphics_backend PROPERTIES
   CXX_STANDARD 20
@@ -369,6 +372,26 @@ set_target_properties(strok_graphics_backend PROPERTIES
   CXX_EXTENSIONS OFF
 )
 target_link_libraries(strok_graphics_backend PUBLIC strok_terminal_backend strok_raster_backend)
+
+add_executable(strok_graphics_backend_consumer examples/graphics_backend_consumer.cpp)
+target_compile_features(strok_graphics_backend_consumer PRIVATE cxx_std_20)
+set_target_properties(strok_graphics_backend_consumer PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(strok_graphics_backend_consumer PRIVATE strok_graphics_backend)
+if(MSVC)
+  target_compile_options(strok_graphics_backend_consumer PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_graphics_backend_consumer PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_graphics_backend_consumer PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_graphics_backend_consumer PRIVATE -Werror)
+  endif()
+endif()
 
 foreach(strok_presentation_target IN ITEMS
     strok_presentation_common
@@ -550,6 +573,10 @@ enable_testing()
 
 if(TARGET strok)
   add_test(NAME cli_graph_dump COMMAND strok --graph dump)
+endif()
+
+if(TARGET strok_graphics_backend_consumer)
+  add_test(NAME graphics_backend_consumer COMMAND strok_graphics_backend_consumer)
 endif()
 
 if(TARGET strok_sdl_sample AND STROK_SDL_SAMPLE_FONT)
