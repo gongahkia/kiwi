@@ -32,7 +32,11 @@ local function parse_options()
       index = index + 1
       options.replay = assert(arg[index], "--replay needs a JSONL path")
     elseif value == "--inspect" then
-      options.inspect = true
+      options.inspect = {}
+    elseif value:sub(1, 10) == "--inspect=" then
+      local row, column = value:match("^%-%-inspect=(%d+),(%d+)$")
+      if not row then error("--inspect expects zero-based ROW,COLUMN") end
+      options.inspect = { row = tonumber(row), column = tonumber(column) }
     elseif value == "--" then
       options.command = {}
       for command_index = index + 1, #arg do
@@ -40,7 +44,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --demo, --inspect, or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --demo, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -200,7 +204,10 @@ local function run_live(options)
     end
     parser:finish()
     if options.inspect then
-      io.stdout:write(TextInspector.format(TextInspector.describe(state, font, state.cursor.column, state.cursor.row, renderer.layout)), "\n")
+      local column = options.inspect.column or state.cursor.column
+      local row = options.inspect.row or state.cursor.row
+      assert(column >= 0 and column < state.columns and row >= 0 and row < state.rows, "--inspect coordinates are outside the terminal grid")
+      io.stdout:write(TextInspector.format(TextInspector.describe(state, font, column, row, renderer.layout)), "\n")
     end
   end, debug.traceback)
 
