@@ -9,12 +9,22 @@
 namespace strok {
 
 // This pre-1.0 C++ API is provisional and may change before a stable release.
+// A terminal-independent reconstructed cell. glyph stores one Unicode code point in
+// char32_t; callers must provide a Unicode scalar value. Width, encoding, combining,
+// and terminal cursor behavior are presentation concerns and are not represented here.
 struct Cell {
   char32_t glyph = U' ';
   Rgb fg {};
   Rgb bg {};
 };
 
+// An owning, contiguous row-major grid of cells. Copying duplicates cells; moving
+// transfers its storage, leaving the source valid with unspecified value. A default
+// buffer is empty. resize requires positive dimensions; changing dimensions resets all
+// cells to their defaults, while resizing to the same dimensions preserves storage and
+// contents. at(col, row) uses zero-based coordinates and throws std::out_of_range when
+// either coordinate is outside [0, cols) x [0, rows). cells()[row * cols() + col]
+// addresses the same cell for valid coordinates.
 class CellBuffer {
  public:
   CellBuffer() = default;
