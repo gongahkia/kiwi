@@ -44,7 +44,8 @@ make test-pty                          # deterministic real-PTY integration test
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
-make bench                             # M0 and parser/state component benchmarks, with JSON output
+make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
+make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make replay REPLAY=path/session.jsonl  # headless deterministic replay and canonical snapshot
 make vttest                            # launch vttest if installed, in an interactive graphical session
 ```
