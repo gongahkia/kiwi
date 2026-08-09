@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native run test smoke bench check clean
+.PHONY: bootstrap native run test test-pty smoke bench check clean
 
 bootstrap:
 	./script/bootstrap
@@ -17,6 +17,9 @@ run: native
 test:
 	$(LUAJIT) src/kiwi/test.lua
 
+test-pty: native
+	$(LUAJIT) src/kiwi/test_pty.lua
+
 smoke: native
 	./script/smoke
 
@@ -24,7 +27,7 @@ bench:
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/main.lua
 
-check: test
+check: test test-pty
 	./script/check
 
 clean:
