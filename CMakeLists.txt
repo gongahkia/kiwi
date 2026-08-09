@@ -208,7 +208,12 @@ endif()
 add_library(strok_core STATIC
   ${STROK_RENDERER_CORE_SOURCES}
 )
-target_include_directories(strok_core PRIVATE src)
+target_include_directories(strok_core
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  PRIVATE
+    src
+)
 target_include_directories(strok_core SYSTEM PRIVATE third_party)
 target_compile_features(strok_core PRIVATE cxx_std_20)
 set_target_properties(strok_core PROPERTIES
@@ -973,6 +978,27 @@ else()
   endif()
 endif()
 add_test(NAME reconstruction_baseline COMMAND reconstruction_baseline_tests)
+
+add_executable(public_core_headers_tests tests/public_core_headers_tests.cpp)
+target_compile_features(public_core_headers_tests PRIVATE cxx_std_20)
+set_target_properties(public_core_headers_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+target_link_libraries(public_core_headers_tests PRIVATE strok_core)
+if(MSVC)
+  target_compile_options(public_core_headers_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(public_core_headers_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(public_core_headers_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(public_core_headers_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME public_core_headers COMMAND public_core_headers_tests)
 
 add_executable(etf_tests
   tests/etf_tests.cpp
