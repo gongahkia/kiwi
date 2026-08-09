@@ -1388,6 +1388,15 @@ else()
 endif()
 add_test(NAME c_api_result COMMAND c_api_result_tests)
 
+add_test(NAME c_api_installed_consumer
+  COMMAND ${CMAKE_COMMAND}
+    -DSTROK_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+    -DSTROK_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/c_api_install_prefix
+    -DSTROK_CONSUMER_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/c_api_consumer
+    -DSTROK_CONSUMER_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/c_api_consumer_build
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/c_api_install_consumer_test.cmake
+)
+
 add_executable(renderer_config_tests tests/renderer_config_tests.cpp)
 target_include_directories(renderer_config_tests PRIVATE src)
 target_compile_features(renderer_config_tests PRIVATE cxx_std_20)
