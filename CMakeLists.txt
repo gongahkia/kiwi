@@ -6,6 +6,7 @@ option(STROK_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(STROK_LIGHT "Build without optional GPU/protocol backends" OFF)
 option(STROK_VULKAN "Build the optional Vulkan compute backend when available" ON)
 option(STROK_FORCE_VULKAN "Prefer Vulkan over Metal when both are available" OFF)
+option(STROK_BUILD_CLI "Build the media, terminal, and output frontend" ON)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-missing-field-initializers>)
@@ -41,17 +42,20 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
-find_package(ZLIB REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-  libavformat
-  libavcodec
-  libavdevice
-  libavutil
-  libswscale
-  libswresample
-)
 pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
+if(STROK_BUILD_CLI)
+  find_package(ZLIB REQUIRED)
+  pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+    libavformat
+    libavcodec
+    libavdevice
+    libavutil
+    libswscale
+    libswresample
+  )
+endif()
 
+if(STROK_BUILD_CLI)
 add_library(strok_audio STATIC
   src/audio_backend.cpp
 )
@@ -88,6 +92,7 @@ else()
   if(STROK_WARNINGS_AS_ERRORS)
     target_compile_options(strok_audio PRIVATE -Werror)
   endif()
+endif()
 endif()
 
 # The CPU reconstruction seam is Frame -> CellBuffer. Keep this list free of
@@ -228,6 +233,7 @@ else()
   endif()
 endif()
 
+if(STROK_BUILD_CLI)
 add_executable(strok
   ${STROK_FRONTEND_MEDIA_SOURCES}
   ${STROK_OUTPUT_BACKEND_SOURCES}
@@ -363,6 +369,7 @@ else()
   if(STROK_WARNINGS_AS_ERRORS)
     target_compile_options(audio_clock_smoke PRIVATE -Werror)
   endif()
+endif()
 endif()
 
 add_executable(evolve_charset
@@ -1328,6 +1335,7 @@ else()
 endif()
 add_test(NAME kitty_graphics COMMAND kitty_graphics_tests)
 
+if(STROK_BUILD_CLI)
 add_executable(iterm_inline_tests
   tests/iterm_inline_tests.cpp
   src/base64.cpp
@@ -1354,6 +1362,7 @@ else()
   endif()
 endif()
 add_test(NAME iterm_inline COMMAND iterm_inline_tests)
+endif()
 
 add_executable(sixel_tests
   tests/sixel_tests.cpp
@@ -1478,6 +1487,7 @@ else()
 endif()
 add_test(NAME overlay_compose COMMAND overlay_compose_tests)
 
+if(STROK_BUILD_CLI)
 add_executable(hybrid_emitter_tests
   tests/hybrid_emitter_tests.cpp
   src/ansi.cpp
@@ -1558,6 +1568,7 @@ else()
   endif()
 endif()
 add_test(NAME graphics_emitter COMMAND graphics_emitter_tests)
+endif()
 
 add_executable(image_grid_tests
   tests/image_grid_tests.cpp
@@ -1683,6 +1694,7 @@ else()
 endif()
 add_test(NAME asciinema_source COMMAND asciinema_source_tests)
 
+if(STROK_BUILD_CLI)
 add_executable(video_decoder_tests
   tests/video_decoder_tests.cpp
   src/video_decoder.cpp
@@ -1709,6 +1721,7 @@ else()
   endif()
 endif()
 add_test(NAME video_decoder COMMAND video_decoder_tests)
+endif()
 
 add_executable(caption_summarise_tests
   tests/caption_summarise_tests.cpp
@@ -2210,6 +2223,7 @@ if(BASH_EXECUTABLE)
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/shader_toolchain_smoke.sh"
   )
   set_tests_properties(shader_toolchain_smoke PROPERTIES SKIP_RETURN_CODE 77)
+  if(STROK_BUILD_CLI)
   add_test(NAME input_keys_smoke
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/input_keys_smoke.sh" $<TARGET_FILE:strok>
   )
@@ -2222,6 +2236,7 @@ if(BASH_EXECUTABLE)
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/render_mode_pixel_resize_smoke.sh" $<TARGET_FILE:strok>
   )
   set_tests_properties(render_mode_pixel_resize_smoke PROPERTIES SKIP_RETURN_CODE 77)
+  endif()
   add_test(NAME evolve_charset
     COMMAND ${BASH_EXECUTABLE} -c "$<TARGET_FILE:evolve_charset> --seed 1337 --name portrait-30 --output '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json' && '${CMAKE_COMMAND}' -E compare_files '${CMAKE_CURRENT_SOURCE_DIR}/share/strok/charsets/portrait-30.json' '${CMAKE_CURRENT_BINARY_DIR}/portrait-30.generated.json'"
   )
