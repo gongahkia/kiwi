@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace strok {
 
@@ -14,6 +15,17 @@ enum class RenderStatus {
   InternalError,
 };
 
+// Backend identity for a reconstruction result. Auto means GPU analysis was
+// requested but this build has no concrete GPU backend to attempt.
+enum class RenderBackend {
+  Cpu,
+  Metal,
+  Vulkan,
+  Auto,
+};
+
+std::string_view renderBackendName(RenderBackend backend) noexcept;
+
 struct RenderStats {
   int64_t frames = 0;
   int64_t cells = 0;
@@ -25,6 +37,14 @@ struct RenderStats {
   // per call and report that construction here instead.
   int64_t graph_topology_builds = 0;
   int64_t graph_topology_reuses = 0;
+  // Attempted identifies the requested native target (or Auto); selected is
+  // the renderer-owned backend established at creation, and executed is the
+  // implementation that completed analysis work for this result. A fallback
+  // can therefore report CPU execution even after a Metal/Vulkan selection.
+  RenderBackend attempted_backend = RenderBackend::Cpu;
+  RenderBackend selected_backend = RenderBackend::Cpu;
+  RenderBackend executed_backend = RenderBackend::Cpu;
+  bool backend_fallback = false;
   // Exact final CellBuffer deltas relative to the output buffer before rendering.
   // These are zero unless RendererConfig::collect_symbolic_metrics is enabled.
   // A missing or differently sized prior buffer counts every current cell as changed.

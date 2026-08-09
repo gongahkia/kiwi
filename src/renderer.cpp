@@ -456,10 +456,7 @@ int renderWorkerCount(int cols, int rows) {
   return std::min(rows, max_workers);
 }
 
-Backend detectedGpuBackend() {
-  if (!gpuSobelAvailable()) {
-    return Backend::Cpu;
-  }
+Backend declaredGpuBackend() {
   const std::string_view name = gpuSobelBackendName();
   if (name == "Metal") {
     return Backend::Metal;
@@ -467,7 +464,26 @@ Backend detectedGpuBackend() {
   if (name == "Vulkan") {
     return Backend::Vulkan;
   }
-  return Backend::Cpu;
+  return Backend::Auto;
+}
+
+Backend detectedGpuBackend() {
+  const Backend backend = declaredGpuBackend();
+  return backend != Backend::Auto && gpuSobelAvailable() ? backend : Backend::Cpu;
+}
+
+RenderBackend publicBackend(Backend backend) noexcept {
+  switch (backend) {
+    case Backend::Cpu:
+      return RenderBackend::Cpu;
+    case Backend::Metal:
+      return RenderBackend::Metal;
+    case Backend::Vulkan:
+      return RenderBackend::Vulkan;
+    case Backend::Auto:
+      return RenderBackend::Auto;
+  }
+  return RenderBackend::Auto;
 }
 
 GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config, Backend gpu_backend) {
@@ -486,7 +502,7 @@ GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config, Backend 
 }
 
 GraphBuildOptions renderGraphBuildOptions(const RendererConfig& config) {
-  return renderGraphBuildOptions(config, detectedGpuBackend());
+  return renderGraphBuildOptions(config, config.gpu ? detectedGpuBackend() : Backend::Cpu);
 }
 
 std::optional<std::string> directBlitterMode(const RendererConfig& config) {
@@ -849,8 +865,22 @@ std::string dumpRenderGraph(const RendererConfig& config) {
   return buildRendererGraphTopology(config).dump();
 }
 
+std::string_view renderBackendName(RenderBackend backend) noexcept {
+  switch (backend) {
+    case RenderBackend::Cpu:
+      return "cpu";
+    case RenderBackend::Metal:
+      return "metal";
+    case RenderBackend::Vulkan:
+      return "vulkan";
+    case RenderBackend::Auto:
+      return "auto";
+  }
+  return "auto";
+}
+
 Graph buildRendererGraphTopology(const RendererConfig& config) {
-  return buildRendererGraphTopology(config, detectedGpuBackend());
+  return buildRendererGraphTopology(config, config.gpu ? detectedGpuBackend() : Backend::Cpu);
 }
 
 Graph buildRendererGraphTopology(const RendererConfig& config, Backend gpu_backend) {
@@ -887,19 +917,31 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
 
   RenderResult result;
   const auto mark_backend_fallback = [&](std::string message) {
+    result.stats.backend_fallback = true;
     if (result.status == RenderStatus::Success) {
       result.status = RenderStatus::BackendFallback;
       result.message = std::move(message);
     }
   };
 
+  const Backend attempted_backend = gpu_backend == nullptr
+                                      ? (config.gpu ? declaredGpuBackend() : Backend::Cpu)
+                                      : gpu_backend->attemptedBackend();
+  const Backend selected_backend = gpu_backend == nullptr
+                                     ? (config.gpu ? detectedGpuBackend() : Backend::Cpu)
+                                     : gpu_backend->backend();
+  result.stats.attempted_backend = publicBackend(attempted_backend);
+  result.stats.selected_backend = publicBackend(selected_backend);
   const bool gpu_available = gpu_backend == nullptr
-                               ? gpuSobelAvailable()
+                               ? selected_backend != Backend::Cpu
                                : gpu_backend->backend() != Backend::Cpu;
   const bool gpu_requested = gpu_backend == nullptr ? config.gpu : gpu_backend->requested();
   if (gpu_requested && !gpu_available) {
     mark_backend_fallback("GPU analysis requested but unavailable; used CPU fallback");
   }
+  const auto mark_gpu_executed = [&] {
+    result.stats.executed_backend = publicBackend(selected_backend);
+  };
   const auto render_started = std::chrono::steady_clock::now();
   CellBuffer rendered_cells;
   CellBuffer* cells = &rendered_cells;
@@ -1243,6 +1285,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                                                           : gpu_backend->differenceOfGaussians(*analysis_luminance, dog_options);
           if (gpu_dog.has_value()) {
             analysis_luminance = std::move(*gpu_dog);
+            mark_gpu_executed();
             return;
           }
           mark_backend_fallback("GPU DoG analysis unavailable; used CPU fallback");
@@ -1262,6 +1305,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                                    : gpu_backend->structureGlyphs(*analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
             result.stats.shape_match_cells += gpu_structure_glyphs->shape_match_cells;
+            mark_gpu_executed();
             return;
           }
           structure_gradients = gpu_backend == nullptr
@@ -1269,6 +1313,8 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
                                   : gpu_backend->sobelGradients(*analysis_luminance);
           if (!structure_gradients.has_value()) {
             mark_backend_fallback("GPU Sobel analysis unavailable; used CPU fallback");
+          } else {
+            mark_gpu_executed();
           }
         }
         if (!structure_gradients.has_value()) {

@@ -8,10 +8,15 @@ namespace {
 
 class CpuAnalysisBackend final : public GpuAnalysisBackend {
  public:
-  explicit CpuAnalysisBackend(bool requested) : requested_(requested) {}
+  CpuAnalysisBackend(bool requested, Backend attempted_backend)
+      : requested_(requested), attempted_backend_(attempted_backend) {}
 
   bool requested() const noexcept override {
     return requested_;
+  }
+
+  Backend attemptedBackend() const noexcept override {
+    return attempted_backend_;
   }
 
   Backend backend() const noexcept override {
@@ -32,6 +37,7 @@ class CpuAnalysisBackend final : public GpuAnalysisBackend {
 
  private:
   bool requested_ = false;
+  Backend attempted_backend_ = Backend::Cpu;
 };
 
 class NativeAnalysisBackend final : public GpuAnalysisBackend {
@@ -40,6 +46,10 @@ class NativeAnalysisBackend final : public GpuAnalysisBackend {
 
   bool requested() const noexcept override {
     return true;
+  }
+
+  Backend attemptedBackend() const noexcept override {
+    return backend_;
   }
 
   Backend backend() const noexcept override {
@@ -76,14 +86,17 @@ Backend nativeBackend() noexcept {
 }  // namespace
 
 std::unique_ptr<GpuAnalysisBackend> createGpuAnalysisBackend(bool request_gpu) {
-  if (!request_gpu || !gpuSobelAvailable()) {
-    return std::make_unique<CpuAnalysisBackend>(request_gpu);
+  if (!request_gpu) {
+    return std::make_unique<CpuAnalysisBackend>(false, Backend::Cpu);
   }
-  const Backend backend = nativeBackend();
-  if (backend == Backend::Cpu) {
-    return std::make_unique<CpuAnalysisBackend>(true);
+  const Backend candidate = nativeBackend();
+  if (candidate == Backend::Cpu) {
+    return std::make_unique<CpuAnalysisBackend>(true, Backend::Auto);
   }
-  return std::make_unique<NativeAnalysisBackend>(backend);
+  if (!gpuSobelAvailable()) {
+    return std::make_unique<CpuAnalysisBackend>(true, candidate);
+  }
+  return std::make_unique<NativeAnalysisBackend>(candidate);
 }
 
 }  // namespace strok

@@ -62,6 +62,17 @@ int main() {
   expect(strok::structureOverlayEnabled(config), "structure overlay configuration");
   expect(strok::dumpRenderGraph(config) == strok::dumpRenderGraph(options), "render graph adapter parity");
 
+  const strok::Graph vulkan_graph = strok::buildRendererGraphTopology(
+    strok::RendererConfig{.cell_aspect = 1.0, .mode = "structure", .gpu = true}, strok::Backend::Vulkan);
+  bool vulkan_analysis_pass = false;
+  for (const strok::Pass& pass : vulkan_graph.ordered) {
+    if (pass.id == "dog" || pass.id == "sobel") {
+      vulkan_analysis_pass = vulkan_analysis_pass || pass.backend == strok::Backend::Vulkan;
+    }
+  }
+  expect(vulkan_analysis_pass, "Vulkan topology preserves Vulkan identity");
+  expect(strok::renderBackendName(strok::RenderBackend::Vulkan) == "vulkan", "Vulkan diagnostic name");
+
   const strok::Frame frame{
     .w = 2,
     .h = 2,

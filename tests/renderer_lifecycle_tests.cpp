@@ -81,7 +81,16 @@ int main() {
   const strok::Renderer::CreateResult gpu_created = strok::Renderer::create(
     strok::RendererConfig{.cell_aspect = 1.0, .gpu = true}, grid);
   expect(gpu_created.succeeded(), "GPU renderer construction");
-  expect(gpu_created.renderer->render(frame()).succeeded(), "GPU renderer uses its owned backend or CPU fallback");
+  const strok::RenderResult gpu_result = gpu_created.renderer->render(frame());
+  expect(gpu_result.succeeded(), "GPU renderer uses its owned backend or CPU fallback");
+  expect(gpu_result.stats.attempted_backend == strok::RenderBackend::Auto ||
+             gpu_result.stats.attempted_backend == strok::RenderBackend::Metal ||
+             gpu_result.stats.attempted_backend == strok::RenderBackend::Vulkan,
+         "GPU renderer reports the attempted backend");
+  if (gpu_result.stats.selected_backend == strok::RenderBackend::Cpu) {
+    expect(gpu_result.stats.executed_backend == strok::RenderBackend::Cpu && gpu_result.stats.backend_fallback,
+           "GPU renderer reports explicit CPU fallback");
+  }
 
   strok::Renderer::CreateResult custom_charset = strok::Renderer::create(strok::RendererConfig{.cell_aspect = 1.0, .charset = "binary"}, strok::RenderGrid{.cols = 1, .rows = 1});
   expect(custom_charset.succeeded(), "custom charset construction");

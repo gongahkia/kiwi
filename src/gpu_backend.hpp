@@ -16,6 +16,7 @@ class GpuAnalysisBackend {
   virtual ~GpuAnalysisBackend() = default;
 
   virtual bool requested() const noexcept = 0;
+  virtual Backend attemptedBackend() const noexcept = 0;
   virtual Backend backend() const noexcept = 0;
   virtual std::optional<LuminanceField> differenceOfGaussians(const LuminanceField& field, DogOptions options) const = 0;
   virtual std::optional<GradientField> sobelGradients(const LuminanceField& field) const = 0;
