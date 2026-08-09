@@ -15,6 +15,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 add_compile_definitions(
   STROK_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
   STROK_DATA_DIR="${CMAKE_INSTALL_FULL_DATADIR}/strok"
@@ -106,8 +107,6 @@ set(STROK_RENDERER_CORE_SOURCES
   src/braille_renderer.cpp
   src/ansi_transition_cost.cpp
   src/crosshatch.cpp
-  src/c_api_config.cpp
-  src/c_api_renderer.cpp
   src/etf.cpp
   src/frame_sampling.cpp
   src/glyph_font.cpp
@@ -208,6 +207,9 @@ set_target_properties(strok_gpu_backend PROPERTIES
   CXX_STANDARD 20
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
+  POSITION_INDEPENDENT_CODE ON
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
 )
 target_link_libraries(strok_gpu_backend PUBLIC ${STROK_GPU_LIBS})
 if(MSVC)
@@ -237,6 +239,9 @@ set_target_properties(strok_core PROPERTIES
   CXX_STANDARD 20
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
+  POSITION_INDEPENDENT_CODE ON
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
 )
 target_compile_definitions(strok_core PRIVATE
   STROK_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
@@ -254,6 +259,84 @@ else()
     target_compile_options(strok_core PRIVATE -Werror)
   endif()
 endif()
+
+add_library(strok_c_api SHARED
+  src/c_api_config.cpp
+  src/c_api_renderer.cpp
+)
+add_library(strok::c_api ALIAS strok_c_api)
+target_include_directories(strok_c_api
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE
+    src
+)
+target_compile_features(strok_c_api PRIVATE cxx_std_20)
+set_target_properties(strok_c_api PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+  C_VISIBILITY_PRESET hidden
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
+  VERSION ${PROJECT_VERSION}
+  SOVERSION 0
+  EXPORT_NAME c_api
+)
+target_compile_definitions(strok_c_api PRIVATE STROK_C_API_BUILD)
+target_link_libraries(strok_c_api PRIVATE strok_core)
+if(APPLE)
+  target_link_options(strok_c_api PRIVATE
+    "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/cmake/strok_c_api.exports"
+  )
+elseif(UNIX)
+  target_link_options(strok_c_api PRIVATE
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/strok_c_api.map"
+  )
+endif()
+if(MSVC)
+  target_compile_options(strok_c_api PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_c_api PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(strok_c_api PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(strok_c_api PRIVATE -Werror)
+  endif()
+endif()
+
+install(TARGETS strok_c_api
+  EXPORT strokCapiTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(FILES include/strok/c_api.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/strok
+)
+configure_package_config_file(
+  cmake/strokConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/strokConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/strok
+)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/strokConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+install(EXPORT strokCapiTargets
+  FILE strokCapiTargets.cmake
+  NAMESPACE strok::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/strok
+)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/strokConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/strokConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/strok
+)
 
 add_library(strok_cli_adapter STATIC src/renderer_cli_adapter.cpp)
 target_include_directories(strok_cli_adapter PRIVATE src)
@@ -1223,7 +1306,7 @@ set_target_properties(c_api_header_tests PROPERTIES
   C_EXTENSIONS OFF
   LINKER_LANGUAGE CXX
 )
-target_link_libraries(c_api_header_tests PRIVATE strok_core)
+target_link_libraries(c_api_header_tests PRIVATE strok_c_api)
 if(MSVC)
   target_compile_options(c_api_header_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -1239,6 +1322,8 @@ add_test(NAME c_api_header COMMAND c_api_header_tests)
 
 add_executable(c_api_config_tests tests/c_api_config_tests.cpp)
 target_include_directories(c_api_config_tests PRIVATE src)
+target_sources(c_api_config_tests PRIVATE src/c_api_config.cpp)
+target_compile_definitions(c_api_config_tests PRIVATE STROK_C_API_BUILD)
 target_compile_features(c_api_config_tests PRIVATE cxx_std_20)
 set_target_properties(c_api_config_tests PROPERTIES
   CXX_STANDARD 20
@@ -1268,7 +1353,7 @@ set_target_properties(c_api_lifecycle_tests PROPERTIES
   C_EXTENSIONS OFF
   LINKER_LANGUAGE CXX
 )
-target_link_libraries(c_api_lifecycle_tests PRIVATE strok_core)
+target_link_libraries(c_api_lifecycle_tests PRIVATE strok_c_api)
 if(MSVC)
   target_compile_options(c_api_lifecycle_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)
@@ -1289,7 +1374,7 @@ set_target_properties(c_api_result_tests PROPERTIES
   CXX_STANDARD_REQUIRED ON
   CXX_EXTENSIONS OFF
 )
-target_link_libraries(c_api_result_tests PRIVATE strok_core)
+target_link_libraries(c_api_result_tests PRIVATE strok_c_api strok_core)
 if(MSVC)
   target_compile_options(c_api_result_tests PRIVATE /W4)
   if(STROK_WARNINGS_AS_ERRORS)

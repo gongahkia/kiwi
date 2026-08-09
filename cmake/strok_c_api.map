@@ -1,0 +1,6 @@
+{
+  global:
+    strok_*;
+  local:
+    *;
+};
