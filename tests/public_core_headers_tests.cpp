@@ -1,6 +1,7 @@
 #include <strok/cell_buffer.hpp>
 #include <strok/renderer_config.hpp>
 #include <strok/render_grid.hpp>
+#include <strok/render_result.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -33,4 +34,7 @@ int main() {
 
   const strok::RenderGrid grid{.cols = 2, .rows = 1};
   expect(grid.cols == 2 && grid.rows == 1, "public RenderGrid dimensions");
+
+  const strok::RenderResult result;
+  expect(result.succeeded() && result.stats.frames == 0, "public RenderResult defaults");
 }

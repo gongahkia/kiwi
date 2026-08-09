@@ -132,7 +132,7 @@ int main() {
     strok::RendererConfig options = reconstructionOptions(2, 2);
     options.style = "cell-shade";
     strok::CellBuffer cells;
-    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, grid(2, 2), nullptr, &cells, nullptr, nullptr, &gbuffer);
+    strok::renderFrame(gbuffer.albedo, strok::kDefaultGlyphRamp, options, grid(2, 2), nullptr, &cells, nullptr, &gbuffer);
     expectDimensions(cells, 2, 2, "scene fixture dimensions");
     expectEqual(serializeCells(cells),
                 "2x2\n"

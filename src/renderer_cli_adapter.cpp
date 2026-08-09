@@ -1,6 +1,26 @@
 #include "renderer_cli_adapter.hpp"
 
 namespace strok {
+namespace {
+
+void accumulate(RenderStats* total, const RenderStats& frame) {
+  if (total == nullptr) {
+    return;
+  }
+  total->frames += frame.frames;
+  total->cells += frame.cells;
+  total->render_ns += frame.render_ns;
+  total->shape_match_cells += frame.shape_match_cells;
+  total->shape_match_ns += frame.shape_match_ns;
+  total->optical_flow_blocks += frame.optical_flow_blocks;
+  total->optical_flow_ns += frame.optical_flow_ns;
+  total->warp_history_cells += frame.warp_history_cells;
+  total->warp_history_ns += frame.warp_history_ns;
+  total->temporal_supersample_frames += frame.temporal_supersample_frames;
+  total->temporal_supersample_ns += frame.temporal_supersample_ns;
+}
+
+}  // namespace
 
 RendererConfig rendererConfigFromCliOptions(const CliOptions& options) {
   return RendererConfig{
@@ -32,7 +52,8 @@ RendererConfig rendererConfigFromCliOptions(const CliOptions& options) {
 }
 
 void renderFrame(const Frame& frame, std::u32string_view ramp, const CliOptions& options, TerminalSize terminal, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
-  renderFrame(frame, ramp, rendererConfigFromCliOptions(options), RenderGrid{.cols = terminal.cols, .rows = terminal.rows}, shape_table, cells, stats, temporal_state, scene_gbuffer);
+  const RenderResult result = renderFrame(frame, ramp, rendererConfigFromCliOptions(options), RenderGrid{.cols = terminal.cols, .rows = terminal.rows}, shape_table, cells, temporal_state, scene_gbuffer);
+  accumulate(stats, result.stats);
 }
 
 std::string dumpRenderGraph(const CliOptions& options) {

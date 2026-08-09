@@ -2,6 +2,7 @@
 
 #include "../include/strok/renderer_config.hpp"
 #include "../include/strok/render_grid.hpp"
+#include "../include/strok/render_result.hpp"
 
 #include "cell_buffer.hpp"
 #include "frame.hpp"
@@ -10,7 +11,6 @@
 #include "luminance.hpp"
 #include "structure_sampling.hpp"
 
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -19,20 +19,6 @@
 namespace strok {
 
 struct SceneGBuffer;
-
-struct RenderStats {
-  int64_t frames = 0;
-  int64_t cells = 0;
-  int64_t render_ns = 0;
-  int64_t shape_match_cells = 0;
-  int64_t shape_match_ns = 0;
-  int64_t optical_flow_blocks = 0;
-  int64_t optical_flow_ns = 0;
-  int64_t warp_history_cells = 0;
-  int64_t warp_history_ns = 0;
-  int64_t temporal_supersample_frames = 0;
-  int64_t temporal_supersample_ns = 0;
-};
 
 struct RenderTemporalState {
   GlyphHysteresisState glyph_hysteresis;
@@ -54,7 +40,7 @@ struct RenderTemporalState {
   }
 };
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats = nullptr, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
+RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state = nullptr, const SceneGBuffer* scene_gbuffer = nullptr);
 std::string dumpRenderGraph(const RendererConfig& config);
 
 }  // namespace strok

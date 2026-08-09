@@ -33,10 +33,13 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace strok {
@@ -624,14 +627,106 @@ std::vector<Pass> renderGraphSkeleton(const RendererConfig& config) {
   return passes;
 }
 
+bool finiteAtLeast(double value, double minimum) {
+  return std::isfinite(value) && value >= minimum;
+}
+
+bool finitePositive(double value) {
+  return std::isfinite(value) && value > 0.0;
+}
+
+std::optional<std::string> renderConfigurationError(const RendererConfig& config) {
+  if ((config.width.has_value() && *config.width <= 0) || (config.height.has_value() && *config.height <= 0)) {
+    return "render dimensions must be positive";
+  }
+  if (!finitePositive(config.cell_aspect)) {
+    return "cell aspect must be finite and positive";
+  }
+  if (config.mode != "auto" && config.mode != "luminance" && config.mode != "structure" && config.mode != "halfblock" && config.mode != "blocks" && config.mode != "octant" && config.mode != "sextant" && config.mode != "braille") {
+    return "unknown render mode";
+  }
+  if (config.style != "none" && config.style != "painterly" && config.style != "hatch" && config.style != "stipple" && config.style != "flow" && config.style != "cell-shade") {
+    return "unknown render style";
+  }
+  if (config.structure_overlay != "auto" && config.structure_overlay != "on" && config.structure_overlay != "off") {
+    return "unknown structure overlay mode";
+  }
+  if (config.glyph_features != "overlap" && config.glyph_features != "hog" && config.glyph_features != "sdf") {
+    return "unknown glyph feature mode";
+  }
+  if ((config.edge_threshold.has_value() && !finiteAtLeast(*config.edge_threshold, 0.0)) ||
+      (config.edge_strength.has_value() && !finiteAtLeast(*config.edge_strength, 0.0)) ||
+      (config.dog_sigma.has_value() && !finiteAtLeast(*config.dog_sigma, 0.0)) ||
+      (config.dog_threshold.has_value() && !finiteAtLeast(*config.dog_threshold, 0.0)) ||
+      (config.contrast.has_value() && !finiteAtLeast(*config.contrast, 0.0))) {
+    return "renderer numeric options must be finite and non-negative";
+  }
+  if (config.dog_sigma2.has_value() && (!config.dog_sigma.has_value() || !finitePositive(*config.dog_sigma2) || *config.dog_sigma == 0.0 || *config.dog_sigma2 <= *config.dog_sigma)) {
+    return "second DoG sigma must be finite and greater than the first";
+  }
+  if ((config.etf_iters.has_value() && (*config.etf_iters < 0 || *config.etf_iters > 16)) ||
+      (config.lic_length.has_value() && (*config.lic_length < 1 || *config.lic_length > 64)) ||
+      (config.posterize.has_value() && (*config.posterize < 2 || *config.posterize > 64)) ||
+      config.temporal_supersample < 1 || config.temporal_supersample > 8) {
+    return "renderer integer options are out of range";
+  }
+  if ((config.glyph_stickiness.has_value() && !finiteAtLeast(*config.glyph_stickiness, 0.0)) ||
+      (config.glyph_stickiness.has_value() && *config.glyph_stickiness > 1.0) ||
+      (config.orient_stickiness.has_value() && (!finiteAtLeast(*config.orient_stickiness, 0.0) || *config.orient_stickiness > kPi))) {
+    return "renderer temporal options are out of range";
+  }
+  return std::nullopt;
+}
+
+bool validFrame(const Frame& frame) {
+  if (frame.w <= 0 || frame.h <= 0) {
+    return false;
+  }
+  const std::size_t pixels = static_cast<std::size_t>(frame.w) * static_cast<std::size_t>(frame.h);
+  return pixels <= std::numeric_limits<std::size_t>::max() / 3U && frame.rgb.size() == pixels * 3U;
+}
+
+RenderResult renderFailure(RenderStatus status, std::string message) {
+  return RenderResult{.status = status, .message = std::move(message)};
+}
+
 }  // namespace
 
 std::string dumpRenderGraph(const RendererConfig& config) {
   return buildGraph(renderGraphSkeleton(config), renderGraphBuildOptions(config)).dump();
 }
 
-void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* cells, RenderStats* stats, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) {
-  const auto render_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+RenderResult renderFrame(const Frame& frame, std::u32string_view ramp, const RendererConfig& config, RenderGrid available_grid, const GlyphShapeTable* shape_table, CellBuffer* output, RenderTemporalState* temporal_state, const SceneGBuffer* scene_gbuffer) try {
+  if (output == nullptr) {
+    return renderFailure(RenderStatus::InvalidInput, "output cell buffer is required");
+  }
+  if (!validFrame(frame)) {
+    return renderFailure(RenderStatus::InvalidInput, "frame RGB buffer does not match its dimensions");
+  }
+  if (ramp.empty()) {
+    return renderFailure(RenderStatus::InvalidInput, "glyph ramp must not be empty");
+  }
+  if (const std::optional<std::string> error = renderConfigurationError(config); error.has_value()) {
+    return renderFailure(RenderStatus::InvalidConfiguration, *error);
+  }
+  if (config.style == "cell-shade" && scene_gbuffer == nullptr) {
+    return renderFailure(RenderStatus::InvalidInput, "cell-shade rendering requires a scene gbuffer");
+  }
+
+  RenderResult result;
+  const auto mark_backend_fallback = [&](std::string message) {
+    if (result.status == RenderStatus::Success) {
+      result.status = RenderStatus::BackendFallback;
+      result.message = std::move(message);
+    }
+  };
+
+  if (config.gpu && !gpuSobelAvailable()) {
+    mark_backend_fallback("GPU analysis requested but unavailable; used CPU fallback");
+  }
+  const auto render_started = std::chrono::steady_clock::now();
+  CellBuffer rendered_cells;
+  CellBuffer* cells = &rendered_cells;
   const RenderGrid size = fitRenderGrid(frame, config, available_grid);
   cells->resize(size.cols, size.rows);
   if (temporal_state != nullptr) {
@@ -647,10 +742,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
     }
     previous_shape_regions = temporal_state->previous_shape_regions;
   }
-  if (stats != nullptr) {
-    ++stats->frames;
-    stats->cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
-  }
+  ++result.stats.frames;
+  result.stats.cells += static_cast<int64_t>(size.cols) * static_cast<int64_t>(size.rows);
 
   std::optional<LuminanceField> analysis_luminance;
   std::optional<GradientField> structure_gradients;
@@ -692,13 +785,11 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
     if (temporal_state != nullptr) {
       temporal_state->previous_shape_regions = cell_shape_regions;
     }
-    if (stats != nullptr) {
-      for (const ShapeMatchStats& local_stats : worker_stats) {
-        stats->shape_match_cells += local_stats.cells;
-        stats->shape_match_ns += local_stats.ns;
-      }
-      stats->render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
+    for (const ShapeMatchStats& local_stats : worker_stats) {
+      result.stats.shape_match_cells += local_stats.cells;
+      result.stats.shape_match_ns += local_stats.ns;
     }
+    result.stats.render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
   };
 
   const auto run_graph = [&](std::vector<Pass> passes) {
@@ -758,21 +849,17 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
       .run = [&](PassContext&) {
         LuminanceField current_luminance = makeLuminanceField(active_frame());
         if (temporal_state != nullptr && temporal_supersample > 1) {
-          const auto supersample_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+          const auto supersample_started = std::chrono::steady_clock::now();
           if (temporal_state->next_supersample_frame.has_value()) {
             const LuminanceField next_luminance = makeLuminanceField(*temporal_state->next_supersample_frame);
             analysis_luminance = blendTemporalSupersample(current_luminance, next_luminance, temporal_supersample, true);
             temporal_state->next_supersample_frame.reset();
-            if (stats != nullptr) {
-              stats->temporal_supersample_frames += temporal_supersample - 1;
-              stats->temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
-            }
+            result.stats.temporal_supersample_frames += temporal_supersample - 1;
+            result.stats.temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
           } else if (!temporal_state->next_supersample_required && temporal_state->previous_supersample_luminance.has_value()) {
             analysis_luminance = blendTemporalSupersample(current_luminance, *temporal_state->previous_supersample_luminance, temporal_supersample, false);
-            if (stats != nullptr) {
-              stats->temporal_supersample_frames += temporal_supersample - 1;
-              stats->temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
-            }
+            result.stats.temporal_supersample_frames += temporal_supersample - 1;
+            result.stats.temporal_supersample_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - supersample_started).count();
           } else {
             analysis_luminance = current_luminance;
           }
@@ -888,6 +975,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
             analysis_luminance = std::move(*gpu_dog);
             return;
           }
+          mark_backend_fallback("GPU DoG analysis unavailable; used CPU fallback");
         }
         analysis_luminance = differenceOfGaussians(*analysis_luminance, dog_options);
       },
@@ -901,12 +989,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
         if (!glyph_hysteresis_enabled && !etf_enabled && context.backend() == Backend::Metal && (shape_table == nullptr || shape_table->feature_kind == GlyphFeatureKind::Overlap)) {
           gpu_structure_glyphs = computeStructureGlyphsGpu(active_frame(), *analysis_luminance, size.cols, size.rows, edge_threshold, shape_table);
           if (gpu_structure_glyphs.has_value()) {
-            if (stats != nullptr) {
-              stats->shape_match_cells += gpu_structure_glyphs->shape_match_cells;
-            }
+            result.stats.shape_match_cells += gpu_structure_glyphs->shape_match_cells;
             return;
           }
           structure_gradients = computeSobelGradientsGpu(*analysis_luminance);
+          if (!structure_gradients.has_value()) {
+            mark_backend_fallback("GPU Sobel analysis unavailable; used CPU fallback");
+          }
         }
         if (!structure_gradients.has_value()) {
           structure_gradients = computeSobelGradients(*analysis_luminance);
@@ -949,15 +1038,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
           if (!analysis_luminance.has_value()) {
             return;
           }
-          const auto flow_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+          const auto flow_started = std::chrono::steady_clock::now();
           if (temporal_state->previous_luminance.has_value() &&
               temporal_state->previous_luminance->width == analysis_luminance->width &&
               temporal_state->previous_luminance->height == analysis_luminance->height) {
             flow_field = computeBlockOpticalFlow(*temporal_state->previous_luminance, *analysis_luminance);
-            if (stats != nullptr) {
-              stats->optical_flow_blocks += static_cast<int64_t>(flow_field->vectors.size());
-              stats->optical_flow_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - flow_started).count();
-            }
+            result.stats.optical_flow_blocks += static_cast<int64_t>(flow_field->vectors.size());
+            result.stats.optical_flow_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - flow_started).count();
           }
           temporal_state->previous_luminance = *analysis_luminance;
         },
@@ -996,15 +1083,13 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
         warped_previous_glyphs.clear();
         warped_previous_shape_regions.clear();
         if (flow_field.has_value() && !previous_glyphs.empty()) {
-          const auto warp_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+          const auto warp_started = std::chrono::steady_clock::now();
           warped_previous_glyphs = warpGlyphHistory(previous_glyphs, size.cols, size.rows, *flow_field);
           if (previous_shape_regions.size() == cell_shape_regions.size()) {
             warped_previous_shape_regions = warpCellShapeHistory(previous_shape_regions, size.cols, size.rows, *flow_field);
           }
-          if (stats != nullptr) {
-            stats->warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size());
-            stats->warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();
-          }
+          result.stats.warp_history_cells += static_cast<int64_t>(warped_previous_glyphs.size() + warped_previous_shape_regions.size());
+          result.stats.warp_history_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - warp_started).count();
         }
       },
     };
@@ -1045,7 +1130,7 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
                 continue;
               }
               if (shape_table != nullptr && structure_ink.has_value()) {
-                const auto match_started = stats != nullptr ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+                const auto match_started = std::chrono::steady_clock::now();
                 const auto match_region = [&](const CellLuminanceRegion& region) {
                   if (shape_table->feature_count == kHogFeatureCount) {
                     return hogVectorForCell(region);
@@ -1071,10 +1156,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
                 } else {
                   cell.glyph = matchGlyphShape(features, *shape_table);
                 }
-                if (stats != nullptr) {
-                  ++local_stats->cells;
-                  local_stats->ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
-                }
+                ++local_stats->cells;
+                local_stats->ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - match_started).count();
               } else {
                 char32_t directional_glyph = *edge_glyph;
                 if (orientation_hysteresis_enabled) {
@@ -1240,7 +1323,8 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
     }
     run_graph(std::move(passes));
     finish_stats();
-    return;
+    *output = std::move(rendered_cells);
+    return result;
   }
 
   std::vector<Pass> passes;
@@ -1277,6 +1361,14 @@ void renderFrame(const Frame& frame, std::u32string_view ramp, const RendererCon
 
   run_graph(std::move(passes));
   finish_stats();
+  *output = std::move(rendered_cells);
+  return result;
+} catch (const std::invalid_argument& error) {
+  return renderFailure(RenderStatus::InvalidConfiguration, error.what());
+} catch (const std::exception& error) {
+  return renderFailure(RenderStatus::InternalError, error.what());
+} catch (...) {
+  return renderFailure(RenderStatus::InternalError, "unexpected renderer failure");
 }
 
 }  // namespace strok
