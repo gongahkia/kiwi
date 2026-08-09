@@ -77,7 +77,7 @@ local function run_live(options)
       recorder:resize(columns, rows)
     end
     renderer = Renderer.new(context, font, state)
-    local metrics = Metrics.new(context, font, state)
+    local metrics = Metrics.new(context, font, state, { pty = pty, parser = parser })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local next_frame = window:time()
