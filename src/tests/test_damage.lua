@@ -14,6 +14,17 @@ return {
     Assert.equal(ranges[2].first, 7)
     Assert.equal(ranges[2].count, 1)
   end,
+  damage_merges_a_new_range_across_existing_ranges = function()
+    local damage = Damage.new(12)
+    damage:mark(1)
+    damage:mark(3)
+    damage:mark_range(1, 3)
+    local ranges = damage:ranges()
+    Assert.equal(#ranges, 1)
+    Assert.equal(ranges[1].first, 1)
+    Assert.equal(ranges[1].count, 3)
+    Assert.equal(damage.dirty_count, 3)
+  end,
   damage_tracks_full_redraw_without_per_cell_marks = function()
     local damage = Damage.new(8000)
     damage:mark_all()

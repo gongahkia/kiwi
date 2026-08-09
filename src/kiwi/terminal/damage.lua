@@ -23,11 +23,34 @@ function Damage:mark_range(first, length)
   end
 
   local last = first + length - 1
+  local ranges = self.ranges_list
+  if #ranges == 0 then
+    ranges[1] = { first = first, count = length }
+    self.dirty_count = length
+    return length
+  end
+
+  -- The terminal's normal write path extends one contiguous dirty range.
+  -- Keep that case allocation-free so it remains trace-friendly under output.
+  if #ranges == 1 then
+    local range = ranges[1]
+    local range_last = range.first + range.count - 1
+    if last + 1 >= range.first and range_last + 1 >= first then
+      local previous_count = range.count
+      local merged_first = math.min(first, range.first)
+      local merged_last = math.max(last, range_last)
+      range.first = merged_first
+      range.count = merged_last - merged_first + 1
+      self.dirty_count = self.dirty_count + range.count - previous_count
+      return range.count - previous_count
+    end
+  end
+
   local merged = {}
   local inserted = false
   local previous_count = self.dirty_count
 
-  for _, range in ipairs(self.ranges_list) do
+  for _, range in ipairs(ranges) do
     local range_last = range.first + range.count - 1
     if range_last + 1 < first then
       merged[#merged + 1] = range

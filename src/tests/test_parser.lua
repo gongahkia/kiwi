@@ -73,4 +73,13 @@ return {
     Assert.equal(actions[2].kind, "print")
     Assert.equal(actions[2].text, "A")
   end,
+  parser_state_sink_preserves_terminal_output = function()
+    local input = "\27[32mA\27[0m\rB\n€"
+    local callback_snapshot = run_with_chunks(input, { #input })
+    local state = State.new(12, 4)
+    local parser = Parser.new(state)
+    parser:feed(input)
+    parser:finish()
+    Assert.equal(Snapshot.encode(state), callback_snapshot)
+  end,
 }
