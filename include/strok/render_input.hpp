@@ -2,6 +2,7 @@
 
 #include "color_image_view.hpp"
 #include "depth_image_view.hpp"
+#include "motion_vector_view.hpp"
 #include "normal_image_view.hpp"
 
 #include <optional>
@@ -17,11 +18,15 @@ namespace strok {
 // supersampling; it must match color dimensions and is consumed only when that
 // RendererConfig option is enabled. Without it, temporal supersampling uses the
 // prior Renderer input when available, otherwise color alone.
+// motion_vectors is an optional source-resolution current-to-previous vector field.
+// It is retained for future temporal history selection; current reconstruction
+// continues to use internally inferred optical flow when appropriate.
 struct RenderInput {
   ColorImageView color;
   std::optional<DepthImageView> depth;
   std::optional<NormalImageView> normals;
   std::optional<ColorImageView> lookahead_color;
+  std::optional<MotionVectorView> motion_vectors;
 };
 
 }  // namespace strok

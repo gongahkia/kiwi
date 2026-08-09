@@ -4,6 +4,7 @@
 
 #include "color_image_view.hpp"
 #include "depth_image_view.hpp"
+#include "motion_vector_view.hpp"
 #include "normal_image_view.hpp"
 
 #include <optional>
@@ -37,6 +38,14 @@ inline std::optional<std::string> renderInputError(const RenderInput& input) {
     }
     if (input.lookahead_color->width != input.color.width || input.lookahead_color->height != input.color.height) {
       return "lookahead color image dimensions must match color image dimensions";
+    }
+  }
+  if (input.motion_vectors.has_value()) {
+    if (const std::optional<std::string> error = motionVectorViewError(*input.motion_vectors); error.has_value()) {
+      return error;
+    }
+    if (input.motion_vectors->width != input.color.width || input.motion_vectors->height != input.color.height) {
+      return "motion vector dimensions must match color image dimensions";
     }
   }
   return std::nullopt;

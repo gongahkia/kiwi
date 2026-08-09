@@ -74,6 +74,15 @@ int main() {
     .row_stride_bytes = 3,
     .pixel_format = strok::ColorPixelFormat::Rgb24,
   };
+  const std::array<float, 2> motion_vectors = {0.0F, 0.0F};
+  const strok::MotionVectorView motion_vector_view{
+    .data = motion_vectors.data(),
+    .width = 1,
+    .height = 1,
+    .row_stride_bytes = 2U * sizeof(float),
+  };
+  expect(created.renderer->render(strok::RenderInput{.color = color_view, .motion_vectors = motion_vector_view}).succeeded(), "optional motion-vector RenderInput");
+  expect(color_cells == created.renderer->cells(), "unconsumed motion vectors preserve current RGB reconstruction");
   strok::Renderer::CreateResult no_lookahead_renderer = strok::Renderer::create(
       strok::RendererConfig{.cell_aspect = 1.0, .temporal_supersample = 2},
       strok::RenderGrid{.cols = 1, .rows = 1});
@@ -116,6 +125,13 @@ int main() {
     .row_stride_bytes = 6,
     .pixel_format = strok::ColorPixelFormat::Rgb24,
   };
+  const std::array<float, 4> mismatched_motion_vectors = {0.0F, 0.0F, 0.0F, 0.0F};
+  const strok::MotionVectorView wrong_motion_vectors{
+    .data = mismatched_motion_vectors.data(),
+    .width = 2,
+    .height = 1,
+    .row_stride_bytes = 4U * sizeof(float),
+  };
   strok::CellBuffer output(1, 1);
   output.at(0, 0).glyph = U'X';
   const auto expectInvalid = [&](const strok::RenderInput& input, const char* label) {
@@ -126,6 +142,7 @@ int main() {
   expectInvalid(strok::RenderInput{.color = color_view, .depth = wrong_depth}, "depth dimensions must match color");
   expectInvalid(strok::RenderInput{.color = color_view, .normals = wrong_normals}, "normal dimensions must match color");
   expectInvalid(strok::RenderInput{.color = color_view, .lookahead_color = wrong_lookahead}, "lookahead dimensions must match color");
+  expectInvalid(strok::RenderInput{.color = color_view, .motion_vectors = wrong_motion_vectors}, "motion-vector dimensions must match color");
 
   const std::array<uint8_t, 6> shade_color = {255, 255, 255, 255, 255, 255};
   const std::array<double, 2> shade_depth = {0.0, 1.0};

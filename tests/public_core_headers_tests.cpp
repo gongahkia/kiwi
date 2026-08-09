@@ -2,6 +2,7 @@
 #include <strok/color_image_view.hpp>
 #include <strok/depth_image_view.hpp>
 #include <strok/frame.hpp>
+#include <strok/motion_vector_view.hpp>
 #include <strok/normal_image_view.hpp>
 #include <strok/render_input.hpp>
 #include <strok/render.hpp>
@@ -55,8 +56,11 @@ int main() {
   const strok::NormalImageView normal;
   expect(normal.data == nullptr && normal.space == strok::NormalSpace::View, "public NormalImageView defaults");
 
+  const strok::MotionVectorView motion_vectors;
+  expect(motion_vectors.data == nullptr && motion_vectors.direction == strok::MotionVectorDirection::CurrentToPrevious && motion_vectors.unit == strok::MotionVectorUnit::SourcePixels, "public MotionVectorView defaults");
+
   const strok::RenderInput input;
-  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value() && !input.lookahead_color.has_value(), "public RenderInput defaults");
+  expect(input.color.data == nullptr && !input.depth.has_value() && !input.normals.has_value() && !input.lookahead_color.has_value() && !input.motion_vectors.has_value(), "public RenderInput defaults");
 
   const strok::Frame frame{.w = 1, .h = 1, .rgb = {0, 0, 0}};
   const std::optional<strok::ColorImageView> frame_image = strok::colorImageViewFromFrame(frame);

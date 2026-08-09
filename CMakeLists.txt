@@ -1310,6 +1310,27 @@ else()
 endif()
 add_test(NAME normal_image_view COMMAND normal_image_view_tests)
 
+add_executable(motion_vector_view_tests tests/motion_vector_view_tests.cpp)
+target_include_directories(motion_vector_view_tests PRIVATE src)
+target_compile_features(motion_vector_view_tests PRIVATE cxx_std_20)
+set_target_properties(motion_vector_view_tests PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(MSVC)
+  target_compile_options(motion_vector_view_tests PRIVATE /W4)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(motion_vector_view_tests PRIVATE /WX)
+  endif()
+else()
+  target_compile_options(motion_vector_view_tests PRIVATE -Wall -Wextra -Wpedantic)
+  if(STROK_WARNINGS_AS_ERRORS)
+    target_compile_options(motion_vector_view_tests PRIVATE -Werror)
+  endif()
+endif()
+add_test(NAME motion_vector_view COMMAND motion_vector_view_tests)
+
 add_executable(render_input_tests tests/render_input_tests.cpp)
 target_compile_features(render_input_tests PRIVATE cxx_std_20)
 set_target_properties(render_input_tests PROPERTIES
