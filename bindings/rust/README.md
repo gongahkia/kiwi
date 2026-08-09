@@ -1,11 +1,10 @@
 # strok Rust bindings
 
 `strok-sys` is intentionally raw generated FFI for the versioned C ABI. The
-`strok` crate provides safe ownership of a renderer and read-only CellBuffer
-access. Borrowed image-input views remain raw until the follow-up wrapper work.
-Until then, `Renderer::render_color_raw` is a documented `unsafe` bridge for a
-pre-initialized `strok::raw::StrokColorImageView`; renderer ownership and result
-access remain safe.
+`strok` crate provides safe renderer ownership, borrowed RGB/RGBA color input,
+optional depth and normal input, and read-only CellBuffer access. All safe image
+views validate their layout against the C ABI and are borrowed only for a render
+call.
 
 For a development build, first build `build/core` with the C ABI target and run:
 
