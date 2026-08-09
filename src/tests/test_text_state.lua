@@ -18,6 +18,21 @@ local function assert_blank(cell)
   Assert.truthy(not cell.continuation)
 end
 
+local function assert_valid_spans(state, row)
+  for column = 0, state.columns - 1 do
+    local cell = state:get(column, row)
+    if cell.continuation then
+      Assert.truthy(column > 0)
+      local anchor = state:get(column - 1, row)
+      Assert.truthy(not anchor.continuation and anchor.width == 2 and cell.anchor_column == column - 1)
+    elseif cell.width == 2 then
+      Assert.truthy(column + 1 < state.columns)
+      local continuation = state:get(column + 1, row)
+      Assert.truthy(continuation.continuation and continuation.anchor_column == column)
+    end
+  end
+end
+
 local function snapshot_with_chunks(input, chunks)
   local state = State.new(12, 3)
   local parser = Parser.new(state)
@@ -80,6 +95,43 @@ return {
     assert_blank(state:get(0, 0))
     assert_blank(state:get(1, 0))
   end,
+  terminal_text_wide_edit_operations_never_leave_orphan_spans = function()
+    local overwrite_anchor = State.new(6, 1)
+    write(overwrite_anchor, 0x4e2d)
+    overwrite_anchor:set_cursor(0, 0)
+    write(overwrite_anchor, string.byte("A"))
+    Assert.equal(overwrite_anchor:get(0, 0).glyph, "A")
+    assert_blank(overwrite_anchor:get(1, 0))
+
+    local overwrite_continuation = State.new(6, 1)
+    write(overwrite_continuation, 0x4e2d)
+    overwrite_continuation:set_cursor(1, 0)
+    write(overwrite_continuation, string.byte("B"))
+    assert_blank(overwrite_continuation:get(0, 0))
+    Assert.equal(overwrite_continuation:get(1, 0).glyph, "B")
+
+    for _, erase_column in ipairs({ 0, 1 }) do
+      local state = State.new(6, 1)
+      write(state, 0x4e2d)
+      state:erase_cell(erase_column, 0)
+      assert_blank(state:get(0, 0))
+      assert_blank(state:get(1, 0))
+      assert_valid_spans(state, 0)
+    end
+
+    local edited = State.new(8, 1)
+    write(edited, string.byte("A"))
+    write(edited, 0x4e2d)
+    write(edited, string.byte("B"))
+    edited:set_cursor(1, 0)
+    edited:delete_characters(1)
+    assert_valid_spans(edited, 0)
+    edited:set_cursor(1, 0)
+    edited:insert_characters(1)
+    assert_valid_spans(edited, 0)
+    edited:reset()
+    assert_valid_spans(edited, 0)
+  end,
   terminal_text_preserves_valid_spans_through_edit_resize_scroll_and_alternate = function()
     local state = State.new(5, 2)
     write(state, 0x4e2d)
@@ -134,6 +186,33 @@ return {
     write(state, 0x4e2d)
     Assert.equal(state:get(0, 1).width, 2)
     Assert.truthy(state:get(1, 1).continuation)
+  end,
+  terminal_text_keeps_combining_and_width_changing_extensions_valid_at_the_margin = function()
+    local combining = State.new(2, 2)
+    write(combining, string.byte("A"))
+    write(combining, string.byte("B"))
+    Assert.truthy(combining.cursor.pending_wrap)
+    write(combining, 0x301)
+    Assert.equal(combining:get(1, 0).glyph, "B" .. Utf8.encode(0x301))
+    Assert.truthy(combining.cursor.pending_wrap)
+    write(combining, string.byte("C"))
+    Assert.equal(combining:get(0, 1).glyph, "C")
+
+    local occupied = State.new(3, 1)
+    write(occupied, 0x2764)
+    occupied:set_cell(1, 0, occupied:cell_from_attributes("A"))
+    write(occupied, 0xfe0f)
+    Assert.equal(occupied:get(0, 0).width, 1)
+    Assert.equal(occupied.stats.text.width_change_clamped, 1)
+    Assert.equal(occupied:get(1, 0).glyph, "A")
+
+    local shrink = State.new(3, 1)
+    write(shrink, 0x2764)
+    write(shrink, 0xfe0f)
+    Assert.equal(shrink:get(0, 0).width, 2)
+    write(shrink, 0xfe0e)
+    Assert.equal(shrink:get(0, 0).width, 1)
+    assert_blank(shrink:get(1, 0))
   end,
   terminal_text_snapshots_expose_multicodepoint_and_continuation_cells = function()
     local state = State.new(3, 1)
