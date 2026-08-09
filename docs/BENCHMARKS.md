@@ -45,12 +45,16 @@ The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scro
 | terminal width | segmentation plus the versioned M2 width policy |
 | HarfBuzz cold | shaping against a fresh pre-created Fontconfig/FreeType/HarfBuzz/fallback context |
 | HarfBuzz/glyph-cache hot | shaping against persistent fallback and prepopulated glyph caches |
+| fallback lookup | primary coverage, initial CJK resolution, and cached CJK fallback as independent scopes |
+| glyph atlas | glyph-ID rasterize/insert miss, hot hit, and deterministic bounded-capacity rejection |
 | row layout cold | first logical-row layout against fresh pre-created state/font/layout objects |
 | row layout cached | a static, already-shaped row with cleared logical damage |
+| row layout edit | one ASCII, combining, CJK, emoji-width-changing, or full-row edit through reshaping and glyph-instance creation |
+| full text pipeline | parser direct-print sink through EGC state, width, shaping, fallback, glyph cache, and Lua glyph instances |
 
-Each JSON result carries the exact scope, input bytes, clusters/glyphs, cache/fallback counters, CPU samples, and Lua heap deltas. Object construction occurs before the timed operation, matching the M1.5 methodology; a “cold” operation means a fresh cache/context, not that native library construction time is attributed to shaping. None of these layers measure GPU queue writes, GPU execution, compositor delay, or presentation.
+Each JSON result carries the exact scope, input bytes/code points/clusters/runs/glyphs/glyph instances, logical dirty cells, cache/fallback counters, CPU samples, and Lua heap deltas. Object construction occurs before the timed operation, matching the M1.5 methodology; a “cold” operation means a fresh cache/context, not that native library construction time is attributed to shaping. None of these layers measure GPU queue writes, GPU execution, compositor delay, or presentation.
 
-`make bench-text-stress` writes `*-text-stress.json`. It mixes combining sequences, CJK, emoji, PUA, an unsupported code point, CSI edit operations, resize, and layout in one long-lived system. It checks anchor/continuation invariants, atlas entries against its configured limit, fallback-cache bounds, and (when `/proc/self/status` is available) a 96 MiB RSS delta guard. Defaults are 400 rounds and 96 glyph entries; `KIWI_TEXT_STRESS_ROUNDS`, `KIWI_TEXT_STRESS_ATLAS_ENTRIES`, and `KIWI_TEXT_STRESS_MAX_RSS_KIB` are explicit overrides. The stress output is a bounded regression check, not a frames-per-second claim.
+`make bench-text-stress` writes `*-text-stress.json`. It mixes unique glyphs, long combining sequences, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, and layout in one long-lived system, then repeatedly creates/destroys independent text systems. It reports atlas bytes/entries, face/fallback/shape-cache entries, lifecycle count, heap, and RSS. It checks anchor/continuation invariants, atlas and fallback-cache limits, and (when `/proc/self/status` is available) a 96 MiB RSS delta guard. Defaults are 400 rounds, 96 glyph entries, and 64 lifecycle iterations; `KIWI_TEXT_STRESS_ROUNDS`, `KIWI_TEXT_STRESS_ATLAS_ENTRIES`, `KIWI_TEXT_STRESS_LIFECYCLES`, and `KIWI_TEXT_STRESS_MAX_RSS_KIB` are explicit overrides. The stress output is a bounded regression check, not a frames-per-second claim.
 
 `make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, component/workload set, and each component's exact scope before producing deltas. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 

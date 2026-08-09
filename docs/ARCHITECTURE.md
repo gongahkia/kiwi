@@ -66,6 +66,8 @@ terminal state resize -> PTY TIOCSWINSZ -> renderer buffer recreation -> next pr
 
 Resizing preserves the selected screen's overlapping cells, resets margins to the full new screen, marks all logical cells dirty, and updates the child foreground process group through the kernel's normal winsize mechanism. The renderer is recreated because its storage-buffer capacity equals grid capacity.
 
+The app also polls GLFW content scale. A scale transition recreates the primary face, HarfBuzz/FreeType resources, glyph cache, layout, renderer, and cell dimensions before the next frame. This prevents glyph bitmaps from one physical scale being reused at another; terminal cell width still comes from the configured primary font rather than fallback fonts.
+
 ## Input, output, and responses
 
 GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.

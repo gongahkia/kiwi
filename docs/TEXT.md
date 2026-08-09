@@ -14,6 +14,8 @@ make test-unicode            # runs the complete checked-in official GraphemeBre
 
 `test_unicode.lua` validates all 766 cases in the pinned GraphemeBreakTest file. `unicode/grapheme.lua` implements extended grapheme cluster (EGC) boundaries under UAX #29, including CR/LF/control, Hangul, Extend/ZWJ/SpacingMark/Prepend, Indic_Conjunct_Break, Extended_Pictographic ZWJ, and regional-indicator rules. The input decoder, parser, and state accept arbitrary chunks; segmentation is independent of PTY read boundaries.
 
+`src/tests/fixtures/text/width.lua` is Kiwi-owned, readable policy data. It covers ASCII, precomposed/decomposed and leading combining text, ambiguous-width modes, Han/Hiragana/Katakana/Hangul/fullwidth/halfwidth forms, presentation selectors, modifiers, ZWJ family/profession sequences, flags, keycaps, copyright/trademark presentation, private-use, and malformed UTF-8 replacement. This is separate from the official UAX #29 corpus because cluster width is Kiwi terminal policy rather than a Unicode conformance claim.
+
 Kiwi retains original code points and does no normalization, NFC/NFD conversion, case folding, or rewrite. A leading combining mark, ZWJ, or spacing mark is stored as received and is rendered with a dotted-circle display fallback so it remains visible. A cluster is capped at 64 code points by default (`max_cluster_codepoints`); further non-breaking code points begin a new visible cluster and increment `over_limit_clusters`. This is a deliberate resource bound for hostile streams, not a Unicode normalization policy.
 
 ## Terminal-width policy
@@ -41,6 +43,8 @@ Overwrite, erase, insert/delete character, resize, scroll, and alternate-screen 
 
 Logical grid damage and shaped-glyph invalidation are separate. Terminal mutations mark cell damage. `text/layout.lua` reshapes only rows intersecting that damage (or all rows for resize/reset/alternate transition); static rows reuse their cached glyph list. The renderer still uploads background cell records only for logical damage, while the shaped-glyph buffer represents the visual layer.
 
+Changing HarfBuzz feature options or clearing fallback decisions increments the font text generation and invalidates shaped rows without falsely expanding logical terminal damage. Replacing the font system likewise invalidates the layout. The live app recreates font faces, glyph cache, row layout, renderer, and terminal grid dimensions when GLFW content scale changes, so bitmaps are not reused at the wrong physical size.
+
 ## Native shaping, fallback, and rendering
 
 The native path is FreeType + HarfBuzz + Fontconfig through narrow LuaJIT FFI declarations. `FontSystem` owns the FreeType library, `Face` owns a FreeType face and its HarfBuzz font, and destruction runs in reverse ownership order: HarfBuzz font, FreeType face, then FreeType library. Construction failures clean up partially acquired native handles.
@@ -50,6 +54,8 @@ For a contiguous same-face run, the layout concatenates its cluster display text
 Fontconfig chooses the configured primary family (`KIWI_FONT_FAMILY`, default `monospace`) or `KIWI_FONT` path. Missing clusters are matched by their full code-point set, then cached. The primary face is required; fallback face loading, face-cache exhaustion (default 32 faces), unavailable code points, and negative matches degrade to the missing-glyph path instead of expanding unboundedly or crashing the rendering path. The sequence fallback cache is capped at 1024 entries, including negative entries.
 
 Rasterization is by **glyph ID**, not the first Unicode scalar. The dynamic grayscale atlas has one 1024×1024 `r8unorm` page, a default 8,192-entry bound, 512-pixel bitmap-dimension bound, and no eviction. It keys entries by face ID, glyph ID, size, and raster mode. On glyph-cache or page exhaustion, unsupported bitmap format, missing glyph, or a glyph-instance capacity overflow, Kiwi emits the existing `?` fallback or omits that glyph safely and records diagnostics. An atlas generation upload currently sends the whole alpha page; this is simple and bounded but is an acknowledged performance limitation.
+
+The cache also remembers bounded rasterization failures and records a saturation reason once the page/entry limit is reached. Repeated glyphs after saturation return the deterministic failure without invoking FreeType again. Negative-failure entries are bounded independently; this keeps both atlas memory and repeated raster work bounded under hostile unique-glyph streams.
 
 The GPU has separate cell/background, shaped-glyph, dynamic alpha-atlas, sampler, and frame bindings. `KiwiGlyphInstance` remains the 40-byte legacy cell record for M0/M1.5 measurements. `KiwiTextGlyphInstance` is a separate, asserted 48-byte record carrying float glyph geometry, UVs, color/flags, glyph ID, and terminal cluster column. The terminal is rendered as background, glyph, then cursor passes—not as a precomposed bitmap.
 
@@ -65,7 +71,7 @@ Run a bounded native text laboratory child with:
 KIWI_MAX_FRAMES=240 make text-demo
 ```
 
-`--inspect` prints the cell at the terminal cursor after the child exits: raw code points, anchor/continuation status, width, selected face path/ID, fallback decision, and stored text. It is a single-cell inspector, not an interactive selection UI; inspect a cursor on populated text for a meaningful result.
+`--inspect` prints the cell at the terminal cursor after the child exits; `--inspect=ROW,COLUMN` selects a zero-based cell explicitly. It reports raw code points, anchor/continuation status, width, selected face path/ID, fallback decision, stored text, and mapped HarfBuzz glyph IDs/clusters/advances/offsets/atlas page. It is a single-cell inspector, not an interactive selection UI.
 
 ## Measurement and stress
 
@@ -76,7 +82,7 @@ make bench-text-stress
 KIWI_TEXT_STRESS_ROUNDS=2000 make bench-text-stress
 ```
 
-`bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, fallback, glyph cache, cold row layout, and static-row layout. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` repeatedly mixes combining, CJK, emoji, PUA, invalid fallback, CSI edits, resize, and row layout while asserting grid invariants, glyph-atlas entries, fallback-cache bounds, and an RSS guard. It writes `*-text-stress.json`.
+`bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, initial/primary/cached Fontconfig fallback, glyph-cache miss/hit/bounded-capacity paths, cold/cached/edited row layout, and the full parser → terminal-cluster → glyph-instance CPU path. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` mixes unique glyph pressure, combining-limit pressure, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, row layout, and repeated text-system construction/destruction while asserting grid, atlas, face/fallback cache, and RSS bounds. It writes `*-text-stress.json`.
 
 The native smoke target and a windowed `make text-demo` exercise shader compilation and the GPU path; they are not pixel-comparison or color-emoji conformance tests. See [BENCHMARKS.md](BENCHMARKS.md) for output semantics and [CONFORMANCE.md](CONFORMANCE.md) for deterministic test coverage.
 
