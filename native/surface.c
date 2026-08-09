@@ -5,8 +5,10 @@
 #include <GLFW/glfw3native.h>
 #include <webgpu/webgpu.h>
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <time.h>
 
 static char kiwi_surface_error[2048];
@@ -187,4 +189,22 @@ WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char *source_cod
   source.code = (WGPUStringView){.data = source_code, .length = WGPU_STRLEN};
   descriptor.nextInChain = (WGPUChainedStruct *)&source;
   return wgpuDeviceCreateShaderModule(device, &descriptor);
+}
+
+int kiwi_pty_resize(int fd, unsigned short columns, unsigned short rows) {
+  const struct winsize size = {
+      .ws_row = rows,
+      .ws_col = columns,
+      .ws_xpixel = 0,
+      .ws_ypixel = 0,
+  };
+  return ioctl(fd, TIOCSWINSZ, &size);
+}
+
+int kiwi_pty_set_nonblocking(int fd) {
+  const int flags = fcntl(fd, F_GETFL);
+  if (flags < 0) {
+    return -1;
+  }
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
