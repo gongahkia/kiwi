@@ -35,6 +35,26 @@ scripts/final_benchmark_sweep.py --binary build/package/strok --work /tmp/strok-
 
 GPU row: `--gpu` covers DoG, Sobel, per-cell gradient aggregation, shape-glyph selection, and per-cell RGB averaging through the macOS Metal backend or the optional Vulkan backend when built; terminal emission remains CPU-side.
 
+## Live Queue / Renderer Reuse Check
+
+Date: 2026-08-09. Host: Fedora Linux 43, Intel Core i7-1355U (12 logical CPUs), GCC 15.3.1, CMake 3.31.11, and FFmpeg 7.1.5. This is a controlled CPU-only export comparison, not a camera/RTSP latency measurement.
+
+Both binaries were built in Release mode with two parallel jobs from the same dependency set. `-DSTROK_WARNINGS_AS_ERRORS=ON` is not usable for this comparison because GCC 15 reports the same pre-existing `-Wmaybe-uninitialized` diagnostic in `playStdinPlot` for baseline `469767e` and the current tree. The fixture was twelve 1280x720 H.264 `testsrc2` frames at 12 fps. Each run used:
+
+```sh
+strok --mode structure --width 160 --height 45 --fps 1000 --color-mode mono \
+  --export out.ansi --log out.log input.mp4
+```
+
+Four baseline/current runs were interleaved. `render_us` came from strok's log and excludes decoding and file writes.
+
+| Binary | `render_us` samples | Median `render_us` | Interpretation |
+|---|---|---:|---|
+| `469767e` baseline | 4,141,688; 3,888,164; 4,091,389; 3,955,416 | 4,023,403 | previous per-frame topology build |
+| current tree | 4,240,220; 3,739,312; 3,953,786; 3,979,307 | 3,966,547 | persistent graph/session; 1.4% lower median, within host variance |
+
+The equivalent luminance check was similarly neutral: baseline median 99,585 us versus current 100,246 us across three interleaved runs. These measurements do not establish a material general-rendering throughput gain; they confirm that removing the CPU backend wrapper keeps renderer-session reuse overhead-neutral on this host. The dedicated adapter test verifies that unchanged successive renders reuse the graph topology. Hardware live-input latency remains unverified here because no camera or RTSP source is available.
+
 ## Vulkan Backend Validation
 
 Date: 2026-07-10. Source: current Vulkan backend working tree. Host: same macOS/M3 machine above, forced through Homebrew Vulkan loader plus MoltenVK with `-DSTROK_FORCE_VULKAN=ON`.

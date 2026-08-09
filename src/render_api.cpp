@@ -77,8 +77,10 @@ struct Renderer::State {
     }
     ramp = rampFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
     shape_table = shapeTableFromConfig(config, glyph_font.has_value() ? &*glyph_font : nullptr);
-    gpu_backend = createGpuAnalysisBackend(config.gpu);
-    graph = buildRendererGraphTopology(config, gpu_backend->backend());
+    if (config.gpu) {
+      gpu_backend = createGpuAnalysisBackend(true);
+    }
+    graph = buildRendererGraphTopology(config, gpu_backend != nullptr ? gpu_backend->backend() : Backend::Cpu);
   }
 };
 
