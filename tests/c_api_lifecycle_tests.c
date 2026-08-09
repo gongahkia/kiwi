@@ -94,6 +94,51 @@ int main(void) {
       strok_renderer_destroy(renderer);
       return 1;
     }
+    {
+      const double depth_values[4] = {1.0, 2.0, 3.0, 4.0};
+      const double normal_values[12] = {0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+                                        0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+      StrokDepthImageView depth;
+      StrokNormalImageView normals;
+      StrokRenderInput input;
+      strok_depth_image_view_init(&depth);
+      strok_normal_image_view_init(&normals);
+      strok_render_input_init(&input);
+      depth.data = depth_values;
+      depth.width = 2;
+      depth.height = 2;
+      depth.row_stride_bytes = 2U * sizeof(double);
+      normals.data = normal_values;
+      normals.width = 2;
+      normals.height = 2;
+      normals.row_stride_bytes = 6U * sizeof(double);
+      input.color = &image;
+      input.depth = &depth;
+      input.normals = &normals;
+      if (strok_renderer_render_input(renderer, &input) != STROK_STATUS_SUCCESS) {
+        strok_renderer_destroy(renderer);
+        return 1;
+      }
+      input.depth = 0;
+      input.normals = 0;
+      if (strok_renderer_render_input(renderer, &input) != STROK_STATUS_SUCCESS) {
+        strok_renderer_destroy(renderer);
+        return 1;
+      }
+      depth.width = 1;
+      input.depth = &depth;
+      if (strok_renderer_render_input(renderer, &input) != STROK_STATUS_INVALID_ARGUMENT || strlen(strok_last_error_message()) == 0U) {
+        strok_renderer_destroy(renderer);
+        return 1;
+      }
+      depth.width = 2;
+      input.normals = &normals;
+      normals.row_stride_bytes = 5U * sizeof(double);
+      if (strok_renderer_render_input(renderer, &input) != STROK_STATUS_INVALID_ARGUMENT || strlen(strok_last_error_message()) == 0U) {
+        strok_renderer_destroy(renderer);
+        return 1;
+      }
+    }
   }
   strok_renderer_destroy(renderer);
 

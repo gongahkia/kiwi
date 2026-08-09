@@ -1,6 +1,9 @@
 #include "c_api_config.hpp"
 
 #include "color_image_view.hpp"
+#include "depth_image_view.hpp"
+#include "normal_image_view.hpp"
+#include "render_input.hpp"
 
 #include "../include/strok/renderer.hpp"
 
@@ -116,6 +119,92 @@ std::optional<strok::ColorImageView> colorImageViewFromC(const StrokColorImageVi
   return result;
 }
 
+std::optional<strok::DepthImageView> depthImageViewFromC(const StrokDepthImageView* image,
+                                                          std::string* error) {
+  if (image == nullptr || (image->version >> 16U) != STROK_C_ABI_VERSION_MAJOR ||
+      image->struct_size < sizeof(*image) || image->row_stride_bytes > std::numeric_limits<std::size_t>::max() ||
+      image->pixel_format != STROK_DEPTH_PIXEL_FORMAT_FLOAT64 ||
+      image->interpretation != STROK_DEPTH_INTERPRETATION_CAMERA_LINEAR) {
+    if (error != nullptr) {
+      *error = "depth image C ABI view is invalid";
+    }
+    return std::nullopt;
+  }
+  const strok::DepthImageView result{
+    .data = image->data,
+    .width = image->width,
+    .height = image->height,
+    .row_stride_bytes = static_cast<std::size_t>(image->row_stride_bytes),
+  };
+  if (const std::optional<std::string> validation_error = strok::depthImageViewError(result); validation_error.has_value()) {
+    if (error != nullptr) {
+      *error = *validation_error;
+    }
+    return std::nullopt;
+  }
+  return result;
+}
+
+std::optional<strok::NormalImageView> normalImageViewFromC(const StrokNormalImageView* image,
+                                                            std::string* error) {
+  if (image == nullptr || (image->version >> 16U) != STROK_C_ABI_VERSION_MAJOR ||
+      image->struct_size < sizeof(*image) || image->row_stride_bytes > std::numeric_limits<std::size_t>::max() ||
+      image->pixel_format != STROK_NORMAL_PIXEL_FORMAT_FLOAT64X3 || image->space != STROK_NORMAL_SPACE_VIEW) {
+    if (error != nullptr) {
+      *error = "normal image C ABI view is invalid";
+    }
+    return std::nullopt;
+  }
+  const strok::NormalImageView result{
+    .data = image->data,
+    .width = image->width,
+    .height = image->height,
+    .row_stride_bytes = static_cast<std::size_t>(image->row_stride_bytes),
+  };
+  if (const std::optional<std::string> validation_error = strok::normalImageViewError(result); validation_error.has_value()) {
+    if (error != nullptr) {
+      *error = *validation_error;
+    }
+    return std::nullopt;
+  }
+  return result;
+}
+
+std::optional<strok::RenderInput> renderInputFromC(const StrokRenderInput* input, std::string* error) {
+  if (input == nullptr || (input->version >> 16U) != STROK_C_ABI_VERSION_MAJOR || input->struct_size < sizeof(*input)) {
+    if (error != nullptr) {
+      *error = "render input C ABI view is invalid";
+    }
+    return std::nullopt;
+  }
+  const std::optional<strok::ColorImageView> color = colorImageViewFromC(input->color, error);
+  if (!color.has_value()) {
+    return std::nullopt;
+  }
+  strok::RenderInput result{.color = *color};
+  if (input->depth != nullptr) {
+    const std::optional<strok::DepthImageView> depth = depthImageViewFromC(input->depth, error);
+    if (!depth.has_value()) {
+      return std::nullopt;
+    }
+    result.depth = *depth;
+  }
+  if (input->normals != nullptr) {
+    const std::optional<strok::NormalImageView> normals = normalImageViewFromC(input->normals, error);
+    if (!normals.has_value()) {
+      return std::nullopt;
+    }
+    result.normals = *normals;
+  }
+  if (const std::optional<std::string> validation_error = strok::renderInputError(result); validation_error.has_value()) {
+    if (error != nullptr) {
+      *error = *validation_error;
+    }
+    return std::nullopt;
+  }
+  return result;
+}
+
 }  // namespace
 
 extern "C" {
@@ -179,6 +268,30 @@ void STROK_C_CALL strok_color_image_view_init(StrokColorImageView* image) {
   };
 }
 
+void STROK_C_CALL strok_depth_image_view_init(StrokDepthImageView* image) {
+  if (image != nullptr) {
+    *image = StrokDepthImageView{.version = STROK_C_ABI_VERSION,
+                                  .struct_size = sizeof(StrokDepthImageView),
+                                  .pixel_format = STROK_DEPTH_PIXEL_FORMAT_FLOAT64,
+                                  .interpretation = STROK_DEPTH_INTERPRETATION_CAMERA_LINEAR};
+  }
+}
+
+void STROK_C_CALL strok_normal_image_view_init(StrokNormalImageView* image) {
+  if (image != nullptr) {
+    *image = StrokNormalImageView{.version = STROK_C_ABI_VERSION,
+                                   .struct_size = sizeof(StrokNormalImageView),
+                                   .pixel_format = STROK_NORMAL_PIXEL_FORMAT_FLOAT64X3,
+                                   .space = STROK_NORMAL_SPACE_VIEW};
+  }
+}
+
+void STROK_C_CALL strok_render_input_init(StrokRenderInput* input) {
+  if (input != nullptr) {
+    *input = StrokRenderInput{.version = STROK_C_ABI_VERSION, .struct_size = sizeof(StrokRenderInput)};
+  }
+}
+
 StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
                                                        const StrokColorImageView* image) {
   if (renderer == nullptr || renderer->renderer == nullptr) {
@@ -200,6 +313,30 @@ StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
     return failure(STROK_STATUS_INTERNAL_ERROR, error.what());
   } catch (...) {
     return failure(STROK_STATUS_INTERNAL_ERROR, "unexpected color render failure");
+  }
+}
+
+StrokStatus STROK_C_CALL strok_renderer_render_input(StrokRenderer* renderer,
+                                                       const StrokRenderInput* input) {
+  if (renderer == nullptr || renderer->renderer == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer handle is required");
+  }
+  try {
+    std::string error;
+    const std::optional<strok::RenderInput> render_input = renderInputFromC(input, &error);
+    if (!render_input.has_value()) {
+      return failure(STROK_STATUS_INVALID_ARGUMENT, error);
+    }
+    const strok::RenderResult result = renderer->renderer->render(*render_input);
+    if (!result.succeeded()) {
+      return failure(statusFromResult(result), result.message);
+    }
+    clearLastError();
+    return statusFromResult(result);
+  } catch (const std::exception& error) {
+    return failure(STROK_STATUS_INTERNAL_ERROR, error.what());
+  } catch (...) {
+    return failure(STROK_STATUS_INTERNAL_ERROR, "unexpected rich input render failure");
   }
 }
 

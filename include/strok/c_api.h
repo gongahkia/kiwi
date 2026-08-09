@@ -17,7 +17,7 @@
  */
 
 #define STROK_C_ABI_VERSION_MAJOR 1u
-#define STROK_C_ABI_VERSION_MINOR 1u
+#define STROK_C_ABI_VERSION_MINOR 2u
 #define STROK_C_ABI_VERSION ((STROK_C_ABI_VERSION_MAJOR << 16) | STROK_C_ABI_VERSION_MINOR)
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -171,6 +171,52 @@ typedef struct StrokColorImageView {
 
 STROK_C_API void STROK_C_CALL strok_color_image_view_init(StrokColorImageView* image);
 
+typedef uint32_t StrokDepthPixelFormat;
+enum { STROK_DEPTH_PIXEL_FORMAT_FLOAT64 = UINT32_C(0) };
+typedef uint32_t StrokDepthInterpretation;
+enum { STROK_DEPTH_INTERPRETATION_CAMERA_LINEAR = UINT32_C(0) };
+
+typedef struct StrokDepthImageView {
+  uint32_t version;
+  uint32_t struct_size;
+  const double* data;
+  int32_t width;
+  int32_t height;
+  uint64_t row_stride_bytes;
+  StrokDepthPixelFormat pixel_format;
+  StrokDepthInterpretation interpretation;
+} StrokDepthImageView;
+
+typedef uint32_t StrokNormalPixelFormat;
+enum { STROK_NORMAL_PIXEL_FORMAT_FLOAT64X3 = UINT32_C(0) };
+typedef uint32_t StrokNormalSpace;
+enum { STROK_NORMAL_SPACE_VIEW = UINT32_C(0) };
+
+typedef struct StrokNormalImageView {
+  uint32_t version;
+  uint32_t struct_size;
+  const double* data;
+  int32_t width;
+  int32_t height;
+  uint64_t row_stride_bytes;
+  StrokNormalPixelFormat pixel_format;
+  StrokNormalSpace space;
+} StrokNormalImageView;
+
+/* A borrowed rich CPU input. color is required; depth and normals are optional.
+ * All nested views and their data remain valid and unchanged only for the render call. */
+typedef struct StrokRenderInput {
+  uint32_t version;
+  uint32_t struct_size;
+  const StrokColorImageView* color;
+  const StrokDepthImageView* depth;
+  const StrokNormalImageView* normals;
+} StrokRenderInput;
+
+STROK_C_API void STROK_C_CALL strok_depth_image_view_init(StrokDepthImageView* image);
+STROK_C_API void STROK_C_CALL strok_normal_image_view_init(StrokNormalImageView* image);
+STROK_C_API void STROK_C_CALL strok_render_input_init(StrokRenderInput* input);
+
 typedef struct StrokRenderer StrokRenderer;
 
 typedef uint32_t StrokStatus;
@@ -201,6 +247,11 @@ STROK_C_API StrokStatus STROK_C_CALL strok_renderer_reset(StrokRenderer* rendere
  * strok_last_error_message(); the renderer handle remains usable. */
 STROK_C_API StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
                                                                    const StrokColorImageView* image);
+
+/* Renders required borrowed color with optional borrowed depth and view-space normals.
+ * Invalid nested views or incompatible auxiliary dimensions return STROK_STATUS_INVALID_ARGUMENT. */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_render_input(StrokRenderer* renderer,
+                                                                   const StrokRenderInput* input);
 
 /* Safe for null, failed, and never-rendered handles. This does not modify the caller's pointer. */
 STROK_C_API void STROK_C_CALL strok_renderer_destroy(StrokRenderer* renderer);
