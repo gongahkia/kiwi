@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo replay vttest test test-pty smoke bench bench-burst bench-compare check clean
+.PHONY: bootstrap native terminfo run demo replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -29,6 +29,12 @@ vttest: native terminfo
 
 test:
 	$(LUAJIT) src/kiwi/test.lua
+
+test-unicode:
+	$(LUAJIT) src/kiwi/test_unicode.lua
+
+generate-unicode:
+	./script/generate-unicode
 
 test-pty: native
 	$(LUAJIT) src/kiwi/test_pty.lua

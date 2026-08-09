@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+set -eu
+
+unicode_version=17.0.0
+unicode_dir="unicode/$unicode_version"
+base_url="https://www.unicode.org/Public/$unicode_version/ucd"
+
+mkdir -p "$unicode_dir/emoji" "$unicode_dir/auxiliary"
+
+fetch() {
+  relative_path=$1
+  curl --fail --location --retry 3 --silent --show-error \
+    --output "$unicode_dir/$relative_path" \
+    "$base_url/$relative_path"
+}
+
+fetch EastAsianWidth.txt
+fetch DerivedCoreProperties.txt
+fetch emoji/emoji-data.txt
+fetch emoji/emoji-variation-sequences.txt
+fetch auxiliary/GraphemeBreakProperty.txt
+fetch auxiliary/GraphemeBreakTest.txt
+
+sha256sum \
+  "$unicode_dir/EastAsianWidth.txt" \
+  "$unicode_dir/DerivedCoreProperties.txt" \
+  "$unicode_dir/emoji/emoji-data.txt" \
+  "$unicode_dir/emoji/emoji-variation-sequences.txt" \
+  "$unicode_dir/auxiliary/GraphemeBreakProperty.txt" \
+  "$unicode_dir/auxiliary/GraphemeBreakTest.txt" > "$unicode_dir/SHA256SUMS"
+
+printf '%s\n' "Fetched Unicode $unicode_version data into $unicode_dir"

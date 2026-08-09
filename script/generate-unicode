@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+exec "${LUAJIT:-luajit}" src/kiwi/unicode/generate.lua unicode/17.0.0 src/kiwi/unicode/generated.lua
