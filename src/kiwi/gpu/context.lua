@@ -4,10 +4,6 @@ local wgpu = require("kiwi.ffi.wgpu")
 local Context = {}
 Context.__index = Context
 
-local function string_view(value)
-  return ffi.new("WGPUStringView", { data = value, length = #value })
-end
-
 local function message_text(view)
   if view.data == nil then
     return "no message supplied"
@@ -23,7 +19,7 @@ local function assert_handle(handle, label)
 end
 
 function Context.new(window)
-  local self = setmetatable({ window = window, native = wgpu, callbacks = {}, errors = {} }, Context)
+  local self = setmetatable({ window = window, native = wgpu }, Context)
   local api = wgpu.lib
   local constants = wgpu.constants
 
@@ -31,25 +27,10 @@ function Context.new(window)
   self.instance = assert_handle(api.wgpuCreateInstance(instance_descriptor), "wgpuCreateInstance")
   self.surface = assert_handle(wgpu.surface.kiwi_surface_from_glfw(self.instance, window.handle), "kiwi_surface_from_glfw: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
 
-  local adapter_result = {}
-  self.callbacks.adapter = ffi.cast("WGPURequestAdapterCallback", function(status, adapter, message)
-    adapter_result.status = status
-    adapter_result.adapter = adapter
-    adapter_result.message = message_text(message)
-  end)
-  local adapter_options = ffi.new("WGPURequestAdapterOptions")
-  adapter_options.featureLevel = 2
-  adapter_options.backendType = constants.backend_vulkan
-  adapter_options.compatibleSurface = self.surface
-  local adapter_callback = ffi.new("WGPURequestAdapterCallbackInfo")
-  adapter_callback.mode = constants.callback_wait_any_only
-  adapter_callback.callback = self.callbacks.adapter
-  local adapter_future = api.wgpuInstanceRequestAdapter(self.instance, adapter_options, adapter_callback)
-  self:wait_for(adapter_future, "adapter request")
-  if adapter_result.status ~= constants.request_adapter_success or adapter_result.adapter == nil then
-    error("Unable to request a Vulkan-capable adapter: " .. (adapter_result.message or "unknown error"))
+  self.adapter = wgpu.surface.kiwi_request_adapter_sync(self.instance, self.surface)
+  if self.adapter == nil then
+    error("Unable to request a Vulkan-capable adapter: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
   end
-  self.adapter = adapter_result.adapter
 
   local adapter_info = ffi.new("WGPUAdapterInfo")
   if api.wgpuAdapterGetInfo(self.adapter, adapter_info) ~= 1 then
@@ -63,39 +44,13 @@ function Context.new(window)
   }
   api.wgpuAdapterInfoFreeMembers(adapter_info)
 
-  self.callbacks.device_error = ffi.cast("WGPUUncapturedErrorCallback", function(_, kind, message)
-    self.errors[#self.errors + 1] = string.format("WGPU error %d: %s", kind, message_text(message))
-  end)
-  local device_result = {}
-  self.callbacks.device = ffi.cast("WGPURequestDeviceCallback", function(status, device, message)
-    device_result.status = status
-    device_result.device = device
-    device_result.message = message_text(message)
-  end)
-  local device_descriptor = ffi.new("WGPUDeviceDescriptor")
-  device_descriptor.label = string_view("kiwi-m0-device")
-  device_descriptor.uncapturedErrorCallbackInfo.callback = self.callbacks.device_error
-  local device_callback = ffi.new("WGPURequestDeviceCallbackInfo")
-  device_callback.mode = constants.callback_wait_any_only
-  device_callback.callback = self.callbacks.device
-  local device_future = api.wgpuAdapterRequestDevice(self.adapter, device_descriptor, device_callback)
-  self:wait_for(device_future, "device request")
-  if device_result.status ~= constants.request_device_success or device_result.device == nil then
-    error("Unable to create a wgpu device: " .. (device_result.message or "unknown error"))
+  self.device = wgpu.surface.kiwi_request_device_sync(self.instance, self.adapter)
+  if self.device == nil then
+    error("Unable to create a wgpu device: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
   end
-  self.device = device_result.device
   self.queue = assert_handle(api.wgpuDeviceGetQueue(self.device), "wgpuDeviceGetQueue")
   self:configure_surface()
   return self
-end
-
-function Context:wait_for(future, label)
-  local wait = ffi.new("WGPUFutureWaitInfo[1]")
-  wait[0].future = future
-  local status = self.native.lib.wgpuInstanceWaitAny(self.instance, 1, wait, 10 * 1000 * 1000 * 1000)
-  if status ~= self.native.constants.wait_success or wait[0].completed == 0 then
-    error("Timed out or failed while waiting for " .. label .. " (WGPU wait status " .. status .. ")")
-  end
 end
 
 function Context:configure_surface()

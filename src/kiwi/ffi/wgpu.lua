@@ -131,6 +131,8 @@ uint32_t wgpuSurfacePresent(WGPUSurface surface);
 void wgpuSurfaceUnconfigure(WGPUSurface surface);
 void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
+WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
+WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -152,11 +154,6 @@ return {
   lib = library,
   surface = surface,
   constants = {
-    callback_wait_any_only = 1,
-    request_adapter_success = 1,
-    request_device_success = 1,
-    wait_success = 1,
-    backend_vulkan = 6,
     surface_success_optimal = 1,
     surface_success_suboptimal = 2,
     texture_format_r8_unorm = 1,
@@ -175,7 +172,7 @@ return {
     buffer_binding_uniform = 2,
     shader_stage_vertex = 0x01,
     shader_stage_fragment = 0x02,
-    sampler_address_clamp_to_edge = 3,
+    sampler_address_clamp_to_edge = 1,
     filter_nearest = 1,
     mipmap_filter_nearest = 1,
     primitive_triangle_list = 4,
