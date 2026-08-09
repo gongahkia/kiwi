@@ -1397,6 +1397,19 @@ add_test(NAME c_api_installed_consumer
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/c_api_install_consumer_test.cmake
 )
 
+find_program(CARGO_EXECUTABLE cargo)
+if(CARGO_EXECUTABLE)
+  add_test(NAME rust_sys_installed
+    COMMAND ${CMAKE_COMMAND}
+      -DSTROK_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
+      -DSTROK_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/rust_sys_install_prefix
+      -DSTROK_CARGO_EXECUTABLE=${CARGO_EXECUTABLE}
+      -DSTROK_CARGO_MANIFEST=${CMAKE_CURRENT_SOURCE_DIR}/bindings/rust/Cargo.toml
+      -DSTROK_CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR}/rust_sys_cargo_target
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/rust_sys_installed_test.cmake
+  )
+endif()
+
 add_executable(renderer_config_tests tests/renderer_config_tests.cpp)
 target_include_directories(renderer_config_tests PRIVATE src)
 target_compile_features(renderer_config_tests PRIVATE cxx_std_20)

@@ -1,0 +1,13 @@
+[package]
+name = "strok-sys"
+version = "0.1.0"
+edition = "2021"
+links = "strok_c_api"
+build = "build.rs"
+
+[lib]
+name = "strok_sys"
+path = "src/lib.rs"
+
+[build-dependencies]
+bindgen = "0.72.1"

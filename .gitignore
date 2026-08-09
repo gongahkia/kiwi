@@ -6,6 +6,7 @@ dist/
 bin/
 lib/
 _CPack_Packages/
+target/
 *.tar.gz
 *.deb
 
