@@ -17,7 +17,7 @@
  */
 
 #define STROK_C_ABI_VERSION_MAJOR 1u
-#define STROK_C_ABI_VERSION_MINOR 2u
+#define STROK_C_ABI_VERSION_MINOR 3u
 #define STROK_C_ABI_VERSION ((STROK_C_ABI_VERSION_MAJOR << 16) | STROK_C_ABI_VERSION_MINOR)
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -219,6 +219,18 @@ STROK_C_API void STROK_C_CALL strok_render_input_init(StrokRenderInput* input);
 
 typedef struct StrokRenderer StrokRenderer;
 
+/* A copied terminal-independent output cell. glyph is one Unicode scalar value;
+ * fg and bg are 8-bit RGB channels. This structure never borrows renderer storage. */
+typedef struct StrokCell {
+  uint32_t glyph;
+  uint8_t fg_r;
+  uint8_t fg_g;
+  uint8_t fg_b;
+  uint8_t bg_r;
+  uint8_t bg_g;
+  uint8_t bg_b;
+} StrokCell;
+
 typedef uint32_t StrokStatus;
 enum {
   STROK_STATUS_SUCCESS = UINT32_C(0),
@@ -252,6 +264,21 @@ STROK_C_API StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* 
  * Invalid nested views or incompatible auxiliary dimensions return STROK_STATUS_INVALID_ARGUMENT. */
 STROK_C_API StrokStatus STROK_C_CALL strok_renderer_render_input(StrokRenderer* renderer,
                                                                    const StrokRenderInput* input);
+
+/* Queries the CellBuffer retained by the most recent successful render. It is
+ * unavailable before a successful render. A successful subsequent render replaces
+ * it; failed renders and strok_renderer_reset retain it. No pointer to renderer
+ * storage is returned, and destroying renderer invalidates this result state. */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_cell_buffer_dimensions(const StrokRenderer* renderer,
+                                                                             int32_t* out_cols,
+                                                                             int32_t* out_rows);
+
+/* Copies one zero-based CellBuffer cell. out_cell is written only on success;
+ * out-of-range coordinates return STROK_STATUS_INVALID_ARGUMENT. */
+STROK_C_API StrokStatus STROK_C_CALL strok_renderer_cell_buffer_at(const StrokRenderer* renderer,
+                                                                     int32_t col,
+                                                                     int32_t row,
+                                                                     StrokCell* out_cell);
 
 /* Safe for null, failed, and never-rendered handles. This does not modify the caller's pointer. */
 STROK_C_API void STROK_C_CALL strok_renderer_destroy(StrokRenderer* renderer);

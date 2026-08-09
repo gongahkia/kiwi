@@ -19,6 +19,7 @@
 
 struct StrokRenderer {
   std::unique_ptr<strok::Renderer> renderer;
+  bool has_output = false;
 };
 
 namespace {
@@ -307,6 +308,7 @@ StrokStatus STROK_C_CALL strok_renderer_render_color(StrokRenderer* renderer,
     if (!result.succeeded()) {
       return failure(statusFromResult(result), result.message);
     }
+    renderer->has_output = true;
     clearLastError();
     return statusFromResult(result);
   } catch (const std::exception& error) {
@@ -331,6 +333,7 @@ StrokStatus STROK_C_CALL strok_renderer_render_input(StrokRenderer* renderer,
     if (!result.succeeded()) {
       return failure(statusFromResult(result), result.message);
     }
+    renderer->has_output = true;
     clearLastError();
     return statusFromResult(result);
   } catch (const std::exception& error) {
@@ -338,6 +341,54 @@ StrokStatus STROK_C_CALL strok_renderer_render_input(StrokRenderer* renderer,
   } catch (...) {
     return failure(STROK_STATUS_INTERNAL_ERROR, "unexpected rich input render failure");
   }
+}
+
+StrokStatus STROK_C_CALL strok_renderer_cell_buffer_dimensions(const StrokRenderer* renderer,
+                                                                 int32_t* out_cols,
+                                                                 int32_t* out_rows) {
+  if (renderer == nullptr || renderer->renderer == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer handle is required");
+  }
+  if (out_cols == nullptr || out_rows == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "cell buffer dimension outputs are required");
+  }
+  if (!renderer->has_output) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer has no successful output");
+  }
+  const strok::CellBuffer& cells = renderer->renderer->cells();
+  *out_cols = static_cast<int32_t>(cells.cols());
+  *out_rows = static_cast<int32_t>(cells.rows());
+  return STROK_STATUS_SUCCESS;
+}
+
+StrokStatus STROK_C_CALL strok_renderer_cell_buffer_at(const StrokRenderer* renderer,
+                                                         int32_t col,
+                                                         int32_t row,
+                                                         StrokCell* out_cell) {
+  if (renderer == nullptr || renderer->renderer == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer handle is required");
+  }
+  if (out_cell == nullptr) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "cell output is required");
+  }
+  if (!renderer->has_output) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "renderer has no successful output");
+  }
+  const strok::CellBuffer& cells = renderer->renderer->cells();
+  if (col < 0 || row < 0 || col >= cells.cols() || row >= cells.rows()) {
+    return failure(STROK_STATUS_INVALID_ARGUMENT, "cell coordinates are outside the output buffer");
+  }
+  const strok::Cell& source = cells.at(col, row);
+  *out_cell = StrokCell{
+    .glyph = static_cast<uint32_t>(source.glyph),
+    .fg_r = source.fg.r,
+    .fg_g = source.fg.g,
+    .fg_b = source.fg.b,
+    .bg_r = source.bg.r,
+    .bg_g = source.bg.g,
+    .bg_b = source.bg.b,
+  };
+  return STROK_STATUS_SUCCESS;
 }
 
 void STROK_C_CALL strok_renderer_destroy(StrokRenderer* renderer) {
