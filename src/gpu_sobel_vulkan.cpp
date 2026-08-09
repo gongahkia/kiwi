@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace strok {
@@ -387,6 +388,11 @@ class VulkanContext {
 
   ~VulkanContext() {
     if (device_ != VK_NULL_HANDLE) {
+      (void)vkDeviceWaitIdle(device_);
+      reusable_buffers_.clear();
+      for (auto& [_, pipeline] : pipelines_) {
+        destroyPipeline(device_, command_pool_, &pipeline);
+      }
       if (command_pool_ != VK_NULL_HANDLE) {
         vkDestroyCommandPool(device_, command_pool_, nullptr);
       }
@@ -415,6 +421,84 @@ class VulkanContext {
     return device_;
   }
 
+  class ReusableBuffer {
+   public:
+    ReusableBuffer(const ReusableBuffer&) = delete;
+    ReusableBuffer& operator=(const ReusableBuffer&) = delete;
+
+    ReusableBuffer(const VulkanContext& context, std::size_t size, const void* initial_data)
+        : context_(context), size_(std::max<std::size_t>(size, 4U)) {
+      VkBufferCreateInfo buffer_info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = static_cast<VkDeviceSize>(size_),
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      };
+      checkVk(vkCreateBuffer(context_.device(), &buffer_info, nullptr, &buffer_), "vkCreateBuffer");
+
+      VkMemoryRequirements requirements {};
+      vkGetBufferMemoryRequirements(context_.device(), buffer_, &requirements);
+      VkMemoryAllocateInfo allocate_info{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = context_.memoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+      };
+      checkVk(vkAllocateMemory(context_.device(), &allocate_info, nullptr, &memory_), "vkAllocateMemory");
+      checkVk(vkBindBufferMemory(context_.device(), buffer_, memory_, 0), "vkBindBufferMemory");
+      if (initial_data != nullptr && size > 0) {
+        upload(initial_data, size);
+      }
+    }
+
+    ~ReusableBuffer() {
+      if (buffer_ != VK_NULL_HANDLE) {
+        vkDestroyBuffer(context_.device(), buffer_, nullptr);
+      }
+      if (memory_ != VK_NULL_HANDLE) {
+        vkFreeMemory(context_.device(), memory_, nullptr);
+      }
+    }
+
+    [[nodiscard]] std::size_t capacity() const noexcept {
+      return size_;
+    }
+
+    [[nodiscard]] VkDescriptorBufferInfo descriptor() const noexcept {
+      return VkDescriptorBufferInfo{.buffer = buffer_, .offset = 0, .range = static_cast<VkDeviceSize>(size_)};
+    }
+
+    void upload(const void* data, std::size_t size) {
+      void* mapped = nullptr;
+      checkVk(vkMapMemory(context_.device(), memory_, 0, static_cast<VkDeviceSize>(size), 0, &mapped), "vkMapMemory");
+      std::memcpy(mapped, data, size);
+      vkUnmapMemory(context_.device(), memory_);
+    }
+
+    void download(void* data, std::size_t size) const {
+      void* mapped = nullptr;
+      checkVk(vkMapMemory(context_.device(), memory_, 0, static_cast<VkDeviceSize>(size), 0, &mapped), "vkMapMemory");
+      std::memcpy(data, mapped, size);
+      vkUnmapMemory(context_.device(), memory_);
+    }
+
+   private:
+    const VulkanContext& context_;
+    VkBuffer buffer_ = VK_NULL_HANDLE;
+    VkDeviceMemory memory_ = VK_NULL_HANDLE;
+    std::size_t size_ = 0;
+  };
+
+  ReusableBuffer& reusableBuffer(std::string_view key, std::size_t size, const void* initial_data) {
+    const std::size_t required_size = std::max<std::size_t>(size, 4U);
+    std::unique_ptr<ReusableBuffer>& buffer = reusable_buffers_[std::string(key)];
+    if (!buffer || buffer->capacity() < required_size) {
+      buffer = std::make_unique<ReusableBuffer>(*this, size, initial_data);
+    } else if (initial_data != nullptr && size > 0) {
+      buffer->upload(initial_data, size);
+    }
+    return *buffer;
+  }
+
   uint32_t memoryType(uint32_t type_bits, VkMemoryPropertyFlags flags) const {
     VkPhysicalDeviceMemoryProperties properties {};
     vkGetPhysicalDeviceMemoryProperties(physical_device_, &properties);
@@ -427,6 +511,14 @@ class VulkanContext {
   }
 
   void runCompute(std::string_view source, const std::vector<VkDescriptorBufferInfo>& descriptors, uint32_t groups_x, uint32_t groups_y) const {
+    try {
+      runComputeCached(source, descriptors, groups_x, groups_y);
+      return;
+    } catch (...) {
+      // Retry the established transient setup if this driver rejects cached
+      // state. A second failure propagates to the caller's CPU fallback.
+    }
+
     const std::vector<uint32_t> spirv = compileComputeShader(source);
 
     VkShaderModule shader = VK_NULL_HANDLE;
@@ -569,6 +661,168 @@ class VulkanContext {
   }
 
  private:
+  struct ComputePipeline {
+    uint32_t descriptor_count = 0;
+    VkShaderModule shader = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptor_layout = VK_NULL_HANDLE;
+    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+  };
+
+  static void destroyPipeline(VkDevice device, VkCommandPool command_pool, ComputePipeline* pipeline) {
+    if (pipeline->command_buffer != VK_NULL_HANDLE) {
+      vkFreeCommandBuffers(device, command_pool, 1, &pipeline->command_buffer);
+    }
+    if (pipeline->descriptor_pool != VK_NULL_HANDLE) {
+      vkDestroyDescriptorPool(device, pipeline->descriptor_pool, nullptr);
+    }
+    if (pipeline->pipeline != VK_NULL_HANDLE) {
+      vkDestroyPipeline(device, pipeline->pipeline, nullptr);
+    }
+    if (pipeline->pipeline_layout != VK_NULL_HANDLE) {
+      vkDestroyPipelineLayout(device, pipeline->pipeline_layout, nullptr);
+    }
+    if (pipeline->descriptor_layout != VK_NULL_HANDLE) {
+      vkDestroyDescriptorSetLayout(device, pipeline->descriptor_layout, nullptr);
+    }
+    if (pipeline->shader != VK_NULL_HANDLE) {
+      vkDestroyShaderModule(device, pipeline->shader, nullptr);
+    }
+    *pipeline = ComputePipeline{};
+  }
+
+  ComputePipeline& computePipeline(std::string_view source, uint32_t descriptor_count) const {
+    const auto [iterator, inserted] = pipelines_.try_emplace(std::string(source));
+    ComputePipeline& cached = iterator->second;
+    if (!inserted) {
+      if (cached.descriptor_count != descriptor_count) {
+        throw std::runtime_error("Vulkan compute shader descriptor count changed");
+      }
+      return cached;
+    }
+
+    cached.descriptor_count = descriptor_count;
+    try {
+      const std::vector<uint32_t> spirv = compileComputeShader(source);
+      VkShaderModuleCreateInfo shader_info{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = spirv.size() * sizeof(uint32_t),
+        .pCode = spirv.data(),
+      };
+      checkVk(vkCreateShaderModule(device_, &shader_info, nullptr, &cached.shader), "vkCreateShaderModule");
+
+      std::vector<VkDescriptorSetLayoutBinding> bindings;
+      bindings.reserve(descriptor_count);
+      for (uint32_t index = 0; index < descriptor_count; ++index) {
+        bindings.push_back(VkDescriptorSetLayoutBinding{
+          .binding = index,
+          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          .descriptorCount = 1,
+          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        });
+      }
+      VkDescriptorSetLayoutCreateInfo layout_info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = descriptor_count,
+        .pBindings = bindings.data(),
+      };
+      checkVk(vkCreateDescriptorSetLayout(device_, &layout_info, nullptr, &cached.descriptor_layout), "vkCreateDescriptorSetLayout");
+
+      VkPipelineLayoutCreateInfo pipeline_layout_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &cached.descriptor_layout,
+      };
+      checkVk(vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, &cached.pipeline_layout), "vkCreatePipelineLayout");
+
+      VkComputePipelineCreateInfo pipeline_info{
+        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .stage = VkPipelineShaderStageCreateInfo{
+          .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+          .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+          .module = cached.shader,
+          .pName = "main",
+        },
+        .layout = cached.pipeline_layout,
+      };
+      checkVk(vkCreateComputePipelines(device_, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &cached.pipeline), "vkCreateComputePipelines");
+
+      VkDescriptorPoolSize pool_size{
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = descriptor_count,
+      };
+      VkDescriptorPoolCreateInfo pool_info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 1,
+        .poolSizeCount = 1,
+        .pPoolSizes = &pool_size,
+      };
+      checkVk(vkCreateDescriptorPool(device_, &pool_info, nullptr, &cached.descriptor_pool), "vkCreateDescriptorPool");
+
+      VkCommandBufferAllocateInfo command_buffer_info{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = command_pool_,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+      };
+      checkVk(vkAllocateCommandBuffers(device_, &command_buffer_info, &cached.command_buffer), "vkAllocateCommandBuffers");
+      return cached;
+    } catch (...) {
+      destroyPipeline(device_, command_pool_, &cached);
+      pipelines_.erase(iterator);
+      throw;
+    }
+  }
+
+  void runComputeCached(std::string_view source, const std::vector<VkDescriptorBufferInfo>& descriptors, uint32_t groups_x, uint32_t groups_y) const {
+    ComputePipeline& cached = computePipeline(source, static_cast<uint32_t>(descriptors.size()));
+    checkVk(vkResetDescriptorPool(device_, cached.descriptor_pool, 0), "vkResetDescriptorPool");
+
+    VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
+    VkDescriptorSetAllocateInfo descriptor_allocate_info{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+      .descriptorPool = cached.descriptor_pool,
+      .descriptorSetCount = 1,
+      .pSetLayouts = &cached.descriptor_layout,
+    };
+    checkVk(vkAllocateDescriptorSets(device_, &descriptor_allocate_info, &descriptor_set), "vkAllocateDescriptorSets");
+
+    std::vector<VkWriteDescriptorSet> writes;
+    writes.reserve(descriptors.size());
+    for (uint32_t index = 0; index < descriptors.size(); ++index) {
+      writes.push_back(VkWriteDescriptorSet{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptor_set,
+        .dstBinding = index,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pBufferInfo = &descriptors[index],
+      });
+    }
+    vkUpdateDescriptorSets(device_, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+
+    checkVk(vkResetCommandBuffer(cached.command_buffer, 0), "vkResetCommandBuffer");
+    VkCommandBufferBeginInfo begin_info{
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    checkVk(vkBeginCommandBuffer(cached.command_buffer, &begin_info), "vkBeginCommandBuffer");
+    vkCmdBindPipeline(cached.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, cached.pipeline);
+    vkCmdBindDescriptorSets(cached.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, cached.pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdDispatch(cached.command_buffer, groups_x, groups_y, 1);
+    checkVk(vkEndCommandBuffer(cached.command_buffer), "vkEndCommandBuffer");
+
+    VkSubmitInfo submit_info{
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &cached.command_buffer,
+    };
+    checkVk(vkQueueSubmit(queue_, 1, &submit_info, VK_NULL_HANDLE), "vkQueueSubmit");
+    checkVk(vkQueueWaitIdle(queue_), "vkQueueWaitIdle");
+  }
+
   VulkanContext() {
     const std::vector<VkExtensionProperties> extensions = instanceExtensions();
     std::vector<const char*> enabled_extensions;
@@ -660,75 +914,19 @@ class VulkanContext {
   VkQueue queue_ = VK_NULL_HANDLE;
   VkCommandPool command_pool_ = VK_NULL_HANDLE;
   uint32_t queue_family_ = 0;
+  std::unordered_map<std::string, std::unique_ptr<ReusableBuffer>> reusable_buffers_;
+  mutable std::unordered_map<std::string, ComputePipeline> pipelines_;
 };
 
+thread_local VulkanContext* active_vulkan_context = nullptr;
+
 VulkanContext* vulkanContext() {
+  if (active_vulkan_context != nullptr) {
+    return active_vulkan_context;
+  }
   static std::unique_ptr<VulkanContext> context = VulkanContext::create();
   return context.get();
 }
-
-class VulkanBuffer {
- public:
-  VulkanBuffer(const VulkanBuffer&) = delete;
-  VulkanBuffer& operator=(const VulkanBuffer&) = delete;
-
-  VulkanBuffer(const VulkanContext& context, std::size_t size, const void* initial_data = nullptr)
-    : context_(context), size_(std::max<std::size_t>(size, 4U)) {
-    VkBufferCreateInfo buffer_info{
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .size = static_cast<VkDeviceSize>(size_),
-      .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-    checkVk(vkCreateBuffer(context_.device(), &buffer_info, nullptr, &buffer_), "vkCreateBuffer");
-
-    VkMemoryRequirements requirements {};
-    vkGetBufferMemoryRequirements(context_.device(), buffer_, &requirements);
-    VkMemoryAllocateInfo allocate_info{
-      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-      .allocationSize = requirements.size,
-      .memoryTypeIndex = context_.memoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
-    };
-    checkVk(vkAllocateMemory(context_.device(), &allocate_info, nullptr, &memory_), "vkAllocateMemory");
-    checkVk(vkBindBufferMemory(context_.device(), buffer_, memory_, 0), "vkBindBufferMemory");
-    if (initial_data != nullptr && size > 0) {
-      upload(initial_data, size);
-    }
-  }
-
-  ~VulkanBuffer() {
-    if (buffer_ != VK_NULL_HANDLE) {
-      vkDestroyBuffer(context_.device(), buffer_, nullptr);
-    }
-    if (memory_ != VK_NULL_HANDLE) {
-      vkFreeMemory(context_.device(), memory_, nullptr);
-    }
-  }
-
-  VkDescriptorBufferInfo descriptor() const noexcept {
-    return VkDescriptorBufferInfo{.buffer = buffer_, .offset = 0, .range = static_cast<VkDeviceSize>(size_)};
-  }
-
-  void upload(const void* data, std::size_t size) {
-    void* mapped = nullptr;
-    checkVk(vkMapMemory(context_.device(), memory_, 0, static_cast<VkDeviceSize>(size), 0, &mapped), "vkMapMemory");
-    std::memcpy(mapped, data, size);
-    vkUnmapMemory(context_.device(), memory_);
-  }
-
-  void download(void* data, std::size_t size) const {
-    void* mapped = nullptr;
-    checkVk(vkMapMemory(context_.device(), memory_, 0, static_cast<VkDeviceSize>(size), 0, &mapped), "vkMapMemory");
-    std::memcpy(data, mapped, size);
-    vkUnmapMemory(context_.device(), memory_);
-  }
-
- private:
-  const VulkanContext& context_;
-  VkBuffer buffer_ = VK_NULL_HANDLE;
-  VkDeviceMemory memory_ = VK_NULL_HANDLE;
-  std::size_t size_ = 0;
-};
 
 std::vector<float> luminanceAsFloat(const LuminanceField& field) {
   std::vector<float> luminance(field.values.size());
@@ -764,7 +962,7 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpuImpl(const Frame* fra
   }
 
   try {
-    const VulkanContext* context = vulkanContext();
+    VulkanContext* context = vulkanContext();
     if (context == nullptr) {
       return std::nullopt;
     }
@@ -806,16 +1004,16 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpuImpl(const Frame* fra
     };
     const float dummy_feature = 0.0F;
     const uint32_t dummy_word = 0;
-    VulkanBuffer luminance_buffer(*context, luminance.size() * sizeof(float), luminance.data());
-    VulkanBuffer feature_buffer(*context, glyph_features.empty() ? sizeof(dummy_feature) : glyph_features.size() * sizeof(float),
-                                glyph_features.empty() ? static_cast<const void*>(&dummy_feature) : static_cast<const void*>(glyph_features.data()));
-    VulkanBuffer code_buffer(*context, glyph_codes.empty() ? sizeof(dummy_word) : glyph_codes.size() * sizeof(uint32_t),
-                             glyph_codes.empty() ? static_cast<const void*>(&dummy_word) : static_cast<const void*>(glyph_codes.data()));
-    VulkanBuffer output_buffer(*context, output.size() * sizeof(uint32_t), output.data());
-    VulkanBuffer output_color_buffer(*context, output_colors.size() * sizeof(uint32_t), output_colors.data());
-    VulkanBuffer rgb_buffer(*context, rgb_words.empty() ? sizeof(dummy_word) : rgb_words.size() * sizeof(uint32_t),
-                            rgb_words.empty() ? static_cast<const void*>(&dummy_word) : static_cast<const void*>(rgb_words.data()));
-    VulkanBuffer params_buffer(*context, sizeof(params), &params);
+    auto& luminance_buffer = context->reusableBuffer("structure:luminance", luminance.size() * sizeof(float), luminance.data());
+    auto& feature_buffer = context->reusableBuffer("structure:features", glyph_features.empty() ? sizeof(dummy_feature) : glyph_features.size() * sizeof(float),
+                                                    glyph_features.empty() ? static_cast<const void*>(&dummy_feature) : static_cast<const void*>(glyph_features.data()));
+    auto& code_buffer = context->reusableBuffer("structure:codes", glyph_codes.empty() ? sizeof(dummy_word) : glyph_codes.size() * sizeof(uint32_t),
+                                                 glyph_codes.empty() ? static_cast<const void*>(&dummy_word) : static_cast<const void*>(glyph_codes.data()));
+    auto& output_buffer = context->reusableBuffer("structure:output", output.size() * sizeof(uint32_t), output.data());
+    auto& output_color_buffer = context->reusableBuffer("structure:colors", output_colors.size() * sizeof(uint32_t), output_colors.data());
+    auto& rgb_buffer = context->reusableBuffer("structure:rgb", rgb_words.empty() ? sizeof(dummy_word) : rgb_words.size() * sizeof(uint32_t),
+                                                rgb_words.empty() ? static_cast<const void*>(&dummy_word) : static_cast<const void*>(rgb_words.data()));
+    auto& params_buffer = context->reusableBuffer("structure:params", sizeof(params), &params);
     std::vector<VkDescriptorBufferInfo> descriptors{
       luminance_buffer.descriptor(),
       feature_buffer.descriptor(),
@@ -859,6 +1057,59 @@ std::optional<GpuStructureGlyphs> computeStructureGlyphsGpuImpl(const Frame* fra
 
 }  // namespace
 
+class VulkanAnalysisContext final : public GpuSobelContext {
+ public:
+  explicit VulkanAnalysisContext(std::unique_ptr<VulkanContext> context)
+      : context_(std::move(context)) {}
+
+  std::optional<LuminanceField> differenceOfGaussians(const LuminanceField& field, DogOptions options) override {
+    const ScopedActivation activation(*context_);
+    return differenceOfGaussiansGpu(field, options);
+  }
+
+  std::optional<GradientField> sobelGradients(const LuminanceField& field) override {
+    const ScopedActivation activation(*context_);
+    return computeSobelGradientsGpu(field);
+  }
+
+  std::optional<GpuStructureGlyphs> structureGlyphs(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) override {
+    const ScopedActivation activation(*context_);
+    return computeStructureGlyphsGpu(field, cols, rows, edge_threshold, shape_table);
+  }
+
+ private:
+  class ScopedActivation {
+   public:
+    explicit ScopedActivation(VulkanContext& context)
+        : previous_(active_vulkan_context) {
+      active_vulkan_context = &context;
+    }
+
+    ~ScopedActivation() {
+      active_vulkan_context = previous_;
+    }
+
+    ScopedActivation(const ScopedActivation&) = delete;
+    ScopedActivation& operator=(const ScopedActivation&) = delete;
+
+   private:
+    VulkanContext* previous_ = nullptr;
+  };
+
+  std::unique_ptr<VulkanContext> context_;
+};
+
+std::unique_ptr<GpuSobelContext> createGpuSobelContext() {
+  if (!shaderToolchainReady()) {
+    return nullptr;
+  }
+  std::unique_ptr<VulkanContext> context = VulkanContext::create();
+  if (!context) {
+    return nullptr;
+  }
+  return std::make_unique<VulkanAnalysisContext>(std::move(context));
+}
+
 bool gpuSobelAvailable() {
   return vulkanContext() != nullptr && shaderToolchainReady();
 }
@@ -882,7 +1133,7 @@ std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField& fie
   }
 
   try {
-    const VulkanContext* context = vulkanContext();
+    VulkanContext* context = vulkanContext();
     if (context == nullptr) {
       return std::nullopt;
     }
@@ -897,11 +1148,11 @@ std::optional<LuminanceField> differenceOfGaussiansGpu(const LuminanceField& fie
       .radius2 = static_cast<uint32_t>(kernel2.size() / 2U),
       .threshold = static_cast<float>(options.threshold),
     };
-    VulkanBuffer luminance_buffer(*context, luminance.size() * sizeof(float), luminance.data());
-    VulkanBuffer kernel1_buffer(*context, kernel1.size() * sizeof(float), kernel1.data());
-    VulkanBuffer kernel2_buffer(*context, kernel2.size() * sizeof(float), kernel2.data());
-    VulkanBuffer output_buffer(*context, output.size() * sizeof(float), output.data());
-    VulkanBuffer params_buffer(*context, sizeof(params), &params);
+    auto& luminance_buffer = context->reusableBuffer("dog:luminance", luminance.size() * sizeof(float), luminance.data());
+    auto& kernel1_buffer = context->reusableBuffer("dog:kernel-one", kernel1.size() * sizeof(float), kernel1.data());
+    auto& kernel2_buffer = context->reusableBuffer("dog:kernel-two", kernel2.size() * sizeof(float), kernel2.data());
+    auto& output_buffer = context->reusableBuffer("dog:output", output.size() * sizeof(float), output.data());
+    auto& params_buffer = context->reusableBuffer("dog:params", sizeof(params), &params);
     std::vector<VkDescriptorBufferInfo> descriptors{
       luminance_buffer.descriptor(),
       kernel1_buffer.descriptor(),
@@ -935,7 +1186,7 @@ std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& fiel
   }
 
   try {
-    const VulkanContext* context = vulkanContext();
+    VulkanContext* context = vulkanContext();
     if (context == nullptr) {
       return std::nullopt;
     }
@@ -945,9 +1196,9 @@ std::optional<GradientField> computeSobelGradientsGpu(const LuminanceField& fiel
       static_cast<uint32_t>(field.width),
       static_cast<uint32_t>(field.height),
     };
-    VulkanBuffer luminance_buffer(*context, luminance.size() * sizeof(float), luminance.data());
-    VulkanBuffer gradient_buffer(*context, packed.size() * sizeof(PackedGradient), packed.data());
-    VulkanBuffer dimensions_buffer(*context, sizeof(dimensions), dimensions);
+    auto& luminance_buffer = context->reusableBuffer("sobel:luminance", luminance.size() * sizeof(float), luminance.data());
+    auto& gradient_buffer = context->reusableBuffer("sobel:gradient", packed.size() * sizeof(PackedGradient), packed.data());
+    auto& dimensions_buffer = context->reusableBuffer("sobel:dimensions", sizeof(dimensions), dimensions);
     std::vector<VkDescriptorBufferInfo> descriptors{
       luminance_buffer.descriptor(),
       gradient_buffer.descriptor(),

@@ -5,6 +5,7 @@
 #include "structure_edges.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -15,6 +16,19 @@ struct GpuStructureGlyphs {
   std::vector<Rgb> average_colors;
   int64_t shape_match_cells = 0;
 };
+
+// Library-owned native analysis state. A Renderer receives one instance when a
+// platform backend is available; callers never supply native GPU handles.
+class GpuSobelContext {
+ public:
+  virtual ~GpuSobelContext() = default;
+
+  virtual std::optional<LuminanceField> differenceOfGaussians(const LuminanceField& field, DogOptions options) = 0;
+  virtual std::optional<GradientField> sobelGradients(const LuminanceField& field) = 0;
+  virtual std::optional<GpuStructureGlyphs> structureGlyphs(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) = 0;
+};
+
+std::unique_ptr<GpuSobelContext> createGpuSobelContext();
 
 bool gpuSobelAvailable();
 const char* gpuSobelBackendName();

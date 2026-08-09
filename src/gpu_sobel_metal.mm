@@ -391,6 +391,25 @@ std::vector<float> gaussianKernel(float sigma) {
 
 }  // namespace
 
+class MetalAnalysisContext final : public GpuSobelContext {
+ public:
+  std::optional<LuminanceField> differenceOfGaussians(const LuminanceField& field, DogOptions options) override {
+    return differenceOfGaussiansGpu(field, options);
+  }
+
+  std::optional<GradientField> sobelGradients(const LuminanceField& field) override {
+    return computeSobelGradientsGpu(field);
+  }
+
+  std::optional<GpuStructureGlyphs> structureGlyphs(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) override {
+    return computeStructureGlyphsGpu(field, cols, rows, edge_threshold, shape_table);
+  }
+};
+
+std::unique_ptr<GpuSobelContext> createGpuSobelContext() {
+  return gpuSobelAvailable() ? std::make_unique<MetalAnalysisContext>() : nullptr;
+}
+
 bool gpuSobelAvailable() {
   return metalSobelContext().ready();
 }

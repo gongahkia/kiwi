@@ -42,7 +42,8 @@ class CpuAnalysisBackend final : public GpuAnalysisBackend {
 
 class NativeAnalysisBackend final : public GpuAnalysisBackend {
  public:
-  explicit NativeAnalysisBackend(Backend backend) : backend_(backend) {}
+  NativeAnalysisBackend(Backend backend, std::unique_ptr<GpuSobelContext> context)
+      : backend_(backend), context_(std::move(context)) {}
 
   bool requested() const noexcept override {
     return true;
@@ -57,19 +58,20 @@ class NativeAnalysisBackend final : public GpuAnalysisBackend {
   }
 
   std::optional<LuminanceField> differenceOfGaussians(const LuminanceField& field, DogOptions options) const override {
-    return differenceOfGaussiansGpu(field, options);
+    return context_->differenceOfGaussians(field, options);
   }
 
   std::optional<GradientField> sobelGradients(const LuminanceField& field) const override {
-    return computeSobelGradientsGpu(field);
+    return context_->sobelGradients(field);
   }
 
   std::optional<GpuStructureGlyphs> structureGlyphs(const LuminanceField& field, int cols, int rows, double edge_threshold, const GlyphShapeTable* shape_table) const override {
-    return computeStructureGlyphsGpu(field, cols, rows, edge_threshold, shape_table);
+    return context_->structureGlyphs(field, cols, rows, edge_threshold, shape_table);
   }
 
  private:
   Backend backend_ = Backend::Cpu;
+  std::unique_ptr<GpuSobelContext> context_;
 };
 
 Backend nativeBackend() noexcept {
@@ -93,10 +95,11 @@ std::unique_ptr<GpuAnalysisBackend> createGpuAnalysisBackend(bool request_gpu) {
   if (candidate == Backend::Cpu) {
     return std::make_unique<CpuAnalysisBackend>(true, Backend::Auto);
   }
-  if (!gpuSobelAvailable()) {
+  std::unique_ptr<GpuSobelContext> context = createGpuSobelContext();
+  if (!context) {
     return std::make_unique<CpuAnalysisBackend>(true, candidate);
   }
-  return std::make_unique<NativeAnalysisBackend>(candidate);
+  return std::make_unique<NativeAnalysisBackend>(candidate, std::move(context));
 }
 
 }  // namespace strok

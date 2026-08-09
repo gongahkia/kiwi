@@ -2,6 +2,10 @@
 
 namespace strok {
 
+std::unique_ptr<GpuSobelContext> createGpuSobelContext() {
+  return nullptr;
+}
+
 bool gpuSobelAvailable() {
   return false;
 }
