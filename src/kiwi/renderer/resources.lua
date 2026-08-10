@@ -138,9 +138,36 @@ function Registry:own_native(label, handle, release, destroy)
   if self.owned_handles[handle] then
     fail("native resource " .. label .. " is already owned")
   end
-  self.owned_handles[handle] = true
-  self.owned[#self.owned + 1] = { label = label, handle = handle, release = release, destroy = destroy }
+  local item = { label = label, handle = handle, release = release, destroy = destroy }
+  self.owned_handles[handle] = item
+  self.owned[#self.owned + 1] = item
   return handle
+end
+
+local function release_native_item(item)
+  if item.released then
+    return
+  end
+  item.released = true
+  local first_error
+  if item.destroy then
+    local ok, message = pcall(item.destroy, item.handle)
+    if not ok then first_error = item.label .. " destroy failed: " .. message end
+  end
+  local ok, message = pcall(item.release, item.handle)
+  if not ok and first_error == nil then first_error = item.label .. " release failed: " .. message end
+  return first_error
+end
+
+function Registry:release_native(handle)
+  self:assert_active()
+  local item = self.owned_handles[handle]
+  if item == nil then
+    fail("native resource is not owned by this registry")
+  end
+  self.owned_handles[handle] = nil
+  local message = release_native_item(item)
+  if message then fail(message) end
 end
 
 function Registry:destroy()
@@ -151,12 +178,10 @@ function Registry:destroy()
   local first_error
   for index = #self.owned, 1, -1 do
     local item = self.owned[index]
-    if item.destroy then
-      local ok, message = pcall(item.destroy, item.handle)
-      if not ok and first_error == nil then first_error = item.label .. " destroy failed: " .. message end
+    local message = release_native_item(item)
+    if message and first_error == nil then
+      first_error = message
     end
-    local ok, message = pcall(item.release, item.handle)
-    if not ok and first_error == nil then first_error = item.label .. " release failed: " .. message end
   end
   self.entries = {}
   self.owned = {}

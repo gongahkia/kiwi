@@ -213,7 +213,6 @@ function Renderer:create_resources(model)
   self.shader = assert_handle(self.native.surface.kiwi_shader_from_wgsl(self.context.device, self.shader_code), "terminal WGSL module creation")
   self.resource_registry:own_native("terminal-shader", self.shader, api.wgpuShaderModuleRelease)
 
-  self.background_pipeline = self:create_pipeline("background-pass", "background_vs", "background_fs")
   self.glyph_pipeline = self:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
   self.cursor_pipeline = self:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
   self:register_semantic_resources(model)
@@ -254,6 +253,10 @@ function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
     error("render pipeline creation for " .. label .. " failed: " .. native_error)
   end
   return self.resource_registry:own_native(label, pipeline, api.wgpuRenderPipelineRelease)
+end
+
+function Renderer:release_native(handle)
+  self.resource_registry:release_native(handle)
 end
 
 function Renderer:resource_descriptor(kind, access, fields)
