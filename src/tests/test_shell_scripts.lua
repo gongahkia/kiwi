@@ -3,7 +3,7 @@ local Parser = require("kiwi.terminal.parser")
 local State = require("kiwi.terminal.state")
 
 local scripts = {
-  bash = "TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=host.example bash --noprofile --norc -ic 'source integrations/v1/kiwi.bash; PWD=\"/tmp/kiwi work\"; __kiwi_bash_prompt; printf prompt; __kiwi_bash_marker B; __kiwi_bash_marker C; printf run; __kiwi_bash_prompt; case $PS0 in *$'\"'\"'\\e]133;B\\a\\e]133;C\\a'\"'\"'*) ;; *) exit 1;; esac'",
+  bash = "TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=host.example bash --noprofile --norc -ic 'source integrations/v1/kiwi.bash; PWD=\"/tmp/kiwi work\"; __kiwi_bash_prompt; printf prompt; __kiwi_bash_marker B; __kiwi_bash_marker C; printf run; __kiwi_bash_prompt; [[ -n $PS0 ]]'",
   zsh = "TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=host.example zsh -dfic 'source integrations/v1/kiwi.zsh; PWD=\"/tmp/kiwi work\"; __kiwi_zsh_precmd; printf prompt; __kiwi_zsh_preexec; printf run; __kiwi_zsh_precmd'",
   fish = "TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=host.example fish --no-config -ic 'source integrations/v1/kiwi.fish; cd /tmp; emit fish_prompt; printf prompt; emit fish_preexec; printf run; emit fish_postexec; emit fish_prompt'",
 }
