@@ -1,0 +1,27 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+cd "$ROOT"
+
+"${LUAJIT:-luajit}" src/kiwi/test.lua
+
+print "Kiwi accessibility smoke report"
+print "host: $(uname -srm)"
+
+if command -v pkg-config >/dev/null && pkg-config --exists atspi-2; then
+  print "AT-SPI library: $(pkg-config --modversion atspi-2)"
+else
+  print "AT-SPI library: unavailable"
+fi
+
+for tool in at-spi2-registryd accerciser orca; do
+  if command -v "$tool" >/dev/null; then
+    print "$tool: available"
+  else
+    print "$tool: unavailable"
+  fi
+done
+
+print "semantic accessibility checks: passed via the deterministic test suite"
+print "native screen-reader smoke: skipped (Kiwi has no native AT-SPI, NSAccessibility, or UI Automation adapter)"
