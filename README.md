@@ -67,6 +67,11 @@ renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
 publish a GitHub release or claim portability beyond the documented Linux
 environment.
 
+Nix users can build the pinned Linux x86_64 package with `nix build .#kiwi`,
+enter the matching development environment with `nix develop`, and run the
+flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
+the pinned-input update procedure and driver/display limitations.
+
 ## Commands
 
 ```sh
