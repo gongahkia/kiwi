@@ -44,6 +44,7 @@ make test-pty                          # deterministic real-PTY integration test
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
+make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
