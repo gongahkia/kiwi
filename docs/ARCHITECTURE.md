@@ -80,6 +80,8 @@ The parser remains syntax-only and the state remains the sole mutator, but state
 
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Decorations/cursor remain semantic passes, not part of a terminal bitmap.
 
+M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves the current background, glyph, and cursor ordering while making resource ownership and invalidation explicit; it does not expose native wgpu handles to Lua passes.
+
 ## Replay and diagnostics
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.
