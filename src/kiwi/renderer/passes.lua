@@ -25,11 +25,21 @@ function Passes.build(renderer)
       self.pipeline = nil
     end
   end
+  local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
+      return renderer.glyph_count or 0
+    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" })
+  function glyph:initialize(owner)
+    self.pipeline = owner:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
+  end
+  function glyph:shutdown(owner)
+    if self.pipeline then
+      owner:release_native(self.pipeline)
+      self.pipeline = nil
+    end
+  end
   return {
     background,
-    Pass.new("terminal/glyph", 20, renderer.glyph_pipeline, c.load_load, function(model)
-      return renderer.glyph_count or 0
-    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" }),
+    glyph,
     Pass.new("terminal/cursor", 30, renderer.cursor_pipeline, c.load_load, function()
       return 1
     end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/glyph" }),
