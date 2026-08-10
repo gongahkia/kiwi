@@ -98,6 +98,10 @@ function Window.new(width, height, title)
   self.callbacks.focus = ffi.cast("GLFWwindowfocusfun", function(_, focused)
     if self.on_focus then self.on_focus(focused ~= 0) end
   end)
+  self.callbacks.iconify = ffi.cast("GLFWwindowiconifyfun", function(_, iconified)
+    self.minimized = iconified ~= 0
+    self.resized = true
+  end)
   glfw.lib.glfwSetFramebufferSizeCallback(handle, self.callbacks.resize)
   glfw.lib.glfwSetKeyCallback(handle, self.callbacks.key)
   glfw.lib.glfwSetCharCallback(handle, self.callbacks.character)
@@ -105,6 +109,7 @@ function Window.new(width, height, title)
   glfw.lib.glfwSetMouseButtonCallback(handle, self.callbacks.mouse_button)
   glfw.lib.glfwSetScrollCallback(handle, self.callbacks.scroll)
   glfw.lib.glfwSetWindowFocusCallback(handle, self.callbacks.focus)
+  glfw.lib.glfwSetWindowIconifyCallback(handle, self.callbacks.iconify)
   return self
 end
 

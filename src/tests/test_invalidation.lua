@@ -53,11 +53,12 @@ return {
     Assert.equal(cursor.style, 5)
     Assert.equal(cursor.shape, "bar")
     Assert.equal(cursor.blink, true)
-    Assert.equal(Renderer.can_present({}, model), false)
+    Assert.equal(Renderer.can_present({ context = { window = { minimized = false } } }, model), false)
     model.modes.synchronized_output = false
-    Assert.equal(Renderer.can_present({}, model), true)
-    Assert.near(Renderer.cursor_blink_delay({}, model), 0.5, 0.0001)
+    Assert.equal(Renderer.can_present({ context = { window = { minimized = false } } }, model), true)
+    Assert.equal(Renderer.can_present({ context = { window = { minimized = true } } }, model), false)
+    Assert.near(Renderer.cursor_blink_delay({ context = { window = { minimized = false } } }, model), 0.5, 0.0001)
     model.modes.cursor_style = 6
-    Assert.equal(Renderer.cursor_blink_delay({}, model), nil)
+    Assert.equal(Renderer.cursor_blink_delay({ context = { window = { minimized = false } } }, model), nil)
   end,
 }

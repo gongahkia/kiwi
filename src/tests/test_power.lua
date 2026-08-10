@@ -1,0 +1,33 @@
+local Assert = require("tests.assert")
+local Power = require("kiwi.bench.power")
+
+return {
+  power_observation_bounds_states_and_counts_only_aggregate_events = function()
+    local power = Power.new({ active_poll_seconds = 0.05, minimized_poll_seconds = 0.25 })
+    power:observe(0, "idle", 0.05)
+    power:output()
+    power:observe(0.05, "active", 0.05)
+    power:present({ "terminal", "extension" }, { animations = { ["extension/power/heartbeat"] = 0.15 } })
+    power:defer("minimized")
+    power:observe(0.30, "minimized", 0.25)
+    power:input(true)
+    local snapshot = power:snapshot(0.55)
+    Assert.near(snapshot.measurement.elapsed_seconds, 0.55, 0.0001)
+    Assert.equal(snapshot.measurement.wakes, 3)
+    Assert.equal(snapshot.measurement.presented, 1)
+    Assert.equal(snapshot.measurement.extension_animation_frames, 1)
+    Assert.equal(snapshot.measurement.present_reasons.extension, 1)
+    Assert.equal(snapshot.measurement.deferred.minimized, 1)
+    Assert.equal(snapshot.measurement.input_events, 1)
+    Assert.equal(snapshot.measurement.synthetic_input_events, 1)
+    Assert.equal(snapshot.measurement.output_events, 1)
+    Assert.near(snapshot.measurement.state_seconds.active, 0.25, 0.0001)
+    Assert.near(snapshot.measurement.state_seconds.minimized, 0.25, 0.0001)
+    Assert.equal(snapshot.policy.minimized_poll_seconds, 0.25)
+    Assert.equal(snapshot.unavailable.compositor_occlusion:match("unavailable") ~= nil, true)
+  end,
+  power_observation_rejects_an_unbounded_minimized_cadence = function()
+    local ok = pcall(Power.new, { active_poll_seconds = 0.25, minimized_poll_seconds = 0.05 })
+    Assert.equal(ok, false)
+  end,
+}

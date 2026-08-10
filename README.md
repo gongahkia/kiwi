@@ -51,6 +51,7 @@ make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/re
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
+make power-smoke                        # bounded redraw scheduler observation; skips without display
 make device-soak                        # CI-friendly deterministic pass/resource/extension lifecycle soak
 make device-soak-native                 # bounded native resize/minimize/restore + extension-churn soak; skips without display
 make device-loss-sim                    # bounded native device-recreation policy simulation; skips without display
@@ -97,6 +98,8 @@ API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-
 GPU faults have an explicit bounded policy. A transient surface-acquire or present status requests a surface reconfiguration on the next render attempt. A `wgpu device lost` callback tears down all renderer-owned resources and retries once by recreating the WGPU context and renderer against the existing window, terminal state, PTY, and font. A second device loss, a failed recreation, or another native GPU error exits after printing a bounded diagnostic with backend, vendor, adapter, and last renderer pass/phase. Kiwi does not claim transparent recovery for every driver. `renderer.diagnostics.gpu_recovery` retains at most 16 records with at most 2,048 message bytes each, and contains no terminal, clipboard, command, or display content. `make device-loss-sim` exercises the policy path with a synthetic marker; it is not evidence that a driver delivered the WGPU device-loss callback.
 
 Kiwi coalesces terminal, resize, cursor, selection, search, Kitty-image, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
+
+The redraw policy uses a 50 ms maximum GLFW wait while a window is visible, because this Linux path must also service a nonblocking PTY without a combined GLFW/PTY wait primitive. Terminal output, keyboard input, resize, local interaction, and configuration invalidate immediately; a visible blinking cursor adds one 0.5-second deadline after presentation. A minimized window retains pending terminal state but does not acquire or present a surface, extends its maximum wait to 250 ms, and reconfigures/presents after restoration. Synchronized output similarly retains work without presenting. Trusted extension animation requests remain bounded by `KIWI_EXTENSION_MAX_ANIMATION_HZ` (1/60–60 Hz). `make power-smoke` emits a bounded local aggregate report of loop wakeups, states, rendered frames, deferred presentation, output/input event counts, and invalidation reasons; its fixed synthetic PTY input is labeled separately from physical keyboard input. It does not measure battery, GPU energy, compositor work, display scan-out, or portable occlusion.
 
 DECSCUSR cursor styles and DEC synchronized output are supported as documented
 in [the conformance matrix](docs/CONFORMANCE.md). `CSI ? 2026 h` defers

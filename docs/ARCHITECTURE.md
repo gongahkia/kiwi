@@ -88,6 +88,17 @@ frame history for this feature. A visible blinking DECSCUSR cursor schedules a
 single 0.5-second cursor redraw deadline after a successful present; steady,
 hidden, and synchronized-output cursors do not schedule one.
 
+The live loop waits at most 50 ms while visible so the same thread can poll the
+nonblocking PTY and GLFW events; this is a bounded responsiveness tradeoff, not
+an energy measurement. Terminal, input, resize, local interaction, and
+configuration changes coalesce into one invalidation. A GLFW iconify callback
+marks the window minimized: pending work remains intact, but the renderer does
+not acquire/present a surface and the loop's maximum wait becomes 250 ms. A
+restore marks the surface resized and renders the latest state. GLFW has no
+portable compositor-occlusion callback, so Kiwi records iconification but marks
+occlusion unavailable. Extension animation requests use the existing bounded
+deadline scheduler and are neither run nor caught up while minimized.
+
 ## Input, output, and responses
 
 GLFW codepoints are UTF-8 encoded for the PTY unless `input/search.lua` owns an active `Ctrl+Shift+F` title-bar query. `Enter` submits it, `Escape` clears it, and `Ctrl+Shift+G/R` moves the bounded exact-match set forward/backward; all four actions remain local under Kitty keyboard disambiguation. `Ctrl+Shift+C/V` are likewise reserved explicit local copy/paste actions; the former reconstructs the visible normalized selection and the latter validates the GLFW clipboard before enqueuing exact or bracketed input. `Ctrl+Shift+O` and `Ctrl+primary-click` are explicit local OSC 8 actions, which revalidate the cursor/pointer target then pass allowed URI schemes as one argv element to detached `xdg-open`; they never send terminal input. `Ctrl+Alt+P/C/O` and Shift-forward variants navigate resolved prompt/command/output positions through primary history only; they remain local and report gated/no-target states when search editing, Kitty keyboard mode, alternate screen, or retention prevents a move. Other physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. Pointer callbacks first map GLFW logical coordinates through current content scale and cell dimensions. With SGR normal, button-event, or any-event tracking enabled, `input/mouse.lua` retains only supported button/cell state and emits bounded reports for the child. Otherwise `input/selection_pointer.lua` owns primary-button drag, double-click word, and triple-click row gestures, passing grapheme-safe gaps to terminal state and requesting a selection-only redraw when that range changes. `renderer/selection.lua` and `renderer/search.lua` map their ranges into the current viewport; their alpha passes sit between background and glyph rendering, while `renderer/hyperlink.lua` publishes only a bounded visible-cell count and underline color for the glyph pass. Scroll and focus callbacks continue through the mouse boundary. `Shift+PageUp/Down` is terminal-local history navigation unless the negotiated keyboard mode owns that key. Parser output feeds terminal state; pending DSR/DA and keyboard-query response bytes are queued back to the PTY in the same nonblocking write path.

@@ -2,6 +2,7 @@ local Context = require("kiwi.gpu.context")
 local Recovery = require("kiwi.gpu.recovery")
 local DeviceSoak = require("kiwi.bench.device_soak")
 local Pacing = require("kiwi.bench.pacing")
+local Power = require("kiwi.bench.power")
 local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
@@ -208,6 +209,10 @@ local function run_live(options)
       warmup_frames = number_from_env("KIWI_PACING_WARMUP_FRAMES", 30),
       pty_read_budget = pty_read_budget,
     }) or nil
+    local power_report = os.getenv("KIWI_POWER_REPORT")
+    local power = power_report and Power.new({ active_poll_seconds = 0.050, minimized_poll_seconds = 0.250 }) or nil
+    local power_synthetic_input = power and os.getenv("KIWI_POWER_SYNTHETIC_INPUT") == "1"
+    local synthetic_input_sent = false
     local mouse = Mouse.new()
     local mouse_generation = state.modes.mouse_generation
     local selection_pointer = SelectionPointer.new()
@@ -241,8 +246,9 @@ local function run_live(options)
       end
     end
 
-    local function enqueue_input(bytes)
+    local function enqueue_input(bytes, synthetic)
       if pacing then pacing:input(window:time()) end
+      if power then power:input(synthetic) end
       if recorder then recorder:input(bytes) end
       pty:enqueue(bytes)
     end
@@ -386,14 +392,25 @@ local function run_live(options)
     while not window:should_close() do
       local now = window:time()
       local deadline = renderer:next_render_deadline()
-      if deadline and now < deadline then window:wait_events(math.min(deadline - now, 0.050)) else window:wait_events(0.050) end
+      local maximum_wait = window.minimized and 0.250 or 0.050
+      local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
+      window:wait_events(requested_wait)
       window:poll_events()
       now = window:time()
+      if power then
+        local power_state = window.minimized and "minimized" or renderer:needs_render(now) and "active" or "idle"
+        power:observe(now, power_state, requested_wait)
+      end
       if soak and soak:step(now) then window:request_close() end
+      if power_synthetic_input and not synthetic_input_sent then
+        synthetic_input_sent = true
+        enqueue_input("power-synthetic-input\n", true)
+      end
 
       local output = pty:read_available(pty_read_budget)
       if #output > 0 then
         if pacing then pacing:output(now) end
+        if power then power:output() end
         if recorder then recorder:output(output) end
         parser:feed(output)
         if state.modes.mouse_generation ~= mouse_generation then
@@ -459,7 +476,7 @@ local function run_live(options)
         end
         if renderer:needs_render(now) and renderer:can_present(state) then
         local frame_start = now
-        local invalidation = pacing and renderer:invalidation_snapshot() or nil
+        local invalidation = (pacing or power) and renderer:invalidation_snapshot() or nil
         local prepare_start = window:time()
         renderer:update_model(state)
         local prepare_elapsed = window:time() - prepare_start
@@ -473,6 +490,7 @@ local function run_live(options)
         end
         local frame_completed = window:time()
         if rendered and pacing then pacing:present(frame_start, frame_completed, invalidation.reasons) end
+        if rendered and power then power:present(invalidation.reasons, renderer.extension_manager:snapshot()) end
         metrics:record(frame_completed - frame_start, prepare_elapsed, renderer)
         if window.debug_metrics then
           metrics:report(now)
@@ -480,6 +498,9 @@ local function run_live(options)
         if max_frames > 0 and metrics.frame_number >= max_frames then
           break
         end
+        end
+        if power and renderer:needs_render(now) and not renderer:can_present(state) then
+          power:defer(window.minimized and "minimized" or "synchronized-output")
         end
       end
       if child_status and pty.eof then
@@ -500,6 +521,10 @@ local function run_live(options)
     if pacing then
       local path = Pacing.write_report(root, pacing_report, pacing, renderer)
       io.stdout:write("Kiwi pacing report: ", path, "\n")
+    end
+    if power then
+      local path = Power.write_report(root, power_report, power, window:time())
+      io.stdout:write("Kiwi power report: ", path, "\n")
     end
     if renderer and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
     if renderer and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end

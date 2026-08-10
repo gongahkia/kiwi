@@ -474,7 +474,7 @@ function Renderer:cursor_descriptor(model)
 end
 
 function Renderer:can_present(model)
-  return model.modes == nil or model.modes.synchronized_output ~= true
+  return not self.context.window.minimized and (model.modes == nil or model.modes.synchronized_output ~= true)
 end
 
 function Renderer:cursor_blink_delay(model)
