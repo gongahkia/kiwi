@@ -201,7 +201,7 @@ local function run_live(options)
     end, function(key, action, modifiers)
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
       if not encoded then
-        return
+        return nil
       end
       if encoded.local_action == "scroll_up" then
         state:scroll_history(math.max(1, state.rows - 1))
@@ -210,6 +210,7 @@ local function run_live(options)
       elseif encoded.bytes then
         enqueue_input(encoded.bytes)
       end
+      return { handled = true, suppress_text = encoded.suppress_text }
     end, function(event)
       event.column, event.row = mouse_position(event.x, event.y)
       local encoded

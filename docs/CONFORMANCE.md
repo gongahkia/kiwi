@@ -15,6 +15,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | margins-and-origin | DECSTBM and DECOM |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
+| kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
 | mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
@@ -52,7 +53,7 @@ claiming formal verification or allocator-independent memory totals.
 | erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, IND/RI at margins | `csr`, `ind`, `ri` |
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
-| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, mouse, or focus terminfo claim |
+| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; Kitty keyboard level-one disambiguation; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action | not advertised |
@@ -64,7 +65,7 @@ claiming formal verification or allocator-independent memory totals.
 
 The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app sets `TERMINFO` to this project-local database for its child.
 
-The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or extended keyboard protocols. Adding or removing an advertised capability requires updating both the source entry and this matrix.
+The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
 
 ## Cursor style and synchronized output
 
@@ -85,6 +86,30 @@ and presented; RIS resets the mode. This does not buffer terminal bytes or add
 an unbounded damage store. The mode is global across primary/alternate screen
 switches, is replayed deterministically, suppresses cursor-blink scheduling,
 and has no terminfo advertisement.
+
+## Kitty keyboard disambiguation
+
+Kiwi implements only Kitty keyboard progressive-enhancement flag 1
+(disambiguate escape codes). A client queries with `CSI ? u`; Kiwi replies with
+`CSI ? 0 u` or `CSI ? 1 u`. `CSI = flags ; mode u` supports replace, set, and
+clear operations, while `CSI > flags u` pushes the active screen’s mode and
+`CSI < count u` restores it. Each primary/alternate screen owns a separate
+stack of at most eight entries; pushing a ninth evicts the oldest. RIS resets
+both flags and stacks.
+
+With flag 1 enabled, Escape and modified printable ASCII keys use `CSI
+codepoint ; modifier u`; modified cursor, navigation, and F1–F12 keys use the
+Kitty-compatible modified functional-key form. Unmodified UTF-8 text and
+Enter, Tab, and Backspace keep their legacy bytes. Modifier values are one
+plus the Kitty bit field for Shift, Alt, Ctrl, and Super. The mode takes
+precedence over terminal-local `Shift+PageUp/Down` history navigation.
+
+Flags 2 (event types), 4 (alternate keys), 8 (all keys), and 16 (associated
+text) are deliberately not implemented. They need accurate release, layout,
+and text-event correlation that the current GLFW input boundary does not yet
+provide. Requested unsupported bits are absent from the subsequent query
+reply; applications that do not negotiate flag 1 retain Kiwi’s legacy input
+behavior. This runtime protocol has no terminfo advertisement.
 
 ## Mouse and focus reporting
 
@@ -115,11 +140,14 @@ deterministically. None are advertised through terminfo.
 deployment evidence. It rebuilds and audits the project-local
 terminfo entry (`colors#16` and no `RGB`, `Tc`, `setrgbf`, or `setrgbb`), runs
 a local tmux nesting probe when tmux is installed, and, where a graphical
-display is available, records/replays a native VT sequence exercise plus a
-one-iteration native `top` session when `top` is installed. Each replay must
-report zero parser errors, ignored actions, and unknown CSI/ESC/OSC/string
-controls. The temporary recordings are removed at the end because `top`
-contains host process data.
+display is available, records/replays a native VT sequence exercise plus
+one-iteration native `top`, Vim mouse, and Neovim keyboard sessions when those
+clients are installed. The top, VT, and Vim replays must report zero parser
+errors, ignored actions, and unknown CSI/ESC/OSC/string controls. The Neovim
+probe verifies its Kitty keyboard query/push/pop exchange and zero parser
+errors; its other unsupported startup controls remain separately visible. The
+temporary recordings are removed at the end because `top` contains host process
+data.
 
 Every protocol-capability change must add a targeted deterministic fixture,
 run `make check`, run this command where its prerequisites are available, and
@@ -131,8 +159,9 @@ fidelity or general application compatibility.
 | --- | --- | --- |
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
-| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
 | Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY=<temporary>/vim.jsonl` | Passed structurally with Vim 9.2: it emitted SGR mouse and button-event activation; replay reported 5,542 bytes, 4,893 actions, zero errors, ignored actions, and unknown controls. This proves its activation sequence, not an interactive pointer usability claim. |
+| Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /usr/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY=<temporary>/nvim.jsonl` | Passed structurally with Neovim 0.11.6 under `TERM=kiwi`: it emitted Kitty `CSI ? u`, `CSI > 1 u`, and `CSI < u`; replay reported 5,046 bytes, 4,765 actions, and zero parser errors. One safely ignored DCS and five unknown CSI plus one OSC startup controls remain outside Kiwi’s documented subset. This proves negotiated mode handling, not physical-key usability. |
 | Local tmux | `TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, and `tput colors` returned `256`. tmux owns the nested contract; this does not authorize Kiwi itself to advertise 256 colours or truecolour. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
 | SSH | `TERMINFO=.build/terminfo ssh -o SendEnv=TERM -o SetEnv=TERM=kiwi <controlled-host> 'infocmp kiwi; tput colors'` | No access to a controlled remote host or credentials. No SSH deployment compatibility claim is made. Install the matching terminfo entry remotely before the probe. |
@@ -145,7 +174,7 @@ M2 terminal-width outcomes are deterministic rather than a claim to emulate the 
 
 ## Known unsupported/deferred behavior
 
-M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, Kitty keyboard flags 2/4/8/16 beyond the documented disambiguation subset, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 

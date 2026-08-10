@@ -36,6 +36,7 @@ function Snapshot.value(state)
       cursor_visible = state.modes.cursor_visible,
       focus_reporting = state.modes.focus_reporting,
       insert = state.modes.insert,
+      keyboard_flags = state.modes.keyboard_flags,
       mouse_sgr = state.modes.mouse_sgr,
       mouse_tracking = state.modes.mouse_tracking,
       origin = state.modes.origin,

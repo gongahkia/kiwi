@@ -35,6 +35,7 @@ function Window.new(width, height, title)
     debug_metrics = false,
     shader_reload_requested = false,
     modifiers = 0,
+    suppress_text = false,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
@@ -43,6 +44,10 @@ function Window.new(width, height, title)
   end)
   self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action, modifiers)
     self.modifiers = modifiers
+    local input = self.on_key and self.on_key(key, action, modifiers)
+    if input and input.suppress_text then self.suppress_text = true end
+    if input and input.handled then return end
+    if action == glfw.constants.release then self.suppress_text = false end
     if action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
     elseif action == glfw.constants.press and key == glfw.constants.key_f3 then
@@ -51,13 +56,15 @@ function Window.new(width, height, title)
       self.debug_metrics = not self.debug_metrics
     elseif action == glfw.constants.press and key == glfw.constants.key_f5 then
       self.shader_reload_requested = true
-    elseif self.on_key then
-      self.on_key(key, action, modifiers)
     elseif action == glfw.constants.press and key == glfw.constants.key_escape then
       glfw.lib.glfwSetWindowShouldClose(self.handle, 1)
     end
   end)
   self.callbacks.character = ffi.cast("GLFWcharfun", function(_, codepoint)
+    if self.suppress_text then
+      self.suppress_text = false
+      return
+    end
     if self.on_text then
       self.on_text(codepoint)
     end

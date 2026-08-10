@@ -29,6 +29,8 @@ function Screen.new(columns, rows, blank_cell)
     rows = {},
     cursor = { column = 0, row = 0, visible = true, pending_wrap = false },
     saved_cursor = { column = 0, row = 0 },
+    keyboard_flags = 0,
+    keyboard_stack = {},
     attributes = nil,
     top_margin = 0,
     bottom_margin = rows - 1,
@@ -70,6 +72,10 @@ function Screen:resize(columns, rows, blank_cell)
   resized.cursor.visible = self.cursor.visible
   resized.saved_cursor.column = math.min(self.saved_cursor.column, columns - 1)
   resized.saved_cursor.row = math.min(self.saved_cursor.row, rows - 1)
+  resized.keyboard_flags = self.keyboard_flags
+  for index, flags in ipairs(self.keyboard_stack) do
+    resized.keyboard_stack[index] = flags
+  end
   resized.attributes = self.attributes
   return resized
 end
