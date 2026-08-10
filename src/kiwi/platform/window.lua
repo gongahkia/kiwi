@@ -161,6 +161,20 @@ function Window:set_title(title)
   glfw.lib.glfwSetWindowTitle(self.handle, title)
 end
 
+function Window:set_size(width, height)
+  assert(type(width) == "number" and width >= 1 and width % 1 == 0, "window width must be a positive integer")
+  assert(type(height) == "number" and height >= 1 and height % 1 == 0, "window height must be a positive integer")
+  glfw.lib.glfwSetWindowSize(self.handle, width, height)
+end
+
+function Window:iconify()
+  glfw.lib.glfwIconifyWindow(self.handle)
+end
+
+function Window:restore()
+  glfw.lib.glfwRestoreWindow(self.handle)
+end
+
 function Window:drawable_size()
   local width = ffi.new("int[1]")
   local height = ffi.new("int[1]")

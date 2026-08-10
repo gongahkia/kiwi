@@ -1,4 +1,6 @@
 local Context = require("kiwi.gpu.context")
+local Recovery = require("kiwi.gpu.recovery")
+local DeviceSoak = require("kiwi.bench.device_soak")
 local Pacing = require("kiwi.bench.pacing")
 local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
@@ -163,7 +165,8 @@ local function run_live(options)
   local pty
   local recorder
   local ok, result = xpcall(function()
-    context = Context.new(window, { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" })
+    local context_options = { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
+    context = Context.new(window, context_options)
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
       local probe_ok, probe_message = context:probe_timestamp_queries()
       io.stderr:write("Kiwi timestamp probe: ", probe_ok and "supported: " or "unavailable: ", probe_message, "\n")
@@ -190,9 +193,14 @@ local function run_live(options)
     renderer = Renderer.new(context, font, state, render_options)
     local clipboard = Clipboard.new(window)
     local hyperlink = Hyperlink.new(window)
-    local metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser })
+    local recovery = Recovery.new()
+    local metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
+    local simulated_device_loss_frame = number_from_env("KIWI_SIMULATE_DEVICE_LOSS_FRAME", 0)
+    local simulated_device_loss = false
+    local soak_seconds = number_from_env("KIWI_DEVICE_SOAK_SECONDS", 0)
+    local soak = soak_seconds > 0 and DeviceSoak.Lifecycle.new(window, { seconds = soak_seconds }) or nil
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
     local pacing_report = os.getenv("KIWI_PACING_REPORT")
     local pacing = pacing_report and Pacing.new({
@@ -204,6 +212,34 @@ local function run_live(options)
     local mouse_generation = state.modes.mouse_generation
     local selection_pointer = SelectionPointer.new()
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
+
+    local function recreate_gpu()
+      if renderer then
+        renderer:destroy()
+        renderer = nil
+      end
+      if context then
+        context:destroy()
+        context = nil
+      end
+      context = Context.new(window, context_options)
+      metrics.context = context
+      renderer = Renderer.new(context, font, state, render_options)
+      renderer:invalidate("configuration")
+    end
+
+    local function handle_render_failure(reason)
+      local activity = renderer and renderer.pass_registry and renderer.pass_registry:activity_snapshot() or nil
+      local diagnostic = recovery:decide(reason, context, activity)
+      io.stderr:write("Kiwi GPU recovery: ", Recovery.format(diagnostic, recovery.max_device_retries), "\n")
+      if diagnostic.action == "retry-device" then
+        recreate_gpu()
+      elseif diagnostic.action == "retry-surface" then
+        context.window.resized = true
+      elseif diagnostic.action == "exit" then
+        error("Kiwi GPU failure: " .. Recovery.format(diagnostic, recovery.max_device_retries))
+      end
+    end
 
     local function enqueue_input(bytes)
       if pacing then pacing:input(window:time()) end
@@ -353,6 +389,7 @@ local function run_live(options)
       if deadline and now < deadline then window:wait_events(math.min(deadline - now, 0.050)) else window:wait_events(0.050) end
       window:poll_events()
       now = window:time()
+      if soak and soak:step(now) then window:request_close() end
 
       local output = pty:read_available(pty_read_budget)
       if #output > 0 then
@@ -427,11 +464,12 @@ local function run_live(options)
         renderer:update_model(state)
         local prepare_elapsed = window:time() - prepare_start
         local rendered, reason = renderer:render(state, now, window.debug_dirty, window.debug_boundaries)
+        if rendered and not simulated_device_loss and simulated_device_loss_frame > 0 and metrics.frame_number + 1 >= simulated_device_loss_frame then
+          simulated_device_loss = true
+          rendered, reason = false, "native GPU error: simulated device loss"
+        end
         if not rendered and reason ~= "zero-sized drawable" then
-          if reason:sub(1, 17) == "native GPU error:" then
-            error(reason)
-          end
-          context.window.resized = true
+          handle_render_failure(reason)
         end
         local frame_completed = window:time()
         if rendered and pacing then pacing:present(frame_start, frame_completed, invalidation.reasons) end
@@ -449,6 +487,16 @@ local function run_live(options)
       end
     end
     parser:finish()
+    if soak then
+      local snapshot = soak:snapshot()
+      io.stdout:write(string.format(
+        "Kiwi device soak: duration=%.3fs resize=%d minimize=%d restore=%d\n",
+        snapshot.duration_seconds,
+        snapshot.lifecycle.resize,
+        snapshot.lifecycle.minimize,
+        snapshot.lifecycle.restore
+      ))
+    end
     if pacing then
       local path = Pacing.write_report(root, pacing_report, pacing, renderer)
       io.stdout:write("Kiwi pacing report: ", path, "\n")

@@ -107,4 +107,20 @@ return {
     registry:shutdown({})
     Assert.equal(table.concat(events, ","), "background-initialize,glyph-initialize,background-resize,glyph-resize,glyph-shutdown,background-shutdown")
   end,
+  render_pass_registry_clears_active_context_after_callback_failure = function()
+    local registry = Registry.new({ on_optional_failure = function(pass)
+      pass.disabled = true
+    end })
+    local events = {}
+    local broken = pass("extension/fixture/broken", 10, events, { encode_error = "expected encode failure" })
+    broken.extension = "fixture"
+    registry:register(broken)
+    registry:initialize({})
+    registry:encode({}, nil, nil, {})
+    local activity = registry:activity_snapshot()
+    Assert.equal(activity.active, nil)
+    Assert.equal(activity.last.name, "extension/fixture/broken")
+    Assert.equal(activity.last.phase, "encoding")
+    registry:shutdown({})
+  end,
 }
