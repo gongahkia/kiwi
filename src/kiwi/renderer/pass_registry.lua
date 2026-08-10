@@ -9,10 +9,15 @@ local function validate_names(kind, names)
   if type(names) ~= "table" then
     fail(kind .. " declarations must be a table")
   end
+  local seen = {}
   for _, name in ipairs(names) do
     if type(name) ~= "string" or #name == 0 then
       fail(kind .. " declarations must contain non-empty names")
     end
+    if seen[name] then
+      fail(kind .. " declarations must not repeat " .. name)
+    end
+    seen[name] = true
   end
 end
 
@@ -37,6 +42,7 @@ local function validate_pass(pass)
   end
   validate_names("read resource", pass.reads)
   validate_names("write resource", pass.writes)
+  validate_names("dependency", pass.after)
 end
 
 local function ordered_passes(passes)
@@ -49,11 +55,88 @@ local function ordered_passes(passes)
   return ordered
 end
 
+local function find_cycle(passes, by_name)
+  local visiting = {}
+  local visited = {}
+  local path = {}
+  local path_indexes = {}
+  local function visit(pass)
+    if visiting[pass.name] then
+      local cycle = {}
+      for index = path_indexes[pass.name], #path do cycle[#cycle + 1] = path[index].name end
+      cycle[#cycle + 1] = pass.name
+      return cycle
+    end
+    if visited[pass.name] then return nil end
+    visiting[pass.name] = true
+    path[#path + 1] = pass
+    path_indexes[pass.name] = #path
+    for _, name in ipairs(pass.after) do
+      local cycle = visit(by_name[name])
+      if cycle then return cycle end
+    end
+    path_indexes[pass.name] = nil
+    path[#path] = nil
+    visiting[pass.name] = nil
+    visited[pass.name] = true
+    return nil
+  end
+  for _, pass in ipairs(ordered_passes(passes)) do
+    local cycle = visit(pass)
+    if cycle then return cycle end
+  end
+end
+
+local function graph_order(passes)
+  local by_name = {}
+  local indegree = {}
+  local dependents = {}
+  for _, pass in ipairs(passes) do
+    by_name[pass.name] = pass
+    indegree[pass.name] = 0
+    dependents[pass.name] = {}
+  end
+  for _, pass in ipairs(passes) do
+    for _, dependency in ipairs(pass.after) do
+      if by_name[dependency] == nil then
+        fail("pass " .. pass.name .. " depends on missing pass " .. dependency)
+      end
+      indegree[pass.name] = indegree[pass.name] + 1
+      dependents[dependency][#dependents[dependency] + 1] = pass
+    end
+  end
+  local ready = {}
+  for _, pass in ipairs(passes) do
+    if indegree[pass.name] == 0 then ready[#ready + 1] = pass end
+  end
+  local ordered = {}
+  local parallel_groups = {}
+  while #ready > 0 do
+    ready = ordered_passes(ready)
+    local current = ready
+    ready = {}
+    parallel_groups[#parallel_groups + 1] = current
+    for _, pass in ipairs(current) do
+      ordered[#ordered + 1] = pass
+      for _, dependent in ipairs(dependents[pass.name]) do
+        indegree[dependent.name] = indegree[dependent.name] - 1
+        if indegree[dependent.name] == 0 then ready[#ready + 1] = dependent end
+      end
+    end
+  end
+  if #ordered ~= #passes then
+    local cycle = find_cycle(passes, by_name)
+    fail("dependency cycle: " .. table.concat(cycle or {}, " -> "))
+  end
+  return ordered, parallel_groups
+end
+
 function Registry.new()
   return setmetatable({
     passes = {},
     names = {},
     initialized = {},
+    parallel_groups = {},
     state = "registering",
   }, Registry)
 end
@@ -76,8 +159,8 @@ end
 
 function Registry:initialize(renderer)
   self:assert_state("registering", "initialization")
+  local ordered, parallel_groups = graph_order(self.passes)
   self.state = "initializing"
-  local ordered = ordered_passes(self.passes)
   for _, pass in ipairs(ordered) do
     self.initialized[#self.initialized + 1] = pass
     pass.lifecycle = "initializing"
@@ -92,6 +175,7 @@ function Registry:initialize(renderer)
     pass.lifecycle = "ready"
   end
   self.passes = ordered
+  self.parallel_groups = parallel_groups
   self.state = "ready"
 end
 
