@@ -76,7 +76,7 @@ function Window.new(width, height, title)
     self.modifiers = modifiers
     if self.on_pointer then
       local x, y = self:cursor_position()
-      self.on_pointer({ kind = "button", button = button, action = action == glfw.constants.press and "press" or action == glfw.constants.release and "release" or "unknown", x = x, y = y, modifiers = modifiers })
+      self.on_pointer({ kind = "button", button = button, action = action == glfw.constants.press and "press" or action == glfw.constants.release and "release" or "unknown", time = glfw.lib.glfwGetTime(), x = x, y = y, modifiers = modifiers })
     end
   end)
   self.callbacks.scroll = ffi.cast("GLFWscrollfun", function(_, _, yoffset)

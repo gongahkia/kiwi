@@ -56,7 +56,7 @@ claiming formal verification or allocator-independent memory totals.
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; Kitty keyboard level-one disambiguation; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
-| selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, detached normalized view | not a terminfo capability; no pointer, render, or clipboard action yet |
+| selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, detached normalized view | not a terminfo capability; no selection rendering or clipboard action yet |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
@@ -75,7 +75,9 @@ OSC 52 is default-denied: terminal output cannot read, write, clear, or query th
 
 ## Selection model
 
-The M4 foundation stores no text payload: it records two directional endpoints as stable row IDs and cell gaps, then exposes a detached normalized `[start, finish)` view. Bounds that land inside a wide-cell continuation snap around the whole cluster; combining code points share their anchor cell. Primary selections follow their row into bounded scrollback, while `history_offset` only changes the viewport. Kiwi does not reflow on resize, so retained rows clamp to the new width; a selection clears if an endpoint row is evicted or dropped. The inactive screen’s selection is retained but marked non-visible. Pointer gestures, drawing, copying, and accessibility are intentionally deferred; the full contract is [ADR 0021](adr/0021-grapheme-aware-selection-state.md).
+The M4 selection model stores no text payload: it records two directional endpoints as stable row IDs and cell gaps, then exposes a detached normalized `[start, finish)` view. Bounds that land inside a wide-cell continuation snap around the whole cluster; combining code points share their anchor cell. Primary selections follow their row into bounded scrollback, while `history_offset` only changes the viewport. Kiwi does not reflow on resize, so retained rows clamp to the new width; a selection clears if an endpoint row is evicted or dropped. The inactive screen’s selection is retained but marked non-visible.
+
+When SGR application mouse tracking is inactive, the primary button provides local selection: drag extends an inclusive grapheme-cell range, a double-click selects a documented word run, and a triple-click selects the full physical row. GLFW logical positions map through the current content scale and current cell geometry, then clamp to the current viewport; this maps history rows through the state model instead of reconstructing text in input code. Word characters are ASCII letters, digits, `_`, and any leading scalar from U+0080 onward; punctuation and whitespace select their own grapheme cell. With enabled SGR normal, button-event, or any-event tracking, application reporting takes precedence and Kiwi starts no local selection. Rendering, copying, accessibility, and a modifier override are intentionally absent; the full state and gesture contracts are [ADR 0021](adr/0021-grapheme-aware-selection-state.md) and [ADR 0022](adr/0022-pointer-selection-gestures.md).
 
 ## Truecolour decision
 
@@ -144,11 +146,11 @@ No X10, UTF-8 (1005), URXVT (1015), pixel (1016), highlight, horizontal-wheel,
 gesture, or touch encoding is implemented. Tracking without `?1006` retains
 mode state but emits nothing, rather than sending a legacy encoding that this
 contract does not support. A reported mouse event takes precedence over local
-interaction; while reporting is inactive Kiwi deliberately ignores pointer
-events because mouse selection is deferred to M4. Focus loss and any mouse
-mode reconfiguration clear held-button state. RIS resets tracking, SGR, and
-focus state; all are global across primary/alternate screens and replay
-deterministically. None are advertised through terminfo.
+selection: enabled SGR normal, button-event, and any-event modes forward the
+event to the child and cancel any local drag. Focus loss and any mouse mode
+reconfiguration clear held-button and local-drag state. RIS resets tracking,
+SGR, and focus state; all are global across primary/alternate screens and
+replay deterministically. None are advertised through terminfo.
 
 ## Deployment evidence workflow
 
