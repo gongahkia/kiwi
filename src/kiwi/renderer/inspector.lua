@@ -21,9 +21,12 @@ end
 function Inspector.build(renderer, selected)
   local registry = renderer.pass_registry
   local timing = timing_by_name(renderer.diagnostics.pass_cpu)
+  local gpu_timing = renderer.diagnostics.gpu_timing or { enabled = false, status = renderer.context.timestamp_query_supported and "unavailable (timestamp instrumentation is disabled)" or "unavailable (adapter lacks timestamp-query feature)", samples = {} }
+  local gpu = timing_by_name(gpu_timing)
   local passes = {}
   for index, pass in ipairs(registry.passes) do
     local sample = timing[pass.name]
+    local gpu_sample = gpu[pass.name]
     passes[index] = {
       name = pass.name,
       order = pass.order,
@@ -33,6 +36,7 @@ function Inspector.build(renderer, selected)
       lifecycle = pass.lifecycle or registry.state,
       selected = selected == pass.name,
       cpu = sample and { prepare_ms = sample.prepare_ms, encode_ms = sample.encode_ms } or { unavailable = true },
+      gpu = gpu_sample and { ticks = gpu_sample.gpu_ticks, map_latency_ms = gpu_sample.map_latency_ms, frame = gpu_sample.frame } or { unavailable = true },
     }
   end
   return {
@@ -42,7 +46,7 @@ function Inspector.build(renderer, selected)
     error = registry.last_error,
     invalidation = renderer:invalidation_snapshot(),
     extensions = renderer.diagnostics.extensions or { enabled = true, diagnostics = {}, disabled = {} },
-    gpu_timing = renderer.context.timestamp_query_supported and "unavailable (M3 GPU timestamp readback is not enabled)" or "unavailable (adapter lacks timestamp-query feature)",
+    gpu_timing = gpu_timing.status,
     passes = passes,
   }
 end
@@ -54,7 +58,8 @@ function Inspector.format(view)
   lines[#lines + 1] = string.format("extensions=%s disabled=%d diagnostics=%d", view.extensions.enabled and "enabled" or "disabled", map_count(view.extensions.disabled), #view.extensions.diagnostics)
   for _, pass in ipairs(view.passes) do
     local cpu = pass.cpu.unavailable and "cpu=unavailable" or string.format("cpu=%.3f/%.3fms", pass.cpu.prepare_ms, pass.cpu.encode_ms)
-    lines[#lines + 1] = string.format("pass=%s order=%d state=%s reads=%s writes=%s after=%s %s", pass.name, pass.order, pass.lifecycle, table.concat(pass.reads, ","), table.concat(pass.writes, ","), table.concat(pass.after, ","), cpu)
+    local gpu = pass.gpu.unavailable and "gpu=unavailable" or string.format("gpu=%d ticks/%.3fms", pass.gpu.ticks, pass.gpu.map_latency_ms)
+    lines[#lines + 1] = string.format("pass=%s order=%d state=%s reads=%s writes=%s after=%s %s %s", pass.name, pass.order, pass.lifecycle, table.concat(pass.reads, ","), table.concat(pass.writes, ","), table.concat(pass.after, ","), cpu, gpu)
   end
   return table.concat(lines, "\n")
 end

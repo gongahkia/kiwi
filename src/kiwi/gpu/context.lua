@@ -18,7 +18,9 @@ local function assert_handle(handle, label)
   return handle
 end
 
-function Context.new(window)
+function Context.new(window, options)
+  options = options or {}
+  assert(options.gpu_timestamps == nil or type(options.gpu_timestamps) == "boolean", "GPU timestamp option must be a boolean")
   local self = setmetatable({ window = window, native = wgpu }, Context)
   local ok, result = xpcall(function()
     local api = wgpu.lib
@@ -44,8 +46,23 @@ function Context.new(window)
     }
     api.wgpuAdapterInfoFreeMembers(adapter_info)
     self.timestamp_query_supported = api.wgpuAdapterHasFeature(self.adapter, 9) ~= 0
-
-    self.device = wgpu.surface.kiwi_request_device_sync(self.instance, self.adapter)
+    self.timestamp_query_requested = options.gpu_timestamps == true
+    if self.timestamp_query_requested and self.timestamp_query_supported then
+      self.device = wgpu.surface.kiwi_request_timestamp_device_sync(self.instance, self.adapter)
+      if self.device ~= nil then
+        self.timestamp_query_enabled = true
+        self.timestamp_query_reason = "enabled"
+      else
+        self.timestamp_query_reason = ffi.string(wgpu.surface.kiwi_surface_last_error())
+      end
+    elseif not self.timestamp_query_supported then
+      self.timestamp_query_reason = "adapter does not expose timestamp-query"
+    else
+      self.timestamp_query_reason = "disabled by configuration"
+    end
+    if self.device == nil then
+      self.device = wgpu.surface.kiwi_request_device_sync(self.instance, self.adapter)
+    end
     if self.device == nil then
       error("Unable to create a wgpu device: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
     end
@@ -57,6 +74,15 @@ function Context.new(window)
     error(result)
   end
   return self
+end
+
+function Context:timestamp_status()
+  return {
+    requested = self.timestamp_query_requested == true,
+    supported = self.timestamp_query_supported == true,
+    enabled = self.timestamp_query_enabled == true,
+    reason = self.timestamp_query_reason,
+  }
 end
 
 function Context:configure_surface()

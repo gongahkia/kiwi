@@ -26,6 +26,7 @@ typedef struct WGPUShaderModuleImpl* WGPUShaderModule;
 typedef struct WGPUSurfaceImpl* WGPUSurface;
 typedef struct WGPUTextureImpl* WGPUTexture;
 typedef struct WGPUTextureViewImpl* WGPUTextureView;
+typedef struct KiwiTimestampTracker KiwiTimestampTracker;
 typedef struct GLFWwindow GLFWwindow;
 
 typedef struct { const char* data; size_t length; } WGPUStringView;
@@ -77,6 +78,7 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUTextureView view; uint32_t 
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; size_t colorAttachmentCount; const WGPURenderPassColorAttachment* colorAttachments; const void* depthStencilAttachment; void* occlusionQuerySet; const void* timestampWrites; } WGPURenderPassDescriptor;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandEncoderDescriptor;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandBufferDescriptor;
+typedef struct { uint64_t frame; uint32_t pass_index; uint64_t begin_ticks; uint64_t end_ticks; uint64_t map_latency_ns; } KiwiTimestampSample;
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallbackInfo callbackInfo);
@@ -135,7 +137,17 @@ void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
+WGPUDevice kiwi_request_timestamp_device_sync(WGPUInstance instance, WGPUAdapter adapter);
 int kiwi_timestamp_query_probe(WGPUInstance instance, WGPUAdapter adapter);
+KiwiTimestampTracker* kiwi_timestamp_tracker_new(WGPUInstance instance, WGPUDevice device, uint32_t pass_count);
+void kiwi_timestamp_tracker_destroy(KiwiTimestampTracker* tracker);
+int kiwi_timestamp_tracker_begin(KiwiTimestampTracker* tracker, uint64_t frame);
+const void* kiwi_timestamp_tracker_writes(KiwiTimestampTracker* tracker, uint32_t pass_index);
+void kiwi_timestamp_tracker_resolve(KiwiTimestampTracker* tracker, WGPUCommandEncoder encoder);
+void kiwi_timestamp_tracker_submit(KiwiTimestampTracker* tracker);
+int kiwi_timestamp_tracker_poll(KiwiTimestampTracker* tracker, KiwiTimestampSample* samples, uint32_t capacity);
+uint32_t kiwi_timestamp_tracker_pending(const KiwiTimestampTracker* tracker);
+uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker* tracker);
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char* source_code);
 const char* kiwi_surface_last_error(void);
 void kiwi_surface_clear_error(void);
