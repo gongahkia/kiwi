@@ -26,6 +26,13 @@ return {
     Assert.equal(Keyboard.key(string.byte("O"), glfw.press, glfw.mod_control + glfw.mod_shift, {}, glfw).local_action, "open_hyperlink")
     Assert.truthy(Keyboard.key(string.byte("V"), glfw.repeat_action, glfw.mod_control + glfw.mod_shift, {}, glfw).suppress_text)
   end,
+  keyboard_reserves_control_alt_command_region_navigation = function()
+    local previous = Keyboard.key(string.byte("P"), glfw.press, glfw.mod_control + glfw.mod_alt, { keyboard_flags = 1 }, glfw)
+    Assert.equal(previous.local_action, "region_previous_prompt")
+    Assert.truthy(previous.suppress_text)
+    Assert.equal(Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control + glfw.mod_alt + glfw.mod_shift, {}, glfw).local_action, "region_next_command")
+    Assert.equal(Keyboard.key(string.byte("O"), glfw.repeat_action, glfw.mod_control + glfw.mod_alt, {}, glfw).local_action, "region_previous_output")
+  end,
   keyboard_encodes_the_kitty_disambiguation_subset = function()
     local modes = { keyboard_flags = 1 }
     local control_c = Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control, modes, glfw)

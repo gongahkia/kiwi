@@ -102,6 +102,11 @@ function Keyboard.key(key, action, modifiers, modes, glfw)
   if action ~= glfw.press and action ~= glfw.repeat_action then
     return nil
   end
+  if bit.band(modifiers, glfw.mod_control + glfw.mod_alt) == glfw.mod_control + glfw.mod_alt then
+    local direction = bit.band(modifiers, glfw.mod_shift) ~= 0 and "next" or "previous"
+    local role = ({ [string.byte("P")] = "prompt", [string.byte("C")] = "command", [string.byte("O")] = "output" })[key]
+    if role then return { local_action = "region_" .. direction .. "_" .. role, suppress_text = true } end
+  end
   if bit.band(modifiers, glfw.mod_control) ~= 0 and bit.band(modifiers, glfw.mod_shift) ~= 0 then
     if key == string.byte("C") then return action == glfw.press and { local_action = "copy", suppress_text = true } or { suppress_text = true } end
     if key == string.byte("V") then return action == glfw.press and { local_action = "paste", suppress_text = true } or { suppress_text = true } end

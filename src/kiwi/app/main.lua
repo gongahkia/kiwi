@@ -213,6 +213,10 @@ local function run_live(options)
       if status ~= "no-link" then io.stderr:write("Kiwi hyperlink activation rejected: ", (status or "unavailable"):gsub("-", " "), "\n") end
     end
 
+    local function report_region_status(status)
+      if status ~= "navigated" then io.stderr:write("Kiwi regions: ", status:gsub("-", " "), "\n") end
+    end
+
     local function update_search_title()
       local search = state:search_view()
       local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
@@ -269,6 +273,11 @@ local function run_live(options)
         renderer:invalidate("terminal")
       elseif encoded.local_action == "scroll_down" then
         state:scroll_history(-math.max(1, state.rows - 1))
+        renderer:invalidate("terminal")
+      elseif encoded.local_action and encoded.local_action:match("^region_") then
+        local direction, role = encoded.local_action:match("^region_([^_]+)_([^_]+)$")
+        local _, status = state:navigate_command_region(role, direction == "next" and "forward" or "backward")
+        report_region_status(status)
         renderer:invalidate("terminal")
       elseif encoded.local_action == "copy" then
         local copied, status = clipboard:copy(state)

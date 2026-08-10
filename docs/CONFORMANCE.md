@@ -140,6 +140,30 @@ store, shell installer, command execution, or UI in this milestone. [ADR 0028](a
 and [ADR 0029](adr/0029-command-region-retention-and-snapshot-boundary.md)
 define the lifecycle and retention boundaries.
 
+## Command-region navigation
+
+`Ctrl+Alt+P/C/O` move to the previous prompt/command/output boundary;
+`Ctrl+Shift+Alt+P/C/O` move forward. These reserved local bindings run before
+Kitty keyboard encoding and never send PTY bytes. They are explicitly gated on
+the primary screen, no negotiated Kitty keyboard mode, and no active search
+query. A gated action leaves the viewport unchanged and reports
+`alternate-screen`, `keyboard-mode`, or `search-active`; missing/exhausted
+targets report `no-region`, `start`, or `end`.
+
+Candidates are deterministically sorted by retained primary document row,
+column, and opaque region ID. Repeated same-role navigation advances from the
+last region; an initial action is cursor-relative in the live viewport or
+top-row-relative in history. Navigation changes `history_offset` only: it does
+not modify terminal cells, selection, clipboard, shell metadata, or search
+results. An editing search gates navigation; a submitted search remains intact.
+
+`partial` and `truncated` records are eligible only if their exact requested
+role position still resolves to a retained primary row. Evicted, missing,
+alternate-screen, and incomplete positions are skipped rather than guessed.
+There is no wrapping, command palette, keybinding rewrite, renderer resource,
+or accessibility export in this milestone. [ADR 0030](adr/0030-command-region-navigation.md)
+defines the full contract.
+
 ## Input method status
 
 GLFW character callbacks provide committed Unicode code points, including normal
