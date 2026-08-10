@@ -7,6 +7,7 @@ KittyGraphics.__index = KittyGraphics
 KittyGraphics.default_max_apc_bytes = 4096
 KittyGraphics.default_max_encoded_bytes = 1024 * 1024
 KittyGraphics.default_max_images = 64
+KittyGraphics.default_max_transfer_chunks = 256
 KittyGraphics.default_max_width = 8192
 KittyGraphics.default_max_height = 8192
 KittyGraphics.default_max_pixels = 16 * 1024 * 1024
@@ -38,6 +39,7 @@ end
 
 local function parse_controls(value)
   if value == "" then return nil, "empty-controls" end
+  if value:sub(-1) == "," then return nil, "empty-control" end
   local controls = {}
   local start = 1
   while start <= #value do
@@ -111,6 +113,7 @@ function KittyGraphics.new(options)
     max_height = positive_integer(options.max_height or KittyGraphics.default_max_height, "kitty graphics height limit"),
     max_images = positive_integer(options.max_images or KittyGraphics.default_max_images, "kitty graphics image limit"),
     max_pixels = positive_integer(options.max_pixels or KittyGraphics.default_max_pixels, "kitty graphics pixel limit"),
+    max_transfer_chunks = positive_integer(options.max_transfer_chunks or KittyGraphics.default_max_transfer_chunks, "kitty graphics transfer chunk limit"),
     max_width = positive_integer(options.max_width or KittyGraphics.default_max_width, "kitty graphics width limit"),
     next_generation = 0,
     next_use = 0,
@@ -190,7 +193,6 @@ function KittyGraphics:discard_transfer(reason)
   if self.transfer == nil then return end
   self.transfer = nil
   self.stats.transfers_interrupted = self.stats.transfers_interrupted + 1
-  self:reject(reason)
 end
 
 function KittyGraphics:validate_transfer_controls(controls, continuation)
@@ -245,13 +247,16 @@ function KittyGraphics:image_count()
 end
 
 function KittyGraphics:complete_transfer(transfer, query)
+  transfer.encoded = table.concat(transfer.chunks)
+  transfer.chunks = nil
   if not strict_base64(transfer.encoded) then return self:reject("invalid-base64") end
   local decoded, bytes = pcall(Base64.decode, transfer.encoded)
   if not decoded then return self:reject("invalid-base64") end
   local width, height = png_header(bytes)
   if width == nil then return self:reject(height) end
   if width ~= transfer.width or height ~= transfer.height then return self:reject("png-dimensions") end
-  local pixels, reason = Png.decode_rgba(bytes, transfer.width, transfer.height, transfer.bytes)
+  local decoded_png, pixels, reason = pcall(Png.decode_rgba, bytes, transfer.width, transfer.height, transfer.bytes)
+  if not decoded_png then return self:reject("png-decode") end
   if pixels == nil then return self:reject(reason) end
 
   self.stats.decoded = self.stats.decoded + 1
@@ -297,11 +302,17 @@ function KittyGraphics:apply(payload)
       self:discard_transfer(continuation_reason)
       return self:reject(continuation_reason)
     end
-    if #self.transfer.encoded + #data > self.max_encoded_bytes then
+    if self.transfer.encoded_bytes + #data > self.max_encoded_bytes then
       self:discard_transfer("encoded-limit")
       return self:reject("encoded-limit")
     end
-    self.transfer.encoded = self.transfer.encoded .. data
+    if self.transfer.chunk_count >= self.max_transfer_chunks then
+      self:discard_transfer("chunk-limit")
+      return self:reject("chunk-limit")
+    end
+    self.transfer.chunks[#self.transfer.chunks + 1] = data
+    self.transfer.chunk_count = self.transfer.chunk_count + 1
+    self.transfer.encoded_bytes = self.transfer.encoded_bytes + #data
     if continuation.more == 1 then return { ok = true } end
     local transfer = self.transfer
     self.transfer = nil
@@ -311,7 +322,9 @@ function KittyGraphics:apply(payload)
   local transfer, transfer_reason = self:validate_transfer_controls(controls, false)
   if transfer == nil then return self:reject(transfer_reason) end
   if #data > self.max_encoded_bytes then return self:reject("encoded-limit") end
-  transfer.encoded = data
+  transfer.chunks = { data }
+  transfer.chunk_count = 1
+  transfer.encoded_bytes = #data
   if transfer.action == "q" then
     if transfer.more ~= 0 then
       local result = self:reject("query-continuation")
@@ -366,8 +379,9 @@ function KittyGraphics:take_gpu_releases()
 end
 
 function KittyGraphics:clear()
-  for _, image in pairs(self.images) do self:release_image(image, "reset", false) end
-  self.images = {}
+  local images = {}
+  for _, image in pairs(self.images) do images[#images + 1] = image end
+  for _, image in ipairs(images) do self:release_image(image, "reset", false) end
   self.transfer = nil
 end
 
@@ -394,6 +408,7 @@ function KittyGraphics:view()
       gpu_bytes = self.max_gpu_bytes,
       images = self.max_images,
       pixels = self.max_pixels,
+      transfer_chunks = self.max_transfer_chunks,
     },
     stats = copy_stats(self.stats),
     transfer_open = self.transfer ~= nil,

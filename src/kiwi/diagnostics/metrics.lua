@@ -33,6 +33,7 @@ function Metrics:snapshot()
   local child_status = pty and pty.exit_status
   local atlas = self.font.glyph_cache and self.font.glyph_cache.atlas or self.font.atlas
   local glyph_cache_stats = self.font.glyph_cache and self.font.glyph_cache.stats or {}
+  local kitty_graphics = self.model.kitty_graphics and self.model.kitty_graphics:view() or { image_count = 0, stats = {} }
   local font_stats = self.font.stats or {}
   local renderer = self.renderer or {}
   local wide_clusters = 0
@@ -115,6 +116,15 @@ function Metrics:snapshot()
     unknown_esc = self.model.stats and self.model.stats.unknown.esc or 0,
     unknown_osc = self.model.stats and self.model.stats.unknown.osc or 0,
     unknown_samples = self.model.stats and self.model.stats.unknown_samples or {},
+    kitty_graphics = {
+      cpu_bytes = kitty_graphics.stats.cpu_bytes or 0,
+      decoded = kitty_graphics.stats.decoded or 0,
+      evicted = kitty_graphics.stats.evicted or 0,
+      gpu_bytes = kitty_graphics.stats.gpu_bytes or 0,
+      image_count = kitty_graphics.image_count or 0,
+      last_error = kitty_graphics.stats.last_error,
+      rejected = kitty_graphics.stats.rejected or 0,
+    },
     clipboard = clipboard and clipboard:snapshot() or { maximum_bytes = 0, counters = {} },
   }
 end
@@ -190,6 +200,18 @@ function Metrics:report(now)
       samples[index] = unknown_sample_text(sample)
     end
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
+  end
+  if item.kitty_graphics.rejected > 0 or item.kitty_graphics.image_count > 0 then
+    io.stdout:write(string.format(
+      "kitty-graphics=images:%d cpu:%dB gpu:%dB decoded:%d evicted:%d rejected:%d last:%s\n",
+      item.kitty_graphics.image_count,
+      item.kitty_graphics.cpu_bytes,
+      item.kitty_graphics.gpu_bytes,
+      item.kitty_graphics.decoded,
+      item.kitty_graphics.evicted,
+      item.kitty_graphics.rejected,
+      item.kitty_graphics.last_error or "none"
+    ))
   end
   if item.inspector.enabled then
     io.stdout:write(require("kiwi.renderer.inspector").format(item.inspector), "\n")
