@@ -30,11 +30,13 @@ return {
     Assert.equal(recovery:decide("zero-sized drawable").action, "wait")
   end,
   gpu_recovery_bounds_history = function()
-    local recovery = Recovery.new({ history_limit = 1 })
+    local recovery = Recovery.new({ history_limit = 1, message_limit = 4 })
     recovery:decide("surface present status 2")
     recovery:decide("native GPU error: validation")
     local snapshot = recovery:snapshot()
     Assert.equal(#snapshot.history, 1)
     Assert.equal(snapshot.history[1].kind, "fatal-native-error")
+    Assert.equal(snapshot.history[1].message, "nati [truncated]")
+    Assert.equal(snapshot.limits.diagnostic_message_bytes, 4)
   end,
 }

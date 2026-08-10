@@ -87,6 +87,7 @@ function Soak.run(options)
     registry:shutdown(renderer)
     assert(registry.state == "destroyed" and #registry.initialized == 0, "device soak found an uncleared pass lifecycle")
     resources:destroy()
+    assert(resources.destroyed and next(resources.owned) == nil and next(resources.owned_handles) == nil, "device soak found a stale owned resource")
   end
   assert(result.native_releases == cycles * 2, "device soak found an unreleased owned resource")
   return result
