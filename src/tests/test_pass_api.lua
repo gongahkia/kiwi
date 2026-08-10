@@ -11,9 +11,8 @@ end
 local function renderer()
   return {
     frame_time = 10,
-    schedule_animation = function(_, reason, now, delay)
-      Assert.equal(reason, "extension")
-      Assert.equal(now, 10)
+    schedule_extension_animation = function(_, pass, delay)
+      Assert.equal(pass.name, "extension/example/frame_observer")
       Assert.equal(delay, 0.1)
       return 10.1
     end,
@@ -58,6 +57,9 @@ return {
             Assert.equal(context.pass.id, "extension/example/frame_observer")
             Assert.equal(context.renderer, nil)
             Assert.equal(context.encoder, nil)
+            Assert.equal(context.create_buffer, nil)
+            Assert.equal(context.create_texture, nil)
+            Assert.equal(context.create_shader, nil)
             Assert.equal(context.resources["frame.timing"].descriptor.access, "read")
             events[#events + 1] = "extension-initialize"
           end,

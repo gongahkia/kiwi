@@ -51,7 +51,7 @@ local function callback_context(renderer, pass, phase, resize)
     phase = phase,
     resources = renderer:resolve_pass_resources(pass),
     request_animation = function(delay)
-      return renderer:schedule_animation("extension", renderer.frame_time, delay)
+      return renderer:schedule_extension_animation(pass, delay)
     end,
   }
   if resize then

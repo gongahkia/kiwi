@@ -45,6 +45,7 @@ local function extension_renderer()
     frame_time = 0,
     resolve_pass_resources = function() return {} end,
     schedule_animation = function() return 0 end,
+    schedule_extension_animation = function() return 0 end,
   }
 end
 
@@ -133,5 +134,69 @@ return {
     Assert.equal(snapshot.diagnostics[1].pass, "extension/fixture/broken")
     Assert.equal(snapshot.diagnostics[1].phase, "encoding")
     Assert.truthy(snapshot.diagnostics[1].message:match("fixture encode failure") ~= nil)
+    Assert.equal(snapshot.diagnostics[1].requested.kind, "callback-failures")
+    Assert.equal(snapshot.diagnostics[1].limit.value, 1)
+  end,
+  extension_pass_budget_rejects_the_whole_registration_before_graph_activation = function()
+    local events = {}
+    local builtins = core_passes(events)
+    local manager = Extensions.new({ pass_limit = 1 })
+    local accepted = manager:register({ function(api)
+      api:register(extension_declaration({ name = "first" }))
+      api:register(extension_declaration({ name = "second" }))
+    end }, builtins)
+    local snapshot = manager:snapshot()
+    Assert.equal(#accepted, 0)
+    Assert.equal(#Registry.validate(builtins), 3)
+    Assert.equal(#snapshot.diagnostics, 1)
+    Assert.equal(snapshot.diagnostics[1].extension, "fixture")
+    Assert.equal(snapshot.diagnostics[1].pass, "extension/fixture/second")
+    Assert.equal(snapshot.diagnostics[1].requested.kind, "extension-passes")
+    Assert.equal(snapshot.diagnostics[1].requested.value, 2)
+    Assert.equal(snapshot.diagnostics[1].limit.value, 1)
+  end,
+  extension_animation_rate_rejects_over_budget_requests_without_a_redraw = function()
+    local valid, invalid_message = pcall(Extensions.new, { animation_hz = 1 / 61 })
+    Assert.equal(valid, false)
+    Assert.truthy(tostring(invalid_message):match("between 1/60 and 60 Hz") ~= nil)
+    local manager = Extensions.new({ animation_hz = 10 })
+    local pass = { name = "extension/fixture/animated", extension = "fixture" }
+    local scheduled = false
+    local deadline, message = manager:request_animation(pass, 5, 0.05, function()
+      scheduled = true
+      return 5.05
+    end)
+    local snapshot = manager:snapshot()
+    Assert.equal(deadline, nil)
+    Assert.truthy(message:match("minimum delay") ~= nil)
+    Assert.equal(scheduled, false)
+    Assert.equal(snapshot.diagnostics[1].pass, "extension/fixture/animated")
+    Assert.equal(snapshot.diagnostics[1].requested.kind, "animation-delay-seconds")
+    Assert.near(snapshot.diagnostics[1].limit.value, 0.1, 0.0001)
+
+    deadline = manager:request_animation(pass, 5, 0.1, function(reason, now, delay)
+      Assert.equal(reason, "extension")
+      Assert.equal(now, 5)
+      Assert.near(delay, 0.1, 0.0001)
+      return 5.1
+    end)
+    Assert.near(deadline, 5.1, 0.0001)
+    Assert.near(manager:snapshot().animations[pass.name], 5.1, 0.0001)
+    manager:consume_animations(5.1)
+    Assert.equal(manager:snapshot().animations[pass.name], nil)
+  end,
+  extension_cap_state_is_bounded_and_reports_unsupported_gpu_ownership = function()
+    local manager = Extensions.new({ diagnostic_limit = 2, diagnostic_message_limit = 4 })
+    manager:record("fixture", nil, "registration", "abcdef")
+    manager:record("fixture", nil, "registration", "second")
+    manager:record("fixture", nil, "registration", "third")
+    local snapshot = manager:snapshot()
+    Assert.equal(#snapshot.diagnostics, 2)
+    Assert.equal(snapshot.diagnostics[1].message, "seco [truncated]")
+    Assert.equal(snapshot.limits.extension_buffers, 0)
+    Assert.equal(snapshot.limits.extension_textures, 0)
+    Assert.equal(snapshot.limits.texture_dimension, 0)
+    Assert.equal(snapshot.limits.gpu_memory_accounting, "unavailable")
+    Assert.equal(snapshot.limits.extension_shader_failures, 0)
   end,
 }
