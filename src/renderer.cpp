@@ -971,9 +971,11 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   std::vector<char32_t> previous_glyphs;
   std::vector<CellLuminanceRegion> previous_shape_regions;
   if (temporal_state != nullptr) {
-    previous_glyphs.reserve(cells->cells().size());
-    for (const Cell& cell : cells->cells()) {
-      previous_glyphs.push_back(cell.glyph);
+    if (temporal_state->previous_glyph_grid.has_value() &&
+        temporal_state->previous_glyph_grid->cols == size.cols &&
+        temporal_state->previous_glyph_grid->rows == size.rows &&
+        temporal_state->previous_glyphs.size() == cells->cells().size()) {
+      previous_glyphs = temporal_state->previous_glyphs;
     }
     previous_shape_regions = temporal_state->previous_shape_regions;
   }
@@ -1033,6 +1035,22 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
       result.stats.temporal_candidate_presentation_cost += local_stats.temporal_candidate_presentation_cost;
     }
     result.stats.render_ns += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - render_started).count();
+  };
+
+  const auto commitGlyphHistory = [&] {
+    if (temporal_state == nullptr) {
+      return;
+    }
+    temporal_state->previous_glyphs.clear();
+    temporal_state->previous_glyph_grid.reset();
+    if (!glyph_hysteresis_enabled) {
+      return;
+    }
+    temporal_state->previous_glyphs.reserve(rendered_cells.cells().size());
+    for (const Cell& cell : rendered_cells.cells()) {
+      temporal_state->previous_glyphs.push_back(cell.glyph);
+    }
+    temporal_state->previous_glyph_grid = size;
   };
 
   const auto collectBudgetStatus = [&](const CellBuffer& rendered_cells) {
@@ -1741,6 +1759,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
     if (config.collect_symbolic_metrics) {
       collectSymbolicMetrics(*output, rendered_cells, &result.stats);
     }
+    commitGlyphHistory();
     if (temporal_cell_reuse_enabled) {
       temporal_state->previous_cells = rendered_cells;
     }
@@ -1787,6 +1806,7 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
   if (config.collect_symbolic_metrics) {
     collectSymbolicMetrics(*output, rendered_cells, &result.stats);
   }
+  commitGlyphHistory();
   if (temporal_cell_reuse_enabled) {
     temporal_state->previous_cells = rendered_cells;
   }

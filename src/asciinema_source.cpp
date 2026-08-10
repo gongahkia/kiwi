@@ -88,7 +88,11 @@ std::optional<Frame> AsciinemaFrameSource::nextFrame() {
   }
   const AsciinemaEvent& event = events_[next_event_++];
   screen_.applyOutput(event.data);
-  const int64_t pts_us = static_cast<int64_t>(std::llround(event.time * 1000000.0));
+  const double pts = std::round(event.time * 1000000.0);
+  if (!std::isfinite(pts) || pts < 0.0 || pts >= 9223372036854775808.0) {
+    throw std::invalid_argument("invalid asciinema event time");
+  }
+  const int64_t pts_us = static_cast<int64_t>(pts);
   return asciinemaCellsToFrame(screen_.cells(), pts_us);
 }
 

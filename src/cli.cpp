@@ -141,7 +141,7 @@ std::optional<double> parsePositiveDouble(std::string_view value, bool allow_zer
   std::string copy(value);
   char* end = nullptr;
   const double parsed = std::strtod(copy.c_str(), &end);
-  if (end != copy.c_str() + copy.size()) {
+  if (end != copy.c_str() + copy.size() || !std::isfinite(parsed)) {
     return std::nullopt;
   }
   if (allow_zero ? parsed < 0.0 : parsed <= 0.0) {
@@ -875,14 +875,14 @@ CliParseResult parseArgsFromArgv(int argc, char** argv, CliOptions defaults) {
       result.options.overlay = std::string(*value);
     } else if (flag == "--overlay-alpha") {
       const auto parsed = parsePositiveDouble(*value, true);
-      if (!parsed.has_value() || !std::isfinite(*parsed) || *parsed > 1.0) {
+      if (!parsed.has_value() || *parsed > 1.0) {
         result.error = "invalid value for --overlay-alpha: " + std::string(*value);
         return result;
       }
       result.options.overlay_alpha = *parsed;
     } else if (flag == "--overlay-depth-threshold") {
       const auto parsed = parsePositiveDouble(*value, true);
-      if (!parsed.has_value() || !std::isfinite(*parsed)) {
+      if (!parsed.has_value()) {
         result.error = "invalid value for --overlay-depth-threshold: " + std::string(*value);
         return result;
       }

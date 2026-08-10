@@ -35,17 +35,81 @@ bool inside(std::span<const double> values, int width, int x, int y) {
   return values[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] >= kInsideThreshold;
 }
 
-double nearestDistance(std::span<const double> values, int width, int height, int x, int y, bool target_inside) {
-  double best = std::numeric_limits<double>::infinity();
-  for (int yy = 0; yy < height; ++yy) {
-    for (int xx = 0; xx < width; ++xx) {
-      if (inside(values, width, xx, yy) != target_inside) {
-        continue;
+void distanceTransform1d(std::span<const double> source, std::span<double> destination) {
+  const int length = static_cast<int>(source.size());
+  std::vector<int> sites(static_cast<std::size_t>(length));
+  std::vector<double> boundaries(static_cast<std::size_t>(length) + 1U, 0.0);
+  int last_site = -1;
+
+  for (int position = 0; position < length; ++position) {
+    if (!std::isfinite(source[static_cast<std::size_t>(position)])) {
+      continue;
+    }
+    if (last_site < 0) {
+      last_site = 0;
+      sites[0] = position;
+      boundaries[0] = -std::numeric_limits<double>::infinity();
+      boundaries[1] = std::numeric_limits<double>::infinity();
+      continue;
+    }
+    double boundary = 0.0;
+    while (last_site >= 0) {
+      const int previous = sites[static_cast<std::size_t>(last_site)];
+      boundary = ((source[static_cast<std::size_t>(position)] + static_cast<double>(position) * static_cast<double>(position)) -
+                  (source[static_cast<std::size_t>(previous)] + static_cast<double>(previous) * static_cast<double>(previous))) /
+                 (2.0 * static_cast<double>(position - previous));
+      if (boundary > boundaries[static_cast<std::size_t>(last_site)]) {
+        break;
       }
-      best = std::min(best, std::hypot(static_cast<double>(xx - x), static_cast<double>(yy - y)));
+      --last_site;
+    }
+
+    ++last_site;
+    sites[static_cast<std::size_t>(last_site)] = position;
+    boundaries[static_cast<std::size_t>(last_site)] = boundary;
+    boundaries[static_cast<std::size_t>(last_site + 1)] = std::numeric_limits<double>::infinity();
+  }
+
+  if (last_site < 0) {
+    std::fill(destination.begin(), destination.end(), std::numeric_limits<double>::infinity());
+    return;
+  }
+
+  int site_index = 0;
+  for (int position = 0; position < length; ++position) {
+    while (site_index < last_site && boundaries[static_cast<std::size_t>(site_index + 1)] < static_cast<double>(position)) {
+      ++site_index;
+    }
+    const double delta = static_cast<double>(position - sites[static_cast<std::size_t>(site_index)]);
+    destination[static_cast<std::size_t>(position)] = delta * delta + source[static_cast<std::size_t>(sites[static_cast<std::size_t>(site_index)])];
+  }
+}
+
+std::vector<double> squaredDistanceTo(std::span<const double> values, int width, int height, bool target_inside) {
+  const std::size_t count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+  const double infinity = std::numeric_limits<double>::infinity();
+  std::vector<double> vertical(count, infinity);
+  std::vector<double> source(static_cast<std::size_t>(std::max(width, height)), infinity);
+  std::vector<double> transformed(source.size(), infinity);
+
+  for (int x = 0; x < width; ++x) {
+    for (int y = 0; y < height; ++y) {
+      source[static_cast<std::size_t>(y)] = inside(values, width, x, y) == target_inside ? 0.0 : infinity;
+    }
+    distanceTransform1d(std::span<const double>(source.data(), static_cast<std::size_t>(height)),
+                        std::span<double>(transformed.data(), static_cast<std::size_t>(height)));
+    for (int y = 0; y < height; ++y) {
+      vertical[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = transformed[static_cast<std::size_t>(y)];
     }
   }
-  return std::isfinite(best) ? best : std::hypot(static_cast<double>(width), static_cast<double>(height));
+
+  std::vector<double> distances(count, infinity);
+  for (int y = 0; y < height; ++y) {
+    const std::size_t row_offset = static_cast<std::size_t>(y) * static_cast<std::size_t>(width);
+    distanceTransform1d(std::span<const double>(vertical.data() + row_offset, static_cast<std::size_t>(width)),
+                        std::span<double>(distances.data() + row_offset, static_cast<std::size_t>(width)));
+  }
+  return distances;
 }
 
 std::vector<double> sdfRegionFeatures(const SignedDistanceField& sdf) {
@@ -138,11 +202,17 @@ SignedDistanceField signedDistanceFieldForValues(std::span<const double> values,
   sdf.width = width;
   sdf.height = height;
   sdf.values.resize(values.size(), 0.0);
+  const std::vector<double> inside_distances = squaredDistanceTo(values, width, height, true);
+  const std::vector<double> outside_distances = squaredDistanceTo(values, width, height, false);
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const bool pixel_inside = inside(values, width, x, y);
-      const double distance = nearestDistance(values, width, height, x, y, !pixel_inside);
-      sdf.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = pixel_inside ? distance : -distance;
+      const std::size_t index = static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x);
+      const double squared_distance = pixel_inside ? outside_distances[index] : inside_distances[index];
+      const double distance = std::isfinite(squared_distance)
+                                ? std::sqrt(squared_distance)
+                                : std::hypot(static_cast<double>(width), static_cast<double>(height));
+      sdf.values[index] = pixel_inside ? distance : -distance;
     }
   }
   return sdf;

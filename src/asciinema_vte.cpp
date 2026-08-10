@@ -55,15 +55,19 @@ bool decodeUtf8(std::string_view bytes, std::size_t* index, char32_t* glyph) noe
   }
   int extra = 0;
   char32_t value = 0;
-  if ((lead & 0xe0U) == 0xc0U) {
+  char32_t minimum = 0;
+  if (lead >= 0xc2U && lead <= 0xdfU) {
     extra = 1;
     value = lead & 0x1fU;
-  } else if ((lead & 0xf0U) == 0xe0U) {
+    minimum = 0x80U;
+  } else if (lead >= 0xe0U && lead <= 0xefU) {
     extra = 2;
     value = lead & 0x0fU;
-  } else if ((lead & 0xf8U) == 0xf0U) {
+    minimum = 0x800U;
+  } else if (lead >= 0xf0U && lead <= 0xf4U) {
     extra = 3;
     value = lead & 0x07U;
+    minimum = 0x10000U;
   } else {
     ++(*index);
     *glyph = U'?';
@@ -84,6 +88,10 @@ bool decodeUtf8(std::string_view bytes, std::size_t* index, char32_t* glyph) noe
     value = (value << 6U) | (byte & 0x3fU);
   }
   *index += static_cast<std::size_t>(extra + 1);
+  if (value < minimum || (value >= 0xd800U && value <= 0xdfffU) || value > 0x10ffffU) {
+    *glyph = U'?';
+    return false;
+  }
   *glyph = value;
   return true;
 }

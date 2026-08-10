@@ -28,6 +28,8 @@ struct RenderTemporalState {
   OrientationHysteresisState orientation_hysteresis;
   std::optional<LuminanceField> previous_luminance;
   std::optional<LuminanceField> previous_supersample_luminance;
+  std::vector<char32_t> previous_glyphs;
+  std::optional<RenderGrid> previous_glyph_grid;
   std::vector<CellLuminanceRegion> previous_shape_regions;
   std::optional<CellBuffer> previous_cells;
 
@@ -36,6 +38,8 @@ struct RenderTemporalState {
     orientation_hysteresis.reset();
     previous_luminance.reset();
     previous_supersample_luminance.reset();
+    previous_glyphs.clear();
+    previous_glyph_grid.reset();
     previous_shape_regions.clear();
     previous_cells.reset();
   }

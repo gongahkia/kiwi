@@ -151,7 +151,11 @@ std::string Graph::dump() const {
 
 Graph buildGraph(std::vector<Pass> passes, const GraphBuildOptions& options) {
   std::unordered_set<std::string> pass_ids;
-  std::map<std::string, std::size_t> producer_by_output;
+  struct ProducedBuffer {
+    std::size_t pass_index = 0;
+    BufferDesc desc;
+  };
+  std::map<std::string, ProducedBuffer> producer_by_output;
   for (std::size_t index = 0; index < passes.size(); ++index) {
     Pass& pass = passes[index];
     if (pass.id.empty()) {
@@ -165,7 +169,7 @@ Graph buildGraph(std::vector<Pass> passes, const GraphBuildOptions& options) {
       if (output.name.empty()) {
         throw GraphError("pass output name must not be empty: " + pass.id);
       }
-      const auto inserted = producer_by_output.emplace(output.name, index);
+      const auto inserted = producer_by_output.emplace(output.name, ProducedBuffer{.pass_index = index, .desc = output.desc});
       if (!inserted.second) {
         throw GraphError("duplicate graph output: " + output.name);
       }
@@ -186,7 +190,13 @@ Graph buildGraph(std::vector<Pass> passes, const GraphBuildOptions& options) {
         }
         throw GraphError("missing graph input: " + input.name);
       }
-      dependencies[index].insert(producer->second);
+      if (input.desc != producer->second.desc) {
+        const PassPort produced_port{.name = input.name, .desc = producer->second.desc};
+        throw GraphError("graph descriptor mismatch: " + passes[producer->second.pass_index].id + " output " +
+                         describePort(produced_port) + " does not satisfy " + passes[index].id + " input " +
+                         describePort(input));
+      }
+      dependencies[index].insert(producer->second.pass_index);
     }
   }
   for (std::size_t consumer = 0; consumer < dependencies.size(); ++consumer) {
