@@ -27,6 +27,10 @@ function Actions.osc(command, payload)
   return { kind = "osc", command = command, payload = payload }
 end
 
+function Actions.apc(payload)
+  return { kind = "apc", payload = payload }
+end
+
 function Actions.ignore(family, reason)
   return { kind = "ignore", family = family, reason = reason }
 end

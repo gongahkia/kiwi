@@ -3,6 +3,7 @@ local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
 local Hyperlink = require("kiwi.terminal.hyperlink")
+local KittyGraphics = require("kiwi.terminal.kitty_graphics")
 local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
@@ -109,6 +110,7 @@ function State.new(columns, rows, options)
     hyperlink_uri_maximum_bytes = options.hyperlink_uri_maximum_bytes or Hyperlink.maximum_uri_bytes,
     hyperlinks = {},
     hyperlink_ids = {},
+    kitty_graphics = KittyGraphics.new(options.kitty_graphics),
     next_hyperlink_id = 0,
     stats = {
       mutations = 0,
@@ -1274,6 +1276,7 @@ function State:reset()
   self.scrollback:clear()
   self.shell:clear()
   self.command_regions:clear()
+  self.kitty_graphics:clear()
   self.command_region_navigation = nil
   self.hyperlinks = {}
   self.hyperlink_ids = {}
@@ -1681,6 +1684,11 @@ function State:apply_osc(action)
   end
 end
 
+function State:apply_apc(action)
+  local result = self.kitty_graphics:apply(action.payload)
+  if result.response then self:respond(result.response) end
+end
+
 function State:apply(action)
   if action.kind == "print" then
     self:write_codepoint(action.text, action.codepoint)
@@ -1692,6 +1700,8 @@ function State:apply(action)
     self:apply_csi(action)
   elseif action.kind == "osc" then
     self:apply_osc(action)
+  elseif action.kind == "apc" then
+    self:apply_apc(action)
   elseif action.kind == "ignore" then
     self:record_unknown(action.family, action.reason)
   else

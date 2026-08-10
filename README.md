@@ -28,7 +28,7 @@ Kiwi currently supports Linux x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glfw-devel freetype-devel harfbuzz-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 

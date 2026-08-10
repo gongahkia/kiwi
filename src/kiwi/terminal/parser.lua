@@ -86,6 +86,11 @@ function Parser:enter_ignore_string(kind)
   self:reset_string(kind)
 end
 
+function Parser:enter_apc()
+  self.mode = "apc"
+  self:reset_string("apc")
+end
+
 function Parser:append_string_byte(byte)
   if self.string_size >= self.max_string_bytes then
     self.string_overflow = true
@@ -115,6 +120,20 @@ function Parser:finish_ignore_string(reason)
   self.mode = "ground"
   self.stats.ignored = self.stats.ignored + 1
   self:emit_action(Actions.ignore(family, self.string_overflow and "payload limit" or reason or "unsupported"))
+end
+
+function Parser:finish_apc()
+  local payload = table.concat(self.string_chunks)
+  self.mode = "ground"
+  if self.string_overflow then
+    self.stats.ignored = self.stats.ignored + 1
+    self:emit_action(Actions.ignore("apc", "payload limit"))
+  elseif payload:sub(1, 1) == "G" then
+    self:emit_action(Actions.apc(payload:sub(2)))
+  else
+    self.stats.ignored = self.stats.ignored + 1
+    self:emit_action(Actions.ignore("apc", "unsupported"))
+  end
 end
 
 function Parser:finish_csi(final)
@@ -162,7 +181,7 @@ function Parser:handle_ground(byte)
   elseif byte == 0x90 then
     self:enter_ignore_string("dcs")
   elseif byte == 0x9f then
-    self:enter_ignore_string("apc")
+    self:enter_apc()
   elseif byte == 0x9e then
     self:enter_ignore_string("pm")
   elseif byte == 0x98 then
@@ -195,7 +214,7 @@ function Parser:handle_escape(byte)
     return
   end
   if byte == 0x5f then
-    self:enter_ignore_string("apc")
+    self:enter_apc()
     return
   end
   if byte == 0x5e then
@@ -299,6 +318,16 @@ function Parser:handle_osc(byte)
   end
 end
 
+function Parser:handle_apc(byte)
+  if byte == 0x9c then
+    self:finish_apc()
+  elseif byte == 0x1b then
+    self.mode = "apc_escape"
+  else
+    self:append_string_byte(byte)
+  end
+end
+
 function Parser:process_byte(byte)
   if self.mode == "ground" and self.utf8.remaining > 0 then
     if byte ~= 0x1b then
@@ -315,6 +344,8 @@ function Parser:process_byte(byte)
     self:handle_csi(byte)
   elseif self.mode == "osc" then
     self:handle_osc(byte)
+  elseif self.mode == "apc" then
+    self:handle_apc(byte)
   elseif self.mode == "string" then
     self:handle_string(byte)
   elseif self.mode == "osc_escape" then
@@ -333,6 +364,15 @@ function Parser:process_byte(byte)
       self.stats.errors = self.stats.errors + 1
       self.mode = "ground"
       self:emit_action(Actions.ignore(self.string_kind, "malformed terminator"))
+      self:process_byte(byte)
+    end
+  elseif self.mode == "apc_escape" then
+    if byte == 0x5c then
+      self:finish_apc()
+    else
+      self.stats.errors = self.stats.errors + 1
+      self.mode = "ground"
+      self:emit_action(Actions.ignore("apc", "malformed terminator"))
       self:process_byte(byte)
     end
   end
