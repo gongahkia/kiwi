@@ -152,4 +152,19 @@ return {
     Assert.equal(development.shader.source_fingerprint, "edited")
     Assert.equal(production.shader.source_fingerprint, "other")
   end,
+  shader_reload_ignores_semantic_passes_without_wgsl_pipelines = function()
+    local events = {}
+    local loader = new_loader({ ["development.wgsl"] = "baseline" })
+    local reloader = Reloader.new({ enabled = true, paths = { "development.wgsl" }, loader = loader })
+    local development = new_pass("terminal/background", "baseline", events)
+    local observer = { name = "extension/example/frame_observer" }
+    local owner = new_owner(events)
+    reloader:track({ development, observer })
+    loader.sources["development.wgsl"] = "edited"
+
+    local reloaded = reloader:reload(owner, { development, observer }, false)
+
+    Assert.equal(reloaded, true)
+    Assert.equal(development.shader.source_fingerprint, "edited")
+  end,
 }

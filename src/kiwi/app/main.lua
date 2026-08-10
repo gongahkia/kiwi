@@ -173,16 +173,17 @@ local function run_live(options)
       end
 
       if now >= next_frame then
-        if window:take_shader_reload_request() then
-          report_shader_reload(renderer:reload_shaders(true))
-        elseif renderer:shader_reload_enabled() then
-          report_shader_reload(renderer:poll_shader_reload(now))
-        end
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
+        local previous_viewport = {
+          columns = state.columns,
+          rows = state.rows,
+          drawable_width = context.width,
+          drawable_height = context.height,
+          content_scale = font.content_scale,
+        }
+        local previous_font
         if scale_changed then
-          renderer:destroy()
-          renderer = nil
-          font:destroy()
+          previous_font = font
           font = new_font(window)
           metrics.font = font
         end
@@ -196,8 +197,23 @@ local function run_live(options)
           else
             state:mark_all_dirty()
           end
-          if renderer then renderer:destroy() end
+          if renderer then
+            renderer:resize(previous_viewport, {
+              columns = state.columns,
+              rows = state.rows,
+              drawable_width = context.width,
+              drawable_height = context.height,
+              content_scale = font.content_scale,
+            })
+            renderer:destroy()
+          end
+          if previous_font then previous_font:destroy() end
           renderer = Renderer.new(context, font, state, render_options)
+        end
+        if window:take_shader_reload_request() then
+          report_shader_reload(renderer:reload_shaders(true))
+        elseif renderer:shader_reload_enabled() then
+          report_shader_reload(renderer:poll_shader_reload(now))
         end
         local frame_start = now
         local prepare_start = window:time()

@@ -32,8 +32,8 @@ end
 local function configured_passes(self, passes)
   local result = {}
   for _, pass in ipairs(passes) do
-    local definition = active_definition(pass)
-    if self.paths[definition.path] then
+    if pass.shader and self.paths[pass.shader.path] then
+      local definition = active_definition(pass)
       result[#result + 1] = { pass = pass, definition = definition }
     end
   end

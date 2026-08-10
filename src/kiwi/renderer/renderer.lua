@@ -2,6 +2,7 @@ local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
+local PassApi = require("kiwi.renderer.pass_api")
 local Resources = require("kiwi.renderer.resources")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
@@ -56,6 +57,8 @@ function Renderer.new(context, font, model, options)
   if development_mode then
     assert(type(options.development_shader_path) == "string" and #options.development_shader_path > 0, "development shader mode needs an explicit shader path")
   end
+  local extensions = options.extensions or {}
+  assert(type(extensions) == "table", "renderer extensions must be a table")
   local shader_path = development_mode and options.development_shader_path or builtin_shader_path
   Packing.assert_layout()
   local self = setmetatable({
@@ -72,6 +75,7 @@ function Renderer.new(context, font, model, options)
     resource_handles = {},
     frame_time = 0,
     shader_path = shader_path,
+    extensions = extensions,
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -94,6 +98,7 @@ function Renderer.new(context, font, model, options)
       draw_calls = 0,
     },
   }, Renderer)
+  self.pass_api = PassApi.new()
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
   self.shader_reloader = ShaderReloader.new({
     enabled = development_mode,
@@ -221,8 +226,16 @@ function Renderer:create_resources(model)
   for _, pass in ipairs(Passes.build(self)) do
     self.pass_registry:register(pass)
   end
+  self:register_extension_passes()
   self.pass_registry:initialize(self)
   self.shader_reloader:track(self.pass_registry.passes)
+end
+
+function Renderer:register_extension_passes()
+  self.pass_api:register_extensions(self.extensions)
+  for _, pass in ipairs(self.pass_api.passes) do
+    self.pass_registry:register(pass)
+  end
 end
 
 function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader)
@@ -281,6 +294,11 @@ end
 
 function Renderer:poll_shader_reload(time)
   return self.shader_reloader:poll(self, self.pass_registry.passes, time)
+end
+
+function Renderer:resize(previous, current)
+  assert(type(previous) == "table" and type(current) == "table", "renderer resize needs previous and current descriptors")
+  self.pass_registry:resize(self, previous, current)
 end
 
 function Renderer:resource_descriptor(kind, access, fields)
