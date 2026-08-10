@@ -32,13 +32,21 @@ function System.new(options)
     fallback_cache = {},
     fallback_cache_count = 0,
     fallback_cache_limit = options.fallback_cache_limit or 1024,
+    primary_ascii_coverage = {},
     glyph_cache = GlyphCache.new(options.atlas),
     shape_options = {
       ligatures = options.ligatures == true,
       contextual_alternates = options.contextual_alternates == true,
     },
     text_generation = 0,
-    stats = { primary_hits = 0, fallback_hits = 0, fallback_misses = 0, negative_fallback_hits = 0 },
+    stats = {
+      primary_hits = 0,
+      primary_ascii_cache_hits = 0,
+      primary_ascii_coverage_probes = 0,
+      fallback_hits = 0,
+      fallback_misses = 0,
+      negative_fallback_hits = 0,
+    },
   }, System)
   local ok, result = xpcall(function()
     local primary = options.font_path and { path = options.font_path, index = 0 } or self.resolver:primary()
@@ -95,7 +103,21 @@ function System:load_face(description, required)
 end
 
 function System:face_for_cluster(codepoints)
-  if self.primary:supports(codepoints) then
+  local codepoint = codepoints[1]
+  local primary_supported
+  if #codepoints == 1 and codepoint >= 0x20 and codepoint <= 0x7e then
+    primary_supported = self.primary_ascii_coverage[codepoint]
+    if primary_supported == nil then
+      primary_supported = self.primary:supports(codepoints)
+      self.primary_ascii_coverage[codepoint] = primary_supported
+      self.stats.primary_ascii_coverage_probes = self.stats.primary_ascii_coverage_probes + 1
+    else
+      self.stats.primary_ascii_cache_hits = self.stats.primary_ascii_cache_hits + 1
+    end
+  else
+    primary_supported = self.primary:supports(codepoints)
+  end
+  if primary_supported then
     self.stats.primary_hits = self.stats.primary_hits + 1
     return self.primary, "primary"
   end

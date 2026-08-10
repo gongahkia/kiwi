@@ -97,6 +97,8 @@ local function layout_counters(layout, system)
     glyph_cache_hits = system.glyph_cache.stats.hits,
     glyph_cache_misses = system.glyph_cache.stats.misses,
     fallback_primary_hits = system.stats.primary_hits,
+    primary_ascii_cache_hits = system.stats.primary_ascii_cache_hits,
+    primary_ascii_coverage_probes = system.stats.primary_ascii_coverage_probes,
     fallback_hits = system.stats.fallback_hits,
     fallback_misses = system.stats.fallback_misses,
   }
@@ -298,40 +300,52 @@ local function ascii_mutation_control(item, iterations, warmup)
   local function legacy(self, column, row, glyph, codepoints)
     return self:set_cell(column, row, self:ascii_cell(glyph, codepoints))
   end
-  local function run_one(setter)
+  local function run_block(setter)
     State.set_ascii_cell = setter
-    local state = new_state()
-    local parser = Parser.new(state)
-    local started = os.clock()
-    parser:feed(item.input)
-    parser:finish()
-    return (os.clock() - started) * 1000, state_counters(state, parser)
+    jit.flush()
+    for _ = 1, warmup do
+      local state = new_state()
+      local parser = Parser.new(state)
+      parser:feed(item.input)
+      parser:finish()
+    end
+    collectgarbage("collect")
+    local heap_before = collectgarbage("count")
+    local heap_peak = heap_before
+    local samples, counters = {}, {}
+    for iteration = 1, iterations do
+      local state = new_state()
+      local parser = Parser.new(state)
+      local started = os.clock()
+      parser:feed(item.input)
+      parser:finish()
+      samples[iteration] = (os.clock() - started) * 1000
+      merge_counters(counters, state_counters(state, parser))
+      heap_peak = math.max(heap_peak, collectgarbage("count"))
+    end
+    collectgarbage("collect")
+    return samples, counters, heap_peak - heap_before, collectgarbage("count") - heap_before
   end
 
-  for _ = 1, warmup do
-    run_one(legacy)
-    run_one(direct)
-  end
-  collectgarbage("collect")
-  local heap_before = collectgarbage("count")
-  local heap_peak = heap_before
   local legacy_samples, direct_samples, counters = {}, {}, {}
-  for iteration = 1, iterations do
-    legacy_samples[iteration] = run_one(legacy)
-    local timing, direct_counters = run_one(direct)
-    direct_samples[iteration] = timing
-    merge_counters(counters, direct_counters)
-    heap_peak = math.max(heap_peak, collectgarbage("count"))
+  local peak_kib_delta, retained_kib_delta = 0, 0
+  for _, setter in ipairs({ legacy, direct, direct, legacy }) do
+    local samples, block_counters, block_peak, block_retained = run_block(setter)
+    local target = setter == legacy and legacy_samples or direct_samples
+    for _, sample in ipairs(samples) do target[#target + 1] = sample end
+    if setter == direct then merge_counters(counters, block_counters) end
+    peak_kib_delta = math.max(peak_kib_delta, block_peak)
+    retained_kib_delta = math.max(retained_kib_delta, block_retained)
   end
   State.set_ascii_cell = direct
-  collectgarbage("collect")
+  jit.flush()
   local direct_timing = Stats.summary(direct_samples)
   local legacy_timing = Stats.summary(legacy_samples)
-  local control = result("ascii-cell-mutation-control", item.name, item.input, iterations, warmup, direct_timing, {
-    peak_kib_delta = heap_peak - heap_before,
-    retained_kib_delta = collectgarbage("count") - heap_before,
+  local control = result("ascii-cell-mutation-control", item.name, item.input, iterations * 2, warmup * 2, direct_timing, {
+    peak_kib_delta = peak_kib_delta,
+    retained_kib_delta = retained_kib_delta,
   }, counters,
-    "Within one LuaJIT process, alternating production direct ASCII-cell mutation with the pre-M2.5 transient ascii_cell plus set_cell/copy_cell implementation; parser, input, state dimensions, warm-up, and samples are otherwise identical; shaping, GPU submission, and presentation are excluded")
+    "Within one LuaJIT process, two legacy and two direct mutation blocks with a LuaJIT flush before each block; each block has identical parser input, state dimensions, warm-up, and sample count. The legacy path creates a transient ascii_cell before set_cell/copy_cell; shaping, GPU submission, and presentation are excluded")
   control.control = {
     legacy_cpu_ms = legacy_timing,
     direct_cpu_ms = direct_timing,

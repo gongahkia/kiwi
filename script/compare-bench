@@ -59,18 +59,26 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
     (rows($next)) as $next_rows |
     (index_by_key($base_rows)) as $base_index |
     (index_by_key($next_rows)) as $next_index |
-    if ($base_index | keys) != ($next_index | keys) then
+    ($base_index | keys) as $base_keys |
+    ($next_index | keys) as $next_keys |
+    [ $base_keys[] | select($next_index[.] != null) ] as $common_keys |
+    if $base.schema_version != 4 and $base_keys != $next_keys then
       error("component/workload sets differ; results are not comparable")
-    elif any($next_rows[]; .scope != $base_index[.key].scope) then
+    elif ($common_keys | length) == 0 then
+      error("component/workload sets have no comparable rows")
+    elif any($common_keys[]; $next_index[.].scope != $base_index[.].scope) then
       error("component timing scope differs; results are not comparable")
     else
       {
         comparable: ($base.metadata.system == $next.metadata.system and $base.metadata.runtime.luajit_version == $next.metadata.runtime.luajit_version),
         baseline: $base.metadata.revision,
         candidate: $next.metadata.revision,
-        rows: [ $next_rows[]
-          | . as $item
-          | $base_index[$item.key] as $previous
+        stage_sets_equal: ($base_keys == $next_keys),
+        candidate_only_rows: [ $next_keys[] | select($base_index[.] == null) ],
+        baseline_only_rows: [ $base_keys[] | select($next_index[.] == null) ],
+        rows: [ $common_keys[] as $key
+          | $next_index[$key] as $item
+          | $base_index[$key] as $previous
           | {
               key: $item.key,
               mean_ms_delta: ($item.mean_ms - $previous.mean_ms),
@@ -84,6 +92,8 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
     end
   end
 ' | jq -r '
-  "comparable_same_system=\(.comparable) baseline=\(.baseline.commit) candidate=\(.candidate.commit)",
+  "comparable_same_system=\(.comparable) stage_sets_equal=\(.stage_sets_equal) baseline=\(.baseline.commit) candidate=\(.candidate.commit)",
+  (.candidate_only_rows[]? | "candidate_only_row=\(.)"),
+  (.baseline_only_rows[]? | "baseline_only_row=\(.)"),
   (.rows[] | "\(.key) mean_delta_ms=\(.mean_ms_delta) p50_delta_ms=\(.p50_ms_delta) p95_delta_ms=\(.p95_ms_delta) p99_delta_ms=\(.p99_ms_delta) throughput_delta_Bps=\(.throughput_delta)")
 '
