@@ -9,6 +9,10 @@ make bench-write
 KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
+make text-corpus-review
+KIWI_TEXT_CORPUS_ARTIFACT=/absolute/path/review.json make text-corpus-review
+KIWI_MAX_FRAMES=240 make text-corpus-demo
+KIWI_LIGATURES=1 KIWI_CALT=1 make bench-text
 make profile-text
 KIWI_PROFILE_MODE=mixed KIWI_PROFILE_TRACE=1 make profile-text
 KIWI_PROFILE_MODE=ascii_full KIWI_PROFILE_ITERATIONS=10000 make profile-text
@@ -40,9 +44,54 @@ Heap fields are diagnostic signals, not allocation totals: retained delta is mea
 
 The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scrolling reconstruction and M1.5's row-reference terminal scrolling have different scopes and must not be presented as before/after performance evidence.
 
+## M8 text corpus and review protocol
+
+`src/kiwi/text/benchmark_corpus.lua` is the versioned, reviewable corpus for
+text-backend evaluation. It deliberately contains six short scenarios rather
+than an opaque prose sample or bundled font: ASCII, combining marks, CJK,
+emoji, ligature candidates, and dense box-drawing/status UI. Each entry is at
+most 256 input bytes; the checked-in module records its source and license
+classification next to the literal text. ASCII, ligature, and dense-UI strings
+are Kiwi-authored. Combining, CJK, and emoji scenarios are also short
+Kiwi-authored arrangements; their code-point categories are based on the
+checked-in Unicode 17 data, whose [Unicode License v3](https://www.unicode.org/license.txt)
+permits associated documentation. No third-party prose or font asset is
+distributed by this corpus.
+
+`make text-corpus-review` writes an ignored, machine-readable
+`bench/results/*-text-corpus.json` artifact. It records the corpus version and
+literals, byte/code-point/EGC/terminal-column counts, source/license fields,
+and the benchmark environment. That environment includes CPU model, kernel,
+LuaJIT, governor, affinity, and best-effort GL/Vulkan renderer and driver
+inventory; an unavailable command is reported as `unavailable`. The inventory
+does not prove that wgpu selected a particular adapter.
+
+`make bench-text` uses the same corpus for every measured text layer and embeds
+the corpus version, literals, ligature/calt settings, and resolved
+primary/fallback font inventory in its result. This is the current bitmap-atlas
+baseline; an experimental backend must consume the unchanged corpus and retain
+the same semantic manifest before any numbers can be compared. Run the default
+shaping configuration and, when ligatures are
+under review, a separate `KIWI_LIGATURES=1 KIWI_CALT=1 make bench-text` result.
+Run the bounded native presentation with `KIWI_MAX_FRAMES=240 make text-corpus-demo`, retain a
+compositor screenshot beside the JSON manifest, and record the primary/fallback
+font paths, content scale, desktop session, and backend setting. The screenshot
+is the explicit visual review artifact; Kiwi does not claim a portable
+pixel-difference metric across different fonts, drivers, or compositors.
+
+Review semantic output first: the manifest's input bytes, code-point count,
+extended-grapheme count, and terminal columns must agree. Then review the
+baseline and candidate screenshots side by side for missing glyphs, overlap,
+clipping, wide-cell occupancy, fallback changes, ligature behavior, and dense
+UI alignment. Record glyph/instance/cache/fallback counters and CPU p50/p95/p99
+from the same host before drawing a performance conclusion. A different font,
+font fallback result, content scale, Unicode data version, driver, adapter,
+governor, kernel, or iteration scope makes results non-comparable; this protocol
+has no automatic threshold or cross-machine ranking.
+
 ## M2 native-text measurements
 
-`make bench-text` is deliberately separate from `make bench`: it defaults to 10 measured iterations and 3 warmups, writes `bench/results/<UTC timestamp>-text.json` with schema version 1, and does not alter the M1.5 schema. It reports each ASCII, combining, CJK, emoji, and mixed workload at these layers:
+`make bench-text` is deliberately separate from `make bench`: it defaults to 10 measured iterations and 3 warmups, writes `bench/results/<UTC timestamp>-text.json` with schema version 2, and does not alter the M1.5 schema. Schema 2 adds the versioned corpus, shape settings, and resolved font inventory, so it must not be compared to prior schema-1 text results. It reports each text-corpus scenario at these layers:
 
 | Layer | Timed work |
 | --- | --- |
