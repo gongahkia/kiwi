@@ -50,10 +50,15 @@ function Environment.collect(timestamp, iterations, warmup)
     },
     system = {
       architecture = jit.arch,
+      cpu_model = command_output("sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo | head -n 1"),
       cpu_affinity = command_output("taskset -pc $$ | sed 's/.*: //'"),
       cpu_governor = file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+      gl_renderer = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL renderer string: //p' | head -n 1"),
+      gl_version = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL core profile version string: //p' | head -n 1"),
       kernel = command_output("uname -srm"),
       operating_system = jit.os,
+      vulkan_gpu0 = command_output("vulkaninfo --summary 2>/dev/null | sed -n 's/^[[:space:]]*deviceName[[:space:]]*=[[:space:]]*//p' | head -n 1"),
+      vulkan_gpu0_driver = command_output("vulkaninfo --summary 2>/dev/null | sed -n 's/^[[:space:]]*driverInfo[[:space:]]*=[[:space:]]*//p' | head -n 1"),
     },
     runtime = {
       compiler_flags = os.getenv("CFLAGS") or "not provided; LuaJIT default JIT configuration",

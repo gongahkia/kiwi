@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -22,6 +22,9 @@ demo: native
 
 text-demo: native terminfo
 	KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-240} $(LUAJIT) src/kiwi/app/main.lua -- ./script/text-demo-child
+
+text-corpus-demo: native terminfo
+	KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-240} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- $(LUAJIT) src/kiwi/bench/text_corpus_child.lua
 
 timestamp-probe: native terminfo
 	KIWI_TIMESTAMP_PROBE=1 KIWI_MAX_FRAMES=1 $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /bin/true
@@ -77,6 +80,10 @@ bench-burst: native
 bench-text: native
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/text.lua
+
+text-corpus-review:
+	mkdir -p bench/results
+	$(LUAJIT) src/kiwi/bench/text_corpus.lua
 
 bench-write: native
 	mkdir -p bench/results

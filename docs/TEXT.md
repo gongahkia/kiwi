@@ -80,13 +80,15 @@ KIWI_MAX_FRAMES=240 make text-demo
 ```sh
 make bench-text
 KIWI_TEXT_BENCH_ITERATIONS=100 KIWI_TEXT_BENCH_WARMUP=20 make bench-text
+make text-corpus-review
+KIWI_MAX_FRAMES=240 make text-corpus-demo
 make bench-write
 KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-text-stress
 KIWI_TEXT_STRESS_ROUNDS=2000 make bench-text-stress
 ```
 
-`bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, initial/primary/cached Fontconfig fallback, glyph-cache miss/hit/bounded-capacity paths, cold/cached/edited row layout, and the full parser → terminal-cluster → glyph-instance CPU path. `bench-write` writes schema-4 `*-write.json` stage attribution for parser/UTF-8, cluster mutation, two damage streams, run construction, HarfBuzz, fallback, atlas/glyph records, cursor-only invalidation, and full parser-to-glyph-record CPU work. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` mixes unique glyph pressure, combining-limit pressure, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, row layout, and repeated text-system construction/destruction while asserting grid, atlas, face/fallback cache, and RSS bounds. It writes `*-text-stress.json`.
+`src/kiwi/text/benchmark_corpus.lua` supplies the shared ASCII, combining, CJK, emoji, ligature, and dense-UI scenarios to `bench-text` and `text-corpus-demo`. `make text-corpus-review` writes the deterministic corpus/host manifest used with a native screenshot for quality review; see [BENCHMARKS.md](BENCHMARKS.md) for the source/license fields, comparison limits, and required artifact. `bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, initial/primary/cached Fontconfig fallback, glyph-cache miss/hit/bounded-capacity paths, cold/cached/edited row layout, and the full parser → terminal-cluster → glyph-instance CPU path. `bench-write` writes schema-4 `*-write.json` stage attribution for parser/UTF-8, cluster mutation, two damage streams, run construction, HarfBuzz, fallback, atlas/glyph records, cursor-only invalidation, and full parser-to-glyph-record CPU work. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` mixes unique glyph pressure, combining-limit pressure, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, row layout, and repeated text-system construction/destruction while asserting grid, atlas, face/fallback cache, and RSS bounds. It writes `*-text-stress.json`.
 
 The native smoke target and a windowed `make text-demo` exercise shader compilation and the GPU path; they are not pixel-comparison or color-emoji conformance tests. See [BENCHMARKS.md](BENCHMARKS.md) for output semantics and [CONFORMANCE.md](CONFORMANCE.md) for deterministic test coverage.
 

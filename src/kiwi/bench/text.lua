@@ -6,6 +6,7 @@ local Layout = require("kiwi.text.layout")
 local Parser = require("kiwi.terminal.parser")
 local State = require("kiwi.terminal.state")
 local Stats = require("kiwi.bench.stats")
+local Corpus = require("kiwi.text.benchmark_corpus")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
 
@@ -37,13 +38,47 @@ local function workload(name, values)
   return { name = name, text = text, codepoints = codepoints(text) }
 end
 
-local workloads = {
-  workload("ascii", "Kiwi terminal text 123"),
-  workload("combining", { 0x43, 0x61, 0x66, 0x65, 0x301, 0x20, 0x6f, 0x308 }),
-  workload("cjk", { 0x4e2d, 0x6587, 0x6f22, 0x5b57, 0x20, 0x304b, 0x306a }),
-  workload("emoji", { 0x1f469, 0x200d, 0x1f680, 0x20, 0x1f1f8, 0x1f1ec, 0x20, 0x2764, 0xfe0f }),
-  workload("mixed", { 0x4b, 0x69, 0x77, 0x69, 0x20, 0x65, 0x301, 0x20, 0x4e2d, 0x20, 0x1f469, 0x200d, 0x1f680, 0x20, 0xe0b0 }),
+local workloads = {}
+for _, scenario in ipairs(Corpus.scenarios) do workloads[#workloads + 1] = workload(scenario.id, scenario.text) end
+
+local benchmark_shape_options = {
+  ligatures = os.getenv("KIWI_LIGATURES") == "1",
+  contextual_alternates = os.getenv("KIWI_CALT") == "1",
 }
+
+local function new_system(atlas)
+  return FontSystem.new({
+    pixel_height = 18,
+    atlas = atlas or { width = 512, height = 512, max_entries = 1024 },
+    ligatures = benchmark_shape_options.ligatures,
+    contextual_alternates = benchmark_shape_options.contextual_alternates,
+  })
+end
+
+function TextBench.font_inventory()
+  local system = new_system()
+  local fallback_paths = {}
+  local seen = {}
+  for _, item in ipairs(workloads) do
+    for _, cluster in ipairs(Grapheme.segment(item.codepoints)) do
+      local face = system:face_for_cluster(cluster)
+      if face and face.path ~= system.font_path and not seen[face.path] then
+        seen[face.path] = true
+        fallback_paths[#fallback_paths + 1] = face.path
+      end
+    end
+  end
+  table.sort(fallback_paths)
+  local inventory = {
+    primary_path = system.font_path,
+    pixel_height = system.pixel_height,
+    fallback_paths = fallback_paths,
+    face_cache_limit = system.face_cache_limit,
+    fallback_cache_limit = system.fallback_cache_limit,
+  }
+  system:destroy()
+  return inventory
+end
 
 local function measure(iterations, warmup, setup, operation, inspect, cleanup)
   for _ = 1, warmup do
@@ -151,7 +186,7 @@ end
 local function shaping(item, iterations, warmup, rasterize)
   local counters = { codepoints = 0, clusters = 0, runs = 0, glyphs = 0, glyph_cache_hits = 0, glyph_cache_misses = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    return { system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } }) }
+    return { system = new_system() }
   end, function(context)
     context.clusters, context.glyphs = shape_clusters(context.system, item, rasterize)
   end, function(context, recorded)
@@ -174,7 +209,7 @@ local function shaping(item, iterations, warmup, rasterize)
 end
 
 local function shaping_hot(item, iterations, warmup)
-  local system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
+  local system = new_system()
   shape_clusters(system, item, true)
   local counters = { codepoints = 0, clusters = 0, runs = 0, glyphs = 0, glyph_cache_hits = 0, glyph_cache_misses = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
@@ -224,7 +259,7 @@ end
 local function layout_cold(item, iterations, warmup)
   local counters = { codepoints = 0, clusters = 0, runs = 0, glyphs = 0, glyph_instances = 0, rows_reshaped = 0, glyph_cache_hits = 0, glyph_cache_misses = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    local system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
+    local system = new_system()
     local state = State.new(80, 2)
     feed_state(state, item)
     return { system = system, state = state, layout = Layout.new(system) }
@@ -251,7 +286,7 @@ local function layout_cold(item, iterations, warmup)
 end
 
 local function layout_cached(item, iterations, warmup)
-  local system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
+  local system = new_system()
   local state = State.new(80, 2)
   local layout = Layout.new(system)
   feed_state(state, item)
@@ -283,14 +318,14 @@ end
 
 local function fallback_lookup(kind, iterations, warmup)
   local codepoints = kind == "primary-hit" and { string.byte("A") } or { 0x4e2d }
-  local persistent = kind == "cached-fallback-hit" and FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } }) or nil
+  local persistent = kind == "cached-fallback-hit" and new_system() or nil
   if persistent then assert(persistent:face_for_cluster(codepoints)) end
   local cleanup = persistent and function() end or function(context)
     context.system:destroy()
   end
   local counters = { codepoints = 0, clusters = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    return { system = persistent or FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } }) }
+    return { system = persistent or new_system() }
   end, function(context)
     context.before_hits = context.system.stats.fallback_hits
     context.before_misses = context.system.stats.fallback_misses
@@ -312,7 +347,7 @@ local function fallback_lookup(kind, iterations, warmup)
 end
 
 local function glyph_cache_lookup(kind, iterations, warmup)
-  local persistent = kind == "hit" and FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } }) or nil
+  local persistent = kind == "hit" and new_system() or nil
   local function insert(system, capacity_path)
     local face = assert(system:face_for_cluster({ string.byte("A") }))
     local glyph = assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("A"))))
@@ -328,8 +363,8 @@ local function glyph_cache_lookup(kind, iterations, warmup)
   end
   local counters = { codepoints = 0, glyphs = 0, glyph_cache_hits = 0, glyph_cache_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    local options = { pixel_height = 18, atlas = { width = 512, height = 512, max_entries = kind == "bounded-capacity" and 2 or 1024 } }
-    return { system = persistent or FontSystem.new(options) }
+    local atlas = { width = 512, height = 512, max_entries = kind == "bounded-capacity" and 2 or 1024 }
+    return { system = persistent or new_system(atlas) }
   end, function(context)
     context.before_hits = context.system.glyph_cache.stats.hits
     context.before_misses = context.system.glyph_cache.stats.misses
@@ -357,7 +392,7 @@ end
 local function layout_edit(name, initial, extension, iterations, warmup)
   local counters = { codepoints = 0, clusters = 0, runs = 0, glyphs = 0, glyph_instances = 0, rows_reshaped = 0, logical_dirty_cells = 0, glyph_cache_hits = 0, glyph_cache_misses = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    local system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
+    local system = new_system()
     local state = State.new(80, 2)
     local layout = Layout.new(system)
     feed_state(state, initial)
@@ -392,7 +427,7 @@ end
 local function full_text_pipeline(item, iterations, warmup)
   local counters = { codepoints = 0, clusters = 0, runs = 0, glyphs = 0, glyph_instances = 0, rows_reshaped = 0, logical_dirty_cells = 0, glyph_cache_hits = 0, glyph_cache_misses = 0, fallback_hits = 0, fallback_misses = 0 }
   local timing, memory = measure(iterations, warmup, function()
-    local system = FontSystem.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
+    local system = new_system()
     local state = State.new(80, 2)
     return { system = system, state = state, parser = Parser.new(state), layout = Layout.new(system) }
   end, function(context)
@@ -451,11 +486,9 @@ function TextBench.run(iterations, warmup)
   for _, kind in ipairs({ "miss", "hit", "bounded-capacity" }) do
     results.glyph_atlas[#results.glyph_atlas + 1] = glyph_cache_lookup(kind, iterations, warmup)
   end
-  results.layout_edit[#results.layout_edit + 1] = layout_edit("ascii", workload("ascii-base", "Kiwi "), workload("ascii-edit", "A"), iterations, warmup)
-  results.layout_edit[#results.layout_edit + 1] = layout_edit("combining", workload("combining-base", "e"), workload("combining-edit", { 0x301 }), iterations, warmup)
-  results.layout_edit[#results.layout_edit + 1] = layout_edit("cjk", workload("cjk-base", "Kiwi "), workload("cjk-edit", { 0x4e2d }), iterations, warmup)
-  results.layout_edit[#results.layout_edit + 1] = layout_edit("emoji-width-change", workload("emoji-base", { 0x2764 }), workload("emoji-edit", { 0xfe0f }), iterations, warmup)
-  results.layout_edit[#results.layout_edit + 1] = layout_edit("full-row", workload("full-row-base", ""), workloads[5], iterations, warmup)
+  for _, item in ipairs(workloads) do
+    results.layout_edit[#results.layout_edit + 1] = layout_edit(item.name, workload(item.name .. "-base", ""), item, iterations, warmup)
+  end
   return results
 end
 
@@ -483,9 +516,12 @@ function TextBench.main()
   local file, message = io.open(output, "wb")
   if not file then error("Unable to create " .. output .. ": " .. message .. ". Run through make bench-text so the results directory exists.") end
   file:write(Json.encode({
-    schema_version = 1,
+    schema_version = 2,
     benchmark = "Kiwi M2 native text benchmark",
     metadata = Environment.collect(timestamp, iterations, warmup),
+    corpus = { version = Corpus.version, scenarios = Corpus.scenarios },
+    font = TextBench.font_inventory(),
+    shape_options = benchmark_shape_options,
     unicode = { version = "17.0.0", grapheme_algorithm = "UAX #29 extended grapheme clusters", width_policy = Width.policy_version },
     results = results,
   }), "\n")
