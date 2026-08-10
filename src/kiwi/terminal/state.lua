@@ -70,6 +70,13 @@ function State.new(columns, rows, options)
       application_cursor = false,
       bracketed_paste = false,
       synchronized_output = false,
+      mouse_tracking = "none",
+      mouse_normal = false,
+      mouse_button = false,
+      mouse_any = false,
+      mouse_sgr = false,
+      focus_reporting = false,
+      mouse_generation = 0,
     },
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
@@ -859,6 +866,13 @@ function State:reset()
   self.modes.application_cursor = false
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
+  self.modes.mouse_tracking = "none"
+  self.modes.mouse_normal = false
+  self.modes.mouse_button = false
+  self.modes.mouse_any = false
+  self.modes.mouse_sgr = false
+  self.modes.focus_reporting = false
+  self.modes.mouse_generation = self.modes.mouse_generation + 1
   self:reset_tab_stops()
   self.scrollback:clear()
   self.history_offset = 0
@@ -990,10 +1004,45 @@ function State:apply_private_mode(parameters, enabled)
       self.modes.bracketed_paste = enabled
     elseif mode == 2026 then
       self.modes.synchronized_output = enabled
+    elseif mode == 1000 then
+      self:set_mouse_tracking("normal", enabled)
+    elseif mode == 1002 then
+      self:set_mouse_tracking("button", enabled)
+    elseif mode == 1003 then
+      self:set_mouse_tracking("any", enabled)
+    elseif mode == 1004 then
+      self:set_focus_reporting(enabled)
+    elseif mode == 1006 then
+      self:set_mouse_sgr(enabled)
     else
       self:record_unknown("csi", { private = "?", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
   end
+end
+
+function State:set_mouse_tracking(mode, enabled)
+  local field = "mouse_" .. mode
+  if self.modes[field] == enabled then return end
+  self.modes[field] = enabled
+  local next_mode = self.modes.mouse_any and "any"
+    or self.modes.mouse_button and "button"
+    or self.modes.mouse_normal and "normal"
+    or "none"
+  if self.modes.mouse_tracking ~= next_mode then
+    self.modes.mouse_tracking = next_mode
+  end
+  self.modes.mouse_generation = self.modes.mouse_generation + 1
+end
+
+function State:set_mouse_sgr(enabled)
+  if self.modes.mouse_sgr ~= enabled then
+    self.modes.mouse_sgr = enabled
+    self.modes.mouse_generation = self.modes.mouse_generation + 1
+  end
+end
+
+function State:set_focus_reporting(enabled)
+  self.modes.focus_reporting = enabled
 end
 
 function State:set_cursor_style(action)

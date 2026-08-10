@@ -44,7 +44,7 @@ LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wra
 
 `terminal/parser.lua` is incremental over arbitrary byte chunks. It bounds CSI parameters/intermediates and control-string payloads, accepts OSC BEL/ST termination, discards unsupported DCS/APC/PM/SOS until ST, and uses the streaming decoder in `terminal/utf8.lua`. Invalid or truncated UTF-8 emits U+FFFD deterministically. The parser's outputs are intentionally plain action tables to keep syntax testing independent from semantic state testing.
 
-`terminal/state.lua` holds primary and alternate `Screen` values. A screen is an array of row objects; scrolling moves row references and replaces only entering rows. Full-screen primary upward scrolling offers ejected rows to a fixed-size ring scrollback. Alternate-screen scrolling never enters primary history. State owns cursor/margins/autowrap/origin/insert/application-cursor/bracketed-paste/cursor-style/synchronized-output modes, SGR attributes, saved cursor, tab stops, title, and terminal responses.
+`terminal/state.lua` holds primary and alternate `Screen` values. A screen is an array of row objects; scrolling moves row references and replaces only entering rows. Full-screen primary upward scrolling offers ejected rows to a fixed-size ring scrollback. Alternate-screen scrolling never enters primary history. State owns cursor/margins/autowrap/origin/insert/application-cursor/bracketed-paste/cursor-style/synchronized-output/mouse/focus modes, SGR attributes, saved cursor, tab stops, title, and terminal responses.
 
 ```text
 normal scroll inside full primary screen
@@ -77,7 +77,7 @@ hidden, and synchronized-output cursors do not schedule one.
 
 ## Input, output, and responses
 
-GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.
+GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. GLFW pointer, scroll, and focus callbacks cross a narrow `input/mouse.lua` boundary: it retains only current supported button/cell state and emits bounded SGR mouse/focus bytes after state has enabled the corresponding modes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.
 
 ## Unicode grid, shaping, and glyph fallback
 

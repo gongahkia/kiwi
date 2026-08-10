@@ -3,7 +3,7 @@ set -euo pipefail
 
 print -rn -- $'\e[2J\e[H'
 print -r -- "Kiwi VT exercise TERM=${TERM-unknown}"
-print -rn -- $'\e[?2026h\e[6 q\e[31mstandard red\e[0m \e[38;5;141mindexed violet\e[0m \e[38;2;64;160;255mRGB blue\e[0m\r\n'
+print -rn -- $'\e[?2026h\e[6 q\e[?1002;1006;1004h\e[31mstandard red\e[0m \e[38;5;141mindexed violet\e[0m \e[38;2;64;160;255mRGB blue\e[0m\r\n'
 print -rn -- $'\e[2;5r\e[2;1Hmargin scroll\r\nsecond line\r\nthird line\e[r'
 print -rn -- $'\e[?1049halt-screen\e[?1049l'
-print -rn -- $'\e[?25lhidden cursor\e[?25h\e[?2026l\r\n'
+print -rn -- $'\e[?25lhidden cursor\e[?25h\e[?1004;1006;1002l\e[?2026l\r\n'

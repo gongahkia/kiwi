@@ -4,6 +4,7 @@ local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
 local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
+local Mouse = require("kiwi.input.mouse")
 local Pty = require("kiwi.process.pty")
 local Renderer = require("kiwi.renderer.renderer")
 local Parser = require("kiwi.terminal.parser")
@@ -177,12 +178,25 @@ local function run_live(options)
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+    local mouse = Mouse.new()
+    local mouse_generation = state.modes.mouse_generation
+
+    local function enqueue_input(bytes)
+      if recorder then recorder:input(bytes) end
+      pty:enqueue(bytes)
+    end
+
+    local function mouse_position(x, y)
+      local scale = font.content_scale or 1
+      local column = math.max(1, math.min(state.columns, math.floor(x * scale / font.cell_width) + 1))
+      local row = math.max(1, math.min(state.rows, math.floor(y * scale / font.cell_height) + 1))
+      return column, row
+    end
 
     window:set_input_handlers(function(codepoint)
       local text = Keyboard.text(codepoint)
       if text then
-        if recorder then recorder:input(text) end
-        pty:enqueue(text)
+        enqueue_input(text)
       end
     end, function(key, action, modifiers)
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
@@ -194,9 +208,22 @@ local function run_live(options)
       elseif encoded.local_action == "scroll_down" then
         state:scroll_history(-math.max(1, state.rows - 1))
       elseif encoded.bytes then
-        if recorder then recorder:input(encoded.bytes) end
-        pty:enqueue(encoded.bytes)
+        enqueue_input(encoded.bytes)
       end
+    end, function(event)
+      event.column, event.row = mouse_position(event.x, event.y)
+      local encoded
+      if event.kind == "button" then
+        encoded = mouse:button(event, state.modes)
+      elseif event.kind == "motion" then
+        encoded = mouse:motion(event, state.modes)
+      elseif event.kind == "wheel" then
+        encoded = mouse:wheel(event, state.modes)
+      end
+      if encoded then enqueue_input(encoded) end
+    end, function(focused)
+      local encoded = mouse:focus(focused, state.modes)
+      if encoded then enqueue_input(encoded) end
     end)
 
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
@@ -211,6 +238,10 @@ local function run_live(options)
       if #output > 0 then
         if recorder then recorder:output(output) end
         parser:feed(output)
+        if state.modes.mouse_generation ~= mouse_generation then
+          mouse:reset()
+          mouse_generation = state.modes.mouse_generation
+        end
         renderer:invalidate("terminal")
       end
       local responses = state:pop_responses()
