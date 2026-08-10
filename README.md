@@ -48,6 +48,16 @@ compares the byte streams, verifies the checksum, extracts the archive, and
 confirms that its launcher reports release mode even when
 `KIWI_DEVELOPMENT=1` is inherited.
 
+To verify a retained artifact from the checkout root, use its adjacent
+checksum from inside `dist/`:
+
+```sh
+release="kiwi-$(< VERSION)-linux-x86_64"
+(cd dist && sha256sum --check "$release.tar.gz.sha256")
+tar -xzf "dist/$release.tar.gz"
+./"$release"/bin/kiwi --version
+```
+
 The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLFW,
 FreeType, HarfBuzz, Fontconfig, libpng, a Vulkan loader/driver, and the normal
 display-server runtime. `kiwi --version` reports the artifact version and
