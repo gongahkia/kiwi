@@ -74,6 +74,8 @@ make bootstrap                         # validate prerequisites and fetch pinned
 make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
 make release                           # create a local, checksummed Linux x86_64 release-mode artifact
 make release-check                     # rebuild the artifact twice and verify byte identity, metadata, terminfo, and release mode
+make doctor                            # local, privacy-bounded human-readable support report
+make doctor ARGS='--json --bundle kiwi-support.json' # machine-readable report and explicit local bundle
 make test                              # deterministic unit, conformance, replay, and parser-bench tests
 make test-fuzz                         # bounded seed-reproducible parser/state property and hostile-input suite
 make fuzz                              # longer local parser/state fuzz run
