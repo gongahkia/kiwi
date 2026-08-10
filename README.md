@@ -61,6 +61,7 @@ make text-lab-demo BACKEND=atlas        # bounded native corpus review through a
 make slug-feasibility                  # M8 native Slug prerequisite probe; currently exits 2 because libharfbuzz-gpu is unavailable
 make bench-write                       # M2.5 parser/cluster/damage/shaping/atlas write-path attribution
 make bench-text-stress                 # M2 bounded atlas/fallback/grid/memory stress check
+make bench-longrun                     # M9 history, fragmented-update, resize, and text-cache pressure profile
 make profile-text                      # ignored LuaJIT sampling profile; add KIWI_PROFILE_TRACE=1 for -jv traces
 make replay REPLAY=path/session.jsonl  # headless deterministic replay and canonical snapshot
 make vttest                            # launch vttest if installed, in an interactive graphical session

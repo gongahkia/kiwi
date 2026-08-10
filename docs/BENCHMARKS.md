@@ -11,6 +11,8 @@ make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
 make pacing
 KIWI_PACING_SAMPLES=120 KIWI_PACING_WARMUP_FRAMES=20 make pacing
+make bench-longrun
+KIWI_LONGRUN_HISTORY_LIMIT=2048 KIWI_LONGRUN_HISTORY_LINES=4096 make bench-longrun
 make text-corpus-review
 KIWI_TEXT_CORPUS_ARTIFACT=/absolute/path/review.json make text-corpus-review
 KIWI_MAX_FRAMES=240 make text-corpus-demo
@@ -91,6 +93,79 @@ an interactive command, run Kiwi with `KIWI_PACING_REPORT=1`, send a command
 that visibly responds, and retain the separate local artifact; do not compare
 hosts, drivers, power modes, or measurement scopes as though they were the
 same baseline.
+
+## M9 long-running history and cache profile
+
+`make bench-longrun` writes an ignored schema-version-1
+`bench/results/<UTC timestamp>-longrun.json` report. Its deterministic first
+phase feeds 8,192 short Unicode lines through the production parser/state into
+a 4,096-row primary scrollback ring. Every 64 lines it applies sparse ANSI
+cursor writes, alternates 80- and 79-column resize paths, shapes the visible
+viewport, and records CPU, damage, layout/cache, heap, and RSS metrics. It then
+shapes the oldest and newest history view. The second phase runs the existing
+bounded native text stress workload, which exercises unique glyph pressure,
+combining/CJK/emoji/fallback, CSI edits, repeated font-system lifetime, and
+atlas/fallback caps. The report carries the exact workload configuration and
+host metadata; it has no terminal text, raw history, glyph bitmap, or sample
+array and is capped at 64 KiB.
+
+The documented limits are a 4,096-row history ring, 96 glyph-atlas entries,
+32 fallback-cache entries, and a 384 MiB RSS-delta guard. Override them only
+to establish a separately labeled environment with
+`KIWI_LONGRUN_HISTORY_LIMIT`, `KIWI_LONGRUN_HISTORY_LINES`,
+`KIWI_LONGRUN_BATCH_LINES`, `KIWI_LONGRUN_ATLAS_ENTRIES`,
+`KIWI_LONGRUN_TEXT_ROUNDS`, `KIWI_LONGRUN_LIFECYCLES`, and
+`KIWI_LONGRUN_MAX_RSS_KIB`. The profile creates no native window, WGPU
+resource, or presentation target. Its `gpu_renderer` and `display_pacing`
+fields are consequently explicit unavailable states; use `make pacing` for the
+separate native present-call measurement.
+
+Compare only reports with identical `result.configuration` using:
+
+```sh
+./script/compare-longrun bench/results/baseline-longrun.json bench/results/candidate-longrun.json
+```
+
+The comparator rejects a mismatched schema or workload configuration, then
+reports deltas for history batch/navigation p95, heap/RSS deltas, and text-cache
+CPU/failure counts. It does not establish a cross-host regression. Treat each
+output as measured CPU/resource data only; changes in driver, governor,
+thermals, font inventory, allocator, or kernel require a separately qualified
+comparison.
+
+### Baseline finding and narrow repros
+
+Measured on the Fedora 43 primary Linux host on 2026-08-10 with the default
+4,096/8,192 history configuration and the 384 MiB guard: 128 batches had
+7.757 ms mean / 21.724 ms p95 CPU time, the two history-navigation layouts had
+1.383 ms mean / 1.856 ms p95, and the profile retained 90,901 KiB Lua heap and
+249,352 KiB RSS. The text-cache phase reached its 96-entry atlas cap, reported
+two insertion failures, and retained 2,076 KiB heap / 4,024 KiB RSS. The
+3,106-byte local report explicitly marked GPU/renderer and display pacing
+unavailable.
+
+[Inference] The history phase is the dominant retained-memory boundary in this
+configuration: it retains full terminal rows while also exercising visible-row
+layout, whereas the independent text-cache phase has a much smaller measured
+RSS delta. That does not establish which allocation type dominates without a
+heap profiler. Reproduce the history boundary with:
+
+```sh
+KIWI_LONGRUN_HISTORY_LIMIT=4096 KIWI_LONGRUN_HISTORY_LINES=8192 make bench-longrun
+```
+
+Use the report's `history.memory`, `history.batch_cpu_ms`, and
+`history.history_navigation_cpu_ms` fields before considering a narrow change
+in `terminal/scrollback.lua` or viewport/layout cache ownership. Reproduce the
+separate atlas/fallback boundary with:
+
+```sh
+KIWI_LONGRUN_ATLAS_ENTRIES=96 KIWI_LONGRUN_TEXT_ROUNDS=400 make bench-longrun
+```
+
+The 384 MiB guard is a [Inference] regression boundary with headroom above this
+host's observed result, not a universal memory target or evidence that a lower
+memory configuration is unsupported.
 
 ## M8 text corpus and review protocol
 
