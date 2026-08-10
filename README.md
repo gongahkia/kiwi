@@ -40,6 +40,8 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 make bootstrap                         # validate prerequisites and fetch pinned wgpu-native
 make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
 make test                              # deterministic unit, conformance, replay, and parser-bench tests
+make test-fuzz                         # bounded seed-reproducible parser/state property and hostile-input suite
+make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode

@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke budget-smoke replay vttest test test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke budget-smoke replay vttest test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -41,6 +41,12 @@ vttest: native terminfo
 
 test:
 	$(LUAJIT) src/kiwi/test.lua
+
+test-fuzz:
+	$(LUAJIT) src/kiwi/test_fuzz.lua
+
+fuzz:
+	KIWI_FUZZ_CASES=4096 KIWI_FUZZ_MAX_BYTES=1024 $(LUAJIT) src/kiwi/test_fuzz.lua
 
 test-unicode:
 	$(LUAJIT) src/kiwi/test_unicode.lua
@@ -81,7 +87,7 @@ profile-text:
 bench-compare:
 	./script/compare-bench "$(BASELINE)" "$(CANDIDATE)"
 
-check: test test-pty terminfo
+check: test test-fuzz test-pty terminfo
 	./script/check
 
 clean:
