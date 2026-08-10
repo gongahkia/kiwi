@@ -213,7 +213,6 @@ function Renderer:create_resources(model)
   self.shader = assert_handle(self.native.surface.kiwi_shader_from_wgsl(self.context.device, self.shader_code), "terminal WGSL module creation")
   self.resource_registry:own_native("terminal-shader", self.shader, api.wgpuShaderModuleRelease)
 
-  self.glyph_pipeline = self:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
   self.cursor_pipeline = self:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
   self:register_semantic_resources(model)
   self.pass_registry = PassRegistry.new()

@@ -108,7 +108,6 @@ return {
     local captured
     local renderer = {
       native = { constants = { load_clear = 2, load_load = 1 } },
-      glyph_pipeline = {},
       cursor_pipeline = {},
       glyph_count = 4,
       resource_registry = registry,
@@ -145,5 +144,27 @@ return {
     background:shutdown(renderer)
     Assert.equal(background.pipeline, nil)
     Assert.equal(table.concat(events, ","), "background-pass:background_vs:background_fs,background-release")
+  end,
+  glyph_pass_owns_pipeline_through_its_lifecycle = function()
+    local events = {}
+    local renderer = {
+      native = { constants = { load_clear = 2, load_load = 1 } },
+      cursor_pipeline = {},
+      glyph_count = 4,
+      create_pipeline = function(_, label, vertex, fragment)
+        events[#events + 1] = label .. ":" .. vertex .. ":" .. fragment
+        return {}
+      end,
+      release_native = function(_, pipeline)
+        Assert.truthy(pipeline ~= nil)
+        events[#events + 1] = "glyph-release"
+      end,
+    }
+    local glyph = Passes.build(renderer)[2]
+    glyph:initialize(renderer)
+    Assert.truthy(glyph.pipeline ~= nil)
+    glyph:shutdown(renderer)
+    Assert.equal(glyph.pipeline, nil)
+    Assert.equal(table.concat(events, ","), "glyph-pass:glyph_vs:glyph_fs,glyph-release")
   end,
 }
