@@ -12,6 +12,12 @@ local function timing_by_name(snapshot)
   return result
 end
 
+local function map_count(values)
+  local count = 0
+  for _ in pairs(values or {}) do count = count + 1 end
+  return count
+end
+
 function Inspector.build(renderer, selected)
   local registry = renderer.pass_registry
   local timing = timing_by_name(renderer.diagnostics.pass_cpu)
@@ -35,6 +41,7 @@ function Inspector.build(renderer, selected)
     registry_state = registry.state,
     error = registry.last_error,
     invalidation = renderer:invalidation_snapshot(),
+    extensions = renderer.diagnostics.extensions or { enabled = true, diagnostics = {}, disabled = {} },
     gpu_timing = renderer.context.timestamp_query_supported and "unavailable (M3 GPU timestamp readback is not enabled)" or "unavailable (adapter lacks timestamp-query feature)",
     passes = passes,
   }
@@ -44,6 +51,7 @@ function Inspector.format(view)
   local lines = { string.format("render-inspector state=%s selected=%s gpu=%s", view.registry_state, view.selected_pass or "none", view.gpu_timing) }
   if view.error then lines[#lines + 1] = "error=" .. view.error end
   lines[#lines + 1] = "invalidation=" .. table.concat(view.invalidation.reasons, ",") .. " deadline=" .. tostring(view.invalidation.deadline)
+  lines[#lines + 1] = string.format("extensions=%s disabled=%d diagnostics=%d", view.extensions.enabled and "enabled" or "disabled", map_count(view.extensions.disabled), #view.extensions.diagnostics)
   for _, pass in ipairs(view.passes) do
     local cpu = pass.cpu.unavailable and "cpu=unavailable" or string.format("cpu=%.3f/%.3fms", pass.cpu.prepare_ms, pass.cpu.encode_ms)
     lines[#lines + 1] = string.format("pass=%s order=%d state=%s reads=%s writes=%s after=%s %s", pass.name, pass.order, pass.lifecycle, table.concat(pass.reads, ","), table.concat(pass.writes, ","), table.concat(pass.after, ","), cpu)

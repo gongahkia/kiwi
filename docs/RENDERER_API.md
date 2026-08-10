@@ -90,3 +90,20 @@ shutdown, Kiwi records its extension and pass identity, disables that pass for
 the remaining renderer lifetime, and continues the core pass lifecycle where
 the renderer can safely do so. A built-in pass failure remains fatal. This is
 containment for trusted local code, not a Lua or native-code sandbox.
+
+## Hard limits
+
+| Limit | Default | Configuration | Failure behavior |
+| --- | --- | --- | --- |
+| Optional passes | 32 passes | `KIWI_EXTENSION_MAX_PASSES` or `Renderer.new` `extension_pass_limit` | Reject the whole registration before it joins the graph. |
+| Optional animation cadence | 60 Hz, minimum delay 1/60 second | `KIWI_EXTENSION_MAX_ANIMATION_HZ` (1/60 through 60) or `extension_animation_hz` | Reject the request before scheduling a redraw. |
+| Callback failures | 1 per pass | Fixed containment policy | Disable the optional pass for this renderer lifetime. |
+| Diagnostic history | 32 records × 4,096 bytes | `extension_diagnostic_limit` and `extension_diagnostic_message_limit` | Drop the oldest record and truncate an oversized message. |
+| Extension-owned buffers, textures, texture dimension, GPU memory | 0 | Unsupported in API v1 | No allocation capability is exposed. GPU-memory accounting is reported as unavailable. |
+| Extension shader failures | 0 | Unsupported in API v1 | No shader-module capability is exposed. |
+
+Cap diagnostics add `requested { kind, value }` and `limit { kind, value }`
+to the normal extension/pass/phase/message record. The state is bounded by the
+pass and diagnostic limits. Kiwi's pinned native binding does not expose a
+GPU-memory budget or usage query, so the v1 diagnostic explicitly reports
+that accounting as unavailable rather than estimating it or stalling a frame.

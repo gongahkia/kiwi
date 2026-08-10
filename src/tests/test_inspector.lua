@@ -12,7 +12,10 @@ return {
           { name = "terminal/cursor", order = 30, reads = { "terminal.cursor" }, writes = { "surface.color" }, after = { "terminal/glyph" }, lifecycle = "ready" },
         },
       },
-      diagnostics = { pass_cpu = { samples = { { name = "terminal/glyph", prepare_ms = 0.1, encode_ms = 0.2 } } } },
+      diagnostics = {
+        pass_cpu = { samples = { { name = "terminal/glyph", prepare_ms = 0.1, encode_ms = 0.2 } } },
+        extensions = { enabled = true, diagnostics = { { extension = "fixture", phase = "animation" } }, disabled = { ["extension/fixture/broken"] = true } },
+      },
       context = { timestamp_query_supported = false },
       invalidation_snapshot = function() return { reasons = { "terminal" }, deadline = nil } end,
     }
@@ -21,6 +24,8 @@ return {
     Assert.equal(view.passes[2].selected, true)
     Assert.near(view.passes[2].cpu.encode_ms, 0.2, 0.0001)
     Assert.equal(view.passes[1].cpu.unavailable, true)
+    Assert.equal(#view.extensions.diagnostics, 1)
+    Assert.truthy(Inspector.format(view):match("extensions=enabled disabled=1 diagnostics=1") ~= nil)
     Assert.truthy(Inspector.format(view):match("pass=terminal/cursor") ~= nil)
   end,
   inspector_exposes_registration_failure_location_without_pipeline_details = function()

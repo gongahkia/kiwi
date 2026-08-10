@@ -68,7 +68,9 @@ function Renderer.new(context, font, model, options)
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
     diagnostic_limit = options.extension_diagnostic_limit,
+    diagnostic_message_limit = options.extension_diagnostic_message_limit,
     pass_limit = options.extension_pass_limit,
+    animation_hz = options.extension_animation_hz,
   })
   Packing.assert_layout()
   local self = setmetatable({
@@ -331,6 +333,12 @@ end
 
 function Renderer:schedule_animation(reason, now, delay)
   return self.invalidation:schedule(reason, now, delay)
+end
+
+function Renderer:schedule_extension_animation(pass, delay)
+  return self.extension_manager:request_animation(pass, self.frame_time, delay, function(reason, now, accepted_delay)
+    return self:schedule_animation(reason, now, accepted_delay)
+  end)
 end
 
 function Renderer:needs_render(now)
@@ -653,7 +661,9 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   self.diagnostics.draw_calls = self.pass_registry:count()
   self.invalidation:consume_success(time)
+  self.extension_manager:consume_animations(time)
   self.diagnostics.invalidation = self:invalidation_snapshot()
+  self.diagnostics.extensions = self.extension_manager:snapshot()
   if self.inspector_enabled then self.diagnostics.inspector = self:inspector_snapshot() end
   return true
 end

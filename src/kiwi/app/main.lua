@@ -87,14 +87,27 @@ local function extension_modules()
   return modules
 end
 
+local function extension_limit_from_env(name, minimum, maximum, integer)
+  local value = os.getenv(name)
+  if value == nil or #value == 0 then return nil end
+  local number = tonumber(value)
+  assert(number and number >= minimum and (not integer or number % 1 == 0) and (maximum == nil or number <= maximum), name .. " must be a " .. (integer and "integer" or "number") .. " between " .. minimum .. (maximum and " and " .. maximum or " and infinity"))
+  return number
+end
+
 local function renderer_options(runtime_options)
   local options = {
     pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1",
     inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
     extensions_enabled = not runtime_options.no_extensions,
-    extensions = runtime_options.no_extensions and {} or extension_modules(),
+    extensions = {},
   }
+  if not runtime_options.no_extensions then
+    options.extensions = extension_modules()
+    options.extension_pass_limit = extension_limit_from_env("KIWI_EXTENSION_MAX_PASSES", 1, nil, true)
+    options.extension_animation_hz = extension_limit_from_env("KIWI_EXTENSION_MAX_ANIMATION_HZ", 1 / 60, 60, false)
+  end
   if os.getenv("KIWI_DEVELOPMENT") ~= "1" then return options end
   local path = os.getenv("KIWI_DEV_SHADER_PATH")
   assert(type(path) == "string" and #path > 0, "KIWI_DEVELOPMENT=1 needs KIWI_DEV_SHADER_PATH")
