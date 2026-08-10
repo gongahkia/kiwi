@@ -68,6 +68,7 @@ print 'export KIWI_WGPU_LIB="$KIWI_INSTALL_ROOT/lib/libwgpu_native.so"' >> "$STA
 print 'export KIWI_SURFACE_LIB="$KIWI_INSTALL_ROOT/lib/libkiwi_surface.so"' >> "$STAGE/bin/kiwi"
 print 'export KIWI_RELEASE=1' >> "$STAGE/bin/kiwi"
 print 'export TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
+print 'export KIWI_LUA_ROOT="$KIWI_INSTALL_ROOT/share/kiwi/lua"' >> "$STAGE/bin/kiwi"
 print 'export LUA_PATH="$KIWI_INSTALL_ROOT/share/kiwi/lua/?.lua;$KIWI_INSTALL_ROOT/share/kiwi/lua/?/init.lua;;"' >> "$STAGE/bin/kiwi"
 print 'if [[ ${1:-} == doctor ]]; then shift; exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/doctor.lua" "$@"; fi' >> "$STAGE/bin/kiwi"
 print 'exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/app/main.lua" "$@"' >> "$STAGE/bin/kiwi"

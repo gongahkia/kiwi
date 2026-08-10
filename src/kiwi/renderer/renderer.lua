@@ -1,5 +1,6 @@
 local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
+local Paths = require("kiwi.paths")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local Extensions = require("kiwi.renderer.extensions")
@@ -104,9 +105,9 @@ Renderer.select_glyph = select_glyph
 
 function Renderer.new(context, font, model, options)
   options = options or {}
-  local root = os.getenv("KIWI_ROOT") or "."
-  local builtin_shader_path = root .. "/src/kiwi/renderer/terminal.wgsl"
-  local image_shader_path = root .. "/src/kiwi/renderer/kitty_images.wgsl"
+  local lua_root = Paths.lua_root()
+  local builtin_shader_path = lua_root .. "/kiwi/renderer/terminal.wgsl"
+  local image_shader_path = lua_root .. "/kiwi/renderer/kitty_images.wgsl"
   local development_mode = options.development_mode == true
   if development_mode then
     assert(type(options.development_shader_path) == "string" and #options.development_shader_path > 0, "development shader mode needs an explicit shader path")
