@@ -16,34 +16,51 @@ candidate=$2
 
 jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
   def rows($document):
-    [ $document.m1_5_pipeline
-      | to_entries[] as $layer
-      | $layer.value[]
-      | {
-          key: ($layer.key + "/" + .component + "/" + .workload),
-          mean_ms: .cpu_ms.mean,
-          p95_ms: .cpu_ms.p95,
-          p99_ms: .cpu_ms.p99,
-          throughput_bytes_per_second,
-          scope
-        }
-    ];
+    if $document.schema_version == 3 then
+      [ $document.m1_5_pipeline
+        | to_entries[] as $layer
+        | $layer.value[]
+        | {
+            key: ($layer.key + "/" + .component + "/" + .workload),
+            mean_ms: .cpu_ms.mean,
+            p50_ms: .cpu_ms.p50,
+            p95_ms: .cpu_ms.p95,
+            p99_ms: .cpu_ms.p99,
+            throughput_bytes_per_second,
+            scope
+          }
+      ]
+    elif $document.schema_version == 4 then
+      [ $document.results[]
+        | {
+            key: ("m2.5/" + .stage + "/" + .workload),
+            mean_ms: .cpu_ms.mean,
+            p50_ms: .cpu_ms.p50,
+            p95_ms: .cpu_ms.p95,
+            p99_ms: .cpu_ms.p99,
+            throughput_bytes_per_second,
+            scope
+          }
+      ]
+    else error("unsupported benchmark schema version \($document.schema_version)") end;
+  def configuration($document):
+    if $document.schema_version == 4 then $document.configuration else $document.metadata.configuration end;
   def index_by_key($items): reduce $items[] as $item ({}; .[$item.key] = $item);
   ($baseline[0]) as $base |
   ($candidate[0]) as $next |
-  if $base.schema_version != 3 or $next.schema_version != 3 then
-    error("both inputs must use benchmark schema version 3")
+  if $base.schema_version != $next.schema_version then
+    error("both inputs must use the same benchmark schema version")
   elif $base.metadata.methodology.cpu_scope != $next.metadata.methodology.cpu_scope then
     error("CPU timing scopes differ; results are not comparable")
-  elif $base.metadata.configuration != $next.metadata.configuration then
-    error("iteration or warm-up configuration differs; results are not comparable")
+  elif $base.metadata.configuration != $next.metadata.configuration or configuration($base) != configuration($next) then
+    error("iteration, warm-up, font, atlas, or shaping configuration differs; results are not comparable")
   else
     (rows($base)) as $base_rows |
     (rows($next)) as $next_rows |
     (index_by_key($base_rows)) as $base_index |
     (index_by_key($next_rows)) as $next_index |
     if ($base_index | keys) != ($next_index | keys) then
-      error("M1.5 component/workload sets differ; results are not comparable")
+      error("component/workload sets differ; results are not comparable")
     elif any($next_rows[]; .scope != $base_index[.key].scope) then
       error("component timing scope differs; results are not comparable")
     else
@@ -57,6 +74,7 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
           | {
               key: $item.key,
               mean_ms_delta: ($item.mean_ms - $previous.mean_ms),
+              p50_ms_delta: ($item.p50_ms - $previous.p50_ms),
               p95_ms_delta: ($item.p95_ms - $previous.p95_ms),
               p99_ms_delta: ($item.p99_ms - $previous.p99_ms),
               throughput_delta: ($item.throughput_bytes_per_second - $previous.throughput_bytes_per_second)
@@ -67,5 +85,5 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
   end
 ' | jq -r '
   "comparable_same_system=\(.comparable) baseline=\(.baseline.commit) candidate=\(.candidate.commit)",
-  (.rows[] | "\(.key) mean_delta_ms=\(.mean_ms_delta) p95_delta_ms=\(.p95_ms_delta) p99_delta_ms=\(.p99_ms_delta) throughput_delta_Bps=\(.throughput_delta)")
+  (.rows[] | "\(.key) mean_delta_ms=\(.mean_ms_delta) p50_delta_ms=\(.p50_ms_delta) p95_delta_ms=\(.p95_ms_delta) p99_delta_ms=\(.p99_ms_delta) throughput_delta_Bps=\(.throughput_delta)")
 '

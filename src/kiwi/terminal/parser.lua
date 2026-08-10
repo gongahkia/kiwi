@@ -340,9 +340,30 @@ end
 
 function Parser:feed(bytes)
   assert(type(bytes) == "string", "parser input must be a byte string")
-  for index = 1, #bytes do
-    self.stats.bytes = self.stats.bytes + 1
-    self:process_byte(bytes:byte(index))
+  local index = 1
+  while index <= #bytes do
+    if self.mode == "ground" and self.utf8.remaining == 0 and self.print_sink and self.print_sink.write_ascii_run then
+      local first = index
+      while index <= #bytes do
+        local byte = bytes:byte(index)
+        if byte < 0x20 or byte > 0x7e then break end
+        index = index + 1
+      end
+      if index > first then
+        local count = index - first
+        self.stats.bytes = self.stats.bytes + count
+        self.stats.actions = self.stats.actions + count
+        self.print_sink:write_ascii_run(bytes:sub(first, index - 1))
+      else
+        self.stats.bytes = self.stats.bytes + 1
+        self:process_byte(bytes:byte(index))
+        index = index + 1
+      end
+    else
+      self.stats.bytes = self.stats.bytes + 1
+      self:process_byte(bytes:byte(index))
+      index = index + 1
+    end
   end
 end
 

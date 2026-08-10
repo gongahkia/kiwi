@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+set -eu
+
+mode=${KIWI_PROFILE_MODE:-ascii}
+iterations=${KIWI_PROFILE_ITERATIONS:-100000}
+output=${KIWI_PROFILE_OUTPUT:-bench/profiles/$(date -u +%Y%m%dT%H%M%SZ)-${mode}.txt}
+kiwi_luajit=${LUAJIT:-luajit}
+
+case "$mode" in
+  ascii|unicode) ;;
+  *)
+    echo "KIWI_PROFILE_MODE must be ascii or unicode" >&2
+    exit 2
+    ;;
+esac
+
+LUAJIT_PROFILEFILE="$output" "$kiwi_luajit" -jp=vl -e '
+  local Parser = require("kiwi.terminal.parser")
+  local State = require("kiwi.terminal.state")
+  local Utf8 = require("kiwi.terminal.utf8")
+  local state = State.new(80, 1)
+  local parser = Parser.new(state)
+  local input
+  if os.getenv("KIWI_PROFILE_MODE") == "unicode" then
+    input = "Cafe" .. Utf8.encode(0x0301) .. " " .. Utf8.encode(0x4e2d) .. " " .. Utf8.encode(0x1f469) .. Utf8.encode(0x200d) .. Utf8.encode(0x1f680)
+  else
+    input = string.rep("A", 79)
+  end
+  for iteration = 1, tonumber(os.getenv("KIWI_PROFILE_ITERATIONS")) do
+    parser:feed(input)
+    parser:finish()
+    state.cursor.column = 0
+    state.cursor.row = 0
+    state.cursor.pending_wrap = false
+    state:clear_grapheme_context()
+    state.damage:clear()
+    state.text_damage:clear()
+  end
+'
+
+echo "LuaJIT profile: $output"
