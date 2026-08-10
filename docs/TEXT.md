@@ -75,6 +75,14 @@ renderer continues to own GPU resources and `FontSystem` remains app-owned.
 See [ADR 0034](adr/0034-text-backend-interface.md) for the stable input/output,
 lifetime, fallback, and prototype-comparison contract.
 
+The Slug investigation is currently deferred, rather than exposed as a partial
+`KIWI_TEXT_BACKEND` choice. The native HarfBuzz GPU library is absent from the
+supported host and the current glyph pass owns only `text.shaped_glyphs` and
+`text.alpha_atlas`. `make slug-feasibility` records the exact missing
+precondition (and intentionally exits nonzero); [ADR 0035](adr/0035-slug-gpu-backend-feasibility.md)
+defines the source pin, bounded blob/resource, fallback, and corpus gates that
+must be met before the existing atlas fallback can be changed.
+
 ## Diagnostics and inspection
 
 F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, visible shaped run/glyph totals, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
