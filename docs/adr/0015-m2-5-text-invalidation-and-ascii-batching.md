@@ -1,4 +1,4 @@
-# ADR 0015: separate text invalidation and constrained ASCII batching
+# ADR 0015: separate text invalidation and constrained ASCII mutation
 
 ## Context
 
@@ -8,7 +8,7 @@ M2 used logical terminal damage to decide both background/cursor uploads and sha
 
 `State` maintains `damage` for logical presentation and `text_damage` for content that requires reshaping. `Layout` consumes text damage after each update; cursor movement, cursor visibility, and SGR-state changes alone do not enter that stream. Content mutation, structural edit/scroll, resize/reset, history movement, and screen changes do.
 
-Only the production direct parser sink groups contiguous bytes U+0020 through U+007E. State writes the existing singleton ASCII clusters directly into normal cells without a transient cell table. The parser still accounts for every decoded print action, callback mode is unchanged, controls/non-ASCII bytes split a batch, and `Prepend × ASCII` uses the general grapheme path for its first ASCII scalar.
+Only the production direct parser sink writes existing singleton ASCII clusters directly into normal cells without a transient cell table. Parser byte streaming and callback mode are unchanged, and `Prepend × ASCII` uses the general grapheme path for its first ASCII scalar.
 
 ## Consequences
 

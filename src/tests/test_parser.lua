@@ -82,7 +82,7 @@ return {
     parser:finish()
     Assert.equal(Snapshot.encode(state), callback_snapshot)
   end,
-  parser_ascii_sink_batch_matches_callback_across_controls_and_prepend = function()
+  parser_ascii_sink_matches_callback_across_controls_and_prepend = function()
     local input = "start\27[31m red\27[0m\n" .. string.char(0xd8, 0x80) .. "ABC\rend"
     local callback_snapshot, callback_stats = run_with_chunks(input, { #input })
     local state = State.new(12, 4, { text_counters = {} })
@@ -93,6 +93,6 @@ return {
     Assert.equal(Snapshot.encode(state), callback_snapshot)
     Assert.equal(parser.stats.bytes, #input)
     Assert.equal(parser.stats.actions, callback_stats.actions)
-    Assert.truthy(state.text_counters.ascii_batches >= 2)
+    Assert.truthy(state.text_counters.ascii_fast_path >= 2)
   end,
 }
