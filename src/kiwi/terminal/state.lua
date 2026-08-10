@@ -13,7 +13,11 @@ State.__index = State
 State.flags = Attributes.flags
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
-for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
+local ascii_glyphs = {}
+for codepoint = 0x20, 0x7e do
+  ascii_codepoints[codepoint] = { codepoint }
+  ascii_glyphs[codepoint] = string.char(codepoint)
+end
 
 local function copy_cell(destination, source)
   destination.glyph = source.glyph
@@ -142,6 +146,35 @@ function State:ascii_cell(glyph, codepoints)
     width = 1,
     display_text = glyph,
   }
+end
+
+function State:set_ascii_cell(column, row, glyph, codepoints)
+  local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  local target = self.active_screen:get(column, row)
+  if target.glyph == glyph
+    and target.fg == foreground
+    and target.bg == background
+    and target.flags == flags
+    and target.codepoints == codepoints
+    and target.width == 1
+    and not target.continuation
+    and target.anchor_column == nil
+    and target.display_text == glyph then
+    return false
+  end
+  target.glyph = glyph
+  target.fg = foreground
+  target.bg = background
+  target.flags = flags
+  target.codepoints = codepoints
+  target.width = 1
+  target.continuation = nil
+  target.anchor_column = nil
+  target.display_text = glyph
+  self:mark_changed(column, row)
+  local counters = self.text_counters
+  if counters then counters.cells_changed = (counters.cells_changed or 0) + 1 end
+  return true
 end
 
 function State:reset_tab_stops()
@@ -492,7 +525,7 @@ function State:write_ascii_cluster(glyph, codepoint)
   local occupied = self.active_screen:get(column, row)
   if occupied.continuation or occupied.width == 2 then self:clear_cluster_at(column, row) end
   local codepoints = ascii_codepoints[codepoint]
-  self:set_cell(column, row, self:ascii_cell(glyph, codepoints))
+  self:set_ascii_cell(column, row, glyph, codepoints)
   local context = self.grapheme_context_storage
   context.screen = self.active_screen
   context.row = row
@@ -504,6 +537,23 @@ function State:write_ascii_cluster(glyph, codepoint)
     cursor.pending_wrap = true
   else
     self:set_cursor(column + 1, row, true)
+  end
+end
+
+function State:write_ascii_run(bytes)
+  assert(type(bytes) == "string", "ASCII write run must be a string")
+  local counters = self.text_counters
+  if counters then counters.ascii_batches = (counters.ascii_batches or 0) + 1 end
+  local index = 1
+  if self.grapheme_context and self.grapheme_context.last_gcb == GCB.prepend then
+    local codepoint = bytes:byte(index)
+    self:write_codepoint(ascii_glyphs[codepoint], codepoint)
+    index = index + 1
+  end
+  if counters then counters.unicode_scalars = (counters.unicode_scalars or 0) + #bytes - index + 1 end
+  for position = index, #bytes do
+    local codepoint = bytes:byte(position)
+    self:write_ascii_cluster(ascii_glyphs[codepoint], codepoint)
   end
 end
 
