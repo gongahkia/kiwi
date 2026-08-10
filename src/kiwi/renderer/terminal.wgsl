@@ -28,6 +28,8 @@ struct FrameData {
   show_dirty: f32,
   show_boundaries: f32,
   cursor_visible: f32,
+  cursor_shape: f32,
+  cursor_blink: f32,
 }
 
 struct RasterOut {
@@ -137,8 +139,8 @@ fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
 
 @fragment
 fn cursor_fs(input: RasterOut) -> @location(0) vec4<f32> {
-  if (frame.cursor_visible < 0.5 || abs(sin(frame.time * 3.0)) < 0.15) { discard; }
-  let edge = min(min(input.local_position.x, input.local_position.y), min(1.0 - input.local_position.x, 1.0 - input.local_position.y));
-  if (edge > 0.075) { discard; }
+  if (frame.cursor_visible < 0.5 || (frame.cursor_blink > 0.5 && abs(sin(frame.time * 3.0)) < 0.15)) { discard; }
+  if (frame.cursor_shape > 0.5 && frame.cursor_shape < 1.5 && input.local_position.y < 0.82) { discard; }
+  if (frame.cursor_shape > 1.5 && input.local_position.x > 0.18) { discard; }
   return input.fg;
 }

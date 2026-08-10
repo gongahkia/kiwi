@@ -66,8 +66,10 @@ function State.new(columns, rows, options)
       origin = false,
       insert = false,
       cursor_visible = true,
+      cursor_style = 1,
       application_cursor = false,
       bracketed_paste = false,
+      synchronized_output = false,
     },
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
@@ -853,8 +855,10 @@ function State:reset()
   self.modes.origin = false
   self.modes.insert = false
   self.modes.cursor_visible = true
+  self.modes.cursor_style = 1
   self.modes.application_cursor = false
   self.modes.bracketed_paste = false
+  self.modes.synchronized_output = false
   self:reset_tab_stops()
   self.scrollback:clear()
   self.history_offset = 0
@@ -984,10 +988,26 @@ function State:apply_private_mode(parameters, enabled)
       self:switch_alternate(enabled, true)
     elseif mode == 2004 then
       self.modes.bracketed_paste = enabled
+    elseif mode == 2026 then
+      self.modes.synchronized_output = enabled
     else
       self:record_unknown("csi", { private = "?", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
   end
+end
+
+function State:set_cursor_style(action)
+  if #action.parameters > 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local style = action.parameters[1] or 1
+  if style == 0 then style = 1 end
+  if style < 1 or style > 6 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  self.modes.cursor_style = style
 end
 
 function State:apply_standard_mode(parameters, enabled)
@@ -1009,6 +1029,10 @@ function State:apply_csi(action)
   local final = action.final
   if action.private == "?" and (final == "h" or final == "l") then
     self:apply_private_mode(parameters, final == "h")
+    return
+  end
+  if action.private == "" and action.intermediates == " " and final == "q" then
+    self:set_cursor_style(action)
     return
   end
   if action.private ~= "" then
