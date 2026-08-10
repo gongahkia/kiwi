@@ -77,6 +77,7 @@ function State.new(columns, rows, options)
       mouse_sgr = false,
       focus_reporting = false,
       mouse_generation = 0,
+      keyboard_flags = 0,
     },
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
@@ -810,6 +811,7 @@ function State:switch_alternate(enable, save_cursor)
       self:restore_cursor()
     end
   end
+  self:sync_keyboard_flags()
   self:sync_cursor_visibility()
   self.damage:mark_all()
   self.text_damage:mark_all()
@@ -873,6 +875,7 @@ function State:reset()
   self.modes.mouse_sgr = false
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
+  self.modes.keyboard_flags = 0
   self:reset_tab_stops()
   self.scrollback:clear()
   self.history_offset = 0
@@ -898,6 +901,7 @@ function State:resize(columns, rows)
   self.alternate.bottom_margin = rows - 1
   self.active_screen = was_primary and self.primary or self.alternate
   self.cursor = self.active_screen.cursor
+  self:sync_keyboard_flags()
   self:normalize_screen(self.primary)
   self:normalize_screen(self.alternate)
   self.damage = Damage.new(columns * rows)
@@ -1045,6 +1049,75 @@ function State:set_focus_reporting(enabled)
   self.modes.focus_reporting = enabled
 end
 
+function State:sync_keyboard_flags()
+  self.modes.keyboard_flags = self.active_screen.keyboard_flags
+end
+
+function State:set_keyboard_flags(flags)
+  self.active_screen.keyboard_flags = flags
+  self.modes.keyboard_flags = flags
+end
+
+function State:apply_keyboard_flags(flags, mode)
+  local requested = flags % 2
+  if mode == 1 then
+    self:set_keyboard_flags(requested)
+  elseif mode == 2 and requested == 1 then
+    self:set_keyboard_flags(1)
+  elseif mode == 3 and requested == 1 then
+    self:set_keyboard_flags(0)
+  elseif mode ~= 2 and mode ~= 3 then
+    self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
+  end
+end
+
+function State:apply_keyboard_protocol(action)
+  local parameters = action.parameters
+  if action.private == "?" then
+    if #parameters ~= 0 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    self:respond(string.format("\27[?%du", self.active_screen.keyboard_flags))
+  elseif action.private == "=" then
+    if #parameters > 2 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    local flags = parameters[1] or 0
+    local mode = parameters[2] or 1
+    if mode < 1 or mode > 3 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    self:apply_keyboard_flags(flags, mode)
+  elseif action.private == ">" then
+    if #parameters > 1 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    local stack = self.active_screen.keyboard_stack
+    if #stack == 8 then table.remove(stack, 1) end
+    stack[#stack + 1] = self.active_screen.keyboard_flags
+    self:apply_keyboard_flags(parameters[1] or 0, 1)
+  elseif action.private == "<" then
+    if #parameters > 1 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    local count = parameters[1] or 1
+    local stack = self.active_screen.keyboard_stack
+    local target = #stack - math.max(0, count) + 1
+    if target >= 1 then
+      self:set_keyboard_flags(stack[target])
+      for index = #stack, target, -1 do stack[index] = nil end
+    elseif count > 0 then
+      self:set_keyboard_flags(0)
+      self.active_screen.keyboard_stack = {}
+    end
+  end
+end
+
 function State:set_cursor_style(action)
   if #action.parameters > 1 then
     self:record_unknown("csi", csi_detail(action))
@@ -1078,6 +1151,10 @@ function State:apply_csi(action)
   local final = action.final
   if action.private == "?" and (final == "h" or final == "l") then
     self:apply_private_mode(parameters, final == "h")
+    return
+  end
+  if final == "u" and action.intermediates == "" and (action.private == "?" or action.private == "=" or action.private == ">" or action.private == "<") then
+    self:apply_keyboard_protocol(action)
     return
   end
   if action.private == "" and action.intermediates == " " and final == "q" then

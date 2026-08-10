@@ -77,7 +77,7 @@ hidden, and synchronized-output cursors do not schedule one.
 
 ## Input, output, and responses
 
-GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. GLFW pointer, scroll, and focus callbacks cross a narrow `input/mouse.lua` boundary: it retains only current supported button/cell state and emits bounded SGR mouse/focus bytes after state has enabled the corresponding modes. `Shift+PageUp/Down` is terminal-local history navigation. Parser output feeds terminal state; pending DSR/DA response bytes are queued back to the PTY in the same nonblocking write path.
+GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. When the active screen has negotiated Kitty keyboard flag 1, the same boundary instead emits its unambiguous CSI-u/modified functional-key forms and suppresses the matching character callback. GLFW pointer, scroll, and focus callbacks cross a narrow `input/mouse.lua` boundary: it retains only current supported button/cell state and emits bounded SGR mouse/focus bytes after state has enabled the corresponding modes. `Shift+PageUp/Down` is terminal-local history navigation unless the negotiated keyboard mode owns that key. Parser output feeds terminal state; pending DSR/DA and keyboard-query response bytes are queued back to the PTY in the same nonblocking write path.
 
 ## Unicode grid, shaping, and glyph fallback
 
