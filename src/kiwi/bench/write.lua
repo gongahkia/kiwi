@@ -296,6 +296,8 @@ local function make_workloads()
 end
 
 local function ascii_mutation_control(item, iterations, warmup)
+  local repetitions_per_sample = 16
+  local control_input = string.rep(item.input, repetitions_per_sample)
   local direct = State.set_ascii_cell
   local function legacy(self, column, row, glyph, codepoints)
     return self:set_cell(column, row, self:ascii_cell(glyph, codepoints))
@@ -304,23 +306,27 @@ local function ascii_mutation_control(item, iterations, warmup)
     State.set_ascii_cell = setter
     jit.flush()
     for _ = 1, warmup do
-      local state = new_state()
-      local parser = Parser.new(state)
-      parser:feed(item.input)
-      parser:finish()
+      for _ = 1, repetitions_per_sample do
+        local state = new_state()
+        local parser = Parser.new(state)
+        parser:feed(item.input)
+        parser:finish()
+      end
     end
     collectgarbage("collect")
     local heap_before = collectgarbage("count")
     local heap_peak = heap_before
     local samples, counters = {}, {}
     for iteration = 1, iterations do
-      local state = new_state()
-      local parser = Parser.new(state)
       local started = os.clock()
-      parser:feed(item.input)
-      parser:finish()
+      for _ = 1, repetitions_per_sample do
+        local state = new_state()
+        local parser = Parser.new(state)
+        parser:feed(item.input)
+        parser:finish()
+        merge_counters(counters, state_counters(state, parser))
+      end
       samples[iteration] = (os.clock() - started) * 1000
-      merge_counters(counters, state_counters(state, parser))
       heap_peak = math.max(heap_peak, collectgarbage("count"))
     end
     collectgarbage("collect")
@@ -341,14 +347,15 @@ local function ascii_mutation_control(item, iterations, warmup)
   jit.flush()
   local direct_timing = Stats.summary(direct_samples)
   local legacy_timing = Stats.summary(legacy_samples)
-  local control = result("ascii-cell-mutation-control", item.name, item.input, iterations * 2, warmup * 2, direct_timing, {
+  local control = result("ascii-cell-mutation-control", item.name, control_input, iterations * 2, warmup * 2, direct_timing, {
     peak_kib_delta = peak_kib_delta,
     retained_kib_delta = retained_kib_delta,
   }, counters,
-    "Within one LuaJIT process, two legacy and two direct mutation blocks with a LuaJIT flush before each block; each block has identical parser input, state dimensions, warm-up, and sample count. The legacy path creates a transient ascii_cell before set_cell/copy_cell; shaping, GPU submission, and presentation are excluded")
+    "Within one LuaJIT process, two legacy and two direct mutation blocks with a LuaJIT flush before each block. Each measured sample repeats the same fresh parser/state write 16 times to reduce clock quantization; blocks otherwise have identical input, state dimensions, and warm-up. The legacy path creates a transient ascii_cell before set_cell/copy_cell; shaping, GPU submission, and presentation are excluded")
   control.control = {
     legacy_cpu_ms = legacy_timing,
     direct_cpu_ms = direct_timing,
+    repetitions_per_sample = repetitions_per_sample,
   }
   return control
 end
@@ -386,7 +393,8 @@ function WriteBench.print_results(results)
     ))
     if item.control then
       io.stdout:write(string.format(
-        "      control legacy p50=%.4fms p95=%.4fms p99=%.4fms direct p50=%.4fms p95=%.4fms p99=%.4fms\n",
+        "      control fresh-writes/sample=%d legacy p50=%.4fms p95=%.4fms p99=%.4fms direct p50=%.4fms p95=%.4fms p99=%.4fms\n",
+        item.control.repetitions_per_sample,
         item.control.legacy_cpu_ms.p50, item.control.legacy_cpu_ms.p95, item.control.legacy_cpu_ms.p99,
         item.control.direct_cpu_ms.p50, item.control.direct_cpu_ms.p95, item.control.direct_cpu_ms.p99
       ))

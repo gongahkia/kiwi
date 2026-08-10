@@ -70,7 +70,7 @@ Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is m
 | Stage | Timed work |
 | --- | --- |
 | UTF-8 decode | incremental byte decoding only |
-| ASCII cell mutation control | two legacy and two direct mutation blocks, each with a fresh LuaJIT trace |
+| ASCII cell mutation control | two legacy and two direct mutation blocks, each with a fresh LuaJIT trace and 16 fresh writes per timed sample |
 | parser/cluster mutation/logical damage | production parser sink, cluster/width mutation, and both damage streams |
 | row-run construction/fallback | visible cluster inspection, primary coverage, fallback decisions, and same-face runs |
 | HarfBuzz shaping | prebuilt runs through HarfBuzz only |
@@ -79,7 +79,7 @@ Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is m
 | shape invalidation cursor-only | cached static layout with cursor-only logical damage |
 | full parser-to-glyph record | parser through text glyph records; PTY and GPU work excluded |
 
-Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, bounded primary-ASCII coverage-cache probes/hits, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The ASCII control includes both p50/p95/p99 series and is the only in-process legacy comparator; trace flushing occurs between whole blocks, rather than mutating the method on each sample, to avoid measuring JIT invalidation. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
+Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, bounded primary-ASCII coverage-cache probes/hits, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The ASCII control includes both p50/p95/p99 series and is the only in-process legacy comparator; trace flushing occurs between whole blocks, rather than mutating the method on each sample, to avoid measuring JIT invalidation. Each timed sample contains 16 fresh state/parser writes to avoid sub-millisecond clock quantization; throughput and counters include all 16 writes. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
 
 `script/compare-bench` accepts the original schema 3 and M2.5 schema 4, but never mixes them. It rejects differing iteration/warm-up or M2.5 font/atlas/shaping configuration and timing scope. Schema 3 also rejects a row-set mismatch. Schema 4 compares only the shared rows and explicitly lists added or removed stages, so benchmark instrumentation can grow without falsely comparing a new stage to absent historical data. Results stay local/ignored; compare only identical scopes on the same or closely controlled host.
 
