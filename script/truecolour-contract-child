@@ -1,0 +1,11 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ ${+COLORTERM} -eq 1 ]]; then
+  colorterm=$COLORTERM
+else
+  colorterm=unset
+fi
+
+print -r -- "Kiwi truecolour contract TERM=${TERM-unknown} COLORTERM=$colorterm colors=$(tput colors)"
+print -rn -- $'\e[38;2;1;2;3mRGB 1,2,3\e[0m\r\n'

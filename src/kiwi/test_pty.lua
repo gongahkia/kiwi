@@ -4,8 +4,8 @@ local Parser = require("kiwi.terminal.parser")
 local Pty = require("kiwi.process.pty")
 local State = require("kiwi.terminal.state")
 
-local function pump(command, columns, rows, on_responses)
-  local pty = Pty.spawn(command, columns, rows, { TERM = "kiwi" })
+local function pump(command, columns, rows, on_responses, environment)
+  local pty = Pty.spawn(command, columns, rows, environment or { TERM = "kiwi" })
   local state = State.new(columns, rows)
   local parser = Parser.new(function(action)
     state:apply(action)
@@ -53,6 +53,23 @@ test("pty_launches_shell_independent_command_and_parses_output", function()
   Assert.equal(state:get(0, 1).glyph, "X")
   Assert.equal(state:get(1, 1).glyph, "e")
   Assert.truthy(state:get(1, 1).fg ~= state.default_cell.fg)
+end)
+
+test("pty_applies_child_environment_without_leaking_truecolour_claims", function()
+  local transcript, _, status = pump({ "/bin/sh", "-c", "printf 'term=%s colorterm=%s' \"$TERM\" \"${COLORTERM-unset}\"" }, 16, 4, nil, {
+    TERM = "kiwi",
+    COLORTERM = false,
+  })
+  Assert.equal(transcript, "term=kiwi colorterm=unset")
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
+test("pty_resolves_unqualified_commands_with_the_inherited_path", function()
+  local transcript, _, status = pump({ "sh", "-c", "printf path-search" }, 16, 4)
+  Assert.equal(transcript, "path-search")
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
 end)
 
 test("pty_read_budget_preserves_all_output_across_multiple_polls", function()
