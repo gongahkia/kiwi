@@ -1,4 +1,5 @@
 local Attributes = require("kiwi.terminal.attributes")
+local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
 local Hyperlink = require("kiwi.terminal.hyperlink")
@@ -92,6 +93,7 @@ function State.new(columns, rows, options)
     search_generation = 0,
     selection = Selection.new(),
     shell = ShellIntegration.new(options.shell_integration),
+    command_regions = CommandRegions.new(options.command_regions),
     history_offset = 0,
     title = nil,
     responses = {},
@@ -1136,6 +1138,7 @@ function State:reset()
   self:reset_tab_stops()
   self.scrollback:clear()
   self.shell:clear()
+  self.command_regions:clear()
   self.hyperlinks = {}
   self.hyperlink_ids = {}
   self.next_hyperlink_id = 0
@@ -1500,7 +1503,8 @@ function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
   elseif action.command == 7 then
-    self.shell:apply_cwd(action.payload, self:shell_position())
+    local event = self.shell:apply_cwd(action.payload, self:shell_position())
+    if event then self.command_regions:apply(event) end
   elseif action.command == 8 then
     local parsed = Hyperlink.parse_osc8(action.payload, self.hyperlink_uri_maximum_bytes)
     if parsed == nil then
@@ -1530,7 +1534,8 @@ function State:apply_osc(action)
       end
     end
   elseif action.command == 133 then
-    self.shell:apply_marker(action.payload, self:shell_position())
+    local event = self.shell:apply_marker(action.payload, self:shell_position())
+    if event then self.command_regions:apply(event) end
   else
     self:record_unknown("osc", { command = action.command })
   end

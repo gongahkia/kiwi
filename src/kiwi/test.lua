@@ -27,6 +27,7 @@ local tests = {
   require("tests.test_clipboard"),
   require("tests.test_hyperlink"),
   require("tests.test_shell_integration"),
+  require("tests.test_command_regions"),
   require("tests.test_composition_spike"),
   require("tests.test_search"),
   require("tests.test_search_renderer"),

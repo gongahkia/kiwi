@@ -102,6 +102,13 @@ local function assert_expected(fixture, state, parser)
       for index, kind in ipairs(expected.shell.events) do Assert.equal(shell.events[index].kind, kind, fixture.id .. " shell event " .. index) end
     end
   end
+  if expected.command_regions then
+    local regions = state.command_regions:view()
+    Assert.equal(#regions.regions, 1, fixture.id .. " command-region count")
+    for name, value in pairs(expected.command_regions) do
+      Assert.equal(regions.regions[1][name], value, fixture.id .. " command-region " .. name)
+    end
+  end
   if expected.responses then
     assert_sequence(state:pop_responses(), expected.responses, fixture.id .. " responses")
   end

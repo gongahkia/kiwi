@@ -44,6 +44,7 @@ function Snapshot.value(state)
       synchronized_output = state.modes.synchronized_output,
     },
     rows = rows,
+    command_regions = state.command_regions and state.command_regions:snapshot() or nil,
     shell = state.shell and state.shell:snapshot() or nil,
     scrollback_lines = state.scrollback:size(),
     title = state.title,
