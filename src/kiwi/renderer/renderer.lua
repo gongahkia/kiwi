@@ -3,6 +3,7 @@ local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local Resources = require("kiwi.renderer.resources")
+local ShaderLoader = require("kiwi.renderer.shader_loader")
 local Layout = require("kiwi.text.layout")
 
 ffi.cdef[[
@@ -30,16 +31,6 @@ end
 
 local function string_view(value)
   return ffi.new("WGPUStringView", { data = value, length = #value })
-end
-
-local function read_file(path)
-  local file, error_message = io.open(path, "rb")
-  if not file then
-    error("Unable to load WGSL shader " .. path .. ": " .. error_message)
-  end
-  local contents = file:read("*a")
-  file:close()
-  return contents
 end
 
 local function color_to_u32(color)
@@ -93,6 +84,7 @@ function Renderer.new(context, font, model)
       draw_calls = 0,
     },
   }, Renderer)
+  self.shader_loader = ShaderLoader.native(context, self.resource_registry)
   local ok, result = xpcall(function()
     self:create_resources(model)
     model:mark_all_dirty()
@@ -208,11 +200,6 @@ function Renderer:create_resources(model)
   self.bind_group = assert_handle(api.wgpuDeviceCreateBindGroup(self.context.device, bind_group_descriptor), "terminal bind-group creation")
   self.resource_registry:own_native("terminal-bind-group", self.bind_group, api.wgpuBindGroupRelease)
 
-  local root = os.getenv("KIWI_ROOT") or "."
-  self.shader_code = read_file(root .. "/src/kiwi/renderer/terminal.wgsl")
-  self.shader = assert_handle(self.native.surface.kiwi_shader_from_wgsl(self.context.device, self.shader_code), "terminal WGSL module creation")
-  self.resource_registry:own_native("terminal-shader", self.shader, api.wgpuShaderModuleRelease)
-
   self:register_semantic_resources(model)
   self.pass_registry = PassRegistry.new()
   for _, pass in ipairs(Passes.build(self)) do
@@ -221,21 +208,21 @@ function Renderer:create_resources(model)
   self.pass_registry:initialize(self)
 end
 
-function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
+function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader)
   local api = self.native.lib
   local c = self.native.constants
   local target = ffi.new("WGPUColorTargetState[1]")
   target[0].format = self.context.surface_format
   target[0].writeMask = c.color_write_all
   local fragment = ffi.new("WGPUFragmentState")
-  fragment.module = self.shader
+  fragment.module = shader.handle
   fragment.entryPoint = string_view(fragment_entry)
   fragment.targetCount = 1
   fragment.targets = target
   local descriptor = ffi.new("WGPURenderPipelineDescriptor")
   descriptor.label = string_view(label)
   descriptor.layout = self.pipeline_layout
-  descriptor.vertex.module = self.shader
+  descriptor.vertex.module = shader.handle
   descriptor.vertex.entryPoint = string_view(vertex_entry)
   descriptor.primitive.topology = c.primitive_triangle_list
   descriptor.primitive.frontFace = c.front_face_ccw
@@ -248,13 +235,22 @@ function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
   local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
   if #native_error > 0 then
     api.wgpuRenderPipelineRelease(pipeline)
-    error("render pipeline creation for " .. label .. " failed: " .. native_error)
+    error("render pipeline creation for " .. label .. " with shader module " .. shader.id .. " for pass " .. shader.pass .. " failed: " .. native_error)
   end
   return self.resource_registry:own_native(label, pipeline, api.wgpuRenderPipelineRelease)
 end
 
 function Renderer:release_native(handle)
   self.resource_registry:release_native(handle)
+end
+
+function Renderer:load_shader(id, pass)
+  local root = os.getenv("KIWI_ROOT") or "."
+  return self.shader_loader:load({
+    id = id,
+    pass = pass,
+    path = root .. "/src/kiwi/renderer/terminal.wgsl",
+  })
 end
 
 function Renderer:resource_descriptor(kind, access, fields)

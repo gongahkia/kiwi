@@ -128,6 +128,9 @@ return {
       native = { constants = { load_clear = 2, load_load = 1 } },
       glyph_pipeline = {},
       cursor_pipeline = {},
+      load_shader = function()
+        return { handle = {}, release = function() end }
+      end,
       create_pipeline = function(_, label, vertex, fragment)
         events[#events + 1] = label .. ":" .. vertex .. ":" .. fragment
         return {}
@@ -150,6 +153,9 @@ return {
       native = { constants = { load_clear = 2, load_load = 1 } },
       cursor_pipeline = {},
       glyph_count = 4,
+      load_shader = function()
+        return { handle = {}, release = function() end }
+      end,
       create_pipeline = function(_, label, vertex, fragment)
         events[#events + 1] = label .. ":" .. vertex .. ":" .. fragment
         return {}
@@ -171,6 +177,9 @@ return {
     local renderer = {
       native = { constants = { load_clear = 2, load_load = 1 } },
       glyph_count = 4,
+      load_shader = function()
+        return { handle = {}, release = function() end }
+      end,
       create_pipeline = function(_, label, vertex, fragment)
         events[#events + 1] = label .. ":" .. vertex .. ":" .. fragment
         return {}
@@ -186,5 +195,22 @@ return {
     cursor:shutdown(renderer)
     Assert.equal(cursor.pipeline, nil)
     Assert.equal(table.concat(events, ","), "cursor-pass:cursor_vs:cursor_fs,cursor-release")
+  end,
+  built_in_passes_load_stable_pass_owned_shader_modules = function()
+    local modules = {}
+    local renderer = {
+      native = { constants = { load_clear = 2, load_load = 1 } },
+      glyph_count = 4,
+      load_shader = function(_, id, pass)
+        modules[#modules + 1] = id .. ":" .. pass
+        return { id = id, pass = pass, handle = {}, release = function() end }
+      end,
+      create_pipeline = function() return {} end,
+      release_native = function() end,
+    }
+    local passes = Passes.build(renderer)
+    for _, pass in ipairs(passes) do pass:initialize(renderer) end
+    Assert.equal(table.concat(modules, ","), "terminal/background:terminal/background,terminal/glyph:terminal/glyph,terminal/cursor:terminal/cursor")
+    for index = #passes, 1, -1 do passes[index]:shutdown(renderer) end
   end,
 }
