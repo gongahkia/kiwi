@@ -15,6 +15,8 @@ server_name=""
 publisher_pid=""
 rtsp_fixture_url=""
 fixture_codec=""
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+pty_runner=""
 
 usage() {
   echo "usage: $0 [strok binary] [all|rtsp|camera]" >&2
@@ -47,8 +49,12 @@ fi
 if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
   skip "ffmpeg and ffprobe are required; skipping live-input acceptance"
 fi
-if ! command -v script >/dev/null 2>&1; then
-  skip "script(1) is required to capture terminal playback; skipping live-input acceptance"
+if command -v script >/dev/null 2>&1; then
+  pty_runner="script"
+elif command -v python3 >/dev/null 2>&1; then
+  pty_runner="python"
+else
+  skip "script(1) or python3 is required to capture terminal playback; skipping live-input acceptance"
 fi
 
 timeout_bin="$(command -v timeout || true)"
@@ -77,13 +83,17 @@ cleanup() {
 trap cleanup EXIT
 
 script_style="bsd"
-if script -q -c '/bin/true' "$output_dir/script-style.typescript" >/dev/null 2>&1; then
+if [[ "$pty_runner" == "script" ]] && script -q -c '/bin/true' "$output_dir/script-style.typescript" >/dev/null 2>&1; then
   script_style="util"
 fi
 
 run_pty() {
   local transcript="$1"
   shift
+  if [[ "$pty_runner" == "python" ]]; then
+    python3 "$script_dir/run_pty.py" --transcript "$transcript" --rows 24 --cols 80 -- "$@"
+    return
+  fi
   if [[ "$script_style" == "util" ]]; then
     local command
     printf -v command '%q ' "$@"
@@ -112,6 +122,7 @@ write_metadata() {
     printf 'test_write_delay_ms=%s\n' "$write_delay"
     printf 'duration_seconds=%s\n' "$duration"
     printf 'declared_source_cadence=%s\n' "$source_cadence"
+    printf 'pty_runner=%s\n' "$pty_runner"
     if [[ -n "$fixture_codec" ]]; then
       printf 'fixture_video_codec=%s\n' "$fixture_codec"
     fi
@@ -196,7 +207,10 @@ start_local_rtsp_fixture() {
   local -a codec_args
   if ffmpeg -hide_banner -encoders 2>/dev/null | grep 'libx264' >/dev/null; then
     fixture_codec="h264"
-    codec_args=(-c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p)
+    codec_args=(-c:v libx264 -preset ultrafast -tune zerolatency -g 30 -pix_fmt yuv420p)
+  elif ffmpeg -hide_banner -encoders 2>/dev/null | grep 'libopenh264' >/dev/null; then
+    fixture_codec="h264"
+    codec_args=(-c:v libopenh264 -b:v 1M -g 30 -pix_fmt yuv420p)
   else
     fixture_codec="mpeg4"
     codec_args=(-c:v mpeg4 -q:v 5)

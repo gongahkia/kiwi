@@ -266,7 +266,6 @@ struct VideoDecoder::Impl {
       av_dict_set(&input_options, "fflags", "nobuffer", 0);
       av_dict_set(&input_options, "flags", "low_delay", 0);
     } else if (isRtspInput(input_string)) {
-      av_dict_set(&input_options, "fflags", "nobuffer", 0);
       av_dict_set(&input_options, "flags", "low_delay", 0);
       if (options.read_timeout.count() > 0) {
         const std::string timeout_us = std::to_string(options.read_timeout.count() * 1000);
@@ -427,6 +426,10 @@ struct VideoDecoder::Impl {
         }
         if (send_result < 0) {
           av_packet_unref(packet.get());
+          if (live_input && (send_result == AVERROR_INVALIDDATA || send_result == AVERROR_UNKNOWN)) {
+            // a live session can begin after its current GOP keyframe; wait for a decodable access unit.
+            continue;
+          }
           throw std::runtime_error("failed to send packet to decoder: " + ffmpegError(send_result));
         }
         if (decoded_after_eagain.has_value()) {

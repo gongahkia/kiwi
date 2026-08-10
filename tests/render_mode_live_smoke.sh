@@ -2,13 +2,18 @@
 set -euo pipefail
 
 bin="${1:?strok binary required}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../scripts" && pwd -P)"
 
 if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "ffmpeg CLI unavailable; skipping render-mode live smoke"
   exit 77
 fi
-if ! command -v script >/dev/null 2>&1; then
-  echo "script(1) unavailable; skipping render-mode live smoke"
+if command -v script >/dev/null 2>&1; then
+  pty_runner="script"
+elif command -v python3 >/dev/null 2>&1; then
+  pty_runner="python"
+else
+  echo "script(1) or python3 unavailable; skipping render-mode live smoke"
   exit 77
 fi
 
@@ -27,6 +32,10 @@ ffmpeg -hide_banner -loglevel error \
 run_pty() {
   local output="$1"
   shift
+  if [[ "$pty_runner" == "python" ]]; then
+    python3 "$script_dir/run_pty.py" --transcript "$output" --rows 24 --cols 80 -- "$@"
+    return
+  fi
   local command
   printf -v command '%q ' "$@"
   if script -q -c '/bin/true' "$tmp/probe.typescript" >/dev/null 2>&1; then

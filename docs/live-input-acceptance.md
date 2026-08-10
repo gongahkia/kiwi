@@ -1,6 +1,6 @@
 # Live Input Acceptance
 
-This is an opt-in host acceptance path for live camera and RTSP playback. It is not part of the default CTest suite: it needs a pseudo-terminal, FFmpeg, `timeout`, and either Docker on Linux or a supplied RTSP endpoint. It records decoded-frame-to-present timing, not physical sensor-to-terminal latency.
+This is an opt-in host acceptance path for live camera and RTSP playback. It is not part of the default CTest suite: it needs a pseudo-terminal (`script(1)`, or Python 3 through the checked-in PTY runner), FFmpeg, `timeout`, and either Docker on Linux or a supplied RTSP endpoint. It records decoded-frame-to-present timing, not physical sensor-to-terminal latency.
 
 Run the disposable no-audio RTSP fixture on Linux:
 
@@ -19,6 +19,8 @@ Set `STROK_LIVE_ACCEPTANCE_OUTPUT` to retain a known result directory. Otherwise
 - `.metrics`: one key-value debug sample per line, retained for quick inspection;
 - `.metrics.jsonl`: versioned structured playback metrics, used for the harness assertions; see [`metrics-jsonl.md`](metrics-jsonl.md);
 - `.typescript`: the PTY transcript.
+
+When `script(1)` is unavailable, the harness records `pty_runner=python` in each `.env` file and uses `scripts/run_pty.py` with the same fixed 80x24 pseudo-terminal. It skips with an actionable reason only when neither runner is available.
 
 Use a physical or V4L2-loopback camera separately; never add a hardware device to the default test suite:
 

@@ -3316,6 +3316,13 @@ add_test(NAME auto_mode COMMAND auto_mode_tests)
 
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
+  find_program(PYTHON3_EXECUTABLE python3)
+  if(PYTHON3_EXECUTABLE)
+    add_test(NAME pty_runner_smoke
+      COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/pty_runner_smoke.sh"
+        "${PYTHON3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_pty.py"
+    )
+  endif()
   add_test(NAME shader_toolchain_smoke
     COMMAND ${BASH_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tests/shader_toolchain_smoke.sh"
   )
