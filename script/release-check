@@ -1,0 +1,21 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+KIWI_RELEASE_DIST="$WORK/first" "$ROOT/script/release-build"
+KIWI_RELEASE_DIST="$WORK/second" "$ROOT/script/release-build"
+
+readonly VERSION=$(<"$ROOT/VERSION")
+readonly NAME="kiwi-$VERSION-linux-x86_64"
+cmp "$WORK/first/$NAME.tar.gz" "$WORK/second/$NAME.tar.gz"
+(cd "$WORK/first" && sha256sum --check "$NAME.tar.gz.sha256")
+tar -xzf "$WORK/first/$NAME.tar.gz" -C "$WORK"
+version_output=$(KIWI_DEVELOPMENT=1 "$WORK/$NAME/bin/kiwi" --version)
+[[ "$version_output" == "Kiwi $VERSION (revision "*", mode release)" ]]
+[[ -f "$WORK/$NAME/metadata.json" ]]
+[[ -d "$WORK/$NAME/share/terminfo" ]]
+
+print "Kiwi release check: reproducible archive, checksum, metadata, terminfo, and release-mode launcher passed."

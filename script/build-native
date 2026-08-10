@@ -17,7 +17,7 @@ cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
   "$ROOT/native/surface.c" \
   -L"$WGPU/lib" -lwgpu_native \
   $(pkg-config --libs glfw3) \
-  -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' \
+  -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
   -o "$OUTPUT"
 
 print "Built $OUTPUT"

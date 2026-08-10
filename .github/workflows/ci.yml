@@ -1,0 +1,46 @@
+name: Linux CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin \
+            libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
+      - name: deterministic checks
+        run: make check
+
+  artifact:
+    name: release artifact
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin \
+            libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
+      - name: build reproducible release-mode artifact
+        run: make release-check && make release
+      - name: upload artifact and checksum metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kiwi-linux-x86_64
+          path: dist/**
+          if-no-files-found: error

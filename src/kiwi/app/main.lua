@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local Build = require("kiwi.build")
 local Recovery = require("kiwi.gpu.recovery")
 local DeviceSoak = require("kiwi.bench.device_soak")
 local Pacing = require("kiwi.bench.pacing")
@@ -29,12 +30,14 @@ local function number_from_env(name, fallback)
 end
 
 local function parse_options()
-  local options = { demo = os.getenv("KIWI_DEMO") == "1" }
+  local options = { demo = os.getenv("KIWI_DEMO") == "1", release_mode = Build.info().release_mode }
   local index = 1
   while index <= #arg do
     local value = arg[index]
     if value == "--demo" then
       options.demo = true
+    elseif value == "--version" then
+      options.version = true
     elseif value == "--no-extensions" then
       options.no_extensions = true
     elseif value == "--record" then
@@ -56,7 +59,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --demo, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -106,11 +109,12 @@ local function extension_limit_from_env(name, minimum, maximum, integer)
 end
 
 local function renderer_options(runtime_options)
+  local release_mode = runtime_options.release_mode == true
   local options = {
-    pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1",
-    pass_budgets_enabled = os.getenv("KIWI_PASS_BUDGETS") == "1",
-    inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
-    inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
+    pass_metrics_enabled = not release_mode and os.getenv("KIWI_PASS_METRICS") == "1",
+    pass_budgets_enabled = not release_mode and os.getenv("KIWI_PASS_BUDGETS") == "1",
+    inspector_enabled = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR") == "1",
+    inspector_selected_pass = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR_PASS") or nil,
     selection_color = os.getenv("KIWI_SELECTION_COLOR"),
     search_color = os.getenv("KIWI_SEARCH_COLOR"),
     hyperlink_color = os.getenv("KIWI_HYPERLINK_COLOR"),
@@ -125,7 +129,7 @@ local function renderer_options(runtime_options)
     options.extension_pass_limit = extension_limit_from_env("KIWI_EXTENSION_MAX_PASSES", 1, nil, true)
     options.extension_animation_hz = extension_limit_from_env("KIWI_EXTENSION_MAX_ANIMATION_HZ", 1 / 60, 60, false)
   end
-  if os.getenv("KIWI_DEVELOPMENT") ~= "1" then return options end
+  if release_mode or os.getenv("KIWI_DEVELOPMENT") ~= "1" then return options end
   local path = os.getenv("KIWI_DEV_SHADER_PATH")
   assert(type(path) == "string" and #path > 0, "KIWI_DEVELOPMENT=1 needs KIWI_DEV_SHADER_PATH")
   options.development_mode = true
@@ -159,14 +163,14 @@ end
 
 local function run_live(options)
   local default_title = "Kiwi M2 terminal"
-  local window = Window.new(1600, 960, default_title)
+  local window = Window.new(1600, 960, default_title, { release_mode = options.release_mode })
   local context
   local renderer
   local font
   local pty
   local recorder
   local ok, result = xpcall(function()
-    local context_options = { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
+    local context_options = { gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
     context = Context.new(window, context_options)
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
       local probe_ok, probe_message = context:probe_timestamp_queries()
@@ -526,8 +530,8 @@ local function run_live(options)
       local path = Power.write_report(root, power_report, power, window:time())
       io.stdout:write("Kiwi power report: ", path, "\n")
     end
-    if renderer and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
-    if renderer and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end
+    if renderer and not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
+    if renderer and not options.release_mode and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end
     if options.inspect then
       local column = options.inspect.column or state.cursor.column
       local row = options.inspect.row or state.cursor.row
@@ -553,7 +557,9 @@ local function run_replay(path)
 end
 
 local options = parse_options()
-if options.replay then
+if options.version then
+  io.stdout:write(Build.format(Build.info()), "\n")
+elseif options.replay then
   run_replay(options.replay)
 elseif options.demo then
   Demo.run()

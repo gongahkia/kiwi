@@ -7,7 +7,7 @@ int kiwi_open_uri(const char* uri);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local native_path = root .. "/.build/native/libkiwi_surface.so"
+local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
 local native_ok, native = pcall(ffi.load, native_path)
 if not native_ok then error("Unable to load Kiwi native bridge at " .. native_path .. "; run make native: " .. tostring(native)) end
 
@@ -23,7 +23,8 @@ local function glfw_error()
   return string.format("GLFW error %d: %s", code[0], ffi.string(message))
 end
 
-function Window.new(width, height, title)
+function Window.new(width, height, title, options)
+  options = options or {}
   if glfw.lib.glfwInit() == 0 then
     error("Unable to initialize GLFW: " .. glfw_error())
   end
@@ -46,6 +47,7 @@ function Window.new(width, height, title)
     shader_reload_requested = false,
     modifiers = 0,
     suppress_text = false,
+    release_mode = options.release_mode == true,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
@@ -58,7 +60,7 @@ function Window.new(width, height, title)
     if input and input.suppress_text then self.suppress_text = true end
     if input and input.handled then return end
     if action == glfw.constants.release then self.suppress_text = false end
-    if action == glfw.constants.press and key == glfw.constants.key_f2 then
+    if not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
     elseif action == glfw.constants.press and key == glfw.constants.key_f3 then
       self.debug_boundaries = not self.debug_boundaries
