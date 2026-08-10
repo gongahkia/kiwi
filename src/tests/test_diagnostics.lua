@@ -47,6 +47,8 @@ return {
     Assert.equal(snapshot.wide_clusters, 1)
     Assert.equal(snapshot.visible_shaped_runs, 2)
     Assert.equal(snapshot.visible_shaped_glyphs, 3)
+    Assert.equal(snapshot.extensions.enabled, true)
+    Assert.equal(#snapshot.extensions.diagnostics, 0)
     Assert.equal(snapshot.unknown_csi, 1)
     Assert.equal(snapshot.unknown_osc, 1)
     Assert.equal(snapshot.unknown_samples[1].detail.private, "?")

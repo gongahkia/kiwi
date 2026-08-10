@@ -25,6 +25,8 @@ local function parse_options()
     local value = arg[index]
     if value == "--demo" then
       options.demo = true
+    elseif value == "--no-extensions" then
+      options.no_extensions = true
     elseif value == "--record" then
       index = index + 1
       options.record = assert(arg[index], "--record needs a JSONL path")
@@ -44,7 +46,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --demo, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --demo, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -77,11 +79,21 @@ local function new_font(window)
   return font
 end
 
-local function renderer_options()
+local function extension_modules()
+  local configured = os.getenv("KIWI_RENDER_EXTENSIONS")
+  if configured == nil or #configured == 0 then return {} end
+  local modules = {}
+  for module in configured:gmatch("[^,]+") do modules[#modules + 1] = module end
+  return modules
+end
+
+local function renderer_options(runtime_options)
   local options = {
     pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1",
     inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
+    extensions_enabled = not runtime_options.no_extensions,
+    extensions = runtime_options.no_extensions and {} or extension_modules(),
   }
   if os.getenv("KIWI_DEVELOPMENT") ~= "1" then return options end
   local path = os.getenv("KIWI_DEV_SHADER_PATH")
@@ -116,7 +128,7 @@ local function run_live(options)
       ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
     })
     local root = os.getenv("KIWI_ROOT") or "."
-    local render_options = renderer_options()
+    local render_options = renderer_options(options)
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
       TERM = "kiwi",
       TERMINFO = root .. "/.build/terminfo",

@@ -136,14 +136,26 @@ end
 
 function Registry.new(options)
   options = options or {}
+  assert(options.on_optional_failure == nil or type(options.on_optional_failure) == "function", "optional pass failure handler must be a function")
   return setmetatable({
     passes = {},
     names = {},
     initialized = {},
     parallel_groups = {},
     metrics = options.metrics,
+    on_optional_failure = options.on_optional_failure,
     state = "registering",
   }, Registry)
+end
+
+function Registry.validate(passes)
+  local names = {}
+  for _, pass in ipairs(passes) do
+    validate_pass(pass)
+    if names[pass.name] then fail("pass " .. pass.name .. " is already registered") end
+    names[pass.name] = true
+  end
+  return graph_order(passes)
 end
 
 function Registry:assert_state(expected, operation)
@@ -167,9 +179,20 @@ function Registry:register(pass)
   self.passes[#self.passes + 1] = pass
 end
 
+function Registry:contain_optional_failure(pass, phase, message)
+  if not pass.extension or self.on_optional_failure == nil then return false end
+  local ok, handler_message = xpcall(function()
+    self.on_optional_failure(pass, phase, message)
+  end, debug.traceback)
+  if not ok then
+    fail("optional pass " .. pass.name .. " " .. phase .. " failure handler failed: " .. handler_message)
+  end
+  return true
+end
+
 function Registry:initialize(renderer)
   self:assert_state("registering", "initialization")
-  local ok, ordered, parallel_groups = pcall(graph_order, self.passes)
+  local ok, ordered, parallel_groups = pcall(Registry.validate, self.passes)
   if not ok then
     self.last_error = tostring(ordered)
     error(ordered, 0)
@@ -181,12 +204,16 @@ function Registry:initialize(renderer)
     if pass.initialize then
       local ok, message = xpcall(function() pass:initialize(renderer) end, debug.traceback)
       if not ok then
-        pass.lifecycle = "failed"
-        self:shutdown(renderer)
-        fail("pass " .. pass.name .. " initialization failed: " .. message)
+        if self:contain_optional_failure(pass, "initialization", message) then
+          pass.lifecycle = "disabled"
+        else
+          pass.lifecycle = "failed"
+          self:shutdown(renderer)
+          fail("pass " .. pass.name .. " initialization failed: " .. message)
+        end
       end
     end
-    pass.lifecycle = "ready"
+    if not pass.disabled then pass.lifecycle = "ready" end
   end
   self.passes = ordered
   self.parallel_groups = parallel_groups
@@ -196,24 +223,36 @@ end
 function Registry:encode(renderer, encoder, view, model)
   self:assert_state("ready", "encoding")
   for _, pass in ipairs(self.passes) do
-    local function encode()
-      local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
-      if not ok then fail("pass " .. pass.name .. " encoding failed: " .. message) end
+    if not pass.disabled then
+      local function encode()
+        local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
+        if not ok then
+          if not self:contain_optional_failure(pass, "encoding", message) then
+            fail("pass " .. pass.name .. " encoding failed: " .. message)
+          end
+        end
+      end
+      if self.metrics then self.metrics:measure(pass.name, "encode", encode) else encode() end
     end
-    if self.metrics then self.metrics:measure(pass.name, "encode", encode) else encode() end
   end
 end
 
 function Registry:prepare(renderer, model)
   self:assert_state("ready", "preparation")
   for _, pass in ipairs(self.passes) do
-    local function prepare()
-      if pass.prepare then
-        local ok, message = xpcall(function() pass:prepare(renderer, model) end, debug.traceback)
-        if not ok then fail("pass " .. pass.name .. " preparation failed: " .. message) end
+    if not pass.disabled then
+      local function prepare()
+        if pass.prepare then
+          local ok, message = xpcall(function() pass:prepare(renderer, model) end, debug.traceback)
+          if not ok then
+            if not self:contain_optional_failure(pass, "preparation", message) then
+              fail("pass " .. pass.name .. " preparation failed: " .. message)
+            end
+          end
+        end
       end
+      if self.metrics then self.metrics:measure(pass.name, "prepare", prepare) else prepare() end
     end
-    if self.metrics then self.metrics:measure(pass.name, "prepare", prepare) else prepare() end
   end
 end
 
@@ -232,9 +271,11 @@ end
 function Registry:resize(renderer, previous, current)
   self:assert_state("ready", "resize")
   for _, pass in ipairs(self.passes) do
-    if pass.resize then
+    if not pass.disabled and pass.resize then
       local ok, message = xpcall(function() pass:resize(renderer, previous, current) end, debug.traceback)
-      if not ok then fail("pass " .. pass.name .. " resize failed: " .. message) end
+      if not ok and not self:contain_optional_failure(pass, "resize", message) then
+        fail("pass " .. pass.name .. " resize failed: " .. message)
+      end
     end
   end
 end
@@ -248,7 +289,9 @@ function Registry:shutdown(renderer)
     local pass = self.initialized[index]
     if pass.lifecycle ~= "shutdown" and pass.shutdown then
       local ok, message = xpcall(function() pass:shutdown(renderer) end, debug.traceback)
-      if not ok and first_error == nil then first_error = "pass " .. pass.name .. " shutdown failed: " .. message end
+      if not ok and not self:contain_optional_failure(pass, "shutdown", message) and first_error == nil then
+        first_error = "pass " .. pass.name .. " shutdown failed: " .. message
+      end
     end
     if self.metrics then self.metrics:remove(pass.name) end
     pass.lifecycle = "shutdown"
