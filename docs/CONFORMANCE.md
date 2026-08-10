@@ -18,6 +18,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
 | mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
+| osc52-policy | OSC 52 default denial and bounded oversized payload handling |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
 `src/tests/fixtures/replay/live-color-cr.jsonl` is a sanitized recording produced by the live Kiwi path. It covers live initial resize, coloured output, SGR reset, carriage-return overwrite, and headless replay.
@@ -56,7 +57,7 @@ claiming formal verification or allocator-independent memory totals.
 | modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; Kitty keyboard level-one disambiguation; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action | not advertised |
+| OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -66,6 +67,10 @@ claiming formal verification or allocator-independent memory totals.
 The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app passes `TERMINFO` and an absent `COLORTERM` through a child-only environment vector to `execvpe`.
 
 The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
+
+## Clipboard and OSC 52 policy
+
+OSC 52 is default-denied: terminal output cannot read, write, clear, or query the system clipboard, trigger paste, or receive an OSC reply. The parser still bounds every OSC string to 4,096 bytes and records no OSC payload, only bounded command metadata or rejection reasons. Planned local copy/paste behavior, future opt-in write modes, exact byte limits, bracketed-paste behavior, and parser-failure rules are defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md). No clipboard platform bridge is implemented yet.
 
 ## Truecolour decision
 
