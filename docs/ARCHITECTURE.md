@@ -119,6 +119,12 @@ DX12 surface implementation and a ConPTY-backed process-session adapter rather
 than conditionally compiling those APIs into terminal state. The scoped seam
 and unverified native test matrix are in [ADR 0038](adr/0038-windows-native-feasibility.md).
 
+A macOS route requires a separately owned Cocoa view/`CAMetalLayer` Metal
+surface bridge, target-specific wgpu/bootstrap artifacts, and a tested font and
+POSIX-session provider. GLFW framebuffer/content-scale queries alone do not
+validate Retina behavior. The proposed narrow boundary and native validation
+matrix are in [ADR 0039](adr/0039-macos-native-feasibility.md).
+
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. Both alpha passes and the hyperlink glyph decoration remain semantic presentation, rather than part of a terminal bitmap.
 
 M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves background, selection, search, glyph, and cursor ordering while adding bounded hyperlink metadata to glyph presentation; it does not expose native wgpu handles to Lua passes.

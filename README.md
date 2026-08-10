@@ -124,6 +124,11 @@ researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
+macOS Metal/Cocoa feasibility was also assessed without a macOS host or target
+artifacts. The pinned header exposes a prospective Metal surface seam, but no
+macOS build or runtime support is claimed; see [ADR
+0039](docs/adr/0039-macos-native-feasibility.md).
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
