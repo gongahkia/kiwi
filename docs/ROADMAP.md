@@ -18,26 +18,26 @@ Layered parser/state/damage/packing/scroll benchmarks, LuaJIT profiler evidence,
 
 Pinned Unicode 17 data and full UAX #29 EGC conformance, deterministic terminal width, grapheme/anchor/continuation cells, HarfBuzz shaping, Fontconfig fallback, glyph-ID alpha atlas rendering, diagnostics, native-text benchmarks, and bounded stress checks are implemented. M2 deliberately remains LTR-only, grayscale-atlas-only, and startup-configured; bidi, color emoji, atlas paging/eviction, runtime reflow, and text-quality expansion remain deferred.
 
-## M3 — rendering architecture expansion
+## M2.5 — complete: performance hardening
 
-Stronger render graph, selection/decorations, richer semantic metadata, improved scheduling, and graphics primitives.
+M2.5 preserves M2 terminal/parser/text boundaries while adding schema-versioned write-path stage attribution, reproducible LuaJIT sampling/trace capture, clean same-configuration comparison, cursor-only text-invalidation tests, and a constrained direct ASCII optimization. It does not claim a general Unicode or presentation-latency improvement.
 
-## M4 — programmable rendering
+## M3 — next: rendering architecture and programmability
 
-Lua extension API, WGSL hot reload, semantic shader inputs, shader diagnostics, and execution budgets.
+Stronger render graph, selection/decorations, richer semantic metadata, improved scheduling, graphics primitives, and a bounded programmable-rendering surface (Lua extension API, WGSL hot reload, semantic shader inputs, diagnostics, and execution budgets). M3 begins only after M2.5 release evidence is accepted.
 
-## M5 — experimental text backends
+## M4 — experimental text backends
 
 Bitmap-atlas baseline, MSDF experiment, Slug/vector experiment, and reproducible comparative benchmark suite.
 
-## M6 — daily-driver terminal features
+## M5 — daily-driver terminal features
 
 Clipboard, URLs, search, shell integration, configuration, IME, stronger scrollback, and packaging.
 
-## M7 — terminal graphics protocols
+## M6 — terminal graphics protocols
 
 Kitty graphics first; Sixel/iTerm2 only if justified by measured product value.
 
-## M8 — launch and observability polish
+## M7 — launch and observability polish
 
 Profiler/HUD, benchmark reports, demo gallery, packaging, and an architecture article.
