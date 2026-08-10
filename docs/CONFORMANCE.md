@@ -19,6 +19,27 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 
 `src/tests/fixtures/replay/live-color-cr.jsonl` is a sanitized recording produced by the live Kiwi path. It covers live initial resize, coloured output, SGR reset, carriage-return overwrite, and headless replay.
 
+## Parser/state hostile-input properties
+
+`make test-fuzz` runs a CI-bounded deterministic property suite: five saved
+hostile-input fixtures plus 128 generated inputs of at most 512 bytes. It
+asserts parser byte progress, final ground state, bounded CSI/string storage,
+bounded action count, valid screen/cursor/margin/damage/cluster structure,
+bounded scrollback, and chunk-boundary equivalence. `make fuzz` expands to
+4,096 inputs of at most 1,024 bytes for local hardening work.
+
+Each failure prints its generated seed and delta-minimized hexadecimal input.
+Replay it without guessing chunk boundaries with:
+
+```sh
+KIWI_FUZZ_SEED=<seed> KIWI_FUZZ_REPLAY_HEX=<hex> make test-fuzz
+```
+
+New parser behavior must add a targeted saved fixture under
+`src/tests/fixtures/fuzz.lua`; random cases supplement but do not replace
+documented test vectors. The suite checks structural bounds rather than
+claiming formal verification or allocator-independent memory totals.
+
 ## Implemented matrix
 
 | Family | Implemented M1 behavior | Terminfo exposure |
