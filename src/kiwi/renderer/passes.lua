@@ -3,8 +3,8 @@ local Passes = {}
 local Pass = {}
 Pass.__index = Pass
 
-function Pass.new(name, order, pipeline, load_op, instances, reads, writes)
-  return setmetatable({ name = name, order = order, pipeline = pipeline, load_op = load_op, instances = instances, reads = reads, writes = writes }, Pass)
+function Pass.new(name, order, pipeline, load_op, instances, reads, writes, after)
+  return setmetatable({ name = name, order = order, pipeline = pipeline, load_op = load_op, instances = instances, reads = reads, writes = writes, after = after }, Pass)
 end
 
 function Pass:encode(renderer, encoder, view, model)
@@ -16,13 +16,13 @@ function Passes.build(renderer)
   return {
     Pass.new("terminal/background", 10, renderer.background_pipeline, c.load_clear, function(model)
       return model.columns * model.rows
-    end, { "terminal.cells", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }),
+    end, { "terminal.cells", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, {}),
     Pass.new("terminal/glyph", 20, renderer.glyph_pipeline, c.load_load, function(model)
       return renderer.glyph_count or 0
-    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }),
+    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" }),
     Pass.new("terminal/cursor", 30, renderer.cursor_pipeline, c.load_load, function()
       return 1
-    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }),
+    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/glyph" }),
   }
 end
 

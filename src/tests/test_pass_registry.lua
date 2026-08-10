@@ -14,6 +14,7 @@ local function pass(name, order, events, options)
     order = order,
     reads = {},
     writes = {},
+    after = options.after or {},
     initialize = function()
       events[#events + 1] = name .. "-initialize"
       if options.initialize_error then error(options.initialize_error) end
@@ -62,5 +63,35 @@ return {
     expect_error(function() registry:initialize({}) end)
     registry:shutdown({})
     Assert.equal(table.concat(events, ","), "first-initialize,broken-initialize,broken-shutdown,first-shutdown")
+  end,
+  render_pass_registry_topologically_orders_explicit_dependencies = function()
+    local registry = Registry.new()
+    local events = {}
+    registry:register(pass("cursor", 30, events, { after = { "glyph" } }))
+    registry:register(pass("overlay", 30, events, { after = { "background" } }))
+    registry:register(pass("glyph", 20, events, { after = { "background" } }))
+    registry:register(pass("background", 10, events))
+    registry:initialize({})
+    registry:encode({}, nil, nil, {})
+    Assert.equal(table.concat(events, ","), "background-initialize,glyph-initialize,overlay-initialize,cursor-initialize,background-encode,glyph-encode,overlay-encode,cursor-encode")
+    Assert.equal(#registry.parallel_groups, 3)
+    Assert.equal(#registry.parallel_groups[2], 2)
+    Assert.equal(registry.parallel_groups[2][1].name, "glyph")
+    Assert.equal(registry.parallel_groups[2][2].name, "overlay")
+    registry:shutdown({})
+  end,
+  render_pass_registry_rejects_missing_dependencies_and_cycle_paths = function()
+    local events = {}
+    local missing = Registry.new()
+    missing:register(pass("glyph", 20, events, { after = { "background" } }))
+    expect_error(function() missing:initialize({}) end)
+
+    local cycle = Registry.new()
+    cycle:register(pass("alpha", 10, events, { after = { "gamma" } }))
+    cycle:register(pass("beta", 20, events, { after = { "alpha" } }))
+    cycle:register(pass("gamma", 30, events, { after = { "beta" } }))
+    local ok, message = pcall(function() cycle:initialize({}) end)
+    Assert.equal(ok, false)
+    Assert.truthy(tostring(message):match("alpha %-%> gamma %-%> beta %-%> alpha") ~= nil)
   end,
 }
