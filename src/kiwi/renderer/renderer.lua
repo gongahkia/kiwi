@@ -64,6 +64,7 @@ local cursor_styles = {
 }
 
 local cursor_shape_values = { block = 0, underline = 1, bar = 2 }
+local cursor_blink_interval = 0.5
 
 Renderer.select_glyph = select_glyph
 
@@ -415,6 +416,12 @@ function Renderer:can_present(model)
   return model.modes == nil or model.modes.synchronized_output ~= true
 end
 
+function Renderer:cursor_blink_delay(model)
+  local cursor = Renderer.cursor_descriptor(self, model)
+  if cursor.visible and cursor.blink and Renderer.can_present(self, model) then return cursor_blink_interval end
+  return nil
+end
+
 function Renderer:register_semantic_resources(model)
   local registry = self.resource_registry
   local handles = self.resource_handles
@@ -713,6 +720,8 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.diagnostics.draw_calls = self.pass_registry:count()
   self.invalidation:consume_success(time)
   self.extension_manager:consume_animations(time)
+  local cursor_blink_delay = self:cursor_blink_delay(model)
+  if cursor_blink_delay then self:schedule_animation("cursor", time, cursor_blink_delay) end
   self.diagnostics.invalidation = self:invalidation_snapshot()
   self.diagnostics.extensions = self.extension_manager:snapshot()
   if self.inspector_enabled then self.diagnostics.inspector = self:inspector_snapshot() end

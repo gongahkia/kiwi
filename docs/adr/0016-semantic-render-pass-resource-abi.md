@@ -70,7 +70,7 @@ an error at the nearest registration/lifecycle boundary.
 | --- | --- | --- |
 | `terminal.cells` | terminal grid cell attributes and grid dimensions | read-only; current visible model snapshot |
 | `text.shaped_glyphs` | HarfBuzz/FreeType-derived visible glyph records | read-only; may be empty when text has no drawable glyphs |
-| `terminal.cursor` | column, row, and visibility after terminal/history policy | read-only; always present |
+| `terminal.cursor` | column, row, visibility, and canonical cursor style/shape/blink after terminal/history policy | read-only; always present |
 | `terminal.damage` | coalesced logical-damage summary/ranges for the current update | read-only; may be empty |
 | `frame.viewport` | logical columns/rows, drawable pixels, and content scale | read-only; always present for a drawable frame |
 | `frame.timing` | monotonic frame time and non-negative frame delta | read-only; always present; timing does not imply redraw permission |
@@ -136,4 +136,3 @@ deterministic built-in order, reverse cleanup after initialization failure,
 and diagnostics bounded by repeated failures. Native smoke must continue to
 exercise the unchanged background/glyph/cursor sequence. `make check` remains
 the required broad validation once implementation begins.
-
