@@ -26,6 +26,9 @@ local function pass(name, order, events, options)
     shutdown = function()
       events[#events + 1] = name .. "-shutdown"
     end,
+    resize = options.resize and function()
+      events[#events + 1] = name .. "-resize"
+    end or nil,
   }
 end
 
@@ -93,5 +96,15 @@ return {
     local ok, message = pcall(function() cycle:initialize({}) end)
     Assert.equal(ok, false)
     Assert.truthy(tostring(message):match("alpha %-%> gamma %-%> beta %-%> alpha") ~= nil)
+  end,
+  render_pass_registry_dispatches_resize_in_deterministic_pass_order = function()
+    local registry = Registry.new()
+    local events = {}
+    registry:register(pass("glyph", 20, events, { resize = true, after = { "background" } }))
+    registry:register(pass("background", 10, events, { resize = true }))
+    registry:initialize({})
+    registry:resize({}, { columns = 80 }, { columns = 120 })
+    registry:shutdown({})
+    Assert.equal(table.concat(events, ","), "background-initialize,glyph-initialize,background-resize,glyph-resize,glyph-shutdown,background-shutdown")
   end,
 }

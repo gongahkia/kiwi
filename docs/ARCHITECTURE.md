@@ -82,6 +82,8 @@ The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M
 
 M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves the current background, glyph, and cursor ordering while making resource ownership and invalidation explicit; it does not expose native wgpu handles to Lua passes.
 
+The initial trusted-local registration surface is [Renderer pass API v1](RENDERER_API.md). It validates declaration version, semantic resources, and lifecycle callbacks before pass activation, gives callbacks only cloned resource descriptors, and reuses the deterministic pass graph for initialization, encoding, resize, and shutdown.
+
 ## Replay and diagnostics
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.
