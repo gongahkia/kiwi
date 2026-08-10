@@ -114,11 +114,14 @@ detached lifecycle spike are documented in
 
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output
-lifecycle when a cooperative shell emits them. They do not enable shell setup,
-path access, command execution, navigation, durable cross-session persistence,
-a renderer resource, diagnostics output, or a UI. Opaque row associations move
-through bounded scrollback and degrade explicitly when evicted. The contracts
-are [ADR 0027](docs/adr/0027-bounded-shell-integration-metadata.md),
+lifecycle when a cooperative shell emits them. Versioned Bash, Zsh, and fish
+assets are available as an explicit, reversible opt-in; they are inactive
+unless the user sources them in an interactive `TERM=kiwi` shell with
+`KIWI_SHELL_INTEGRATION=1`. They do not enable path access, command execution,
+durable cross-session persistence, a renderer resource, diagnostics output, or
+a UI. Opaque row associations move through bounded scrollback and degrade
+explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
+[ADR 0027](docs/adr/0027-bounded-shell-integration-metadata.md),
 [ADR 0028](docs/adr/0028-stable-command-region-lifecycle.md), and
 [ADR 0029](docs/adr/0029-command-region-retention-and-snapshot-boundary.md).
 
@@ -131,6 +134,6 @@ copy text, execute a command, or expose a command UI. See
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, and primary-history region navigation, but not shell setup, durable cross-session persistence, path access, execution, command output summarization, rendering, diagnostics, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, images, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, and opt-in Bash/Zsh/fish scripts, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, rendering, diagnostics, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, images, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
