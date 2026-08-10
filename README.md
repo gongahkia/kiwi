@@ -96,12 +96,17 @@ also supported, with exact scope and local-selection precedence in the
 pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
 `#RRGGBBAA`. Neither input capability is advertised through terminfo.
 
+`Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
+Linux clipboard through GLFW. Clipboard reads/writes are limited to 1 MiB;
+paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
+when the terminal has enabled DECSET 2004. OSC 52 remains default-denied.
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. It does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, clipboard, hyperlinks, images, OSC shell integration, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 is explicitly default-denied pending a platform bridge; its future local-copy/paste and opt-in policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste but not primary selections, rich formats, automatic synchronization, or OSC 52 writes. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, hyperlinks, images, OSC shell integration, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

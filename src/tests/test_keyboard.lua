@@ -14,6 +14,14 @@ return {
     Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, { application_cursor = true }, glfw).bytes, "\27OA")
     Assert.equal(Keyboard.key(glfw.key_page_up, glfw.press, glfw.mod_shift, {}, glfw).local_action, "scroll_up")
   end,
+  keyboard_reserves_control_shift_clipboard_actions = function()
+    local copy = Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control + glfw.mod_shift, { keyboard_flags = 1 }, glfw)
+    Assert.equal(copy.local_action, "copy")
+    Assert.truthy(copy.suppress_text)
+    local paste = Keyboard.key(string.byte("V"), glfw.press, glfw.mod_control + glfw.mod_shift, { keyboard_flags = 1 }, glfw)
+    Assert.equal(paste.local_action, "paste")
+    Assert.truthy(Keyboard.key(string.byte("V"), glfw.repeat_action, glfw.mod_control + glfw.mod_shift, {}, glfw).suppress_text)
+  end,
   keyboard_encodes_the_kitty_disambiguation_subset = function()
     local modes = { keyboard_flags = 1 }
     local control_c = Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control, modes, glfw)

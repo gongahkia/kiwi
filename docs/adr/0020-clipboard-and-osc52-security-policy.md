@@ -5,7 +5,7 @@
 The system clipboard is a user-owned boundary, not a terminal-output channel.
 
 - Local **copy** is permitted only after an explicit Kiwi user action on a non-empty local selection. It copies at most 1,048,576 UTF-8 bytes atomically; a larger selection leaves the system clipboard unchanged.
-- Local **paste** is permitted only after an explicit Kiwi user action. Kiwi reads at most 1,048,576 UTF-8 bytes from the system clipboard, rejects unavailable, invalid UTF-8, or oversized data atomically, and sends no PTY bytes on rejection. It neither normalizes nor escapes accepted bytes. If bracketed-paste mode is active, it sends `CSI 200~`, the exact clipboard bytes, and `CSI 201~`; otherwise it sends only the exact bytes. The wrappers do not count toward the limit.
+- Local **paste** is permitted only after an explicit Kiwi user action. Kiwi reads at most 1,048,576 UTF-8 bytes from the system clipboard, rejects unavailable, NUL-containing bridge data, invalid UTF-8, or oversized data atomically, and sends no PTY bytes on rejection. It neither normalizes nor escapes accepted bytes. If bracketed-paste mode is active, it sends `CSI 200~`, the exact clipboard bytes, and `CSI 201~`; otherwise it sends only the exact bytes. The wrappers do not count toward the limit.
 - Terminal-originated OSC 52 is denied by default. It cannot read the system clipboard, write or clear it, trigger a local paste, or produce a response. This applies equally to local programs, SSH sessions, multiplexers, logs, pagers, and replayed terminal output; Kiwi does not infer trust from the source.
 - A later clipboard implementation may expose a static user configuration `clipboard.osc52` with only `deny` (default), `ask`, and `allow-write`. `ask` must require a focused, visible user decision for every valid write; `allow-write` is an explicit user opt-in for writes only. No configuration enables OSC 52 reads or query replies, grants persistent per-program trust, or enables primary/secondary selections or cut buffers.
 
@@ -23,11 +23,11 @@ The existing parser already bounds OSC storage and state records only the comman
 
 ## Consequences
 
-M4 selection and clipboard work must preserve grapheme ownership when reconstructing selected text: continuation cells must not duplicate a cluster, and a selection must not split a wide-cell anchor from its continuation. The platform bridge may handle only the ordinary UTF-8 clipboard; primary selection, rich MIME data, and automatic clipboard synchronization are out of scope.
+M4 selection and clipboard work preserve grapheme ownership when reconstructing selected text: continuation cells do not duplicate a cluster, and state normalization does not split a wide-cell anchor from its continuation. `Ctrl+Shift+C` copies only a visible non-empty selection through GLFW on the main thread. It uses stored glyph text rather than renderer substitutions, joins a soft-wrapped row to its successor, and otherwise inserts one LF between selected physical rows. `Ctrl+Shift+V` is the corresponding explicit local paste action. The platform bridge handles only the ordinary UTF-8 clipboard; primary selection, rich MIME data, and automatic clipboard synchronization are out of scope.
 
 Diagnostics may count local copy/paste outcomes and OSC 52 allow/deny/invalid/over-limit results, but must never retain or print clipboard text, base64 payloads, or OSC content. Invalid configuration fails closed to `deny` and reports only the invalid setting name/value category. Prompt denial, parser rejection, and platform failure must not enqueue partial PTY data or emit an OSC reply.
 
-The policy does not add a terminfo capability, environment advertisement, remote deployment claim, or a generic permission service. The future implementation must add deterministic parser/state vectors for valid requests, every denial class, size boundaries, chunk boundaries, UTF-8/NUL rejection, bracketed and unbracketed local paste, plus a main-thread GLFW bridge test or an explicit `No access` record on platforms where that bridge cannot be exercised.
+The policy does not add a terminfo capability, environment advertisement, remote deployment claim, or a generic permission service. The implementation has deterministic selection/copy and paste framing, limit, unavailable, UTF-8, and NUL tests. A developer still needs a real focused Linux clipboard session to verify compositor behavior; unavailable bridges remain explicit no-PTY-write failures.
 
 ## References
 

@@ -327,6 +327,37 @@ function State:selection_view()
   return self.selection:view(self:selection_rows(scope), self.columns, self:selection_scope())
 end
 
+function State:selection_text(maximum_bytes)
+  assert(type(maximum_bytes) == "number" and maximum_bytes >= 0 and maximum_bytes % 1 == 0, "selection text limit must be a non-negative integer")
+  local view = self:selection_view()
+  if not view.active or not view.visible or view.empty then return nil, "no-selection" end
+  local document = self:selection_rows(view.scope)
+  local positions = {}
+  for index, entry in ipairs(document) do positions[entry.line_id] = index end
+  local first = positions[view.start.line_id]
+  local last = positions[view.finish.line_id]
+  if first == nil or last == nil then return nil, "no-selection" end
+  local bytes = 0
+  local text = {}
+  local function append(value)
+    bytes = bytes + #value
+    if bytes > maximum_bytes then return false end
+    text[#text + 1] = value
+    return true
+  end
+  for index = first, last do
+    local row = document[index].row
+    local start = index == first and view.start.column or 0
+    local finish = index == last and view.finish.column or self.columns
+    for column = start, finish - 1 do
+      local cell = row.cells[column]
+      if cell and not cell.continuation and not append(cell.glyph) then return nil, "over-limit" end
+    end
+    if index < last and not row.wrapped and not append("\n") then return nil, "over-limit" end
+  end
+  return table.concat(text)
+end
+
 function State:cell_at_index(index)
   local column, row = self:position(index)
   local visible = self:visible_row(row)

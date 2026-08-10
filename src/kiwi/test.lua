@@ -24,6 +24,7 @@ local tests = {
   require("tests.test_selection"),
   require("tests.test_selection_pointer"),
   require("tests.test_selection_renderer"),
+  require("tests.test_clipboard"),
   require("tests.test_atlas"),
   require("tests.test_freetype"),
   require("tests.test_packing"),
