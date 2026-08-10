@@ -99,6 +99,7 @@ return {
       "terminal.cursor",
       "terminal.selection",
       "terminal.search",
+      "terminal.hyperlinks",
       "terminal.damage",
       "frame.viewport",
       "frame.timing",
@@ -121,6 +122,7 @@ return {
     local passes = Passes.build(renderer)
     passes[4]:encode(renderer, nil, nil, { columns = 80, rows = 24 })
     Assert.equal(captured["text.shaped_glyphs"].name, "text.shaped_glyphs")
+    Assert.equal(captured["terminal.hyperlinks"].descriptor.access, "read")
     Assert.equal(captured["text.alpha_atlas"].descriptor.access, "read")
     Assert.equal(captured["surface.color"].descriptor.access, "write")
   end,

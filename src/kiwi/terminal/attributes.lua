@@ -12,6 +12,7 @@ Attributes.flags = {
   inverse = 0x40,
   concealed = 0x80,
   strike = 0x100,
+  hyperlink = 0x200,
 }
 
 Attributes.default_foreground = Color.pack(0xd8, 0xde, 0xe9, 0xff)

@@ -6,11 +6,15 @@
 #include <webgpu/webgpu.h>
 
 #include <fcntl.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
+#include <unistd.h>
 
 static char kiwi_surface_error[2048];
 
@@ -630,4 +634,36 @@ int kiwi_pty_set_nonblocking(int fd) {
     return -1;
   }
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+int kiwi_open_uri(const char *uri) {
+  if (uri == NULL || uri[0] == '\0') {
+    errno = EINVAL;
+    return -1;
+  }
+  pid_t child = fork();
+  if (child < 0) return -1;
+  if (child == 0) {
+    pid_t detached = fork();
+    if (detached < 0) _exit(127);
+    if (detached > 0) _exit(0);
+    int null_fd = open("/dev/null", O_RDWR);
+    if (null_fd >= 0) {
+      (void)dup2(null_fd, STDIN_FILENO);
+      (void)dup2(null_fd, STDOUT_FILENO);
+      (void)dup2(null_fd, STDERR_FILENO);
+      if (null_fd > STDERR_FILENO) (void)close(null_fd);
+    }
+    execlp("xdg-open", "xdg-open", uri, (char *)NULL);
+    _exit(127);
+  }
+  int status;
+  do {
+    if (waitpid(child, &status, 0) == child) {
+      if (WIFEXITED(status) && WEXITSTATUS(status) == 0) return 0;
+      errno = EIO;
+      return -1;
+    }
+  } while (errno == EINTR);
+  return -1;
 }

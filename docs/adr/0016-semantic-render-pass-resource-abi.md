@@ -4,7 +4,7 @@
 
 Kiwi M2.5 began with three renderer-owned passes: `terminal/background`,
 `terminal/glyph`, and `terminal/cursor`. M4 additively extends ABI v1 with
-`terminal/selection` and `terminal/search` between background and glyph rendering. `Renderer` owns their pipelines,
+`terminal/selection`, `terminal/search`, and `terminal.hyperlinks` before glyph rendering. `Renderer` owns their pipelines,
 buffers, bind groups, shader module, atlas, and command encoding directly.
 `State` and `Layout` already produce terminal cells, shaped glyphs, cursor
 state, logical/text damage, and viewport dimensions, but no contract says how
@@ -53,7 +53,7 @@ Current built-ins map into v1 as follows:
 | `terminal/background` | `terminal.cells`, `frame.viewport` | `surface.color` | 10 |
 | `terminal/selection` | `terminal.selection`, `frame.viewport` | `surface.color` | 15 |
 | `terminal/search` | `terminal.search`, `frame.viewport` | `surface.color` | 17 |
-| `terminal/glyph` | `text.shaped_glyphs`, `text.alpha_atlas`, `frame.viewport` | `surface.color` | 20 |
+| `terminal/glyph` | `text.shaped_glyphs`, `text.alpha_atlas`, `terminal.hyperlinks`, `frame.viewport` | `surface.color` | 20 |
 | `terminal/cursor` | `terminal.cursor`, `frame.viewport` | `surface.color` | 30 |
 
 Each built-in also receives `frame.timing` and `terminal.damage` as declared
@@ -76,6 +76,7 @@ an error at the nearest registration/lifecycle boundary.
 | `terminal.cursor` | column, row, visibility, and canonical cursor style/shape/blink after terminal/history policy | read-only; always present |
 | `terminal.selection` | viewport-relative normalized cell-gap range, active flag, and overlay RGBA after grapheme/history policy | read-only; always present, but may be inactive |
 | `terminal.search` | bounded search result count/status, current viewport range, current index, and visible grapheme-safe range descriptors without query text | read-only; always present, but may be inactive or stale |
+| `terminal.hyperlinks` | active state, semantic underline RGBA, and bounded visible-link cell count | read-only; always present, but no target, identity, or text data |
 | `terminal.damage` | coalesced logical-damage summary/ranges for the current update | read-only; may be empty |
 | `frame.viewport` | logical columns/rows, drawable pixels, and content scale | read-only; always present for a drawable frame |
 | `frame.timing` | monotonic frame time and non-negative frame delta | read-only; always present; timing does not imply redraw permission |
@@ -90,11 +91,13 @@ encoder or typed allocation capability may use those private handles behind
 the boundary, but it must not reveal them to Lua passes. A pass cannot retain
 a frame resource for a later frame.
 
-Hyperlinks, command regions, images, clipboard data, shell data, and arbitrary
-graphics textures are intentionally absent from v1. They need their own
-semantic producer, ownership policy, and versioned addition. Selection is an
-additive optional descriptor with a defined inactive state, so existing v1
-passes retain their behavior without an ABI-version change.
+Command regions, images, clipboard data, shell data, and arbitrary graphics
+textures are intentionally absent from v1. OSC 8 hyperlink presentation is
+limited to the additive opaque `terminal.hyperlinks` descriptor; URI targets
+and activation remain outside the ABI. Other features need their own semantic
+producer, ownership policy, and versioned addition. Selection is an additive
+optional descriptor with a defined inactive state, so existing v1 passes
+retain their behavior without an ABI-version change.
 
 ### Invalidation, scheduling, and failure behavior
 

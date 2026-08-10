@@ -107,6 +107,12 @@ local function assert_expected(fixture, state, parser)
       local foreground = Attributes.resolve({ fg = cell_expected.fg })
       Assert.equal(cell.fg, foreground, fixture.id .. " cell foreground")
     end
+    if cell_expected.hyperlink_uri then
+      Assert.truthy(cell.hyperlink_id ~= nil, fixture.id .. " hyperlink identity")
+      Assert.equal(state.hyperlinks[cell.hyperlink_id].uri, cell_expected.hyperlink_uri, fixture.id .. " hyperlink URI")
+    elseif cell_expected.no_hyperlink then
+      Assert.equal(cell.hyperlink_id, nil, fixture.id .. " no hyperlink")
+    end
   end
 end
 
