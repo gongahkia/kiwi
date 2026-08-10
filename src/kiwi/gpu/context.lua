@@ -85,6 +85,11 @@ function Context:configure_surface()
   return true
 end
 
+function Context:next_renderer_generation()
+  self.renderer_generation = (self.renderer_generation or 0) + 1
+  return self.renderer_generation
+end
+
 function Context:destroy()
   local api = self.native.lib
   if self.surface ~= nil then
