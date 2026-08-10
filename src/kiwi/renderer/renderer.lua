@@ -10,6 +10,7 @@ local CommandRegions = require("kiwi.renderer.command_regions")
 local Hyperlink = require("kiwi.renderer.hyperlink")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
+local KittyImages = require("kiwi.renderer.kitty_images")
 local Resources = require("kiwi.renderer.resources")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
@@ -105,6 +106,7 @@ function Renderer.new(context, font, model, options)
   options = options or {}
   local root = os.getenv("KIWI_ROOT") or "."
   local builtin_shader_path = root .. "/src/kiwi/renderer/terminal.wgsl"
+  local image_shader_path = root .. "/src/kiwi/renderer/kitty_images.wgsl"
   local development_mode = options.development_mode == true
   if development_mode then
     assert(type(options.development_shader_path) == "string" and #options.development_shader_path > 0, "development shader mode needs an explicit shader path")
@@ -117,6 +119,8 @@ function Renderer.new(context, font, model, options)
   assert(options.pass_budgets_enabled == nil or type(options.pass_budgets_enabled) == "boolean", "pass budget enablement must be a boolean")
   assert(options.command_region_visual_enabled == nil or type(options.command_region_visual_enabled) == "boolean", "command region visual enablement must be a boolean")
   local inspector_enabled = options.inspector_enabled == true
+  local placement_limit = model.kitty_placements and model.kitty_placements.limit or 256
+  local placement_rows = model.kitty_placements and model.kitty_placements.max_rows or 256
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
     diagnostic_limit = options.extension_diagnostic_limit,
@@ -139,6 +143,7 @@ function Renderer.new(context, font, model, options)
     resource_handles = {},
     frame_time = 0,
     shader_path = shader_path,
+    image_shader_path = image_shader_path,
     extensions = extensions,
     extension_manager = extension_manager,
     pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled or pass_budgets_enabled }),
@@ -151,6 +156,7 @@ function Renderer.new(context, font, model, options)
     hyperlink_color = Hyperlink.parse_color(options.hyperlink_color),
     command_region_visual_enabled = options.command_region_visual_enabled == true,
     command_region_color = CommandRegions.parse_color(options.command_region_color),
+    kitty_images = KittyImages.new(placement_limit * placement_rows),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -176,6 +182,7 @@ function Renderer.new(context, font, model, options)
       gpu_timing = { enabled = false, status = "not initialized", samples = {}, history = {} },
     },
   }, Renderer)
+  self.diagnostics.kitty_images = self.kitty_images:descriptor()
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
   self.invalidation:request("terminal")
   self.shader_reloader = ShaderReloader.new({
@@ -332,7 +339,7 @@ function Renderer:register_extension_passes()
   end
 end
 
-function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader, blend)
+function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader, blend, pipeline_layout)
   local api = self.native.lib
   local c = self.native.constants
   local target = ffi.new("WGPUColorTargetState[1]")
@@ -356,7 +363,7 @@ function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader, b
   fragment.targets = target
   local descriptor = ffi.new("WGPURenderPipelineDescriptor")
   descriptor.label = string_view(label)
-  descriptor.layout = self.pipeline_layout
+  descriptor.layout = pipeline_layout or self.pipeline_layout
   descriptor.vertex.module = shader.handle
   descriptor.vertex.entryPoint = string_view(vertex_entry)
   descriptor.primitive.topology = c.primitive_triangle_list
@@ -381,11 +388,11 @@ function Renderer:release_native(handle)
   self.resource_registry:release_native(handle)
 end
 
-function Renderer:load_shader(id, pass)
+function Renderer:load_shader(id, pass, path)
   return self.shader_loader:load({
     id = id,
     pass = pass,
-    path = self.shader_path,
+    path = path or self.shader_path,
   })
 end
 
@@ -521,6 +528,7 @@ function Renderer:register_semantic_resources(model)
   register("terminal.hyperlinks", "read", self.hyperlinks)
   self.command_regions = self:command_regions_descriptor(model)
   register("terminal.command_regions", "read", self.command_regions)
+  register("terminal.kitty_images", "read", self.kitty_images:descriptor())
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
     columns = model.columns,
@@ -563,6 +571,7 @@ function Renderer:refresh_semantic_resources(model, time, delta, selection, sear
   registry:update(handles["terminal.hyperlinks"], self:resource_descriptor("terminal.hyperlinks", "read", self.hyperlinks))
   self.command_regions = command_regions or self:command_regions_descriptor(model)
   registry:update(handles["terminal.command_regions"], self:resource_descriptor("terminal.command_regions", "read", self.command_regions))
+  registry:update(handles["terminal.kitty_images"], self:resource_descriptor("terminal.kitty_images", "read", self.kitty_images:descriptor()))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
     ranges = self.diagnostics.dirty_ranges,
@@ -668,6 +677,8 @@ end
 function Renderer:update_model(model)
   local damage = model.damage
   local shaped_glyphs = self.layout:update(model)
+  if self.kitty_images:sync(self, model) then self:invalidate("kitty_images") end
+  self.diagnostics.kitty_images = self.kitty_images:descriptor()
   local ranges = damage:ranges()
   if #ranges > 0 then self:invalidate("terminal") end
   self.diagnostics.dirty_cells = damage.dirty_count
@@ -793,6 +804,25 @@ function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resource
   self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.native.lib.wgpuRenderPassEncoderSetBindGroup(pass, 0, self.bind_group, 0, nil)
   self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, pass_info.instances(model), 0, 0)
+  self.native.lib.wgpuRenderPassEncoderEnd(pass)
+  self.native.lib.wgpuRenderPassEncoderRelease(pass)
+end
+
+function Renderer:encode_kitty_image_pass(pass_info, encoder, view, model, resources)
+  assert(resources["surface.color"] ~= nil, "kitty image pass requires a presentation target")
+  local attachment = ffi.new("WGPURenderPassColorAttachment")
+  attachment.view = view
+  attachment.depthSlice = 0xffffffff
+  attachment.loadOp = pass_info.load_op
+  attachment.storeOp = self.native.constants.store_store
+  local descriptor = ffi.new("WGPURenderPassDescriptor")
+  descriptor.label = string_view(pass_info.name)
+  descriptor.colorAttachmentCount = 1
+  descriptor.colorAttachments = attachment
+  if self.gpu_timing then descriptor.timestampWrites = self.gpu_timing:writes(pass_info.name) end
+  local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. pass_info.name)
+  self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
+  self.kitty_images:encode(pass_info.image_layer, { handle = pass, native = self.native })
   self.native.lib.wgpuRenderPassEncoderEnd(pass)
   self.native.lib.wgpuRenderPassEncoderRelease(pass)
 end

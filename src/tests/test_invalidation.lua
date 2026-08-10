@@ -37,6 +37,13 @@ return {
     invalidation:consume_success(1)
     Assert.equal(invalidation:due(1), false)
   end,
+  kitty_image_invalidations_are_a_distinct_bounded_reason = function()
+    local invalidation = Invalidation.new()
+    invalidation:request("kitty_images")
+    Assert.equal(table.concat(invalidation:snapshot().reasons, ","), "kitty_images")
+    invalidation:consume_success(1)
+    Assert.equal(invalidation:due(1), false)
+  end,
   synchronized_output_defers_presentation_and_cursor_style_reaches_the_renderer = function()
     local model = {
       cursor = { column = 3, row = 2, visible = true },

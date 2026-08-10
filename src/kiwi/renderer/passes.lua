@@ -16,12 +16,12 @@ function Pass:prepare(renderer)
   self.resources = renderer:resolve_pass_resources(self)
 end
 
-local function initialize_pipeline(owner, pass, label, vertex_entry, fragment_entry)
+local function initialize_pipeline(owner, pass, label, vertex_entry, fragment_entry, shader_path)
   pass.pipeline_label = label
   pass.vertex_entry = vertex_entry
   pass.fragment_entry = fragment_entry
-  pass.shader = owner:load_shader(pass.name, pass.name)
-  pass.pipeline = owner:create_pipeline(label, vertex_entry, fragment_entry, pass.shader, pass.blend)
+  pass.shader = owner:load_shader(pass.name, pass.name, shader_path)
+  pass.pipeline = owner:create_pipeline(label, vertex_entry, fragment_entry, pass.shader, pass.blend, pass.pipeline_layout)
 end
 
 local function shutdown_pipeline(owner, pass)
@@ -46,9 +46,29 @@ function Passes.build(renderer)
   function background:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local images_under
+  if renderer.kitty_images then
+    images_under = Pass.new("terminal/kitty_images_under", 12, nil, c.load_load, function()
+        return #renderer.kitty_images:instances_for("under")
+      end, { "terminal.kitty_images" }, { "surface.color" }, { "terminal/background" })
+    images_under.blend = "alpha"
+    images_under.image_layer = "under"
+    function images_under:initialize(owner)
+      owner.kitty_images:initialize(owner)
+      self.pipeline_layout = owner.kitty_images.pipeline_layout
+      initialize_pipeline(owner, self, "kitty-images-under-pass", "kitty_image_vs", "kitty_image_fs", owner.image_shader_path)
+    end
+    function images_under:encode(owner, encoder, view, model)
+      owner:encode_kitty_image_pass(self, encoder, view, model, self.resources or owner:resolve_pass_resources(self))
+      self.resources = nil
+    end
+    function images_under:shutdown(owner)
+      shutdown_pipeline(owner, self)
+    end
+  end
   local selection = Pass.new("terminal/selection", 15, nil, c.load_load, function(model)
       return renderer.selection and renderer.selection.active and model.columns * model.rows or 0
-    end, { "terminal.selection", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" })
+    end, { "terminal.selection", "frame.viewport", "frame.timing" }, { "surface.color" }, images_under and { "terminal/kitty_images_under" } or { "terminal/background" })
   selection.blend = "alpha"
   function selection:initialize(owner)
     initialize_pipeline(owner, self, "selection-pass", "selection_vs", "selection_fs")
@@ -88,9 +108,30 @@ function Passes.build(renderer)
   function glyph:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local images_over
+  if renderer.kitty_images then
+    images_over = Pass.new("terminal/kitty_images_over", 25, nil, c.load_load, function()
+        return #renderer.kitty_images:instances_for("over")
+      end, { "terminal.kitty_images" }, { "surface.color" }, { "terminal/glyph" })
+    images_over.blend = "alpha"
+    images_over.image_layer = "over"
+    function images_over:initialize(owner)
+      owner.kitty_images:initialize(owner)
+      self.pipeline_layout = owner.kitty_images.pipeline_layout
+      initialize_pipeline(owner, self, "kitty-images-over-pass", "kitty_image_vs", "kitty_image_fs", owner.image_shader_path)
+    end
+    function images_over:encode(owner, encoder, view, model)
+      owner:encode_kitty_image_pass(self, encoder, view, model, self.resources or owner:resolve_pass_resources(self))
+      self.resources = nil
+    end
+    function images_over:shutdown(owner)
+      shutdown_pipeline(owner, self)
+      owner.kitty_images:shutdown(owner)
+    end
+  end
   local cursor = Pass.new("terminal/cursor", 30, nil, c.load_load, function()
       return 1
-    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/glyph" })
+    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, images_over and { "terminal/kitty_images_over" } or { "terminal/glyph" })
   function cursor:initialize(owner)
     initialize_pipeline(owner, self, "cursor-pass", "cursor_vs", "cursor_fs")
   end
@@ -99,11 +140,13 @@ function Passes.build(renderer)
   end
   local passes = {
     background,
-    selection,
-    search,
   }
+  if images_under then passes[#passes + 1] = images_under end
+  passes[#passes + 1] = selection
+  passes[#passes + 1] = search
   if command_regions then passes[#passes + 1] = command_regions end
   passes[#passes + 1] = glyph
+  if images_over then passes[#passes + 1] = images_over end
   passes[#passes + 1] = cursor
   return passes
 end

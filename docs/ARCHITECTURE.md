@@ -29,7 +29,7 @@ PTY master <---------------- terminal responses (DSR/DA)
 text/layout.lua -> HarfBuzz glyph IDs -> bounded alpha atlas
                                              |
                                              v
-renderer: background -> selection -> search -> shaped glyph + hyperlink underline -> cursor -> wgpu-native -> Vulkan
+renderer: background -> negative-z images -> selection -> search -> shaped glyph + hyperlink underline -> zero/positive-z images -> cursor -> wgpu-native -> Vulkan
 ```
 
 The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
@@ -47,7 +47,10 @@ a separate line-ID placement model. The transfer model validates and decodes
 into a CPU cache, while the placement model follows scoped terminal rows through
 scrollback, alternate screens, resize, clear, and deletion. The renderer gets
 only stable upload and viewport-placement descriptors and native GPU handles
-remain renderer-owned. Image rendering remains deferred. The exact subset,
+remain renderer-owned. It uploads only visible image IDs, releases textures when
+their last viewport placement disappears, and preserves the documented negative
+and non-negative z-index composition layers without marking terminal cells
+dirty. The exact subset,
 limits, failure codes, and ownership boundary are in
 [KITTY_GRAPHICS.md](KITTY_GRAPHICS.md) and
 [ADR 0033](adr/0033-kitty-graphics-parser-state-foundation.md).
