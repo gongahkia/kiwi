@@ -1,8 +1,10 @@
+local ffi = require("ffi")
 local Environment = require("kiwi.bench.environment")
 local FontSystem = require("kiwi.font.system")
 local Json = require("kiwi.bench.json")
 local Layout = require("kiwi.text.layout")
 local Parser = require("kiwi.terminal.parser")
+local Renderer = require("kiwi.renderer.renderer")
 local State = require("kiwi.terminal.state")
 local Stats = require("kiwi.bench.stats")
 local Utf8 = require("kiwi.terminal.utf8")
@@ -261,6 +263,27 @@ local function full_stage(item, iterations, warmup)
     "In-memory terminal bytes through production parser, UTF-8, terminal grapheme/width mutation, logical and text damage, invalidated-row run construction, fallback, HarfBuzz, glyph cache/atlas, and Lua glyph records; PTY syscalls, GPU atlas upload, GPU submission, execution, and presentation are excluded")
 end
 
+local function glyph_record_packing_stage(item, iterations, warmup)
+  local counters = {}
+  local timing, memory = measure(iterations, warmup, function()
+    local context = with_populated_layout(item)
+    context.glyphs = context.layout:update(context.state)
+    context.packer = { glyphs = ffi.new("KiwiTextGlyphInstance[?]", math.max(1, #context.glyphs)) }
+    return context
+  end, function(context)
+    for index, glyph in ipairs(context.glyphs) do Renderer.pack_shaped_glyph(context.packer, glyph, index - 1) end
+  end, function(context, recorded)
+    if recorded then
+      merge_counters(counters, state_counters(context.state, context.parser))
+      counters.glyph_records_packed = (counters.glyph_records_packed or 0) + #context.glyphs
+    end
+  end, function(context)
+    context.system:destroy()
+  end)
+  return result("renderer-glyph-record-packing", item.name, item.input, iterations, warmup, timing, memory, counters,
+    "Prebuilt shaped glyphs through Renderer:pack_shaped_glyph into the real 48-byte FFI record layout; shaping, rasterization, atlas lookup, GPU queue writes, execution, and presentation are excluded")
+end
+
 local function make_workloads()
   local emoji = Utf8.encode(0x1f469) .. Utf8.encode(0x200d) .. Utf8.encode(0x1f680)
   local unicode = "Cafe" .. Utf8.encode(0x0301) .. " " .. Utf8.encode(0x4e2d) .. " " .. emoji .. " " .. Utf8.encode(0xe0b0) .. "\n"
@@ -270,16 +293,64 @@ local function make_workloads()
   }
 end
 
+local function ascii_mutation_control(item, iterations, warmup)
+  local direct = State.set_ascii_cell
+  local function legacy(self, column, row, glyph, codepoints)
+    return self:set_cell(column, row, self:ascii_cell(glyph, codepoints))
+  end
+  local function run_one(setter)
+    State.set_ascii_cell = setter
+    local state = new_state()
+    local parser = Parser.new(state)
+    local started = os.clock()
+    parser:feed(item.input)
+    parser:finish()
+    return (os.clock() - started) * 1000, state_counters(state, parser)
+  end
+
+  for _ = 1, warmup do
+    run_one(legacy)
+    run_one(direct)
+  end
+  collectgarbage("collect")
+  local heap_before = collectgarbage("count")
+  local heap_peak = heap_before
+  local legacy_samples, direct_samples, counters = {}, {}, {}
+  for iteration = 1, iterations do
+    legacy_samples[iteration] = run_one(legacy)
+    local timing, direct_counters = run_one(direct)
+    direct_samples[iteration] = timing
+    merge_counters(counters, direct_counters)
+    heap_peak = math.max(heap_peak, collectgarbage("count"))
+  end
+  State.set_ascii_cell = direct
+  collectgarbage("collect")
+  local direct_timing = Stats.summary(direct_samples)
+  local legacy_timing = Stats.summary(legacy_samples)
+  local control = result("ascii-cell-mutation-control", item.name, item.input, iterations, warmup, direct_timing, {
+    peak_kib_delta = heap_peak - heap_before,
+    retained_kib_delta = collectgarbage("count") - heap_before,
+  }, counters,
+    "Within one LuaJIT process, alternating production direct ASCII-cell mutation with the pre-M2.5 transient ascii_cell plus set_cell/copy_cell implementation; parser, input, state dimensions, warm-up, and samples are otherwise identical; shaping, GPU submission, and presentation are excluded")
+  control.control = {
+    legacy_cpu_ms = legacy_timing,
+    direct_cpu_ms = direct_timing,
+  }
+  return control
+end
+
 function WriteBench.run(iterations, warmup)
   iterations = iterations or 25
   warmup = warmup or 5
   local results = {}
   for _, item in ipairs(make_workloads()) do
+    if item.name == "ascii-full-dirty-row" then results[#results + 1] = ascii_mutation_control(item, iterations, warmup) end
     results[#results + 1] = decode_stage(item, iterations, warmup)
     results[#results + 1] = parser_state_stage(item, iterations, warmup)
     results[#results + 1] = run_build_stage(item, iterations, warmup)
     results[#results + 1] = harfbuzz_stage(item, iterations, warmup, false)
     results[#results + 1] = harfbuzz_stage(item, iterations, warmup, true)
+    results[#results + 1] = glyph_record_packing_stage(item, iterations, warmup)
     results[#results + 1] = invalidation_stage(item, iterations, warmup)
     results[#results + 1] = full_stage(item, iterations, warmup)
   end
@@ -299,6 +370,13 @@ function WriteBench.print_results(results)
       counters.fallback_hits or 0, counters.fallback_misses or 0,
       item.memory.retained_kib_delta, item.memory.peak_kib_delta
     ))
+    if item.control then
+      io.stdout:write(string.format(
+        "      control legacy p50=%.4fms p95=%.4fms p99=%.4fms direct p50=%.4fms p95=%.4fms p99=%.4fms\n",
+        item.control.legacy_cpu_ms.p50, item.control.legacy_cpu_ms.p95, item.control.legacy_cpu_ms.p99,
+        item.control.direct_cpu_ms.p50, item.control.direct_cpu_ms.p95, item.control.direct_cpu_ms.p99
+      ))
+    end
   end
 end
 

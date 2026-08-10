@@ -10,7 +10,8 @@ KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
 make profile-text
-KIWI_PROFILE_MODE=unicode KIWI_PROFILE_TRACE=1 make profile-text
+KIWI_PROFILE_MODE=mixed KIWI_PROFILE_TRACE=1 make profile-text
+KIWI_PROFILE_MODE=ascii_full KIWI_PROFILE_ITERATIONS=10000 make profile-text
 make bench-compare BASELINE=bench/results/baseline.json CANDIDATE=bench/results/candidate.json
 ```
 
@@ -69,14 +70,16 @@ Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is m
 | Stage | Timed work |
 | --- | --- |
 | UTF-8 decode | incremental byte decoding only |
+| ASCII cell mutation control | alternating legacy transient-cell copy and direct mutation in one LuaJIT process |
 | parser/cluster mutation/logical damage | production parser sink, cluster/width mutation, and both damage streams |
 | row-run construction/fallback | visible cluster inspection, primary coverage, fallback decisions, and same-face runs |
 | HarfBuzz shaping | prebuilt runs through HarfBuzz only |
 | HarfBuzz/atlas/glyph records | shaping through raster cache/atlas and Lua glyph-record construction |
+| renderer glyph-record packing | prebuilt shaped glyphs through the real 48-byte FFI record packer |
 | shape invalidation cursor-only | cached static layout with cursor-only logical damage |
 | full parser-to-glyph record | parser through text glyph records; PTY and GPU work excluded |
 
-Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
+Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The ASCII control includes both p50/p95/p99 series and is the only in-process legacy comparator; it avoids attributing host-frequency drift to the mutation change. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
 
 `script/compare-bench` accepts the original schema 3 and M2.5 schema 4, but never mixes them. It rejects differing iteration/warm-up or M2.5 font/atlas/shaping configuration, timing scope, or row sets before printing p50/p95/p99/mean and throughput deltas. Results stay local/ignored; compare only identical scopes on the same or closely controlled host.
 
@@ -130,7 +133,7 @@ The same run measured real full-screen scroll at 0.0336 ms mean for 80x24 and 0.
 
 ## Real-PTY burst checks and thresholds
 
-`make bench-burst` validates bounded live service rather than only in-memory parsing. It sends 1 MiB printable output, at least 1 MiB of mixed ANSI output, and an interleaved DSR-response stream through `forkpty`. The optional 10 MiB printable case is enabled with `KIWI_BURST_10MB=1`.
+`make bench-burst` validates bounded live service rather than only in-memory parsing. It sends 1 MiB printable output, at least 1 MiB of mixed ANSI output, a bounded 128 KiB combining/CJK/emoji/PUA stream, and an interleaved DSR-response stream through `forkpty`. The Unicode case validates parser/state canonical output; `bench-text-stress` supplies the complementary shaping, fallback-cache, and atlas-bound checks. The optional 10 MiB printable case is enabled with `KIWI_BURST_10MB=1`.
 
 The checked limits are exact defaults, overrideable only for deliberately different test environments:
 

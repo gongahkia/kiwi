@@ -8,9 +8,9 @@ kiwi_luajit=${LUAJIT:-luajit}
 trace=${KIWI_PROFILE_TRACE:-0}
 
 case "$mode" in
-  ascii|unicode) ;;
+  ascii|ascii_full|combining|cjk|mixed|replay|live_ascii) ;;
   *)
-    echo "KIWI_PROFILE_MODE must be ascii or unicode" >&2
+    echo "KIWI_PROFILE_MODE must be ascii, ascii_full, combining, cjk, mixed, replay, or live_ascii" >&2
     exit 2
     ;;
 esac
@@ -21,29 +21,7 @@ else
   set -- -jp=vl
 fi
 
-LUAJIT_PROFILEFILE="$output" "$kiwi_luajit" "$@" -e '
-  local Parser = require("kiwi.terminal.parser")
-  local State = require("kiwi.terminal.state")
-  local Utf8 = require("kiwi.terminal.utf8")
-  local state = State.new(80, 1)
-  local parser = Parser.new(state)
-  local input
-  if os.getenv("KIWI_PROFILE_MODE") == "unicode" then
-    input = "Cafe" .. Utf8.encode(0x0301) .. " " .. Utf8.encode(0x4e2d) .. " " .. Utf8.encode(0x1f469) .. Utf8.encode(0x200d) .. Utf8.encode(0x1f680)
-  else
-    input = string.rep("A", 79)
-  end
-  for iteration = 1, tonumber(os.getenv("KIWI_PROFILE_ITERATIONS")) do
-    parser:feed(input)
-    parser:finish()
-    state.cursor.column = 0
-    state.cursor.row = 0
-    state.cursor.pending_wrap = false
-    state:clear_grapheme_context()
-    state.damage:clear()
-    state.text_damage:clear()
-  end
-' 2> "${output%.txt}.trace"
+LUAJIT_PROFILEFILE="$output" "$kiwi_luajit" "$@" src/kiwi/bench/profile_text.lua 2> "${output%.txt}.trace"
 
 echo "LuaJIT profile: $output"
 if [ "$trace" = 1 ]; then echo "LuaJIT trace: ${output%.txt}.trace"; fi
