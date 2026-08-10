@@ -6,6 +6,7 @@ local Extensions = require("kiwi.renderer.extensions")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
 local PassBudgets = require("kiwi.renderer.pass_budgets")
 local GpuTiming = require("kiwi.renderer.gpu_timing")
+local CommandRegions = require("kiwi.renderer.command_regions")
 local Hyperlink = require("kiwi.renderer.hyperlink")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
@@ -50,6 +51,13 @@ typedef struct {
   float hyperlink_green;
   float hyperlink_blue;
   float hyperlink_alpha;
+  float command_region_count;
+  float command_region_red;
+  float command_region_green;
+  float command_region_blue;
+  float command_region_alpha;
+  float command_region_padding[3];
+  float command_region_boundaries[128];
 } KiwiFrameUniform;
 ]]
 
@@ -107,6 +115,7 @@ function Renderer.new(context, font, model, options)
   local pass_metrics_enabled = options.pass_metrics_enabled == true
   local pass_budgets_enabled = options.pass_budgets_enabled == true
   assert(options.pass_budgets_enabled == nil or type(options.pass_budgets_enabled) == "boolean", "pass budget enablement must be a boolean")
+  assert(options.command_region_visual_enabled == nil or type(options.command_region_visual_enabled) == "boolean", "command region visual enablement must be a boolean")
   local inspector_enabled = options.inspector_enabled == true
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
@@ -140,6 +149,8 @@ function Renderer.new(context, font, model, options)
     selection_color = Selection.parse_color(options.selection_color),
     search_color = Search.parse_color(options.search_color),
     hyperlink_color = Hyperlink.parse_color(options.hyperlink_color),
+    command_region_visual_enabled = options.command_region_visual_enabled == true,
+    command_region_color = CommandRegions.parse_color(options.command_region_color),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -473,6 +484,16 @@ function Renderer:hyperlink_descriptor(model)
   return Hyperlink.descriptor(model, self.hyperlink_color)
 end
 
+function Renderer:command_regions_descriptor(model)
+  return CommandRegions.descriptor(model)
+end
+
+function Renderer:update_command_regions(model)
+  local descriptor = self:command_regions_descriptor(model)
+  if not CommandRegions.same(self.command_regions, descriptor) then self:invalidate("command_regions") end
+  return descriptor
+end
+
 function Renderer:register_semantic_resources(model)
   local registry = self.resource_registry
   local handles = self.resource_handles
@@ -498,6 +519,8 @@ function Renderer:register_semantic_resources(model)
   register("terminal.search", "read", self.search)
   self.hyperlinks = self:hyperlink_descriptor(model)
   register("terminal.hyperlinks", "read", self.hyperlinks)
+  self.command_regions = self:command_regions_descriptor(model)
+  register("terminal.command_regions", "read", self.command_regions)
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
     columns = model.columns,
@@ -516,7 +539,7 @@ function Renderer:register_semantic_resources(model)
   register("surface.color", "write", { format = self.context.surface_format })
 end
 
-function Renderer:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks)
+function Renderer:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions)
   local registry = self.resource_registry
   local handles = self.resource_handles
   local atlas = self.font.glyph_cache.atlas
@@ -538,6 +561,8 @@ function Renderer:refresh_semantic_resources(model, time, delta, selection, sear
   registry:update(handles["terminal.search"], self:resource_descriptor("terminal.search", "read", self.search))
   self.hyperlinks = hyperlinks or self:hyperlink_descriptor(model)
   registry:update(handles["terminal.hyperlinks"], self:resource_descriptor("terminal.hyperlinks", "read", self.hyperlinks))
+  self.command_regions = command_regions or self:command_regions_descriptor(model)
+  registry:update(handles["terminal.command_regions"], self:resource_descriptor("terminal.command_regions", "read", self.command_regions))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
     ranges = self.diagnostics.dirty_ranges,
@@ -684,7 +709,8 @@ function Renderer:update_model(model)
     self.glyph_count = glyph_count
   end
   if self.atlas_generation ~= self.font.glyph_cache.generation then self:upload_atlas() end
-  self:refresh_semantic_resources(model, self.frame_time, 0)
+  local command_regions = self:update_command_regions(model)
+  self:refresh_semantic_resources(model, self.frame_time, 0, nil, nil, nil, command_regions)
   damage:clear()
 end
 
@@ -694,6 +720,7 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   local selection = self:selection_descriptor(model)
   local search = self:search_descriptor(model)
   local hyperlinks = self:hyperlink_descriptor(model)
+  local command_regions = self:command_regions_descriptor(model)
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
@@ -727,8 +754,23 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].hyperlink_green = hyperlinks.color.green
   self.frame[0].hyperlink_blue = hyperlinks.color.blue
   self.frame[0].hyperlink_alpha = hyperlinks.color.alpha
+  local command_region_color = CommandRegions.color_descriptor(self.command_region_color)
+  local command_region_count = self.command_region_visual_enabled and command_regions.boundary_count or 0
+  self.frame[0].command_region_count = command_region_count
+  self.frame[0].command_region_red = command_region_color.red
+  self.frame[0].command_region_green = command_region_color.green
+  self.frame[0].command_region_blue = command_region_color.blue
+  self.frame[0].command_region_alpha = command_region_count > 0 and command_region_color.alpha or 0
+  for index = 0, CommandRegions.visible_boundary_limit - 1 do
+    local boundary = command_regions.boundaries["boundary_" .. (index + 1)]
+    local offset = index * 4
+    self.frame[0].command_region_boundaries[offset] = boundary and boundary.column or 0
+    self.frame[0].command_region_boundaries[offset + 1] = boundary and boundary.row or 0
+    self.frame[0].command_region_boundaries[offset + 2] = boundary and CommandRegions.role_value(boundary.role) or 0
+    self.frame[0].command_region_boundaries[offset + 3] = 0
+  end
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
-  self:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks)
+  self:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions)
 end
 
 function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resources)

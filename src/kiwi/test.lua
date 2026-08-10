@@ -31,6 +31,8 @@ local tests = {
   require("tests.test_command_regions"),
   require("tests.test_command_region_retention"),
   require("tests.test_command_region_navigation"),
+  require("tests.test_command_region_renderer"),
+  require("tests.test_command_region_extension_sample"),
   require("tests.test_composition_spike"),
   require("tests.test_search"),
   require("tests.test_search_renderer"),

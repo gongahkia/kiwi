@@ -7,6 +7,7 @@ Invalidation.reasons = {
   cursor = true,
   selection = true,
   search = true,
+  command_regions = true,
   configuration = true,
   extension = true,
 }

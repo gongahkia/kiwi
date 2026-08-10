@@ -99,6 +99,14 @@ M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-sem
 
 The initial trusted-local registration surface is [Renderer pass API v1](RENDERER_API.md). It validates declaration version, semantic resources, and lifecycle callbacks before pass activation, gives callbacks only cloned resource descriptors, and reuses the deterministic pass graph for initialization, encoding, resize, and shutdown.
 
+`terminal.command_regions` is a read-only renderer resource derived from the
+active viewport. It contains at most 32 `{ row, column, role }` boundaries and
+omits IDs, text, CWD data, status, timestamps, and offscreen history. A visible
+descriptor change requests a distinct `command_regions` invalidation.
+`KIWI_COMMAND_REGIONS=1` adds the built-in alpha-blended separator pass between
+search and glyphs; extensions can observe the descriptor but API v1 cannot
+draw with it.
+
 Optional extensions are local-module configuration only: `KIWI_RENDER_EXTENSIONS` names trusted modules, while `--no-extensions` bypasses discovery before loading any module. Kiwi preflights each registration in isolation, retains bounded structured diagnostics, and disables a failing optional pass for the active renderer lifetime; it does not treat this as a sandbox for untrusted Lua or native code.
 
 `renderer/samples/damage_observer.lua` is the maintained API-v1 reference

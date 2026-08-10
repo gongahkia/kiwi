@@ -1,6 +1,7 @@
 local Assert = require("tests.assert")
 local ffi = require("ffi")
 local Passes = require("kiwi.renderer.passes")
+local PassRegistry = require("kiwi.renderer.pass_registry")
 local Renderer = require("kiwi.renderer.renderer")
 local Resources = require("kiwi.renderer.resources")
 
@@ -100,6 +101,7 @@ return {
       "terminal.selection",
       "terminal.search",
       "terminal.hyperlinks",
+      "terminal.command_regions",
       "terminal.damage",
       "frame.viewport",
       "frame.timing",
@@ -125,6 +127,22 @@ return {
     Assert.equal(captured["terminal.hyperlinks"].descriptor.access, "read")
     Assert.equal(captured["text.alpha_atlas"].descriptor.access, "read")
     Assert.equal(captured["surface.color"].descriptor.access, "write")
+  end,
+  command_region_pass_has_a_stable_opt_in_position = function()
+    local renderer = {
+      native = { constants = { load_clear = 2, load_load = 1 } },
+      command_region_visual_enabled = true,
+      command_regions = { active = true },
+      glyph_count = 4,
+    }
+    local passes = Passes.build(renderer)
+    PassRegistry.validate(passes)
+    Assert.equal(ffi.sizeof("KiwiFrameUniform"), 672)
+    Assert.equal(table.concat((function()
+      local names = {}
+      for index, pass in ipairs(passes) do names[index] = pass.name end
+      return names
+    end)(), ","), "terminal/background,terminal/selection,terminal/search,terminal/command_regions,terminal/glyph,terminal/cursor")
   end,
   background_pass_owns_pipeline_through_its_lifecycle = function()
     local events = {}

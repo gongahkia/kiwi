@@ -66,9 +66,22 @@ function Passes.build(renderer)
   function search:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local command_regions
+  if renderer.command_region_visual_enabled then
+    command_regions = Pass.new("terminal/command_regions", 18, nil, c.load_load, function(model)
+        return renderer.command_regions and renderer.command_regions.active and model.columns * model.rows or 0
+      end, { "terminal.command_regions", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/search" })
+    command_regions.blend = "alpha"
+    function command_regions:initialize(owner)
+      initialize_pipeline(owner, self, "command-region-pass", "command_regions_vs", "command_regions_fs")
+    end
+    function command_regions:shutdown(owner)
+      shutdown_pipeline(owner, self)
+    end
+  end
   local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
       return renderer.glyph_count or 0
-    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.hyperlinks", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/search" })
+    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.hyperlinks", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, command_regions and { "terminal/command_regions" } or { "terminal/search" })
   function glyph:initialize(owner)
     initialize_pipeline(owner, self, "glyph-pass", "glyph_vs", "glyph_fs")
   end
@@ -84,13 +97,15 @@ function Passes.build(renderer)
   function cursor:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
-  return {
+  local passes = {
     background,
     selection,
     search,
-    glyph,
-    cursor,
   }
+  if command_regions then passes[#passes + 1] = command_regions end
+  passes[#passes + 1] = glyph
+  passes[#passes + 1] = cursor
+  return passes
 end
 
 return Passes

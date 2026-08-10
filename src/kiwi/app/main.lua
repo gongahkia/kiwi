@@ -109,6 +109,8 @@ local function renderer_options(runtime_options)
     selection_color = os.getenv("KIWI_SELECTION_COLOR"),
     search_color = os.getenv("KIWI_SEARCH_COLOR"),
     hyperlink_color = os.getenv("KIWI_HYPERLINK_COLOR"),
+    command_region_visual_enabled = os.getenv("KIWI_COMMAND_REGIONS") == "1",
+    command_region_color = os.getenv("KIWI_COMMAND_REGION_COLOR"),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
   }

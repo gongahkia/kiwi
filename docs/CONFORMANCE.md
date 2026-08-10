@@ -139,10 +139,17 @@ There are at most 256 retained records by default. Canonical replay snapshots
 include opaque region fields/counters and visible-row IDs but no directory or
 terminal-text duplication; the existing JSONL replay derives the same state
 from recorded bytes. Snapshot output is `v: 1` and observation-only—there is
-no snapshot restore API. There is no renderer resource, navigation, persistent
-store, shell installer, command execution, or UI in this milestone. [ADR 0028](adr/0028-stable-command-region-lifecycle.md)
-and [ADR 0029](adr/0029-command-region-retention-and-snapshot-boundary.md)
-define the lifecycle and retention boundaries.
+no snapshot restore API. The read-only `terminal.command_regions` renderer
+resource separately retains at most 32 deduplicated boundaries in the active
+viewport, each only `{ row, column, role }`; it omits opaque region IDs, row
+IDs, command/output text, CWD data, statuses, recovery, timestamps, and
+offscreen regions. A descriptor change requests a `command_regions`
+invalidation. `KIWI_COMMAND_REGIONS=1` adds an opt-in command/output separator
+pass; extension API v1 can observe the descriptor but cannot draw. There is no
+persistent store, shell installer, command execution, or command UI. [ADR 0028](adr/0028-stable-command-region-lifecycle.md),
+[ADR 0029](adr/0029-command-region-retention-and-snapshot-boundary.md), and
+[ADR 0032](adr/0032-bounded-command-region-render-resource.md) define the
+boundaries.
 
 ## Command-region navigation
 
