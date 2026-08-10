@@ -101,6 +101,11 @@ The initial trusted-local registration surface is [Renderer pass API v1](RENDERE
 
 Optional extensions are local-module configuration only: `KIWI_RENDER_EXTENSIONS` names trusted modules, while `--no-extensions` bypasses discovery before loading any module. Kiwi preflights each registration in isolation, retains bounded structured diagnostics, and disables a failing optional pass for the active renderer lifetime; it does not treat this as a sandbox for untrusted Lua or native code.
 
+`renderer/samples/damage_observer.lua` is the maintained API-v1 reference
+module. It observes only semantic damage/timing descriptors and requests one
+coalesced follow-up deadline after damage; it has no overlay because v1 does
+not expose command encoders, shaders, or extension-owned GPU allocation.
+
 API v1 enforces a bounded optional-pass count and a maximum extension animation rate before graph activation or redraw scheduling. It exposes no extension-owned GPU allocation or shader capability, so those limits are explicit zero-capability states; the pinned native binding also has no GPU-memory budget query. Future allocation, shader, or memory-budget support must be versioned rather than bypassing this boundary.
 
 Passes may additionally declare opt-in advisory CPU, GPU-tick, allocation, and

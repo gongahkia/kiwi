@@ -6,42 +6,29 @@ sandbox. The host passes registration functions explicitly when it constructs
 `Renderer`; optional extension configuration and containment are separate
 work.
 
-```lua
-local PassApi = require("kiwi.renderer.pass_api")
+The maintained runnable example is
+[`src/kiwi/renderer/samples/damage_observer.lua`](../src/kiwi/renderer/samples/damage_observer.lua).
+It reads only `terminal.damage` and `frame.timing`, owns no GPU state, and
+requests one 250 ms follow-up deadline only on a frame with terminal damage.
+The subsequent idle frame does not request another deadline, so it cannot make
+an idle terminal redraw continuously.
 
-local last_frame
+Run it from a built checkout with:
 
-local function register_frame_observer(api)
-  api:register({
-    api_version = PassApi.version,
-    extension = "example",
-    name = "frame_observer",
-    order = 40,
-    reads = { "frame.timing", "frame.viewport" },
-    writes = {},
-    after = { "terminal/cursor" },
-    budget = { cpu_ms = 0.5, gpu_ticks = 1000000, cadence_hz = 30, window = 30 },
-    initialize = function(context)
-      assert(context.api_version == 1)
-    end,
-    encode = function(context)
-      local time = context.resources["frame.timing"].descriptor.time
-      local columns = context.resources["frame.viewport"].descriptor.columns
-      last_frame = { time = time, columns = columns }
-    end,
-    resize = function(context)
-      last_frame = { previous = context.resize.previous, current = context.resize.current }
-    end,
-    shutdown = function(context)
-      last_frame = nil
-    end,
-  })
-end
-
-Renderer.new(context, font, state, {
-  extensions = { register_frame_observer },
-})
+```sh
+KIWI_RENDER_EXTENSIONS=kiwi.renderer.samples.damage_observer \
+  KIWI_PASS_METRICS=1 KIWI_MAX_FRAMES=60 \
+  make run ARGS='-- /usr/bin/printf "sample extension\n"'
+KIWI_RENDER_EXTENSIONS=kiwi.renderer.samples.damage_observer \
+  make run ARGS='--no-extensions -- /usr/bin/printf "safe mode\n"'
+make check
 ```
+
+The first command loads the sample; the second proves safe mode bypasses the
+same configured module before it is required. The sample's deterministic
+contract is exercised by `test_extension_sample.lua`; it is a semantic
+observer, not a debug overlay, because API v1 has no drawing or allocation
+capability.
 
 `api_version` must be exactly `PassApi.version` (currently `1`). `extension`
 and `name` are lowercase identifiers using letters, digits, `_`, and `-`; Kiwi
@@ -109,6 +96,8 @@ own versioned ownership and budget contract.
 `context.request_animation(delay_seconds)` is the only scheduling capability.
 It coalesces an extension redraw deadline and clamps its cadence to the
 renderer policy; it does not create an unbounded timer or background loop.
+Call it only for a finite state transition and omit it on the resulting idle
+frame, as the maintained sample does.
 
 ## Discovery and containment
 
