@@ -49,6 +49,41 @@ int main() {
   }
 
   {
+    const char* numeric_flags[] = {
+      "--cell-aspect", "--fps", "--max-fps", "--edge-threshold", "--edge-strength", "--dog-sigma",
+      "--dog-threshold", "--contrast", "--glyph-stickiness", "--orient-stickiness", "--diff-oklab-eps",
+      "--bandwidth-cap", "--overlay-alpha", "--overlay-depth-threshold", "--plot-rate",
+    };
+    const char* non_finite_values[] = {"nan", "inf", "-inf"};
+    for (const char* flag : numeric_flags) {
+      for (const char* value : non_finite_values) {
+        const char* argv[] = {"strok", flag, value};
+        const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+        expect(!parsed.error.empty(), "numeric flags reject non-finite values");
+      }
+    }
+    for (const char* value : non_finite_values) {
+      const char* argv[] = {"strok", "--dog-sigma", value};
+      const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+      expect(!parsed.error.empty(), "single DoG sigma rejects non-finite values");
+    }
+    const char* dog_pair_values[] = {"nan,1", "1,inf", "-inf,1"};
+    for (const char* value : dog_pair_values) {
+      const char* argv[] = {"strok", "--dog-sigma", value};
+      const auto parsed = strok::parseArgs(3, const_cast<char**>(argv));
+      expect(!parsed.error.empty(), "paired DoG sigma rejects non-finite values");
+    }
+  }
+
+  {
+    writeConfig(test_root / "non-finite", "fps=nan\n");
+    const char* argv[] = {"strok", "movie.mp4"};
+    const auto parsed = strok::parseArgs(2, const_cast<char**>(argv));
+    expect(!parsed.error.empty(), "config rejects non-finite numeric values");
+    setConfigRoot(test_root / "empty");
+  }
+
+  {
     const char* argv[] = {
       "strok",
       "--input-open-timeout", "1200",

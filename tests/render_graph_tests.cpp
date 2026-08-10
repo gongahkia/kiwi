@@ -38,6 +38,21 @@ bool throwsGraphError(const std::function<void()>& body) {
   return false;
 }
 
+bool descriptorMismatch(strok::BufferDesc producer_desc, strok::BufferDesc consumer_desc) {
+  std::vector<strok::Pass> passes;
+  passes.push_back(strok::Pass{
+    .id = "producer",
+    .outputs = {strok::PassPort{.name = "buffer", .desc = std::move(producer_desc)}},
+    .supports = {strok::Backend::Cpu},
+  });
+  passes.push_back(strok::Pass{
+    .id = "consumer",
+    .inputs = {strok::PassPort{.name = "buffer", .desc = std::move(consumer_desc)}},
+    .supports = {strok::Backend::Cpu},
+  });
+  return throwsGraphError([&] { (void)strok::buildGraph(std::move(passes)); });
+}
+
 }  // namespace
 
 int main() {
@@ -181,5 +196,45 @@ int main() {
              "gpu-capable(metal)   -> x:Custom\n"
              "cpu-only(cpu)  x:Custom -> y:Custom\n",
            "per-pass backend dump");
+  }
+
+  {
+    const strok::BufferDesc desc{
+      .kind = strok::BufferKind::LuminanceField,
+      .width = 80,
+      .height = 24,
+      .sample_x = 2,
+      .sample_y = 3,
+      .label = "analysis",
+    };
+    expect(!descriptorMismatch(desc, desc), "matching detailed descriptors build");
+    expect(descriptorMismatch(desc, strok::BufferDesc{.kind = strok::BufferKind::GradientField,
+                                                      .width = 80,
+                                                      .height = 24,
+                                                      .sample_x = 2,
+                                                      .sample_y = 3,
+                                                      .label = "analysis"}),
+           "mismatched buffer kind rejected");
+    expect(descriptorMismatch(desc, strok::BufferDesc{.kind = strok::BufferKind::LuminanceField,
+                                                      .width = 81,
+                                                      .height = 24,
+                                                      .sample_x = 2,
+                                                      .sample_y = 3,
+                                                      .label = "analysis"}),
+           "mismatched buffer dimensions rejected");
+    expect(descriptorMismatch(desc, strok::BufferDesc{.kind = strok::BufferKind::LuminanceField,
+                                                      .width = 80,
+                                                      .height = 24,
+                                                      .sample_x = 1,
+                                                      .sample_y = 3,
+                                                      .label = "analysis"}),
+           "mismatched buffer sampling rejected");
+    expect(descriptorMismatch(desc, strok::BufferDesc{.kind = strok::BufferKind::LuminanceField,
+                                                      .width = 80,
+                                                      .height = 24,
+                                                      .sample_x = 2,
+                                                      .sample_y = 3,
+                                                      .label = "presentation"}),
+           "mismatched buffer label rejected");
   }
 }

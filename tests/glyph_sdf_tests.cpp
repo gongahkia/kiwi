@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -25,6 +26,32 @@ std::vector<double> centeredSquare(int width, int height) {
   return values;
 }
 
+strok::SignedDistanceField exhaustiveSdf(const std::vector<double>& values, int width, int height) {
+  strok::SignedDistanceField result;
+  result.width = width;
+  result.height = height;
+  result.values.resize(values.size(), 0.0);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const bool pixel_inside = values[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] >= 0.5;
+      double distance = std::numeric_limits<double>::infinity();
+      for (int yy = 0; yy < height; ++yy) {
+        for (int xx = 0; xx < width; ++xx) {
+          const bool candidate_inside = values[static_cast<std::size_t>(yy) * static_cast<std::size_t>(width) + static_cast<std::size_t>(xx)] >= 0.5;
+          if (candidate_inside != pixel_inside) {
+            distance = std::min(distance, std::hypot(static_cast<double>(xx - x), static_cast<double>(yy - y)));
+          }
+        }
+      }
+      if (!std::isfinite(distance)) {
+        distance = std::hypot(static_cast<double>(width), static_cast<double>(height));
+      }
+      result.values[static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)] = pixel_inside ? distance : -distance;
+    }
+  }
+  return result;
+}
+
 }  // namespace
 
 int main() {
@@ -35,6 +62,21 @@ int main() {
     expect(sdf.width == width && sdf.height == height, "SDF dimensions");
     expect(sdf.values[4 * width + 4] > 0.0, "SDF center is inside-positive");
     expect(sdf.values[0] < 0.0, "SDF corner is outside-negative");
+  }
+
+  {
+    const std::vector<std::vector<double>> fixtures = {
+      {0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0},
+      std::vector<double>(12U, 1.0),
+      std::vector<double>(12U, 0.0),
+    };
+    for (const std::vector<double>& values : fixtures) {
+      const strok::SignedDistanceField actual = strok::signedDistanceFieldForValues(values, 4, 3);
+      const strok::SignedDistanceField expected = exhaustiveSdf(values, 4, 3);
+      for (std::size_t index = 0; index < actual.values.size(); ++index) {
+        expect(std::abs(actual.values[index] - expected.values[index]) < 1e-12, "exact EDT matches exhaustive SDF");
+      }
+    }
   }
 
   {

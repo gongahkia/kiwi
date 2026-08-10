@@ -168,6 +168,28 @@ int main() {
          "near-tied temporal candidates can retain their full prior CellBuffer value");
   expect(retaining_candidate_renderer.renderer->cells().at(0, 0) == retained_cell,
          "temporal reuse retains the prior glyph and colors together");
+
+  strok::RendererConfig glyph_history_config;
+  glyph_history_config.cell_aspect = 1.0;
+  glyph_history_config.mode = "structure";
+  glyph_history_config.edge_threshold = 0.01;
+  glyph_history_config.glyph_stickiness = 1.0;
+  glyph_history_config.temporal_cell_reuse = false;
+  const strok::Renderer::CreateResult glyph_history_renderer = strok::Renderer::create(
+    glyph_history_config, strok::RenderGrid{.cols = 1, .rows = 1});
+  expect(glyph_history_renderer.succeeded() && glyph_history_renderer.renderer->render(splitEdgeFrame(true)).succeeded(),
+         "glyph history renderer starts a sequence");
+  const char32_t previous_glyph = glyph_history_renderer.renderer->cells().at(0, 0).glyph;
+  expect(previous_glyph != U' ', "glyph history fixture starts with a structure glyph");
+  const strok::RenderResult glyph_history_followup = glyph_history_renderer.renderer->render(splitEdgeFrame(false));
+  expect(glyph_history_followup.succeeded() && glyph_history_followup.stats.optical_flow_blocks > 0 &&
+             glyph_history_followup.stats.warp_history_cells > 0,
+         "glyph history follow-up warps optical-flow history");
+  expect(glyph_history_followup.stats.temporal_cell_candidate_cells == 0 && glyph_history_followup.stats.temporal_cell_reused_cells == 0,
+         "glyph history stabilization does not require full-cell reuse");
+  expect(glyph_history_renderer.renderer->cells().at(0, 0).glyph == previous_glyph,
+         "glyph history retains the prior non-space glyph without full-cell reuse");
+
   retaining_candidate_config.glyph_stickiness = 0.05;
   const strok::Renderer::CreateResult rejected_candidate_renderer = strok::Renderer::create(
     retaining_candidate_config, strok::RenderGrid{.cols = 1, .rows = 1});

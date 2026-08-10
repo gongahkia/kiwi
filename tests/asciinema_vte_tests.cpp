@@ -73,4 +73,16 @@ int main() {
     expect(screen.cells().at(0, 0).fg.g == 2, "truecolor sgr g");
     expect(screen.cells().at(0, 0).fg.b == 3, "truecolor sgr b");
   }
+
+  {
+    strok::AsciinemaVteScreen screen(3, 1);
+    screen.applyOutput("\xf0\x9f\x98\x80");
+    expect(screen.cells().at(0, 0).glyph == U'\U0001f600', "UTF-8 supplementary scalar renders");
+  }
+
+  {
+    strok::AsciinemaVteScreen screen(3, 1);
+    screen.applyOutput("\xed\xa0\x80");
+    expect(screen.cells().at(0, 0).glyph == U'?', "UTF-8 surrogate encoding is rejected");
+  }
 }
