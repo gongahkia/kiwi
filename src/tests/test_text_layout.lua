@@ -36,6 +36,17 @@ return {
     Assert.truthy(system.stats.fallback_hits >= 2)
     system:destroy()
   end,
+  font_system_caches_primary_ascii_coverage_without_changing_face_selection = function()
+    local system = text_system()
+    local first = assert(system:face_for_cluster({ string.byte("A") }))
+    local repeated = assert(system:face_for_cluster({ string.byte("A") }))
+    Assert.equal(first, system.primary)
+    Assert.equal(repeated, system.primary)
+    Assert.equal(system.stats.primary_ascii_coverage_probes, 1)
+    Assert.equal(system.stats.primary_ascii_cache_hits, 1)
+    Assert.equal(system.stats.fallback_hits, 0)
+    system:destroy()
+  end,
   text_layout_shapes_documented_cjk_categories_with_fallback_faces = function()
     local system = text_system()
     local layout = Layout.new(system)

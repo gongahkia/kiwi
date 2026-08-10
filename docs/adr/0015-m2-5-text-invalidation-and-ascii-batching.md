@@ -10,6 +10,8 @@ M2 used logical terminal damage to decide both background/cursor uploads and sha
 
 Only the production direct parser sink writes existing singleton ASCII clusters directly into normal cells without a transient cell table. Parser byte streaming and callback mode are unchanged, and `Prepend × ASCII` uses the general grapheme path for its first ASCII scalar.
 
+`FontSystem` caches the primary face's coverage result for singleton printable ASCII code points (U+0020–U+007E). A first encounter still queries the primary face; a negative result continues through the existing fallback path. The cache is therefore bounded to 95 entries and does not assume that every configured primary font supports ASCII.
+
 ## Consequences
 
-Static and cursor-only frames avoid redundant text reshaping while background/cursor damage behavior remains intact. The ASCII optimization is constrained to a profiled fast path and has parser callback-versus-sink snapshot coverage across controls, split input, and `Prepend`; it neither changes grid storage nor creates an ASCII-specific rendering model. Unicode property, grapheme, width, fallback, and shaping costs remain separately measured rather than bypassed.
+Static and cursor-only frames avoid redundant text reshaping while background/cursor damage behavior remains intact. The ASCII optimizations are constrained to profiled fast paths and have parser callback-versus-sink snapshot coverage across controls, split input, and `Prepend`; they neither change grid storage nor create an ASCII-specific rendering model. The coverage cache removes repeated primary-face checks only after the first result and retains fallback for a missing primary glyph. Unicode property, grapheme, width, fallback, and shaping costs remain separately measured rather than bypassed.

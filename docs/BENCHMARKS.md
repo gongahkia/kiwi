@@ -70,7 +70,7 @@ Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is m
 | Stage | Timed work |
 | --- | --- |
 | UTF-8 decode | incremental byte decoding only |
-| ASCII cell mutation control | alternating legacy transient-cell copy and direct mutation in one LuaJIT process |
+| ASCII cell mutation control | two legacy and two direct mutation blocks, each with a fresh LuaJIT trace |
 | parser/cluster mutation/logical damage | production parser sink, cluster/width mutation, and both damage streams |
 | row-run construction/fallback | visible cluster inspection, primary coverage, fallback decisions, and same-face runs |
 | HarfBuzz shaping | prebuilt runs through HarfBuzz only |
@@ -79,9 +79,9 @@ Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is m
 | shape invalidation cursor-only | cached static layout with cursor-only logical damage |
 | full parser-to-glyph record | parser through text glyph records; PTY and GPU work excluded |
 
-Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The ASCII control includes both p50/p95/p99 series and is the only in-process legacy comparator; it avoids attributing host-frequency drift to the mutation change. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
+Counters include decoded scalars, parser actions/errors, ASCII fast-path use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, bounded primary-ASCII coverage-cache probes/hits, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The ASCII control includes both p50/p95/p99 series and is the only in-process legacy comparator; trace flushing occurs between whole blocks, rather than mutating the method on each sample, to avoid measuring JIT invalidation. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
 
-`script/compare-bench` accepts the original schema 3 and M2.5 schema 4, but never mixes them. It rejects differing iteration/warm-up or M2.5 font/atlas/shaping configuration, timing scope, or row sets before printing p50/p95/p99/mean and throughput deltas. Results stay local/ignored; compare only identical scopes on the same or closely controlled host.
+`script/compare-bench` accepts the original schema 3 and M2.5 schema 4, but never mixes them. It rejects differing iteration/warm-up or M2.5 font/atlas/shaping configuration and timing scope. Schema 3 also rejects a row-set mismatch. Schema 4 compares only the shared rows and explicitly lists added or removed stages, so benchmark instrumentation can grow without falsely comparing a new stage to absent historical data. Results stay local/ignored; compare only identical scopes on the same or closely controlled host.
 
 `make profile-text` stores ignored sampling output in `bench/profiles/`; `KIWI_PROFILE_TRACE=1` also stores the corresponding LuaJIT `-jv` trace. The final 100,000-iteration no-scroll ASCII profile sampled 99% compiled code; its trace retained the parser byte loop and the direct ASCII cell mutation in one stitched trace. The matching Unicode profile sampled 78% compiled, 12% GC, and 8% interpreted code, concentrated in Unicode properties, grapheme/width work, cluster copying, UTF-8 replacement handling, and damage fallback paths. Fresh-state and scroll-heavy profiles attribute their allocation samples to row/blank-cell construction; that setup/scroll allocation is intentionally distinct from steady no-scroll typing and is not presented as an ASCII mutation cost.
 
@@ -94,7 +94,7 @@ This is a release gate for an interactive Wayland session, not an automated clai
 - Repeat with the bundled text child (`KIWI_MAX_FRAMES=240 make text-demo`), include CJK/combining/emoji output, and use `--inspect` on a continuation and an anchor.
 - Close the window while output is active and confirm the child exits; retain the command, desktop/session details, and any visual anomaly with the release evidence.
 
-`make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, component/workload set, and each component's exact scope before producing deltas. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
+`make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, and each shared component's exact scope before producing deltas. Schema 4 stage additions/removals are labeled rather than compared; all other configuration mismatch is rejected. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 
 ## Profiling and changes
 

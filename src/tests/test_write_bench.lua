@@ -8,7 +8,7 @@ return {
     local stages = {}
     for _, item in ipairs(results) do
       stages[item.stage] = (stages[item.stage] or 0) + 1
-      Assert.equal(item.cpu_ms.count, 1)
+      Assert.equal(item.cpu_ms.count, item.stage == "ascii-cell-mutation-control" and 2 or 1)
       Assert.truthy(item.scope:find("GPU", 1, true) ~= nil)
     end
     Assert.equal(stages["utf8-decode"], 2)
@@ -22,8 +22,9 @@ return {
     Assert.equal(stages["full-parser-to-glyph-record"], 2)
     for _, item in ipairs(results) do
       if item.stage == "ascii-cell-mutation-control" then
-        Assert.equal(item.control.legacy_cpu_ms.count, 1)
-        Assert.equal(item.control.direct_cpu_ms.count, 1)
+        Assert.equal(item.iterations, 2)
+        Assert.equal(item.control.legacy_cpu_ms.count, 2)
+        Assert.equal(item.control.direct_cpu_ms.count, 2)
       end
       if item.stage == "shape-invalidation-cursor-only" then
         Assert.equal(item.counters.rows_reshaped, 0)
