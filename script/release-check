@@ -5,8 +5,8 @@ readonly ROOT=${0:A:h:h}
 readonly WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-KIWI_RELEASE_DIST="$WORK/first" "$ROOT/script/release-build"
-KIWI_RELEASE_DIST="$WORK/second" "$ROOT/script/release-build"
+KIWI_RELEASE_ALLOW_DIRTY=1 KIWI_RELEASE_DIST="$WORK/first" "$ROOT/script/release-build"
+KIWI_RELEASE_ALLOW_DIRTY=1 KIWI_RELEASE_DIST="$WORK/second" "$ROOT/script/release-build"
 
 readonly VERSION=$(<"$ROOT/VERSION")
 readonly NAME="kiwi-$VERSION-linux-x86_64"

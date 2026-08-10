@@ -18,7 +18,7 @@ int kiwi_pty_set_nonblocking(int fd);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local native_path = root .. "/.build/native/libkiwi_surface.so"
+local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
 local native_ok, native = pcall(ffi.load, native_path)
 if not native_ok then
   error("Unable to load Kiwi native bridge at " .. native_path .. "; run make native: " .. tostring(native))

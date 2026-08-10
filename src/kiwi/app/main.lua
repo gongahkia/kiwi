@@ -559,6 +559,8 @@ end
 local options = parse_options()
 if options.version then
   io.stdout:write(Build.format(Build.info()), "\n")
+elseif options.release_mode and options.demo then
+  error("--demo is unavailable in release mode")
 elseif options.replay then
   run_replay(options.replay)
 elseif options.demo then

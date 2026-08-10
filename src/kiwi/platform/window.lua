@@ -62,11 +62,11 @@ function Window.new(width, height, title, options)
     if action == glfw.constants.release then self.suppress_text = false end
     if not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
-    elseif action == glfw.constants.press and key == glfw.constants.key_f3 then
+    elseif not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f3 then
       self.debug_boundaries = not self.debug_boundaries
-    elseif action == glfw.constants.press and key == glfw.constants.key_f4 then
+    elseif not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f4 then
       self.debug_metrics = not self.debug_metrics
-    elseif action == glfw.constants.press and key == glfw.constants.key_f5 then
+    elseif not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f5 then
       self.shader_reload_requested = true
     elseif action == glfw.constants.press and key == glfw.constants.key_escape then
       glfw.lib.glfwSetWindowShouldClose(self.handle, 1)

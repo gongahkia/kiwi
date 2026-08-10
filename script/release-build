@@ -33,6 +33,10 @@ if git -C "$ROOT" diff --quiet && git -C "$ROOT" diff --cached --quiet; then
   tree_state=clean
 else
   tree_state=dirty
+  if [[ ${KIWI_RELEASE_ALLOW_DIRTY:-0} != 1 ]]; then
+    print -u2 "Refusing to create a persistent release artifact from a dirty checkout; commit or stash changes first."
+    exit 1
+  fi
 fi
 
 "$ROOT/script/build-native"
