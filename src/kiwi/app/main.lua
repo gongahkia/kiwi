@@ -133,6 +133,10 @@ local function run_live(options)
   local recorder
   local ok, result = xpcall(function()
     context = Context.new(window)
+    if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
+      local probe_ok, probe_message = context:probe_timestamp_queries()
+      io.stderr:write("Kiwi timestamp probe: ", probe_ok and "supported: " or "unavailable: ", probe_message, "\n")
+    end
     font = new_font(window)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")

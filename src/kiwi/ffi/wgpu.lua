@@ -135,6 +135,7 @@ void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
+int kiwi_timestamp_query_probe(WGPUInstance instance, WGPUAdapter adapter);
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char* source_code);
 const char* kiwi_surface_last_error(void);
 void kiwi_surface_clear_error(void);

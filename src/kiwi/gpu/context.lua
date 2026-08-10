@@ -90,6 +90,15 @@ function Context:next_renderer_generation()
   return self.renderer_generation
 end
 
+function Context:probe_timestamp_queries()
+  if not self.timestamp_query_supported then
+    return false, "adapter does not expose timestamp-query"
+  end
+  self.native.surface.kiwi_surface_clear_error()
+  local ok = self.native.surface.kiwi_timestamp_query_probe(self.instance, self.adapter) ~= 0
+  return ok, ffi.string(self.native.surface.kiwi_surface_last_error())
+end
+
 function Context:destroy()
   local api = self.native.lib
   if self.surface ~= nil then
