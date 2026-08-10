@@ -206,6 +206,57 @@ bounded frame count. It verifies cleanup/recreation control flow where a real
 device loss cannot be induced, but does not observe a driver callback. Record a
 real callback separately when a platform exposes a safe fault-injection path.
 
+## M9 redraw scheduling observation
+
+`make power-smoke` writes an ignored, schema-version-1
+`bench/results/<UTC timestamp>-power.json` report. The graphical fixture sends
+one fixed synthetic PTY input (recorded separately from physical input), emits
+three short output bursts, requests a 10 Hz trusted extension animation, and
+uses the bounded GLFW lifecycle calls from `device-soak`; it exits after
+`KIWI_DEVICE_SOAK_SECONDS` (default `6`). The target skips without a graphical
+display. It aggregates loop wakeups, requested wait time, active/idle/minimized
+observed durations, successful renderer returns, deferred presentation, input
+and output event counts, invalidation reasons, and extension-animation frames.
+It retains no event payload.
+
+The report does **not** measure battery discharge, CPU package energy, GPU
+energy, compositor work, panel scan-out, or operating-system wakeup attribution.
+A `wakeup` is only a return from Kiwi's GLFW wait loop. GLFW has no portable
+compositor-occlusion callback, so occlusion is explicitly unavailable. A
+zero `minimized` duration means that the platform did not deliver an iconify
+state during that particular run; it is not evidence that the window was not
+occluded or that the minimized branch ran.
+
+Policy is intentionally conservative: visible sessions wait at most 50 ms so
+the single Lua thread can service the nonblocking PTY and GLFW; pending output,
+input, resize, local actions, or configuration each coalesce into the next
+render. A visible blinking cursor schedules one 0.5-second deadline. Iconified
+windows retain terminal state and invalidation but avoid surface acquire/present
+and use a 250 ms maximum wait; restoration reconfigures then presents the latest
+state. DEC synchronized output has the same defer-without-drop behavior.
+Extension animation deadlines remain bounded by
+`KIWI_EXTENSION_MAX_ANIMATION_HZ` (1/60 through 60 Hz) and do not run while a
+window is minimized.
+
+On the Fedora 43 Wayland host, the initial six-second `make power-smoke` report
+observed 130 GLFW-loop wakeups (21.56 Hz), 26 successful renderer returns, three
+output events, 10 extension-animation frames, one synthetic input event, 0.603
+active seconds, and 5.426 idle seconds. It observed zero minimized seconds and
+zero physical input events: the programmatic GLFW iconify requests did not yield
+an iconify state on this host, and the fixture intentionally uses no physical
+keyboard injection. Those are unavailable states, not favorable power or latency
+results. Re-run with real typing and a compositor that reports iconification
+before comparing the corresponding counters; compare only matching duration,
+extension cadence, display/session, driver, governor, kernel, and source
+revision.
+
+Regression validation is behavioral rather than a wattage threshold: `make
+test` proves deadline coalescing and minimized presentation gating; `make
+power-smoke` must remain bounded, produce a report below 64 KiB, retain no
+payload, and show extension animation frames when its fixture is active. A
+future platform energy integration must be versioned separately rather than
+turning these counters into an energy claim.
+
 ## M8 text corpus and review protocol
 
 `src/kiwi/text/benchmark_corpus.lua` is the versioned, reviewable corpus for

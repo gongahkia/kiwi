@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke pacing device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -41,6 +41,10 @@ budget-smoke: native terminfo
 pacing: native terminfo
 	mkdir -p bench/results
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
+
+power-smoke: native terminfo
+	mkdir -p bench/results
+	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP power scheduling measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_POWER_REPORT=1 KIWI_POWER_SYNTHETIC_INPUT=1 KIWI_DEVICE_SOAK_SECONDS=$${KIWI_DEVICE_SOAK_SECONDS:-6} KIWI_EXTENSION_MAX_ANIMATION_HZ=10 KIWI_RENDER_EXTENSIONS=tests.fixture_power_extension $(LUAJIT) src/kiwi/app/main.lua -- ./script/power-child; fi
 
 device-soak:
 	$(LUAJIT) src/kiwi/bench/device_soak.lua

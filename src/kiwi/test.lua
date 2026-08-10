@@ -24,6 +24,7 @@ local tests = {
   require("tests.test_pipeline_bench"),
   require("tests.test_longrun"),
   require("tests.test_pacing"),
+  require("tests.test_power"),
   require("tests.test_device_soak"),
   require("tests.test_text_bench"),
   require("tests.test_write_bench"),

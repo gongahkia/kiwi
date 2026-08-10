@@ -9,6 +9,7 @@ typedef void (*GLFWcursorposfun)(GLFWwindow* window, double xpos, double ypos);
 typedef void (*GLFWmousebuttonfun)(GLFWwindow* window, int button, int action, int mods);
 typedef void (*GLFWscrollfun)(GLFWwindow* window, double xoffset, double yoffset);
 typedef void (*GLFWwindowfocusfun)(GLFWwindow* window, int focused);
+typedef void (*GLFWwindowiconifyfun)(GLFWwindow* window, int iconified);
 int glfwInit(void);
 void glfwTerminate(void);
 void glfwWindowHint(int hint, int value);
@@ -31,6 +32,7 @@ GLFWcursorposfun glfwSetCursorPosCallback(GLFWwindow* window, GLFWcursorposfun c
 GLFWmousebuttonfun glfwSetMouseButtonCallback(GLFWwindow* window, GLFWmousebuttonfun callback);
 GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun callback);
 GLFWwindowfocusfun glfwSetWindowFocusCallback(GLFWwindow* window, GLFWwindowfocusfun callback);
+GLFWwindowiconifyfun glfwSetWindowIconifyCallback(GLFWwindow* window, GLFWwindowiconifyfun callback);
 void glfwSetWindowTitle(GLFWwindow* window, const char* title);
 void glfwSetClipboardString(GLFWwindow* window, const char* string);
 const char* glfwGetClipboardString(GLFWwindow* window);

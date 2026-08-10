@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if read -rt 2 input_line; then
+  print "power-input-received"
+fi
+
+for burst in {1..3}; do
+  for line in {1..24}; do
+    print "power-burst-${burst}-${line}"
+  done
+  sleep 1
+done
+
+sleep 30
