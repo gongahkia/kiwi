@@ -12,6 +12,7 @@ htmlcov/
 # Kiwi renderer-laboratory dependencies and generated outputs.
 .deps/
 .build/
+dist/
 bench/results/*.json
 !bench/results/example.json
 bench/profiles/

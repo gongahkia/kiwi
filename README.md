@@ -41,7 +41,9 @@ adjacent SHA-256 file. The archive contains the Lua sources, native surface
 bridge, pinned wgpu-native runtime, compiled `kiwi` terminfo, a launcher, and
 `metadata.json` with the version, Git revision, source-date epoch, dependency
 identity, and runtime-library requirements. It neither uploads nor publishes
-anything. `make release-check` builds twice with normalized archive metadata,
+anything. `make release` refuses a dirty checkout, so a persistent artifact is
+always attributable to its recorded revision. `make release-check` builds twice
+in a disposable directory with normalized archive metadata,
 compares the byte streams, verifies the checksum, extracts the archive, and
 confirms that its launcher reports release mode even when
 `KIWI_DEVELOPMENT=1` is inherited.
