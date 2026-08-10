@@ -60,3 +60,7 @@ module. Reads are limited to ABI-v1 read resources and writes to
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.
+
+`context.request_animation(delay_seconds)` is the only scheduling capability.
+It coalesces an extension redraw deadline and clamps its cadence to the
+renderer policy; it does not create an unbounded timer or background loop.

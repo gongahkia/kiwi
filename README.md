@@ -60,6 +60,8 @@ WGSL hot reload is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an
 
 `KIWI_PASS_METRICS=1` enables bounded per-pass CPU preparation and encoding samples in the renderer diagnostics. The default leaves this instrumentation disabled.
 
+Kiwi coalesces terminal, resize, cursor, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.

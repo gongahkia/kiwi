@@ -10,6 +10,13 @@ end
 
 local function renderer()
   return {
+    frame_time = 10,
+    schedule_animation = function(_, reason, now, delay)
+      Assert.equal(reason, "extension")
+      Assert.equal(now, 10)
+      Assert.equal(delay, 0.1)
+      return 10.1
+    end,
     resolve_pass_resources = function(_, pass)
       local resources = {}
       for _, name in ipairs(pass.reads) do resources[name] = { name = name, descriptor = { access = "read" } } end
@@ -57,6 +64,7 @@ return {
           encode = function(context)
             Assert.equal(context.phase, "encode")
             Assert.equal(context.resources["frame.timing"].name, "frame.timing")
+            Assert.equal(context.request_animation(0.1), 10.1)
             events[#events + 1] = "extension-encode"
           end,
           resize = function(context)

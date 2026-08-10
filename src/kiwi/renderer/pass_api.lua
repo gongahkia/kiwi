@@ -50,6 +50,9 @@ local function callback_context(renderer, pass, phase, resize)
     pass = public_pass(pass),
     phase = phase,
     resources = renderer:resolve_pass_resources(pass),
+    request_animation = function(delay)
+      return renderer:schedule_animation("extension", renderer.frame_time, delay)
+    end,
   }
   if resize then
     context.resize = {

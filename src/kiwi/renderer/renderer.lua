@@ -4,6 +4,7 @@ local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local PassApi = require("kiwi.renderer.pass_api")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
+local Invalidation = require("kiwi.renderer.invalidation")
 local Resources = require("kiwi.renderer.resources")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
@@ -79,6 +80,7 @@ function Renderer.new(context, font, model, options)
     shader_path = shader_path,
     extensions = extensions,
     pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled }),
+    invalidation = Invalidation.new(),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -103,6 +105,7 @@ function Renderer.new(context, font, model, options)
   }, Renderer)
   self.pass_api = PassApi.new()
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
+  self.invalidation:request("terminal")
   self.shader_reloader = ShaderReloader.new({
     enabled = development_mode,
     paths = development_mode and { shader_path } or {},
@@ -304,6 +307,26 @@ function Renderer:resize(previous, current)
   self.pass_registry:resize(self, previous, current)
 end
 
+function Renderer:invalidate(reason)
+  self.invalidation:request(reason)
+end
+
+function Renderer:schedule_animation(reason, now, delay)
+  return self.invalidation:schedule(reason, now, delay)
+end
+
+function Renderer:needs_render(now)
+  return self.invalidation:due(now)
+end
+
+function Renderer:next_render_deadline()
+  return self.invalidation:next_deadline()
+end
+
+function Renderer:invalidation_snapshot()
+  return self.invalidation:snapshot()
+end
+
 function Renderer:resource_descriptor(kind, access, fields)
   fields.kind = kind
   fields.access = access
@@ -477,6 +500,7 @@ function Renderer:update_model(model)
   local damage = model.damage
   local shaped_glyphs = self.layout:update(model)
   local ranges = damage:ranges()
+  if #ranges > 0 then self:invalidate("terminal") end
   self.diagnostics.dirty_cells = damage.dirty_count
   self.diagnostics.dirty_ranges = #ranges
   self.diagnostics.full_update = damage.full
@@ -599,6 +623,8 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
     return false, "native GPU error: " .. native_error
   end
   self.diagnostics.draw_calls = self.pass_registry:count()
+  self.invalidation:consume_success(time)
+  self.diagnostics.invalidation = self:invalidation_snapshot()
   return true
 end
 
