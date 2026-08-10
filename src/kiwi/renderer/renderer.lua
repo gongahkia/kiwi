@@ -3,6 +3,7 @@ local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local PassApi = require("kiwi.renderer.pass_api")
+local PassMetrics = require("kiwi.renderer.pass_metrics")
 local Resources = require("kiwi.renderer.resources")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
@@ -60,6 +61,7 @@ function Renderer.new(context, font, model, options)
   local extensions = options.extensions or {}
   assert(type(extensions) == "table", "renderer extensions must be a table")
   local shader_path = development_mode and options.development_shader_path or builtin_shader_path
+  local pass_metrics_enabled = options.pass_metrics_enabled == true
   Packing.assert_layout()
   local self = setmetatable({
     context = context,
@@ -76,6 +78,7 @@ function Renderer.new(context, font, model, options)
     frame_time = 0,
     shader_path = shader_path,
     extensions = extensions,
+    pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled }),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -222,7 +225,7 @@ function Renderer:create_resources(model)
   self.resource_registry:own_native("terminal-bind-group", self.bind_group, api.wgpuBindGroupRelease)
 
   self:register_semantic_resources(model)
-  self.pass_registry = PassRegistry.new()
+  self.pass_registry = PassRegistry.new({ metrics = self.pass_metrics })
   for _, pass in ipairs(Passes.build(self)) do
     self.pass_registry:register(pass)
   end
@@ -571,7 +574,11 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
   local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
+  self.pass_registry:begin_frame()
+  self.pass_registry:prepare(self, model)
   self.pass_registry:encode(self, encoder, view, model)
+  self.pass_registry:end_frame()
+  if self.pass_metrics.enabled then self.diagnostics.pass_cpu = self.pass_metrics:snapshot() end
   local commands = ffi.new("WGPUCommandBuffer[1]")
   commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
   self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
