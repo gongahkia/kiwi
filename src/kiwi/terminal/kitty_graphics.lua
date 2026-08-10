@@ -46,7 +46,7 @@ local function parse_controls(value)
     local comma = value:find(",", start, true)
     local token = value:sub(start, comma and comma - 1 or #value)
     if token == "" then return nil, "empty-control" end
-    local key, field = token:match("^([a-z])=(.*)$")
+    local key, field = token:match("^([a-zA-Z])=(.*)$")
     if key == nil or controls[key] ~= nil then return nil, "invalid-controls" end
     for index = 1, #field do
       local byte = field:byte(index)
@@ -160,6 +160,7 @@ function KittyGraphics:queue_gpu_release(image, reason, evicted)
 end
 
 function KittyGraphics:release_image(image, reason, evicted)
+  if self.on_image_release then self.on_image_release(image.id, reason) end
   self:queue_gpu_release(image, reason, evicted)
   self.images[image.id] = nil
   self.stats.cpu_bytes = self.stats.cpu_bytes - image.bytes
@@ -285,18 +286,18 @@ function KittyGraphics:apply(payload)
     return self:reject("apc-limit")
   end
   local separator = payload:find(";", 1, true)
-  if separator == nil then
-    if self.transfer then self:discard_transfer("missing-payload") end
-    return self:reject("missing-payload")
-  end
-  local controls, reason = parse_controls(payload:sub(1, separator - 1))
+  local controls, reason = parse_controls(separator and payload:sub(1, separator - 1) or payload)
   if controls == nil then
     if self.transfer then self:discard_transfer(reason) end
     return self:reject(reason)
   end
-  local data = payload:sub(separator + 1)
+  local data = separator and payload:sub(separator + 1) or ""
 
   if self.transfer then
+    if controls.a == "d" and (separator == nil or data == "") then
+      self:discard_transfer("deleted")
+      return { controls = controls, ok = true, placement_action = "d" }
+    end
     local continuation, continuation_reason = self:validate_transfer_controls(controls, true)
     if continuation == nil then
       self:discard_transfer(continuation_reason)
@@ -319,6 +320,13 @@ function KittyGraphics:apply(payload)
     return self:complete_transfer(transfer, false)
   end
 
+  if controls.a == "p" or controls.a == "d" then
+    if separator and data ~= "" then return self:reject("unexpected-payload") end
+    return { controls = controls, ok = true, placement_action = controls.a }
+  end
+
+  if separator == nil then return self:reject("missing-payload") end
+
   local transfer, transfer_reason = self:validate_transfer_controls(controls, false)
   if transfer == nil then return self:reject(transfer_reason) end
   if #data > self.max_encoded_bytes then return self:reject("encoded-limit") end
@@ -340,6 +348,18 @@ function KittyGraphics:apply(payload)
     return { ok = true }
   end
   return self:complete_transfer(transfer, false)
+end
+
+function KittyGraphics:has_image(id)
+  return self.images[id] ~= nil
+end
+
+function KittyGraphics:delete_image(id)
+  if self.transfer and self.transfer.id == id then self:discard_transfer("deleted") end
+  local image = self.images[id]
+  if image == nil then return false end
+  self:release_image(image, "deleted", false)
+  return true
 end
 
 function KittyGraphics:upload_descriptor(id)

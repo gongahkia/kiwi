@@ -4,6 +4,7 @@ local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
 local Hyperlink = require("kiwi.terminal.hyperlink")
 local KittyGraphics = require("kiwi.terminal.kitty_graphics")
+local KittyPlacements = require("kiwi.terminal.kitty_placements")
 local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
@@ -111,6 +112,7 @@ function State.new(columns, rows, options)
     hyperlinks = {},
     hyperlink_ids = {},
     kitty_graphics = KittyGraphics.new(options.kitty_graphics),
+    kitty_placements = KittyPlacements.new(options.kitty_placements),
     next_hyperlink_id = 0,
     stats = {
       mutations = 0,
@@ -124,6 +126,9 @@ function State.new(columns, rows, options)
   assert(self.max_cluster_codepoints >= 8, "terminal max_cluster_codepoints must be at least 8")
   assert(self.hyperlink_limit >= 1 and self.hyperlink_limit % 1 == 0, "terminal hyperlink limit must be a positive integer")
   assert(self.hyperlink_uri_maximum_bytes >= 1 and self.hyperlink_uri_maximum_bytes % 1 == 0, "terminal hyperlink URI limit must be a positive integer")
+  self.kitty_graphics.on_image_release = function(id)
+    self:detach_kitty_placement_records(self.kitty_placements:remove_image(id))
+  end
   self.primary = self:new_screen()
   self.alternate = self:new_screen()
   self.primary.attributes = Attributes.default()
@@ -405,6 +410,51 @@ function State:selection_rows(scope)
   return rows
 end
 
+function State:detach_kitty_placement_records(records)
+  for _, record in ipairs(records or {}) do
+    for _, entry in ipairs(self:selection_rows(record.scope)) do
+      local ids = entry.row.kitty_placement_ids
+      if ids then
+        for index = #ids, 1, -1 do
+          if ids[index] == record.id then table.remove(ids, index) end
+        end
+        if #ids == 0 then entry.row.kitty_placement_ids = nil end
+      end
+    end
+  end
+end
+
+function State:attach_kitty_placement(record)
+  local rows = {}
+  for _, entry in ipairs(self:selection_rows(record.scope)) do rows[entry.line_id] = entry.row end
+  for _, reference in ipairs(record.rows) do
+    local row = assert(rows[reference.line_id], "kitty placement row is unavailable")
+    row.kitty_placement_ids = row.kitty_placement_ids or {}
+    row.kitty_placement_ids[#row.kitty_placement_ids + 1] = record.id
+  end
+end
+
+function State:release_kitty_placement_row(scope, row)
+  if row == nil or row.kitty_placement_ids == nil then return end
+  self.kitty_placements:release_line(scope, row.line_id)
+  row.kitty_placement_ids = nil
+end
+
+function State:clear_visible_kitty_placements()
+  local scope = self:selection_scope()
+  for row = 0, self.rows - 1 do self:release_kitty_placement_row(scope, self:visible_row(row)) end
+end
+
+function State:clear_kitty_placement_scope(scope)
+  self:detach_kitty_placement_records(self.kitty_placements:clear_scope(scope))
+end
+
+function State:kitty_placements_view()
+  local rows = {}
+  for row = 0, self.rows - 1 do rows[#rows + 1] = self:visible_row(row).line_id end
+  return self.kitty_placements:view(self:selection_scope(), rows)
+end
+
 function State:reconcile_selection()
   local scope = self.selection.scope
   if scope then self.selection:reconcile(self:selection_rows(scope), self.columns) end
@@ -669,10 +719,14 @@ function State:scroll_up(count)
   count = clamp(count or 1, 1, bottom - top + 1)
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
     local evicted = self.scrollback:push(row)
-    if evicted then self:release_command_regions(evicted) end
+    if evicted then
+      self:release_command_regions(evicted)
+      self:release_kitty_placement_row("primary", evicted)
+    end
   end or nil
   local discard = preserve == nil and function(row)
     self:release_command_regions(row)
+    self:release_kitty_placement_row(screen == self.primary and "primary" or "alternate", row)
   end or nil
   screen:scroll_up(top, bottom, count, preserve, discard)
   self:mark_region(top, bottom)
@@ -687,6 +741,7 @@ function State:scroll_down(count)
   count = clamp(count or 1, 1, bottom - top + 1)
   screen:scroll_down(top, bottom, count, function(row)
     self:release_command_regions(row)
+    self:release_kitty_placement_row(screen == self.primary and "primary" or "alternate", row)
   end)
   self:mark_region(top, bottom)
   self.stats.mutations = self.stats.mutations + (bottom - top + 1) * self.columns
@@ -1006,6 +1061,7 @@ function State:erase_in_display(mode)
       end
     end
   end
+  if mode == 2 or mode == 3 then self:clear_visible_kitty_placements() end
   cursor.pending_wrap = false
 end
 
@@ -1125,6 +1181,7 @@ function State:insert_lines(count)
   local bottom = self.active_screen.bottom_margin
   self.active_screen:scroll_down(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), function(row)
     self:release_command_regions(row)
+    self:release_kitty_placement_row(self:selection_scope(), row)
   end)
   self:mark_region(cursor.row, bottom)
 end
@@ -1138,6 +1195,7 @@ function State:delete_lines(count)
   local bottom = self.active_screen.bottom_margin
   self.active_screen:scroll_up(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), nil, function(row)
     self:release_command_regions(row)
+    self:release_kitty_placement_row(self:selection_scope(), row)
   end)
   self:mark_region(cursor.row, bottom)
 end
@@ -1197,6 +1255,7 @@ function State:switch_alternate(enable, save_cursor)
     self.cursor = self.active_screen.cursor
     self.history_offset = 0
     if save_cursor then
+      self:clear_kitty_placement_scope("alternate")
       self.alternate = self:new_screen()
       self.alternate.attributes = Attributes.default()
       self.active_screen = self.alternate
@@ -1250,6 +1309,8 @@ end
 
 function State:reset()
   self:clear_grapheme_context()
+  self.kitty_placements:clear()
+  self.kitty_graphics:clear()
   self.primary = self:new_screen()
   self.alternate = self:new_screen()
   self.primary.attributes = Attributes.default()
@@ -1276,7 +1337,6 @@ function State:reset()
   self.scrollback:clear()
   self.shell:clear()
   self.command_regions:clear()
-  self.kitty_graphics:clear()
   self.command_region_navigation = nil
   self.hyperlinks = {}
   self.hyperlink_ids = {}
@@ -1292,6 +1352,12 @@ end
 function State:resize(columns, rows)
   self:clear_grapheme_context()
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
+  if rows < self.rows then
+    for row = rows, self.rows - 1 do
+      self:release_kitty_placement_row("primary", self.primary.rows[row])
+      self:release_kitty_placement_row("alternate", self.alternate.rows[row])
+    end
+  end
   local was_primary = self.active_screen == self.primary
   local blank = function()
     return self:blank_cell()
@@ -1314,6 +1380,8 @@ function State:resize(columns, rows)
   self.history_offset = clamp(self.history_offset, 0, self.scrollback:size())
   self:reconcile_selection()
   self:reconcile_command_regions()
+  self:detach_kitty_placement_records(self.kitty_placements:resize_scope("primary", columns))
+  self:detach_kitty_placement_records(self.kitty_placements:resize_scope("alternate", columns))
   self:reset_tab_stops()
   self:sync_cursor_visibility()
   self.damage:mark_all()
@@ -1684,8 +1752,53 @@ function State:apply_osc(action)
   end
 end
 
+local function kitty_graphics_response(image_id, placement_id, status)
+  local placement = placement_id and ",p=" .. placement_id or ""
+  return string.format("\27_Gi=%d%s;%s\27\\", image_id or 0, placement, status)
+end
+
+function State:apply_kitty_placement_action(controls)
+  local command, reason = self.kitty_placements:parse(controls)
+  local image_id = tonumber(controls.i) or 0
+  if command == nil then
+    if controls.a == "p" or controls.a == "d" then
+      self:respond(kitty_graphics_response(image_id, tonumber(controls.p), "EINVAL:" .. reason))
+    end
+    return
+  end
+
+  if command.kind == "place" then
+    local placement, previous = self.kitty_placements:place(command, {
+      column = self.cursor.column,
+      columns = self.columns,
+      has_image = function(id) return self.kitty_graphics:has_image(id) end,
+      row = self.cursor.row,
+      rows = self.rows,
+      scope = self:selection_scope(),
+      screen = self.active_screen,
+    })
+    if placement == nil then
+      local status = previous == "unknown-image" and "ENOENT:" or "EINVAL:"
+      self:respond(kitty_graphics_response(command.image_id, command.placement_id, status .. previous))
+      return
+    end
+    if previous then self:detach_kitty_placement_records({ previous }) end
+    self:attach_kitty_placement(placement)
+    self:respond(kitty_graphics_response(placement.image_id, placement.placement_id, "OK"))
+    return
+  end
+
+  if command.mode == "a" then
+    self:clear_visible_kitty_placements()
+    return
+  end
+  self:detach_kitty_placement_records(self.kitty_placements:delete(command, self:selection_scope()))
+  if command.mode == "I" then self.kitty_graphics:delete_image(command.image_id) end
+end
+
 function State:apply_apc(action)
   local result = self.kitty_graphics:apply(action.payload)
+  if result.placement_action then self:apply_kitty_placement_action(result.controls) end
   if result.response then self:respond(result.response) end
 end
 

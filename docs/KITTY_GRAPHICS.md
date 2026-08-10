@@ -2,8 +2,8 @@
 
 Kiwi implements a deliberately narrow M7 subset of the Kitty graphics
 protocol: a direct inline PNG can be transferred through APC-G, decoded into a
-bounded CPU RGBA cache, and offered to a future renderer through an explicit
-upload descriptor. It does not yet place or render an image.
+bounded CPU RGBA cache, and placed over explicit terminal cells. It is not yet
+rendered or composited.
 
 ## Framing and accepted subset
 
@@ -19,13 +19,18 @@ with no duplicate or unknown keys. The only accepted actions are:
 | --- | --- | --- |
 | `a=t` | `i`, `s`, `v`, `f=100`, `t=d` | Transfer an inline PNG and cache its decoded RGBA bytes after final validation. |
 | `a=q` | the same transfer fields | Validate and decode without caching; reply `OK` or a bounded error code. |
+| `a=p` | `i`, `p`, `c`, `r`, `C=1`; optional `z` | Place a stored image in a stationary explicit cell rectangle. |
+| `a=d` | `d=a`, or `d=i`/`d=I` with `i`; optional `p` for `d=i`/`d=I` | Clear visible placements, soft-delete placements, or delete image data and placements. |
 
 `m=1` starts or continues one transfer; its next graphics action must contain
 only `m=0` or `m=1`. Image IDs are non-zero unsigned 32-bit integers. Kiwi
-accepts only PNG (`f=100`) sent directly (`t=d`). `a=T`, placement, deletion,
-raw RGB/RGBA, zlib compression, filesystem/shared-memory/file-descriptor
-media, animation, Unicode placeholders, and unlisted controls are rejected.
-Placement and deletion are reserved for #133.
+accepts only PNG (`f=100`) sent directly (`t=d`). Placement requires a non-zero
+image and placement ID, explicit positive `c`/`r`, and `C=1`, which selects the
+documented no-cursor-movement policy. It may specify a signed 32-bit `z` index.
+`a=T`, inferred dimensions, default cursor movement, source rectangles, pixel
+offsets, relative/virtual placements, raw RGB/RGBA, zlib compression,
+filesystem/shared-memory/file-descriptor media, animation, Unicode placeholders,
+and unlisted controls are rejected.
 
 ## Bounds and validation order
 
@@ -46,6 +51,34 @@ While a transfer is incomplete, its bounded Base64 chunks are terminal-model
 data. They are concatenated only on the final chunk, decoded, then discarded.
 The retained image record owns only its decoded RGBA allocation and metadata;
 it never retains the source payload.
+
+## Placement lifecycle
+
+`terminal/kitty_placements.lua` stores at most 256 placements, each spanning at
+most 256 terminal rows. A placement is uniquely keyed by `{image_id,
+placement_id}`; a new command with the same pair replaces its prior cell
+anchors. It records the current screen scope, starting column, cell width,
+z-index, and the stable line IDs of the covered rows. Viewport descriptors map
+those line IDs back to current rows and sort by z-index, image ID, and placement
+ID. This keeps placement state independent of pixels and rendering.
+
+Full-screen primary scrolling moves anchors into scrollback with their text.
+History navigation maps the same anchors back into the viewport. When a
+scrollback row is evicted, a margin scroll discards a row, or resize removes a
+row, that row reference is clipped; the placement is released only when no row
+references remain. A narrower resize clips the cell width or releases an anchor
+that no longer intersects the grid. `CSI 2 J` clears visible placement anchors;
+other erase commands leave graphics unchanged. Entering a fresh `1049`
+alternate screen clears alternate placements, while ordinary primary/alternate
+switching keeps each scope separate. A terminal reset clears all placements and
+cached image data.
+
+`a=d,d=a` clears visible placement anchors in the active viewport. `a=d,d=i`
+removes every matching placement (or the exact matching `p`) while retaining the
+image cache; `d=I` additionally releases the decoded image and creates any
+needed renderer GPU-release work. Unknown image placement replies with a
+bounded `ENOENT:unknown-image`; invalid selected controls reply with
+`EINVAL:<reason>`.
 
 ## CPU and GPU ownership
 
@@ -77,10 +110,13 @@ diagnostics without logging protocol data. Ordinary transfers do not emit a
 reply. A valid `a=q` responds `ESC _ Gi=<id>;OK ESC \\`; a failed query returns
 the same framing with a bounded `ERR:<reason>` code.
 
-`src/tests/fixtures/vt/kitty_graphics.lua` contains a real 1×1 PNG APC-G
-fixture. Focused tests cover complete and chunked transfers, every parser split
-boundary, malformed and over-limit input, query behavior, deterministic CPU and
-GPU accounting eviction, and reset cleanup.
+`src/tests/fixtures/vt/kitty_graphics.lua` and
+`src/tests/fixtures/vt/kitty_placements.lua` contain real 1×1 PNG APC-G
+fixtures. `src/tests/fixtures/replay/kitty-placement.jsonl` verifies replay.
+Focused tests cover complete and chunked transfers, every parser split boundary,
+malformed and over-limit input, query behavior, deterministic CPU/GPU accounting
+eviction, placement replacement/z-order, viewport/history movement, alternate
+screen/reset/clear/delete behavior, resize clipping, and cleanup.
 
 ## Sources
 

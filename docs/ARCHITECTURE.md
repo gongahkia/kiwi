@@ -42,11 +42,14 @@ LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wra
 
 ## Parser and state
 
-Kitty APC-G reaches a bounded terminal transfer model for direct inline PNG.
-The model validates and decodes into a CPU cache, exposes only stable upload
-descriptors to a future renderer, and never owns a native GPU handle. Image
-placement and rendering remain deferred. The exact subset, limits, failure
-codes, and ownership boundary are in [KITTY_GRAPHICS.md](KITTY_GRAPHICS.md) and
+Kitty APC-G reaches a bounded terminal transfer model for direct inline PNG and
+a separate line-ID placement model. The transfer model validates and decodes
+into a CPU cache, while the placement model follows scoped terminal rows through
+scrollback, alternate screens, resize, clear, and deletion. The renderer gets
+only stable upload and viewport-placement descriptors and native GPU handles
+remain renderer-owned. Image rendering remains deferred. The exact subset,
+limits, failure codes, and ownership boundary are in
+[KITTY_GRAPHICS.md](KITTY_GRAPHICS.md) and
 [ADR 0033](adr/0033-kitty-graphics-parser-state-foundation.md).
 
 `terminal/parser.lua` is incremental over arbitrary byte chunks. It bounds CSI parameters/intermediates and control-string payloads, accepts OSC BEL/ST termination, emits a separate action for bounded APC-G while discarding unsupported DCS/APC/PM/SOS until ST, and uses the streaming decoder in `terminal/utf8.lua`. Invalid or truncated UTF-8 emits U+FFFD deterministically. The parser's outputs are intentionally plain action tables to keep syntax testing independent from semantic state testing.
