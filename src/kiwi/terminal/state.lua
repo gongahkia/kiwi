@@ -13,11 +13,7 @@ State.__index = State
 State.flags = Attributes.flags
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
-local ascii_glyphs = {}
-for codepoint = 0x20, 0x7e do
-  ascii_codepoints[codepoint] = { codepoint }
-  ascii_glyphs[codepoint] = string.char(codepoint)
-end
+for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
 
 local function copy_cell(destination, source)
   destination.glyph = source.glyph
@@ -537,23 +533,6 @@ function State:write_ascii_cluster(glyph, codepoint)
     cursor.pending_wrap = true
   else
     self:set_cursor(column + 1, row, true)
-  end
-end
-
-function State:write_ascii_run(bytes)
-  assert(type(bytes) == "string", "ASCII write run must be a string")
-  local counters = self.text_counters
-  if counters then counters.ascii_batches = (counters.ascii_batches or 0) + 1 end
-  local index = 1
-  if self.grapheme_context and self.grapheme_context.last_gcb == GCB.prepend then
-    local codepoint = bytes:byte(index)
-    self:write_codepoint(ascii_glyphs[codepoint], codepoint)
-    index = index + 1
-  end
-  if counters then counters.unicode_scalars = (counters.unicode_scalars or 0) + #bytes - index + 1 end
-  for position = index, #bytes do
-    local codepoint = bytes:byte(position)
-    self:write_ascii_cluster(ascii_glyphs[codepoint], codepoint)
   end
 end
 
