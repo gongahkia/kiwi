@@ -4,14 +4,14 @@ local ffi = require("ffi")
 ffi.cdef[[
 typedef struct { unsigned short ws_row; unsigned short ws_col; unsigned short ws_xpixel; unsigned short ws_ypixel; } KiwiWinsize;
 int forkpty(int* amaster, char* name, const void* termp, const KiwiWinsize* winp);
-int execvp(const char* file, char* const argv[]);
+int execvpe(const char* file, char* const argv[], char* const envp[]);
 void _exit(int status);
 int close(int fd);
 long read(int fd, void* buffer, unsigned long count);
 long write(int fd, const void* buffer, unsigned long count);
 int waitpid(int pid, int* status, int options);
 int kill(int pid, int sig);
-int setenv(const char* name, const char* value, int overwrite);
+extern char **environ;
 int usleep(unsigned int usec);
 int kiwi_pty_resize(int fd, unsigned short columns, unsigned short rows);
 int kiwi_pty_set_nonblocking(int fd);
@@ -56,6 +56,55 @@ local function validate_command(command)
   end
 end
 
+local function build_environment(overrides)
+  local entries = {}
+  local positions = {}
+  local source = ffi.C.environ
+  local index = 0
+  while source[index] ~= nil do
+    local entry = ffi.string(source[index])
+    local separator = entry:find("=", 1, true)
+    local name = separator and entry:sub(1, separator - 1) or entry
+    local position = positions[name]
+    if position then
+      entries[position] = entry
+    else
+      positions[name] = #entries + 1
+      entries[#entries + 1] = entry
+    end
+    index = index + 1
+  end
+  for name, value in pairs(overrides) do
+    local position = positions[name]
+    if value == false then
+      if position then entries[position] = false end
+    elseif position then
+      entries[position] = name .. "=" .. value
+    else
+      positions[name] = #entries + 1
+      entries[#entries + 1] = name .. "=" .. value
+    end
+  end
+
+  local count = 0
+  for _, entry in ipairs(entries) do
+    if entry then count = count + 1 end
+  end
+  local environment = ffi.new("char *[?]", count + 1)
+  local buffers = {}
+  local output = 0
+  for _, entry in ipairs(entries) do
+    if entry then
+      local buffer = ffi.new("char[?]", #entry + 1)
+      ffi.copy(buffer, entry)
+      buffers[#buffers + 1] = buffer
+      environment[output] = buffer
+      output = output + 1
+    end
+  end
+  return environment, buffers
+end
+
 function Pty.default_command()
   local shell = os.getenv("SHELL")
   if shell and shell:sub(1, 1) == "/" and not shell:find("\0", 1, true) then
@@ -69,16 +118,14 @@ function Pty.spawn(command, columns, rows, environment)
   assert(columns > 0 and rows > 0 and columns <= 65535 and rows <= 65535, "PTY dimensions must fit winsize")
   environment = environment or {}
   for name, value in pairs(environment) do
-    assert(name:match("^[A-Za-z_][A-Za-z0-9_]*$") and type(value) == "string" and not value:find("\0", 1, true), "invalid PTY environment entry")
-    if ffi.C.setenv(name, value, 1) ~= 0 then
-      error(errno_message("setenv " .. name))
-    end
+    assert(name:match("^[A-Za-z_][A-Za-z0-9_]*$") and (value == false or (type(value) == "string" and not value:find("\0", 1, true))), "invalid PTY environment entry")
   end
 
   local argv = ffi.new("char *[?]", #command + 1)
   for index, argument in ipairs(command) do
     argv[index - 1] = ffi.cast("char *", argument)
   end
+  local child_environment, child_environment_buffers = build_environment(environment)
   local master = ffi.new("int[1]")
   local size = ffi.new("KiwiWinsize", { ws_row = rows, ws_col = columns })
   local pid = util.forkpty(master, nil, nil, size)
@@ -86,7 +133,7 @@ function Pty.spawn(command, columns, rows, environment)
     error(errno_message("forkpty"))
   end
   if pid == 0 then
-    ffi.C.execvp(argv[0], argv)
+    ffi.C.execvpe(argv[0], argv, child_environment)
     ffi.C._exit(127)
   end
 

@@ -8,6 +8,7 @@ readonly TOP_RECORDING="$WORK_DIR/top.jsonl"
 readonly VT_RECORDING="$WORK_DIR/vttest-style.jsonl"
 readonly VIM_RECORDING="$WORK_DIR/vim-mouse.jsonl"
 readonly NVIM_RECORDING="$WORK_DIR/nvim-keyboard.jsonl"
+readonly TRUECOLOUR_RECORDING="$WORK_DIR/truecolour-contract.jsonl"
 readonly REPLAY_LOG="$WORK_DIR/replay.stderr"
 readonly TMUX_SOCKET="kiwi-conformance-$$"
 
@@ -18,6 +19,12 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$ROOT"
+
+recorded_output() {
+  rg -o '"data":"[^"]*' "$1" | sed 's/"data":"//' | while IFS= read -r encoded; do
+    print -rn -- "$encoded" | base64 -d
+  done
+}
 
 TERMINFO="$TERMINFO_DIR" infocmp -1 kiwi >/dev/null
 [[ "$(TERM=kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == "16" ]] || {
@@ -35,12 +42,12 @@ print "terminfo: colors=16; RGB/Tc/setrgbf/setrgbb absent"
 print "platform: $(uname -srmo)"
 
 if command -v tmux >/dev/null; then
-  TERM=kiwi TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s\\n" "$TERM"; tput colors; sleep 2'"'"''
+  env -u COLORTERM TERM=kiwi TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; sleep 2'"'"''
   sleep 1
   tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-evidence -S -20)
   print "tmux: ${tmux_output//$'\n'/; }"
-  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=kiwi"* ]] || {
-    print -u2 "tmux did not expose its own inner TERM."
+  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=kiwi"* && "$tmux_output" == *"colors=256"* ]] || {
+    print -u2 "tmux did not expose its own 256-colour inner TERM contract."
     exit 1
   }
 else
@@ -73,6 +80,20 @@ else
   print "native-vt-exercise: ${replay//$'\n'/; }"
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
     print -u2 "native VT exercise contains parser errors, ignored actions, or unknown terminal controls."
+    exit 1
+  }
+fi
+
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "native-truecolour-contract: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+else
+  KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $TRUECOLOUR_RECORDING -- $ROOT/script/truecolour-contract-child"
+  make replay REPLAY="$TRUECOLOUR_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  replay=$(<"$REPLAY_LOG")
+  truecolour_output=$(recorded_output "$TRUECOLOUR_RECORDING")
+  print "native-truecolour-contract: ${replay//$'\n'/; }"
+  [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* && "$truecolour_output" == *"TERM=kiwi COLORTERM=unset colors=16"* && "$truecolour_output" == *$'\e[38;2;1;2;3m'* ]] || {
+    print -u2 "native truecolour contract did not retain the documented fallback."
     exit 1
   }
 fi

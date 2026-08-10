@@ -167,6 +167,7 @@ local function run_live(options)
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
       TERM = "kiwi",
       TERMINFO = root .. "/.build/terminfo",
+      COLORTERM = false,
     })
     local parser = Parser.new(state)
     if options.record then
