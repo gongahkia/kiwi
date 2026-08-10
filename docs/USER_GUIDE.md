@@ -60,6 +60,10 @@ For a pinned Nix package or development shell, use [NIX.md](NIX.md). It has
 the same Linux display/driver constraint and does not add a binary cache or
 cross-platform support.
 
+Arch/AUR publication is currently deferred; it is not an installation path.
+See [AUR.md](AUR.md) for the evidence and the source, license, ownership, and
+reproducible-build gates for reconsidering it.
+
 ## Configuration
 
 Kiwi currently has no configuration-file search path and does not create a

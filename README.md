@@ -72,6 +72,11 @@ enter the matching development environment with `nix develop`, and run the
 flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
 the pinned-input update procedure and driver/display limitations.
 
+Arch/AUR publication is currently deferred: the project has no publicly
+fetchable immutable source archive, release tag, license file, or authorized
+AUR maintainer. The evidence and prerequisites for revisiting that decision
+are in [AUR.md](docs/AUR.md).
+
 For the supported source and artifact launch paths, environment-only
 configuration, safe-mode troubleshooting, maintained render-extension examples,
 and support boundaries, see the [user guide](docs/USER_GUIDE.md).
