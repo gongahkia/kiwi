@@ -1,0 +1,7 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+for index in {1..150}; do
+  printf 'kiwi pacing fixture output %03d\n' "$index"
+  sleep 0.04
+done

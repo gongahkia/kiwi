@@ -9,6 +9,8 @@ make bench-write
 KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
+make pacing
+KIWI_PACING_SAMPLES=120 KIWI_PACING_WARMUP_FRAMES=20 make pacing
 make text-corpus-review
 KIWI_TEXT_CORPUS_ARTIFACT=/absolute/path/review.json make text-corpus-review
 KIWI_MAX_FRAMES=240 make text-corpus-demo
@@ -46,6 +48,49 @@ The full CPU pipeline intentionally excludes PTY syscalls, `wgpuQueueWriteBuffer
 Heap fields are diagnostic signals, not allocation totals: retained delta is measured after an explicit collection and peak delta is allocator-sensitive. Peak values include the fresh per-iteration setup needed by the component. Use them to spot growth or runaway retention, not to compare unrelated layers by a few KiB.
 
 The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scrolling reconstruction and M1.5's row-reference terminal scrolling have different scopes and must not be presented as before/after performance evidence.
+
+## M9 frame pacing methodology
+
+`make pacing` is an opt-in native Linux measurement. It drives a fixed child
+that emits 150 short output records at 40 ms intervals, warms up 30 successful
+frames by default, and writes the ignored, schema-version-1 aggregate report
+`bench/results/<UTC timestamp>-pacing.json`. `KIWI_PACING_SAMPLES` bounds each
+retained distribution (default 240) and `KIWI_PACING_WARMUP_FRAMES` changes the
+excluded frame count. The target exits successfully with an explicit skip when
+neither X11 nor Wayland is available, which is the intended headless-CI result;
+it does not manufacture a presentation metric. The encoded aggregate is capped
+at 64 KiB and contains no raw sample or event-payload arrays.
+
+The report uses GLFW's monotonic clock at four markers: accepted PTY input,
+first readable PTY output, renderer update start, and return from the successful
+`Renderer:render` call. It keeps aggregate p50/p95/p99/mean/min/max and
+standard deviation, plus bounded invalidation-reason counts. It retains no
+keys, terminal output, clipboard data, commands, display identifier, or raw
+event timestamps. A full artifact records revision/dirty state, LuaJIT, CPU,
+kernel, best-effort GL/Vulkan adapter/driver inventory, governor, affinity,
+power profile, scheduler nice value, graphical session kind, best-effort
+display refresh rate, FIFO present mode, and PTY read budget. Missing commands
+produce `unavailable` fields.
+
+The four metric fields are intentionally distinct:
+
+| Field | Meaning | Does not measure |
+| --- | --- | --- |
+| `frame_cpu_ms` | CPU time from renderer update start through the return after `wgpuSurfacePresent` | GPU execution, compositor work, or panel scan-out |
+| `frame_interval_ms` | interval between successful render returns; standard deviation is the report's pacing variance | monitor refresh accuracy or missed-vblank count |
+| `output_to_present_ms` | coalesced PTY output through the following successful render return | photons reaching the display |
+| `input_to_present_ms` | coalesced bytes sent to the PTY, then a later readable output, through that render return | local actions, input with no observed output, and a universal input-latency figure |
+
+`display_scanout_latency` is always explicitly unavailable without external
+display/compositor measurement such as presentation feedback or a photodiode.
+`gpu_execution_latency` is likewise unavailable: optional wgpu timestamp query
+results are asynchronous per-pass work and cannot establish terminal-event to
+display latency. The fixture usually has no user input, so an unavailable
+`input_to_present_ms` field is expected for the automated baseline. To measure
+an interactive command, run Kiwi with `KIWI_PACING_REPORT=1`, send a command
+that visibly responds, and retain the separate local artifact; do not compare
+hosts, drivers, power modes, or measurement scopes as though they were the
+same baseline.
 
 ## M8 text corpus and review protocol
 
