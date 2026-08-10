@@ -85,6 +85,13 @@ precondition (and intentionally exits nonzero); [ADR 0035](adr/0035-slug-gpu-bac
 defines the source pin, bounded blob/resource, fallback, and corpus gates that
 must be met before the existing atlas fallback can be changed.
 
+MSDF is also deferred after a source-only generator spike: it produced bounded
+raw fields but has no reviewed C++ bridge, RGBA text resource, final shader, or
+native terminal-quality evidence. A laboratory `msdf` request remains an
+observable atlas fallback. [ADR 0036](adr/0036-msdf-backend-feasibility.md)
+records the source pin, representative glyph artifacts, comparison limits, and
+promotion gates.
+
 ## Diagnostics and inspection
 
 F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, visible shaped run/glyph totals, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
