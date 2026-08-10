@@ -1,10 +1,12 @@
 local Json = require("kiwi.bench.json")
 
 local Snapshot = {}
+Snapshot.version = 1
 
 function Snapshot.value(state)
   local rows = {}
   for row = 0, state.rows - 1 do
+    local source = state:visible_row(row)
     local cells = {}
     local text = {}
     for column = 0, state.columns - 1 do
@@ -21,7 +23,14 @@ function Snapshot.value(state)
       end
       cells[#cells + 1] = snapshot_cell
     end
-    rows[#rows + 1] = { cells = cells, text = table.concat(text) }
+    local snapshot_row = { cells = cells, text = table.concat(text) }
+    if source and source.command_region_ids then
+      local ids = {}
+      for index, id in ipairs(source.command_region_ids) do ids[index] = id end
+      snapshot_row.command_region_ids = ids
+    end
+    if source and source.command_regions_truncated then snapshot_row.command_regions_truncated = true end
+    rows[#rows + 1] = snapshot_row
   end
   return {
     active_screen = state.active_screen == state.primary and "primary" or "alternate",
@@ -48,6 +57,7 @@ function Snapshot.value(state)
     shell = state.shell and state.shell:snapshot() or nil,
     scrollback_lines = state.scrollback:size(),
     title = state.title,
+    v = Snapshot.version,
   }
 end
 

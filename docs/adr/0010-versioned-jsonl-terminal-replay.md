@@ -10,4 +10,4 @@ Text JSONL is easy to inspect, sanitize, diff, and extend in M1. Recording at th
 
 ## Consequences
 
-Event and line sizes are bounded and unsupported versions are rejected. Input is retained for session evidence but state replay intentionally depends only on deterministic output and resize events. A compact binary format and timed replay are deferred.
+Event and line sizes are bounded and unsupported versions are rejected. Input is retained for session evidence but state replay intentionally depends only on deterministic output and resize events. OSC 7/133 metadata, command regions, and row references derive again from those bytes rather than adding a separate persisted semantic event. Canonical snapshots are versioned observations, not JSONL input or a restore/archive format. A compact binary format and timed replay are deferred.

@@ -262,6 +262,48 @@ function State:shell_position()
   }
 end
 
+function State:attach_command_region(row, id)
+  if id == nil then return end
+  local ids = row.command_region_ids
+  if ids == nil then
+    ids = {}
+    row.command_region_ids = ids
+  end
+  for _, existing in ipairs(ids) do
+    if existing == id then return end
+  end
+  if #ids >= self.command_regions.row_reference_limit then
+    row.command_regions_truncated = true
+    self.command_regions:mark_row_reference_overflow(id)
+    return
+  end
+  ids[#ids + 1] = id
+  self.command_regions:attach_row(id)
+end
+
+function State:attach_active_command_region(row)
+  self:attach_command_region(row, self.command_regions:active_id())
+end
+
+function State:release_command_regions(row)
+  self.command_regions:release_row(row.command_region_ids)
+end
+
+function State:reconcile_command_regions()
+  local rows = {}
+  for index = 1, self.scrollback:size() do rows[#rows + 1] = self.scrollback:get(index) end
+  for row = 0, self.rows - 1 do rows[#rows + 1] = self.primary.rows[row] end
+  for row = 0, self.rows - 1 do rows[#rows + 1] = self.alternate.rows[row] end
+  self.command_regions:reconcile_rows(rows)
+end
+
+function State:command_regions_at(row)
+  local source = self:visible_row(row)
+  local ids = {}
+  for index, id in ipairs(source.command_region_ids or {}) do ids[index] = id end
+  return { ids = ids, truncated = source.command_regions_truncated }
+end
+
 function State:selection_rows(scope)
   local rows = {}
   if scope == "primary" then
@@ -545,9 +587,13 @@ function State:scroll_up(count)
   local top, bottom = screen.top_margin, screen.bottom_margin
   count = clamp(count or 1, 1, bottom - top + 1)
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
-    self.scrollback:push(row)
+    local evicted = self.scrollback:push(row)
+    if evicted then self:release_command_regions(evicted) end
   end or nil
-  screen:scroll_up(top, bottom, count, preserve)
+  local discard = preserve == nil and function(row)
+    self:release_command_regions(row)
+  end or nil
+  screen:scroll_up(top, bottom, count, preserve, discard)
   self:mark_region(top, bottom)
   self.stats.mutations = self.stats.mutations + (bottom - top + 1) * self.columns
   self:reconcile_selection()
@@ -558,7 +604,9 @@ function State:scroll_down(count)
   local screen = self.active_screen
   local top, bottom = screen.top_margin, screen.bottom_margin
   count = clamp(count or 1, 1, bottom - top + 1)
-  screen:scroll_down(top, bottom, count)
+  screen:scroll_down(top, bottom, count, function(row)
+    self:release_command_regions(row)
+  end)
   self:mark_region(top, bottom)
   self.stats.mutations = self.stats.mutations + (bottom - top + 1) * self.columns
 end
@@ -697,6 +745,7 @@ function State:write_new_cluster(glyph, codepoint)
   local display_text = leading and Utf8.encode(0x25cc) .. glyph or glyph
   local cursor, width = self:prepare_cluster_write(Width.columns(codepoints, self.width_policy))
   local column, row = cursor.column, cursor.row
+  self:attach_active_command_region(self.active_screen.rows[row])
   local occupied = self.active_screen:get(column, row)
   if occupied.continuation or occupied.width == 2 then self:clear_cluster_at(column, row) end
   if width == 2 and column + 1 < self.columns then
@@ -787,6 +836,7 @@ function State:write_ascii_cluster(glyph, codepoint)
   end
   local cursor = self:prepare_cluster_write(1)
   local column, row = cursor.column, cursor.row
+  self:attach_active_command_region(self.active_screen.rows[row])
   local occupied = self.active_screen:get(column, row)
   if occupied.continuation or occupied.width == 2 then self:clear_cluster_at(column, row) end
   local codepoints = ascii_codepoints[codepoint]
@@ -857,6 +907,7 @@ function State:erase_in_display(mode)
     if mode == 3 and self.active_screen == self.primary then
       self.scrollback:clear()
       self.history_offset = 0
+      self:reconcile_command_regions()
       self:reconcile_selection()
     end
   elseif mode == 1 then
@@ -991,7 +1042,9 @@ function State:insert_lines(count)
     return
   end
   local bottom = self.active_screen.bottom_margin
-  self.active_screen:scroll_down(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1))
+  self.active_screen:scroll_down(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), function(row)
+    self:release_command_regions(row)
+  end)
   self:mark_region(cursor.row, bottom)
 end
 
@@ -1002,7 +1055,9 @@ function State:delete_lines(count)
     return
   end
   local bottom = self.active_screen.bottom_margin
-  self.active_screen:scroll_up(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1))
+  self.active_screen:scroll_up(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), nil, function(row)
+    self:release_command_regions(row)
+  end)
   self:mark_region(cursor.row, bottom)
 end
 
@@ -1174,6 +1229,7 @@ function State:resize(columns, rows)
   self.text_damage = Damage.new(columns * rows)
   self.history_offset = clamp(self.history_offset, 0, self.scrollback:size())
   self:reconcile_selection()
+  self:reconcile_command_regions()
   self:reset_tab_stops()
   self:sync_cursor_visibility()
   self.damage:mark_all()
@@ -1535,7 +1591,10 @@ function State:apply_osc(action)
     end
   elseif action.command == 133 then
     local event = self.shell:apply_marker(action.payload, self:shell_position())
-    if event then self.command_regions:apply(event) end
+    if event then
+      local region = self.command_regions:apply(event)
+      if region then self:attach_command_region(self.active_screen.rows[self.active_screen.cursor.row], region.id) end
+    end
   else
     self:record_unknown("osc", { command = action.command })
   end

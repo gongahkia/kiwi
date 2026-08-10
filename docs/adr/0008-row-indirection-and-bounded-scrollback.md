@@ -10,4 +10,4 @@ The M0 synthetic scrolling workload exposed costly Lua table/cell reconstruction
 
 ## Consequences
 
-Only entering blank rows are allocated during normal scroll. Full-screen primary upward scroll offers outgoing rows to scrollback; margins and alternate screens do not. History navigation is deterministic and memory remains bounded by the configured line count.
+Only entering blank rows are allocated during normal scroll. Full-screen primary upward scroll offers outgoing rows to scrollback; margins and alternate screens do not. History navigation is deterministic and memory remains bounded by the configured line count. Rows may carry bounded opaque command-region IDs, which move with the row and never change its ownership or retention policy; their eviction state is defined by ADR 0029.

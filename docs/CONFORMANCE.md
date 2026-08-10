@@ -124,15 +124,21 @@ recovered command/output region; an orphan D is counted; repeated B/C markers
 leave the active record unchanged; a new A or incompatible B interrupts the
 active record. A marker on the other terminal screen interrupts an active
 region at its last position in its original scope before normal transition.
-Regions retain no screen or scrollback rows: if row retention ends, their
-positions are historical metadata for later navigation to resolve or decline.
+Rows retain at most eight opaque region IDs and move with ordinary primary
+scrollback. Region records count tagged versus still-retained rows, reporting
+`retained`, `partial`, `evicted`, `truncated`, or `none` coverage. A ninth ID
+does not replace an existing one: the row and new region are explicitly marked
+truncated. No region pins a row; once retention ends, its position remains
+historical metadata for later navigation to resolve or decline.
 
 There are at most 256 retained records by default. Canonical replay snapshots
-include opaque region fields/counters but no directory data and reproduce the
-same transitions from recorded terminal bytes. There is no renderer resource,
-navigation, persistent store, shell installer, command execution, or UI in
-this milestone. [ADR 0028](adr/0028-stable-command-region-lifecycle.md)
-defines the transition table and ownership boundary.
+include opaque region fields/counters and visible-row IDs but no directory or
+terminal-text duplication; the existing JSONL replay derives the same state
+from recorded bytes. Snapshot output is `v: 1` and observation-only—there is
+no snapshot restore API. There is no renderer resource, navigation, persistent
+store, shell installer, command execution, or UI in this milestone. [ADR 0028](adr/0028-stable-command-region-lifecycle.md)
+and [ADR 0029](adr/0029-command-region-retention-and-snapshot-boundary.md)
+define the lifecycle and retention boundaries.
 
 ## Input method status
 
@@ -259,6 +265,7 @@ fidelity or general application compatibility.
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native truecolour contract | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/truecolour.jsonl -- ./script/truecolour-contract-child'`; `make replay REPLAY=<temporary>/truecolour.jsonl` | Passed structurally: the actual child received `TERM=kiwi`, `COLORTERM=unset`, and `tput colors=16`; a known RGB SGR value replayed with zero parser errors, ignored actions, or unknown controls. This is not a physical pixel comparison. |
 | Native shell metadata | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/shell.jsonl -- ./script/shell-integration-child'`; `make replay REPLAY=<temporary>/shell.jsonl` | Passed structurally on 2026-08-10: the 115-byte OSC 7/133 sample replayed as `cwd`, `prompt`, `command_start`, `command_executed`, and `command_finished` with zero parser errors, ignored actions, or unknown controls. The noninteractive child verifies Kiwi's native parser/state path without changing or certifying a user's shell integration configuration. |
+| Native shell history | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/history.jsonl -- ./script/shell-integration-history-child'`; `make replay REPLAY=<temporary>/history.jsonl` | Passed structurally on 2026-08-10: the 773-byte 12-command OSC 7/133 stream replayed with 382 actions and zero parser errors, ignored actions, or unknown controls; the derived model retained 12 completed regions. The noninteractive child verifies Kiwi's native retention/replay path without changing or certifying a user's shell integration configuration. |
 | Native RGB TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; inspect raw output and replay | Btop 1.4.7 emitted 43,076 RGB SGR sequences while `COLORTERM` was absent; replay retained the colours but reported one parser error and two unknown CSI controls, including unsupported mouse mode `CSI ? 1015 h`. It is evidence that RGB input reaches the renderer path, not sufficient truecolour or general-TUI compatibility evidence. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
 | Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
