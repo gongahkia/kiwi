@@ -114,6 +114,11 @@ provide committed Unicode text; the researched Wayland text-input boundary and
 detached lifecycle spike are documented in
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
+Kiwi exposes a bounded, platform-neutral semantic accessibility model for
+future adapters, but it has no implemented AT-SPI, NSAccessibility, or UI
+Automation bridge and therefore makes no screen-reader support claim. The
+contract and adapter procedure are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
