@@ -54,6 +54,7 @@ function Snapshot.value(state)
     },
     rows = rows,
     command_regions = state.command_regions and state.command_regions:snapshot() or nil,
+    kitty_graphics = state.kitty_graphics and state.kitty_graphics:snapshot() or nil,
     shell = state.shell and state.shell:snapshot() or nil,
     scrollback_lines = state.scrollback:size(),
     title = state.title,
