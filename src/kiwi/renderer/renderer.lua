@@ -1,6 +1,7 @@
 local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
+local Resources = require("kiwi.renderer.resources")
 local Layout = require("kiwi.text.layout")
 
 ffi.cdef[[
@@ -66,7 +67,9 @@ function Renderer.new(context, font, model)
     cells = ffi.new("KiwiGlyphInstance[?]", model.columns * model.rows),
     glyphs = ffi.new("KiwiTextGlyphInstance[?]", model.columns * model.rows * 8),
     frame = ffi.new("KiwiFrameUniform[1]"),
-    resources = {},
+    resource_registry = Resources.new(context:next_renderer_generation()),
+    resource_handles = {},
+    frame_time = 0,
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -90,7 +93,7 @@ function Renderer.new(context, font, model)
     },
   }, Renderer)
   local ok, result = xpcall(function()
-    self:create_resources()
+    self:create_resources(model)
     model:mark_all_dirty()
     self:update_model(model)
   end, debug.traceback)
@@ -107,11 +110,10 @@ function Renderer:create_buffer(label, size, usage)
   descriptor.size = size
   descriptor.usage = usage
   local buffer = assert_handle(self.native.lib.wgpuDeviceCreateBuffer(self.context.device, descriptor), "buffer creation for " .. label)
-  self.resources[#self.resources + 1] = { handle = buffer, release = self.native.lib.wgpuBufferRelease, destroy = self.native.lib.wgpuBufferDestroy }
-  return buffer
+  return self.resource_registry:own_native(label, buffer, self.native.lib.wgpuBufferRelease, self.native.lib.wgpuBufferDestroy)
 end
 
-function Renderer:create_resources()
+function Renderer:create_resources(model)
   local api = self.native.lib
   local c = self.native.constants
   self.cell_buffer = self:create_buffer("terminal-cell-storage", self.capacity * Packing.glyph_instance_size, c.buffer_usage_storage + c.buffer_usage_copy_dst)
@@ -131,12 +133,12 @@ function Renderer:create_resources()
   texture_descriptor.mipLevelCount = 1
   texture_descriptor.sampleCount = 1
   self.atlas_texture = assert_handle(api.wgpuDeviceCreateTexture(self.context.device, texture_descriptor), "glyph atlas texture creation")
-  self.resources[#self.resources + 1] = { handle = self.atlas_texture, release = api.wgpuTextureRelease, destroy = api.wgpuTextureDestroy }
+  self.resource_registry:own_native("dynamic-glyph-atlas", self.atlas_texture, api.wgpuTextureRelease, api.wgpuTextureDestroy)
 
   self:upload_atlas()
 
   self.atlas_view = assert_handle(api.wgpuTextureCreateView(self.atlas_texture, nil), "glyph atlas view creation")
-  self.resources[#self.resources + 1] = { handle = self.atlas_view, release = api.wgpuTextureViewRelease }
+  self.resource_registry:own_native("glyph-atlas-view", self.atlas_view, api.wgpuTextureViewRelease)
   local sampler_descriptor = ffi.new("WGPUSamplerDescriptor")
   sampler_descriptor.label = string_view("glyph-atlas-sampler")
   sampler_descriptor.addressModeU = c.sampler_address_clamp_to_edge
@@ -148,7 +150,7 @@ function Renderer:create_resources()
   sampler_descriptor.lodMaxClamp = 32
   sampler_descriptor.maxAnisotropy = 1
   self.sampler = assert_handle(api.wgpuDeviceCreateSampler(self.context.device, sampler_descriptor), "glyph atlas sampler creation")
-  self.resources[#self.resources + 1] = { handle = self.sampler, release = api.wgpuSamplerRelease }
+  self.resource_registry:own_native("glyph-atlas-sampler", self.sampler, api.wgpuSamplerRelease)
 
   local entries = ffi.new("WGPUBindGroupLayoutEntry[5]")
   entries[0].binding = 0
@@ -173,7 +175,7 @@ function Renderer:create_resources()
   layout_descriptor.entryCount = 5
   layout_descriptor.entries = entries
   self.bind_group_layout = assert_handle(api.wgpuDeviceCreateBindGroupLayout(self.context.device, layout_descriptor), "terminal bind-group layout creation")
-  self.resources[#self.resources + 1] = { handle = self.bind_group_layout, release = api.wgpuBindGroupLayoutRelease }
+  self.resource_registry:own_native("terminal-bindings", self.bind_group_layout, api.wgpuBindGroupLayoutRelease)
 
   local layouts = ffi.new("WGPUBindGroupLayout[1]", self.bind_group_layout)
   local pipeline_layout_descriptor = ffi.new("WGPUPipelineLayoutDescriptor")
@@ -181,7 +183,7 @@ function Renderer:create_resources()
   pipeline_layout_descriptor.bindGroupLayoutCount = 1
   pipeline_layout_descriptor.bindGroupLayouts = layouts
   self.pipeline_layout = assert_handle(api.wgpuDeviceCreatePipelineLayout(self.context.device, pipeline_layout_descriptor), "terminal pipeline layout creation")
-  self.resources[#self.resources + 1] = { handle = self.pipeline_layout, release = api.wgpuPipelineLayoutRelease }
+  self.resource_registry:own_native("terminal-pipeline-layout", self.pipeline_layout, api.wgpuPipelineLayoutRelease)
 
   local bind_entries = ffi.new("WGPUBindGroupEntry[5]")
   bind_entries[0].binding = 0
@@ -203,16 +205,17 @@ function Renderer:create_resources()
   bind_group_descriptor.entryCount = 5
   bind_group_descriptor.entries = bind_entries
   self.bind_group = assert_handle(api.wgpuDeviceCreateBindGroup(self.context.device, bind_group_descriptor), "terminal bind-group creation")
-  self.resources[#self.resources + 1] = { handle = self.bind_group, release = api.wgpuBindGroupRelease }
+  self.resource_registry:own_native("terminal-bind-group", self.bind_group, api.wgpuBindGroupRelease)
 
   local root = os.getenv("KIWI_ROOT") or "."
   self.shader_code = read_file(root .. "/src/kiwi/renderer/terminal.wgsl")
   self.shader = assert_handle(self.native.surface.kiwi_shader_from_wgsl(self.context.device, self.shader_code), "terminal WGSL module creation")
-  self.resources[#self.resources + 1] = { handle = self.shader, release = api.wgpuShaderModuleRelease }
+  self.resource_registry:own_native("terminal-shader", self.shader, api.wgpuShaderModuleRelease)
 
   self.background_pipeline = self:create_pipeline("background-pass", "background_vs", "background_fs")
   self.glyph_pipeline = self:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
   self.cursor_pipeline = self:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
+  self:register_semantic_resources(model)
   self.passes = Passes.build(self)
 end
 
@@ -245,8 +248,107 @@ function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
     api.wgpuRenderPipelineRelease(pipeline)
     error("render pipeline creation for " .. label .. " failed: " .. native_error)
   end
-  self.resources[#self.resources + 1] = { handle = pipeline, release = api.wgpuRenderPipelineRelease }
-  return pipeline
+  return self.resource_registry:own_native(label, pipeline, api.wgpuRenderPipelineRelease)
+end
+
+function Renderer:resource_descriptor(kind, access, fields)
+  fields.kind = kind
+  fields.access = access
+  return fields
+end
+
+function Renderer:register_semantic_resources(model)
+  local registry = self.resource_registry
+  local handles = self.resource_handles
+  local function register(name, access, fields)
+    handles[name] = registry:register(name, self:resource_descriptor(name, access, fields))
+  end
+  local atlas = self.font.glyph_cache.atlas
+  register("terminal.cells", "read", {
+    columns = model.columns,
+    rows = model.rows,
+    capacity = self.capacity,
+    instance_bytes = Packing.glyph_instance_size,
+  })
+  register("text.shaped_glyphs", "read", {
+    capacity = self.glyph_capacity,
+    count = self.glyph_count or 0,
+    instance_bytes = Packing.text_glyph_instance_size,
+  })
+  register("terminal.cursor", "read", {
+    column = model.cursor.column,
+    row = model.cursor.row,
+    visible = model.cursor.visible ~= false,
+  })
+  register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
+  register("frame.viewport", "read", {
+    columns = model.columns,
+    rows = model.rows,
+    drawable_width = self.context.width,
+    drawable_height = self.context.height,
+    content_scale = self.font.content_scale or 1,
+  })
+  register("frame.timing", "read", { time = self.frame_time, delta = 0 })
+  register("text.alpha_atlas", "read", {
+    width = atlas.width,
+    height = atlas.height,
+    format = "r8unorm",
+    generation = self.atlas_generation or 0,
+  })
+  register("surface.color", "write", { format = self.context.surface_format })
+end
+
+function Renderer:refresh_semantic_resources(model, time, delta)
+  local registry = self.resource_registry
+  local handles = self.resource_handles
+  local atlas = self.font.glyph_cache.atlas
+  registry:update(handles["terminal.cells"], self:resource_descriptor("terminal.cells", "read", {
+    columns = model.columns,
+    rows = model.rows,
+    capacity = self.capacity,
+    instance_bytes = Packing.glyph_instance_size,
+  }))
+  registry:update(handles["text.shaped_glyphs"], self:resource_descriptor("text.shaped_glyphs", "read", {
+    capacity = self.glyph_capacity,
+    count = self.glyph_count or 0,
+    instance_bytes = Packing.text_glyph_instance_size,
+  }))
+  registry:update(handles["terminal.cursor"], self:resource_descriptor("terminal.cursor", "read", {
+    column = model.cursor.column,
+    row = model.cursor.row,
+    visible = model.cursor.visible ~= false,
+  }))
+  registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
+    cells = self.diagnostics.dirty_cells,
+    ranges = self.diagnostics.dirty_ranges,
+    full = self.diagnostics.full_update,
+  }))
+  registry:update(handles["frame.viewport"], self:resource_descriptor("frame.viewport", "read", {
+    columns = model.columns,
+    rows = model.rows,
+    drawable_width = self.context.width,
+    drawable_height = self.context.height,
+    content_scale = self.font.content_scale or 1,
+  }))
+  registry:update(handles["frame.timing"], self:resource_descriptor("frame.timing", "read", { time = time, delta = delta }))
+  registry:update(handles["text.alpha_atlas"], self:resource_descriptor("text.alpha_atlas", "read", {
+    width = atlas.width,
+    height = atlas.height,
+    format = "r8unorm",
+    generation = self.atlas_generation or 0,
+  }))
+  registry:update(handles["surface.color"], self:resource_descriptor("surface.color", "write", { format = self.context.surface_format }))
+end
+
+function Renderer:resolve_pass_resources(pass_info)
+  local resolved = {}
+  for _, name in ipairs(pass_info.reads) do
+    resolved[name] = self.resource_registry:resolve(self.resource_handles[name], "read")
+  end
+  for _, name in ipairs(pass_info.writes) do
+    resolved[name] = self.resource_registry:resolve(self.resource_handles[name], "write")
+  end
+  return resolved
 end
 
 function Renderer:upload_atlas()
@@ -361,10 +463,13 @@ function Renderer:update_model(model)
     self.glyph_count = glyph_count
   end
   if self.atlas_generation ~= self.font.glyph_cache.generation then self:upload_atlas() end
+  self:refresh_semantic_resources(model, self.frame_time, 0)
   damage:clear()
 end
 
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
+  local delta = math.max(0, time - self.frame_time)
+  self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
   self.frame[0].cursor_column = model.cursor.column
@@ -374,9 +479,11 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].show_boundaries = debug_boundaries and 1 or 0
   self.frame[0].cursor_visible = model.cursor.visible == false and 0 or 1
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
+  self:refresh_semantic_resources(model, time, delta)
 end
 
-function Renderer:encode_semantic_pass(pass_info, encoder, view, model)
+function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resources)
+  assert(resources["surface.color"] ~= nil, "semantic pass requires a presentation target")
   local attachment = ffi.new("WGPURenderPassColorAttachment")
   attachment.view = view
   attachment.depthSlice = 0xffffffff
@@ -441,14 +548,7 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
 end
 
 function Renderer:destroy()
-  for index = #self.resources, 1, -1 do
-    local resource = self.resources[index]
-    if resource.destroy then
-      resource.destroy(resource.handle)
-    end
-    resource.release(resource.handle)
-  end
-  self.resources = {}
+  self.resource_registry:destroy()
 end
 
 return Renderer

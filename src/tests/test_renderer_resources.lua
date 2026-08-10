@@ -1,0 +1,119 @@
+local Assert = require("tests.assert")
+local ffi = require("ffi")
+local Passes = require("kiwi.renderer.passes")
+local Renderer = require("kiwi.renderer.renderer")
+local Resources = require("kiwi.renderer.resources")
+
+local function cells_descriptor(columns)
+  return {
+    kind = "terminal.cells",
+    access = "read",
+    columns = columns,
+    rows = 24,
+    capacity = columns * 24,
+    instance_bytes = 40,
+  }
+end
+
+local function expect_error(callback)
+  local ok, message = pcall(callback)
+  Assert.equal(ok, false)
+  Assert.truthy(tostring(message):match("render resource registry") ~= nil)
+end
+
+local function descriptor_for(name)
+  return { kind = name, access = name == "surface.color" and "write" or "read" }
+end
+
+return {
+  renderer_resources_resolve_cloned_semantic_descriptors = function()
+    local registry = Resources.new(3)
+    local handle = registry:register("terminal.cells", cells_descriptor(80))
+    local resource = registry:resolve(handle, "read")
+    Assert.equal(resource.name, "terminal.cells")
+    Assert.equal(resource.generation, 3)
+    Assert.equal(resource.descriptor.columns, 80)
+    resource.descriptor.columns = 1
+    Assert.equal(registry:resolve(handle).descriptor.columns, 80)
+    expect_error(function() registry:resolve(handle, "write") end)
+  end,
+  renderer_resources_reject_raw_or_unknown_descriptors = function()
+    local registry = Resources.new(1)
+    expect_error(function()
+      registry:register("terminal.cells", {
+        kind = "terminal.cells",
+        access = "read",
+        native = function() end,
+      })
+    end)
+    expect_error(function()
+      registry:register("terminal.cells", {
+        kind = "terminal.cells",
+        access = "read",
+        native = ffi.new("uint32_t[1]"),
+      })
+    end)
+    expect_error(function()
+      registry:register("terminal.selection", { kind = "terminal.selection", access = "read" })
+    end)
+    expect_error(function()
+      registry:register("surface.color", { kind = "surface.color", access = "read" })
+    end)
+  end,
+  renderer_resources_reject_stale_renderer_generations = function()
+    local previous = Resources.new(7)
+    local previous_handle = previous:register("terminal.cells", cells_descriptor(80))
+    local current = Resources.new(8)
+    current:register("terminal.cells", cells_descriptor(120))
+    expect_error(function() current:resolve(previous_handle) end)
+    previous:destroy()
+    expect_error(function() previous:resolve(previous_handle) end)
+  end,
+  renderer_resources_release_owned_native_resources_once_in_reverse_order = function()
+    local registry = Resources.new(1)
+    local events = {}
+    local first = {}
+    local second = {}
+    registry:own_native("first", first, function() events[#events + 1] = "first-release" end, function() events[#events + 1] = "first-destroy" end)
+    registry:own_native("second", second, function() events[#events + 1] = "second-release" end, function() events[#events + 1] = "second-destroy" end)
+    expect_error(function() registry:own_native("duplicate", first, function() end) end)
+    registry:destroy()
+    registry:destroy()
+    Assert.equal(table.concat(events, ","), "second-destroy,second-release,first-destroy,first-release")
+  end,
+  built_in_passes_resolve_typed_resources_before_encoding = function()
+    local registry = Resources.new(1)
+    local handles = {}
+    for _, name in ipairs({
+      "terminal.cells",
+      "text.shaped_glyphs",
+      "terminal.cursor",
+      "terminal.damage",
+      "frame.viewport",
+      "frame.timing",
+      "text.alpha_atlas",
+      "surface.color",
+    }) do
+      handles[name] = registry:register(name, descriptor_for(name))
+    end
+    local captured
+    local renderer = {
+      native = { constants = { load_clear = 2, load_load = 1 } },
+      background_pipeline = {},
+      glyph_pipeline = {},
+      cursor_pipeline = {},
+      glyph_count = 4,
+      resource_registry = registry,
+      resource_handles = handles,
+      resolve_pass_resources = Renderer.resolve_pass_resources,
+      encode_semantic_pass = function(_, _, _, _, _, resources)
+        captured = resources
+      end,
+    }
+    local passes = Passes.build(renderer)
+    passes[2]:encode(renderer, nil, nil, { columns = 80, rows = 24 })
+    Assert.equal(captured["text.shaped_glyphs"].name, "text.shaped_glyphs")
+    Assert.equal(captured["text.alpha_atlas"].descriptor.access, "read")
+    Assert.equal(captured["surface.color"].descriptor.access, "write")
+  end,
+}
