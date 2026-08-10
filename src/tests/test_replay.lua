@@ -8,6 +8,7 @@ local State = require("kiwi.terminal.state")
 local LIVE_RECORDING = "src/tests/fixtures/replay/live-color-cr.jsonl"
 local UNICODE_RECORDING = "src/tests/fixtures/replay/unicode-clusters.jsonl"
 local RIGHT_MARGIN_UNICODE_RECORDING = "src/tests/fixtures/replay/unicode-right-margin.jsonl"
+local KITTY_PLACEMENT_RECORDING = "src/tests/fixtures/replay/kitty-placement.jsonl"
 
 local function with_temporary_recording(callback)
   local path = os.tmpname()
@@ -103,6 +104,19 @@ return {
     Assert.equal(state:get(1, 0).width, 2)
     Assert.truthy(state:get(2, 0).continuation)
     Assert.equal(state:get(0, 1).glyph, "B")
+    Assert.equal(stats.errors, 0)
+  end,
+  kitty_placement_replay_preserves_the_bounded_cell_anchor = function()
+    local state = State.new(1, 1)
+    local stats = Replay.apply_file(state, KITTY_PLACEMENT_RECORDING)
+    local placement = state:kitty_placements_view().placements[1]
+    Assert.equal(state.columns, 4)
+    Assert.equal(state.rows, 2)
+    Assert.equal(placement.image_id, 1)
+    Assert.equal(placement.placement_id, 5)
+    Assert.equal(placement.columns, 2)
+    Assert.equal(placement.rows[1].row, 0)
+    Assert.equal(placement.z, -1)
     Assert.equal(stats.errors, 0)
   end,
 }

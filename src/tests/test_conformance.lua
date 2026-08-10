@@ -109,6 +109,13 @@ local function assert_expected(fixture, state, parser)
       Assert.equal(regions.regions[1][name], value, fixture.id .. " command-region " .. name)
     end
   end
+  if expected.kitty_placements then
+    local placements = state:kitty_placements_view().placements
+    Assert.equal(#placements, 1, fixture.id .. " kitty placement count")
+    for name, value in pairs(expected.kitty_placements) do
+      Assert.equal(placements[1][name], value, fixture.id .. " kitty placement " .. name)
+    end
+  end
   if expected.responses then
     assert_sequence(state:pop_responses(), expected.responses, fixture.id .. " responses")
   end

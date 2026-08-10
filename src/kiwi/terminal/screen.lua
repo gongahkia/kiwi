@@ -74,6 +74,11 @@ function Screen:resize(columns, rows, blank_cell)
       for index, id in ipairs(self.rows[row].command_region_ids) do ids[index] = id end
       resized.rows[row].command_region_ids = ids
     end
+    if self.rows[row].kitty_placement_ids then
+      local ids = {}
+      for index, id in ipairs(self.rows[row].kitty_placement_ids) do ids[index] = id end
+      resized.rows[row].kitty_placement_ids = ids
+    end
     resized.rows[row].command_regions_truncated = self.rows[row].command_regions_truncated
     resized.rows[row].wrapped = self.rows[row].wrapped
   end
