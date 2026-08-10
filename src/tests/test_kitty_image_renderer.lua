@@ -2,7 +2,9 @@ local Assert = require("tests.assert")
 local KittyImages = require("kiwi.renderer.kitty_images")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
+local Parser = require("kiwi.terminal.parser")
 local Resources = require("kiwi.renderer.resources")
+local State = require("kiwi.terminal.state")
 
 return {
   kitty_image_renderer_splits_z_layers_and_preserves_source_rows = function()
@@ -36,6 +38,18 @@ return {
     Assert.equal(under[2].source_row, 1)
     Assert.equal(under[2].row_count, 2)
     Assert.equal(over[1].image_id, 8)
+  end,
+  kitty_image_renderer_uses_the_composition_fixture_as_its_visible_input = function()
+    local fixture = require("tests.fixtures.vt.kitty_graphics_composition")
+    local state = State.new(fixture.columns, fixture.rows)
+    local parser = Parser.new(state)
+    parser:feed(fixture.input)
+    parser:finish()
+    local under, over = KittyImages.plan(state:kitty_placements_view())
+    Assert.equal(#under, 1)
+    Assert.equal(#over, 1)
+    Assert.equal(under[1].placement_id, 1)
+    Assert.equal(over[1].placement_id, 2)
   end,
   kitty_image_renderer_releases_offscreen_textures_and_gpu_accounting = function()
     local releases = {}

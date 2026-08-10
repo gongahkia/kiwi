@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -28,6 +28,9 @@ timestamp-probe: native terminfo
 
 gpu-timing-smoke: native terminfo
 	KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES=10 $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes
+
+kitty-graphics-smoke: native terminfo
+	KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-120} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- ./script/kitty-image-demo-child
 
 budget-smoke: native terminfo
 	KIWI_PASS_BUDGETS=1 KIWI_PASS_BUDGETS_REPORT=1 KIWI_RENDER_EXTENSIONS=tests.fixture_budget_extension KIWI_MAX_FRAMES=10 $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes

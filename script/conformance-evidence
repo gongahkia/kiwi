@@ -8,6 +8,7 @@ readonly TOP_RECORDING="$WORK_DIR/top.jsonl"
 readonly VT_RECORDING="$WORK_DIR/vttest-style.jsonl"
 readonly VIM_RECORDING="$WORK_DIR/vim-mouse.jsonl"
 readonly NVIM_RECORDING="$WORK_DIR/nvim-keyboard.jsonl"
+readonly KITTY_GRAPHICS_RECORDING="$WORK_DIR/kitty-graphics.jsonl"
 readonly TRUECOLOUR_RECORDING="$WORK_DIR/truecolour-contract.jsonl"
 readonly REPLAY_LOG="$WORK_DIR/replay.stderr"
 readonly TMUX_SOCKET="kiwi-conformance-$$"
@@ -82,6 +83,27 @@ else
     print -u2 "native VT exercise contains parser errors, ignored actions, or unknown terminal controls."
     exit 1
   }
+fi
+
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "native-kitty-graphics: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+else
+  graphics_output=$(KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--no-extensions --record $KITTY_GRAPHICS_RECORDING -- $ROOT/script/kitty-image-demo-child" 2>&1)
+  make replay REPLAY="$KITTY_GRAPHICS_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  replay=$(<"$REPLAY_LOG")
+  [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
+    print -u2 "native Kitty graphics fixture did not preserve its protocol stream through replay."
+    exit 1
+  }
+  if [[ "$graphics_output" == *"Kiwi GPU timing: enabled=true status=supported"* ]]; then
+    [[ "$graphics_output" == *"pass=terminal/kitty_images_under"* && "$graphics_output" == *"pass=terminal/kitty_images_over"* ]] || {
+      print -u2 "native Kitty graphics fixture did not dispatch both image composition passes."
+      exit 1
+    }
+    print "native-kitty-graphics: ${replay//$'\n'/; }; renderer timestamps observed both image passes"
+  else
+    print "native-kitty-graphics: ${replay//$'\n'/; }; renderer timestamp evidence unavailable"
+  fi
 fi
 
 if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then

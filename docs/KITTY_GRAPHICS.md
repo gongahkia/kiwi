@@ -135,14 +135,26 @@ diagnostics without logging protocol data. Ordinary transfers do not emit a
 reply. A valid `a=q` responds `ESC _ Gi=<id>;OK ESC \\`; a failed query returns
 the same framing with a bounded `ERR:<reason>` code.
 
-`src/tests/fixtures/vt/kitty_graphics.lua` and
-`src/tests/fixtures/vt/kitty_placements.lua` contain real 1×1 PNG APC-G
-fixtures. `src/tests/fixtures/replay/kitty-placement.jsonl` verifies replay.
-Focused tests cover complete and chunked transfers, every parser split boundary,
-malformed and over-limit input, query behavior, deterministic CPU/GPU accounting
-eviction, placement replacement/z-order, viewport/history movement, alternate
-screen/reset/clear/delete behavior, resize clipping, image-pass ordering,
-per-row source slicing, offscreen texture release, and cleanup.
+`src/tests/fixtures/vt/kitty_graphics.lua`,
+`src/tests/fixtures/vt/kitty_graphics_actions.lua`, and
+`src/tests/fixtures/vt/kitty_graphics_composition.lua` use one reviewable 1×1
+PNG Base64 literal. Together they cover transfer, query, placement, visible
+negative/positive z composition input, clear, soft delete, and hard delete.
+`src/tests/fixtures/replay/kitty-placement.jsonl` verifies replay. Focused tests
+cover complete and chunked transfers, every parser split boundary, malformed and
+over-limit input, stable `encoded-limit` and `png-decode` diagnostics, query
+behavior, deterministic CPU/GPU accounting eviction, placement
+replacement/z-order, viewport/history movement, alternate screen/reset/clear/
+delete behavior, resize clipping, image-pass ordering, per-row source slicing,
+offscreen texture release, and cleanup.
+
+Run `make kitty-graphics-smoke` in a graphical session to launch the same
+self-contained direct-PNG client with timestamp instrumentation. On an adapter
+with timestamp-query support it reports both `terminal/kitty_images_under` and
+`terminal/kitty_images_over`; then run `make conformance-evidence` to
+record/replay the stream alongside the other native conformance probes. The
+supported direct-PNG stream is intentionally not evidence for arbitrary
+third-party Kitty client compatibility.
 
 ## Sources
 
