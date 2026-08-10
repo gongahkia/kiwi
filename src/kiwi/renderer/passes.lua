@@ -8,7 +8,12 @@ function Pass.new(name, order, pipeline, load_op, instances, reads, writes, afte
 end
 
 function Pass:encode(renderer, encoder, view, model)
-  renderer:encode_semantic_pass(self, encoder, view, model, renderer:resolve_pass_resources(self))
+  renderer:encode_semantic_pass(self, encoder, view, model, self.resources or renderer:resolve_pass_resources(self))
+  self.resources = nil
+end
+
+function Pass:prepare(renderer)
+  self.resources = renderer:resolve_pass_resources(self)
 end
 
 local function initialize_pipeline(owner, pass, label, vertex_entry, fragment_entry)

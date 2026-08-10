@@ -134,12 +134,14 @@ local function graph_order(passes)
   return ordered, parallel_groups
 end
 
-function Registry.new()
+function Registry.new(options)
+  options = options or {}
   return setmetatable({
     passes = {},
     names = {},
     initialized = {},
     parallel_groups = {},
+    metrics = options.metrics,
     state = "registering",
   }, Registry)
 end
@@ -185,11 +187,37 @@ end
 function Registry:encode(renderer, encoder, view, model)
   self:assert_state("ready", "encoding")
   for _, pass in ipairs(self.passes) do
-    local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
-    if not ok then
-      fail("pass " .. pass.name .. " encoding failed: " .. message)
+    local function encode()
+      local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
+      if not ok then fail("pass " .. pass.name .. " encoding failed: " .. message) end
     end
+    if self.metrics then self.metrics:measure(pass.name, "encode", encode) else encode() end
   end
+end
+
+function Registry:prepare(renderer, model)
+  self:assert_state("ready", "preparation")
+  for _, pass in ipairs(self.passes) do
+    local function prepare()
+      if pass.prepare then
+        local ok, message = xpcall(function() pass:prepare(renderer, model) end, debug.traceback)
+        if not ok then fail("pass " .. pass.name .. " preparation failed: " .. message) end
+      end
+    end
+    if self.metrics then self.metrics:measure(pass.name, "prepare", prepare) else prepare() end
+  end
+end
+
+function Registry:begin_frame()
+  if self.metrics then self.metrics:begin_frame() end
+end
+
+function Registry:end_frame()
+  if self.metrics then self.metrics:end_frame() end
+end
+
+function Registry:reset_metrics()
+  if self.metrics then self.metrics:reset() end
 end
 
 function Registry:resize(renderer, previous, current)
@@ -213,6 +241,7 @@ function Registry:shutdown(renderer)
       local ok, message = xpcall(function() pass:shutdown(renderer) end, debug.traceback)
       if not ok and first_error == nil then first_error = "pass " .. pass.name .. " shutdown failed: " .. message end
     end
+    if self.metrics then self.metrics:remove(pass.name) end
     pass.lifecycle = "shutdown"
   end
   self.initialized = {}
