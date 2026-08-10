@@ -264,6 +264,54 @@ function State:selection_endpoint(row, column)
   }
 end
 
+local function selection_cluster_bounds(row, column, columns)
+  local cell = row.cells[column]
+  local start = cell and cell.continuation and cell.anchor_column or column
+  local anchor = row.cells[start]
+  local width = anchor and anchor.width or 1
+  return start, math.min(columns, start + math.max(1, width))
+end
+
+function State:selection_cell_bounds(row, column)
+  row = selection_coordinate(row, self.rows - 1)
+  column = selection_coordinate(column, self.columns - 1)
+  local start, finish = selection_cluster_bounds(self:visible_row(row), column, self.columns)
+  return { finish = finish, row = row, start = start }
+end
+
+local function selection_word_cell(cell)
+  local codepoint = cell and cell.codepoints and cell.codepoints[1]
+  return codepoint and ((codepoint >= 0x30 and codepoint <= 0x39) or (codepoint >= 0x41 and codepoint <= 0x5a) or (codepoint >= 0x61 and codepoint <= 0x7a) or codepoint == 0x5f or codepoint >= 0x80)
+end
+
+function State:selection_word_bounds(row, column)
+  local bounds = self:selection_cell_bounds(row, column)
+  local visible = self:visible_row(bounds.row)
+  if not selection_word_cell(visible.cells[bounds.start]) then return bounds end
+  while bounds.start > 0 do
+    local previous_start, previous_finish = selection_cluster_bounds(visible, bounds.start - 1, self.columns)
+    if previous_finish ~= bounds.start or not selection_word_cell(visible.cells[previous_start]) then break end
+    bounds.start = previous_start
+  end
+  while bounds.finish < self.columns do
+    local next_start, next_finish = selection_cluster_bounds(visible, bounds.finish, self.columns)
+    if next_start ~= bounds.finish or not selection_word_cell(visible.cells[next_start]) then break end
+    bounds.finish = next_finish
+  end
+  return bounds
+end
+
+function State:selection_precedes(left_row, left_column, right_row, right_column)
+  local scope = self:selection_scope()
+  local positions = {}
+  for index, entry in ipairs(self:selection_rows(scope)) do positions[entry.line_id] = index end
+  local left = self:selection_endpoint(left_row, left_column)
+  local right = self:selection_endpoint(right_row, right_column)
+  local left_index = positions[left.line_id]
+  local right_index = positions[right.line_id]
+  return left_index < right_index or (left_index == right_index and left.column <= right.column)
+end
+
 function State:set_selection(anchor_row, anchor_column, focus_row, focus_column)
   local scope = self:selection_scope()
   return self.selection:set(scope, self:selection_endpoint(anchor_row, anchor_column), self:selection_endpoint(focus_row, focus_column), self:selection_rows(scope), self.columns)

@@ -5,6 +5,7 @@ local FontSystem = require("kiwi.font.system")
 local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
+local SelectionPointer = require("kiwi.input.selection_pointer")
 local Pty = require("kiwi.process.pty")
 local Renderer = require("kiwi.renderer.renderer")
 local Parser = require("kiwi.terminal.parser")
@@ -181,17 +182,11 @@ local function run_live(options)
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
     local mouse = Mouse.new()
     local mouse_generation = state.modes.mouse_generation
+    local selection_pointer = SelectionPointer.new()
 
     local function enqueue_input(bytes)
       if recorder then recorder:input(bytes) end
       pty:enqueue(bytes)
-    end
-
-    local function mouse_position(x, y)
-      local scale = font.content_scale or 1
-      local column = math.max(1, math.min(state.columns, math.floor(x * scale / font.cell_width) + 1))
-      local row = math.max(1, math.min(state.rows, math.floor(y * scale / font.cell_height) + 1))
-      return column, row
     end
 
     window:set_input_handlers(function(codepoint)
@@ -213,17 +208,21 @@ local function run_live(options)
       end
       return { handled = true, suppress_text = encoded.suppress_text }
     end, function(event)
-      event.column, event.row = mouse_position(event.x, event.y)
+      event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
+      event.column = event.selection_column + 1
+      event.row = event.selection_row + 1
+      local selection_handled = selection_pointer:handle(event, state, state.modes)
       local encoded
-      if event.kind == "button" then
+      if not selection_handled and event.kind == "button" then
         encoded = mouse:button(event, state.modes)
-      elseif event.kind == "motion" then
+      elseif not selection_handled and event.kind == "motion" then
         encoded = mouse:motion(event, state.modes)
-      elseif event.kind == "wheel" then
+      elseif not selection_handled and event.kind == "wheel" then
         encoded = mouse:wheel(event, state.modes)
       end
       if encoded then enqueue_input(encoded) end
     end, function(focused)
+      if not focused then selection_pointer:reset() end
       local encoded = mouse:focus(focused, state.modes)
       if encoded then enqueue_input(encoded) end
     end)
@@ -242,6 +241,7 @@ local function run_live(options)
         parser:feed(output)
         if state.modes.mouse_generation ~= mouse_generation then
           mouse:reset()
+          selection_pointer:reset()
           mouse_generation = state.modes.mouse_generation
         end
         renderer:invalidate("terminal")
