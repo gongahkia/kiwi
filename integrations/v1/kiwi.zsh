@@ -35,6 +35,7 @@ __kiwi_zsh_precmd() {
   __kiwi_zsh_prompt_seen=1
   __kiwi_zsh_cwd
   __kiwi_zsh_marker A
+  return "$exit_status"
 }
 
 __kiwi_zsh_preexec() {

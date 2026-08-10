@@ -37,6 +37,7 @@ __kiwi_bash_prompt() {
   __kiwi_bash_prompt_seen=1
   __kiwi_bash_cwd
   __kiwi_bash_marker A
+  return "$status"
 }
 
 PROMPT_COMMAND="__kiwi_bash_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
