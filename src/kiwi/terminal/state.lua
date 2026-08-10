@@ -94,6 +94,7 @@ function State.new(columns, rows, options)
     selection = Selection.new(),
     shell = ShellIntegration.new(options.shell_integration),
     command_regions = CommandRegions.new(options.command_regions),
+    command_region_navigation = nil,
     history_offset = 0,
     title = nil,
     responses = {},
@@ -302,6 +303,84 @@ function State:command_regions_at(row)
   local ids = {}
   for index, id in ipairs(source.command_region_ids or {}) do ids[index] = id end
   return { ids = ids, truncated = source.command_regions_truncated }
+end
+
+function State:command_region_targets(role)
+  local field = ({ command = "command_start", output = "output_start", prompt = "prompt_start" })[role]
+  assert(field ~= nil, "unknown command-region role")
+  local positions = {}
+  for index, entry in ipairs(self:selection_rows("primary")) do positions[entry.line_id] = index end
+  local targets = {}
+  for _, region in ipairs(self.command_regions:view().regions) do
+    local position = region[field]
+    local row = position and position.scope == "primary" and positions[position.line_id] or nil
+    if row then targets[#targets + 1] = { column = position.column, id = region.id, position = position, region = region, row = row } end
+  end
+  table.sort(targets, function(left, right)
+    if left.row ~= right.row then return left.row < right.row end
+    if left.column ~= right.column then return left.column < right.column end
+    return left.id < right.id
+  end)
+  return targets
+end
+
+function State:reveal_command_region(target)
+  local offset = clamp(self.scrollback:size() - (target.row - 1), 0, self.scrollback:size())
+  self.history_offset = offset
+  self:sync_cursor_visibility()
+  self.damage:mark_all()
+  self.text_damage:mark_all()
+end
+
+function State:navigate_command_region(role, direction)
+  if self.active_screen ~= self.primary then return nil, "alternate-screen" end
+  if self.modes.keyboard_flags ~= 0 then return nil, "keyboard-mode" end
+  if self.search.editing then return nil, "search-active" end
+  assert(direction == "forward" or direction == "backward", "unknown command-region direction")
+  local targets = self:command_region_targets(role)
+  if #targets == 0 then return nil, "no-region" end
+  local step = direction == "forward" and 1 or -1
+  local navigation = self.command_region_navigation
+  local index
+  if navigation and navigation.role == role then
+    for candidate, target in ipairs(targets) do
+      if target.id == navigation.id then
+        index = candidate + step
+        break
+      end
+    end
+  end
+  if index == nil then
+    local anchor_row, anchor_column
+    if self.history_offset == 0 then
+      anchor_row = self.rows + self.scrollback:size()
+      anchor_column = self.cursor.column
+    else
+      anchor_row = self.scrollback:size() - self.history_offset + 1
+      anchor_column = 0
+    end
+    if direction == "forward" then
+      for candidate, target in ipairs(targets) do
+        if target.row > anchor_row or (target.row == anchor_row and target.column > anchor_column) then
+          index = candidate
+          break
+        end
+      end
+    else
+      for candidate = #targets, 1, -1 do
+        local target = targets[candidate]
+        if target.row < anchor_row or (target.row == anchor_row and target.column < anchor_column) then
+          index = candidate
+          break
+        end
+      end
+    end
+  end
+  if index == nil or targets[index] == nil then return nil, direction == "forward" and "end" or "start" end
+  local target = targets[index]
+  self:reveal_command_region(target)
+  self.command_region_navigation = { id = target.id, role = role }
+  return target.region, "navigated"
 end
 
 function State:selection_rows(scope)
@@ -1140,6 +1219,7 @@ function State:scroll_history(lines)
     return
   end
   self.history_offset = clamp(self.history_offset + lines, 0, self.scrollback:size())
+  self.command_region_navigation = nil
   self:sync_cursor_visibility()
   self.damage:mark_all()
   self.text_damage:mark_all()
@@ -1194,6 +1274,7 @@ function State:reset()
   self.scrollback:clear()
   self.shell:clear()
   self.command_regions:clear()
+  self.command_region_navigation = nil
   self.hyperlinks = {}
   self.hyperlink_ids = {}
   self.next_hyperlink_id = 0
