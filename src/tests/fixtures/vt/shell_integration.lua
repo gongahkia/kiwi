@@ -11,5 +11,6 @@ return {
       current_directory = "file://build.example/home/kiwi",
       events = { "cwd", "prompt", "command_start", "command_executed", "command_finished" },
     },
+    command_regions = { state = "completed" },
   },
 }

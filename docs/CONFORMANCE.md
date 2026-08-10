@@ -62,7 +62,7 @@ claiming formal verification or allocator-independent memory totals.
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata; OSC 52 has no clipboard action or response | not advertised |
+| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -108,6 +108,31 @@ diagnostic payload, local key binding, automatic shell setup, command
 execution, navigation, or UI yet. The `shell-integration` fixture covers the
 common bash/zsh/fish marker order and both OSC terminators. [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
 defines the complete boundary.
+
+## Command-region lifecycle
+
+Accepted OSC 133 markers derive one bounded opaque region lifecycle: `A`
+starts `prompt`, `B` moves to `command`, `C` moves to `output`, and `D` or
+`D;<0..255>` completes it. A record retains only local ID, start scope,
+current-directory ID, stable row/cell positions for its roles, optional finish
+status, state, and recovery/interruption facts. It never retains command text,
+output text, directory URI/path, host, process information, wall-clock time,
+or a renderer handle.
+
+Missing B/C markers produce explicit recovery facts; missing A creates a
+recovered command/output region; an orphan D is counted; repeated B/C markers
+leave the active record unchanged; a new A or incompatible B interrupts the
+active record. A marker on the other terminal screen interrupts an active
+region at its last position in its original scope before normal transition.
+Regions retain no screen or scrollback rows: if row retention ends, their
+positions are historical metadata for later navigation to resolve or decline.
+
+There are at most 256 retained records by default. Canonical replay snapshots
+include opaque region fields/counters but no directory data and reproduce the
+same transitions from recorded terminal bytes. There is no renderer resource,
+navigation, persistent store, shell installer, command execution, or UI in
+this milestone. [ADR 0028](adr/0028-stable-command-region-lifecycle.md)
+defines the transition table and ownership boundary.
 
 ## Input method status
 
