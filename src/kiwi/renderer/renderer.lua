@@ -1,6 +1,7 @@
 local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
+local PassRegistry = require("kiwi.renderer.pass_registry")
 local Resources = require("kiwi.renderer.resources")
 local Layout = require("kiwi.text.layout")
 
@@ -216,7 +217,11 @@ function Renderer:create_resources(model)
   self.glyph_pipeline = self:create_pipeline("glyph-pass", "glyph_vs", "glyph_fs")
   self.cursor_pipeline = self:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
   self:register_semantic_resources(model)
-  self.passes = Passes.build(self)
+  self.pass_registry = PassRegistry.new()
+  for _, pass in ipairs(Passes.build(self)) do
+    self.pass_registry:register(pass)
+  end
+  self.pass_registry:initialize(self)
 end
 
 function Renderer:create_pipeline(label, vertex_entry, fragment_entry)
@@ -521,9 +526,7 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
   local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
-  for _, pass_info in ipairs(self.passes) do
-    pass_info:encode(self, encoder, view, model)
-  end
+  self.pass_registry:encode(self, encoder, view, model)
   local commands = ffi.new("WGPUCommandBuffer[1]")
   commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
   self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
@@ -543,12 +546,19 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   if #native_error > 0 then
     return false, "native GPU error: " .. native_error
   end
-  self.diagnostics.draw_calls = 3
+  self.diagnostics.draw_calls = self.pass_registry:count()
   return true
 end
 
 function Renderer:destroy()
-  self.resource_registry:destroy()
+  local pass_error
+  if self.pass_registry then
+    local ok, message = pcall(self.pass_registry.shutdown, self.pass_registry, self)
+    if not ok then pass_error = message end
+  end
+  local resource_ok, resource_error = pcall(self.resource_registry.destroy, self.resource_registry)
+  if pass_error then error(pass_error, 2) end
+  if not resource_ok then error(resource_error, 2) end
 end
 
 return Renderer
