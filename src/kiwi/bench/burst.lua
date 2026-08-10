@@ -145,6 +145,7 @@ local mixed_unit = "\27[31mKiwi\27[0m\r\n"
 local mixed_repetitions = math.ceil(mib / #mixed_unit)
 local unicode_unit = "Cafe" .. Utf8.encode(0x0301) .. " " .. Utf8.encode(0x4e2d) .. " "
   .. Utf8.encode(0x1f469) .. Utf8.encode(0x200d) .. Utf8.encode(0x1f680) .. " " .. Utf8.encode(0xe0b0) .. "\n"
+local unicode_pty_unit = unicode_unit:gsub("\n", "\r\n")
 local unicode_repetitions = math.ceil((128 * 1024) / #unicode_unit)
 local cases = {
   {
@@ -163,7 +164,7 @@ local cases = {
     name = "unicode-combining-cjk-emoji-fallback-128kib",
     command = { "/bin/sh", "-c", "i=0; while [ $i -lt " .. unicode_repetitions .. " ]; do printf 'Cafe\\314\\201 \\344\\270\\255 \\360\\237\\221\\251\\342\\200\\215\\360\\237\\232\\200 \\356\\202\\260\\n'; i=$((i + 1)); done" },
     minimum_bytes = #unicode_unit * unicode_repetitions,
-    reference_input = string.rep(unicode_unit, unicode_repetitions),
+    reference_input = string.rep(unicode_pty_unit, unicode_repetitions),
   },
   {
     name = "response-interleaved-128kib",
