@@ -45,6 +45,7 @@ make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
+make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
@@ -60,6 +61,8 @@ During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundarie
 WGSL hot reload is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an explicit `KIWI_DEV_SHADER_PATH=/absolute/or/relative/terminal.wgsl`. Kiwi polls only that file at a 250 ms cadence; `F5` forces an immediate reload. It builds replacement modules and pipelines for every affected pass before swapping any active pipeline. Rejected source remains on disk for correction, while the last known-good pipelines stay active and the reason is reported to stderr. Without both settings, `F5` performs no shader compilation and production continues to use the bundled WGSL.
 
 `KIWI_PASS_METRICS=1` enables bounded per-pass CPU preparation and encoding samples in the renderer diagnostics. The default leaves this instrumentation disabled.
+
+`KIWI_GPU_TIMESTAMPS=1` requests the optional `TimestampQuery` feature for the renderer device. When enabled on a supporting adapter, Kiwi keeps at most three asynchronous readbacks in flight and reports delayed per-pass GPU tick deltas; it never waits for a result in the present path. Device-feature request failures fall back to the normal device and report the reason in diagnostics. `KIWI_GPU_TIMESTAMPS_REPORT=1` prints the final diagnostic snapshot for development validation.
 
 Optional render extensions are trusted local modules. Set `KIWI_RENDER_EXTENSIONS` to a comma-separated list of module names; each module must return a registration function, or a table with a `register` function. Kiwi has no built-in network discovery or installation. Start with `--no-extensions` to bypass that list entirely, including module loading:
 

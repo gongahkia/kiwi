@@ -124,6 +124,14 @@ local function report_shader_reload(reloaded, message)
   end
 end
 
+local function report_gpu_timing(renderer)
+  local timing = renderer.diagnostics.gpu_timing or { enabled = false, status = "unavailable", samples = {} }
+  io.stdout:write(string.format("Kiwi GPU timing: enabled=%s status=%s pending=%d dropped=%d samples=%d\n", tostring(timing.enabled), timing.status, timing.pending or 0, timing.dropped or 0, #timing.samples))
+  for _, sample in ipairs(timing.samples) do
+    io.stdout:write(string.format("Kiwi GPU timing sample: frame=%d pass=%s ticks=%d map-latency=%.3fms\n", sample.frame, sample.name, sample.gpu_ticks, sample.map_latency_ms))
+  end
+end
+
 local function run_live(options)
   local window = Window.new(1600, 960, "Kiwi M2 terminal")
   local context
@@ -132,7 +140,7 @@ local function run_live(options)
   local pty
   local recorder
   local ok, result = xpcall(function()
-    context = Context.new(window)
+    context = Context.new(window, { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" })
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
       local probe_ok, probe_message = context:probe_timestamp_queries()
       io.stderr:write("Kiwi timestamp probe: ", probe_ok and "supported: " or "unavailable: ", probe_message, "\n")
@@ -279,6 +287,7 @@ local function run_live(options)
       end
     end
     parser:finish()
+    if renderer and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
     if options.inspect then
       local column = options.inspect.column or state.cursor.column
       local row = options.inspect.row or state.cursor.row

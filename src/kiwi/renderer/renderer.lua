@@ -4,6 +4,7 @@ local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local Extensions = require("kiwi.renderer.extensions")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
+local GpuTiming = require("kiwi.renderer.gpu_timing")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
 local Resources = require("kiwi.renderer.resources")
@@ -114,6 +115,7 @@ function Renderer.new(context, font, model, options)
       atlas_uploads = 0,
       draw_calls = 0,
       extensions = extension_manager:snapshot(),
+      gpu_timing = { enabled = false, status = "not initialized", samples = {}, history = {} },
     },
   }, Renderer)
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
@@ -254,6 +256,8 @@ function Renderer:create_resources(model)
   self:register_extension_passes()
   self.pass_registry:initialize(self)
   self.diagnostics.extensions = self.extension_manager:snapshot()
+  self.gpu_timing = GpuTiming.new(self.context, self.pass_registry.passes)
+  self.diagnostics.gpu_timing = self.gpu_timing:snapshot()
   self.shader_reloader:track(self.pass_registry.passes)
 end
 
@@ -610,6 +614,7 @@ function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resource
   descriptor.label = string_view(pass_info.name)
   descriptor.colorAttachmentCount = 1
   descriptor.colorAttachments = attachment
+  if self.gpu_timing then descriptor.timestampWrites = self.gpu_timing:writes(pass_info.name) end
   local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. pass_info.name)
   self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.native.lib.wgpuRenderPassEncoderSetBindGroup(pass, 0, self.bind_group, 0, nil)
@@ -634,15 +639,18 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
   local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
+  if self.gpu_timing then self.gpu_timing:begin_frame() end
   self.pass_registry:begin_frame()
   self.pass_registry:prepare(self, model)
   self.pass_registry:encode(self, encoder, view, model)
   self.pass_registry:end_frame()
+  if self.gpu_timing then self.gpu_timing:resolve(encoder) end
   if self.pass_metrics.enabled then self.diagnostics.pass_cpu = self.pass_metrics:snapshot() end
   self.diagnostics.extensions = self.extension_manager:snapshot()
   local commands = ffi.new("WGPUCommandBuffer[1]")
   commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
   self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
+  if self.gpu_timing then self.gpu_timing:submit() end
   self.native.lib.wgpuCommandBufferRelease(commands[0])
   self.native.lib.wgpuCommandEncoderRelease(encoder)
   self.native.lib.wgpuTextureViewRelease(view)
@@ -655,6 +663,10 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
     return false, "surface present status " .. tonumber(present_status)
   end
   self.native.lib.wgpuInstanceProcessEvents(self.context.instance)
+  if self.gpu_timing then
+    self.gpu_timing:poll()
+    self.diagnostics.gpu_timing = self.gpu_timing:snapshot()
+  end
   local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
   if #native_error > 0 then
     return false, "native GPU error: " .. native_error
@@ -670,6 +682,7 @@ end
 
 function Renderer:destroy()
   local pass_error
+  if self.gpu_timing then self.gpu_timing:destroy() end
   if self.pass_registry then
     local ok, message = pcall(self.pass_registry.shutdown, self.pass_registry, self)
     if not ok then pass_error = message end

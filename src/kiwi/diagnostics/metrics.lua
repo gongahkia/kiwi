@@ -58,6 +58,7 @@ function Metrics:snapshot()
     full_update = renderer.full_update or false,
     draw_calls = renderer.draw_calls or 0,
     pass_cpu = renderer.pass_cpu or { enabled = false, frame = 0, samples = {}, history = {} },
+    gpu_timing = renderer.gpu_timing or { enabled = false, status = "unavailable", samples = {}, history = {} },
     inspector = renderer.inspector or { enabled = false, passes = {} },
     extensions = renderer.extensions or { enabled = true, diagnostics = {}, disabled = {} },
     glyph_count = atlas:glyph_count(),

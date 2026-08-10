@@ -7,6 +7,7 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <time.h>
@@ -69,6 +70,44 @@ typedef struct KiwiMapResult {
   WGPUMapAsyncStatus status;
 } KiwiMapResult;
 
+enum { KIWI_TIMESTAMP_SLOT_COUNT = 3, KIWI_TIMESTAMP_MAX_PASSES = 64 };
+
+typedef struct KiwiTimestampMapState {
+  WGPUMapAsyncStatus status;
+  int detached;
+} KiwiTimestampMapState;
+
+typedef struct KiwiTimestampSlot {
+  WGPUBuffer resolve_buffer;
+  WGPUBuffer read_buffer;
+  KiwiTimestampMapState *map;
+  uint64_t frame;
+  struct timespec submitted_at;
+  int occupied;
+  int map_requested;
+} KiwiTimestampSlot;
+
+typedef struct KiwiTimestampTracker {
+  WGPUInstance instance;
+  WGPUQuerySet queries;
+  WGPUPassTimestampWrites *writes;
+  uint32_t pass_count;
+  uint64_t byte_size;
+  int active_slot;
+  uint32_t dropped_frames;
+  KiwiTimestampSlot slots[KIWI_TIMESTAMP_SLOT_COUNT];
+} KiwiTimestampTracker;
+
+typedef struct KiwiTimestampSample {
+  uint64_t frame;
+  uint32_t pass_index;
+  uint64_t begin_ticks;
+  uint64_t end_ticks;
+  uint64_t map_latency_ns;
+} KiwiTimestampSample;
+
+void kiwi_timestamp_tracker_destroy(KiwiTimestampTracker *tracker);
+
 static void kiwi_buffer_map_callback(WGPUMapAsyncStatus status, WGPUStringView message,
                                      void *userdata1, void *userdata2) {
   (void)userdata2;
@@ -77,6 +116,17 @@ static void kiwi_buffer_map_callback(WGPUMapAsyncStatus status, WGPUStringView m
   if (status != WGPUMapAsyncStatus_Success) {
     kiwi_copy_message(message);
   }
+}
+
+static void kiwi_timestamp_map_callback(WGPUMapAsyncStatus status, WGPUStringView message,
+                                        void *userdata1, void *userdata2) {
+  (void)userdata2;
+  KiwiTimestampMapState *map = userdata1;
+  map->status = status;
+  if (status != WGPUMapAsyncStatus_Success) {
+    kiwi_copy_message(message);
+  }
+  if (map->detached) free(map);
 }
 
 static void kiwi_uncaptured_error(const WGPUDevice *device, WGPUErrorType type,
@@ -205,6 +255,11 @@ static WGPUDevice kiwi_request_device_sync_with_features(WGPUInstance instance, 
 
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter) {
   return kiwi_request_device_sync_with_features(instance, adapter, NULL, 0);
+}
+
+WGPUDevice kiwi_request_timestamp_device_sync(WGPUInstance instance, WGPUAdapter adapter) {
+  const WGPUFeatureName features[] = {WGPUFeatureName_TimestampQuery};
+  return kiwi_request_device_sync_with_features(instance, adapter, features, 1);
 }
 
 int kiwi_timestamp_query_probe(WGPUInstance instance, WGPUAdapter adapter) {
@@ -352,6 +407,202 @@ int kiwi_timestamp_query_probe(WGPUInstance instance, WGPUAdapter adapter) {
   wgpuDeviceDestroy(device);
   wgpuDeviceRelease(device);
   return result;
+}
+
+KiwiTimestampTracker *kiwi_timestamp_tracker_new(WGPUInstance instance, WGPUDevice device, uint32_t pass_count) {
+  if (pass_count == 0 || pass_count > KIWI_TIMESTAMP_MAX_PASSES) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker pass count %u is outside 1..%u", pass_count, KIWI_TIMESTAMP_MAX_PASSES);
+    return NULL;
+  }
+  KiwiTimestampTracker *tracker = calloc(1, sizeof(*tracker));
+  if (tracker == NULL) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker allocation failed");
+    return NULL;
+  }
+  tracker->instance = instance;
+  tracker->pass_count = pass_count;
+  tracker->byte_size = 2 * pass_count * sizeof(uint64_t);
+  tracker->active_slot = -1;
+
+  WGPUQuerySetDescriptor query_descriptor = WGPU_QUERY_SET_DESCRIPTOR_INIT;
+  query_descriptor.label = (WGPUStringView){.data = "kiwi-render-timestamp-queries", .length = WGPU_STRLEN};
+  query_descriptor.type = WGPUQueryType_Timestamp;
+  query_descriptor.count = 2 * pass_count;
+  tracker->queries = wgpuDeviceCreateQuerySet(device, &query_descriptor);
+  tracker->writes = calloc(pass_count, sizeof(*tracker->writes));
+  if (tracker->queries == NULL || tracker->writes == NULL) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker query allocation failed");
+    if (tracker->queries != NULL) wgpuQuerySetRelease(tracker->queries);
+    free(tracker->writes);
+    free(tracker);
+    return NULL;
+  }
+  for (uint32_t index = 0; index < pass_count; ++index) {
+    tracker->writes[index] = (WGPUPassTimestampWrites)WGPU_PASS_TIMESTAMP_WRITES_INIT;
+    tracker->writes[index].querySet = tracker->queries;
+    tracker->writes[index].beginningOfPassWriteIndex = 2 * index;
+    tracker->writes[index].endOfPassWriteIndex = 2 * index + 1;
+  }
+
+  for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+    tracker->slots[index].map = calloc(1, sizeof(*tracker->slots[index].map));
+    if (tracker->slots[index].map == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker map state allocation failed");
+      kiwi_timestamp_tracker_destroy(tracker);
+      return NULL;
+    }
+    WGPUBufferDescriptor resolve_descriptor = WGPU_BUFFER_DESCRIPTOR_INIT;
+    resolve_descriptor.label = (WGPUStringView){.data = "kiwi-render-timestamp-resolve", .length = WGPU_STRLEN};
+    resolve_descriptor.size = tracker->byte_size;
+    resolve_descriptor.usage = WGPUBufferUsage_QueryResolve | WGPUBufferUsage_CopySrc;
+    tracker->slots[index].resolve_buffer = wgpuDeviceCreateBuffer(device, &resolve_descriptor);
+    WGPUBufferDescriptor read_descriptor = WGPU_BUFFER_DESCRIPTOR_INIT;
+    read_descriptor.label = (WGPUStringView){.data = "kiwi-render-timestamp-read", .length = WGPU_STRLEN};
+    read_descriptor.size = tracker->byte_size;
+    read_descriptor.usage = WGPUBufferUsage_MapRead | WGPUBufferUsage_CopyDst;
+    tracker->slots[index].read_buffer = wgpuDeviceCreateBuffer(device, &read_descriptor);
+    if (tracker->slots[index].resolve_buffer == NULL || tracker->slots[index].read_buffer == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker readback buffer allocation failed");
+      kiwi_timestamp_tracker_destroy(tracker);
+      return NULL;
+    }
+  }
+  return tracker;
+}
+
+void kiwi_timestamp_tracker_destroy(KiwiTimestampTracker *tracker) {
+  if (tracker == NULL) return;
+  for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+    KiwiTimestampSlot *slot = &tracker->slots[index];
+    if (slot->map != NULL && slot->map_requested && slot->map->status == 0 && slot->read_buffer != NULL) {
+      wgpuBufferUnmap(slot->read_buffer);
+    }
+  }
+  for (int attempt = 0; attempt < 100 && tracker->instance != NULL; ++attempt) {
+    int pending = 0;
+    for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+      KiwiTimestampSlot *slot = &tracker->slots[index];
+      if (slot->map != NULL && slot->map_requested && slot->map->status == 0) pending = 1;
+    }
+    if (!pending) break;
+    wgpuInstanceProcessEvents(tracker->instance);
+    const struct timespec delay = {.tv_sec = 0, .tv_nsec = 1000000};
+    nanosleep(&delay, NULL);
+  }
+  for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+    KiwiTimestampSlot *slot = &tracker->slots[index];
+    if (slot->map != NULL && slot->map_requested && slot->map->status == WGPUMapAsyncStatus_Success && slot->read_buffer != NULL) {
+      wgpuBufferUnmap(slot->read_buffer);
+    }
+    if (slot->map != NULL) {
+      if (slot->map_requested && slot->map->status == 0) {
+        slot->map->detached = 1;
+      } else {
+        free(slot->map);
+      }
+    }
+    if (slot->read_buffer != NULL) wgpuBufferRelease(slot->read_buffer);
+    if (slot->resolve_buffer != NULL) wgpuBufferRelease(slot->resolve_buffer);
+  }
+  if (tracker->queries != NULL) wgpuQuerySetRelease(tracker->queries);
+  free(tracker->writes);
+  free(tracker);
+}
+
+int kiwi_timestamp_tracker_begin(KiwiTimestampTracker *tracker, uint64_t frame) {
+  if (tracker == NULL || tracker->active_slot >= 0) return 0;
+  for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+    KiwiTimestampSlot *slot = &tracker->slots[index];
+    if (!slot->occupied) {
+      slot->occupied = 1;
+      slot->map->status = 0;
+      slot->frame = frame;
+      slot->map_requested = 0;
+      tracker->active_slot = (int)index;
+      return 1;
+    }
+  }
+  tracker->dropped_frames += 1;
+  return 0;
+}
+
+const WGPUPassTimestampWrites *kiwi_timestamp_tracker_writes(KiwiTimestampTracker *tracker, uint32_t pass_index) {
+  if (tracker == NULL || tracker->active_slot < 0 || pass_index >= tracker->pass_count) return NULL;
+  return &tracker->writes[pass_index];
+}
+
+void kiwi_timestamp_tracker_resolve(KiwiTimestampTracker *tracker, WGPUCommandEncoder encoder) {
+  if (tracker == NULL || tracker->active_slot < 0) return;
+  KiwiTimestampSlot *slot = &tracker->slots[tracker->active_slot];
+  wgpuCommandEncoderResolveQuerySet(encoder, tracker->queries, 0, 2 * tracker->pass_count, slot->resolve_buffer, 0);
+  wgpuCommandEncoderCopyBufferToBuffer(encoder, slot->resolve_buffer, 0, slot->read_buffer, 0, tracker->byte_size);
+}
+
+void kiwi_timestamp_tracker_submit(KiwiTimestampTracker *tracker) {
+  if (tracker == NULL || tracker->active_slot < 0) return;
+  KiwiTimestampSlot *slot = &tracker->slots[tracker->active_slot];
+  clock_gettime(CLOCK_MONOTONIC, &slot->submitted_at);
+  WGPUBufferMapCallbackInfo callback = WGPU_BUFFER_MAP_CALLBACK_INFO_INIT;
+  callback.mode = WGPUCallbackMode_AllowProcessEvents;
+  callback.callback = kiwi_timestamp_map_callback;
+  callback.userdata1 = slot->map;
+  (void)wgpuBufferMapAsync(slot->read_buffer, WGPUMapMode_Read, 0, tracker->byte_size, callback);
+  slot->map_requested = 1;
+  tracker->active_slot = -1;
+}
+
+int kiwi_timestamp_tracker_poll(KiwiTimestampTracker *tracker, KiwiTimestampSample *samples, uint32_t capacity) {
+  if (tracker == NULL || samples == NULL || capacity < tracker->pass_count) return -1;
+  for (uint32_t slot_index = 0; slot_index < KIWI_TIMESTAMP_SLOT_COUNT; ++slot_index) {
+    KiwiTimestampSlot *slot = &tracker->slots[slot_index];
+    if (!slot->occupied || !slot->map_requested || slot->map->status == 0) continue;
+    if (slot->map->status != WGPUMapAsyncStatus_Success) {
+      slot->occupied = 0;
+      slot->map_requested = 0;
+      slot->map->status = 0;
+      return -1;
+    }
+    const uint64_t *timestamps = wgpuBufferGetConstMappedRange(slot->read_buffer, 0, tracker->byte_size);
+    if (timestamps == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "timestamp tracker mapped range was null");
+      wgpuBufferUnmap(slot->read_buffer);
+      slot->occupied = 0;
+      slot->map_requested = 0;
+      slot->map->status = 0;
+      return -1;
+    }
+    struct timespec completed_at;
+    clock_gettime(CLOCK_MONOTONIC, &completed_at);
+    const uint64_t latency_ns = (completed_at.tv_sec - slot->submitted_at.tv_sec) * 1000000000ULL + (completed_at.tv_nsec - slot->submitted_at.tv_nsec);
+    for (uint32_t pass_index = 0; pass_index < tracker->pass_count; ++pass_index) {
+      samples[pass_index] = (KiwiTimestampSample){
+        .frame = slot->frame,
+        .pass_index = pass_index,
+        .begin_ticks = timestamps[2 * pass_index],
+        .end_ticks = timestamps[2 * pass_index + 1],
+        .map_latency_ns = latency_ns,
+      };
+    }
+    wgpuBufferUnmap(slot->read_buffer);
+    slot->occupied = 0;
+    slot->map_requested = 0;
+    slot->map->status = 0;
+    return (int)tracker->pass_count;
+  }
+  return 0;
+}
+
+uint32_t kiwi_timestamp_tracker_pending(const KiwiTimestampTracker *tracker) {
+  if (tracker == NULL) return 0;
+  uint32_t pending = 0;
+  for (uint32_t index = 0; index < KIWI_TIMESTAMP_SLOT_COUNT; ++index) {
+    if (tracker->slots[index].occupied) pending += 1;
+  }
+  return pending;
+}
+
+uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker *tracker) {
+  return tracker == NULL ? 0 : tracker->dropped_frames;
 }
 
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char *source_code) {
