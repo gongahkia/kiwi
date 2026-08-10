@@ -29,6 +29,8 @@ GLFWmousebuttonfun glfwSetMouseButtonCallback(GLFWwindow* window, GLFWmousebutto
 GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun callback);
 GLFWwindowfocusfun glfwSetWindowFocusCallback(GLFWwindow* window, GLFWwindowfocusfun callback);
 void glfwSetWindowTitle(GLFWwindow* window, const char* title);
+void glfwSetClipboardString(GLFWwindow* window, const char* string);
+const char* glfwGetClipboardString(GLFWwindow* window);
 double glfwGetTime(void);
 int glfwGetPlatform(void);
 const char* glfwGetError(int* code);

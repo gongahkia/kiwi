@@ -2,6 +2,7 @@ local Context = require("kiwi.gpu.context")
 local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
+local Clipboard = require("kiwi.input.clipboard")
 local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
@@ -177,7 +178,8 @@ local function run_live(options)
       recorder:resize(columns, rows)
     end
     renderer = Renderer.new(context, font, state, render_options)
-    local metrics = Metrics.new(context, font, state, { pty = pty, parser = parser })
+    local clipboard = Clipboard.new(window)
+    local metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
@@ -188,6 +190,10 @@ local function run_live(options)
     local function enqueue_input(bytes)
       if recorder then recorder:input(bytes) end
       pty:enqueue(bytes)
+    end
+
+    local function report_clipboard_failure(operation, status)
+      io.stderr:write("Kiwi clipboard ", operation, " rejected: ", status:gsub("_", " "), "\n")
     end
 
     window:set_input_handlers(function(codepoint)
@@ -204,6 +210,16 @@ local function run_live(options)
         state:scroll_history(math.max(1, state.rows - 1))
       elseif encoded.local_action == "scroll_down" then
         state:scroll_history(-math.max(1, state.rows - 1))
+      elseif encoded.local_action == "copy" then
+        local copied, status = clipboard:copy(state)
+        if not copied then report_clipboard_failure("copy", status) end
+      elseif encoded.local_action == "paste" then
+        local bytes, status = clipboard:paste(state)
+        if bytes then
+          enqueue_input(bytes)
+        elseif status ~= "empty" then
+          report_clipboard_failure("paste", status)
+        end
       elseif encoded.bytes then
         enqueue_input(encoded.bytes)
       end

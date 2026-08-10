@@ -1,6 +1,10 @@
 local ffi = require("ffi")
 local glfw = require("kiwi.ffi.glfw")
 
+ffi.cdef[[
+size_t strnlen(const char* text, size_t maximum);
+]]
+
 local Window = {}
 Window.__index = Window
 
@@ -110,6 +114,29 @@ function Window:cursor_position()
   local y = ffi.new("double[1]")
   glfw.lib.glfwGetCursorPos(self.handle, x, y)
   return x[0], y[0]
+end
+
+function Window:clipboard_read(maximum_bytes)
+  assert(type(maximum_bytes) == "number" and maximum_bytes >= 1 and maximum_bytes % 1 == 0, "clipboard read limit must be a positive integer")
+  local code = ffi.new("int[1]")
+  glfw.lib.glfwGetError(code)
+  local value = glfw.lib.glfwGetClipboardString(self.handle)
+  local message = glfw.lib.glfwGetError(code)
+  if value == nil then return nil, "unavailable" end
+  if message ~= nil or code[0] ~= 0 then return nil, "platform-error" end
+  local length = tonumber(ffi.C.strnlen(value, maximum_bytes + 1))
+  if length > maximum_bytes then return nil, "over-limit" end
+  return ffi.string(value, length)
+end
+
+function Window:clipboard_write(text)
+  assert(type(text) == "string" and not text:find("\0", 1, true), "clipboard text must be a NUL-free string")
+  local code = ffi.new("int[1]")
+  glfw.lib.glfwGetError(code)
+  glfw.lib.glfwSetClipboardString(self.handle, text)
+  local message = glfw.lib.glfwGetError(code)
+  if message ~= nil or code[0] ~= 0 then return false, "platform-error" end
+  return true
 end
 
 function Window:take_shader_reload_request()

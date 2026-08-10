@@ -29,6 +29,7 @@ function Metrics:snapshot()
   local xscale, yscale = self.context.window:content_scale()
   local pty = self.runtime.pty
   local parser = self.runtime.parser
+  local clipboard = self.runtime.clipboard
   local child_status = pty and pty.exit_status
   local atlas = self.font.glyph_cache and self.font.glyph_cache.atlas or self.font.atlas
   local glyph_cache_stats = self.font.glyph_cache and self.font.glyph_cache.stats or {}
@@ -114,6 +115,7 @@ function Metrics:snapshot()
     unknown_esc = self.model.stats and self.model.stats.unknown.esc or 0,
     unknown_osc = self.model.stats and self.model.stats.unknown.osc or 0,
     unknown_samples = self.model.stats and self.model.stats.unknown_samples or {},
+    clipboard = clipboard and clipboard:snapshot() or { maximum_bytes = 0, counters = {} },
   }
 end
 

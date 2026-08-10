@@ -38,6 +38,7 @@ return {
     local metrics = metrics_for(state, {
       pty = { pid = 42, bytes_read = 128, bytes_written = 7 },
       parser = { stats = { bytes = 128, actions = 4, errors = 1, ignored = 2 } },
+      clipboard = { snapshot = function() return { maximum_bytes = 1048576, counters = { paste_invalid_utf8 = 1 } } end },
     })
     local snapshot = metrics:snapshot()
     Assert.equal(snapshot.pty_bytes_read, 128)
@@ -59,6 +60,8 @@ return {
     Assert.equal(snapshot.unknown_samples[1].detail.private, "?")
     Assert.equal(snapshot.unknown_samples[1].detail.final, "h")
     Assert.equal(snapshot.unknown_samples[2].detail.command, 9)
+    Assert.equal(snapshot.clipboard.maximum_bytes, 1048576)
+    Assert.equal(snapshot.clipboard.counters.paste_invalid_utf8, 1)
   end,
   unknown_sequence_samples_are_bounded = function()
     local state = State.new(2, 1)
