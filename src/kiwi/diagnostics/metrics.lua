@@ -61,6 +61,7 @@ function Metrics:snapshot()
     gpu_timing = renderer.gpu_timing or { enabled = false, status = "unavailable", samples = {}, history = {} },
     pass_budgets = renderer.pass_budgets or { enabled = false, warnings = {}, passes = {} },
     inspector = renderer.inspector or { enabled = false, passes = {} },
+    text_backend = renderer.text_backend or { abi_version = 1, active = "atlas", fallback = false },
     extensions = renderer.extensions or { enabled = true, diagnostics = {}, disabled = {} },
     glyph_count = atlas:glyph_count(),
     atlas_width = atlas.width,
@@ -163,6 +164,9 @@ function Metrics:report(now)
   local item = self:snapshot()
   local gpu_status = type(item.gpu_timing) == "table" and item.gpu_timing.status or item.gpu_timing
   local budget_warnings = #(item.pass_budgets and item.pass_budgets.warnings or {})
+  local text_backend = item.text_backend or {}
+  local text_backend_status = text_backend.active or "atlas"
+  if text_backend.fallback then text_backend_status = text_backend_status .. ":fallback(" .. (text_backend.fallback_reason or "unknown") .. ")" end
   io.stdout:write(string.format(
     "frame=%d cpu=%.3fms prepare=%.3fms grid=%dx%d screen=%s scrollback=%d mutations=%d dirty=%d ranges=%d upload=%d cells/%d B draws=%d pty=%d/%d B last-read=%d B/%d calls child=%s parser=%d B/%d actions/%d errors/%d ignored unknown=%d/%d/%d atlas=%d (%dx%d %.1f%%) drawable=%dx%d backend=%s adapter=%s vendor=%s gpu=%s budget-warnings=%d\n",
     item.frame,
@@ -235,7 +239,8 @@ function Metrics:report(now)
     io.stdout:write(require("kiwi.renderer.inspector").format(item.inspector), "\n")
   end
   io.stdout:write(string.format(
-    "text=unicode-%s primary=%s#%s clusters=%d wide=%d visible=%d runs/%d glyphs fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
+    "text=backend=%s unicode-%s primary=%s#%s clusters=%d wide=%d visible=%d runs/%d glyphs fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
+    text_backend_status,
     item.unicode_version,
     item.primary_font,
     item.primary_face_id or "none",

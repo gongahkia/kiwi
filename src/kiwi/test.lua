@@ -8,6 +8,7 @@ local tests = {
   require("tests.test_text_state"),
   require("tests.test_text_fixtures"),
   require("tests.test_text_layout"),
+  require("tests.test_text_backend"),
   require("tests.test_harfbuzz_diff"),
   require("tests.test_parser"),
   require("tests.test_kitty_graphics"),
