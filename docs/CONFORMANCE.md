@@ -14,6 +14,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | wrap-and-scroll | deferred right-margin wrap, IND, bounded history |
 | margins-and-origin | DECSTBM and DECOM |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
+| cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -50,7 +51,7 @@ claiming formal verification or allocator-independent memory totals.
 | erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, IND/RI at margins | `csr`, `ind`, `ri` |
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
-| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state | `smkx`/`rmkx`, `civis`/`cnorm`; no bracketed-paste terminfo claim |
+| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, or synchronized-output terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action | not advertised |
@@ -63,6 +64,26 @@ claiming formal verification or allocator-independent memory totals.
 The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app sets `TERMINFO` to this project-local database for its child.
 
 The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or extended keyboard protocols. Adding or removing an advertised capability requires updating both the source entry and this matrix.
+
+## Cursor style and synchronized output
+
+Kiwi accepts DECSCUSR (`CSI Ps SP q`) values 0 through 6. Values 0 and 1
+mean a blinking block; 2 is a steady block; 3/4 are blinking/steady
+underlines; and 5/6 are blinking/steady bars. Other values, additional
+parameters, and other CSI intermediates remain visible unknown CSI sequences.
+The canonical numeric style is state/replay data and reaches the
+`terminal.cursor` semantic descriptor as `style`, named `shape`, and `blink`.
+Visible blinking styles schedule one bounded cursor-only redraw every 0.5
+seconds; steady or hidden cursors schedule none.
+
+DECSET/DECRST 2026 (`CSI ? 2026 h` / `CSI ? 2026 l`) brackets synchronized
+output. While active, parser and terminal-state mutations continue normally,
+but the live loop retains the renderer invalidation and does not present an
+intermediate terminal frame. `?2026l` permits the current model to be uploaded
+and presented; RIS resets the mode. This does not buffer terminal bytes or add
+an unbounded damage store. The mode is global across primary/alternate screen
+switches, is replayed deterministically, suppresses cursor-blink scheduling,
+and has no terminfo advertisement.
 
 ## Deployment evidence workflow
 
@@ -86,7 +107,7 @@ fidelity or general application compatibility.
 | --- | --- | --- |
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
-| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, and cursor visibility all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, and synchronized output all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
 | Local tmux | `TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, and `tput colors` returned `256`. tmux owns the nested contract; this does not authorize Kiwi itself to advertise 256 colours or truecolour. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
 | SSH | `TERMINFO=.build/terminfo ssh -o SendEnv=TERM -o SetEnv=TERM=kiwi <controlled-host> 'infocmp kiwi; tput colors'` | No access to a controlled remote host or credentials. No SSH deployment compatibility claim is made. Install the matching terminfo entry remotely before the probe. |

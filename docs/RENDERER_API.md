@@ -78,6 +78,12 @@ command encoder, native WGPU handle, buffer, texture, pipeline, or shader
 module. Reads are limited to ABI-v1 read resources and writes to
 `surface.color`; a pass cannot retain or destroy Kiwi-owned resources.
 
+The read-only `terminal.cursor` descriptor carries `column`, `row`, `visible`,
+the canonical DECSCUSR `style` (1 through 6), named `shape`
+(`block`, `underline`, or `bar`), and `blink`. These are presentation hints
+from terminal state, not permission to schedule a redraw or access a native
+cursor resource.
+
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.

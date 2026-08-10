@@ -44,7 +44,7 @@ LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wra
 
 `terminal/parser.lua` is incremental over arbitrary byte chunks. It bounds CSI parameters/intermediates and control-string payloads, accepts OSC BEL/ST termination, discards unsupported DCS/APC/PM/SOS until ST, and uses the streaming decoder in `terminal/utf8.lua`. Invalid or truncated UTF-8 emits U+FFFD deterministically. The parser's outputs are intentionally plain action tables to keep syntax testing independent from semantic state testing.
 
-`terminal/state.lua` holds primary and alternate `Screen` values. A screen is an array of row objects; scrolling moves row references and replaces only entering rows. Full-screen primary upward scrolling offers ejected rows to a fixed-size ring scrollback. Alternate-screen scrolling never enters primary history. State owns cursor/margins/autowrap/origin/insert/application-cursor/bracketed-paste modes, SGR attributes, saved cursor, tab stops, title, and terminal responses.
+`terminal/state.lua` holds primary and alternate `Screen` values. A screen is an array of row objects; scrolling moves row references and replaces only entering rows. Full-screen primary upward scrolling offers ejected rows to a fixed-size ring scrollback. Alternate-screen scrolling never enters primary history. State owns cursor/margins/autowrap/origin/insert/application-cursor/bracketed-paste/cursor-style/synchronized-output modes, SGR attributes, saved cursor, tab stops, title, and terminal responses.
 
 ```text
 normal scroll inside full primary screen
@@ -67,6 +67,13 @@ terminal state resize -> PTY TIOCSWINSZ -> renderer buffer recreation -> next pr
 Resizing preserves the selected screen's overlapping cells, resets margins to the full new screen, marks all logical cells dirty, and updates the child foreground process group through the kernel's normal winsize mechanism. The renderer is recreated because its storage-buffer capacity equals grid capacity.
 
 The app also polls GLFW content scale. A scale transition recreates the primary face, HarfBuzz/FreeType resources, glyph cache, layout, renderer, and cell dimensions before the next frame. This prevents glyph bitmaps from one physical scale being reused at another; terminal cell width still comes from the configured primary font rather than fallback fonts.
+
+DEC synchronized output leaves terminal mutation and renderer invalidation
+intact but defers presentation while `?2026h` is active. `?2026l` presents the
+latest bounded model; the terminal does not retain a second output queue or
+frame history for this feature. A visible blinking DECSCUSR cursor schedules a
+single 0.5-second cursor redraw deadline after a successful present; steady,
+hidden, and synchronized-output cursors do not schedule one.
 
 ## Input, output, and responses
 

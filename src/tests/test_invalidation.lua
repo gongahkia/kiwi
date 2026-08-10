@@ -42,5 +42,8 @@ return {
     Assert.equal(Renderer.can_present({}, model), false)
     model.modes.synchronized_output = false
     Assert.equal(Renderer.can_present({}, model), true)
+    Assert.near(Renderer.cursor_blink_delay({}, model), 0.5, 0.0001)
+    model.modes.cursor_style = 6
+    Assert.equal(Renderer.cursor_blink_delay({}, model), nil)
   end,
 }

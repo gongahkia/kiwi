@@ -85,6 +85,11 @@ API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-
 
 Kiwi coalesces terminal, resize, cursor, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
 
+DECSCUSR cursor styles and DEC synchronized output are supported as documented
+in [the conformance matrix](docs/CONFORMANCE.md). `CSI ? 2026 h` defers
+intermediate terminal presentation until `CSI ? 2026 l` or RIS; neither mode
+is advertised through terminfo.
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
