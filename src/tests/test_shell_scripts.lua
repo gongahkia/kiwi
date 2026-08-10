@@ -14,6 +14,12 @@ local disabled = {
   "TERM=xterm KIWI_SHELL_INTEGRATION=1 fish --no-config -ic 'source integrations/v1/kiwi.fish; true'",
 }
 
+local uninstall = {
+  "TERM=kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -ic 'source integrations/v1/kiwi.bash; kiwi_shell_integration_uninstall; [[ -z ${PROMPT_COMMAND-} && -z ${PS0-} ]]'",
+  "TERM=kiwi KIWI_SHELL_INTEGRATION=1 zsh -dfic 'source integrations/v1/kiwi.zsh; kiwi_shell_integration_uninstall; (( ! $+functions[__kiwi_zsh_precmd] ))'",
+  "TERM=kiwi KIWI_SHELL_INTEGRATION=1 fish --no-config -ic 'source integrations/v1/kiwi.fish; kiwi_shell_integration_uninstall; not functions -q __kiwi_fish_prompt'",
+}
+
 local function capture(command)
   local pipe = assert(io.popen(command .. " 2>/dev/null", "r"))
   local output = pipe:read("*a")
@@ -46,5 +52,11 @@ return {
 
   shell_integration_scripts_are_silent_outside_kiwi = function()
     for _, command in ipairs(disabled) do Assert.equal(capture(command), "") end
+  end,
+
+  shell_integration_scripts_are_reversible_and_preserve_bash_prompt_status = function()
+    for _, command in ipairs(uninstall) do capture(command) end
+    local output = capture("TERM=kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -ic 'PROMPT_COMMAND=\"printf original:\\$?\"; source integrations/v1/kiwi.bash; false; eval \"$PROMPT_COMMAND\"'")
+    Assert.truthy(output:find("original:1", 1, true) ~= nil)
   end,
 }
