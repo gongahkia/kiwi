@@ -52,6 +52,7 @@ return {
           reads = { "frame.timing" },
           writes = {},
           after = { "terminal/cursor" },
+          budget = { cpu_ms = 1, gpu_ticks = 100, allocation_bytes = 0, cadence_hz = 30, window = 2 },
           initialize = function(context)
             Assert.equal(context.api_version, 1)
             Assert.equal(context.pass.id, "extension/example/frame_observer")
@@ -61,6 +62,9 @@ return {
             Assert.equal(context.create_texture, nil)
             Assert.equal(context.create_shader, nil)
             Assert.equal(context.resources["frame.timing"].descriptor.access, "read")
+            Assert.equal(context.pass.budget.cpu_ms, 1)
+            Assert.equal(context.pass.budget.window, 2)
+            Assert.equal(context.budget.status, "unavailable")
             events[#events + 1] = "extension-initialize"
           end,
           encode = function(context)
@@ -128,5 +132,22 @@ return {
       })
     end)
     Assert.truthy(message:match("cannot read resource surface%.color") ~= nil)
+  end,
+  versioned_pass_api_rejects_invalid_advisory_budget_metadata = function()
+    local api = Api.new()
+    local message = expect_error(function()
+      api:register({
+        api_version = Api.version,
+        extension = "example",
+        name = "invalid_budget",
+        order = 40,
+        reads = {},
+        writes = {},
+        after = {},
+        budget = { cpu_ms = 0 },
+        encode = function() end,
+      })
+    end)
+    Assert.truthy(message:match("cpu_ms must be a finite positive number") ~= nil)
   end,
 }

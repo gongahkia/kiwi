@@ -20,6 +20,7 @@ local function register_frame_observer(api)
     reads = { "frame.timing", "frame.viewport" },
     writes = {},
     after = { "terminal/cursor" },
+    budget = { cpu_ms = 0.5, gpu_ticks = 1000000, cadence_hz = 30, window = 30 },
     initialize = function(context)
       assert(context.api_version == 1)
     end,
@@ -49,6 +50,26 @@ needs integer `order`, `reads`, `writes`, `after`, and an `encode` callback.
 `initialize`, `resize`, and `shutdown` are optional. All declarations are
 validated before the renderer's pass registry becomes active; ordering then
 uses the same deterministic dependency graph as the built-ins.
+
+## Advisory budgets
+
+A declaration may include a `budget` table with one or more of `cpu_ms`,
+`gpu_ticks`, `allocation_bytes`, and `cadence_hz`, plus optional positive
+integer `window` from 1 through 120 (default 30). CPU measures prepare plus encode CPU time.
+GPU ticks are evaluated only when asynchronous timestamp samples arrive; they
+are not converted to milliseconds. Cadence is the observed maximum callback
+rate in hertz. The inspector and `renderer.diagnostics.pass_budgets` expose
+the rolling average, latest value, limit, sample count, and structured
+over-budget warnings `{ pass, dimension, frame, sample, average, limit,
+window }`.
+
+The callback context's plain-data `pass.budget` preserves declared metadata;
+`context.budget` reports its latest advisory status. An extension should make
+optional work cheaper or request a longer animation delay after an
+`over-budget` status. It must not change terminal semantics, assume an
+unavailable GPU measurement is zero, or expect Kiwi to throttle/disable it.
+API v1 exposes no extension GPU allocation capability, so allocation
+accounting reports unavailable rather than guessing memory use.
 
 Callbacks receive fresh plain-data context tables: API version, stable pass
 metadata, phase, and cloned semantic resource descriptors. `resize` also

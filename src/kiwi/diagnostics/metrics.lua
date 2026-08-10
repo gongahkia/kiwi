@@ -10,9 +10,6 @@ function Metrics.new(context, font, model, runtime)
     cpu_frame_ms = 0,
     cpu_prepare_ms = 0,
     last_report = -math.huge,
-    gpu_timing = context.timestamp_query_supported
-      and "unsupported (adapter exposes timestamps; M0 defers query readback to preserve the baseline)"
-      or "unsupported (adapter does not expose timestamp-query feature)",
     runtime = runtime or {},
   }, Metrics)
 end
@@ -59,6 +56,7 @@ function Metrics:snapshot()
     draw_calls = renderer.draw_calls or 0,
     pass_cpu = renderer.pass_cpu or { enabled = false, frame = 0, samples = {}, history = {} },
     gpu_timing = renderer.gpu_timing or { enabled = false, status = "unavailable", samples = {}, history = {} },
+    pass_budgets = renderer.pass_budgets or { enabled = false, warnings = {}, passes = {} },
     inspector = renderer.inspector or { enabled = false, passes = {} },
     extensions = renderer.extensions or { enabled = true, diagnostics = {}, disabled = {} },
     glyph_count = atlas:glyph_count(),
@@ -99,7 +97,6 @@ function Metrics:snapshot()
     backend = self.context.adapter_info.backend_name,
     adapter = self.context.adapter_info.device,
     vendor = self.context.adapter_info.vendor,
-    gpu_timing = self.gpu_timing,
     pty_bytes_read = pty and pty.bytes_read or 0,
     pty_bytes_written = pty and pty.bytes_written or 0,
     pty_last_read_bytes = pty and pty.last_read_bytes or 0,
@@ -144,8 +141,10 @@ function Metrics:report(now)
   end
   self.last_report = now
   local item = self:snapshot()
+  local gpu_status = type(item.gpu_timing) == "table" and item.gpu_timing.status or item.gpu_timing
+  local budget_warnings = #(item.pass_budgets and item.pass_budgets.warnings or {})
   io.stdout:write(string.format(
-    "frame=%d cpu=%.3fms prepare=%.3fms grid=%dx%d screen=%s scrollback=%d mutations=%d dirty=%d ranges=%d upload=%d cells/%d B draws=%d pty=%d/%d B last-read=%d B/%d calls child=%s parser=%d B/%d actions/%d errors/%d ignored unknown=%d/%d/%d atlas=%d (%dx%d %.1f%%) drawable=%dx%d backend=%s adapter=%s vendor=%s gpu=%s\n",
+    "frame=%d cpu=%.3fms prepare=%.3fms grid=%dx%d screen=%s scrollback=%d mutations=%d dirty=%d ranges=%d upload=%d cells/%d B draws=%d pty=%d/%d B last-read=%d B/%d calls child=%s parser=%d B/%d actions/%d errors/%d ignored unknown=%d/%d/%d atlas=%d (%dx%d %.1f%%) drawable=%dx%d backend=%s adapter=%s vendor=%s gpu=%s budget-warnings=%d\n",
     item.frame,
     item.cpu_frame_ms,
     item.cpu_prepare_ms,
@@ -180,7 +179,8 @@ function Metrics:report(now)
     item.backend,
     item.adapter,
     item.vendor,
-    item.gpu_timing
+    gpu_status,
+    budget_warnings
   ))
   if #item.unknown_samples > 0 then
     local samples = {}

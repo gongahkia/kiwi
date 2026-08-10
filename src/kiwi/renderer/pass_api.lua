@@ -1,4 +1,5 @@
 local Resources = require("kiwi.renderer.resources")
+local Budgets = require("kiwi.renderer.pass_budgets")
 
 local Api = {}
 Api.__index = Api
@@ -41,7 +42,13 @@ local function copy_viewport(viewport)
 end
 
 local function public_pass(pass)
-  return { id = pass.name, extension = pass.extension, name = pass.extension_name, order = pass.order }
+  return {
+    id = pass.name,
+    extension = pass.extension,
+    name = pass.extension_name,
+    order = pass.order,
+    budget = Budgets.copy(pass.budget, "pass " .. pass.name .. " budget") or {},
+  }
 end
 
 local function callback_context(renderer, pass, phase, resize)
@@ -50,6 +57,7 @@ local function callback_context(renderer, pass, phase, resize)
     pass = public_pass(pass),
     phase = phase,
     resources = renderer:resolve_pass_resources(pass),
+    budget = renderer.pass_budget_snapshot and renderer:pass_budget_snapshot(pass.name) or { name = pass.name, status = "unavailable", declaration = public_pass(pass).budget, dimensions = {} },
     request_animation = function(delay)
       return renderer:schedule_extension_animation(pass, delay)
     end,
@@ -107,6 +115,7 @@ function Api:register(declaration)
     reads = reads,
     writes = writes,
     after = after,
+    budget = Budgets.copy(declaration.budget, "pass " .. extension .. "/" .. name .. " budget"),
   }
   function pass:initialize(renderer)
     if callbacks.initialize then callbacks.initialize(callback_context(renderer, self, "initialize")) end
