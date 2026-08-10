@@ -4,6 +4,7 @@ local Grapheme = require("kiwi.unicode.grapheme")
 local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
+local Selection = require("kiwi.input.selection")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
 
@@ -58,6 +59,7 @@ function State.new(columns, rows, options)
   local self = setmetatable({
     columns = columns,
     rows = rows,
+    next_line_id = 0,
     default_cell = { glyph = " ", fg = Attributes.default_foreground, bg = Attributes.default_background, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
     text_damage = Damage.new(columns * rows),
@@ -81,6 +83,7 @@ function State.new(columns, rows, options)
     },
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
+    selection = Selection.new(),
     history_offset = 0,
     title = nil,
     responses = {},
@@ -100,12 +103,8 @@ function State.new(columns, rows, options)
     },
   }, State)
   assert(self.max_cluster_codepoints >= 8, "terminal max_cluster_codepoints must be at least 8")
-  self.primary = Screen.new(columns, rows, function()
-    return self:blank_cell()
-  end)
-  self.alternate = Screen.new(columns, rows, function()
-    return self:blank_cell()
-  end)
+  self.primary = self:new_screen()
+  self.alternate = self:new_screen()
   self.primary.attributes = Attributes.default()
   self.alternate.attributes = Attributes.default()
   self.active_screen = self.primary
@@ -123,6 +122,15 @@ end
 
 function State:blank_cell()
   return { glyph = " ", fg = self.default_cell.fg, bg = self.default_cell.bg, flags = 0, width = 1 }
+end
+
+function State:new_screen()
+  return Screen.new(self.columns, self.rows, function()
+    return self:blank_cell()
+  end, function()
+    self.next_line_id = self.next_line_id + 1
+    return self.next_line_id
+  end)
 end
 
 function State:cell_from_attributes(glyph, metadata)
@@ -213,6 +221,64 @@ function State:visible_row(row)
   return self.primary.rows[source - self.scrollback:size()]
 end
 
+function State:selection_scope()
+  return self.active_screen == self.primary and "primary" or "alternate"
+end
+
+function State:selection_rows(scope)
+  local rows = {}
+  if scope == "primary" then
+    for index = 1, self.scrollback:size() do
+      local row = self.scrollback:get(index)
+      rows[#rows + 1] = { line_id = row.line_id, row = row }
+    end
+    for index = 0, self.rows - 1 do
+      local row = self.primary.rows[index]
+      rows[#rows + 1] = { line_id = row.line_id, row = row }
+    end
+  elseif scope == "alternate" then
+    for index = 0, self.rows - 1 do
+      local row = self.alternate.rows[index]
+      rows[#rows + 1] = { line_id = row.line_id, row = row }
+    end
+  end
+  return rows
+end
+
+function State:reconcile_selection()
+  local scope = self.selection.scope
+  if scope then self.selection:reconcile(self:selection_rows(scope), self.columns) end
+end
+
+local function selection_coordinate(value, upper)
+  if type(value) ~= "number" or value ~= value then return 0 end
+  return clamp(math.floor(value), 0, upper)
+end
+
+function State:selection_endpoint(row, column)
+  row = selection_coordinate(row, self.rows - 1)
+  local visible = self:visible_row(row)
+  return {
+    column = selection_coordinate(column, self.columns),
+    line_id = visible.line_id,
+  }
+end
+
+function State:set_selection(anchor_row, anchor_column, focus_row, focus_column)
+  local scope = self:selection_scope()
+  return self.selection:set(scope, self:selection_endpoint(anchor_row, anchor_column), self:selection_endpoint(focus_row, focus_column), self:selection_rows(scope), self.columns)
+end
+
+function State:clear_selection()
+  self.selection:clear()
+end
+
+function State:selection_view()
+  local scope = self.selection.scope
+  if scope == nil then return { active = false, empty = true, visible = false } end
+  return self.selection:view(self:selection_rows(scope), self.columns, self:selection_scope())
+end
+
 function State:cell_at_index(index)
   local column, row = self:position(index)
   local visible = self:visible_row(row)
@@ -293,6 +359,7 @@ function State:scroll_up(count)
   screen:scroll_up(top, bottom, count, preserve)
   self:mark_region(top, bottom)
   self.stats.mutations = self.stats.mutations + (bottom - top + 1) * self.columns
+  self:reconcile_selection()
 end
 
 function State:scroll_down(count)
@@ -598,6 +665,7 @@ function State:erase_in_display(mode)
     if mode == 3 and self.active_screen == self.primary then
       self.scrollback:clear()
       self.history_offset = 0
+      self:reconcile_selection()
     end
   elseif mode == 1 then
     for row = 0, cursor.row do
@@ -797,9 +865,7 @@ function State:switch_alternate(enable, save_cursor)
     self.cursor = self.active_screen.cursor
     self.history_offset = 0
     if save_cursor then
-      self.alternate = Screen.new(self.columns, self.rows, function()
-        return self:blank_cell()
-      end)
+      self.alternate = self:new_screen()
       self.alternate.attributes = Attributes.default()
       self.active_screen = self.alternate
       self.cursor = self.active_screen.cursor
@@ -812,6 +878,7 @@ function State:switch_alternate(enable, save_cursor)
     end
   end
   self:sync_keyboard_flags()
+  self:reconcile_selection()
   self:sync_cursor_visibility()
   self.damage:mark_all()
   self.text_damage:mark_all()
@@ -850,12 +917,8 @@ end
 
 function State:reset()
   self:clear_grapheme_context()
-  self.primary = Screen.new(self.columns, self.rows, function()
-    return self:blank_cell()
-  end)
-  self.alternate = Screen.new(self.columns, self.rows, function()
-    return self:blank_cell()
-  end)
+  self.primary = self:new_screen()
+  self.alternate = self:new_screen()
   self.primary.attributes = Attributes.default()
   self.alternate.attributes = Attributes.default()
   self.active_screen = self.primary
@@ -878,6 +941,7 @@ function State:reset()
   self.modes.keyboard_flags = 0
   self:reset_tab_stops()
   self.scrollback:clear()
+  self:clear_selection()
   self.history_offset = 0
   self:sync_cursor_visibility()
   self.damage:mark_all()
@@ -907,6 +971,7 @@ function State:resize(columns, rows)
   self.damage = Damage.new(columns * rows)
   self.text_damage = Damage.new(columns * rows)
   self.history_offset = clamp(self.history_offset, 0, self.scrollback:size())
+  self:reconcile_selection()
   self:reset_tab_stops()
   self:sync_cursor_visibility()
   self.damage:mark_all()
