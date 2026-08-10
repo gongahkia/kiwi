@@ -119,6 +119,11 @@ future adapters, but it has no implemented AT-SPI, NSAccessibility, or UI
 Automation bridge and therefore makes no screen-reader support claim. The
 contract and adapter procedure are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
+Kiwi currently supports Linux x86_64 only. Windows DX12/ConPTY feasibility was
+researched from a Linux cross-build environment but not run on a Windows host;
+no Windows build or runtime support is claimed. The required native seams and
+validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
