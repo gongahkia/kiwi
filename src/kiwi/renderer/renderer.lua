@@ -4,6 +4,7 @@ local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local Extensions = require("kiwi.renderer.extensions")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
+local PassBudgets = require("kiwi.renderer.pass_budgets")
 local GpuTiming = require("kiwi.renderer.gpu_timing")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
@@ -65,6 +66,8 @@ function Renderer.new(context, font, model, options)
   assert(type(extensions) == "table", "renderer extensions must be a table")
   local shader_path = development_mode and options.development_shader_path or builtin_shader_path
   local pass_metrics_enabled = options.pass_metrics_enabled == true
+  local pass_budgets_enabled = options.pass_budgets_enabled == true
+  assert(options.pass_budgets_enabled == nil or type(options.pass_budgets_enabled) == "boolean", "pass budget enablement must be a boolean")
   local inspector_enabled = options.inspector_enabled == true
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
@@ -90,7 +93,8 @@ function Renderer.new(context, font, model, options)
     shader_path = shader_path,
     extensions = extensions,
     extension_manager = extension_manager,
-    pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled }),
+    pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled or pass_budgets_enabled }),
+    pass_budgets = PassBudgets.new({ enabled = pass_budgets_enabled, warning_limit = options.pass_budget_warning_limit }),
     invalidation = Invalidation.new(),
     inspector_enabled = inspector_enabled,
     inspector_selected_pass = options.inspector_selected_pass,
@@ -115,6 +119,7 @@ function Renderer.new(context, font, model, options)
       atlas_uploads = 0,
       draw_calls = 0,
       extensions = extension_manager:snapshot(),
+      pass_budgets = { enabled = false, warnings = {}, passes = {} },
       gpu_timing = { enabled = false, status = "not initialized", samples = {}, history = {} },
     },
   }, Renderer)
@@ -254,11 +259,17 @@ function Renderer:create_resources(model)
     self.pass_registry:register(pass)
   end
   self:register_extension_passes()
+  self.pass_budgets:register(self.pass_registry.passes)
+  self.diagnostics.pass_budgets = self.pass_budgets:snapshot()
   self.pass_registry:initialize(self)
   self.diagnostics.extensions = self.extension_manager:snapshot()
   self.gpu_timing = GpuTiming.new(self.context, self.pass_registry.passes)
   self.diagnostics.gpu_timing = self.gpu_timing:snapshot()
   self.shader_reloader:track(self.pass_registry.passes)
+end
+
+function Renderer:pass_budget_snapshot(name)
+  return self.pass_budgets:pass_snapshot(name)
 end
 
 function Renderer:register_extension_passes()
@@ -667,6 +678,8 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
     self.gpu_timing:poll()
     self.diagnostics.gpu_timing = self.gpu_timing:snapshot()
   end
+  self.pass_budgets:observe(self.diagnostics.pass_cpu, self.diagnostics.gpu_timing, time)
+  self.diagnostics.pass_budgets = self.pass_budgets:snapshot()
   local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
   if #native_error > 0 then
     return false, "native GPU error: " .. native_error

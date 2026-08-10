@@ -98,6 +98,7 @@ end
 local function renderer_options(runtime_options)
   local options = {
     pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1",
+    pass_budgets_enabled = os.getenv("KIWI_PASS_BUDGETS") == "1",
     inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
     extensions_enabled = not runtime_options.no_extensions,
@@ -129,6 +130,14 @@ local function report_gpu_timing(renderer)
   io.stdout:write(string.format("Kiwi GPU timing: enabled=%s status=%s pending=%d dropped=%d samples=%d\n", tostring(timing.enabled), timing.status, timing.pending or 0, timing.dropped or 0, #timing.samples))
   for _, sample in ipairs(timing.samples) do
     io.stdout:write(string.format("Kiwi GPU timing sample: frame=%d pass=%s ticks=%d map-latency=%.3fms\n", sample.frame, sample.name, sample.gpu_ticks, sample.map_latency_ms))
+  end
+end
+
+local function report_pass_budgets(renderer)
+  local budgets = renderer.diagnostics.pass_budgets or { enabled = false, warnings = {}, passes = {} }
+  io.stdout:write(string.format("Kiwi pass budgets: enabled=%s warnings=%d passes=%d\n", tostring(budgets.enabled), #budgets.warnings, #budgets.passes))
+  for _, warning in ipairs(budgets.warnings) do
+    io.stdout:write(string.format("Kiwi pass budget warning: pass=%s dimension=%s frame=%d average=%.6f limit=%.6f window=%d\n", warning.pass, warning.dimension, warning.frame, warning.average, warning.limit, warning.window))
   end
 end
 
@@ -288,6 +297,7 @@ local function run_live(options)
     end
     parser:finish()
     if renderer and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
+    if renderer and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end
     if options.inspect then
       local column = options.inspect.column or state.cursor.column
       local row = options.inspect.row or state.cursor.row

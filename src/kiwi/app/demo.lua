@@ -21,7 +21,7 @@ function Demo.run()
     context = Context.new(window, { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" })
     local model = Synthetic.new(number_from_env("KIWI_SEED", 0x4b495749), 160, 50)
     font = FontSystem.new({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
-    renderer = Renderer.new(context, font, model)
+    renderer = Renderer.new(context, font, model, { pass_budgets_enabled = os.getenv("KIWI_PASS_BUDGETS") == "1" })
     local metrics = Metrics.new(context, font, model)
     local scenario = os.getenv("KIWI_SCENARIO") or "typing"
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)

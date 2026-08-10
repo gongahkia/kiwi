@@ -88,6 +88,12 @@ Optional extensions are local-module configuration only: `KIWI_RENDER_EXTENSIONS
 
 API v1 enforces a bounded optional-pass count and a maximum extension animation rate before graph activation or redraw scheduling. It exposes no extension-owned GPU allocation or shader capability, so those limits are explicit zero-capability states; the pinned native binding also has no GPU-memory budget query. Future allocation, shader, or memory-budget support must be versioned rather than bypassing this boundary.
 
+Passes may additionally declare opt-in advisory CPU, GPU-tick, allocation, and
+cadence budgets. The renderer retains only each declaration's bounded rolling
+window and structured warnings. GPU data remains delayed/optional, allocation
+accounting is unavailable for API v1 extensions, and no warning changes the
+pass lifecycle or terminal output.
+
 ## Replay and diagnostics
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.

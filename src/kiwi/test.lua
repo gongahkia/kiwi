@@ -26,6 +26,7 @@ local tests = {
   require("tests.test_pass_api"),
   require("tests.test_extensions"),
   require("tests.test_pass_metrics"),
+  require("tests.test_pass_budgets"),
   require("tests.test_invalidation"),
   require("tests.test_inspector"),
   require("tests.test_gpu_timing"),

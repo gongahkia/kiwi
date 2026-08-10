@@ -1,5 +1,6 @@
 local Registry = {}
 Registry.__index = Registry
+local Budgets = require("kiwi.renderer.pass_budgets")
 
 local function fail(message)
   error("render pass registry: " .. message, 3)
@@ -43,6 +44,7 @@ local function validate_pass(pass)
   if pass.resize ~= nil and type(pass.resize) ~= "function" then
     fail("pass " .. pass.name .. " resize callback must be a function")
   end
+  if pass.budget ~= nil then Budgets.copy(pass.budget, "pass " .. pass.name .. " budget") end
   validate_names("read resource", pass.reads)
   validate_names("write resource", pass.writes)
   validate_names("dependency", pass.after)

@@ -21,6 +21,8 @@ local function metrics_for(state, runtime)
     bytes_uploaded = 80,
     full_update = false,
     draw_calls = 3,
+    gpu_timing = { enabled = true, status = "supported", samples = { { name = "terminal/glyph", gpu_ticks = 12 } } },
+    pass_budgets = { enabled = true, warnings = { { pass = "terminal/glyph", dimension = "cpu_ms" } }, passes = {} },
     visible_shaped_runs = 2,
     visible_shaped_glyphs = 3,
   } })
@@ -49,6 +51,9 @@ return {
     Assert.equal(snapshot.visible_shaped_glyphs, 3)
     Assert.equal(snapshot.extensions.enabled, true)
     Assert.equal(#snapshot.extensions.diagnostics, 0)
+    Assert.equal(snapshot.gpu_timing.status, "supported")
+    Assert.equal(snapshot.pass_budgets.enabled, true)
+    Assert.equal(#snapshot.pass_budgets.warnings, 1)
     Assert.equal(snapshot.unknown_csi, 1)
     Assert.equal(snapshot.unknown_osc, 1)
     Assert.equal(snapshot.unknown_samples[1].detail.private, "?")

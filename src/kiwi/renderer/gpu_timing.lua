@@ -161,6 +161,8 @@ end
 
 function GpuTiming:snapshot()
   local history = {}
+  local timed_passes = {}
+  for index, name in ipairs(self.names) do timed_passes[index] = name end
   for index, frame in ipairs(self.history) do
     local passes = {}
     for pass_index, sample in ipairs(frame.passes) do passes[pass_index] = copy_sample(sample) end
@@ -174,6 +176,7 @@ function GpuTiming:snapshot()
     pending = self.enabled and self.backend.pending(self.tracker) or 0,
     dropped = self.enabled and self.backend.dropped(self.tracker) or 0,
     errors = self.errors or 0,
+    timed_passes = timed_passes,
     samples = latest and latest.passes or {},
     history = history,
   }

@@ -23,6 +23,7 @@ return {
     Assert.equal(created, false)
     Assert.equal(snapshot.enabled, false)
     Assert.equal(snapshot.status, "adapter does not expose timestamp-query")
+    Assert.equal(snapshot.timed_passes[1], "terminal/background")
     Assert.equal(#snapshot.samples, 0)
   end,
   gpu_timing_attributes_delayed_samples_and_bounds_history_without_waiting = function()
