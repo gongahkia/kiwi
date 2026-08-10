@@ -54,7 +54,7 @@ return {
       })
     end)
     expect_error(function()
-      registry:register("terminal.selection", { kind = "terminal.selection", access = "read" })
+      registry:register("terminal.unknown", { kind = "terminal.unknown", access = "read" })
     end)
     expect_error(function()
       registry:register("surface.color", { kind = "surface.color", access = "read" })
@@ -97,6 +97,7 @@ return {
       "terminal.cells",
       "text.shaped_glyphs",
       "terminal.cursor",
+      "terminal.selection",
       "terminal.damage",
       "frame.viewport",
       "frame.timing",
@@ -117,7 +118,7 @@ return {
       end,
     }
     local passes = Passes.build(renderer)
-    passes[2]:encode(renderer, nil, nil, { columns = 80, rows = 24 })
+    passes[3]:encode(renderer, nil, nil, { columns = 80, rows = 24 })
     Assert.equal(captured["text.shaped_glyphs"].name, "text.shaped_glyphs")
     Assert.equal(captured["text.alpha_atlas"].descriptor.access, "read")
     Assert.equal(captured["surface.color"].descriptor.access, "write")
@@ -165,7 +166,7 @@ return {
         events[#events + 1] = "glyph-release"
       end,
     }
-    local glyph = Passes.build(renderer)[2]
+    local glyph = Passes.build(renderer)[3]
     glyph:initialize(renderer)
     Assert.truthy(glyph.pipeline ~= nil)
     glyph:shutdown(renderer)
@@ -189,7 +190,7 @@ return {
         events[#events + 1] = "cursor-release"
       end,
     }
-    local cursor = Passes.build(renderer)[3]
+    local cursor = Passes.build(renderer)[4]
     cursor:initialize(renderer)
     Assert.truthy(cursor.pipeline ~= nil)
     cursor:shutdown(renderer)
@@ -210,7 +211,7 @@ return {
     }
     local passes = Passes.build(renderer)
     for _, pass in ipairs(passes) do pass:initialize(renderer) end
-    Assert.equal(table.concat(modules, ","), "terminal/background:terminal/background,terminal/glyph:terminal/glyph,terminal/cursor:terminal/cursor")
+    Assert.equal(table.concat(modules, ","), "terminal/background:terminal/background,terminal/selection:terminal/selection,terminal/glyph:terminal/glyph,terminal/cursor:terminal/cursor")
     for index = #passes, 1, -1 do passes[index]:shutdown(renderer) end
   end,
 }

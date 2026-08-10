@@ -46,32 +46,32 @@ end
 function SelectionPointer:update_drag(state, row, column)
   local drag = self.drag
   local target = state:selection_cell_bounds(row, column)
-  if target.row == drag.row and target.start == drag.start then return end
+  if target.row == drag.row and target.start == drag.start then return false end
   if state:selection_precedes(target.row, target.start, drag.row, drag.start) then
     state:set_selection(drag.row, drag.finish, target.row, target.start)
   else
     state:set_selection(drag.row, drag.start, target.row, target.finish)
   end
+  return true
 end
 
 function SelectionPointer:handle(event, state, modes)
   if application_mouse_enabled(modes) then
     self.drag = nil
-    return false
+    return false, false
   end
   if event.kind == "motion" then
-    if self.drag == nil then return false end
-    self:update_drag(state, event.selection_row, event.selection_column)
-    return true
+    if self.drag == nil then return false, false end
+    return true, self:update_drag(state, event.selection_row, event.selection_column)
   end
-  if event.kind ~= "button" or event.button ~= 0 then return false end
+  if event.kind ~= "button" or event.button ~= 0 then return false, false end
   if event.action == "release" then
-    if self.drag == nil then return false end
-    self:update_drag(state, event.selection_row, event.selection_column)
+    if self.drag == nil then return false, false end
+    local changed = self:update_drag(state, event.selection_row, event.selection_column)
     self.drag = nil
-    return true
+    return true, changed
   end
-  if event.action ~= "press" then return false end
+  if event.action ~= "press" then return false, false end
   local clicks = self:next_click(event)
   if clicks == 3 then
     state:set_selection(event.selection_row, 0, event.selection_row, state.columns)
@@ -85,7 +85,7 @@ function SelectionPointer:handle(event, state, modes)
     state:set_selection(cell.row, cell.start, cell.row, cell.start)
     self.drag = { finish = cell.finish, row = cell.row, start = cell.start }
   end
-  return true
+  return true, true
 end
 
 return SelectionPointer

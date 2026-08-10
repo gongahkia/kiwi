@@ -21,7 +21,7 @@ local function initialize_pipeline(owner, pass, label, vertex_entry, fragment_en
   pass.vertex_entry = vertex_entry
   pass.fragment_entry = fragment_entry
   pass.shader = owner:load_shader(pass.name, pass.name)
-  pass.pipeline = owner:create_pipeline(label, vertex_entry, fragment_entry, pass.shader)
+  pass.pipeline = owner:create_pipeline(label, vertex_entry, fragment_entry, pass.shader, pass.blend)
 end
 
 local function shutdown_pipeline(owner, pass)
@@ -46,9 +46,19 @@ function Passes.build(renderer)
   function background:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local selection = Pass.new("terminal/selection", 15, nil, c.load_load, function(model)
+      return renderer.selection and renderer.selection.active and model.columns * model.rows or 0
+    end, { "terminal.selection", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" })
+  selection.blend = "alpha"
+  function selection:initialize(owner)
+    initialize_pipeline(owner, self, "selection-pass", "selection_vs", "selection_fs")
+  end
+  function selection:shutdown(owner)
+    shutdown_pipeline(owner, self)
+  end
   local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
       return renderer.glyph_count or 0
-    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" })
+    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/selection" })
   function glyph:initialize(owner)
     initialize_pipeline(owner, self, "glyph-pass", "glyph_vs", "glyph_fs")
   end
@@ -66,6 +76,7 @@ function Passes.build(renderer)
   end
   return {
     background,
+    selection,
     glyph,
     cursor,
   }

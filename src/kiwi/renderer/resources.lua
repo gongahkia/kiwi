@@ -5,6 +5,7 @@ local resource_specs = {
   ["terminal.cells"] = { access = "read" },
   ["text.shaped_glyphs"] = { access = "read" },
   ["terminal.cursor"] = { access = "read" },
+  ["terminal.selection"] = { access = "read" },
   ["terminal.damage"] = { access = "read" },
   ["frame.viewport"] = { access = "read" },
   ["frame.timing"] = { access = "read" },

@@ -2,8 +2,9 @@
 
 ## Context
 
-Kiwi M2.5 has three renderer-owned passes: `terminal/background`,
-`terminal/glyph`, and `terminal/cursor`. `Renderer` owns their pipelines,
+Kiwi M2.5 began with three renderer-owned passes: `terminal/background`,
+`terminal/glyph`, and `terminal/cursor`. M4 additively extends ABI v1 with
+`terminal/selection` between background and glyph rendering. `Renderer` owns their pipelines,
 buffers, bind groups, shader module, atlas, and command encoding directly.
 `State` and `Layout` already produce terminal cells, shaped glyphs, cursor
 state, logical/text damage, and viewport dimensions, but no contract says how
@@ -45,11 +46,12 @@ No lifecycle callback may mutate terminal state, parser state, text shaping,
 or terminal-width policy. Passes describe presentation; they do not decide
 what a terminal cell means.
 
-Current built-ins map into v1 without adding a new visual feature:
+Current built-ins map into v1 as follows:
 
 | Pass | Required reads | Presentation write | Existing order |
 | --- | --- | --- | ---: |
 | `terminal/background` | `terminal.cells`, `frame.viewport` | `surface.color` | 10 |
+| `terminal/selection` | `terminal.selection`, `frame.viewport` | `surface.color` | 15 |
 | `terminal/glyph` | `text.shaped_glyphs`, `text.alpha_atlas`, `frame.viewport` | `surface.color` | 20 |
 | `terminal/cursor` | `terminal.cursor`, `frame.viewport` | `surface.color` | 30 |
 
@@ -71,6 +73,7 @@ an error at the nearest registration/lifecycle boundary.
 | `terminal.cells` | terminal grid cell attributes and grid dimensions | read-only; current visible model snapshot |
 | `text.shaped_glyphs` | HarfBuzz/FreeType-derived visible glyph records | read-only; may be empty when text has no drawable glyphs |
 | `terminal.cursor` | column, row, visibility, and canonical cursor style/shape/blink after terminal/history policy | read-only; always present |
+| `terminal.selection` | viewport-relative normalized cell-gap range, active flag, and overlay RGBA after grapheme/history policy | read-only; always present, but may be inactive |
 | `terminal.damage` | coalesced logical-damage summary/ranges for the current update | read-only; may be empty |
 | `frame.viewport` | logical columns/rows, drawable pixels, and content scale | read-only; always present for a drawable frame |
 | `frame.timing` | monotonic frame time and non-negative frame delta | read-only; always present; timing does not imply redraw permission |
@@ -85,9 +88,11 @@ encoder or typed allocation capability may use those private handles behind
 the boundary, but it must not reveal them to Lua passes. A pass cannot retain
 a frame resource for a later frame.
 
-Selection, hyperlinks, command regions, images, clipboard data, shell data,
-and arbitrary graphics textures are intentionally absent from v1. They need
-their own semantic producer, ownership policy, and versioned addition.
+Hyperlinks, command regions, images, clipboard data, shell data, and arbitrary
+graphics textures are intentionally absent from v1. They need their own
+semantic producer, ownership policy, and versioned addition. Selection is an
+additive optional descriptor with a defined inactive state, so existing v1
+passes retain their behavior without an ABI-version change.
 
 ### Invalidation, scheduling, and failure behavior
 

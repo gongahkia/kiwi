@@ -5,6 +5,7 @@ Invalidation.reasons = {
   terminal = true,
   resize = true,
   cursor = true,
+  selection = true,
   configuration = true,
   extension = true,
 }

@@ -71,6 +71,8 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUShaderModule module; WGPUSt
 typedef struct { WGPUChainedStruct* nextInChain; WGPUShaderModule module; WGPUStringView entryPoint; size_t constantCount; const void* constants; size_t targetCount; const struct WGPUColorTargetState* targets; } WGPUFragmentState;
 typedef struct { WGPUChainedStruct* nextInChain; uint32_t topology; uint32_t stripIndexFormat; uint32_t frontFace; uint32_t cullMode; WGPUBool unclippedDepth; } WGPUPrimitiveState;
 typedef struct { WGPUChainedStruct* nextInChain; uint32_t count; uint32_t mask; WGPUBool alphaToCoverageEnabled; } WGPUMultisampleState;
+typedef struct { uint32_t operation; uint32_t srcFactor; uint32_t dstFactor; } WGPUBlendComponent;
+typedef struct { WGPUBlendComponent color; WGPUBlendComponent alpha; } WGPUBlendState;
 typedef struct WGPUColorTargetState { WGPUChainedStruct* nextInChain; uint32_t format; const void* blend; WGPUColorWriteMask writeMask; } WGPUColorTargetState;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; WGPUPipelineLayout layout; WGPUVertexState vertex; WGPUPrimitiveState primitive; const void* depthStencil; WGPUMultisampleState multisample; const WGPUFragmentState* fragment; } WGPURenderPipelineDescriptor;
 typedef struct { double r; double g; double b; double a; } WGPUColor;
@@ -196,6 +198,10 @@ return {
     front_face_ccw = 1,
     cull_none = 1,
     color_write_all = 0x0f,
+    blend_operation_add = 1,
+    blend_factor_one = 2,
+    blend_factor_src_alpha = 5,
+    blend_factor_one_minus_src_alpha = 6,
     load_clear = 2,
     load_load = 1,
     store_store = 1,

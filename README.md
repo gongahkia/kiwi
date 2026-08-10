@@ -83,7 +83,7 @@ Extension limits are enforced before registration or scheduling. `KIWI_EXTENSION
 
 API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-memory accounting: those limits are fixed at zero until a separately versioned capability exists. One callback failure disables its optional pass, while diagnostic history is bounded to 32 records of at most 4,096 bytes each. The full plain-data cap state, including unavailable capability markers, is in `renderer.diagnostics.extensions.limits`.
 
-Kiwi coalesces terminal, resize, cursor, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
+Kiwi coalesces terminal, resize, cursor, selection, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
 
 DECSCUSR cursor styles and DEC synchronized output are supported as documented
 in [the conformance matrix](docs/CONFORMANCE.md). `CSI ? 2026 h` defers
@@ -91,9 +91,10 @@ intermediate terminal presentation until `CSI ? 2026 l` or RIS; neither mode
 is advertised through terminfo.
 
 SGR mouse tracking (1000/1002/1003 with 1006) and focus reporting (1004) are
-also supported, with exact scope and the deferred-selection policy in the
-[conformance matrix](docs/CONFORMANCE.md). They are not advertised through
-terminfo.
+also supported, with exact scope and local-selection precedence in the
+[conformance matrix](docs/CONFORMANCE.md). Selected cells receive a
+pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
+`#RRGGBBAA`. Neither input capability is advertised through terminfo.
 
 ## Replay
 
@@ -103,4 +104,4 @@ terminfo.
 
 M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. It does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, clipboard, hyperlinks, images, OSC shell integration, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 is explicitly default-denied pending a platform bridge; its future local-copy/paste and opt-in policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
-The renderer remains structured: terminal cells and damage feed background, glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
+The renderer remains structured: terminal cells and damage feed background, selection, glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
