@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke pacing replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -37,6 +37,10 @@ kitty-graphics-smoke: native terminfo
 
 budget-smoke: native terminfo
 	KIWI_PASS_BUDGETS=1 KIWI_PASS_BUDGETS_REPORT=1 KIWI_RENDER_EXTENSIONS=tests.fixture_budget_extension KIWI_MAX_FRAMES=10 $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes
+
+pacing: native terminfo
+	mkdir -p bench/results
+	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
 
 replay:
 	$(LUAJIT) src/kiwi/replay.lua $(REPLAY)

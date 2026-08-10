@@ -50,6 +50,7 @@ make timestamp-probe                   # opt-in timestamp-query capability/readb
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
+make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements

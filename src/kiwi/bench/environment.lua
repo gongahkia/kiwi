@@ -79,4 +79,25 @@ function Environment.collect(timestamp, iterations, warmup)
   }
 end
 
+function Environment.collect_pacing(timestamp, measurement)
+  local environment = Environment.collect(timestamp, measurement.sample_limit, measurement.warmup_frames)
+  local session = os.getenv("WAYLAND_DISPLAY") and "wayland" or os.getenv("DISPLAY") and "x11" or "unavailable"
+  environment.configuration = {
+    sample_limit = measurement.sample_limit,
+    warmup_frames = measurement.warmup_frames,
+    pty_read_budget = measurement.pty_read_budget,
+    present_mode = "fifo",
+  }
+  environment.methodology = {
+    clock = "GLFW monotonic time; not os.clock",
+    scope = "terminal PTY event to successful Renderer:render return; no GPU execution, compositor, or panel latency claim",
+    samples = "bounded aggregate summaries; event payloads are not retained",
+  }
+  environment.system.display_session = session
+  environment.system.display_refresh_hz = command_output("xrandr --current 2>/dev/null | awk '/\\*/ { for (i = 1; i <= NF; ++i) if ($i ~ /\\*$/) { sub(/\\*$/, \"\", $i); print $i; exit } }'")
+  environment.system.power_profile = command_output("powerprofilesctl get 2>/dev/null | head -n 1")
+  environment.system.scheduler_nice = command_output("ps -o ni= -p $$ | tr -d ' '")
+  return environment
+end
+
 return Environment

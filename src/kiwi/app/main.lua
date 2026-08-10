@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local Pacing = require("kiwi.bench.pacing")
 local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
@@ -193,12 +194,19 @@ local function run_live(options)
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+    local pacing_report = os.getenv("KIWI_PACING_REPORT")
+    local pacing = pacing_report and Pacing.new({
+      sample_limit = number_from_env("KIWI_PACING_SAMPLES", 240),
+      warmup_frames = number_from_env("KIWI_PACING_WARMUP_FRAMES", 30),
+      pty_read_budget = pty_read_budget,
+    }) or nil
     local mouse = Mouse.new()
     local mouse_generation = state.modes.mouse_generation
     local selection_pointer = SelectionPointer.new()
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
 
     local function enqueue_input(bytes)
+      if pacing then pacing:input(window:time()) end
       if recorder then recorder:input(bytes) end
       pty:enqueue(bytes)
     end
@@ -348,6 +356,7 @@ local function run_live(options)
 
       local output = pty:read_available(pty_read_budget)
       if #output > 0 then
+        if pacing then pacing:output(now) end
         if recorder then recorder:output(output) end
         parser:feed(output)
         if state.modes.mouse_generation ~= mouse_generation then
@@ -413,6 +422,7 @@ local function run_live(options)
         end
         if renderer:needs_render(now) and renderer:can_present(state) then
         local frame_start = now
+        local invalidation = pacing and renderer:invalidation_snapshot() or nil
         local prepare_start = window:time()
         renderer:update_model(state)
         local prepare_elapsed = window:time() - prepare_start
@@ -423,7 +433,9 @@ local function run_live(options)
           end
           context.window.resized = true
         end
-        metrics:record(window:time() - frame_start, prepare_elapsed, renderer)
+        local frame_completed = window:time()
+        if rendered and pacing then pacing:present(frame_start, frame_completed, invalidation.reasons) end
+        metrics:record(frame_completed - frame_start, prepare_elapsed, renderer)
         if window.debug_metrics then
           metrics:report(now)
         end
@@ -437,6 +449,10 @@ local function run_live(options)
       end
     end
     parser:finish()
+    if pacing then
+      local path = Pacing.write_report(root, pacing_report, pacing, renderer)
+      io.stdout:write("Kiwi pacing report: ", path, "\n")
+    end
     if renderer and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
     if renderer and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end
     if options.inspect then
