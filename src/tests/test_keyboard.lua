@@ -20,6 +20,9 @@ return {
     Assert.truthy(copy.suppress_text)
     local paste = Keyboard.key(string.byte("V"), glfw.press, glfw.mod_control + glfw.mod_shift, { keyboard_flags = 1 }, glfw)
     Assert.equal(paste.local_action, "paste")
+    Assert.equal(Keyboard.key(string.byte("F"), glfw.press, glfw.mod_control + glfw.mod_shift, { keyboard_flags = 1 }, glfw).local_action, "search_begin")
+    Assert.equal(Keyboard.key(string.byte("G"), glfw.press, glfw.mod_control + glfw.mod_shift, {}, glfw).local_action, "search_next")
+    Assert.equal(Keyboard.key(string.byte("R"), glfw.press, glfw.mod_control + glfw.mod_shift, {}, glfw).local_action, "search_previous")
     Assert.truthy(Keyboard.key(string.byte("V"), glfw.repeat_action, glfw.mod_control + glfw.mod_shift, {}, glfw).suppress_text)
   end,
   keyboard_encodes_the_kitty_disambiguation_subset = function()

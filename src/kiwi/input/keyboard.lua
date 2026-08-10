@@ -105,6 +105,9 @@ function Keyboard.key(key, action, modifiers, modes, glfw)
   if bit.band(modifiers, glfw.mod_control) ~= 0 and bit.band(modifiers, glfw.mod_shift) ~= 0 then
     if key == string.byte("C") then return action == glfw.press and { local_action = "copy", suppress_text = true } or { suppress_text = true } end
     if key == string.byte("V") then return action == glfw.press and { local_action = "paste", suppress_text = true } or { suppress_text = true } end
+    if key == string.byte("F") then return action == glfw.press and { local_action = "search_begin", suppress_text = true } or { suppress_text = true } end
+    if key == string.byte("G") then return action == glfw.press and { local_action = "search_next", suppress_text = true } or { suppress_text = true } end
+    if key == string.byte("R") then return action == glfw.press and { local_action = "search_previous", suppress_text = true } or { suppress_text = true } end
   end
   if kitty_enabled(modes) then
     local enhanced = kitty_key(key, modifiers, modes, glfw)

@@ -6,6 +6,7 @@ Invalidation.reasons = {
   resize = true,
   cursor = true,
   selection = true,
+  search = true,
   configuration = true,
   extension = true,
 }
