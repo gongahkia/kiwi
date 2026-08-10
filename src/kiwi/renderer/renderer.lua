@@ -16,7 +16,7 @@ local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
-local Layout = require("kiwi.text.layout")
+local TextBackend = require("kiwi.text.backend")
 
 ffi.cdef[[
 typedef struct {
@@ -118,9 +118,11 @@ function Renderer.new(context, font, model, options)
   local pass_budgets_enabled = options.pass_budgets_enabled == true
   assert(options.pass_budgets_enabled == nil or type(options.pass_budgets_enabled) == "boolean", "pass budget enablement must be a boolean")
   assert(options.command_region_visual_enabled == nil or type(options.command_region_visual_enabled) == "boolean", "command region visual enablement must be a boolean")
+  assert(options.text_backend == nil or type(options.text_backend) == "string", "text backend selection must be a string")
   local inspector_enabled = options.inspector_enabled == true
   local placement_limit = model.kitty_placements and model.kitty_placements.limit or 256
   local placement_rows = model.kitty_placements and model.kitty_placements.max_rows or 256
+  local text_backend = TextBackend.create(font, { requested = options.text_backend })
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
     diagnostic_limit = options.extension_diagnostic_limit,
@@ -133,7 +135,8 @@ function Renderer.new(context, font, model, options)
     context = context,
     native = context.native,
     font = font,
-    layout = Layout.new(font),
+    layout = text_backend:layout(),
+    text_backend = text_backend,
     capacity = model.columns * model.rows,
     glyph_capacity = model.columns * model.rows * 8,
     cells = ffi.new("KiwiGlyphInstance[?]", model.columns * model.rows),
@@ -180,6 +183,7 @@ function Renderer.new(context, font, model, options)
       extensions = extension_manager:snapshot(),
       pass_budgets = { enabled = false, warnings = {}, passes = {} },
       gpu_timing = { enabled = false, status = "not initialized", samples = {}, history = {} },
+      text_backend = text_backend:descriptor(),
     },
   }, Renderer)
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
@@ -676,9 +680,10 @@ end
 
 function Renderer:update_model(model)
   local damage = model.damage
-  local shaped_glyphs = self.layout:update(model)
+  local shaped_glyphs = self.text_backend:update(model)
   if self.kitty_images:sync(self, model) then self:invalidate("kitty_images") end
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
+  self.diagnostics.text_backend = self.text_backend:descriptor()
   local ranges = damage:ranges()
   if #ranges > 0 then self:invalidate("terminal") end
   self.diagnostics.dirty_cells = damage.dirty_count
@@ -896,6 +901,7 @@ function Renderer:destroy()
     if not ok then pass_error = message end
   end
   local resource_ok, resource_error = pcall(self.resource_registry.destroy, self.resource_registry)
+  if self.text_backend then self.text_backend:destroy() end
   if pass_error then error(pass_error, 2) end
   if not resource_ok then error(resource_error, 2) end
 end

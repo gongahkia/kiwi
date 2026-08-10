@@ -38,6 +38,12 @@ return {
     Assert.truthy(inventory.face_cache_limit > 0)
     Assert.truthy(inventory.fallback_cache_limit > 0)
   end,
+  text_benchmark_records_the_runtime_text_backend_contract = function()
+    local descriptor = TextBench.backend_descriptor()
+    Assert.equal(descriptor.abi_version, 1)
+    Assert.equal(descriptor.active, "atlas")
+    Assert.equal(descriptor.fallback, false)
+  end,
   text_stress_bounds_atlas_fallback_and_grid_state = function()
     local result = TextStress.run({ rounds = 12, atlas_entries = 8, lifecycle_iterations = 2, rss_limit_kib = 96 * 1024 })
     Assert.truthy(result.atlas_entries <= result.atlas_entries_limit)

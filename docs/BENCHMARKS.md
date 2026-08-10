@@ -84,7 +84,8 @@ extended-grapheme count, and terminal columns must agree. Then review the
 baseline and candidate screenshots side by side for missing glyphs, overlap,
 clipping, wide-cell occupancy, fallback changes, ligature behavior, and dense
 UI alignment. Record glyph/instance/cache/fallback counters and CPU p50/p95/p99
-from the same host before drawing a performance conclusion. A different font,
+from the same host, including the `text_backend` descriptor's requested/active
+selection and fallback status, before drawing a performance conclusion. A different font,
 font fallback result, content scale, Unicode data version, driver, adapter,
 governor, kernel, or iteration scope makes results non-comparable; this protocol
 has no automatic threshold or cross-machine ranking.

@@ -6,6 +6,7 @@ local Layout = require("kiwi.text.layout")
 local Parser = require("kiwi.terminal.parser")
 local State = require("kiwi.terminal.state")
 local Stats = require("kiwi.bench.stats")
+local TextBackend = require("kiwi.text.backend")
 local Corpus = require("kiwi.text.benchmark_corpus")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
@@ -78,6 +79,15 @@ function TextBench.font_inventory()
   }
   system:destroy()
   return inventory
+end
+
+function TextBench.backend_descriptor()
+  local system = new_system()
+  local backend = TextBackend.create(system, { requested = os.getenv("KIWI_TEXT_BACKEND") })
+  local descriptor = backend:descriptor()
+  backend:destroy()
+  system:destroy()
+  return descriptor
 end
 
 local function measure(iterations, warmup, setup, operation, inspect, cleanup)
@@ -522,6 +532,7 @@ function TextBench.main()
     corpus = { version = Corpus.version, scenarios = Corpus.scenarios },
     font = TextBench.font_inventory(),
     shape_options = benchmark_shape_options,
+    text_backend = TextBench.backend_descriptor(),
     unicode = { version = "17.0.0", grapheme_algorithm = "UAX #29 extended grapheme clusters", width_policy = Width.policy_version },
     results = results,
   }), "\n")

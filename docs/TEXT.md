@@ -63,6 +63,18 @@ The GPU has separate cell/background, shaped-glyph, dynamic alpha-atlas, sampler
 
 FreeType BGRA/color glyph bitmaps are rejected safely by the grayscale atlas. On the verified Fedora host, Fontconfig selected a monochrome fallback for the default emoji case and direct Noto Color Emoji COLRv1 rasterization did not yield a usable grayscale bitmap. Therefore M2 provides semantic emoji clustering, width, fallback selection, and monochrome glyph rendering where a usable face exists; it does **not** claim color emoji rendering. Private-use/Nerd Font characters use ordinary Fontconfig fallback and the same glyph-ID path; the optional `MartianMono Nerd Font` test exercises U+E0B0 when that host font is installed. Ligatures are opt-in and are not treated as terminal-width features.
 
+## Text backend boundary
+
+`kiwi.text.backend` is the renderer-scoped v1 seam for experimental
+rasterization. `KIWI_TEXT_BACKEND=atlas` is the default and current baseline.
+An unsupported non-empty requested name remains observable in renderer metrics
+as an `atlas` fallback with `fallback_reason=unsupported-backend`; it never
+changes terminal layout, width, HarfBuzz mapping, or PTY input. The backend
+descriptor contains only plain capability data, not font or wgpu handles. The
+renderer continues to own GPU resources and `FontSystem` remains app-owned.
+See [ADR 0034](adr/0034-text-backend-interface.md) for the stable input/output,
+lifetime, fallback, and prototype-comparison contract.
+
 ## Diagnostics and inspection
 
 F4 diagnostics include pinned Unicode version, primary path, loaded fallback face count, visible shaped run/glyph totals, row invalidation/reshape/run/glyph counts, shaped-row cache hits/misses, glyph-buffer upload/drop counts, atlas hit/miss/failure counts, fallback results, wide-cluster count, and over-limit cluster count alongside M1 PTY/parser metrics. They are rate-limited to one report per second and do not dump control-string payloads.
