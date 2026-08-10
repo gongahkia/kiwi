@@ -72,6 +72,10 @@ enter the matching development environment with `nix develop`, and run the
 flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
 the pinned-input update procedure and driver/display limitations.
 
+For the supported source and artifact launch paths, environment-only
+configuration, safe-mode troubleshooting, maintained render-extension examples,
+and support boundaries, see the [user guide](docs/USER_GUIDE.md).
+
 ## Commands
 
 ```sh

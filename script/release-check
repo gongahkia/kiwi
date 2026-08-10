@@ -17,5 +17,10 @@ version_output=$(KIWI_DEVELOPMENT=1 "$WORK/$NAME/bin/kiwi" --version)
 [[ "$version_output" == "Kiwi $VERSION (revision "*", mode release)" ]]
 [[ -f "$WORK/$NAME/metadata.json" ]]
 [[ -d "$WORK/$NAME/share/terminfo" ]]
+[[ -f "$WORK/$NAME/share/doc/kiwi/README.md" ]]
+for document in ACCESSIBILITY CONFORMANCE NIX RENDERER_API SHELL_INTEGRATION SUPPORT TEXT USER_GUIDE; do
+  [[ -f "$WORK/$NAME/share/doc/kiwi/docs/$document.md" ]]
+done
+[[ -f "$WORK/$NAME/share/kiwi/integrations/v1/kiwi.bash" ]]
 
-print "Kiwi release check: reproducible archive, checksum, metadata, terminfo, and release-mode launcher passed."
+print "Kiwi release check: reproducible archive, checksum, metadata, linked docs, and release-mode launcher passed."
