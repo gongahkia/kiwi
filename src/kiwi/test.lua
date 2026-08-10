@@ -22,6 +22,7 @@ local tests = {
   require("tests.test_conformance"),
   require("tests.test_parser_bench"),
   require("tests.test_pipeline_bench"),
+  require("tests.test_longrun"),
   require("tests.test_pacing"),
   require("tests.test_text_bench"),
   require("tests.test_write_bench"),

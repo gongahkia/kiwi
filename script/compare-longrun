@@ -1,0 +1,40 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  print -u2 "usage: script/compare-longrun BASELINE CANDIDATE"
+  exit 2
+fi
+if ! command -v jq >/dev/null; then
+  print -u2 "jq is required to compare long-run reports."
+  exit 2
+fi
+for report in "$1" "$2"; do
+  if [[ ! -f "$report" ]]; then
+    print -u2 "long-run report is missing: $report"
+    exit 2
+  fi
+  if ! jq -e '.schema_version == 1 and .benchmark == "Kiwi M9 long-running terminal and text-cache profile"' "$report" >/dev/null; then
+    print -u2 "unsupported long-run report: $report"
+    exit 2
+  fi
+done
+if ! jq -e -n --slurpfile baseline "$1" --slurpfile candidate "$2" '$baseline[0].result.configuration == $candidate[0].result.configuration' >/dev/null; then
+  print -u2 "long-run configuration differs; compare only identical workload limits."
+  exit 2
+fi
+
+jq -n --slurpfile baseline "$1" --slurpfile candidate "$2" '
+  def delta($before; $after):
+    if ($before | type) == "number" and ($after | type) == "number" then $after - $before else "unavailable" end;
+  def comparison($before; $after): { baseline: $before, candidate: $after, delta: delta($before; $after) };
+  {
+    configuration: $baseline[0].result.configuration,
+    history_batch_p95_ms: comparison($baseline[0].result.history.batch_cpu_ms.p95; $candidate[0].result.history.batch_cpu_ms.p95),
+    history_navigation_p95_ms: comparison($baseline[0].result.history.history_navigation_cpu_ms.p95; $candidate[0].result.history.history_navigation_cpu_ms.p95),
+    history_peak_heap_kib: comparison($baseline[0].result.history.memory.peak_heap_kib_delta; $candidate[0].result.history.memory.peak_heap_kib_delta),
+    history_rss_kib: comparison($baseline[0].result.history.memory.rss_kib_delta; $candidate[0].result.history.memory.rss_kib_delta),
+    text_cache_cpu_ms: comparison($baseline[0].result.text_cache_pressure.elapsed_cpu_ms; $candidate[0].result.text_cache_pressure.elapsed_cpu_ms),
+    text_cache_failures: comparison($baseline[0].result.text_cache_pressure.glyph_cache.failures; $candidate[0].result.text_cache_pressure.glyph_cache.failures)
+  }
+'
