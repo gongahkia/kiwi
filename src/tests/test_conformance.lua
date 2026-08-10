@@ -111,9 +111,22 @@ local function assert_expected(fixture, state, parser)
   end
   if expected.kitty_placements then
     local placements = state:kitty_placements_view().placements
-    Assert.equal(#placements, 1, fixture.id .. " kitty placement count")
+    local count = expected.kitty_placements.count or 1
+    Assert.equal(#placements, count, fixture.id .. " kitty placement count")
     for name, value in pairs(expected.kitty_placements) do
-      Assert.equal(placements[1][name], value, fixture.id .. " kitty placement " .. name)
+      if name ~= "count" then Assert.equal(placements[1][name], value, fixture.id .. " kitty placement " .. name) end
+    end
+  end
+  if expected.kitty_graphics then
+    local graphics = state.kitty_graphics:view()
+    for name, value in pairs(expected.kitty_graphics) do
+      if name == "image_id" then
+        Assert.equal(graphics.images[1] and graphics.images[1].id, value, fixture.id .. " kitty image id")
+      elseif name == "last_error" then
+        Assert.equal(graphics.stats.last_error, value, fixture.id .. " kitty graphics error")
+      else
+        Assert.equal(graphics[name], value, fixture.id .. " kitty graphics " .. name)
+      end
     end
   end
   if expected.responses then

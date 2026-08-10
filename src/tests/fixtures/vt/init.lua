@@ -8,6 +8,8 @@ return {
   require("tests.fixtures.vt.cursor_style_and_sync"),
   require("tests.fixtures.vt.kitty_keyboard"),
   require("tests.fixtures.vt.kitty_graphics"),
+  require("tests.fixtures.vt.kitty_graphics_actions"),
+  require("tests.fixtures.vt.kitty_graphics_composition"),
   require("tests.fixtures.vt.kitty_placements"),
   require("tests.fixtures.vt.mouse_and_focus"),
   require("tests.fixtures.vt.osc_and_strings"),

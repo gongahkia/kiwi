@@ -48,6 +48,7 @@ make demo                              # retain the M0 synthetic renderer mode
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
+make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks

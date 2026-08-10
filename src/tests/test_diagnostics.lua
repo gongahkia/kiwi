@@ -1,8 +1,11 @@
 local Assert = require("tests.assert")
 local Actions = require("kiwi.terminal.actions")
+local Base64 = require("kiwi.terminal.base64")
 local Metrics = require("kiwi.diagnostics.metrics")
 local State = require("kiwi.terminal.state")
 local Utf8 = require("kiwi.terminal.utf8")
+
+local png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg=="
 
 local function metrics_for(state, runtime)
   local context = {
@@ -74,5 +77,22 @@ return {
     end
     Assert.equal(state.stats.unknown.csi, 64)
     Assert.equal(#state.stats.unknown_samples, 16)
+  end,
+  kitty_graphics_diagnostics_keep_resource_and_decoder_failures_stable = function()
+    local limited = State.new(4, 1, { kitty_graphics = { max_encoded_bytes = 8 } })
+    limited:apply(Actions.apc("a=t,i=1,s=1,v=1,f=100,t=d,m=0;" .. png))
+    local limited_snapshot = metrics_for(limited):snapshot()
+    Assert.equal(limited_snapshot.kitty_graphics.image_count, 0)
+    Assert.equal(limited_snapshot.kitty_graphics.rejected, 1)
+    Assert.equal(limited_snapshot.kitty_graphics.last_error, "encoded-limit")
+
+    local corrupt = Base64.decode(png)
+    corrupt = corrupt:sub(1, 56) .. string.char(0) .. corrupt:sub(58)
+    local malformed = State.new(4, 1)
+    malformed:apply(Actions.apc("a=t,i=2,s=1,v=1,f=100,t=d,m=0;" .. Base64.encode(corrupt)))
+    local malformed_snapshot = metrics_for(malformed):snapshot()
+    Assert.equal(malformed_snapshot.kitty_graphics.image_count, 0)
+    Assert.equal(malformed_snapshot.kitty_graphics.rejected, 1)
+    Assert.equal(malformed_snapshot.kitty_graphics.last_error, "png-decode")
   end,
 }
