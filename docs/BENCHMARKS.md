@@ -94,7 +94,7 @@ This is a release gate for an interactive Wayland session, not an automated clai
 - Repeat with the bundled text child (`KIWI_MAX_FRAMES=240 make text-demo`), include CJK/combining/emoji output, and use `--inspect` on a continuation and an anchor.
 - Close the window while output is active and confirm the child exits; retain the command, desktop/session details, and any visual anomaly with the release evidence.
 
-`make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, and each shared component's exact scope before producing deltas. Schema 4 stage additions/removals are labeled rather than compared; all other configuration mismatch is rejected. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
+`make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, and each shared component's exact scope before producing absolute and percentage p50/p95/p99/mean/throughput deltas. It also lists changed counters shared by each compared stage. Schema 4 stage additions/removals are labeled rather than compared; all other configuration mismatch is rejected. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 
 ## Profiling and changes
 
