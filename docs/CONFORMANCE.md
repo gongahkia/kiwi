@@ -56,6 +56,7 @@ claiming formal verification or allocator-independent memory totals.
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; Kitty keyboard level-one disambiguation; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
+| selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, detached normalized view | not a terminfo capability; no pointer, render, or clipboard action yet |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
@@ -71,6 +72,10 @@ The entry intentionally declares `colors#16`; it does not declare truecolour, it
 ## Clipboard and OSC 52 policy
 
 OSC 52 is default-denied: terminal output cannot read, write, clear, or query the system clipboard, trigger paste, or receive an OSC reply. The parser still bounds every OSC string to 4,096 bytes and records no OSC payload, only bounded command metadata or rejection reasons. Planned local copy/paste behavior, future opt-in write modes, exact byte limits, bracketed-paste behavior, and parser-failure rules are defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md). No clipboard platform bridge is implemented yet.
+
+## Selection model
+
+The M4 foundation stores no text payload: it records two directional endpoints as stable row IDs and cell gaps, then exposes a detached normalized `[start, finish)` view. Bounds that land inside a wide-cell continuation snap around the whole cluster; combining code points share their anchor cell. Primary selections follow their row into bounded scrollback, while `history_offset` only changes the viewport. Kiwi does not reflow on resize, so retained rows clamp to the new width; a selection clears if an endpoint row is evicted or dropped. The inactive screen’s selection is retained but marked non-visible. Pointer gestures, drawing, copying, and accessibility are intentionally deferred; the full contract is [ADR 0021](adr/0021-grapheme-aware-selection-state.md).
 
 ## Truecolour decision
 

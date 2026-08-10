@@ -157,6 +157,17 @@ local function assert_state(state, parser, input, parser_options)
   assert_invariant(state.scrollback:size() <= state.scrollback.limit, "scrollback bound")
   assert_invariant(state.history_offset >= 0 and state.history_offset <= state.scrollback:size(), "history offset")
   assert_invariant(#state.stats.unknown_samples <= 16, "unknown sample bound")
+  local line_ids = {}
+  local function record_line(row, label)
+    assert_invariant(type(row.line_id) == "number" and row.line_id > 0, label .. " line id")
+    assert_invariant(line_ids[row.line_id] == nil, label .. " duplicate line id")
+    line_ids[row.line_id] = true
+  end
+  for index = 1, state.scrollback:size() do record_line(state.scrollback:get(index), "scrollback " .. index) end
+  for index = 0, state.rows - 1 do
+    record_line(state.primary.rows[index], "primary " .. index)
+    record_line(state.alternate.rows[index], "alternate " .. index)
+  end
   if state.title then assert_invariant(#state.title <= parser_options.max_string_bytes, "title bound") end
   assert_screen(state, state.primary, "primary")
   assert_screen(state, state.alternate, "alternate")

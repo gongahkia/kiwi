@@ -13,19 +13,20 @@ local function copy_cell(destination, source)
   destination.display_text = source.display_text
 end
 
-local function new_row(columns, blank_cell)
+local function new_row(columns, blank_cell, line_id_factory)
   local cells = {}
   for column = 0, columns - 1 do
     cells[column] = blank_cell()
   end
-  return { cells = cells, wrapped = false }
+  return { cells = cells, line_id = line_id_factory and line_id_factory() or nil, wrapped = false }
 end
 
-function Screen.new(columns, rows, blank_cell)
+function Screen.new(columns, rows, blank_cell, line_id_factory)
   local self = setmetatable({
     columns = columns,
     rows_count = rows,
     blank_cell = blank_cell,
+    line_id_factory = line_id_factory,
     rows = {},
     cursor = { column = 0, row = 0, visible = true, pending_wrap = false },
     saved_cursor = { column = 0, row = 0 },
@@ -36,13 +37,13 @@ function Screen.new(columns, rows, blank_cell)
     bottom_margin = rows - 1,
   }, Screen)
   for row = 0, rows - 1 do
-    self.rows[row] = new_row(columns, blank_cell)
+    self.rows[row] = new_row(columns, blank_cell, line_id_factory)
   end
   return self
 end
 
 function Screen:new_row()
-  return new_row(self.columns, self.blank_cell)
+  return new_row(self.columns, self.blank_cell, self.line_id_factory)
 end
 
 function Screen:get(column, row)
@@ -58,13 +59,14 @@ function Screen:clear_row(row, cell_factory)
 end
 
 function Screen:resize(columns, rows, blank_cell)
-  local resized = Screen.new(columns, rows, blank_cell)
+  local resized = Screen.new(columns, rows, blank_cell, self.line_id_factory)
   local rows_to_copy = math.min(self.rows_count, rows)
   local columns_to_copy = math.min(self.columns, columns)
   for row = 0, rows_to_copy - 1 do
     for column = 0, columns_to_copy - 1 do
       copy_cell(resized.rows[row].cells[column], self.rows[row].cells[column])
     end
+    resized.rows[row].line_id = self.rows[row].line_id
     resized.rows[row].wrapped = self.rows[row].wrapped
   end
   resized.cursor.column = math.min(self.cursor.column, columns - 1)
