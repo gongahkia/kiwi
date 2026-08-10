@@ -1,0 +1,78 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly VERSION=$(<"$ROOT/VERSION")
+readonly WGPU_VERSION='v29.0.1.1'
+readonly WGPU_SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
+readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-linux-x86_64-release.zip"
+readonly WGPU="$ROOT/.deps/wgpu-native-$WGPU_VERSION"
+readonly DIST=${KIWI_RELEASE_DIST:-"$ROOT/dist"}
+
+if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
+  print -u2 "Kiwi release artifacts currently support Linux x86_64; found $(uname -s) $(uname -m)."
+  exit 1
+fi
+if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+  print -u2 "VERSION must be a numeric semantic version; found $VERSION"
+  exit 1
+fi
+if [[ "$DIST" != /* ]]; then
+  print -u2 "KIWI_RELEASE_DIST must be an absolute path; found $DIST"
+  exit 1
+fi
+
+revision=${KIWI_RELEASE_REVISION:-$(git -C "$ROOT" rev-parse --verify HEAD)}
+revision=$(git -C "$ROOT" rev-parse --verify "$revision^{commit}")
+source_date_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" show -s --format=%ct "$revision")}
+if [[ ! "$source_date_epoch" =~ '^[0-9]+$' ]]; then
+  print -u2 "SOURCE_DATE_EPOCH must be an integer Unix timestamp; found $source_date_epoch"
+  exit 1
+fi
+if git -C "$ROOT" diff --quiet && git -C "$ROOT" diff --cached --quiet; then
+  tree_state=clean
+else
+  tree_state=dirty
+fi
+
+"$ROOT/script/build-native"
+"$ROOT/script/build-terminfo"
+
+readonly NAME="kiwi-$VERSION-linux-x86_64"
+readonly STAGE="$DIST/$NAME"
+readonly ARCHIVE="$DIST/$NAME.tar.gz"
+readonly CHECKSUM="$ARCHIVE.sha256"
+
+mkdir -p "$DIST"
+rm -rf "$STAGE"
+mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/share/kiwi/lua" "$STAGE/share/terminfo" "$STAGE/share/doc/kiwi"
+cp -R "$ROOT/src/kiwi" "$STAGE/share/kiwi/lua/kiwi"
+cp "$ROOT/.build/native/libkiwi_surface.so" "$STAGE/lib/libkiwi_surface.so"
+cp "$WGPU/lib/libwgpu_native.so" "$STAGE/lib/libwgpu_native.so"
+cp "$ROOT/VERSION" "$STAGE/VERSION"
+print -r -- "$revision" > "$STAGE/BUILD_REVISION"
+cp "$ROOT/README.md" "$STAGE/share/doc/kiwi/README.md"
+cp "$ROOT/docs/CONFORMANCE.md" "$STAGE/share/doc/kiwi/CONFORMANCE.md"
+cp "$ROOT/docs/ACCESSIBILITY.md" "$STAGE/share/doc/kiwi/ACCESSIBILITY.md"
+tic -x -o "$STAGE/share/terminfo" "$ROOT/terminfo/kiwi.ti"
+
+print '#!/usr/bin/env zsh' > "$STAGE/bin/kiwi"
+print 'set -euo pipefail' >> "$STAGE/bin/kiwi"
+print 'readonly KIWI_INSTALL_ROOT=${0:A:h:h}' >> "$STAGE/bin/kiwi"
+print 'export KIWI_ROOT="$KIWI_INSTALL_ROOT"' >> "$STAGE/bin/kiwi"
+print 'export KIWI_WGPU_LIB="$KIWI_INSTALL_ROOT/lib/libwgpu_native.so"' >> "$STAGE/bin/kiwi"
+print 'export KIWI_SURFACE_LIB="$KIWI_INSTALL_ROOT/lib/libkiwi_surface.so"' >> "$STAGE/bin/kiwi"
+print 'export KIWI_RELEASE=1' >> "$STAGE/bin/kiwi"
+print 'export TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
+print 'export LUA_PATH="$KIWI_INSTALL_ROOT/share/kiwi/lua/?.lua;$KIWI_INSTALL_ROOT/share/kiwi/lua/?/init.lua;;"' >> "$STAGE/bin/kiwi"
+print 'exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/app/main.lua" "$@"' >> "$STAGE/bin/kiwi"
+chmod 755 "$STAGE/bin/kiwi"
+
+print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":[\"luajit\",\"glfw\",\"freetype\",\"harfbuzz\",\"fontconfig\",\"libpng\",\"vulkan-loader\"]}" > "$STAGE/metadata.json"
+
+rm -f "$ARCHIVE" "$CHECKSUM"
+tar -C "$DIST" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+(cd "$DIST" && sha256sum "${ARCHIVE:t}" > "${CHECKSUM:t}")
+
+print "Kiwi release artifact: $ARCHIVE"
+print "Kiwi release checksum: $CHECKSUM"

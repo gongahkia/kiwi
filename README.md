@@ -34,11 +34,34 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 
 `make bootstrap` validates the local tools, GLFW/FreeType/HarfBuzz/Fontconfig metadata, `tic`/`infocmp`, and the pinned official wgpu-native archive.
 
+## Local release artifact
+
+`make release` creates `dist/kiwi-<version>-linux-x86_64.tar.gz` and its
+adjacent SHA-256 file. The archive contains the Lua sources, native surface
+bridge, pinned wgpu-native runtime, compiled `kiwi` terminfo, a launcher, and
+`metadata.json` with the version, Git revision, source-date epoch, dependency
+identity, and runtime-library requirements. It neither uploads nor publishes
+anything. `make release-check` builds twice with normalized archive metadata,
+compares the byte streams, verifies the checksum, extracts the archive, and
+confirms that its launcher reports release mode even when
+`KIWI_DEVELOPMENT=1` is inherited.
+
+The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLFW,
+FreeType, HarfBuzz, Fontconfig, libpng, a Vulkan loader/driver, and the normal
+display-server runtime. `kiwi --version` reports the artifact version and
+revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
+shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
+renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
+publish a GitHub release or claim portability beyond the documented Linux
+environment.
+
 ## Commands
 
 ```sh
 make bootstrap                         # validate prerequisites and fetch pinned wgpu-native
 make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
+make release                           # create a local, checksummed Linux x86_64 release-mode artifact
+make release-check                     # rebuild the artifact twice and verify byte identity, metadata, terminfo, and release mode
 make test                              # deterministic unit, conformance, replay, and parser-bench tests
 make test-fuzz                         # bounded seed-reproducible parser/state property and hostile-input suite
 make fuzz                              # longer local parser/state fuzz run

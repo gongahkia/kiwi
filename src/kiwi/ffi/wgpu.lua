@@ -162,7 +162,7 @@ if not ok then
   error("Unable to load pinned wgpu-native v29.0.1.1 at " .. library_path .. "; run make bootstrap: " .. tostring(library))
 end
 
-local surface_path = root .. "/.build/native/libkiwi_surface.so"
+local surface_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
 local surface_ok, surface = pcall(ffi.load, surface_path)
 if not surface_ok then
   error("Unable to load Kiwi's GLFW surface bridge at " .. surface_path .. "; run make native: " .. tostring(surface))
