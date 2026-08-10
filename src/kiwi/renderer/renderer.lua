@@ -9,6 +9,7 @@ local GpuTiming = require("kiwi.renderer.gpu_timing")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
 local Resources = require("kiwi.renderer.resources")
+local Selection = require("kiwi.renderer.selection")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
 local Layout = require("kiwi.text.layout")
@@ -25,6 +26,16 @@ typedef struct {
   float cursor_visible;
   float cursor_shape;
   float cursor_blink;
+  float padding0;
+  float padding1;
+  float selection_start_column;
+  float selection_start_row;
+  float selection_finish_column;
+  float selection_finish_row;
+  float selection_red;
+  float selection_green;
+  float selection_blue;
+  float selection_alpha;
 } KiwiFrameUniform;
 ]]
 
@@ -112,6 +123,7 @@ function Renderer.new(context, font, model, options)
     invalidation = Invalidation.new(),
     inspector_enabled = inspector_enabled,
     inspector_selected_pass = options.inspector_selected_pass,
+    selection_color = Selection.parse_color(options.selection_color),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -293,12 +305,23 @@ function Renderer:register_extension_passes()
   end
 end
 
-function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader)
+function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader, blend)
   local api = self.native.lib
   local c = self.native.constants
   local target = ffi.new("WGPUColorTargetState[1]")
   target[0].format = self.context.surface_format
   target[0].writeMask = c.color_write_all
+  if blend ~= nil then
+    assert(blend == "alpha", "unknown render pipeline blend mode " .. tostring(blend))
+    local state = ffi.new("WGPUBlendState[1]")
+    state[0].color.operation = c.blend_operation_add
+    state[0].color.srcFactor = c.blend_factor_src_alpha
+    state[0].color.dstFactor = c.blend_factor_one_minus_src_alpha
+    state[0].alpha.operation = c.blend_operation_add
+    state[0].alpha.srcFactor = c.blend_factor_one
+    state[0].alpha.dstFactor = c.blend_factor_one_minus_src_alpha
+    target[0].blend = state
+  end
   local fragment = ffi.new("WGPUFragmentState")
   fragment.module = shader.handle
   fragment.entryPoint = string_view(fragment_entry)
@@ -422,6 +445,10 @@ function Renderer:cursor_blink_delay(model)
   return nil
 end
 
+function Renderer:selection_descriptor(model)
+  return Selection.descriptor(model, self.selection_color)
+end
+
 function Renderer:register_semantic_resources(model)
   local registry = self.resource_registry
   local handles = self.resource_handles
@@ -441,6 +468,8 @@ function Renderer:register_semantic_resources(model)
     instance_bytes = Packing.text_glyph_instance_size,
   })
   register("terminal.cursor", "read", self:cursor_descriptor(model))
+  self.selection = self:selection_descriptor(model)
+  register("terminal.selection", "read", self.selection)
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
     columns = model.columns,
@@ -459,7 +488,7 @@ function Renderer:register_semantic_resources(model)
   register("surface.color", "write", { format = self.context.surface_format })
 end
 
-function Renderer:refresh_semantic_resources(model, time, delta)
+function Renderer:refresh_semantic_resources(model, time, delta, selection)
   local registry = self.resource_registry
   local handles = self.resource_handles
   local atlas = self.font.glyph_cache.atlas
@@ -475,6 +504,8 @@ function Renderer:refresh_semantic_resources(model, time, delta)
     instance_bytes = Packing.text_glyph_instance_size,
   }))
   registry:update(handles["terminal.cursor"], self:resource_descriptor("terminal.cursor", "read", self:cursor_descriptor(model)))
+  self.selection = selection or self:selection_descriptor(model)
+  registry:update(handles["terminal.selection"], self:resource_descriptor("terminal.selection", "read", self.selection))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
     ranges = self.diagnostics.dirty_ranges,
@@ -628,6 +659,7 @@ end
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   local delta = math.max(0, time - self.frame_time)
   local cursor = self:cursor_descriptor(model)
+  local selection = self:selection_descriptor(model)
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
@@ -639,8 +671,18 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].cursor_visible = cursor.visible and 1 or 0
   self.frame[0].cursor_shape = cursor_shape_values[cursor.shape]
   self.frame[0].cursor_blink = cursor.blink and 1 or 0
+  self.frame[0].padding0 = 0
+  self.frame[0].padding1 = 0
+  self.frame[0].selection_start_column = selection.start_column
+  self.frame[0].selection_start_row = selection.start_row
+  self.frame[0].selection_finish_column = selection.finish_column
+  self.frame[0].selection_finish_row = selection.finish_row
+  self.frame[0].selection_red = selection.color.red
+  self.frame[0].selection_green = selection.color.green
+  self.frame[0].selection_blue = selection.color.blue
+  self.frame[0].selection_alpha = selection.color.alpha
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
-  self:refresh_semantic_resources(model, time, delta)
+  self:refresh_semantic_resources(model, time, delta, selection)
 end
 
 function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resources)

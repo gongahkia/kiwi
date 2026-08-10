@@ -30,6 +30,16 @@ struct FrameData {
   cursor_visible: f32,
   cursor_shape: f32,
   cursor_blink: f32,
+  padding0: f32,
+  padding1: f32,
+  selection_start_column: f32,
+  selection_start_row: f32,
+  selection_finish_column: f32,
+  selection_finish_row: f32,
+  selection_red: f32,
+  selection_green: f32,
+  selection_blue: f32,
+  selection_alpha: f32,
 }
 
 struct RasterOut {
@@ -40,6 +50,7 @@ struct RasterOut {
   @location(3) bg: vec4<f32>,
   @interpolate(flat) @location(4) flags: u32,
   @interpolate(flat) @location(5) glyph: u32,
+  @interpolate(flat) @location(6) cell_position: vec2<f32>,
 }
 
 @group(0) @binding(0) var<storage, read> cells: array<GpuCell>;
@@ -77,6 +88,7 @@ fn raster_out(position: vec2<f32>, size: vec2<f32>, uv_min: vec2<f32>, uv_max: v
   result.bg = unpack_rgba(bg);
   result.flags = flags;
   result.glyph = glyph;
+  result.cell_position = position;
   return result;
 }
 
@@ -120,6 +132,27 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
   return color;
 }
 
+fn selection_contains(column: f32, row: f32) -> bool {
+  let after_start = row > frame.selection_start_row
+    || (row == frame.selection_start_row && column >= frame.selection_start_column);
+  let before_finish = row < frame.selection_finish_row
+    || (row == frame.selection_finish_row && column < frame.selection_finish_column);
+  return after_start && before_finish;
+}
+
+@vertex
+fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
+  let row = floor(f32(instance_index) / frame.columns);
+  let column = f32(instance_index) - row * frame.columns;
+  return raster_out(vec2<f32>(column, row), vec2<f32>(1.0, 1.0), vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, 0u, 0u, vertex_index);
+}
+
+@fragment
+fn selection_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if (!selection_contains(input.cell_position.x, input.cell_position.y)) { discard; }
+  return vec4<f32>(frame.selection_red, frame.selection_green, frame.selection_blue, frame.selection_alpha);
+}
+
 @vertex
 fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
   let local_position = quad_corner(vertex_index);
@@ -134,6 +167,7 @@ fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
   result.bg = result.fg;
   result.flags = 0u;
   result.glyph = 0u;
+  result.cell_position = vec2<f32>(frame.cursor_column, frame.cursor_row);
   return result;
 }
 

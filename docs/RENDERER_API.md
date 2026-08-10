@@ -84,6 +84,13 @@ the canonical DECSCUSR `style` (1 through 6), named `shape`
 from terminal state, not permission to schedule a redraw or access a native
 cursor resource.
 
+The read-only `terminal.selection` descriptor carries `active`, normalized
+viewport-relative `start_column`, `start_row`, `finish_column`, and
+`finish_row` gaps, plus normalized `color` channels. It contains no selected
+text, row IDs, clipboard data, or native buffers. An inactive descriptor has
+zero endpoints; coordinates may extend beyond the viewport when an active
+range is clipped by the visible grid.
+
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.

@@ -103,6 +103,7 @@ local function renderer_options(runtime_options)
     pass_budgets_enabled = os.getenv("KIWI_PASS_BUDGETS") == "1",
     inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
+    selection_color = os.getenv("KIWI_SELECTION_COLOR"),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
   }
@@ -211,7 +212,8 @@ local function run_live(options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
-      local selection_handled = selection_pointer:handle(event, state, state.modes)
+      local selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes)
+      if selection_changed then renderer:invalidate("selection") end
       local encoded
       if not selection_handled and event.kind == "button" then
         encoded = mouse:button(event, state.modes)
