@@ -1,6 +1,6 @@
 # Kiwi
 
-Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux terminal. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
+Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux terminal; M2.5 adds measured write-path attribution and local performance hardening. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
 
 ## Current scope
 
@@ -47,7 +47,9 @@ make smoke                             # bounded native live-terminal GPU smoke 
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
+make bench-write                       # M2.5 parser/cluster/damage/shaping/atlas write-path attribution
 make bench-text-stress                 # M2 bounded atlas/fallback/grid/memory stress check
+make profile-text                      # ignored LuaJIT sampling profile; add KIWI_PROFILE_TRACE=1 for -jv traces
 make replay REPLAY=path/session.jsonl  # headless deterministic replay and canonical snapshot
 make vttest                            # launch vttest if installed, in an interactive graphical session
 ```

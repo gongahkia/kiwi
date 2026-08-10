@@ -23,7 +23,7 @@ PTY master <---------------- terminal responses (DSR/DA)
                                       +-- title/responses/diagnostics
                                              |
                                              v
-                                        terminal/damage.lua
+                         logical damage + text-damage invalidation
                                              |
                                              v
 text/layout.lua -> HarfBuzz glyph IDs -> bounded alpha atlas
@@ -76,7 +76,7 @@ GLFW codepoints are UTF-8 encoded for the PTY. Physical keys encode CR, DEL, TAB
 
 The parser remains syntax-only and the state remains the sole mutator, but state now stores one Unicode 17 UAX #29 extended grapheme cluster at an anchor cell plus a continuation for every two-column footprint. It retains raw code points and applies a versioned terminal-width policy independently of font metrics. Incoming chunks are not normalized; combining/ZWJ extensions join the prior adjacent cluster when valid. All destructive grid operations normalize anchors and continuations.
 
-`text/layout.lua` observes logical damage and reuses stable rows. Dirty rows are grouped into same-face runs, shaped with HarfBuzz monotone grapheme clusters and explicit LTR direction, then mapped back to terminal columns. Fontconfig resolves primary/fallback faces; FreeType rasterizes resulting glyph IDs. Font face, fallback, glyph, and atlas resources have fixed bounds and failures render `?` or omit a glyph safely. The alpha atlas is one 1024×1024 grayscale page; M2 does not claim color-emoji or bidi rendering.
+`terminal/state.lua` maintains separate logical and text-damage streams. Cursor movement and cursor visibility can invalidate logical cell/cursor presentation without reshaping text; content mutation, scroll, reset, resize, history movement, and screen changes invalidate text rows. `text/layout.lua` consumes text damage once per update, builds same-face runs, shapes with HarfBuzz monotone grapheme clusters and explicit LTR direction, then maps glyphs back to terminal columns. Fontconfig resolves primary/fallback faces; FreeType rasterizes resulting glyph IDs. Font face, fallback, glyph, and atlas resources have fixed bounds and failures render `?` or omit a glyph safely. The alpha atlas is one 1024×1024 grayscale page; M2 does not claim color-emoji or bidi rendering.
 
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Decorations/cursor remain semantic passes, not part of a terminal bitmap.
 
