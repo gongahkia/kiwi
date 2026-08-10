@@ -127,7 +127,6 @@ local function run_live(options)
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
-    local next_frame = window:time()
 
     window:set_input_handlers(function(codepoint)
       local text = Keyboard.text(codepoint)
@@ -153,9 +152,8 @@ local function run_live(options)
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
     while not window:should_close() do
       local now = window:time()
-      if now < next_frame then
-        window:wait_events(math.min(next_frame - now, 0.050))
-      end
+      local deadline = renderer:next_render_deadline()
+      if deadline and now < deadline then window:wait_events(math.min(deadline - now, 0.050)) else window:wait_events(0.050) end
       window:poll_events()
       now = window:time()
 
@@ -163,6 +161,7 @@ local function run_live(options)
       if #output > 0 then
         if recorder then recorder:output(output) end
         parser:feed(output)
+        renderer:invalidate("terminal")
       end
       local responses = state:pop_responses()
       if #responses > 0 then
@@ -175,7 +174,7 @@ local function run_live(options)
         last_title = state.title
       end
 
-      if now >= next_frame then
+      do
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
         local previous_viewport = {
           columns = state.columns,
@@ -193,6 +192,7 @@ local function run_live(options)
         local new_columns, new_rows = dimensions(window, font)
         if new_columns and (scale_changed or new_columns ~= state.columns or new_rows ~= state.rows) then
           context:configure_surface()
+          renderer:invalidate("resize")
           if new_columns ~= state.columns or new_rows ~= state.rows then
             state:resize(new_columns, new_rows)
             pty:resize(new_columns, new_rows)
@@ -214,10 +214,13 @@ local function run_live(options)
           renderer = Renderer.new(context, font, state, render_options)
         end
         if window:take_shader_reload_request() then
-          report_shader_reload(renderer:reload_shaders(true))
+          local reloaded, message = renderer:reload_shaders(true)
+          report_shader_reload(reloaded, message)
+          if reloaded then renderer:invalidate("configuration") end
         elseif renderer:shader_reload_enabled() then
           report_shader_reload(renderer:poll_shader_reload(now))
         end
+        if renderer:needs_render(now) then
         local frame_start = now
         local prepare_start = window:time()
         renderer:update_model(state)
@@ -233,9 +236,9 @@ local function run_live(options)
         if window.debug_metrics then
           metrics:report(now)
         end
-        next_frame = now + 1 / 30
         if max_frames > 0 and metrics.frame_number >= max_frames then
           break
+        end
         end
       end
       if child_status and pty.eof then
