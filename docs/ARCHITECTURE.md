@@ -84,6 +84,8 @@ M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-sem
 
 The initial trusted-local registration surface is [Renderer pass API v1](RENDERER_API.md). It validates declaration version, semantic resources, and lifecycle callbacks before pass activation, gives callbacks only cloned resource descriptors, and reuses the deterministic pass graph for initialization, encoding, resize, and shutdown.
 
+Optional extensions are local-module configuration only: `KIWI_RENDER_EXTENSIONS` names trusted modules, while `--no-extensions` bypasses discovery before loading any module. Kiwi preflights each registration in isolation, retains bounded structured diagnostics, and disables a failing optional pass for the active renderer lifetime; it does not treat this as a sandbox for untrusted Lua or native code.
+
 ## Replay and diagnostics
 
 Recording happens between PTY/input and parser/state: versioned JSONL records resize events and base64 byte events. Headless replay applies only the deterministic resize/output stream to a new state and emits canonical JSON snapshots. It has no PTY, GPU, or wall-clock dependency.

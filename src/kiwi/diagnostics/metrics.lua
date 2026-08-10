@@ -59,6 +59,7 @@ function Metrics:snapshot()
     draw_calls = renderer.draw_calls or 0,
     pass_cpu = renderer.pass_cpu or { enabled = false, frame = 0, samples = {}, history = {} },
     inspector = renderer.inspector or { enabled = false, passes = {} },
+    extensions = renderer.extensions or { enabled = true, diagnostics = {}, disabled = {} },
     glyph_count = atlas:glyph_count(),
     atlas_width = atlas.width,
     atlas_height = atlas.height,

@@ -60,6 +60,15 @@ WGSL hot reload is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an
 
 `KIWI_PASS_METRICS=1` enables bounded per-pass CPU preparation and encoding samples in the renderer diagnostics. The default leaves this instrumentation disabled.
 
+Optional render extensions are trusted local modules. Set `KIWI_RENDER_EXTENSIONS` to a comma-separated list of module names; each module must return a registration function, or a table with a `register` function. Kiwi has no built-in network discovery or installation. Start with `--no-extensions` to bypass that list entirely, including module loading:
+
+```sh
+KIWI_RENDER_EXTENSIONS='local.frame_observer,local.overlay' make run
+make run ARGS='--no-extensions -- /bin/sh'
+```
+
+Each registration is preflighted independently against the complete built-in pass graph. A rejected registration is discarded and recorded in bounded `renderer.diagnostics.extensions` data. An optional pass that later fails during initialization, encoding, resize, or shutdown is disabled for that renderer lifetime; the built-in background, glyph, and cursor passes continue where the renderer can safely present. This is fault containment for trusted local code, not a sandbox for untrusted Lua or native modules.
+
 Kiwi coalesces terminal, resize, cursor, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
 
 ## Replay

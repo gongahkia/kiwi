@@ -2,7 +2,7 @@ local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
 local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
-local PassApi = require("kiwi.renderer.pass_api")
+local Extensions = require("kiwi.renderer.extensions")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
@@ -65,6 +65,11 @@ function Renderer.new(context, font, model, options)
   local shader_path = development_mode and options.development_shader_path or builtin_shader_path
   local pass_metrics_enabled = options.pass_metrics_enabled == true
   local inspector_enabled = options.inspector_enabled == true
+  local extension_manager = Extensions.new({
+    enabled = options.extensions_enabled,
+    diagnostic_limit = options.extension_diagnostic_limit,
+    pass_limit = options.extension_pass_limit,
+  })
   Packing.assert_layout()
   local self = setmetatable({
     context = context,
@@ -81,6 +86,7 @@ function Renderer.new(context, font, model, options)
     frame_time = 0,
     shader_path = shader_path,
     extensions = extensions,
+    extension_manager = extension_manager,
     pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled }),
     invalidation = Invalidation.new(),
     inspector_enabled = inspector_enabled,
@@ -105,9 +111,9 @@ function Renderer.new(context, font, model, options)
       shape_cache_misses = 0,
       atlas_uploads = 0,
       draw_calls = 0,
+      extensions = extension_manager:snapshot(),
     },
   }, Renderer)
-  self.pass_api = PassApi.new()
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
   self.invalidation:request("terminal")
   self.shader_reloader = ShaderReloader.new({
@@ -232,18 +238,26 @@ function Renderer:create_resources(model)
   self.resource_registry:own_native("terminal-bind-group", self.bind_group, api.wgpuBindGroupRelease)
 
   self:register_semantic_resources(model)
-  self.pass_registry = PassRegistry.new({ metrics = self.pass_metrics })
+  self.pass_registry = PassRegistry.new({
+    metrics = self.pass_metrics,
+    on_optional_failure = function(pass, phase, message)
+      self.extension_manager:disable_pass(pass, phase, message)
+      self.diagnostics.extensions = self.extension_manager:snapshot()
+      self:invalidate("extension")
+    end,
+  })
   for _, pass in ipairs(Passes.build(self)) do
     self.pass_registry:register(pass)
   end
   self:register_extension_passes()
   self.pass_registry:initialize(self)
+  self.diagnostics.extensions = self.extension_manager:snapshot()
   self.shader_reloader:track(self.pass_registry.passes)
 end
 
 function Renderer:register_extension_passes()
-  self.pass_api:register_extensions(self.extensions)
-  for _, pass in ipairs(self.pass_api.passes) do
+  local extensions = self.extension_manager:register(self.extensions, self.pass_registry.passes)
+  for _, pass in ipairs(extensions) do
     self.pass_registry:register(pass)
   end
 end
@@ -617,6 +631,7 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.pass_registry:encode(self, encoder, view, model)
   self.pass_registry:end_frame()
   if self.pass_metrics.enabled then self.diagnostics.pass_cpu = self.pass_metrics:snapshot() end
+  self.diagnostics.extensions = self.extension_manager:snapshot()
   local commands = ffi.new("WGPUCommandBuffer[1]")
   commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
   self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
