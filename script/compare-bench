@@ -27,7 +27,8 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
             p95_ms: .cpu_ms.p95,
             p99_ms: .cpu_ms.p99,
             throughput_bytes_per_second,
-            scope
+            scope,
+            counters: (.counters // {})
           }
       ]
     elif $document.schema_version == 4 then
@@ -39,12 +40,15 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
             p95_ms: .cpu_ms.p95,
             p99_ms: .cpu_ms.p99,
             throughput_bytes_per_second,
-            scope
+            scope,
+            counters: (.counters // {})
           }
       ]
     else error("unsupported benchmark schema version \($document.schema_version)") end;
   def configuration($document):
     if $document.schema_version == 4 then $document.configuration else $document.metadata.configuration end;
+  def percent_delta($previous; $current):
+    if $previous == 0 then null else (($current - $previous) * 100 / $previous) end;
   def index_by_key($items): reduce $items[] as $item ({}; .[$item.key] = $item);
   ($baseline[0]) as $base |
   ($candidate[0]) as $next |
@@ -82,10 +86,26 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
           | {
               key: $item.key,
               mean_ms_delta: ($item.mean_ms - $previous.mean_ms),
+              mean_ms_percent_delta: percent_delta($previous.mean_ms; $item.mean_ms),
               p50_ms_delta: ($item.p50_ms - $previous.p50_ms),
+              p50_ms_percent_delta: percent_delta($previous.p50_ms; $item.p50_ms),
               p95_ms_delta: ($item.p95_ms - $previous.p95_ms),
+              p95_ms_percent_delta: percent_delta($previous.p95_ms; $item.p95_ms),
               p99_ms_delta: ($item.p99_ms - $previous.p99_ms),
-              throughput_delta: ($item.throughput_bytes_per_second - $previous.throughput_bytes_per_second)
+              p99_ms_percent_delta: percent_delta($previous.p99_ms; $item.p99_ms),
+              throughput_delta: ($item.throughput_bytes_per_second - $previous.throughput_bytes_per_second),
+              throughput_percent_delta: percent_delta($previous.throughput_bytes_per_second; $item.throughput_bytes_per_second),
+              counter_changes: [
+                ($item.counters | keys[]) as $name
+                | select($previous.counters | has($name))
+                | select($item.counters[$name] != $previous.counters[$name])
+                | {
+                    name: $name,
+                    baseline: $previous.counters[$name],
+                    candidate: $item.counters[$name],
+                    delta: ($item.counters[$name] - $previous.counters[$name])
+                  }
+              ]
             }
         ]
       }
@@ -95,5 +115,7 @@ jq -n --slurpfile baseline "$baseline" --slurpfile candidate "$candidate" '
   "comparable_same_system=\(.comparable) stage_sets_equal=\(.stage_sets_equal) baseline=\(.baseline.commit) candidate=\(.candidate.commit)",
   (.candidate_only_rows[]? | "candidate_only_row=\(.)"),
   (.baseline_only_rows[]? | "baseline_only_row=\(.)"),
-  (.rows[] | "\(.key) mean_delta_ms=\(.mean_ms_delta) p50_delta_ms=\(.p50_ms_delta) p95_delta_ms=\(.p95_ms_delta) p99_delta_ms=\(.p99_ms_delta) throughput_delta_Bps=\(.throughput_delta)")
+  (.rows[] | . as $row |
+    "\($row.key) mean_delta_ms=\($row.mean_ms_delta) (\($row.mean_ms_percent_delta)%) p50_delta_ms=\($row.p50_ms_delta) (\($row.p50_ms_percent_delta)%) p95_delta_ms=\($row.p95_ms_delta) (\($row.p95_ms_percent_delta)%) p99_delta_ms=\($row.p99_ms_delta) (\($row.p99_ms_percent_delta)%) throughput_delta_Bps=\($row.throughput_delta) (\($row.throughput_percent_delta)%) counter_changes=\($row.counter_changes | length)",
+    ($row.counter_changes[]? | "  counter=\(.name) baseline=\(.baseline) candidate=\(.candidate) delta=\(.delta)"))
 '
