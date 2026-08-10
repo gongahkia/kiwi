@@ -13,6 +13,11 @@ requests one 250 ms follow-up deadline only on a frame with terminal damage.
 The subsequent idle frame does not request another deadline, so it cannot make
 an idle terminal redraw continuously.
 
+[`command_region_observer.lua`](../src/kiwi/renderer/samples/command_region_observer.lua)
+is the companion typed-resource example. It reads `terminal.command_regions`
+and `frame.timing`, retains only the current boundary count, and owns no GPU
+state or drawing capability.
+
 Run it from a built checkout with:
 
 ```sh
@@ -88,6 +93,21 @@ The read-only `terminal.hyperlinks` descriptor carries only `active`, normalized
 underline `color`, and bounded `visible_cells`. It excludes URI targets,
 opaque link IDs, visible text, input state, and native opener handles. An
 inactive descriptor has zero visible cells and transparent color.
+
+The read-only `terminal.command_regions` descriptor carries only active-screen,
+viewport-relative command-region boundaries: `active`, `boundary_count`,
+`omitted_boundary_count`, and a `boundaries` map containing at most 32
+`boundary_N` values with integer `row`, integer `column`, and role `prompt`,
+`command`, `output`, or `finish`. The map's `count` equals `boundary_count`.
+Entries are sorted by row, column, and role and duplicate positions of the same
+role are coalesced. It contains no command-region ID, stable row ID, text,
+directory/URI, exit status, recovery/interruption state, event timestamp,
+other-screen, or offscreen metadata. Every callback receives a fresh copy;
+extensions must treat it as an advisory current-frame view. Kiwi refreshes the
+descriptor when visible region metadata or the viewport changes and requests a
+distinct renderer invalidation. `KIWI_COMMAND_REGIONS=1` enables the built-in
+command/output separator reference pass; API v1 extensions can observe this
+resource but cannot issue drawing commands.
 
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their

@@ -132,6 +132,14 @@ screen use. They only move the history viewport and never send PTY input,
 copy text, execute a command, or expose a command UI. See
 [ADR 0030](docs/adr/0030-command-region-navigation.md).
 
+`KIWI_COMMAND_REGIONS=1` enables an opt-in, subtle separator pass for visible
+command/output boundaries. It receives only a bounded content-free descriptor;
+the same typed resource is available to trusted local extension observers, but
+API v1 grants them no drawing or GPU-allocation capability. See
+[ADR 0032](docs/adr/0032-bounded-command-region-render-resource.md).
+`KIWI_COMMAND_REGION_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to
+`#88C0D055`.
+
 ## Deliberate limits
 
 M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, and opt-in Bash/Zsh/fish scripts, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, rendering, diagnostics, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, images, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).

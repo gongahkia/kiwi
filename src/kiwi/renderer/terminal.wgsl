@@ -52,6 +52,14 @@ struct FrameData {
   hyperlink_green: f32,
   hyperlink_blue: f32,
   hyperlink_alpha: f32,
+  command_region_count: f32,
+  command_region_red: f32,
+  command_region_green: f32,
+  command_region_blue: f32,
+  command_region_alpha: f32,
+  command_region_padding0: f32,
+  command_region_padding1: vec2<f32>,
+  command_region_boundaries: array<vec4<f32>, 32>,
 }
 
 struct RasterOut {
@@ -162,6 +170,15 @@ fn search_contains(column: f32, row: f32) -> bool {
   return after_start && before_finish;
 }
 
+fn command_region_separator_row(row: f32) -> bool {
+  for (var index = 0u; index < 32u; index = index + 1u) {
+    if (f32(index) >= frame.command_region_count) { break; }
+    let boundary = frame.command_region_boundaries[index];
+    if (boundary.y == row && (boundary.z == 2.0 || boundary.z == 3.0)) { return true; }
+  }
+  return false;
+}
+
 @vertex
 fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
   let row = floor(f32(instance_index) / frame.columns);
@@ -186,6 +203,19 @@ fn search_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) 
 fn search_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (!search_contains(input.cell_position.x, input.cell_position.y)) { discard; }
   return vec4<f32>(frame.search_red, frame.search_green, frame.search_blue, frame.search_alpha);
+}
+
+@vertex
+fn command_regions_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
+  let row = floor(f32(instance_index) / frame.columns);
+  let column = f32(instance_index) - row * frame.columns;
+  return raster_out(vec2<f32>(column, row), vec2<f32>(1.0, 1.0), vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, 0u, 0u, vertex_index);
+}
+
+@fragment
+fn command_regions_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if (frame.command_region_alpha <= 0.0 || input.local_position.y > 0.04 || !command_region_separator_row(input.cell_position.y)) { discard; }
+  return vec4<f32>(frame.command_region_red, frame.command_region_green, frame.command_region_blue, frame.command_region_alpha);
 }
 
 @vertex

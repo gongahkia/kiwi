@@ -8,6 +8,7 @@ local resource_specs = {
   ["terminal.selection"] = { access = "read" },
   ["terminal.search"] = { access = "read" },
   ["terminal.hyperlinks"] = { access = "read" },
+  ["terminal.command_regions"] = { access = "read" },
   ["terminal.damage"] = { access = "read" },
   ["frame.viewport"] = { access = "read" },
   ["frame.timing"] = { access = "read" },
