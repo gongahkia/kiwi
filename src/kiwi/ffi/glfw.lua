@@ -52,6 +52,7 @@ return {
     client_api = 0x00022001,
     no_api = 0,
     resizable = 0x00020003,
+    visible = 0x00020004,
     yes = 1,
     no = 0,
     release = 0,
