@@ -1,12 +1,16 @@
-# Kiwi M1.5 and M2 benchmarks
+# Kiwi M1.5, M2, and M2.5 benchmarks
 
 M1.5 measures the real LuaJIT terminal pipeline in layers instead of inferring terminal performance from the older synthetic renderer model. The benchmarks are reproducible CPU measurements, not a claim of end-to-end terminal or GPU latency.
 
 ```sh
 make bench
 KIWI_BENCH_ITERATIONS=100 KIWI_BENCH_WARMUP=20 make bench
+make bench-write
+KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
+make profile-text
+KIWI_PROFILE_MODE=unicode KIWI_PROFILE_TRACE=1 make profile-text
 make bench-compare BASELINE=bench/results/baseline.json CANDIDATE=bench/results/candidate.json
 ```
 
@@ -55,6 +59,37 @@ The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scro
 Each JSON result carries the exact scope, input bytes/code points/clusters/runs/glyphs/glyph instances, logical dirty cells, cache/fallback counters, CPU samples, and Lua heap deltas. Object construction occurs before the timed operation, matching the M1.5 methodology; a “cold” operation means a fresh cache/context, not that native library construction time is attributed to shaping. None of these layers measure GPU queue writes, GPU execution, compositor delay, or presentation.
 
 `make bench-text-stress` writes `*-text-stress.json`. It mixes unique glyphs, long combining sequences, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, and layout in one long-lived system, then repeatedly creates/destroys independent text systems. It reports atlas bytes/entries, face/fallback/shape-cache entries, lifecycle count, heap, and RSS. It checks anchor/continuation invariants, atlas and fallback-cache limits, and (when `/proc/self/status` is available) a 96 MiB RSS delta guard. Defaults are 400 rounds, 96 glyph entries, and 64 lifecycle iterations; `KIWI_TEXT_STRESS_ROUNDS`, `KIWI_TEXT_STRESS_ATLAS_ENTRIES`, `KIWI_TEXT_STRESS_LIFECYCLES`, and `KIWI_TEXT_STRESS_MAX_RSS_KIB` are explicit overrides. The stress output is a bounded regression check, not a frames-per-second claim.
+
+## M2.5 write-path attribution
+
+`make bench-write` writes schema-version-4 `bench/results/<UTC timestamp>-write.json`. It keeps the M1.5 and M2 schemas intact and records the selected primary font path, pixel height, atlas dimensions/capacity, fallback bounds, HarfBuzz feature options, Unicode version, revision/dirty state, LuaJIT settings, kernel/governor/affinity, iteration count, and exact CPU scope.
+
+Each ASCII full-dirty-row and Unicode combining/CJK/emoji/fallback workload is measured at these deliberately separate stages:
+
+| Stage | Timed work |
+| --- | --- |
+| UTF-8 decode | incremental byte decoding only |
+| parser/cluster mutation/logical damage | production parser sink, cluster/width mutation, and both damage streams |
+| row-run construction/fallback | visible cluster inspection, primary coverage, fallback decisions, and same-face runs |
+| HarfBuzz shaping | prebuilt runs through HarfBuzz only |
+| HarfBuzz/atlas/glyph records | shaping through raster cache/atlas and Lua glyph-record construction |
+| shape invalidation cursor-only | cached static layout with cursor-only logical damage |
+| full parser-to-glyph record | parser through text glyph records; PTY and GPU work excluded |
+
+Counters include decoded scalars, parser actions/errors, ASCII fast-path/batch use, Unicode property and grapheme-boundary checks, width calls, created/extended clusters, changed/logical/text-dirty cells and ranges, invalidated/reshaped rows, run construction/shaping, shaped code points/glyphs, fallback decisions, glyph-cache hits/misses, and emitted glyph records. The full stage ends at CPU glyph-record construction: PTY syscalls, queue writes, GPU atlas uploads, GPU execution, compositor scheduling, and presentation are excluded.
+
+`script/compare-bench` accepts the original schema 3 and M2.5 schema 4, but never mixes them. It rejects differing iteration/warm-up or M2.5 font/atlas/shaping configuration, timing scope, or row sets before printing p50/p95/p99/mean and throughput deltas. Results stay local/ignored; compare only identical scopes on the same or closely controlled host.
+
+`make profile-text` stores ignored sampling output in `bench/profiles/`; `KIWI_PROFILE_TRACE=1` also stores the corresponding LuaJIT `-jv` trace. A final 100,000-iteration ASCII run sampled 93% compiled code and 7% C code, with the direct run loop stitched through `string.find`. The matching Unicode run sampled 82% compiled, 9% interpreted, and 6% GC, concentrated in Unicode properties, grapheme/width work, cluster copying, and damage fallback paths. Fresh-state and scroll-heavy profiles attribute their allocation samples to row/blank-cell construction; that setup/scroll allocation is intentionally distinct from steady no-scroll typing and is not presented as an ASCII mutation cost.
+
+### M2.5 manual Wayland release checklist
+
+This is a release gate for an interactive Wayland session, not an automated claim. No additional terminal test tool is required.
+
+- Launch `make run`, then generate at least 10,000 numbered lines from the child shell while repeatedly resizing the window between small and large grids.
+- During and after output, use `Shift+PageUp`/`Shift+PageDown` at both history boundaries; verify stable text, cursor visibility, and no orphaned wide/continuation cells.
+- Repeat with the bundled text child (`KIWI_MAX_FRAMES=240 make text-demo`), include CJK/combining/emoji output, and use `--inspect` on a continuation and an anchor.
+- Close the window while output is active and confirm the child exits; retain the command, desktop/session details, and any visual anomaly with the release evidence.
 
 `make bench-compare` validates schema version, CPU scope, iteration/warm-up configuration, component/workload set, and each component's exact scope before producing deltas. It labels a comparison as not same-system when kernel/architecture or LuaJIT version differs. It needs `jq`; cross-machine deltas remain diagnostic rather than a performance claim.
 
