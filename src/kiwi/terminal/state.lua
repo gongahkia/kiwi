@@ -60,6 +60,7 @@ function State.new(columns, rows, options)
     rows = rows,
     default_cell = { glyph = " ", fg = Attributes.default_foreground, bg = Attributes.default_background, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
+    text_damage = Damage.new(columns * rows),
     modes = {
       autowrap = true,
       origin = false,
@@ -74,6 +75,7 @@ function State.new(columns, rows, options)
     title = nil,
     responses = {},
     grapheme_context_storage = {},
+    text_counters = options.text_counters,
     width_policy = Width.normalize_policy({
       ambiguous_width = options.ambiguous_width == nil and Width.default_policy.ambiguous_width or options.ambiguous_width,
       private_use_width = options.private_use_width == nil and Width.default_policy.private_use_width or options.private_use_width,
@@ -105,6 +107,7 @@ function State.new(columns, rows, options)
   })
   self:reset_tab_stops()
   self.damage:mark_all()
+  self.text_damage:mark_all()
   return self
 end
 
@@ -182,7 +185,9 @@ function State:get(column, row)
 end
 
 function State:mark_changed(column, row)
-  self.damage:mark(self:index(column, row))
+  local index = self:index(column, row)
+  self.damage:mark(index)
+  self.text_damage:mark(index)
   self.stats.mutations = self.stats.mutations + 1
 end
 
@@ -193,11 +198,16 @@ function State:set_cell(column, row, cell)
   end
   copy_cell(target, cell)
   self:mark_changed(column, row)
+  local counters = self.text_counters
+  if counters then counters.cells_changed = (counters.cells_changed or 0) + 1 end
   return true
 end
 
 function State:mark_region(top, bottom)
-  self.damage:mark_range(top * self.columns, (bottom - top + 1) * self.columns)
+  local first = top * self.columns
+  local count = (bottom - top + 1) * self.columns
+  self.damage:mark_range(first, count)
+  self.text_damage:mark_range(first, count)
 end
 
 function State:sync_cursor_visibility()
@@ -378,6 +388,12 @@ function State:write_new_cluster(glyph, codepoint)
   self:clear_grapheme_context()
   local codepoints = { codepoint }
   local gcb = Properties.gcb(codepoint)
+  local counters = self.text_counters
+  if counters then
+    counters.unicode_property_lookups = (counters.unicode_property_lookups or 0) + 1
+    counters.width_policy_calls = (counters.width_policy_calls or 0) + 1
+    counters.clusters_created = (counters.clusters_created or 0) + 1
+  end
   local leading = gcb == Properties.grapheme_break.extend
     or gcb == Properties.grapheme_break.zwj
     or gcb == Properties.grapheme_break.spacing_mark
@@ -418,6 +434,12 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
   local codepoints = copied_codepoints(context.codepoints, codepoint)
   local old_width = cell.width
   local new_width = Width.columns(codepoints, self.width_policy)
+  local counters = self.text_counters
+  if counters then
+    counters.unicode_property_lookups = (counters.unicode_property_lookups or 0) + 1
+    counters.width_policy_calls = (counters.width_policy_calls or 0) + 1
+    counters.clusters_extended = (counters.clusters_extended or 0) + 1
+  end
   local updated = {
     glyph = cell.glyph .. glyph,
     fg = cell.fg,
@@ -460,6 +482,11 @@ end
 
 function State:write_ascii_cluster(glyph, codepoint)
   self:clear_grapheme_context()
+  local counters = self.text_counters
+  if counters then
+    counters.ascii_fast_path = (counters.ascii_fast_path or 0) + 1
+    counters.clusters_created = (counters.clusters_created or 0) + 1
+  end
   local cursor = self:prepare_cluster_write(1)
   local column, row = cursor.column, cursor.row
   local occupied = self.active_screen:get(column, row)
@@ -482,6 +509,8 @@ end
 
 function State:write_codepoint(glyph, codepoint)
   codepoint = codepoint or Utf8.decode_one(glyph)
+  local counters = self.text_counters
+  if counters then counters.unicode_scalars = (counters.unicode_scalars or 0) + 1 end
   local context = self.grapheme_context
   if codepoint >= 0x20 and codepoint <= 0x7e and (context == nil or context.last_gcb ~= GCB.prepend) then
     self:write_ascii_cluster(glyph, codepoint)
@@ -489,6 +518,7 @@ function State:write_codepoint(glyph, codepoint)
   end
   local cell, context = self:current_grapheme_cluster()
   if cell and not Grapheme.should_break(context.codepoints, codepoint) then
+    if counters then counters.grapheme_boundary_checks = (counters.grapheme_boundary_checks or 0) + 1 end
     if #context.codepoints < self.max_cluster_codepoints then
       self:extend_grapheme_cluster(cell, context, glyph, codepoint)
       return
@@ -626,7 +656,10 @@ function State:insert_characters(count)
     copy_cell(row.cells[column], self:cell_from_attributes(" "))
   end
   self:normalize_row(cursor.row)
-  self.damage:mark_range(self:index(cursor.column, cursor.row), self.columns - cursor.column)
+  local first = self:index(cursor.column, cursor.row)
+  local count = self.columns - cursor.column
+  self.damage:mark_range(first, count)
+  self.text_damage:mark_range(first, count)
   cursor.pending_wrap = false
 end
 
@@ -642,7 +675,10 @@ function State:delete_characters(count)
     copy_cell(row.cells[column], self:cell_from_attributes(" "))
   end
   self:normalize_row(cursor.row)
-  self.damage:mark_range(self:index(cursor.column, cursor.row), self.columns - cursor.column)
+  local first = self:index(cursor.column, cursor.row)
+  local count = self.columns - cursor.column
+  self.damage:mark_range(first, count)
+  self.text_damage:mark_range(first, count)
   cursor.pending_wrap = false
 end
 
@@ -738,6 +774,7 @@ function State:switch_alternate(enable, save_cursor)
   end
   self:sync_cursor_visibility()
   self.damage:mark_all()
+  self.text_damage:mark_all()
 end
 
 function State:scroll_history(lines)
@@ -747,6 +784,7 @@ function State:scroll_history(lines)
   self.history_offset = clamp(self.history_offset + lines, 0, self.scrollback:size())
   self:sync_cursor_visibility()
   self.damage:mark_all()
+  self.text_damage:mark_all()
 end
 
 function State:pop_responses()
@@ -793,6 +831,7 @@ function State:reset()
   self.history_offset = 0
   self:sync_cursor_visibility()
   self.damage:mark_all()
+  self.text_damage:mark_all()
 end
 
 function State:resize(columns, rows)
@@ -815,14 +854,17 @@ function State:resize(columns, rows)
   self:normalize_screen(self.primary)
   self:normalize_screen(self.alternate)
   self.damage = Damage.new(columns * rows)
+  self.text_damage = Damage.new(columns * rows)
   self.history_offset = clamp(self.history_offset, 0, self.scrollback:size())
   self:reset_tab_stops()
   self:sync_cursor_visibility()
   self.damage:mark_all()
+  self.text_damage:mark_all()
 end
 
 function State:mark_all_dirty()
   self.damage:mark_all()
+  self.text_damage:mark_all()
 end
 
 local function parameter(parameters, index, fallback)
