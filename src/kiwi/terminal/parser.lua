@@ -344,11 +344,8 @@ function Parser:feed(bytes)
   while index <= #bytes do
     if self.mode == "ground" and self.utf8.remaining == 0 and self.print_sink and self.print_sink.write_ascii_run then
       local first = index
-      while index <= #bytes do
-        local byte = bytes:byte(index)
-        if byte < 0x20 or byte > 0x7e then break end
-        index = index + 1
-      end
+      local non_printable = bytes:find("[^ -~]", index)
+      index = non_printable or #bytes + 1
       if index > first then
         local count = index - first
         self.stats.bytes = self.stats.bytes + count
