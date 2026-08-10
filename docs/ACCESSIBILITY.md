@@ -62,3 +62,27 @@ platform-specific selection or caret mapping. The semantic model's unit tests
 cover Unicode anchors, wide cells, combining text, selection, resize, history
 viewports, and bounded scrollback export; they are not a screen-reader smoke
 test.
+
+## M9 smoke evidence
+
+Run `make accessibility-smoke` for the repeatable semantic-data smoke check.
+It first runs the deterministic suite, including selection/caret events and a
+4,096-row scrollback fixture. That fixture instruments `visible_row` and
+asserts that a two-row export reads only the two viewport rows plus its first
+and last bounds probes; it is data-layer evidence, not a memory-profile claim.
+The report then records the host kernel, AT-SPI library version when present,
+and whether `at-spi2-registryd`, Accerciser, and Orca are available.
+
+On the assessed Fedora 43 host, AT-SPI 2.58.7 is installed, but
+`at-spi2-registryd` and Accerciser are unavailable. Kiwi has no AT-SPI adapter,
+so there is **No access** to a meaningful native screen-reader observation even
+if a screen-reader executable is present. The smoke command therefore reports
+the native check as skipped; it does not infer support from the presence of an
+AT-SPI client library.
+
+Once a Linux adapter exists, repeat the command with the registry and an
+inspection tool installed, then verify that a running Kiwi window exposes the
+bounded viewport, caret movement, output change, and selection endpoints. The
+equivalent macOS NSAccessibility and Windows UI Automation checks require their
+own native adapter and platform tooling. Until those observations are captured,
+Kiwi makes no screen-reader compatibility claim.

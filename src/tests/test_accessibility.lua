@@ -60,4 +60,40 @@ return {
     local _, viewport_events = model:poll(state)
     Assert.equal(viewport_events[1].kind, "viewport")
   end,
+  accessibility_reports_caret_and_selection_gap_endpoints = function()
+    local state = State.new(4, 2)
+    local model = Accessibility.new()
+    model:poll(state)
+    write(state, string.byte("A"))
+    local snapshot, events = model:poll(state)
+    Assert.equal(events[1].kind, "output")
+    Assert.equal(events[2].kind, "caret")
+    Assert.equal(snapshot.caret.column, 1)
+    state:set_selection(0, 0, 0, 1)
+    snapshot, events = model:poll(state)
+    Assert.equal(events[1].kind, "selection")
+    Assert.equal(snapshot.selection.start.column, 0)
+    Assert.equal(snapshot.selection.finish.column, 1)
+  end,
+  accessibility_large_scrollback_export_reads_only_the_bounded_viewport = function()
+    local state = State.new(4, 2, { scrollback_limit = 4096 })
+    for _ = 1, 4098 do
+      write(state, string.byte("x"))
+      state:carriage_return()
+      state:line_feed()
+    end
+    Assert.equal(state.scrollback:size(), 4096)
+    state:scroll_history(4096)
+    local visible_row = state.visible_row
+    local reads = 0
+    function state:visible_row(row)
+      reads = reads + 1
+      return visible_row(self, row)
+    end
+    local snapshot = Accessibility.new({ max_rows = 2, max_bytes = 64 }):snapshot(state)
+    Assert.equal(snapshot.viewport.history_offset, 4096)
+    Assert.equal(snapshot.viewport.exported_rows, 2)
+    Assert.equal(#snapshot.text.rows, 2)
+    Assert.equal(reads, 4)
+  end,
 }
