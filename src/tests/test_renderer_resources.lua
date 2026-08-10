@@ -81,6 +81,15 @@ return {
     registry:destroy()
     Assert.equal(table.concat(events, ","), "second-destroy,second-release,first-destroy,first-release")
   end,
+  renderer_resources_allow_pass_owned_release_before_registry_teardown = function()
+    local registry = Resources.new(1)
+    local events = {}
+    local handle = {}
+    registry:own_native("pipeline", handle, function() events[#events + 1] = "release" end)
+    registry:release_native(handle)
+    registry:destroy()
+    Assert.equal(table.concat(events, ","), "release")
+  end,
   built_in_passes_resolve_typed_resources_before_encoding = function()
     local registry = Resources.new(1)
     local handles = {}
@@ -99,7 +108,6 @@ return {
     local captured
     local renderer = {
       native = { constants = { load_clear = 2, load_load = 1 } },
-      background_pipeline = {},
       glyph_pipeline = {},
       cursor_pipeline = {},
       glyph_count = 4,
@@ -115,5 +123,27 @@ return {
     Assert.equal(captured["text.shaped_glyphs"].name, "text.shaped_glyphs")
     Assert.equal(captured["text.alpha_atlas"].descriptor.access, "read")
     Assert.equal(captured["surface.color"].descriptor.access, "write")
+  end,
+  background_pass_owns_pipeline_through_its_lifecycle = function()
+    local events = {}
+    local renderer = {
+      native = { constants = { load_clear = 2, load_load = 1 } },
+      glyph_pipeline = {},
+      cursor_pipeline = {},
+      create_pipeline = function(_, label, vertex, fragment)
+        events[#events + 1] = label .. ":" .. vertex .. ":" .. fragment
+        return {}
+      end,
+      release_native = function(_, pipeline)
+        Assert.truthy(pipeline ~= nil)
+        events[#events + 1] = "background-release"
+      end,
+    }
+    local background = Passes.build(renderer)[1]
+    background:initialize(renderer)
+    Assert.truthy(background.pipeline ~= nil)
+    background:shutdown(renderer)
+    Assert.equal(background.pipeline, nil)
+    Assert.equal(table.concat(events, ","), "background-pass:background_vs:background_fs,background-release")
   end,
 }

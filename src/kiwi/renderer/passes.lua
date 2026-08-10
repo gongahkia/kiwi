@@ -13,10 +13,20 @@ end
 
 function Passes.build(renderer)
   local c = renderer.native.constants
-  return {
-    Pass.new("terminal/background", 10, renderer.background_pipeline, c.load_clear, function(model)
+  local background = Pass.new("terminal/background", 10, nil, c.load_clear, function(model)
       return model.columns * model.rows
-    end, { "terminal.cells", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, {}),
+    end, { "terminal.cells", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, {})
+  function background:initialize(owner)
+    self.pipeline = owner:create_pipeline("background-pass", "background_vs", "background_fs")
+  end
+  function background:shutdown(owner)
+    if self.pipeline then
+      owner:release_native(self.pipeline)
+      self.pipeline = nil
+    end
+  end
+  return {
+    background,
     Pass.new("terminal/glyph", 20, renderer.glyph_pipeline, c.load_load, function(model)
       return renderer.glyph_count or 0
     end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/background" }),
