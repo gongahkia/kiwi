@@ -1,0 +1,37 @@
+local Assert = require("tests.assert")
+local Composition = require("kiwi.input.composition_spike")
+
+return {
+  composition_spike_applies_preedit_and_commit_only_at_done = function()
+    local composition = Composition.new()
+    Assert.equal(select(2, composition:offer_preedit("x", 0, 1)), "inactive")
+    composition:enter()
+    Assert.equal(select(2, composition:offer_preedit("中", 0, 3)), "pending")
+    Assert.equal(select(2, composition:offer_commit("語")), "pending")
+    local update, status = composition:done()
+    Assert.equal(status, "applied")
+    Assert.equal(update.commit, "語")
+    Assert.equal(update.preedit.text, "中")
+    Assert.equal(update.preedit.cursor_begin, 0)
+    Assert.equal(update.preedit.cursor_end, 3)
+    update = composition:done()
+    Assert.equal(update.commit, "")
+    Assert.equal(update.preedit.text, "")
+  end,
+
+  composition_spike_rejects_invalid_utf8_and_non_boundary_offsets = function()
+    local composition = Composition.new({ maximum_bytes = 4 })
+    composition:enter()
+    local accepted, status = composition:offer_preedit("中", 1, 3)
+    Assert.truthy(not accepted)
+    Assert.equal(status, "invalid-preedit")
+    accepted, status = composition:offer_preedit("abcde", 0, 5)
+    Assert.truthy(not accepted)
+    Assert.equal(status, "invalid-preedit")
+    accepted, status = composition:offer_commit("\255")
+    Assert.truthy(not accepted)
+    Assert.equal(status, "invalid-commit")
+    composition:leave()
+    Assert.equal(composition:snapshot().preedit_bytes, 0)
+  end,
+}

@@ -103,6 +103,11 @@ Linux clipboard through GLFW. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied.
 
+Kiwi has no production IME/preedit bridge. GLFW character callbacks continue to
+provide committed Unicode text; the researched Wayland text-input boundary and
+detached lifecycle spike are documented in
+[ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
+
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.

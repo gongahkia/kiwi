@@ -74,6 +74,16 @@ The entry intentionally declares `colors#16`; it does not declare truecolour, it
 
 OSC 52 is default-denied: terminal output cannot read, write, clear, or query the system clipboard, trigger paste, or receive an OSC reply. The parser still bounds every OSC string to 4,096 bytes and records no OSC payload, only bounded command metadata or rejection reasons. Local clipboard behavior and the still-unimplemented future opt-in OSC 52 write modes are defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md).
 
+## Input method status
+
+GLFW character callbacks provide committed Unicode code points, including normal
+platform dead-key composition, but Kiwi has no production preedit, candidate,
+or Wayland text-input lifecycle. The detached bounded composition spike is
+research evidence only; it does not activate an IME, alter terminal input, or
+claim compositor integration. [ADR 0025](adr/0025-wayland-ime-and-window-stack.md)
+records the tested Wayland environment, required lifecycle, and future
+platform boundary.
+
 ## Selection model
 
 The M4 selection model stores no text payload: it records two directional endpoints as stable row IDs and cell gaps, then exposes a detached normalized `[start, finish)` view. Bounds that land inside a wide-cell continuation snap around the whole cluster; combining code points share their anchor cell. Primary selections follow their row into bounded scrollback, while `history_offset` only changes the viewport. Kiwi does not reflow on resize, so retained rows clamp to the new width; a selection clears if an endpoint row is evicted or dropped. The inactive screen’s selection is retained but marked non-visible.

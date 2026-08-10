@@ -79,6 +79,14 @@ hidden, and synchronized-output cursors do not schedule one.
 
 GLFW codepoints are UTF-8 encoded for the PTY unless `input/search.lua` owns an active `Ctrl+Shift+F` title-bar query. `Enter` submits it, `Escape` clears it, and `Ctrl+Shift+G/R` moves the bounded exact-match set forward/backward; all four actions remain local under Kitty keyboard disambiguation. `Ctrl+Shift+C/V` are likewise reserved explicit local copy/paste actions; the former reconstructs the visible normalized selection and the latter validates the GLFW clipboard before enqueuing exact or bracketed input. Other physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. Pointer callbacks first map GLFW logical coordinates through current content scale and cell dimensions. With SGR normal, button-event, or any-event tracking enabled, `input/mouse.lua` retains only supported button/cell state and emits bounded reports for the child. Otherwise `input/selection_pointer.lua` owns primary-button drag, double-click word, and triple-click row gestures, passing grapheme-safe gaps to terminal state and requesting a selection-only redraw when that range changes. `renderer/selection.lua` and `renderer/search.lua` map their ranges into the current viewport; their alpha passes sit between background and glyph rendering, while scroll and focus callbacks continue through the mouse boundary. `Shift+PageUp/Down` is terminal-local history navigation unless the negotiated keyboard mode owns that key. Parser output feeds terminal state; pending DSR/DA and keyboard-query response bytes are queued back to the PTY in the same nonblocking write path.
 
+`input/composition_spike.lua` specifies a detached, bounded preedit/commit/done
+lifecycle but is intentionally not installed as a GLFW callback or Wayland
+client. A future platform text-input bridge must remain main-thread, route
+committed text through this input boundary, and keep preedit outside terminal
+state, PTY, replay, clipboard, and diagnostics. GLFW remains the owner of the
+window and event loop; a compiled Wayland bridge may use its native display and
+surface only after runtime platform selection. See [ADR 0025](adr/0025-wayland-ime-and-window-stack.md).
+
 ## Unicode grid, shaping, and glyph fallback
 
 The parser remains syntax-only and the state remains the sole mutator, but state now stores one Unicode 17 UAX #29 extended grapheme cluster at an anchor cell plus a continuation for every two-column footprint. It retains raw code points and applies a versioned terminal-width policy independently of font metrics. Incoming chunks are not normalized; combining/ZWJ extensions join the prior adjacent cluster when valid. All destructive grid operations normalize anchors and continuations.
