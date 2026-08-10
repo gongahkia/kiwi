@@ -1,6 +1,7 @@
 local Attributes = require("kiwi.terminal.attributes")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
+local Hyperlink = require("kiwi.terminal.hyperlink")
 local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
@@ -27,6 +28,7 @@ local function copy_cell(destination, source)
   destination.continuation = source.continuation
   destination.anchor_column = source.anchor_column
   destination.display_text = source.display_text
+  destination.hyperlink_id = source.hyperlink_id
 end
 
 local function same_codepoints(left, right)
@@ -47,6 +49,7 @@ local function same_cell(left, right)
     and left.continuation == right.continuation
     and left.anchor_column == right.anchor_column
     and left.display_text == right.display_text
+    and left.hyperlink_id == right.hyperlink_id
     and same_codepoints(left.codepoints, right.codepoints)
 end
 
@@ -97,15 +100,23 @@ function State.new(columns, rows, options)
       private_use_width = options.private_use_width == nil and Width.default_policy.private_use_width or options.private_use_width,
     }),
     max_cluster_codepoints = options.max_cluster_codepoints or 64,
+    hyperlink_limit = options.hyperlink_limit or 4096,
+    hyperlink_uri_maximum_bytes = options.hyperlink_uri_maximum_bytes or Hyperlink.maximum_uri_bytes,
+    hyperlinks = {},
+    hyperlink_ids = {},
+    next_hyperlink_id = 0,
     stats = {
       mutations = 0,
       bells = 0,
       text = { over_limit_clusters = 0, width_change_clamped = 0 },
       unknown = { csi = 0, esc = 0, osc = 0, string = 0 },
       unknown_samples = {},
+      hyperlinks = { opened = 0, closed = 0, rejected = 0 },
     },
   }, State)
   assert(self.max_cluster_codepoints >= 8, "terminal max_cluster_codepoints must be at least 8")
+  assert(self.hyperlink_limit >= 1 and self.hyperlink_limit % 1 == 0, "terminal hyperlink limit must be a positive integer")
+  assert(self.hyperlink_uri_maximum_bytes >= 1 and self.hyperlink_uri_maximum_bytes % 1 == 0, "terminal hyperlink URI limit must be a positive integer")
   self.primary = self:new_screen()
   self.alternate = self:new_screen()
   self.primary.attributes = Attributes.default()
@@ -139,6 +150,8 @@ end
 function State:cell_from_attributes(glyph, metadata)
   local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
   metadata = metadata or {}
+  local hyperlink_id = self.active_screen.hyperlink_id
+  if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   return {
     glyph = glyph,
     fg = foreground,
@@ -149,11 +162,14 @@ function State:cell_from_attributes(glyph, metadata)
     continuation = metadata.continuation,
     anchor_column = metadata.anchor_column,
     display_text = metadata.display_text,
+    hyperlink_id = hyperlink_id,
   }
 end
 
 function State:ascii_cell(glyph, codepoints)
   local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  local hyperlink_id = self.active_screen.hyperlink_id
+  if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   return {
     glyph = glyph,
     fg = foreground,
@@ -162,12 +178,15 @@ function State:ascii_cell(glyph, codepoints)
     codepoints = codepoints,
     width = 1,
     display_text = glyph,
+    hyperlink_id = hyperlink_id,
   }
 end
 
 function State:set_ascii_cell(column, row, glyph, codepoints)
   local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
   local target = self.active_screen:get(column, row)
+  local hyperlink_id = self.active_screen.hyperlink_id
+  if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   if target.glyph == glyph
     and target.fg == foreground
     and target.bg == background
@@ -176,7 +195,8 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
     and target.width == 1
     and not target.continuation
     and target.anchor_column == nil
-    and target.display_text == glyph then
+    and target.display_text == glyph
+    and target.hyperlink_id == hyperlink_id then
     return false
   end
   target.glyph = glyph
@@ -188,6 +208,7 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
   target.continuation = nil
   target.anchor_column = nil
   target.display_text = glyph
+  target.hyperlink_id = hyperlink_id
   self:mark_changed(column, row)
   local counters = self.text_counters
   if counters then counters.cells_changed = (counters.cells_changed or 0) + 1 end
@@ -280,6 +301,22 @@ function State:selection_cell_bounds(row, column)
   column = selection_coordinate(column, self.columns - 1)
   local start, finish = selection_cluster_bounds(self:visible_row(row), column, self.columns)
   return { finish = finish, row = row, start = start }
+end
+
+function State:hyperlink_at(row, column)
+  row = selection_coordinate(row, self.rows - 1)
+  column = selection_coordinate(column, self.columns - 1)
+  local visible = self:visible_row(row)
+  local start = selection_cluster_bounds(visible, column, self.columns)
+  local id = visible.cells[start].hyperlink_id
+  return id and self.hyperlinks[id] or nil
+end
+
+function State:hyperlink_at_cursor()
+  if self.history_offset ~= 0 then return nil end
+  local cursor = self.active_screen.cursor
+  if not cursor.visible then return nil end
+  return self:hyperlink_at(cursor.row, cursor.column)
 end
 
 local function selection_word_cell(cell)
@@ -479,12 +516,13 @@ end
 
 function State:save_cursor()
   local cursor = self.active_screen.cursor
-  self.active_screen.saved_cursor = { column = cursor.column, row = cursor.row, attributes = Attributes.copy(self.active_screen.attributes) }
+  self.active_screen.saved_cursor = { column = cursor.column, row = cursor.row, attributes = Attributes.copy(self.active_screen.attributes), hyperlink_id = self.active_screen.hyperlink_id }
 end
 
 function State:restore_cursor()
   local saved = self.active_screen.saved_cursor
   self.active_screen.attributes = Attributes.copy(saved.attributes or Attributes.default())
+  self.active_screen.hyperlink_id = saved.hyperlink_id
   self:set_cursor(saved.column, saved.row)
 end
 
@@ -694,6 +732,7 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     codepoints = codepoints,
     width = old_width,
     display_text = (cell.display_text or cell.glyph) .. glyph,
+    hyperlink_id = cell.hyperlink_id,
   }
   local column, row = context.column, context.row
   local cursor = self.active_screen.cursor
@@ -851,6 +890,7 @@ function State:normalize_row(row_index)
           width = 0,
           continuation = true,
           anchor_column = column - 1,
+          hyperlink_id = anchor.hyperlink_id,
         })
       end
     elseif cell.width == 2 then
@@ -863,6 +903,7 @@ function State:normalize_row(row_index)
           codepoints = cell.codepoints,
           width = 1,
           display_text = cell.display_text,
+          hyperlink_id = cell.hyperlink_id,
         })
       else
         local next_cell = row.cells[column + 1]
@@ -875,6 +916,7 @@ function State:normalize_row(row_index)
             width = 0,
             continuation = true,
             anchor_column = column,
+            hyperlink_id = cell.hyperlink_id,
           })
         end
       end
@@ -999,6 +1041,7 @@ function State:switch_alternate(enable, save_cursor)
         column = self.primary.cursor.column,
         row = self.primary.cursor.row,
         attributes = Attributes.copy(self.primary.attributes),
+        hyperlink_id = self.primary.hyperlink_id,
       }
     end
     self.active_screen = self.alternate
@@ -1081,6 +1124,9 @@ function State:reset()
   self.modes.keyboard_flags = 0
   self:reset_tab_stops()
   self.scrollback:clear()
+  self.hyperlinks = {}
+  self.hyperlink_ids = {}
+  self.next_hyperlink_id = 0
   self:clear_selection()
   self:clear_search()
   self.history_offset = 0
@@ -1441,7 +1487,35 @@ end
 function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
-  elseif action.command ~= 7 and action.command ~= 8 and action.command ~= 133 then
+  elseif action.command == 8 then
+    local parsed = Hyperlink.parse_osc8(action.payload, self.hyperlink_uri_maximum_bytes)
+    if parsed == nil then
+      self.active_screen.hyperlink_id = nil
+      self.stats.hyperlinks.rejected = self.stats.hyperlinks.rejected + 1
+    elseif parsed.kind == "close" then
+      self.active_screen.hyperlink_id = nil
+      self.stats.hyperlinks.closed = self.stats.hyperlinks.closed + 1
+    else
+      local existing = parsed.id and self.hyperlink_ids[parsed.id] or nil
+      if existing and existing.uri ~= parsed.uri then
+        self.active_screen.hyperlink_id = nil
+        self.stats.hyperlinks.rejected = self.stats.hyperlinks.rejected + 1
+      elseif existing then
+        self.active_screen.hyperlink_id = existing.id
+        self.stats.hyperlinks.opened = self.stats.hyperlinks.opened + 1
+      elseif #self.hyperlinks >= self.hyperlink_limit then
+        self.active_screen.hyperlink_id = nil
+        self.stats.hyperlinks.rejected = self.stats.hyperlinks.rejected + 1
+      else
+        self.next_hyperlink_id = self.next_hyperlink_id + 1
+        local link = { id = self.next_hyperlink_id, uri = parsed.uri }
+        self.hyperlinks[link.id] = link
+        if parsed.id then self.hyperlink_ids[parsed.id] = link end
+        self.active_screen.hyperlink_id = link.id
+        self.stats.hyperlinks.opened = self.stats.hyperlinks.opened + 1
+      end
+    end
+  elseif action.command ~= 7 and action.command ~= 133 then
     self:record_unknown("osc", { command = action.command })
   end
 end

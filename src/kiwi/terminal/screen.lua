@@ -11,6 +11,7 @@ local function copy_cell(destination, source)
   destination.continuation = source.continuation
   destination.anchor_column = source.anchor_column
   destination.display_text = source.display_text
+  destination.hyperlink_id = source.hyperlink_id
 end
 
 local function new_row(columns, blank_cell, line_id_factory)
@@ -32,6 +33,7 @@ function Screen.new(columns, rows, blank_cell, line_id_factory)
     saved_cursor = { column = 0, row = 0 },
     keyboard_flags = 0,
     keyboard_stack = {},
+    hyperlink_id = nil,
     attributes = nil,
     top_margin = 0,
     bottom_margin = rows - 1,
@@ -74,11 +76,13 @@ function Screen:resize(columns, rows, blank_cell)
   resized.cursor.visible = self.cursor.visible
   resized.saved_cursor.column = math.min(self.saved_cursor.column, columns - 1)
   resized.saved_cursor.row = math.min(self.saved_cursor.row, rows - 1)
+  resized.saved_cursor.hyperlink_id = self.saved_cursor.hyperlink_id
   resized.keyboard_flags = self.keyboard_flags
   for index, flags in ipairs(self.keyboard_stack) do
     resized.keyboard_stack[index] = flags
   end
   resized.attributes = self.attributes
+  resized.hyperlink_id = self.hyperlink_id
   return resized
 end
 

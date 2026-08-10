@@ -108,6 +108,7 @@ function Keyboard.key(key, action, modifiers, modes, glfw)
     if key == string.byte("F") then return action == glfw.press and { local_action = "search_begin", suppress_text = true } or { suppress_text = true } end
     if key == string.byte("G") then return action == glfw.press and { local_action = "search_next", suppress_text = true } or { suppress_text = true } end
     if key == string.byte("R") then return action == glfw.press and { local_action = "search_previous", suppress_text = true } or { suppress_text = true } end
+    if key == string.byte("O") then return action == glfw.press and { local_action = "open_hyperlink", suppress_text = true } or { suppress_text = true } end
   end
   if kitty_enabled(modes) then
     local enhanced = kitty_key(key, modifiers, modes, glfw)

@@ -18,6 +18,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
 | mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
+| osc8-hyperlinks | OSC 8 open/close, stable `id` reuse, and both BEL/ST termination |
 | osc52-policy | OSC 52 default denial and bounded oversized payload handling |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -58,8 +59,9 @@ claiming formal verification or allocator-independent memory totals.
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
+| hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
+| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; OSC 7/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -73,6 +75,12 @@ The entry intentionally declares `colors#16`; it does not declare truecolour, it
 ## Clipboard and OSC 52 policy
 
 OSC 52 is default-denied: terminal output cannot read, write, clear, or query the system clipboard, trigger paste, or receive an OSC reply. The parser still bounds every OSC string to 4,096 bytes and records no OSC payload, only bounded command metadata or rejection reasons. Local clipboard behavior and the still-unimplemented future opt-in OSC 52 write modes are defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md).
+
+## OSC 8 hyperlinks
+
+Kiwi accepts `OSC 8 ; params ; URI ST|BEL` and the empty `OSC 8 ; ; ST|BEL` close form. It retains at most 4,096 target records and at most 2,048 ASCII UTF-8 bytes per URI. The only activatable schemes are `https`, `http`, and `mailto`; control bytes, spaces, NUL, malformed parameters, non-ASCII URI bytes, unsupported schemes, URI-limit overflow, and a repeated OSC `id` with a different URI reject the open and clear the current link. Opening a valid link replaces the current link. Empty close forms end it. Link cells retain an internal identity through ordinary edits, bounded primary scrollback, resize, and replay; no URI is published through renderer resources or diagnostics.
+
+Links draw an underline from the read-only `terminal.hyperlinks` resource through the glyph pass. `KIWI_HYPERLINK_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to `#88C0D0FF`. An explicit `Ctrl+primary-click` activates the link under the pointer when application mouse reporting is inactive; `Ctrl+Shift+O` activates the link under the visible cursor. Both bindings remain local under Kitty keyboard disambiguation and do not write PTY input. Activation revalidates the target then calls detached `xdg-open` without a shell; launch acceptance does not prove that a desktop handler opened the URI. `file`, `data`, `javascript`, custom schemes, previews, hover activation, and automatic opening are intentionally unsupported. [ADR 0026](adr/0026-osc8-hyperlink-policy.md) records the full boundary.
 
 ## Input method status
 
@@ -215,7 +223,7 @@ M2 terminal-width outcomes are deterministic rather than a claim to emulate the 
 
 ## Known unsupported/deferred behavior
 
-M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, Kitty keyboard flags 2/4/8/16 beyond the documented disambiguation subset, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, Kitty keyboard flags 2/4/8/16 beyond the documented disambiguation subset, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlink previews, file/custom-scheme activation, OSC shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 

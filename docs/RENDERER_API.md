@@ -97,6 +97,11 @@ bounded `visible_matches` map. It contains neither the query nor terminal
 text. An inactive or stale descriptor has no active range; extensions must not
 infer a retained match from omitted data.
 
+The read-only `terminal.hyperlinks` descriptor carries only `active`, normalized
+underline `color`, and bounded `visible_cells`. It excludes URI targets,
+opaque link IDs, visible text, input state, and native opener handles. An
+inactive descriptor has zero visible cells and transparent color.
+
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.

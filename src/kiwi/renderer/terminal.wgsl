@@ -48,6 +48,10 @@ struct FrameData {
   search_green: f32,
   search_blue: f32,
   search_alpha: f32,
+  hyperlink_red: f32,
+  hyperlink_green: f32,
+  hyperlink_blue: f32,
+  hyperlink_alpha: f32,
 }
 
 struct RasterOut {
@@ -131,9 +135,11 @@ fn glyph_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) i
 fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (input.glyph == 0u) { discard; }
   let coverage = textureSample(glyph_atlas, glyph_sampler, input.uv).r;
+  let hyperlink_underline = (input.flags & 512u) != 0u && frame.hyperlink_alpha > 0.0 && input.local_position.y > 0.91;
   let decoration = ((input.flags & 32u) != 0u && input.local_position.y > 0.88)
     || ((input.flags & 256u) != 0u && input.local_position.y > 0.46 && input.local_position.y < 0.54);
-  if (coverage < 0.30 && !decoration) { discard; }
+  if (coverage < 0.30 && !decoration && !hyperlink_underline) { discard; }
+  if (hyperlink_underline) { return vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha); }
   var color = input.fg;
   if ((input.flags & 1u) != 0u) { color = vec4<f32>(min(vec3<f32>(1.0), color.rgb * 1.16), color.a); }
   if ((input.flags & 8u) != 0u) { color = vec4<f32>(color.rgb * 0.65, color.a); }

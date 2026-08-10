@@ -3,7 +3,13 @@ local glfw = require("kiwi.ffi.glfw")
 
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
+int kiwi_open_uri(const char* uri);
 ]]
+
+local root = os.getenv("KIWI_ROOT") or "."
+local native_path = root .. "/.build/native/libkiwi_surface.so"
+local native_ok, native = pcall(ffi.load, native_path)
+if not native_ok then error("Unable to load Kiwi native bridge at " .. native_path .. "; run make native: " .. tostring(native)) end
 
 local Window = {}
 Window.__index = Window
@@ -136,6 +142,12 @@ function Window:clipboard_write(text)
   glfw.lib.glfwSetClipboardString(self.handle, text)
   local message = glfw.lib.glfwGetError(code)
   if message ~= nil or code[0] ~= 0 then return false, "platform-error" end
+  return true
+end
+
+function Window:open_uri(uri)
+  assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
+  if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
   return true
 end
 

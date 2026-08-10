@@ -6,6 +6,7 @@ local Extensions = require("kiwi.renderer.extensions")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
 local PassBudgets = require("kiwi.renderer.pass_budgets")
 local GpuTiming = require("kiwi.renderer.gpu_timing")
+local Hyperlink = require("kiwi.renderer.hyperlink")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
 local Resources = require("kiwi.renderer.resources")
@@ -45,6 +46,10 @@ typedef struct {
   float search_green;
   float search_blue;
   float search_alpha;
+  float hyperlink_red;
+  float hyperlink_green;
+  float hyperlink_blue;
+  float hyperlink_alpha;
 } KiwiFrameUniform;
 ]]
 
@@ -134,6 +139,7 @@ function Renderer.new(context, font, model, options)
     inspector_selected_pass = options.inspector_selected_pass,
     selection_color = Selection.parse_color(options.selection_color),
     search_color = Search.parse_color(options.search_color),
+    hyperlink_color = Hyperlink.parse_color(options.hyperlink_color),
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -463,6 +469,10 @@ function Renderer:search_descriptor(model)
   return Search.descriptor(model, self.search_color)
 end
 
+function Renderer:hyperlink_descriptor(model)
+  return Hyperlink.descriptor(model, self.hyperlink_color)
+end
+
 function Renderer:register_semantic_resources(model)
   local registry = self.resource_registry
   local handles = self.resource_handles
@@ -486,6 +496,8 @@ function Renderer:register_semantic_resources(model)
   register("terminal.selection", "read", self.selection)
   self.search = self:search_descriptor(model)
   register("terminal.search", "read", self.search)
+  self.hyperlinks = self:hyperlink_descriptor(model)
+  register("terminal.hyperlinks", "read", self.hyperlinks)
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
     columns = model.columns,
@@ -504,7 +516,7 @@ function Renderer:register_semantic_resources(model)
   register("surface.color", "write", { format = self.context.surface_format })
 end
 
-function Renderer:refresh_semantic_resources(model, time, delta, selection, search)
+function Renderer:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks)
   local registry = self.resource_registry
   local handles = self.resource_handles
   local atlas = self.font.glyph_cache.atlas
@@ -524,6 +536,8 @@ function Renderer:refresh_semantic_resources(model, time, delta, selection, sear
   registry:update(handles["terminal.selection"], self:resource_descriptor("terminal.selection", "read", self.selection))
   self.search = search or self:search_descriptor(model)
   registry:update(handles["terminal.search"], self:resource_descriptor("terminal.search", "read", self.search))
+  self.hyperlinks = hyperlinks or self:hyperlink_descriptor(model)
+  registry:update(handles["terminal.hyperlinks"], self:resource_descriptor("terminal.hyperlinks", "read", self.hyperlinks))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
     ranges = self.diagnostics.dirty_ranges,
@@ -679,6 +693,7 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   local cursor = self:cursor_descriptor(model)
   local selection = self:selection_descriptor(model)
   local search = self:search_descriptor(model)
+  local hyperlinks = self:hyperlink_descriptor(model)
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
@@ -708,8 +723,12 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].search_green = search.color.green
   self.frame[0].search_blue = search.color.blue
   self.frame[0].search_alpha = search.color.alpha
+  self.frame[0].hyperlink_red = hyperlinks.color.red
+  self.frame[0].hyperlink_green = hyperlinks.color.green
+  self.frame[0].hyperlink_blue = hyperlinks.color.blue
+  self.frame[0].hyperlink_alpha = hyperlinks.color.alpha
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
-  self:refresh_semantic_resources(model, time, delta, selection, search)
+  self:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks)
 end
 
 function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resources)

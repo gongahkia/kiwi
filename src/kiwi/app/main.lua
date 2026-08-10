@@ -3,6 +3,8 @@ local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
 local Clipboard = require("kiwi.input.clipboard")
+local Hyperlink = require("kiwi.input.hyperlink")
+local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
@@ -106,6 +108,7 @@ local function renderer_options(runtime_options)
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
     selection_color = os.getenv("KIWI_SELECTION_COLOR"),
     search_color = os.getenv("KIWI_SEARCH_COLOR"),
+    hyperlink_color = os.getenv("KIWI_HYPERLINK_COLOR"),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
   }
@@ -181,6 +184,7 @@ local function run_live(options)
     end
     renderer = Renderer.new(context, font, state, render_options)
     local clipboard = Clipboard.new(window)
+    local hyperlink = Hyperlink.new(window)
     local metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
@@ -188,6 +192,7 @@ local function run_live(options)
     local mouse = Mouse.new()
     local mouse_generation = state.modes.mouse_generation
     local selection_pointer = SelectionPointer.new()
+    local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
 
     local function enqueue_input(bytes)
       if recorder then recorder:input(bytes) end
@@ -202,6 +207,10 @@ local function run_live(options)
       if status ~= "matches" and status ~= "query" and status ~= "inactive" then
         io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
+    end
+
+    local function report_hyperlink_failure(status)
+      if status ~= "no-link" then io.stderr:write("Kiwi hyperlink activation rejected: ", (status or "unavailable"):gsub("-", " "), "\n") end
     end
 
     local function update_search_title()
@@ -285,6 +294,9 @@ local function run_live(options)
         end
         report_search_status(status)
         renderer:invalidate("search")
+      elseif encoded.local_action == "open_hyperlink" then
+        local opened, status = hyperlink:activate(state:hyperlink_at_cursor())
+        if not opened then report_hyperlink_failure(status) end
       elseif encoded.bytes then
         enqueue_input(encoded.bytes)
       end
@@ -293,14 +305,17 @@ local function run_live(options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
-      local selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes)
+      local hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes)
+      if hyperlink_handled and not hyperlink_opened then report_hyperlink_failure(hyperlink_status) end
+      local selection_handled, selection_changed = false, false
+      if not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes) end
       if selection_changed then renderer:invalidate("selection") end
       local encoded
-      if not selection_handled and event.kind == "button" then
+      if not hyperlink_handled and not selection_handled and event.kind == "button" then
         encoded = mouse:button(event, state.modes)
-      elseif not selection_handled and event.kind == "motion" then
+      elseif not hyperlink_handled and not selection_handled and event.kind == "motion" then
         encoded = mouse:motion(event, state.modes)
-      elseif not selection_handled and event.kind == "wheel" then
+      elseif not hyperlink_handled and not selection_handled and event.kind == "wheel" then
         encoded = mouse:wheel(event, state.modes)
       end
       if encoded then enqueue_input(encoded) end
