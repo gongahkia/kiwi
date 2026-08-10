@@ -51,3 +51,8 @@ resource/lifetime coverage, exposes deterministic atlas fallback, has matching
 native visual evidence, and passes `make check`. Retire it when those conditions
 cannot be met or its unavailable/failure route is not clear, while retaining
 the reproducible atlas baseline.
+
+At present `msdf` and `slug` are intentionally unavailable laboratory names.
+Their prerequisite research is in [ADR 0036](adr/0036-msdf-backend-feasibility.md)
+and [ADR 0035](adr/0035-slug-gpu-backend-feasibility.md); a report showing
+their atlas fallback is not a candidate comparison.
