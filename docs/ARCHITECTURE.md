@@ -106,6 +106,13 @@ The parser remains syntax-only and the state remains the sole mutator, but state
 
 `terminal/state.lua` maintains separate logical and text-damage streams. Cursor movement and cursor visibility can invalidate logical cell/cursor presentation without reshaping text; content mutation, scroll, reset, resize, history movement, and screen changes invalidate text rows. `text/layout.lua` consumes text damage once per update, builds same-face runs, shapes with HarfBuzz monotone grapheme clusters and explicit LTR direction, then maps glyphs back to terminal columns. Fontconfig resolves primary/fallback faces; FreeType rasterizes resulting glyph IDs. Font face, fallback, glyph, and atlas resources have fixed bounds and failures render `?` or omit a glyph safely. The alpha atlas is one 1024×1024 grayscale page; M2 does not claim color-emoji or bidi rendering.
 
+`accessibility/model.lua` is a detached terminal-semantic observer for future
+platform adapters. It exports a bounded current viewport, stable line-ID and
+cell-gap caret/selection ranges, and ordered change events without pixel
+scraping, native handles, shell metadata, or full-scrollback materialization.
+Platform accessibility objects and their UI-thread notification policy remain
+outside terminal state; the model alone is not a screen-reader implementation.
+
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. Both alpha passes and the hyperlink glyph decoration remain semantic presentation, rather than part of a terminal bitmap.
 
 M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves background, selection, search, glyph, and cursor ordering while adding bounded hyperlink metadata to glyph presentation; it does not expose native wgpu handles to Lua passes.
