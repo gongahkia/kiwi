@@ -55,6 +55,7 @@ make bench-burst                       # real-PTY burst, response, latency, and 
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
 make text-corpus-review                # M8 deterministic text-corpus manifest with host/driver inventory
 make text-corpus-demo                  # bounded native visual review of that same corpus
+make slug-feasibility                  # M8 native Slug prerequisite probe; currently exits 2 because libharfbuzz-gpu is unavailable
 make bench-write                       # M2.5 parser/cluster/damage/shaping/atlas write-path attribution
 make bench-text-stress                 # M2 bounded atlas/fallback/grid/memory stress check
 make profile-text                      # ignored LuaJIT sampling profile; add KIWI_PROFILE_TRACE=1 for -jv traces

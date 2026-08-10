@@ -1,0 +1,59 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly RESOURCES="$ROOT/src/kiwi/renderer/resources.lua"
+
+if ! command -v pkg-config >/dev/null; then
+  print -u2 "slug-prototype: blocked: pkg-config is unavailable"
+  exit 2
+fi
+
+if ! pkg-config --exists harfbuzz; then
+  print -u2 "slug-prototype: blocked: pkg-config package 'harfbuzz' is unavailable"
+  exit 2
+fi
+
+print "slug-prototype: harfbuzz=$(pkg-config --modversion harfbuzz)"
+
+if ! pkg-config --exists harfbuzz-gpu; then
+  print -u2 "slug-prototype: deferred: pkg-config package 'harfbuzz-gpu' is unavailable"
+  print -u2 "slug-prototype: next: build an audited, pinned HarfBuzz source release with -Dgpu=enabled -Dgpu_demo=disabled"
+  exit 2
+fi
+
+if ! command -v cc >/dev/null; then
+  print -u2 "slug-prototype: blocked: C compiler is unavailable"
+  exit 2
+fi
+
+readonly STAGING=$(mktemp -d)
+trap 'rm -rf "$STAGING"' EXIT
+
+if ! cc -x c -std=c17 -Wall -Wextra -Werror $(pkg-config --cflags harfbuzz-gpu) -o "$STAGING/probe" - $(pkg-config --libs harfbuzz-gpu) <<'EOF'
+#include <hb-gpu.h>
+
+int main(void) {
+  hb_gpu_draw_t *draw = hb_gpu_draw_create_or_fail();
+  if (draw == 0) return 1;
+  hb_gpu_draw_destroy(draw);
+  return 0;
+}
+EOF
+then
+  print -u2 "slug-prototype: blocked: could not compile and link the HarfBuzz GPU encoder probe"
+  exit 2
+fi
+
+if ! "$STAGING/probe"; then
+  print -u2 "slug-prototype: blocked: the HarfBuzz GPU encoder could not create/destroy an encoder"
+  exit 2
+fi
+
+if ! grep -Fq '["text.slug_blobs"]' "$RESOURCES"; then
+  print -u2 "slug-prototype: deferred: Kiwi has no versioned text.slug_blobs resource or Slug pass"
+  print -u2 "slug-prototype: next: add bounded blob ownership, shader integration, and atlas fallback behind the text backend ABI"
+  exit 3
+fi
+
+print "slug-prototype: native encoder probe passed; renderer integration requires the corpus and lifecycle checks in ADR 0035"
