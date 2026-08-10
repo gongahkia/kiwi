@@ -20,6 +20,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | osc8-hyperlinks | OSC 8 open/close, stable `id` reuse, and both BEL/ST termination |
 | shell-integration | OSC 7 current directory plus OSC 133 A/B/C/D shell markers with BEL/ST termination |
+| shell-integration-scripts | captured v1 Bash/Zsh/fish OSC 7/133 emission shape |
 | osc52-policy | OSC 52 default denial and bounded oversized payload handling |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -104,10 +105,13 @@ diagnostics.
 Kiwi retains at most 128 directory records and 512 events by default, dropping
 the oldest with counters. Canonical replay snapshots retain opaque IDs/events
 but omit directory host/path/URI; shell metadata has no renderer resource,
-diagnostic payload, local key binding, automatic shell setup, command
-execution, navigation, or UI yet. The `shell-integration` fixture covers the
-common bash/zsh/fish marker order and both OSC terminators. [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
-defines the complete boundary.
+diagnostic payload, or execution privilege. The `shell-integration` fixture
+covers both OSC terminators; `shell-integration-scripts` captures the v1
+Bash/Zsh/fish emission order. Versioned scripts are explicit opt-in assets,
+not automatic shell setup; activation and removal are documented in
+[SHELL_INTEGRATION.md](SHELL_INTEGRATION.md). [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
+and [ADR 0031](adr/0031-opt-in-shell-integration-assets.md) define the
+boundary.
 
 ## Command-region lifecycle
 
