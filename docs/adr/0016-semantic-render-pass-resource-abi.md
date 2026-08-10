@@ -4,7 +4,7 @@
 
 Kiwi M2.5 began with three renderer-owned passes: `terminal/background`,
 `terminal/glyph`, and `terminal/cursor`. M4 additively extends ABI v1 with
-`terminal/selection` between background and glyph rendering. `Renderer` owns their pipelines,
+`terminal/selection` and `terminal/search` between background and glyph rendering. `Renderer` owns their pipelines,
 buffers, bind groups, shader module, atlas, and command encoding directly.
 `State` and `Layout` already produce terminal cells, shaped glyphs, cursor
 state, logical/text damage, and viewport dimensions, but no contract says how
@@ -52,12 +52,13 @@ Current built-ins map into v1 as follows:
 | --- | --- | --- | ---: |
 | `terminal/background` | `terminal.cells`, `frame.viewport` | `surface.color` | 10 |
 | `terminal/selection` | `terminal.selection`, `frame.viewport` | `surface.color` | 15 |
+| `terminal/search` | `terminal.search`, `frame.viewport` | `surface.color` | 17 |
 | `terminal/glyph` | `text.shaped_glyphs`, `text.alpha_atlas`, `frame.viewport` | `surface.color` | 20 |
 | `terminal/cursor` | `terminal.cursor`, `frame.viewport` | `surface.color` | 30 |
 
 Each built-in also receives `frame.timing` and `terminal.damage` as declared
 read-only frame inputs. The matching render-pass attachment load behavior is
-part of each pass implementation: background clears and glyph/cursor load the
+part of each pass implementation: background clears and selection/search/glyph/cursor load the
 prior colour result. The shared lifecycle must preserve that behavior.
 
 ### v1 resources and validity
@@ -74,6 +75,7 @@ an error at the nearest registration/lifecycle boundary.
 | `text.shaped_glyphs` | HarfBuzz/FreeType-derived visible glyph records | read-only; may be empty when text has no drawable glyphs |
 | `terminal.cursor` | column, row, visibility, and canonical cursor style/shape/blink after terminal/history policy | read-only; always present |
 | `terminal.selection` | viewport-relative normalized cell-gap range, active flag, and overlay RGBA after grapheme/history policy | read-only; always present, but may be inactive |
+| `terminal.search` | bounded search result count/status, current viewport range, current index, and visible grapheme-safe range descriptors without query text | read-only; always present, but may be inactive or stale |
 | `terminal.damage` | coalesced logical-damage summary/ranges for the current update | read-only; may be empty |
 | `frame.viewport` | logical columns/rows, drawable pixels, and content scale | read-only; always present for a drawable frame |
 | `frame.timing` | monotonic frame time and non-negative frame delta | read-only; always present; timing does not imply redraw permission |
@@ -133,11 +135,11 @@ dependency ordering; #99 adds shader source/module diagnostics; #100 adds
 optional-extension containment; #102/#109 add per-pass measurements and
 budgets; #103 exposes a versioned Lua registration surface; and #104/#158 add
 bounded invalidation, animation, and allocation policy. Those changes must
-preserve the three built-in pass outputs before accepting extensions.
+preserve existing built-in pass outputs before accepting extensions.
 
 Focused tests should cover duplicate pass identity, invalid ABI version,
 unknown/stale resources after renderer recreation, declared resource access,
 deterministic built-in order, reverse cleanup after initialization failure,
 and diagnostics bounded by repeated failures. Native smoke must continue to
-exercise the unchanged background/glyph/cursor sequence. `make check` remains
+exercise the background/selection/search/glyph/cursor sequence. `make check` remains
 the required broad validation once implementation begins.

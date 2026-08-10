@@ -105,6 +105,7 @@ local function renderer_options(runtime_options)
     inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
     selection_color = os.getenv("KIWI_SELECTION_COLOR"),
+    search_color = os.getenv("KIWI_SEARCH_COLOR"),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
   }
@@ -146,7 +147,8 @@ local function report_pass_budgets(renderer)
 end
 
 local function run_live(options)
-  local window = Window.new(1600, 960, "Kiwi M2 terminal")
+  local default_title = "Kiwi M2 terminal"
+  local window = Window.new(1600, 960, default_title)
   local context
   local renderer
   local font
@@ -196,20 +198,69 @@ local function run_live(options)
       io.stderr:write("Kiwi clipboard ", operation, " rejected: ", status:gsub("_", " "), "\n")
     end
 
+    local function report_search_status(status)
+      if status ~= "matches" and status ~= "query" and status ~= "inactive" then
+        io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
+      end
+    end
+
+    local function update_search_title()
+      local search = state:search_view()
+      local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
+      if title ~= last_title then
+        window:set_title(title)
+        last_title = title
+      end
+    end
+
+    local function handle_search_key(key, action)
+      local search = state:search_view()
+      if not search.editing or not search.visible then return false end
+      if key == glfw.key_escape then
+        if action == glfw.press then state:clear_search() end
+        return action == glfw.press or action == glfw.repeat_action
+      end
+      if key == glfw.key_backspace then
+        if action == glfw.press or action == glfw.repeat_action then state:search_backspace() end
+        return action == glfw.press or action == glfw.repeat_action
+      end
+      if key == glfw.key_enter then
+        if action == glfw.press then
+          local _, status = state:search_submit("forward")
+          report_search_status(status)
+        end
+        return action == glfw.press or action == glfw.repeat_action
+      end
+      return false
+    end
+
     window:set_input_handlers(function(codepoint)
       local text = Keyboard.text(codepoint)
       if text then
-        enqueue_input(text)
+        local search = state:search_view()
+        if search.editing and search.visible then
+          local appended, status = state:search_append(text)
+          if not appended then report_search_status(status) end
+          renderer:invalidate("search")
+        else
+          enqueue_input(text)
+        end
       end
     end, function(key, action, modifiers)
+      if handle_search_key(key, action) then
+        renderer:invalidate("search")
+        return { handled = true, suppress_text = true }
+      end
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
       if not encoded then
         return nil
       end
       if encoded.local_action == "scroll_up" then
         state:scroll_history(math.max(1, state.rows - 1))
+        renderer:invalidate("terminal")
       elseif encoded.local_action == "scroll_down" then
         state:scroll_history(-math.max(1, state.rows - 1))
+        renderer:invalidate("terminal")
       elseif encoded.local_action == "copy" then
         local copied, status = clipboard:copy(state)
         if not copied then report_clipboard_failure("copy", status) end
@@ -220,6 +271,20 @@ local function run_live(options)
         elseif status ~= "empty" then
           report_clipboard_failure("paste", status)
         end
+      elseif encoded.local_action == "search_begin" then
+        state:search_begin("forward")
+        renderer:invalidate("search")
+      elseif encoded.local_action == "search_next" or encoded.local_action == "search_previous" then
+        local direction = encoded.local_action == "search_next" and "forward" or "backward"
+        local _, status
+        local search = state:search_view()
+        if search.editing and search.visible then
+          _, status = state:search_submit(direction)
+        else
+          _, status = state:search_navigate(direction)
+        end
+        report_search_status(status)
+        renderer:invalidate("search")
       elseif encoded.bytes then
         enqueue_input(encoded.bytes)
       end
@@ -270,10 +335,7 @@ local function run_live(options)
       end
       pty:flush()
       local child_status = pty:poll_exit()
-      if state.title and state.title ~= last_title then
-        window:set_title(state.title)
-        last_title = state.title
-      end
+      update_search_title()
 
       do
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001

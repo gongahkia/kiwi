@@ -4,6 +4,7 @@ local Grapheme = require("kiwi.unicode.grapheme")
 local Properties = require("kiwi.unicode.properties")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
+local Search = require("kiwi.input.search")
 local Selection = require("kiwi.input.selection")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
@@ -83,6 +84,8 @@ function State.new(columns, rows, options)
     },
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
+    search = Search.new(),
+    search_generation = 0,
     selection = Selection.new(),
     history_offset = 0,
     title = nil,
@@ -358,6 +361,62 @@ function State:selection_text(maximum_bytes)
   return table.concat(text)
 end
 
+function State:invalidate_search()
+  self.search_generation = self.search_generation + 1
+end
+
+function State:search_begin(direction)
+  self.search:begin(self:selection_scope(), direction or "forward")
+end
+
+function State:search_append(text)
+  return self.search:append(text)
+end
+
+function State:search_backspace()
+  return self.search:backspace()
+end
+
+function State:clear_search()
+  self.search:clear()
+end
+
+function State:reveal_search_match(match)
+  if self.active_screen ~= self.primary then return false end
+  local position
+  for index, entry in ipairs(self:selection_rows("primary")) do
+    if entry.line_id == match.line_id then
+      position = index - 1
+      break
+    end
+  end
+  if position == nil then return false end
+  local offset = clamp(self.scrollback:size() - position, 0, self.scrollback:size())
+  if offset == self.history_offset then return false end
+  self.history_offset = offset
+  self:sync_cursor_visibility()
+  self.damage:mark_all()
+  self.text_damage:mark_all()
+  return true
+end
+
+function State:search_submit(direction)
+  local scope = self:selection_scope()
+  local match, status = self.search:submit(self:selection_rows(scope), self.columns, self.search_generation, scope, direction or "forward")
+  if match then self:reveal_search_match(match) end
+  return match, status
+end
+
+function State:search_navigate(direction)
+  local match, status = self.search:navigate(direction or "forward", self.search_generation, self:selection_scope())
+  if match then self:reveal_search_match(match) end
+  return match, status
+end
+
+function State:search_view()
+  return self.search:view(self.search_generation, self:selection_scope())
+end
+
 function State:cell_at_index(index)
   local column, row = self:position(index)
   local visible = self:visible_row(row)
@@ -373,6 +432,7 @@ function State:mark_changed(column, row)
   self.damage:mark(index)
   self.text_damage:mark(index)
   self.stats.mutations = self.stats.mutations + 1
+  self:invalidate_search()
 end
 
 function State:set_cell(column, row, cell)
@@ -392,6 +452,7 @@ function State:mark_region(top, bottom)
   local count = (bottom - top + 1) * self.columns
   self.damage:mark_range(first, count)
   self.text_damage:mark_range(first, count)
+  self:invalidate_search()
 end
 
 function State:sync_cursor_visibility()
@@ -1021,6 +1082,7 @@ function State:reset()
   self:reset_tab_stops()
   self.scrollback:clear()
   self:clear_selection()
+  self:clear_search()
   self.history_offset = 0
   self:sync_cursor_visibility()
   self.damage:mark_all()
@@ -1055,6 +1117,7 @@ function State:resize(columns, rows)
   self:sync_cursor_visibility()
   self.damage:mark_all()
   self.text_damage:mark_all()
+  self:invalidate_search()
 end
 
 function State:mark_all_dirty()

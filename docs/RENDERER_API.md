@@ -91,6 +91,12 @@ text, row IDs, clipboard data, or native buffers. An inactive descriptor has
 zero endpoints; coordinates may extend beyond the viewport when an active
 range is clipped by the visible grid.
 
+The read-only `terminal.search` descriptor carries `status`, `match_count`,
+`current_index`, a current viewport-relative range, normalized `color`, and a
+bounded `visible_matches` map. It contains neither the query nor terminal
+text. An inactive or stale descriptor has no active range; extensions must not
+infer a retained match from omitted data.
+
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.

@@ -56,9 +56,19 @@ function Passes.build(renderer)
   function selection:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local search = Pass.new("terminal/search", 17, nil, c.load_load, function(model)
+      return renderer.search and renderer.search.active and model.columns * model.rows or 0
+    end, { "terminal.search", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/selection" })
+  search.blend = "alpha"
+  function search:initialize(owner)
+    initialize_pipeline(owner, self, "search-pass", "search_vs", "search_fs")
+  end
+  function search:shutdown(owner)
+    shutdown_pipeline(owner, self)
+  end
   local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
       return renderer.glyph_count or 0
-    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/selection" })
+    end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/search" })
   function glyph:initialize(owner)
     initialize_pipeline(owner, self, "glyph-pass", "glyph_vs", "glyph_fs")
   end
@@ -77,6 +87,7 @@ function Passes.build(renderer)
   return {
     background,
     selection,
+    search,
     glyph,
     cursor,
   }

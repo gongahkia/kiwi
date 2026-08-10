@@ -40,6 +40,14 @@ struct FrameData {
   selection_green: f32,
   selection_blue: f32,
   selection_alpha: f32,
+  search_start_column: f32,
+  search_start_row: f32,
+  search_finish_column: f32,
+  search_finish_row: f32,
+  search_red: f32,
+  search_green: f32,
+  search_blue: f32,
+  search_alpha: f32,
 }
 
 struct RasterOut {
@@ -140,6 +148,14 @@ fn selection_contains(column: f32, row: f32) -> bool {
   return after_start && before_finish;
 }
 
+fn search_contains(column: f32, row: f32) -> bool {
+  let after_start = row > frame.search_start_row
+    || (row == frame.search_start_row && column >= frame.search_start_column);
+  let before_finish = row < frame.search_finish_row
+    || (row == frame.search_finish_row && column < frame.search_finish_column);
+  return after_start && before_finish;
+}
+
 @vertex
 fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
   let row = floor(f32(instance_index) / frame.columns);
@@ -151,6 +167,19 @@ fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_inde
 fn selection_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (!selection_contains(input.cell_position.x, input.cell_position.y)) { discard; }
   return vec4<f32>(frame.selection_red, frame.selection_green, frame.selection_blue, frame.selection_alpha);
+}
+
+@vertex
+fn search_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
+  let row = floor(f32(instance_index) / frame.columns);
+  let column = f32(instance_index) - row * frame.columns;
+  return raster_out(vec2<f32>(column, row), vec2<f32>(1.0, 1.0), vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, 0u, 0u, vertex_index);
+}
+
+@fragment
+fn search_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if (!search_contains(input.cell_position.x, input.cell_position.y)) { discard; }
+  return vec4<f32>(frame.search_red, frame.search_green, frame.search_blue, frame.search_alpha);
 }
 
 @vertex
