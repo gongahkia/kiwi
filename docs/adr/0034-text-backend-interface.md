@@ -34,13 +34,14 @@ The stable v1 boundary is:
 | diagnostics | plain-data descriptor with ABI version, requested/active backend, explicit fallback, and capabilities |
 | lifetime | `FontSystem` remains app-owned; the renderer owns all native GPU resources; the adapter owns no raw font or wgpu handle and is destroyed with the renderer |
 
-`KIWI_TEXT_BACKEND` selects the requested name at renderer construction. `atlas`
-is the default and only supported name. Any other non-empty name of at most 64
-bytes is accepted as a request but deterministically activates `atlas` with
-`fallback=true` and `fallback_reason="unsupported-backend"`. The descriptor
-retains the requested name, so diagnostics distinguish an intentional baseline
-from a unavailable experiment. An invalid empty/non-string selection fails at
-construction.
+Normal renderer construction selects `atlas`; it is not a user configuration.
+`KIWI_TEXT_LAB=1 KIWI_TEXT_LAB_BACKEND=<name>` is the development-only app
+route for a requested name. Any accepted laboratory name other than `atlas`
+deterministically activates `atlas` with `fallback=true` and
+`fallback_reason="unsupported-backend"`. The descriptor retains the requested
+name, so diagnostics distinguish an intentional baseline from an unavailable
+experiment. Invalid laboratory names fail before renderer construction; direct
+adapter construction still rejects invalid empty/non-string selections.
 
 The adapter cannot mutate terminal state, select a width policy, reflow rows,
 change HarfBuzz options, or retain renderer resources. Current atlas data stays

@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -84,6 +84,13 @@ bench-text: native
 text-corpus-review:
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/text_corpus.lua
+
+text-lab:
+	mkdir -p bench/results
+	KIWI_TEXT_LAB_BACKENDS="$${BACKENDS:-atlas}" $(LUAJIT) src/kiwi/bench/text_lab.lua
+
+text-lab-demo: native terminfo
+	KIWI_TEXT_LAB=1 KIWI_TEXT_LAB_BACKEND="$${BACKEND:-atlas}" KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-240} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- $(LUAJIT) src/kiwi/bench/text_corpus_child.lua
 
 slug-feasibility:
 	./script/slug-feasibility-probe

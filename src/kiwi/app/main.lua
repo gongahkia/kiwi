@@ -11,6 +11,7 @@ local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local Pty = require("kiwi.process.pty")
 local Renderer = require("kiwi.renderer.renderer")
+local TextLab = require("kiwi.text.lab")
 local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
@@ -111,7 +112,7 @@ local function renderer_options(runtime_options)
     hyperlink_color = os.getenv("KIWI_HYPERLINK_COLOR"),
     command_region_visual_enabled = os.getenv("KIWI_COMMAND_REGIONS") == "1",
     command_region_color = os.getenv("KIWI_COMMAND_REGION_COLOR"),
-    text_backend = os.getenv("KIWI_TEXT_BACKEND"),
+    text_backend = TextLab.requested_backend(),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
   }

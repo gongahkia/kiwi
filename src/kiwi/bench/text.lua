@@ -81,9 +81,9 @@ function TextBench.font_inventory()
   return inventory
 end
 
-function TextBench.backend_descriptor()
+function TextBench.backend_descriptor(requested)
   local system = new_system()
-  local backend = TextBackend.create(system, { requested = os.getenv("KIWI_TEXT_BACKEND") })
+  local backend = TextBackend.create(system, { requested = requested or "atlas" })
   local descriptor = backend:descriptor()
   backend:destroy()
   system:destroy()

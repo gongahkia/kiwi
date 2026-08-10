@@ -12,6 +12,9 @@ KIWI_BURST_10MB=1 make bench-burst
 make text-corpus-review
 KIWI_TEXT_CORPUS_ARTIFACT=/absolute/path/review.json make text-corpus-review
 KIWI_MAX_FRAMES=240 make text-corpus-demo
+make text-lab
+make text-lab BACKENDS=atlas,msdf
+make text-lab-demo BACKEND=atlas
 KIWI_LIGATURES=1 KIWI_CALT=1 make bench-text
 make profile-text
 KIWI_PROFILE_MODE=mixed KIWI_PROFILE_TRACE=1 make profile-text
@@ -89,6 +92,31 @@ selection and fallback status, before drawing a performance conclusion. A differ
 font fallback result, content scale, Unicode data version, driver, adapter,
 governor, kernel, or iteration scope makes results non-comparable; this protocol
 has no automatic threshold or cross-machine ranking.
+
+## M8 text laboratory report
+
+`make text-lab` is the developer-facing entrypoint for controlled backend
+comparison. It always puts `atlas` first, then evaluates the comma-separated
+candidate names in `BACKENDS` (default `atlas`; at most four names after input
+validation). Its ignored `bench/results/*-text-lab.json` artifact records the
+same corpus manifest, host/runtime metadata, font inventory, shape options,
+backend descriptors, and bounded CPU samples for `backend:update` after
+parser/state setup. The scope includes CPU row shaping and glyph-cache work;
+it excludes parser time, queue writes, GPU execution, compositor, and
+presentation. It is therefore not an end-to-end latency or visual-quality
+measurement.
+
+Normal Kiwi runs ignore experimental backend variables and use `atlas`.
+`make text-lab-demo BACKEND=<name>` is the only documented native selection
+path; it sets `KIWI_TEXT_LAB=1` and `KIWI_TEXT_LAB_BACKEND=<name>` for the
+bounded corpus child. If a requested backend resolves to atlas with
+`fallback=true`, the report lists it in `unavailable_environments`; its CPU
+samples demonstrate the fallback path only, not a prototype comparison.
+
+Read `measured_facts`, `unavailable_environments`, and `inference` as separate
+sections. A report never promotes a backend automatically. Use the explicit
+template in [TEXT_LAB.md](TEXT_LAB.md): capture matching native screenshots,
+confirm semantic counters and descriptors, then make a manual recommendation.
 
 ## M2 native-text measurements
 
