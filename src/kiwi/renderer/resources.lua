@@ -60,6 +60,11 @@ local function validate_descriptor(name, descriptor)
   return copy_descriptor(descriptor)
 end
 
+function Registry.allows(name, access)
+  local spec = resource_specs[name]
+  return spec ~= nil and spec.access == access
+end
+
 function Registry.new(generation)
   assert(type(generation) == "number" and generation >= 1 and generation % 1 == 0, "render resource generation must be a positive integer")
   return setmetatable({

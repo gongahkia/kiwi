@@ -40,6 +40,9 @@ local function validate_pass(pass)
   if pass.shutdown ~= nil and type(pass.shutdown) ~= "function" then
     fail("pass " .. pass.name .. " shutdown callback must be a function")
   end
+  if pass.resize ~= nil and type(pass.resize) ~= "function" then
+    fail("pass " .. pass.name .. " resize callback must be a function")
+  end
   validate_names("read resource", pass.reads)
   validate_names("write resource", pass.writes)
   validate_names("dependency", pass.after)
@@ -185,6 +188,16 @@ function Registry:encode(renderer, encoder, view, model)
     local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
     if not ok then
       fail("pass " .. pass.name .. " encoding failed: " .. message)
+    end
+  end
+end
+
+function Registry:resize(renderer, previous, current)
+  self:assert_state("ready", "resize")
+  for _, pass in ipairs(self.passes) do
+    if pass.resize then
+      local ok, message = xpcall(function() pass:resize(renderer, previous, current) end, debug.traceback)
+      if not ok then fail("pass " .. pass.name .. " resize failed: " .. message) end
     end
   end
 end
