@@ -46,6 +46,22 @@ return {
       Assert.equal(stats.bytes, #"\27[31mred\27[0m\rX\n€")
     end)
   end,
+  replay_preserves_mouse_and_focus_modes_across_the_alternate_screen = function()
+    with_temporary_recording(function(path)
+      local recording = Replay.Recorder.new(path)
+      recording:resize(4, 2)
+      recording:output("\27[?1002;1006;1004h\27[?1049h\27[?1049l")
+      recording:close()
+
+      local replayed = State.new(1, 1)
+      local stats = Replay.apply_file(replayed, path)
+      Assert.equal(replayed.modes.mouse_tracking, "button")
+      Assert.equal(replayed.modes.mouse_sgr, true)
+      Assert.equal(replayed.modes.focus_reporting, true)
+      Assert.equal(replayed.active_screen, replayed.primary)
+      Assert.equal(stats.errors, 0)
+    end)
+  end,
   replay_rejects_unsupported_versions = function()
     with_temporary_recording(function(path)
       local file = assert(io.open(path, "wb"))

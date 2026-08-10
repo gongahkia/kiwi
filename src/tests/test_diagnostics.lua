@@ -33,7 +33,7 @@ return {
   diagnostics_expose_terminal_runtime_without_logging_payloads = function()
     local state = State.new(4, 2)
     state:write_codepoint(Utf8.encode(0x4e2d), 0x4e2d)
-    state:apply(Actions.csi({ 1000 }, "?", "", "h"))
+    state:apply(Actions.csi({ 9998 }, "?", "", "h"))
     state:apply(Actions.osc(9, "unreported payload"))
     local metrics = metrics_for(state, {
       pty = { pid = 42, bytes_read = 128, bytes_written = 7 },
@@ -63,7 +63,7 @@ return {
   unknown_sequence_samples_are_bounded = function()
     local state = State.new(2, 1)
     for _ = 1, 64 do
-      state:apply(Actions.csi({ 1000 }, "?", "", "h"))
+      state:apply(Actions.csi({ 9998 }, "?", "", "h"))
     end
     Assert.equal(state.stats.unknown.csi, 64)
     Assert.equal(#state.stats.unknown_samples, 16)

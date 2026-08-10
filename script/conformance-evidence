@@ -6,6 +6,7 @@ readonly TERMINFO_DIR="$ROOT/.build/terminfo"
 readonly WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-conformance.XXXXXX")
 readonly TOP_RECORDING="$WORK_DIR/top.jsonl"
 readonly VT_RECORDING="$WORK_DIR/vttest-style.jsonl"
+readonly VIM_RECORDING="$WORK_DIR/vim-mouse.jsonl"
 readonly REPLAY_LOG="$WORK_DIR/replay.stderr"
 readonly TMUX_SOCKET="kiwi-conformance-$$"
 
@@ -51,7 +52,7 @@ elif ! command -v top >/dev/null; then
   print "native-top: No access (top is not installed)"
 else
   top_command=$(command -v top)
-  top_version=$($top_command --version 2>&1 | head -n 1)
+  top_version=$($top_command --version 2>&1 | sed -n '1p')
   KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $TOP_RECORDING -- $top_command -n 1 -d 0.1"
   make replay REPLAY="$TOP_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
@@ -71,6 +72,23 @@ else
   print "native-vt-exercise: ${replay//$'\n'/; }"
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
     print -u2 "native VT exercise contains parser errors, ignored actions, or unknown terminal controls."
+    exit 1
+  }
+fi
+
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "native-vim-mouse: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+elif ! command -v vim >/dev/null; then
+  print "native-vim-mouse: No access (vim is not installed)"
+else
+  vim_command=$(command -v vim)
+  vim_version=$($vim_command --version 2>&1 | sed -n '1p')
+  KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $VIM_RECORDING -- $vim_command -Nu NONE -n -c 'set ttym=sgr' -c 'set mouse=a' -c 'redraw!' -c 'qa!'"
+  make replay REPLAY="$VIM_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  replay=$(<"$REPLAY_LOG")
+  print "native-vim-mouse: $vim_version; ${replay//$'\n'/; }"
+  [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
+    print -u2 "native Vim mouse recording contains parser errors, ignored actions, or unknown terminal controls."
     exit 1
   }
 fi

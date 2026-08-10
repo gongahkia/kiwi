@@ -34,6 +34,7 @@ function Window.new(width, height, title)
     debug_boundaries = false,
     debug_metrics = false,
     shader_reload_requested = false,
+    modifiers = 0,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
@@ -41,6 +42,7 @@ function Window.new(width, height, title)
     self.minimized = drawable_width <= 0 or drawable_height <= 0
   end)
   self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action, modifiers)
+    self.modifiers = modifiers
     if action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
     elseif action == glfw.constants.press and key == glfw.constants.key_f3 then
@@ -60,15 +62,47 @@ function Window.new(width, height, title)
       self.on_text(codepoint)
     end
   end)
+  self.callbacks.cursor_position = ffi.cast("GLFWcursorposfun", function(_, x, y)
+    if self.on_pointer then self.on_pointer({ kind = "motion", x = x, y = y, modifiers = self.modifiers }) end
+  end)
+  self.callbacks.mouse_button = ffi.cast("GLFWmousebuttonfun", function(_, button, action, modifiers)
+    self.modifiers = modifiers
+    if self.on_pointer then
+      local x, y = self:cursor_position()
+      self.on_pointer({ kind = "button", button = button, action = action == glfw.constants.press and "press" or action == glfw.constants.release and "release" or "unknown", x = x, y = y, modifiers = modifiers })
+    end
+  end)
+  self.callbacks.scroll = ffi.cast("GLFWscrollfun", function(_, _, yoffset)
+    if self.on_pointer then
+      local x, y = self:cursor_position()
+      self.on_pointer({ kind = "wheel", delta = yoffset, x = x, y = y, modifiers = self.modifiers })
+    end
+  end)
+  self.callbacks.focus = ffi.cast("GLFWwindowfocusfun", function(_, focused)
+    if self.on_focus then self.on_focus(focused ~= 0) end
+  end)
   glfw.lib.glfwSetFramebufferSizeCallback(handle, self.callbacks.resize)
   glfw.lib.glfwSetKeyCallback(handle, self.callbacks.key)
   glfw.lib.glfwSetCharCallback(handle, self.callbacks.character)
+  glfw.lib.glfwSetCursorPosCallback(handle, self.callbacks.cursor_position)
+  glfw.lib.glfwSetMouseButtonCallback(handle, self.callbacks.mouse_button)
+  glfw.lib.glfwSetScrollCallback(handle, self.callbacks.scroll)
+  glfw.lib.glfwSetWindowFocusCallback(handle, self.callbacks.focus)
   return self
 end
 
-function Window:set_input_handlers(on_text, on_key)
+function Window:set_input_handlers(on_text, on_key, on_pointer, on_focus)
   self.on_text = on_text
   self.on_key = on_key
+  self.on_pointer = on_pointer
+  self.on_focus = on_focus
+end
+
+function Window:cursor_position()
+  local x = ffi.new("double[1]")
+  local y = ffi.new("double[1]")
+  glfw.lib.glfwGetCursorPos(self.handle, x, y)
+  return x[0], y[0]
 end
 
 function Window:take_shader_reload_request()

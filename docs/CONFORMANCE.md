@@ -15,6 +15,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | margins-and-origin | DECSTBM and DECOM |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
+| mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -51,7 +52,7 @@ claiming formal verification or allocator-independent memory totals.
 | erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, IND/RI at margins | `csr`, `ind`, `ri` |
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
-| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, or synchronized-output terminfo claim |
+| modes | IRM; DECOM, DECAWM, DECTCEM, DECCKM, bracketed-paste state; DECSCUSR cursor styles; synchronized output; SGR mouse/focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; OSC 7/8/133 consumed without UI action | not advertised |
@@ -85,6 +86,29 @@ an unbounded damage store. The mode is global across primary/alternate screen
 switches, is replayed deterministically, suppresses cursor-blink scheduling,
 and has no terminfo advertisement.
 
+## Mouse and focus reporting
+
+Kiwi supports DECSET/DECRST normal (`?1000`), button-event (`?1002`), and
+any-event (`?1003`) mouse tracking only with SGR extended encoding (`?1006`).
+Focus reporting is independent through `?1004`. SGR reports use exact
+one-based cell coordinates: press/motion/wheel is `CSI < Cb ; Cx ; Cy M`,
+release is `CSI < Cb ; Cx ; Cy m`, and focus in/out is `CSI I` / `CSI O`.
+Button-event motion requires a held supported button; any-event motion is
+coalesced to cell transitions; wheel callbacks emit at most 16 reports. When
+more than one tracking mode is enabled, `1003` takes precedence over `1002`,
+which takes precedence over `1000`; disabling the selected mode restores the
+next enabled mode.
+
+No X10, UTF-8 (1005), URXVT (1015), pixel (1016), highlight, horizontal-wheel,
+gesture, or touch encoding is implemented. Tracking without `?1006` retains
+mode state but emits nothing, rather than sending a legacy encoding that this
+contract does not support. A reported mouse event takes precedence over local
+interaction; while reporting is inactive Kiwi deliberately ignores pointer
+events because mouse selection is deferred to M4. Focus loss and any mouse
+mode reconfiguration clear held-button state. RIS resets tracking, SGR, and
+focus state; all are global across primary/alternate screens and replay
+deterministically. None are advertised through terminfo.
+
 ## Deployment evidence workflow
 
 `make conformance-evidence` is the repeatable command-line starting point for
@@ -107,7 +131,8 @@ fidelity or general application compatibility.
 | --- | --- | --- |
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
-| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, and synchronized output all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
+| Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY=<temporary>/vim.jsonl` | Passed structurally with Vim 9.2: it emitted SGR mouse and button-event activation; replay reported 5,542 bytes, 4,893 actions, zero errors, ignored actions, and unknown controls. This proves its activation sequence, not an interactive pointer usability claim. |
 | Local tmux | `TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, and `tput colors` returned `256`. tmux owns the nested contract; this does not authorize Kiwi itself to advertise 256 colours or truecolour. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
 | SSH | `TERMINFO=.build/terminfo ssh -o SendEnv=TERM -o SetEnv=TERM=kiwi <controlled-host> 'infocmp kiwi; tput colors'` | No access to a controlled remote host or credentials. No SSH deployment compatibility claim is made. Install the matching terminfo entry remotely before the probe. |
@@ -120,7 +145,7 @@ M2 terminal-width outcomes are deterministic rather than a claim to emulate the 
 
 ## Known unsupported/deferred behavior
 
-M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, mouse protocols, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, clipboard, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlinks or shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 
