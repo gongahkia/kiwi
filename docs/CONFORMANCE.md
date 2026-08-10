@@ -16,6 +16,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
 | kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
+| kitty-graphics | bounded direct-PNG APC-G transfer and chunk-boundary invariance |
 | mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | osc8-hyperlinks | OSC 8 open/close, stable `id` reuse, and both BEL/ST termination |
@@ -318,7 +319,7 @@ M2 terminal-width outcomes are deterministic rather than a claim to emulate the 
 
 ## Known unsupported/deferred behavior
 
-M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, Kitty keyboard flags 2/4/8/16 beyond the documented disambiguation subset, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlink previews, file/custom-scheme activation, OSC shell integration UI, images, full reset variants, DECRQM, OSC palette manipulation, sixel/kitty graphics, or exhaustive DEC private mode behavior. Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, runtime width-policy reflow, full private-use font coverage guarantees, Kitty keyboard flags 2/4/8/16 beyond the documented disambiguation subset, legacy/pixel/gesture mouse protocols beyond the documented SGR subset, OSC hyperlink previews, file/custom-scheme activation, OSC shell integration UI, image placement or rendering, full reset variants, DECRQM, OSC palette manipulation, Sixel, broader Kitty graphics support, or exhaustive DEC private mode behavior. The bounded direct-PNG Kitty APC-G transfer/cache subset is specified in [KITTY_GRAPHICS.md](KITTY_GRAPHICS.md). Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 

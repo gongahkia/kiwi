@@ -2,31 +2,31 @@
 
 ## Decision
 
-Before decoding or GPU allocation, Kiwi will recognize only bounded Kitty APC-G
-commands and derive a terminal-owned opaque image/placement ledger. The v1
-subset is direct inline PNG transfer, final/continuation chunks, explicit
-placement, deletion, and validation query as specified in
-[KITTY_GRAPHICS.md](../KITTY_GRAPHICS.md). It has fixed command, byte, image,
-placement, dimension, and in-flight-transfer limits.
+Kiwi recognizes bounded Kitty APC-G commands and accepts only direct inline PNG
+transfers plus validation queries. A completed transfer is validated and decoded
+into a terminal-owned, bounded CPU RGBA cache as specified in
+[KITTY_GRAPHICS.md](../KITTY_GRAPHICS.md). It has fixed APC, transfer chunk,
+encoded byte, image, dimension, pixel, decoded-data, CPU-cache, GPU-accounting,
+and in-flight-transfer limits.
 
-No graphics payload, pixels, path, shared-memory name, file descriptor, image
-texture, native handle, or renderer resource enters the terminal snapshot,
-diagnostics, scrollback, or extension API. A completed transfer is only an
-`undecoded` declaration. A later decoder/cache phase owns bytes and pixels; a
-later renderer phase owns GPU resources and visual composition.
+No graphics payload, decoded pixels, path, shared-memory name, file descriptor,
+image texture, native handle, or renderer resource enters the terminal snapshot,
+diagnostics, scrollback, or extension API. An incomplete transfer briefly owns
+bounded Base64 chunks; after decode the CPU cache owns pixels. A later renderer
+phase owns GPU resources and visual composition, and receives release
+descriptors rather than giving native handles to terminal state.
 
 An incomplete or invalid transfer has no display effect. Commands are ordered:
-another graphics action while a continuation is open rejects the partial ledger
-entry. Image deletion cascades to placements; exact placement deletion does not
-delete the image. Reset clears the whole ledger. Future row anchoring must be
-separate from image data so scrollback eviction has a deterministic loss mode.
+another graphics action while a continuation is open rejects the partial
+transfer. Reset clears the cache and creates renderer release work for any
+accounted GPU upload. Placement, deletion, and row anchoring remain separate
+future work so scrollback retains no image data.
 
 ## Consequences
 
-This creates an implementation checklist and executable fixture vocabulary
-without granting a graphics feature prematurely. It preserves existing APC
-discard behavior until the model and parser actions are implemented in the
-following M7 issues.
+This establishes a constrained transfer/cache capability without granting image
+placement or rendering. Generic APC data remains discarded; only APC-G reaches
+the terminal graphics model.
 
 ## References
 
