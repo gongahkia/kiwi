@@ -2,6 +2,7 @@ local CommandRegions = {}
 CommandRegions.__index = CommandRegions
 
 CommandRegions.default_limit = 256
+CommandRegions.default_row_reference_limit = 8
 
 local function copy_position(position)
   return { column = position.column, line_id = position.line_id, scope = position.scope }
@@ -15,6 +16,11 @@ local function copy_region(region)
   end
   return {
     command_start = region.command_start and copy_position(region.command_start) or nil,
+    coverage = region.reference_overflow and "truncated"
+      or region.row_count == 0 and "none"
+      or region.retained_rows == 0 and "evicted"
+      or region.retained_rows == region.row_count and "retained"
+      or "partial",
     cwd_id = region.cwd_id,
     exit_status = region.exit_status,
     finish = region.finish and copy_position(region.finish) or nil,
@@ -23,6 +29,9 @@ local function copy_region(region)
     output_start = region.output_start and copy_position(region.output_start) or nil,
     prompt_start = region.prompt_start and copy_position(region.prompt_start) or nil,
     recovery = recovery,
+    reference_overflow = region.reference_overflow,
+    retained_rows = region.retained_rows,
+    row_count = region.row_count,
     scope = region.scope,
     start = copy_position(region.start),
     state = region.state,
@@ -48,17 +57,22 @@ end
 function CommandRegions.new(options)
   options = options or {}
   local limit = options.limit or CommandRegions.default_limit
+  local row_reference_limit = options.row_reference_limit or CommandRegions.default_row_reference_limit
   assert(type(limit) == "number" and limit >= 1 and limit % 1 == 0, "command-region limit must be a positive integer")
+  assert(type(row_reference_limit) == "number" and row_reference_limit >= 1 and row_reference_limit % 1 == 0, "command-region row-reference limit must be a positive integer")
   return setmetatable({
+    by_id = {},
     limit = limit,
     next_id = 0,
     open = nil,
     regions = {},
+    row_reference_limit = row_reference_limit,
     stats = { dropped = 0, interrupted = 0, orphaned = 0, recovered = 0, repeated = 0 },
   }, CommandRegions)
 end
 
 function CommandRegions:clear()
+  self.by_id = {}
   self.next_id = 0
   self.open = nil
   self.regions = {}
@@ -71,6 +85,8 @@ function CommandRegions:append(event, state, recovery)
     cwd_id = event.cwd_id,
     id = self.next_id,
     last_position = position,
+    retained_rows = 0,
+    row_count = 0,
     scope = event.scope,
     start = position,
     state = state,
@@ -79,13 +95,49 @@ function CommandRegions:append(event, state, recovery)
   if state == "command" then region.command_start = copy_position(event) end
   if state == "output" then region.output_start = copy_position(event) end
   self.regions[#self.regions + 1] = region
+  self.by_id[region.id] = region
   if #self.regions > self.limit then
-    table.remove(self.regions, 1)
+    local dropped = table.remove(self.regions, 1)
+    self.by_id[dropped.id] = nil
     self.stats.dropped = self.stats.dropped + 1
   end
   self.open = region
   if recovery then recover(self, region, recovery) end
   return region
+end
+
+function CommandRegions:active_id()
+  return self.open and self.open.id or nil
+end
+
+function CommandRegions:attach_row(id)
+  local region = self.by_id[id]
+  if region == nil then return false end
+  region.row_count = region.row_count + 1
+  region.retained_rows = region.retained_rows + 1
+  return true
+end
+
+function CommandRegions:release_row(ids)
+  for _, id in ipairs(ids or {}) do
+    local region = self.by_id[id]
+    if region and region.retained_rows > 0 then region.retained_rows = region.retained_rows - 1 end
+  end
+end
+
+function CommandRegions:mark_row_reference_overflow(id)
+  local region = self.by_id[id]
+  if region then region.reference_overflow = true end
+end
+
+function CommandRegions:reconcile_rows(rows)
+  local retained = {}
+  for _, row in ipairs(rows) do
+    for _, id in ipairs(row.command_region_ids or {}) do
+      if self.by_id[id] then retained[id] = (retained[id] or 0) + 1 end
+    end
+  end
+  for _, region in ipairs(self.regions) do region.retained_rows = retained[region.id] or 0 end
 end
 
 function CommandRegions:finish(region, position, state, exit_status, interruption)

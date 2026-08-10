@@ -19,7 +19,7 @@ local function new_row(columns, blank_cell, line_id_factory)
   for column = 0, columns - 1 do
     cells[column] = blank_cell()
   end
-  return { cells = cells, line_id = line_id_factory and line_id_factory() or nil, wrapped = false }
+  return { cells = cells, command_region_ids = nil, command_regions_truncated = false, line_id = line_id_factory and line_id_factory() or nil, wrapped = false }
 end
 
 function Screen.new(columns, rows, blank_cell, line_id_factory)
@@ -69,6 +69,12 @@ function Screen:resize(columns, rows, blank_cell)
       copy_cell(resized.rows[row].cells[column], self.rows[row].cells[column])
     end
     resized.rows[row].line_id = self.rows[row].line_id
+    if self.rows[row].command_region_ids then
+      local ids = {}
+      for index, id in ipairs(self.rows[row].command_region_ids) do ids[index] = id end
+      resized.rows[row].command_region_ids = ids
+    end
+    resized.rows[row].command_regions_truncated = self.rows[row].command_regions_truncated
     resized.rows[row].wrapped = self.rows[row].wrapped
   end
   resized.cursor.column = math.min(self.cursor.column, columns - 1)
@@ -86,11 +92,13 @@ function Screen:resize(columns, rows, blank_cell)
   return resized
 end
 
-function Screen:scroll_up(top, bottom, count, preserve_row)
+function Screen:scroll_up(top, bottom, count, preserve_row, discard_row)
   for _ = 1, count do
     local outgoing = self.rows[top]
     if preserve_row then
       preserve_row(outgoing)
+    elseif discard_row then
+      discard_row(outgoing)
     end
     for row = top, bottom - 1 do
       self.rows[row] = self.rows[row + 1]
@@ -99,8 +107,9 @@ function Screen:scroll_up(top, bottom, count, preserve_row)
   end
 end
 
-function Screen:scroll_down(top, bottom, count)
+function Screen:scroll_down(top, bottom, count, discard_row)
   for _ = 1, count do
+    if discard_row then discard_row(self.rows[bottom]) end
     for row = bottom, top + 1, -1 do
       self.rows[row] = self.rows[row - 1]
     end

@@ -18,16 +18,18 @@ end
 
 function Scrollback:push(row)
   if self.limit == 0 then
-    return
+    return row
   end
   if self.count < self.limit then
     local index = ((self.head + self.count - 1) % self.limit) + 1
     self.rows[index] = row
     self.count = self.count + 1
-    return
+    return nil
   end
+  local evicted = self.rows[self.head]
   self.rows[self.head] = row
   self.head = (self.head % self.limit) + 1
+  return evicted
 end
 
 function Scrollback:get(index)
