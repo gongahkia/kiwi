@@ -92,6 +92,16 @@ local function assert_expected(fixture, state, parser)
       Assert.equal(parser.stats[name], value, fixture.id .. " parser " .. name)
     end
   end
+  if expected.shell then
+    local shell = state.shell:view()
+    if expected.shell.current_directory then
+      Assert.equal(shell.current_directory and shell.current_directory.uri, expected.shell.current_directory, fixture.id .. " current directory")
+    end
+    if expected.shell.events then
+      Assert.equal(#shell.events, #expected.shell.events, fixture.id .. " shell event count")
+      for index, kind in ipairs(expected.shell.events) do Assert.equal(shell.events[index].kind, kind, fixture.id .. " shell event " .. index) end
+    end
+  end
   if expected.responses then
     assert_sequence(state:pop_responses(), expected.responses, fixture.id .. " responses")
   end
