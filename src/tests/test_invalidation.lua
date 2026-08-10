@@ -1,5 +1,6 @@
 local Assert = require("tests.assert")
 local Invalidation = require("kiwi.renderer.invalidation")
+local Renderer = require("kiwi.renderer.renderer")
 
 return {
   invalidations_coalesce_reason_categories_until_successful_present = function()
@@ -28,5 +29,18 @@ return {
     Assert.truthy(invalidation:due(1))
     invalidation:consume_success(1)
     Assert.equal(invalidation:due(1), false)
+  end,
+  synchronized_output_defers_presentation_and_cursor_style_reaches_the_renderer = function()
+    local model = {
+      cursor = { column = 3, row = 2, visible = true },
+      modes = { cursor_style = 5, synchronized_output = true },
+    }
+    local cursor = Renderer.cursor_descriptor({}, model)
+    Assert.equal(cursor.style, 5)
+    Assert.equal(cursor.shape, "bar")
+    Assert.equal(cursor.blink, true)
+    Assert.equal(Renderer.can_present({}, model), false)
+    model.modes.synchronized_output = false
+    Assert.equal(Renderer.can_present({}, model), true)
   end,
 }

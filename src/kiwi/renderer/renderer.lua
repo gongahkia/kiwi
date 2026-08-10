@@ -23,6 +23,8 @@ typedef struct {
   float show_dirty;
   float show_boundaries;
   float cursor_visible;
+  float cursor_shape;
+  float cursor_blink;
 } KiwiFrameUniform;
 ]]
 
@@ -51,6 +53,17 @@ local function select_glyph(atlas, glyph_text)
   end
   return glyph, glyph_text
 end
+
+local cursor_styles = {
+  [1] = { shape = "block", blink = true },
+  [2] = { shape = "block", blink = false },
+  [3] = { shape = "underline", blink = true },
+  [4] = { shape = "underline", blink = false },
+  [5] = { shape = "bar", blink = true },
+  [6] = { shape = "bar", blink = false },
+}
+
+local cursor_shape_values = { block = 0, underline = 1, bar = 2 }
 
 Renderer.select_glyph = select_glyph
 
@@ -384,6 +397,24 @@ function Renderer:resource_descriptor(kind, access, fields)
   return fields
 end
 
+function Renderer:cursor_descriptor(model)
+  local modes = model.modes or {}
+  local style = modes.cursor_style or 1
+  local details = cursor_styles[style] or cursor_styles[1]
+  return {
+    column = model.cursor.column,
+    row = model.cursor.row,
+    visible = model.cursor.visible ~= false,
+    style = style,
+    shape = details.shape,
+    blink = details.blink,
+  }
+end
+
+function Renderer:can_present(model)
+  return model.modes == nil or model.modes.synchronized_output ~= true
+end
+
 function Renderer:register_semantic_resources(model)
   local registry = self.resource_registry
   local handles = self.resource_handles
@@ -402,11 +433,7 @@ function Renderer:register_semantic_resources(model)
     count = self.glyph_count or 0,
     instance_bytes = Packing.text_glyph_instance_size,
   })
-  register("terminal.cursor", "read", {
-    column = model.cursor.column,
-    row = model.cursor.row,
-    visible = model.cursor.visible ~= false,
-  })
+  register("terminal.cursor", "read", self:cursor_descriptor(model))
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
     columns = model.columns,
@@ -440,11 +467,7 @@ function Renderer:refresh_semantic_resources(model, time, delta)
     count = self.glyph_count or 0,
     instance_bytes = Packing.text_glyph_instance_size,
   }))
-  registry:update(handles["terminal.cursor"], self:resource_descriptor("terminal.cursor", "read", {
-    column = model.cursor.column,
-    row = model.cursor.row,
-    visible = model.cursor.visible ~= false,
-  }))
+  registry:update(handles["terminal.cursor"], self:resource_descriptor("terminal.cursor", "read", self:cursor_descriptor(model)))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
     ranges = self.diagnostics.dirty_ranges,
@@ -597,15 +620,18 @@ end
 
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   local delta = math.max(0, time - self.frame_time)
+  local cursor = self:cursor_descriptor(model)
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
-  self.frame[0].cursor_column = model.cursor.column
-  self.frame[0].cursor_row = model.cursor.row
+  self.frame[0].cursor_column = cursor.column
+  self.frame[0].cursor_row = cursor.row
   self.frame[0].time = time
   self.frame[0].show_dirty = debug_dirty and 1 or 0
   self.frame[0].show_boundaries = debug_boundaries and 1 or 0
-  self.frame[0].cursor_visible = model.cursor.visible == false and 0 or 1
+  self.frame[0].cursor_visible = cursor.visible and 1 or 0
+  self.frame[0].cursor_shape = cursor_shape_values[cursor.shape]
+  self.frame[0].cursor_blink = cursor.blink and 1 or 0
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
   self:refresh_semantic_resources(model, time, delta)
 end

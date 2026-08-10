@@ -270,7 +270,7 @@ local function run_live(options)
         elseif renderer:shader_reload_enabled() then
           report_shader_reload(renderer:poll_shader_reload(now))
         end
-        if renderer:needs_render(now) then
+        if renderer:needs_render(now) and renderer:can_present(state) then
         local frame_start = now
         local prepare_start = window:time()
         renderer:update_model(state)
