@@ -37,12 +37,22 @@ function Passes.build(renderer)
       self.pipeline = nil
     end
   end
+  local cursor = Pass.new("terminal/cursor", 30, nil, c.load_load, function()
+      return 1
+    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/glyph" })
+  function cursor:initialize(owner)
+    self.pipeline = owner:create_pipeline("cursor-pass", "cursor_vs", "cursor_fs")
+  end
+  function cursor:shutdown(owner)
+    if self.pipeline then
+      owner:release_native(self.pipeline)
+      self.pipeline = nil
+    end
+  end
   return {
     background,
     glyph,
-    Pass.new("terminal/cursor", 30, renderer.cursor_pipeline, c.load_load, function()
-      return 1
-    end, { "terminal.cursor", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/glyph" }),
+    cursor,
   }
 end
 
