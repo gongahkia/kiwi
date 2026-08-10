@@ -5,6 +5,7 @@ local PassRegistry = require("kiwi.renderer.pass_registry")
 local PassApi = require("kiwi.renderer.pass_api")
 local PassMetrics = require("kiwi.renderer.pass_metrics")
 local Invalidation = require("kiwi.renderer.invalidation")
+local Inspector = require("kiwi.renderer.inspector")
 local Resources = require("kiwi.renderer.resources")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
@@ -63,6 +64,7 @@ function Renderer.new(context, font, model, options)
   assert(type(extensions) == "table", "renderer extensions must be a table")
   local shader_path = development_mode and options.development_shader_path or builtin_shader_path
   local pass_metrics_enabled = options.pass_metrics_enabled == true
+  local inspector_enabled = options.inspector_enabled == true
   Packing.assert_layout()
   local self = setmetatable({
     context = context,
@@ -81,6 +83,8 @@ function Renderer.new(context, font, model, options)
     extensions = extensions,
     pass_metrics = PassMetrics.new({ enabled = pass_metrics_enabled }),
     invalidation = Invalidation.new(),
+    inspector_enabled = inspector_enabled,
+    inspector_selected_pass = options.inspector_selected_pass,
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -325,6 +329,16 @@ end
 
 function Renderer:invalidation_snapshot()
   return self.invalidation:snapshot()
+end
+
+function Renderer:select_inspector_pass(name)
+  assert(name == nil or type(name) == "string", "inspector pass selection must be a string or nil")
+  self.inspector_selected_pass = name
+end
+
+function Renderer:inspector_snapshot()
+  if not self.inspector_enabled then return { enabled = false, passes = {} } end
+  return Inspector.build(self, self.inspector_selected_pass)
 end
 
 function Renderer:resource_descriptor(kind, access, fields)
@@ -625,6 +639,7 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.diagnostics.draw_calls = self.pass_registry:count()
   self.invalidation:consume_success(time)
   self.diagnostics.invalidation = self:invalidation_snapshot()
+  if self.inspector_enabled then self.diagnostics.inspector = self:inspector_snapshot() end
   return true
 end
 

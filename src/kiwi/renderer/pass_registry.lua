@@ -154,9 +154,14 @@ end
 
 function Registry:register(pass)
   self:assert_state("registering", "registration")
-  validate_pass(pass)
+  local ok, message = pcall(validate_pass, pass)
+  if not ok then
+    self.last_error = tostring(message)
+    error(message, 0)
+  end
   if self.names[pass.name] then
-    fail("pass " .. pass.name .. " is already registered")
+    self.last_error = "pass " .. pass.name .. " is already registered"
+    fail(self.last_error)
   end
   self.names[pass.name] = true
   self.passes[#self.passes + 1] = pass
@@ -164,7 +169,11 @@ end
 
 function Registry:initialize(renderer)
   self:assert_state("registering", "initialization")
-  local ordered, parallel_groups = graph_order(self.passes)
+  local ok, ordered, parallel_groups = pcall(graph_order, self.passes)
+  if not ok then
+    self.last_error = tostring(ordered)
+    error(ordered, 0)
+  end
   self.state = "initializing"
   for _, pass in ipairs(ordered) do
     self.initialized[#self.initialized + 1] = pass
