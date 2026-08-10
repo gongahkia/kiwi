@@ -33,6 +33,7 @@ function Window.new(width, height, title)
     debug_dirty = false,
     debug_boundaries = false,
     debug_metrics = false,
+    shader_reload_requested = false,
     callbacks = {},
   }, Window)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
@@ -46,6 +47,8 @@ function Window.new(width, height, title)
       self.debug_boundaries = not self.debug_boundaries
     elseif action == glfw.constants.press and key == glfw.constants.key_f4 then
       self.debug_metrics = not self.debug_metrics
+    elseif action == glfw.constants.press and key == glfw.constants.key_f5 then
+      self.shader_reload_requested = true
     elseif self.on_key then
       self.on_key(key, action, modifiers)
     elseif action == glfw.constants.press and key == glfw.constants.key_escape then
@@ -66,6 +69,12 @@ end
 function Window:set_input_handlers(on_text, on_key)
   self.on_text = on_text
   self.on_key = on_key
+end
+
+function Window:take_shader_reload_request()
+  local requested = self.shader_reload_requested
+  self.shader_reload_requested = false
+  return requested
 end
 
 function Window:set_title(title)

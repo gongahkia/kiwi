@@ -12,6 +12,9 @@ function Pass:encode(renderer, encoder, view, model)
 end
 
 local function initialize_pipeline(owner, pass, label, vertex_entry, fragment_entry)
+  pass.pipeline_label = label
+  pass.vertex_entry = vertex_entry
+  pass.fragment_entry = fragment_entry
   pass.shader = owner:load_shader(pass.name, pass.name)
   pass.pipeline = owner:create_pipeline(label, vertex_entry, fragment_entry, pass.shader)
 end

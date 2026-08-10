@@ -61,5 +61,6 @@ return {
     key_f2 = 291,
     key_f3 = 292,
     key_f4 = 293,
+    key_f5 = 294,
   },
 }

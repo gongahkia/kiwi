@@ -105,6 +105,10 @@ const char *kiwi_surface_last_error(void) {
   return kiwi_surface_error;
 }
 
+void kiwi_surface_clear_error(void) {
+  kiwi_surface_error[0] = '\0';
+}
+
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
   WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
   int platform = glfwGetPlatform();

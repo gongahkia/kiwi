@@ -62,4 +62,13 @@ return {
     Assert.equal(released, 1)
     Assert.truthy(message:match("compilation failed: error line=1 column=19") ~= nil)
   end,
+  shader_loader_bounds_source_size_before_compilation = function()
+    local loader = Loader.new({
+      max_source_bytes = 3,
+      read_source = function() return "four" end,
+      compile = function() error("compile must not run") end,
+    })
+    local message = expect_error(function() loader:load(definition()) end)
+    Assert.truthy(message:match("source exceeds 3 byte limit") ~= nil)
+  end,
 }
