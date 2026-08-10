@@ -19,6 +19,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | mouse-and-focus | DEC mouse tracking/SGR/focus activation, reset, unsupported mode accounting |
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | osc8-hyperlinks | OSC 8 open/close, stable `id` reuse, and both BEL/ST termination |
+| shell-integration | OSC 7 current directory plus OSC 133 A/B/C/D shell markers with BEL/ST termination |
 | osc52-policy | OSC 52 default denial and bounded oversized payload handling |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -61,7 +62,7 @@ claiming formal verification or allocator-independent memory totals.
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; OSC 7/133 consumed without UI action; OSC 52 has no clipboard action or response | not advertised |
+| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata; OSC 52 has no clipboard action or response | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -81,6 +82,32 @@ OSC 52 is default-denied: terminal output cannot read, write, clear, or query th
 Kiwi accepts `OSC 8 ; params ; URI ST|BEL` and the empty `OSC 8 ; ; ST|BEL` close form. It retains at most 4,096 target records and at most 2,048 ASCII UTF-8 bytes per URI. The only activatable schemes are `https`, `http`, and `mailto`; control bytes, spaces, NUL, malformed parameters, non-ASCII URI bytes, unsupported schemes, URI-limit overflow, and a repeated OSC `id` with a different URI reject the open and clear the current link. Opening a valid link replaces the current link. Empty close forms end it. Link cells retain an internal identity through ordinary edits, bounded primary scrollback, resize, and replay; no URI is published through renderer resources or diagnostics.
 
 Links draw an underline from the read-only `terminal.hyperlinks` resource through the glyph pass. `KIWI_HYPERLINK_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to `#88C0D0FF`. An explicit `Ctrl+primary-click` activates the link under the pointer when application mouse reporting is inactive; `Ctrl+Shift+O` activates the link under the visible cursor. Both bindings remain local under Kitty keyboard disambiguation and do not write PTY input. Activation revalidates the target then calls detached `xdg-open` without a shell; launch acceptance does not prove that a desktop handler opened the URI. `file`, `data`, `javascript`, custom schemes, previews, hover activation, and automatic opening are intentionally unsupported. [ADR 0026](adr/0026-osc8-hyperlink-policy.md) records the full boundary.
+
+## OSC 7 and OSC 133 shell metadata
+
+Kiwi accepts an OSC 7 `file://host/absolute-path` current-directory advisory
+value and OSC 133 `A`, `B`, `C`, `D`, or `D;<0..255>` markers, each terminated
+by BEL or ST. OSC 7 is ASCII/UTF-8 validated, limited to 2,048 bytes, and
+rejects non-`file` schemes, controls, spaces, NUL, query, and fragment
+components. It is not decoded, normalized, resolved, opened, displayed, or
+treated as proof that a local or remote path exists.
+
+Accepted OSC 133 records are respectively `prompt`, `command_start`,
+`command_executed`, and `command_finished`; the optional finish status is an
+unsigned value from 0 to 255. Every accepted sequence records active-screen
+scope, stable row ID, cursor column, current-directory identity, and a
+monotonic logical timestamp. Repeated markers remain individual records.
+Malformed forms are rejected, unknown lettered markers are counted separately,
+and none mutate terminal text, cursor, process state, or generic unknown-OSC
+diagnostics.
+
+Kiwi retains at most 128 directory records and 512 events by default, dropping
+the oldest with counters. Canonical replay snapshots retain opaque IDs/events
+but omit directory host/path/URI; shell metadata has no renderer resource,
+diagnostic payload, local key binding, automatic shell setup, command
+execution, navigation, or UI yet. The `shell-integration` fixture covers the
+common bash/zsh/fish marker order and both OSC terminators. [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
+defines the complete boundary.
 
 ## Input method status
 
@@ -206,6 +233,7 @@ fidelity or general application compatibility.
 | --- | --- | --- |
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native truecolour contract | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/truecolour.jsonl -- ./script/truecolour-contract-child'`; `make replay REPLAY=<temporary>/truecolour.jsonl` | Passed structurally: the actual child received `TERM=kiwi`, `COLORTERM=unset`, and `tput colors=16`; a known RGB SGR value replayed with zero parser errors, ignored actions, or unknown controls. This is not a physical pixel comparison. |
+| Native shell metadata | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/shell.jsonl -- ./script/shell-integration-child'`; `make replay REPLAY=<temporary>/shell.jsonl` | Passed structurally on 2026-08-10: the 115-byte OSC 7/133 sample replayed as `cwd`, `prompt`, `command_start`, `command_executed`, and `command_finished` with zero parser errors, ignored actions, or unknown controls. The noninteractive child verifies Kiwi's native parser/state path without changing or certifying a user's shell integration configuration. |
 | Native RGB TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; inspect raw output and replay | Btop 1.4.7 emitted 43,076 RGB SGR sequences while `COLORTERM` was absent; replay retained the colours but reported one parser error and two unknown CSI controls, including unsupported mouse mode `CSI ? 1015 h`. It is evidence that RGB input reaches the renderer path, not sufficient truecolour or general-TUI compatibility evidence. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
 | Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |

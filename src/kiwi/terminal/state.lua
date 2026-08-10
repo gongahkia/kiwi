@@ -7,6 +7,7 @@ local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
 local Search = require("kiwi.input.search")
 local Selection = require("kiwi.input.selection")
+local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
 
@@ -90,6 +91,7 @@ function State.new(columns, rows, options)
     search = Search.new(),
     search_generation = 0,
     selection = Selection.new(),
+    shell = ShellIntegration.new(options.shell_integration),
     history_offset = 0,
     title = nil,
     responses = {},
@@ -247,6 +249,15 @@ end
 
 function State:selection_scope()
   return self.active_screen == self.primary and "primary" or "alternate"
+end
+
+function State:shell_position()
+  local cursor = self.active_screen.cursor
+  return {
+    column = cursor.column,
+    line_id = self.active_screen.rows[cursor.row].line_id,
+    scope = self:selection_scope(),
+  }
 end
 
 function State:selection_rows(scope)
@@ -1124,6 +1135,7 @@ function State:reset()
   self.modes.keyboard_flags = 0
   self:reset_tab_stops()
   self.scrollback:clear()
+  self.shell:clear()
   self.hyperlinks = {}
   self.hyperlink_ids = {}
   self.next_hyperlink_id = 0
@@ -1487,6 +1499,8 @@ end
 function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
+  elseif action.command == 7 then
+    self.shell:apply_cwd(action.payload, self:shell_position())
   elseif action.command == 8 then
     local parsed = Hyperlink.parse_osc8(action.payload, self.hyperlink_uri_maximum_bytes)
     if parsed == nil then
@@ -1515,7 +1529,9 @@ function State:apply_osc(action)
         self.stats.hyperlinks.opened = self.stats.hyperlinks.opened + 1
       end
     end
-  elseif action.command ~= 7 and action.command ~= 133 then
+  elseif action.command == 133 then
+    self.shell:apply_marker(action.payload, self:shell_position())
+  else
     self:record_unknown("osc", { command = action.command })
   end
 end
