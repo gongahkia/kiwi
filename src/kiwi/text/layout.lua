@@ -50,8 +50,11 @@ function Layout:begin_frame()
     rows_invalidated = 0,
     rows_reshaped = 0,
     runs_reshaped = 0,
+    runs_built = 0,
+    clusters_examined = 0,
     codepoints_shaped = 0,
     glyphs_produced = 0,
+    run_build_cpu_ms = 0,
     shaping_cpu_ms = 0,
     visible_runs = 0,
     visible_glyphs = 0,
@@ -63,8 +66,9 @@ end
 
 function Layout:row_is_dirty(state, row)
   if self.rows[row] == nil or self.rows[row].generation ~= self.generation or self.rows[row].text_generation ~= self.font_system.text_generation then return true end
-  if state.damage.full then return true end
-  for _, range in ipairs(state.damage:ranges()) do
+  local damage = state.text_damage or state.damage
+  if damage.full then return true end
+  for _, range in ipairs(damage:ranges()) do
     local first_row = math.floor(range.first / state.columns)
     local last_row = math.floor((range.first + range.count - 1) / state.columns)
     if row >= first_row and row <= last_row then return true end
@@ -126,18 +130,20 @@ function Layout:shape_run(run, row, output)
   end
 end
 
-function Layout:shape_row(state, row)
-  local output, run = {}, nil
+function Layout:build_runs(state, row)
+  local started = os.clock()
+  local runs, run = {}, nil
   local function flush()
     if run then
       run.text = table.concat(run.text_parts)
-      self:shape_run(run, row, output)
+      runs[#runs + 1] = run
     end
     run = nil
   end
   for column = 0, state.columns - 1 do
     local cell = cell_at(state, column, row)
     if not cell.continuation and cell.glyph ~= " " and cell.glyph ~= "" then
+      self.stats.clusters_examined = self.stats.clusters_examined + 1
       local codepoints = cluster_codepoints(cell)
       local face = self.font_system:face_for_cluster(codepoints)
       local width = cell.width or 1
@@ -165,7 +171,19 @@ function Layout:shape_row(state, row)
     end
   end
   flush()
+  self.stats.runs_built = self.stats.runs_built + #runs
+  self.stats.run_build_cpu_ms = self.stats.run_build_cpu_ms + (os.clock() - started) * 1000
+  return runs
+end
+
+function Layout:shape_runs(runs, row)
+  local output = {}
+  for _, run in ipairs(runs) do self:shape_run(run, row, output) end
   return output
+end
+
+function Layout:shape_row(state, row)
+  return self:shape_runs(self:build_runs(state, row), row)
 end
 
 function Layout:update(state)
@@ -191,6 +209,7 @@ function Layout:update(state)
     for _, glyph in ipairs(self.rows[row].glyphs) do glyphs[#glyphs + 1] = glyph end
   end
   self.stats.visible_glyphs = #glyphs
+  if state.text_damage then state.text_damage:clear() end
   return glyphs
 end
 

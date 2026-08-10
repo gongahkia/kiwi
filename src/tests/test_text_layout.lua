@@ -1,4 +1,5 @@
 local Assert = require("tests.assert")
+local Actions = require("kiwi.terminal.actions")
 local HarfBuzz = require("kiwi.text.harfbuzz")
 local Inspector = require("kiwi.diagnostics.text_inspector")
 local Layout = require("kiwi.text.layout")
@@ -115,6 +116,32 @@ return {
     Assert.truthy(#changed >= #initial)
     Assert.equal(layout.stats.rows_reshaped, 1)
     Assert.equal(layout.stats.rows_invalidated, 1)
+    system:destroy()
+  end,
+  text_layout_ignores_cursor_and_sgr_only_damage_and_coalesces_text_rows = function()
+    local system = text_system()
+    local layout = Layout.new(system)
+    local state = State.new(8, 2)
+    write(state, string.byte("A"))
+    layout:update(state)
+    state.damage:clear()
+
+    state:move_cursor(2, 1)
+    Assert.truthy(state.damage:summary().cells > 0)
+    Assert.equal(state.text_damage:summary().cells, 0)
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 0)
+
+    state:apply(Actions.csi({ 31 }, "", "", "m"))
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 0)
+
+    write(state, string.byte("B"))
+    write(state, string.byte("C"))
+    write(state, string.byte("D"))
+    Assert.equal(state.text_damage:summary().ranges, 1)
+    layout:update(state)
+    Assert.equal(layout.stats.rows_reshaped, 1)
     system:destroy()
   end,
   text_layout_invalidates_on_shape_and_fallback_configuration_changes = function()
