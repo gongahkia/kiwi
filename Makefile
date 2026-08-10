@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke pacing replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke budget-smoke pacing device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -41,6 +41,15 @@ budget-smoke: native terminfo
 pacing: native terminfo
 	mkdir -p bench/results
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
+
+device-soak:
+	$(LUAJIT) src/kiwi/bench/device_soak.lua
+
+device-soak-native: native terminfo
+	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP native device soak: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_DEVICE_SOAK_SECONDS=$${KIWI_DEVICE_SOAK_SECONDS:-10} KIWI_RENDER_EXTENSIONS=tests.fixture_soak_extension $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes; fi
+
+device-loss-sim: native terminfo
+	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP device-loss simulation: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_SIMULATE_DEVICE_LOSS_FRAME=$${KIWI_SIMULATE_DEVICE_LOSS_FRAME:-5} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes; fi
 
 replay:
 	$(LUAJIT) src/kiwi/replay.lua $(REPLAY)

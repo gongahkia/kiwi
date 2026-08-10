@@ -13,6 +13,9 @@ make pacing
 KIWI_PACING_SAMPLES=120 KIWI_PACING_WARMUP_FRAMES=20 make pacing
 make bench-longrun
 KIWI_LONGRUN_HISTORY_LIMIT=2048 KIWI_LONGRUN_HISTORY_LINES=4096 make bench-longrun
+make device-soak
+KIWI_DEVICE_SOAK_SECONDS=600 make device-soak-native
+make device-loss-sim
 make text-corpus-review
 KIWI_TEXT_CORPUS_ARTIFACT=/absolute/path/review.json make text-corpus-review
 KIWI_MAX_FRAMES=240 make text-corpus-demo
@@ -166,6 +169,42 @@ KIWI_LONGRUN_ATLAS_ENTRIES=96 KIWI_LONGRUN_TEXT_ROUNDS=400 make bench-longrun
 The 384 MiB guard is a [Inference] regression boundary with headroom above this
 host's observed result, not a universal memory target or evidence that a lower
 memory configuration is unsupported.
+
+## M9 device-loss and extension lifecycle soak
+
+`make device-soak` is the short, deterministic CI-friendly check. Its default
+32 cycles build a fresh pass graph and semantic-resource registry, exercise a
+resize/minimize/restore lifecycle marker, alternately disable a failing trusted
+optional pass, and verify that every fake owned resource is released and no
+registry retains an active pass after shutdown. It does not create a window,
+adapter, device, surface, or native GPU resource; its results establish only
+Lua lifecycle and ownership behavior.
+
+`make device-soak-native` is an opt-in graphical companion. It skips with an
+explicit message when neither `DISPLAY` nor `WAYLAND_DISPLAY` is available.
+Otherwise it runs `/usr/bin/yes` in Kiwi, repeatedly invokes GLFW resize,
+iconify, and restore operations, and loads a test-only optional pass that
+disables itself on encoding. The run ends after
+`KIWI_DEVICE_SOAK_SECONDS` (default `10`); a longer local run remains bounded,
+for example:
+
+```sh
+KIWI_DEVICE_SOAK_SECONDS=600 make device-soak-native
+```
+
+The native command exercises the current display/compositor path rather than a
+portable leak detector. [Inference] Passing it shows that this workload reached
+its configured lifecycle calls and completed cleanup on that host; it does not
+prove absence of driver, compositor, or WGPU leaks.
+
+Kiwi handles a WGPU device-loss callback by recreating the device, surface, and
+renderer once while retaining the existing window, terminal state, PTY, and
+font. Surface-status failures request reconfiguration; a second loss or another
+native GPU error exits with bounded adapter/pass diagnostics. `make
+device-loss-sim` drives that policy through a clearly synthetic error at a
+bounded frame count. It verifies cleanup/recreation control flow where a real
+device loss cannot be induced, but does not observe a driver callback. Record a
+real callback separately when a platform exposes a safe fault-injection path.
 
 ## M8 text corpus and review protocol
 

@@ -51,6 +51,9 @@ make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/re
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
+make device-soak                        # CI-friendly deterministic pass/resource/extension lifecycle soak
+make device-soak-native                 # bounded native resize/minimize/restore + extension-churn soak; skips without display
+make device-loss-sim                    # bounded native device-recreation policy simulation; skips without display
 make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
 make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
 make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
@@ -90,6 +93,8 @@ Each registration is preflighted independently against the complete built-in pas
 Extension limits are enforced before registration or scheduling. `KIWI_EXTENSION_MAX_PASSES` sets the positive-integer optional-pass cap (default `32`); `KIWI_EXTENSION_MAX_ANIMATION_HZ` sets the maximum optional redraw rate from `1/60` through `60` Hz (default `60`). A registration that would exceed the pass cap is discarded as a whole. An animation request with a delay below the configured cadence is rejected without scheduling a redraw. Safe mode bypasses both extension module loading and extension-cap environment parsing.
 
 API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-memory accounting: those limits are fixed at zero until a separately versioned capability exists. One callback failure disables its optional pass, while diagnostic history is bounded to 32 records of at most 4,096 bytes each. The full plain-data cap state, including unavailable capability markers, is in `renderer.diagnostics.extensions.limits`.
+
+GPU faults have an explicit bounded policy. A transient surface-acquire or present status requests a surface reconfiguration on the next render attempt. A `wgpu device lost` callback tears down all renderer-owned resources and retries once by recreating the WGPU context and renderer against the existing window, terminal state, PTY, and font. A second device loss, a failed recreation, or another native GPU error exits after printing a bounded diagnostic with backend, vendor, adapter, and last renderer pass/phase. Kiwi does not claim transparent recovery for every driver. `renderer.diagnostics.gpu_recovery` retains at most 16 such records and contains no terminal, clipboard, command, or display content. `make device-loss-sim` exercises the policy path with a synthetic marker; it is not evidence that a driver delivered the WGPU device-loss callback.
 
 Kiwi coalesces terminal, resize, cursor, selection, search, Kitty-image, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
 

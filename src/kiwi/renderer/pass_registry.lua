@@ -146,8 +146,26 @@ function Registry.new(options)
     parallel_groups = {},
     metrics = options.metrics,
     on_optional_failure = options.on_optional_failure,
+    activity = { active = nil, last = nil },
     state = "registering",
   }, Registry)
+end
+
+function Registry:run_pass(pass, phase, callback)
+  local activity = { extension = pass.extension, name = pass.name, phase = phase }
+  self.activity.active = activity
+  self.activity.last = activity
+  local ok, message = xpcall(callback, debug.traceback)
+  self.activity.active = nil
+  return ok, message
+end
+
+function Registry:activity_snapshot()
+  local function copy(item)
+    if item == nil then return nil end
+    return { extension = item.extension, name = item.name, phase = item.phase }
+  end
+  return { active = copy(self.activity.active), last = copy(self.activity.last) }
 end
 
 function Registry.validate(passes)
@@ -204,7 +222,7 @@ function Registry:initialize(renderer)
     self.initialized[#self.initialized + 1] = pass
     pass.lifecycle = "initializing"
     if pass.initialize then
-      local ok, message = xpcall(function() pass:initialize(renderer) end, debug.traceback)
+      local ok, message = self:run_pass(pass, "initialization", function() pass:initialize(renderer) end)
       if not ok then
         if self:contain_optional_failure(pass, "initialization", message) then
           pass.lifecycle = "disabled"
@@ -227,7 +245,7 @@ function Registry:encode(renderer, encoder, view, model)
   for _, pass in ipairs(self.passes) do
     if not pass.disabled then
       local function encode()
-        local ok, message = xpcall(function() pass:encode(renderer, encoder, view, model) end, debug.traceback)
+        local ok, message = self:run_pass(pass, "encoding", function() pass:encode(renderer, encoder, view, model) end)
         if not ok then
           if not self:contain_optional_failure(pass, "encoding", message) then
             fail("pass " .. pass.name .. " encoding failed: " .. message)
@@ -245,7 +263,7 @@ function Registry:prepare(renderer, model)
     if not pass.disabled then
       local function prepare()
         if pass.prepare then
-          local ok, message = xpcall(function() pass:prepare(renderer, model) end, debug.traceback)
+          local ok, message = self:run_pass(pass, "preparation", function() pass:prepare(renderer, model) end)
           if not ok then
             if not self:contain_optional_failure(pass, "preparation", message) then
               fail("pass " .. pass.name .. " preparation failed: " .. message)
@@ -274,7 +292,7 @@ function Registry:resize(renderer, previous, current)
   self:assert_state("ready", "resize")
   for _, pass in ipairs(self.passes) do
     if not pass.disabled and pass.resize then
-      local ok, message = xpcall(function() pass:resize(renderer, previous, current) end, debug.traceback)
+      local ok, message = self:run_pass(pass, "resize", function() pass:resize(renderer, previous, current) end)
       if not ok and not self:contain_optional_failure(pass, "resize", message) then
         fail("pass " .. pass.name .. " resize failed: " .. message)
       end
@@ -290,7 +308,7 @@ function Registry:shutdown(renderer)
   for index = #self.initialized, 1, -1 do
     local pass = self.initialized[index]
     if pass.lifecycle ~= "shutdown" and pass.shutdown then
-      local ok, message = xpcall(function() pass:shutdown(renderer) end, debug.traceback)
+      local ok, message = self:run_pass(pass, "shutdown", function() pass:shutdown(renderer) end)
       if not ok and not self:contain_optional_failure(pass, "shutdown", message) and first_error == nil then
         first_error = "pass " .. pass.name .. " shutdown failed: " .. message
       end

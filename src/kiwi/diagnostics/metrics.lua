@@ -63,6 +63,7 @@ function Metrics:snapshot()
     inspector = renderer.inspector or { enabled = false, passes = {} },
     text_backend = renderer.text_backend or { abi_version = 1, active = "atlas", fallback = false },
     extensions = renderer.extensions or { enabled = true, diagnostics = {}, disabled = {} },
+    gpu_recovery = self.runtime.recovery and self.runtime.recovery:snapshot() or { history = {}, limits = {}, policy = "unavailable" },
     glyph_count = atlas:glyph_count(),
     atlas_width = atlas.width,
     atlas_height = atlas.height,
