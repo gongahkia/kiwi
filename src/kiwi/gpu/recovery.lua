@@ -25,15 +25,24 @@ local function classify(reason)
   return "fatal-render-error"
 end
 
+local function bounded_message(value, limit)
+  local text = tostring(value or "unknown GPU error")
+  if #text <= limit then return text end
+  return text:sub(1, limit) .. " [truncated]"
+end
+
 function Recovery.new(options)
   options = options or {}
   local history_limit = options.history_limit or 16
+  local message_limit = options.message_limit or 2048
   local max_device_retries = options.max_device_retries or 1
   assert(type(history_limit) == "number" and history_limit >= 1 and history_limit % 1 == 0, "GPU recovery history limit must be a positive integer")
+  assert(type(message_limit) == "number" and message_limit >= 1 and message_limit % 1 == 0, "GPU recovery message limit must be a positive integer")
   assert(type(max_device_retries) == "number" and max_device_retries >= 0 and max_device_retries % 1 == 0, "GPU recovery retry limit must be a non-negative integer")
   return setmetatable({
     history = {},
     history_limit = history_limit,
+    message_limit = message_limit,
     max_device_retries = max_device_retries,
     device_retries = 0,
   }, Recovery)
@@ -57,7 +66,7 @@ function Recovery:decide(reason, context, activity)
     adapter = copy_adapter(context and context.adapter_info),
     attempts = self.device_retries,
     kind = kind,
-    message = tostring(reason or "unknown GPU error"),
+    message = bounded_message(reason, self.message_limit),
     pass = copy_pass(activity),
   }
   self.history[#self.history + 1] = item
@@ -80,7 +89,7 @@ function Recovery:snapshot()
   return {
     device_retries = self.device_retries,
     history = history,
-    limits = { device_retries = self.max_device_retries, diagnostic_entries = self.history_limit },
+    limits = { device_retries = self.max_device_retries, diagnostic_entries = self.history_limit, diagnostic_message_bytes = self.message_limit },
     policy = "retry one device loss by recreating the GPU context; exit for a second loss or another native GPU error",
   }
 end
