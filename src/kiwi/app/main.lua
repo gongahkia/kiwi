@@ -78,7 +78,11 @@ local function new_font(window)
 end
 
 local function renderer_options()
-  local options = { pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1" }
+  local options = {
+    pass_metrics_enabled = os.getenv("KIWI_PASS_METRICS") == "1",
+    inspector_enabled = os.getenv("KIWI_RENDER_INSPECTOR") == "1",
+    inspector_selected_pass = os.getenv("KIWI_RENDER_INSPECTOR_PASS"),
+  }
   if os.getenv("KIWI_DEVELOPMENT") ~= "1" then return options end
   local path = os.getenv("KIWI_DEV_SHADER_PATH")
   assert(type(path) == "string" and #path > 0, "KIWI_DEVELOPMENT=1 needs KIWI_DEV_SHADER_PATH")

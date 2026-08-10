@@ -58,6 +58,7 @@ function Metrics:snapshot()
     full_update = renderer.full_update or false,
     draw_calls = renderer.draw_calls or 0,
     pass_cpu = renderer.pass_cpu or { enabled = false, frame = 0, samples = {}, history = {} },
+    inspector = renderer.inspector or { enabled = false, passes = {} },
     glyph_count = atlas:glyph_count(),
     atlas_width = atlas.width,
     atlas_height = atlas.height,
@@ -185,6 +186,9 @@ function Metrics:report(now)
       samples[index] = unknown_sample_text(sample)
     end
     io.stdout:write("unknown-samples: ", table.concat(samples, " | "), "\n")
+  end
+  if item.inspector.enabled then
+    io.stdout:write(require("kiwi.renderer.inspector").format(item.inspector), "\n")
   end
   io.stdout:write(string.format(
     "text=unicode-%s primary=%s#%s clusters=%d wide=%d visible=%d runs/%d glyphs fallbacks=%d shape=%.3fms %d rows/%d runs glyphs=%d cache=%d/%d glyph-upload=%d/%d B dropped=%d atlas=%d pages/%d/%d/%d negative=%d color-unsupported=%d fallback=%d/%d over-limit=%d\n",
