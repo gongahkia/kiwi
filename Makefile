@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke budget-smoke replay vttest test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo run demo text-demo timestamp-probe gpu-timing-smoke budget-smoke replay vttest conformance-evidence test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-write bench-text-stress profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -38,6 +38,9 @@ replay:
 vttest: native terminfo
 	@command -v vttest >/dev/null || { echo "vttest is not installed; install it, then run make vttest in an interactive graphical session." >&2; exit 2; }
 	$(LUAJIT) src/kiwi/app/main.lua -- vttest
+
+conformance-evidence: native terminfo
+	./script/conformance-evidence
 
 test:
 	$(LUAJIT) src/kiwi/test.lua

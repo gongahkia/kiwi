@@ -64,6 +64,33 @@ The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti`
 
 The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or extended keyboard protocols. Adding or removing an advertised capability requires updating both the source entry and this matrix.
 
+## Deployment evidence workflow
+
+`make conformance-evidence` is the repeatable command-line starting point for
+deployment evidence. It rebuilds and audits the project-local
+terminfo entry (`colors#16` and no `RGB`, `Tc`, `setrgbf`, or `setrgbb`), runs
+a local tmux nesting probe when tmux is installed, and, where a graphical
+display is available, records/replays a native VT sequence exercise plus a
+one-iteration native `top` session when `top` is installed. Each replay must
+report zero parser errors, ignored actions, and unknown CSI/ESC/OSC/string
+controls. The temporary recordings are removed at the end because `top`
+contains host process data.
+
+Every protocol-capability change must add a targeted deterministic fixture,
+run `make check`, run this command where its prerequisites are available, and
+update the matrix below with the exact command, version/configuration, result,
+and caveat. A passing record/replay proves parser/state handling, not visual
+fidelity or general application compatibility.
+
+| Surface | Evidence as of 2026-08-10 | Result and limit |
+| --- | --- | --- |
+| Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
+| Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -n 1 -d 0.1'`; `make replay REPLAY=<temporary>/top.jsonl` | Passed structurally on procps-ng 4.0.4: the native session exited and replay reported zero errors, ignored actions, and unknown controls. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, and cursor visibility all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
+| Local tmux | `TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, and `tput colors` returned `256`. tmux owns the nested contract; this does not authorize Kiwi itself to advertise 256 colours or truecolour. |
+| vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
+| SSH | `TERMINFO=.build/terminfo ssh -o SendEnv=TERM -o SetEnv=TERM=kiwi <controlled-host> 'infocmp kiwi; tput colors'` | No access to a controlled remote host or credentials. No SSH deployment compatibility claim is made. Install the matching terminfo entry remotely before the probe. |
+
 ## Unicode conformance
 
 `make test-unicode` runs all 766 cases from the checked-in official Unicode 17.0.0 `GraphemeBreakTest.txt`. The ordinary deterministic suite also runs Kiwi-owned width fixtures, chunk-boundary invariance, combining extensions, variation-selector width changes at the right margin, CJK overwrite/erase, wide-cell anchor/continuation invariants through overwrite/erase/edit/resize/scroll/alternate/reset, cluster bounds, state snapshots, HarfBuzz output against `hb-shape` when available, shaped-glyph inspector mapping, cache invalidation after font/feature/fallback/resize/screen/reset changes, CJK fallback caching, bounded glyph/negative cache behavior, fallback face-cache degradation, optional Nerd Font glyph caching, and native-text benchmark/stress schemas.
