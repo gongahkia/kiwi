@@ -392,6 +392,20 @@ function KittyGraphics:register_gpu_upload(id, generation, bytes)
   return true
 end
 
+function KittyGraphics:release_gpu_upload(id, generation, reason)
+  local image = self.images[id]
+  if image == nil or image.generation ~= generation then return false, "stale-image" end
+  self:queue_gpu_release(image, reason or "renderer-release", false)
+  return true
+end
+
+function KittyGraphics:touch_gpu_upload(id, generation)
+  local image = self.images[id]
+  if image == nil or image.generation ~= generation or image.gpu_bytes == 0 then return false end
+  self:touch(image, true)
+  return true
+end
+
 function KittyGraphics:take_gpu_releases()
   local releases = self.pending_gpu_releases
   self.pending_gpu_releases = {}

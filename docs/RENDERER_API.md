@@ -109,6 +109,15 @@ distinct renderer invalidation. `KIWI_COMMAND_REGIONS=1` enables the built-in
 command/output separator reference pass; API v1 extensions can observe this
 resource but cannot issue drawing commands.
 
+The read-only `terminal.kitty_images` descriptor carries bounded renderer
+counts (`active`, `instances`, `under_instances`, `over_instances`, `textures`,
+and `uploads`) plus a `placements` map of at most 256 plain summaries. Each
+summary has image/placement IDs, cell span, first/last visible row, visible-row
+count, z-index, and `under`/`over` layer. It exposes neither decoded pixels,
+pixel pointers, native textures, nor cache handles. The built-in image passes
+consume private renderer descriptors; extensions may observe this metadata but
+cannot draw images or retain GPU state.
+
 This API deliberately supports observation and semantic lifecycle integration,
 not arbitrary drawing. Future controlled rendering capabilities require their
 own versioned ownership and budget contract.

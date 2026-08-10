@@ -155,7 +155,16 @@ function Reloader:reload(owner, passes, force)
         for path, observed_source in pairs(sources) do self.attempted[path] = observed_source.fingerprint end
         return self:reject(items, item.definition.path, shader)
       end
-      local pipeline_ok, pipeline = pcall(owner.create_pipeline, owner, item.pass.pipeline_label, item.pass.vertex_entry, item.pass.fragment_entry, shader)
+      local pipeline_ok, pipeline = pcall(
+        owner.create_pipeline,
+        owner,
+        item.pass.pipeline_label,
+        item.pass.vertex_entry,
+        item.pass.fragment_entry,
+        shader,
+        item.pass.blend,
+        item.pass.pipeline_layout
+      )
       if not pipeline_ok then
         pcall(shader.release)
         release_candidates(owner, candidates)

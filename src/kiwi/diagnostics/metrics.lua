@@ -36,6 +36,7 @@ function Metrics:snapshot()
   local kitty_graphics = self.model.kitty_graphics and self.model.kitty_graphics:view() or { image_count = 0, stats = {} }
   local font_stats = self.font.stats or {}
   local renderer = self.renderer or {}
+  local kitty_images = renderer.kitty_images or { instances = 0, over_instances = 0, textures = 0, under_instances = 0, uploads = 0 }
   local wide_clusters = 0
   local grapheme_clusters = 0
   if self.model.cell_at_index then
@@ -125,6 +126,13 @@ function Metrics:snapshot()
       last_error = kitty_graphics.stats.last_error,
       rejected = kitty_graphics.stats.rejected or 0,
     },
+    kitty_images = {
+      instances = kitty_images.instances or 0,
+      over_instances = kitty_images.over_instances or 0,
+      textures = kitty_images.textures or 0,
+      under_instances = kitty_images.under_instances or 0,
+      uploads = kitty_images.uploads or 0,
+    },
     clipboard = clipboard and clipboard:snapshot() or { maximum_bytes = 0, counters = {} },
   }
 end
@@ -211,6 +219,16 @@ function Metrics:report(now)
       item.kitty_graphics.evicted,
       item.kitty_graphics.rejected,
       item.kitty_graphics.last_error or "none"
+    ))
+  end
+  if item.kitty_images.instances > 0 or item.kitty_images.textures > 0 then
+    io.stdout:write(string.format(
+      "kitty-images=instances:%d under:%d over:%d textures:%d uploads:%d\n",
+      item.kitty_images.instances,
+      item.kitty_images.under_instances,
+      item.kitty_images.over_instances,
+      item.kitty_images.textures,
+      item.kitty_images.uploads
     ))
   end
   if item.inspector.enabled then

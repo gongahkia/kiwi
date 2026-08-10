@@ -2,8 +2,8 @@
 
 Kiwi implements a deliberately narrow M7 subset of the Kitty graphics
 protocol: a direct inline PNG can be transferred through APC-G, decoded into a
-bounded CPU RGBA cache, and placed over explicit terminal cells. It is not yet
-rendered or composited.
+bounded CPU RGBA cache, placed over explicit terminal cells, and composed by a
+renderer-owned WGPU texture cache.
 
 ## Framing and accepted subset
 
@@ -80,21 +80,46 @@ needed renderer GPU-release work. Unknown image placement replies with a
 bounded `ENOENT:unknown-image`; invalid selected controls reply with
 `EINVAL:<reason>`.
 
-## CPU and GPU ownership
+## CPU, GPU, and composition ownership
 
 `terminal/kitty_graphics.lua` owns CPU decoded allocations. The cache uses a
 monotonic-use LRU policy, breaking ties by lower image ID, for deterministic
 replacement when the image-count or CPU-byte bound would be exceeded. Replacing
 an ID releases its prior record before the replacement becomes visible.
 
-The terminal model does not own a WGPU texture or any other native handle. A
-future renderer obtains a stable `{ id, generation, width, height, bytes,
-pixels }` upload descriptor, creates and owns its native object through the
-renderer resource registry, then registers logical byte accounting. GPU cache
-eviction uses the same deterministic ordering and returns release descriptors
-for the renderer to destroy. Reset and CPU eviction likewise enqueue a release
-descriptor. This keeps terminal snapshots, diagnostics, replay, scrollback,
-and extension resources free of pixels and native handles.
+The terminal model does not own a WGPU texture or any other native handle. The
+renderer obtains a stable `{ id, generation, width, height, bytes, pixels }`
+upload descriptor, reserves logical GPU bytes, then creates and owns the
+texture, view, and bind group through the renderer resource registry. A
+generation mismatch, cache eviction, deletion, reset, renderer recreation, or
+placement leaving the viewport releases the native objects and logical byte
+accounting together. GPU cache eviction uses the same deterministic ordering
+and returns release descriptors for the renderer to destroy. This keeps
+terminal snapshots, diagnostics, replay, scrollback, and extension resources
+free of pixels and native handles.
+
+`terminal.kitty_images` is a typed, plain-data renderer resource. It reports
+bounded counts for visible instances, under/over layers, resident textures, and
+uploads, plus at most 256 visible placement summaries. A summary contains its
+image/placement IDs, cell span, first/last visible row, visible-row count,
+z-index, and layer; it contains no pixel pointer or native object. The renderer
+uploads one bounded storage-buffer instance per visible anchored row, using that
+row's source-row index to sample its vertical slice of the image. It does not
+mark terminal cells or text dirty for placement-only changes.
+
+Composition order is fixed:
+
+```text
+background -> negative-z images -> selection -> search -> command separators
+-> glyphs -> zero/positive-z images -> cursor
+```
+
+Thus negative z-index images remain behind text and selection, zero or positive
+z-index images can cover glyphs, and the cursor remains visible above both.
+Within either image layer, terminal placement order (z-index, image ID,
+placement ID) is retained. Arbitrary transforms, clipping shapes, source
+rectangles, image editing, animation, and an unbounded texture cache remain out
+of scope.
 
 The currently exposed model view/snapshot contains only image IDs, dimensions,
 byte totals, generation numbers, cache state, configured limits, and counters.
@@ -116,7 +141,8 @@ fixtures. `src/tests/fixtures/replay/kitty-placement.jsonl` verifies replay.
 Focused tests cover complete and chunked transfers, every parser split boundary,
 malformed and over-limit input, query behavior, deterministic CPU/GPU accounting
 eviction, placement replacement/z-order, viewport/history movement, alternate
-screen/reset/clear/delete behavior, resize clipping, and cleanup.
+screen/reset/clear/delete behavior, resize clipping, image-pass ordering,
+per-row source slicing, offscreen texture release, and cleanup.
 
 ## Sources
 

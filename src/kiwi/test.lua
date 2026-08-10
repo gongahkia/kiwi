@@ -12,6 +12,7 @@ local tests = {
   require("tests.test_parser"),
   require("tests.test_kitty_graphics"),
   require("tests.test_kitty_placements"),
+  require("tests.test_kitty_image_renderer"),
   require("tests.test_fuzz"),
   require("tests.test_replay"),
   require("tests.test_diagnostics"),

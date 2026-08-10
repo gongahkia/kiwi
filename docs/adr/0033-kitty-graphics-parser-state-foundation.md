@@ -13,8 +13,8 @@ and in-flight-transfer limits.
 No graphics payload, decoded pixels, path, shared-memory name, file descriptor,
 image texture, native handle, or renderer resource enters the terminal snapshot,
 diagnostics, scrollback, or extension API. An incomplete transfer briefly owns
-bounded Base64 chunks; after decode the CPU cache owns pixels. A later renderer
-phase owns GPU resources and visual composition, and receives release
+bounded Base64 chunks; after decode the CPU cache owns pixels. The renderer
+owns GPU resources and visual composition, and receives release
 descriptors rather than giving native handles to terminal state.
 
 An incomplete or invalid transfer has no display effect. Commands are ordered:
@@ -23,14 +23,18 @@ transfer, except that deletion aborts it. Placements are anchored to bounded
 stable row IDs and carry no pixels. Scrollback keeps those references until a
 row is evicted; resize and partial scrolling clip them; visible clear, `1049`,
 and reset remove them deterministically. Reset clears the cache and creates
-renderer release work for any accounted GPU upload. Rendering and composition
-remain separate future work.
+renderer release work for any accounted GPU upload. Visible placement rows
+become bounded renderer instances, with texture rows sampled by their
+source-row anchor. Negative-z instances compose between background and
+selection; zero-or-positive instances compose after glyphs and before the
+cursor. Offscreen placements retain terminal anchors but no active native
+texture.
 
 ## Consequences
 
-This establishes a constrained transfer/cache and terminal-placement capability
-without granting image rendering. Generic APC data remains discarded; only
-APC-G reaches the terminal graphics model.
+This establishes a constrained transfer/cache, terminal-placement, and image
+composition capability. Generic APC data remains discarded; only APC-G reaches
+the terminal graphics model.
 
 ## References
 

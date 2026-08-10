@@ -83,7 +83,7 @@ Extension limits are enforced before registration or scheduling. `KIWI_EXTENSION
 
 API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-memory accounting: those limits are fixed at zero until a separately versioned capability exists. One callback failure disables its optional pass, while diagnostic history is bounded to 32 records of at most 4,096 bytes each. The full plain-data cap state, including unavailable capability markers, is in `renderer.diagnostics.extensions.limits`.
 
-Kiwi coalesces terminal, resize, cursor, selection, search, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
+Kiwi coalesces terminal, resize, cursor, selection, search, Kitty-image, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
 
 DECSCUSR cursor styles and DEC synchronized output are supported as documented
 in [the conformance matrix](docs/CONFORMANCE.md). `CSI ? 2026 h` defers
@@ -140,15 +140,16 @@ API v1 grants them no drawing or GPU-allocation capability. See
 `KIWI_COMMAND_REGION_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to
 `#88C0D055`.
 
-Kitty graphics currently supports a bounded direct-PNG APC-G transfer/cache and
-explicit terminal-cell placements. It does not yet render images. Its exact
-parser, lifecycle, limits, decoder/cache ownership, fixture, and deferred
-rendering boundary are in
+Kitty graphics supports a bounded direct-PNG APC-G transfer/cache, explicit
+terminal-cell placements, and renderer-owned WGPU image composition. Negative
+z-index images render behind selection/text; zero and positive z-index images
+render after glyphs and before the cursor. Its exact parser, lifecycle, limits,
+decoder/cache ownership, fixture, and composition boundary are in
 [KITTY_GRAPHICS.md](docs/KITTY_GRAPHICS.md) and
 [ADR 0033](docs/adr/0033-kitty-graphics-parser-state-foundation.md).
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, and opt-in Bash/Zsh/fish scripts, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, rendering, diagnostics, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, image rendering, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented direct-PNG Kitty APC-G transfer/cache and cell-placement subset. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, opt-in Bash/Zsh/fish scripts, and bounded direct-PNG Kitty image composition, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, arbitrary image transforms or editing, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented direct-PNG Kitty APC-G transfer/cache, cell-placement, and composition subset. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

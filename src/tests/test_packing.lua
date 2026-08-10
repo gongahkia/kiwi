@@ -6,6 +6,7 @@ return {
     Packing.assert_layout()
     Assert.equal(Packing.glyph_instance_size, 40)
     Assert.equal(Packing.text_glyph_instance_size, 48)
+    Assert.equal(Packing.image_instance_size, 32)
     Assert.equal(Packing.bytes_for_cells(8000), 320000)
   end,
 }

@@ -1,0 +1,12 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg=='
+
+printf '%s\n' 'Kitty image composition fixture'
+printf '\033_Ga=t,i=1,s=1,v=1,f=100,t=d,m=0;%s\033\\' "$png"
+printf '\033_Ga=p,i=1,p=1,c=24,r=2,C=1,z=-1\033\\'
+printf '%s\n' 'negative z stays behind this text and selection'
+printf '\033_Ga=p,i=1,p=2,c=24,r=1,C=1,z=1\033\\'
+printf '%s\n' 'zero or positive z appears over glyphs; cursor remains last'
+sleep 1

@@ -27,6 +27,16 @@ typedef struct {
   uint32_t glyph;
   uint32_t cluster;
 } KiwiTextGlyphInstance;
+typedef struct {
+  float x;
+  float y;
+  float width;
+  float height;
+  float u0;
+  float v0;
+  float u1;
+  float v1;
+} KiwiImageInstance;
 ]]
 
 local Packing = {
@@ -34,6 +44,8 @@ local Packing = {
   glyph_instance_alignment = ffi.alignof("KiwiGlyphInstance"),
   text_glyph_instance_size = ffi.sizeof("KiwiTextGlyphInstance"),
   text_glyph_instance_alignment = ffi.alignof("KiwiTextGlyphInstance"),
+  image_instance_size = ffi.sizeof("KiwiImageInstance"),
+  image_instance_alignment = ffi.alignof("KiwiImageInstance"),
 }
 
 function Packing.assert_layout()
@@ -41,6 +53,8 @@ function Packing.assert_layout()
   assert(Packing.glyph_instance_alignment == 4, "KiwiGlyphInstance must remain 4-byte aligned")
   assert(Packing.text_glyph_instance_size == 48, "KiwiTextGlyphInstance must remain 48 bytes")
   assert(Packing.text_glyph_instance_alignment == 4, "KiwiTextGlyphInstance must remain 4-byte aligned")
+  assert(Packing.image_instance_size == 32, "KiwiImageInstance must remain 32 bytes")
+  assert(Packing.image_instance_alignment == 4, "KiwiImageInstance must remain 4-byte aligned")
 end
 
 function Packing.bytes_for_cells(cells)
