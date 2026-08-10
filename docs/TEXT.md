@@ -66,14 +66,16 @@ FreeType BGRA/color glyph bitmaps are rejected safely by the grayscale atlas. On
 ## Text backend boundary
 
 `kiwi.text.backend` is the renderer-scoped v1 seam for experimental
-rasterization. `KIWI_TEXT_BACKEND=atlas` is the default and current baseline.
-An unsupported non-empty requested name remains observable in renderer metrics
-as an `atlas` fallback with `fallback_reason=unsupported-backend`; it never
-changes terminal layout, width, HarfBuzz mapping, or PTY input. The backend
-descriptor contains only plain capability data, not font or wgpu handles. The
-renderer continues to own GPU resources and `FontSystem` remains app-owned.
-See [ADR 0034](adr/0034-text-backend-interface.md) for the stable input/output,
-lifetime, fallback, and prototype-comparison contract.
+rasterization. Normal startup always selects the `atlas` baseline. A developer
+laboratory request is explicit and isolated: `KIWI_TEXT_LAB=1` together with
+`KIWI_TEXT_LAB_BACKEND=atlas` (or a future candidate) is the only app-level
+selection route. An unsupported requested name remains observable in renderer
+metrics as an `atlas` fallback with `fallback_reason=unsupported-backend`; it
+never changes terminal layout, width, HarfBuzz mapping, or PTY input. The
+backend descriptor contains only plain capability data, not font or wgpu
+handles. The renderer continues to own GPU resources and `FontSystem` remains
+app-owned. See [ADR 0034](adr/0034-text-backend-interface.md) for the stable
+input/output, lifetime, fallback, and prototype-comparison contract.
 
 The Slug investigation is currently deferred, rather than exposed as a partial
 `KIWI_TEXT_BACKEND` choice. The native HarfBuzz GPU library is absent from the
@@ -102,6 +104,9 @@ make bench-text
 KIWI_TEXT_BENCH_ITERATIONS=100 KIWI_TEXT_BENCH_WARMUP=20 make bench-text
 make text-corpus-review
 KIWI_MAX_FRAMES=240 make text-corpus-demo
+make text-lab
+make text-lab BACKENDS=atlas,msdf
+make text-lab-demo BACKEND=atlas
 make bench-write
 KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-text-stress
@@ -109,6 +114,16 @@ KIWI_TEXT_STRESS_ROUNDS=2000 make bench-text-stress
 ```
 
 `src/kiwi/text/benchmark_corpus.lua` supplies the shared ASCII, combining, CJK, emoji, ligature, and dense-UI scenarios to `bench-text` and `text-corpus-demo`. `make text-corpus-review` writes the deterministic corpus/host manifest used with a native screenshot for quality review; see [BENCHMARKS.md](BENCHMARKS.md) for the source/license fields, comparison limits, and required artifact. `bench-text` writes `bench/results/*-text.json` and separates UAX #29 segmentation, width policy, fresh/cached HarfBuzz shaping, initial/primary/cached Fontconfig fallback, glyph-cache miss/hit/bounded-capacity paths, cold/cached/edited row layout, and the full parser → terminal-cluster → glyph-instance CPU path. `bench-write` writes schema-4 `*-write.json` stage attribution for parser/UTF-8, cluster mutation, two damage streams, run construction, HarfBuzz, fallback, atlas/glyph records, cursor-only invalidation, and full parser-to-glyph-record CPU work. Setup objects are intentionally created before a timed iteration, as documented in each result scope; GPU submission, execution, and presentation are excluded. `bench-text-stress` mixes unique glyph pressure, combining-limit pressure, CJK, emoji, PUA, bounded negative fallback, CSI edits, resize, row layout, and repeated text-system construction/destruction while asserting grid, atlas, face/fallback cache, and RSS bounds. It writes `*-text-stress.json`.
+
+`make text-lab` writes a bounded `*-text-lab.json` report with the atlas
+baseline first, every requested backend descriptor, per-corpus `backend:update`
+CPU samples, semantic manifest, font inventory, fallback status, manual visual
+review command, and promotion/retirement criteria. It is a developer tool, not
+a user setting: `BACKENDS=atlas,msdf` affects only the report, while
+`make text-lab-demo BACKEND=msdf` passes the explicit laboratory gate to a
+bounded native corpus run. A fallback record is deliberately labeled
+unavailable rather than treated as a candidate result. See
+[TEXT_LAB.md](TEXT_LAB.md) for the report template and review procedure.
 
 The native smoke target and a windowed `make text-demo` exercise shader compilation and the GPU path; they are not pixel-comparison or color-emoji conformance tests. See [BENCHMARKS.md](BENCHMARKS.md) for output semantics and [CONFORMANCE.md](CONFORMANCE.md) for deterministic test coverage.
 

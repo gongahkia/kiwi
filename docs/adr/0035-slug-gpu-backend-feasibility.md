@@ -97,7 +97,7 @@ Proceed only after all of these gates are met:
 5. backend selection, lifetime, corpus semantics, and native visual-review evidence pass alongside `make check`.
 
 Until then, `atlas` remains the only implemented backend and an explicit Slug
-request follows the existing `unsupported-backend` fallback path.
+laboratory request follows the existing `unsupported-backend` fallback path.
 
 ## References
 
