@@ -25,6 +25,7 @@ local tests = {
   require("tests.test_pass_registry"),
   require("tests.test_renderer_resources"),
   require("tests.test_shader_loader"),
+  require("tests.test_shader_reloader"),
   require("tests.test_color"),
   require("tests.test_json"),
   require("tests.test_stats"),

@@ -77,6 +77,21 @@ local function new_font(window)
   return font
 end
 
+local function renderer_options()
+  if os.getenv("KIWI_DEVELOPMENT") ~= "1" then return {} end
+  local path = os.getenv("KIWI_DEV_SHADER_PATH")
+  assert(type(path) == "string" and #path > 0, "KIWI_DEVELOPMENT=1 needs KIWI_DEV_SHADER_PATH")
+  return { development_mode = true, development_shader_path = path }
+end
+
+local function report_shader_reload(reloaded, message)
+  if reloaded == true then
+    io.stdout:write("Kiwi shader reload: ", message, "\n")
+  elseif reloaded == false then
+    io.stderr:write("Kiwi shader reload: ", message, "\n")
+  end
+end
+
 local function run_live(options)
   local window = Window.new(1600, 960, "Kiwi M2 terminal")
   local context
@@ -94,6 +109,7 @@ local function run_live(options)
       ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
     })
     local root = os.getenv("KIWI_ROOT") or "."
+    local render_options = renderer_options()
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
       TERM = "kiwi",
       TERMINFO = root .. "/.build/terminfo",
@@ -103,7 +119,7 @@ local function run_live(options)
       recorder = Replay.Recorder.new(options.record)
       recorder:resize(columns, rows)
     end
-    renderer = Renderer.new(context, font, state)
+    renderer = Renderer.new(context, font, state, render_options)
     local metrics = Metrics.new(context, font, state, { pty = pty, parser = parser })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
@@ -157,6 +173,11 @@ local function run_live(options)
       end
 
       if now >= next_frame then
+        if window:take_shader_reload_request() then
+          report_shader_reload(renderer:reload_shaders(true))
+        elseif renderer:shader_reload_enabled() then
+          report_shader_reload(renderer:poll_shader_reload(now))
+        end
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
         if scale_changed then
           renderer:destroy()
@@ -176,7 +197,7 @@ local function run_live(options)
             state:mark_all_dirty()
           end
           if renderer then renderer:destroy() end
-          renderer = Renderer.new(context, font, state)
+          renderer = Renderer.new(context, font, state, render_options)
         end
         local frame_start = now
         local prepare_start = window:time()

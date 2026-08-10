@@ -4,6 +4,7 @@ local Passes = require("kiwi.renderer.passes")
 local PassRegistry = require("kiwi.renderer.pass_registry")
 local Resources = require("kiwi.renderer.resources")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
+local ShaderReloader = require("kiwi.renderer.shader_reloader")
 local Layout = require("kiwi.text.layout")
 
 ffi.cdef[[
@@ -47,7 +48,15 @@ end
 
 Renderer.select_glyph = select_glyph
 
-function Renderer.new(context, font, model)
+function Renderer.new(context, font, model, options)
+  options = options or {}
+  local root = os.getenv("KIWI_ROOT") or "."
+  local builtin_shader_path = root .. "/src/kiwi/renderer/terminal.wgsl"
+  local development_mode = options.development_mode == true
+  if development_mode then
+    assert(type(options.development_shader_path) == "string" and #options.development_shader_path > 0, "development shader mode needs an explicit shader path")
+  end
+  local shader_path = development_mode and options.development_shader_path or builtin_shader_path
   Packing.assert_layout()
   local self = setmetatable({
     context = context,
@@ -62,6 +71,7 @@ function Renderer.new(context, font, model)
     resource_registry = Resources.new(context:next_renderer_generation()),
     resource_handles = {},
     frame_time = 0,
+    shader_path = shader_path,
     diagnostics = {
       cells_uploaded = 0,
       bytes_uploaded = 0,
@@ -85,6 +95,12 @@ function Renderer.new(context, font, model)
     },
   }, Renderer)
   self.shader_loader = ShaderLoader.native(context, self.resource_registry)
+  self.shader_reloader = ShaderReloader.new({
+    enabled = development_mode,
+    paths = development_mode and { shader_path } or {},
+    loader = self.shader_loader,
+    poll_interval = options.shader_reload_interval,
+  })
   local ok, result = xpcall(function()
     self:create_resources(model)
     model:mark_all_dirty()
@@ -206,6 +222,7 @@ function Renderer:create_resources(model)
     self.pass_registry:register(pass)
   end
   self.pass_registry:initialize(self)
+  self.shader_reloader:track(self.pass_registry.passes)
 end
 
 function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader)
@@ -230,10 +247,12 @@ function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader)
   descriptor.multisample.count = 1
   descriptor.multisample.mask = 0xffffffff
   descriptor.fragment = fragment
+  self.native.surface.kiwi_surface_clear_error()
   local pipeline = assert_handle(api.wgpuDeviceCreateRenderPipeline(self.context.device, descriptor), "render pipeline creation for " .. label)
   api.wgpuInstanceProcessEvents(self.context.instance)
   local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
   if #native_error > 0 then
+    self.native.surface.kiwi_surface_clear_error()
     api.wgpuRenderPipelineRelease(pipeline)
     error("render pipeline creation for " .. label .. " with shader module " .. shader.id .. " for pass " .. shader.pass .. " failed: " .. native_error)
   end
@@ -245,12 +264,23 @@ function Renderer:release_native(handle)
 end
 
 function Renderer:load_shader(id, pass)
-  local root = os.getenv("KIWI_ROOT") or "."
   return self.shader_loader:load({
     id = id,
     pass = pass,
-    path = root .. "/src/kiwi/renderer/terminal.wgsl",
+    path = self.shader_path,
   })
+end
+
+function Renderer:shader_reload_enabled()
+  return self.shader_reloader:is_enabled()
+end
+
+function Renderer:reload_shaders(force)
+  return self.shader_reloader:reload(self, self.pass_registry.passes, force == true)
+end
+
+function Renderer:poll_shader_reload(time)
+  return self.shader_reloader:poll(self, self.pass_registry.passes, time)
 end
 
 function Renderer:resource_descriptor(kind, access, fields)
