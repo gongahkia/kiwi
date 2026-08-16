@@ -52,6 +52,20 @@ function Selection:clear()
   self.scope = nil
 end
 
+function Selection:remap(scope, mapper)
+  assert(type(mapper) == "function", "selection remap requires a mapper")
+  if self.scope ~= scope or self.anchor == nil or self.focus == nil then return false end
+  local anchor = mapper(self.anchor)
+  local focus = mapper(self.focus)
+  if anchor == nil or focus == nil then
+    self:clear()
+    return false
+  end
+  self.anchor = copy_endpoint(anchor)
+  self.focus = copy_endpoint(focus)
+  return true
+end
+
 function Selection:reconcile(document, columns)
   if self.anchor == nil or self.focus == nil then return false end
   local positions = positions_for(document)
