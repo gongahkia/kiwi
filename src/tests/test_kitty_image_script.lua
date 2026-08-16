@@ -31,6 +31,6 @@ return {
   kitty_image_script_rejects_non_https_urls_before_fetching = function()
     local output, ok = capture("TERM=kiwi ./script/kiwi-image http://example.invalid/kiwi.png")
     Assert.truthy(not ok)
-    Assert.truthy(output:find("existing PNG file or an HTTPS URL", 1, true) ~= nil)
+    Assert.truthy(output:find("existing PNG, APNG, or GIF file or an HTTPS URL", 1, true) ~= nil)
   end,
 }

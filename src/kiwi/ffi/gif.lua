@@ -44,10 +44,13 @@ typedef struct GifFileType {
   GifImageDesc Image;
   SavedImage *SavedImages;
 } GifFileType;
-typedef int (*InputFunc)(GifFileType *GifFile, GifByteType *GifByte, int GifSize);
-GifFileType *DGifOpen(void *UserPtr, InputFunc ReadFunc, int *Error);
+GifFileType *DGifOpenFileHandle(int FileHandle, int *Error);
 int DGifSlurp(GifFileType *GifFile);
 int DGifCloseFile(GifFileType *GifFile, int *Error);
+int memfd_create(const char *name, unsigned int flags);
+long write(int fd, const void *buffer, unsigned long count);
+long lseek(int fd, long offset, int whence);
+int close(int fd);
 ]]
 
 local loaded, library = pcall(ffi.load, "gif")
@@ -61,30 +64,30 @@ end
 local Gif = {}
 
 function Gif.with_file(bytes, callback)
-  local cursor = { bytes = bytes, offset = 1 }
-  local reader = ffi.cast("InputFunc", function(_, destination, requested)
-    if requested <= 0 then return 0 end
-    local remaining = #cursor.bytes - cursor.offset + 1
-    if remaining <= 0 then return 0 end
-    local count = math.min(requested, remaining)
-    ffi.copy(destination, cursor.bytes:sub(cursor.offset, cursor.offset + count - 1), count)
-    cursor.offset = cursor.offset + count
-    return count
-  end)
-  local error_code = ffi.new("int[1]")
-  local file = library.DGifOpen(nil, reader, error_code)
-  if file == nil then
-    pcall(reader.free, reader)
-    return nil, "gif-open"
+  local descriptor = ffi.C.memfd_create("kiwi-gif", 1)
+  if descriptor < 0 then return nil, "gif-open" end
+  local offset = 1
+  while offset <= #bytes do
+    local written = ffi.C.write(descriptor, bytes:sub(offset), #bytes - offset + 1)
+    if written <= 0 then
+      ffi.C.close(descriptor)
+      return nil, "gif-read"
+    end
+    offset = offset + tonumber(written)
   end
+  if ffi.C.lseek(descriptor, 0, 0) < 0 then
+    ffi.C.close(descriptor)
+    return nil, "gif-read"
+  end
+  local error_code = ffi.new("int[1]")
+  local file = library.DGifOpenFileHandle(descriptor, error_code)
+  if file == nil then return nil, "gif-open" end
   if library.DGifSlurp(file) == 0 then
     library.DGifCloseFile(file, error_code)
-    pcall(reader.free, reader)
     return nil, "gif-decode"
   end
   local result = { xpcall(callback, debug.traceback, file) }
   library.DGifCloseFile(file, error_code)
-  pcall(reader.free, reader)
   if not result[1] then
     if type(result[2]) == "table" and type(result[2].reason) == "string" then return nil, result[2].reason end
     return nil, result[2]

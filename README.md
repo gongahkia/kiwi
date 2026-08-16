@@ -28,7 +28,7 @@ Kiwi currently supports Linux x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel giflib-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
@@ -100,7 +100,7 @@ make smoke                             # bounded native live-terminal GPU smoke 
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
-make kitty-animation-smoke              # bounded native GIF playback and frame-texture update smoke test
+make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
