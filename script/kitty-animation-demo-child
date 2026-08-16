@@ -1,0 +1,20 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly GIF='R0lGODlhAgACAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAAAAAACwAAAAAAgACAAACAoRRACH5BAAFAAAALAAAAAACAAIAgAAA/wAAAAIChFEAOw=='
+tty_state=''
+
+cleanup() {
+  if [[ -n "$tty_state" ]]; then stty "$tty_state" 2>/dev/null || true; fi
+}
+trap cleanup EXIT HUP INT TERM
+
+if [[ -t 0 && -t 1 ]]; then
+  tty_state=$(stty -g)
+  stty -echo -echoctl
+fi
+
+printf '%s\n' 'Kitty GIF playback fixture: red and blue frames alternate behind this text'
+print -rn -- $'\e_G'"a=t,i=1,s=2,v=2,f=100,t=d,m=0;$GIF"$'\e\\'
+print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=8,C=1,z=-1\e\\'
+sleep 1

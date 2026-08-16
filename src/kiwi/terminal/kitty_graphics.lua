@@ -108,12 +108,14 @@ end
 
 function KittyGraphics.new(options)
   options = options or {}
+  local max_cpu_bytes = positive_integer(options.max_cpu_bytes or KittyGraphics.default_max_cpu_bytes, "kitty graphics CPU cache limit")
+  local max_animation_bytes = positive_integer(options.max_animation_bytes or math.min(KittyGraphics.default_max_animation_bytes, max_cpu_bytes), "kitty graphics animation byte limit")
   local self = setmetatable({
     images = {},
     max_apc_bytes = positive_integer(options.max_apc_bytes or KittyGraphics.default_max_apc_bytes, "kitty graphics APC limit"),
-    max_animation_bytes = positive_integer(options.max_animation_bytes or KittyGraphics.default_max_animation_bytes, "kitty graphics animation byte limit"),
+    max_animation_bytes = max_animation_bytes,
     max_animation_frames = positive_integer(options.max_animation_frames or KittyGraphics.default_max_animation_frames, "kitty graphics animation frame limit"),
-    max_cpu_bytes = positive_integer(options.max_cpu_bytes or KittyGraphics.default_max_cpu_bytes, "kitty graphics CPU cache limit"),
+    max_cpu_bytes = max_cpu_bytes,
     max_decoded_bytes = positive_integer(options.max_decoded_bytes or KittyGraphics.default_max_decoded_bytes, "kitty graphics decoded-image limit"),
     max_encoded_bytes = positive_integer(options.max_encoded_bytes or KittyGraphics.default_max_encoded_bytes, "kitty graphics encoded transfer limit"),
     max_gpu_bytes = positive_integer(options.max_gpu_bytes or KittyGraphics.default_max_gpu_bytes, "kitty graphics GPU cache limit"),
