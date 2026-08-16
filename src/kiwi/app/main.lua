@@ -21,6 +21,7 @@ local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
+local Terminal = require("kiwi.vt.terminal")
 local Window = require("kiwi.platform.window")
 local glfw = require("kiwi.ffi.glfw").constants
 
@@ -169,6 +170,7 @@ local function run_live(options)
   local font
   local pty
   local recorder
+  local terminal
   local ok, result = xpcall(function()
     local context_options = { gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
     context = Context.new(window, context_options)
@@ -179,10 +181,15 @@ local function run_live(options)
     font = new_font(window)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
-    local state = State.new(columns, rows, {
-      scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000),
-      ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
+    terminal = Terminal.new({
+      columns = columns,
+      rows = rows,
+      state_options = {
+        scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000),
+        ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
+      },
     })
+    local state = terminal.state
     local root = os.getenv("KIWI_ROOT") or "."
     local render_options = renderer_options(options)
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
@@ -190,7 +197,7 @@ local function run_live(options)
       TERMINFO = root .. "/.build/terminfo",
       COLORTERM = false,
     })
-    local parser = Parser.new(state)
+    local parser = terminal.parser
     if options.record then
       recorder = Replay.Recorder.new(options.record)
       recorder:resize(columns, rows)
@@ -416,7 +423,7 @@ local function run_live(options)
         if pacing then pacing:output(now) end
         if power then power:output() end
         if recorder then recorder:output(output) end
-        parser:feed(output)
+        terminal:write(output)
         if state.modes.mouse_generation ~= mouse_generation then
           mouse:reset()
           selection_pointer:reset()
@@ -424,7 +431,7 @@ local function run_live(options)
         end
         renderer:invalidate("terminal")
       end
-      local responses = state:pop_responses()
+      local responses = terminal:pop_responses()
       if #responses > 0 then
         pty:enqueue(table.concat(responses))
       end
@@ -454,7 +461,7 @@ local function run_live(options)
           context:configure_surface()
           renderer:invalidate("resize")
           if new_columns ~= state.columns or new_rows ~= state.rows then
-            state:resize(new_columns, new_rows)
+            terminal:resize(new_columns, new_rows)
             pty:resize(new_columns, new_rows)
             if recorder then recorder:resize(new_columns, new_rows) end
           else
@@ -513,7 +520,7 @@ local function run_live(options)
         window:request_close()
       end
     end
-    parser:finish()
+    terminal:finish()
     if soak then
       local snapshot = soak:snapshot()
       io.stdout:write(string.format(
@@ -543,6 +550,7 @@ local function run_live(options)
   end, debug.traceback)
 
   if pty then pty:shutdown() end
+  if terminal then terminal:close() end
   if recorder then recorder:close() end
   if renderer then renderer:destroy() end
   if font then font:destroy() end

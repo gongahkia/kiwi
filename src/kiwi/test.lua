@@ -16,6 +16,7 @@ local tests = {
   require("tests.test_accessibility"),
   require("tests.test_harfbuzz_diff"),
   require("tests.test_parser"),
+  require("tests.test_vt_terminal"),
   require("tests.test_kitty_graphics"),
   require("tests.test_animated_images"),
   require("tests.test_kitty_placements"),
