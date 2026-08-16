@@ -2,8 +2,7 @@ local ffi = require("ffi")
 
 ffi.cdef[[
 typedef unsigned char GifByteType;
-typedef unsigned short GifWord;
-typedef int GifBooleanType;
+typedef int GifWord;
 typedef struct {
   GifByteType Red;
   GifByteType Green;
@@ -12,15 +11,15 @@ typedef struct {
 typedef struct {
   int ColorCount;
   int BitsPerPixel;
-  GifBooleanType SortFlag;
+  bool SortFlag;
   GifColorType *Colors;
 } ColorMapObject;
 typedef struct {
-  int Left;
-  int Top;
-  int Width;
-  int Height;
-  GifBooleanType Interlace;
+  GifWord Left;
+  GifWord Top;
+  GifWord Width;
+  GifWord Height;
+  bool Interlace;
   ColorMapObject *ColorMap;
 } GifImageDesc;
 typedef struct {
@@ -38,10 +37,11 @@ typedef struct GifFileType {
   GifWord SWidth;
   GifWord SHeight;
   GifWord SColorResolution;
-  GifByteType SBackGroundColor;
+  GifWord SBackGroundColor;
   GifByteType AspectByte;
   ColorMapObject *SColorMap;
   int ImageCount;
+  GifImageDesc Image;
   SavedImage *SavedImages;
 } GifFileType;
 typedef int (*InputFunc)(GifFileType *GifFile, GifByteType *GifByte, int GifSize);
