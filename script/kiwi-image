@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly MAX_ENCODED_BYTES=$((960 * 1024))
-readonly MAX_PNG_BYTES=$((720 * 1024))
+readonly MAX_IMAGE_BYTES=$((720 * 1024))
 readonly MAX_PIXELS=$((16 * 1024 * 1024))
 readonly CHUNK_BYTES=4000
 
@@ -106,30 +106,37 @@ if (( place_only == 0 )); then
     temporary=$(mktemp)
     curl --fail --location --silent --show-error \
       --proto '=https' --proto-redir '=https' \
-      --connect-timeout 10 --max-time 30 --max-filesize "$MAX_PNG_BYTES" \
+      --connect-timeout 10 --max-time 30 --max-filesize "$MAX_IMAGE_BYTES" \
       --output "$temporary" -- "$source" || fail 'could not download the image URL'
     image=$temporary
   elif [[ -f "$source" ]]; then
     image=$source
   else
-    fail 'source must be an existing PNG file or an HTTPS URL'
+    fail 'source must be an existing PNG, APNG, or GIF file or an HTTPS URL'
   fi
 
   image_bytes=$(wc -c < "$image")
-  (( image_bytes <= MAX_PNG_BYTES )) || fail 'PNG exceeds the 720 KiB URL-helper limit'
+  (( image_bytes <= MAX_IMAGE_BYTES )) || fail 'image exceeds the 720 KiB URL-helper limit'
   typeset -a header
   header=($(LC_ALL=C od -An -v -tu1 -N 24 "$image"))
-  (( ${#header} == 24 )) || fail 'file is not a complete PNG header'
-  [[ ${header[1]} == 137 && ${header[2]} == 80 && ${header[3]} == 78 && ${header[4]} == 71 \
-    && ${header[5]} == 13 && ${header[6]} == 10 && ${header[7]} == 26 && ${header[8]} == 10 \
-    && ${header[9]} == 0 && ${header[10]} == 0 && ${header[11]} == 0 && ${header[12]} == 13 \
-    && ${header[13]} == 73 && ${header[14]} == 72 && ${header[15]} == 68 && ${header[16]} == 82 ]] \
-    || fail 'URL content is not a PNG image'
-  width=$(( header[17] * 16777216 + header[18] * 65536 + header[19] * 256 + header[20] ))
-  height=$(( header[21] * 16777216 + header[22] * 65536 + header[23] * 256 + header[24] ))
-  (( width > 0 && height > 0 && width * height <= MAX_PIXELS )) || fail 'PNG dimensions exceed Kiwi limits'
+  if (( ${#header} >= 24 )) && [[ ${header[1]} == 137 && ${header[2]} == 80 && ${header[3]} == 78 && ${header[4]} == 71 \
+      && ${header[5]} == 13 && ${header[6]} == 10 && ${header[7]} == 26 && ${header[8]} == 10 \
+      && ${header[9]} == 0 && ${header[10]} == 0 && ${header[11]} == 0 && ${header[12]} == 13 \
+      && ${header[13]} == 73 && ${header[14]} == 72 && ${header[15]} == 68 && ${header[16]} == 82 ]]; then
+    image_format='PNG or APNG'
+    width=$(( header[17] * 16777216 + header[18] * 65536 + header[19] * 256 + header[20] ))
+    height=$(( header[21] * 16777216 + header[22] * 65536 + header[23] * 256 + header[24] ))
+  elif (( ${#header} >= 10 )) && [[ ${header[1]} == 71 && ${header[2]} == 73 && ${header[3]} == 70 \
+      && ${header[4]} == 56 && ( ${header[5]} == 55 || ${header[5]} == 57 ) && ${header[6]} == 97 ]]; then
+    image_format='GIF'
+    width=$(( header[7] + header[8] * 256 ))
+    height=$(( header[9] + header[10] * 256 ))
+  else
+    fail 'file is not a complete PNG, APNG, or GIF image'
+  fi
+  (( width > 0 && height > 0 && width * height <= MAX_PIXELS )) || fail "$image_format dimensions exceed Kiwi limits"
   encoded=$(LC_ALL=C base64 --wrap=0 "$image")
-  (( ${#encoded} <= MAX_ENCODED_BYTES )) || fail 'encoded PNG exceeds the direct-transfer limit'
+  (( ${#encoded} <= MAX_ENCODED_BYTES )) || fail 'encoded image exceeds the direct-transfer limit'
 fi
 
 if [[ -t 0 && -t 1 ]]; then

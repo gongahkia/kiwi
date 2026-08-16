@@ -147,6 +147,24 @@ return {
     Assert.equal(descriptor.placements.placement_1.last_row, 2)
     Assert.equal(descriptor.placements.placement_1.layer, "under")
   end,
+  kitty_image_renderer_rewrites_a_resident_texture_for_an_animation_frame = function()
+    local images = KittyImages.new(1)
+    images.textures[3] = { frame_revision = 1, generation = 4, id = 3, texture = "texture" }
+    local uploaded
+    images.upload_pixels = function(_, _, texture, image)
+      uploaded = { revision = image.frame_revision, texture = texture }
+    end
+    local entry, changed = images:ensure_texture({}, {}, {
+      frame_bytes = 16,
+      frame_revision = 2,
+      generation = 4,
+      id = 3,
+    })
+    Assert.equal(entry.frame_revision, 2)
+    Assert.equal(changed, true)
+    Assert.equal(uploaded.texture, "texture")
+    Assert.equal(uploaded.revision, 2)
+  end,
   kitty_image_renderer_declares_typed_resources_and_stable_composition_order = function()
     local registry = Resources.new(1)
     local handle = registry:register("terminal.kitty_images", {
