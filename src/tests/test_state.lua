@@ -233,6 +233,8 @@ return {
     Assert.equal(state.modes.mouse_protocol, "urxvt")
     state:apply(Actions.csi({ 1006 }, "?", "", "h"))
     Assert.equal(state.modes.mouse_protocol, "sgr")
+    state:apply(Actions.csi({ 1006 }, "?", "$", "p"))
+    Assert.equal(state:pop_responses()[1], "\27[?1006;1$y")
     state:apply(Actions.esc("c"))
     Assert.equal(state.modes.focus_reporting, false)
     Assert.equal(state.modes.mouse_protocol, "x10")
