@@ -134,8 +134,10 @@ load one HTTPS PNG, APNG, or GIF from a source checkout, run this inside a Kiwi 
 The helper follows HTTPS redirects only, limits downloaded data, validates the
 PNG/APNG or GIF header and dimensions, then emits Kiwi's bounded direct-image
 graphics stream. GIF and APNG frames play through one GPU texture per visible
-image; video remains unsupported. Release and Nix installs provide the same
-command as `kiwi-image`.
+image; video remains unsupported. It consumes the placement acknowledgement and
+places the next prompt below the selected rectangle by default;
+`--no-cursor-advance` is reserved for deliberate layered composition. Release
+and Nix installs provide the same command as `kiwi-image`.
 
 During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes, and `KIWI_HYPERLINK_COLOR` controls the underline. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `KIWI_AMBIGUOUS_WIDTH=1|2`, `KIWI_FONT`, `KIWI_FONT_FAMILY`, `KIWI_FONT_PX`, `KIWI_LIGATURES=1`, and `KIWI_CALT=1` configure the startup text system. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
 

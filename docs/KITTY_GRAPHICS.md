@@ -55,9 +55,11 @@ The release artifact and Nix package install the same helper as `kiwi-image`.
 Use `--file path.png`, `--file path.apng`, or `--file path.gif` for a local
 direct-image transfer, `--columns N` and
 `--rows N` to set the terminal-cell rectangle, and `--z N` to choose its
-composition layer. The helper suppresses the terminal's local echo while it
-waits for the placement acknowledgement, so protocol reply bytes do not appear
-as `^[` text in an interactive shell.
+composition layer. By default, the helper waits for and consumes the placement
+acknowledgement, then starts subsequent output at the first column below the
+image rectangle. This keeps the shell prompt and ordinary terminal text out of
+the placed image. `--no-cursor-advance` retains the stationary placement used
+by composition fixtures.
 
 ## Bounds and validation order
 

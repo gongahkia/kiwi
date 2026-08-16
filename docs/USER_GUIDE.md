@@ -45,6 +45,10 @@ requests and does not support video:
 ./script/kiwi-image https://images.example/kiwi.png
 ```
 
+The helper waits for the placement acknowledgement and moves the cursor below
+the selected image rectangle before returning, so the next prompt does not
+overlap it. `--no-cursor-advance` is available for deliberate layered fixtures.
+
 ### Local release artifact
 
 For a relocatable, release-mode Linux x86_64 artifact, use a clean checkout:
