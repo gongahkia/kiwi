@@ -20,6 +20,7 @@ local State = {}
 State.__index = State
 
 State.flags = Attributes.flags
+State.keyboard_supported_flags = 0x0b
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
 for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
@@ -1665,6 +1666,7 @@ function State:apply_keyboard_flags(flags, mode)
     self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
     return
   end
+  flags = bit.band(flags, State.keyboard_supported_flags)
   if mode == 1 then
     self:set_keyboard_flags(flags)
   elseif mode == 2 then

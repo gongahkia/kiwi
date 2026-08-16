@@ -96,6 +96,22 @@ return {
     state:apply(Actions.osc(11, "?"))
     Assert.truthy(state:pop_responses()[1]:match("^\27%]11;rgb:"))
   end,
+  terminal_state_configures_a_complete_host_theme_without_losing_palette_sources = function()
+    local state = State.new(3, 1)
+    state:apply(Actions.csi({ 31 }, "", "", "m"))
+    state:write_codepoint("R")
+    state:configure_palette({
+      foreground = Color.pack(1, 2, 3, 0xff),
+      background = Color.pack(4, 5, 6, 0xff),
+      palette = { [1] = Color.pack(7, 8, 9, 0xff) },
+    })
+    Assert.equal(state:get(0, 0).fg_slot, 2)
+    Assert.equal(Color.unpack(state:get(0, 0).fg).blue, 9)
+    state:apply(Actions.csi({ 0 }, "", "", "m"))
+    state:write_codepoint("D")
+    Assert.equal(Color.unpack(state:get(1, 0).fg).red, 1)
+    Assert.equal(Color.unpack(state:get(1, 0).bg).green, 5)
+  end,
   terminal_state_emits_conservative_status_responses = function()
     local state = State.new(4, 2)
     state:set_cursor(2, 1)
@@ -194,12 +210,12 @@ return {
   terminal_state_negotiates_all_kitty_keyboard_progressive_enhancement_flags = function()
     local state = State.new(4, 2)
     state:apply(Actions.csi({ 31 }, "=", "", "u"))
-    Assert.equal(state.modes.keyboard_flags, 31)
+    Assert.equal(state.modes.keyboard_flags, 11)
     state:apply(Actions.csi({ 6 }, "=", "", "u"))
-    Assert.equal(state.modes.keyboard_flags, 6)
-    state:apply(Actions.csi({ 17, 2 }, "=", "", "u"))
-    Assert.equal(state.modes.keyboard_flags, 23)
-    state:apply(Actions.csi({ 20, 3 }, "=", "", "u"))
+    Assert.equal(state.modes.keyboard_flags, 2)
+    state:apply(Actions.csi({ 9, 2 }, "=", "", "u"))
+    Assert.equal(state.modes.keyboard_flags, 11)
+    state:apply(Actions.csi({ 8, 3 }, "=", "", "u"))
     Assert.equal(state.modes.keyboard_flags, 3)
     state:apply(Actions.csi({}, "?", "", "u"))
     Assert.equal(state:pop_responses()[1], "\27[?3u")

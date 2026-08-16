@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local bit = require("bit")
 local Build = require("kiwi.build")
 local Recovery = require("kiwi.gpu.recovery")
 local DeviceSoak = require("kiwi.bench.device_soak")
@@ -241,8 +242,8 @@ local function run_live(options)
     local configuration_reload_requested = false
 
     local function apply_configuration(reloaded, path)
-      if reloaded.ambiguous_width ~= configuration.ambiguous_width then
-        return nil, "ambiguous-width requires a new terminal session"
+      if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
+        return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
       local previous_viewport = {
         columns = state.columns,
@@ -379,7 +380,7 @@ local function run_live(options)
     end
 
     window:set_input_handlers(function(codepoint)
-      local text = Keyboard.text(codepoint)
+      local text = Keyboard.text(codepoint, state.modes)
       if text then
         local search = state:search_view()
         if search.editing and search.visible then
@@ -391,7 +392,7 @@ local function run_live(options)
         end
       end
     end, function(key, action, modifiers)
-      if key == glfw.key_f6 and action == glfw.press then
+      if key == glfw.key_f6 and action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
         configuration_reload_requested = true
         return { handled = true, suppress_text = true }
       end

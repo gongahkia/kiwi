@@ -1,0 +1,292 @@
+local Workspace = {}
+Workspace.__index = Workspace
+
+local function assert_positive_integer(value, name)
+  assert(type(value) == "number" and value >= 1 and value % 1 == 0, name .. " must be a positive integer")
+end
+
+local function leaf(id)
+  return { kind = "leaf", pane_id = id }
+end
+
+local function pane_count(node)
+  if node.kind == "leaf" then return 1 end
+  return pane_count(node.first) + pane_count(node.second)
+end
+
+local function minimum_dimensions(node)
+  if node.kind == "leaf" then return 1, 1 end
+  local first_width, first_height = minimum_dimensions(node.first)
+  local second_width, second_height = minimum_dimensions(node.second)
+  if node.direction == "vertical" then
+    return first_width + second_width, math.max(first_height, second_height)
+  end
+  return math.max(first_width, second_width), first_height + second_height
+end
+
+local function node_snapshot(node)
+  if node.kind == "leaf" then return { kind = "leaf", pane_id = node.pane_id } end
+  return {
+    kind = "split",
+    direction = node.direction,
+    ratio = node.ratio,
+    first = node_snapshot(node.first),
+    second = node_snapshot(node.second),
+  }
+end
+
+function Workspace.new(options)
+  options = options or {}
+  local self = setmetatable({
+    active_tab_id = nil,
+    next_pane_id = 0,
+    next_tab_id = 0,
+    panes = {},
+    tabs = {},
+    maximum_panes = options.maximum_panes or 64,
+    maximum_tabs = options.maximum_tabs or 32,
+    on_close = options.on_close,
+  }, Workspace)
+  assert_positive_integer(self.maximum_panes, "workspace maximum panes")
+  assert_positive_integer(self.maximum_tabs, "workspace maximum tabs")
+  assert(self.on_close == nil or type(self.on_close) == "function", "workspace close callback must be a function")
+  return self
+end
+
+function Workspace:tab_count()
+  return #self.tabs
+end
+
+function Workspace:pane_count()
+  local count = 0
+  for _ in pairs(self.panes) do count = count + 1 end
+  return count
+end
+
+function Workspace:active_tab()
+  if self.active_tab_id == nil then return nil end
+  for _, tab in ipairs(self.tabs) do
+    if tab.id == self.active_tab_id then return tab end
+  end
+end
+
+function Workspace:tab(id)
+  for _, tab in ipairs(self.tabs) do
+    if tab.id == id then return tab end
+  end
+end
+
+function Workspace:active_pane()
+  local tab = self:active_tab()
+  return tab and self.panes[tab.active_pane_id] or nil
+end
+
+function Workspace:new_tab(session)
+  if self:tab_count() >= self.maximum_tabs then return nil, "tab-limit" end
+  if self:pane_count() >= self.maximum_panes then return nil, "pane-limit" end
+  self.next_tab_id = self.next_tab_id + 1
+  self.next_pane_id = self.next_pane_id + 1
+  local pane = { id = self.next_pane_id, session = session, tab_id = self.next_tab_id }
+  local tab = {
+    active_pane_id = pane.id,
+    id = self.next_tab_id,
+    root = leaf(pane.id),
+  }
+  self.panes[pane.id] = pane
+  self.tabs[#self.tabs + 1] = tab
+  self.active_tab_id = tab.id
+  return pane, tab
+end
+
+function Workspace:focus_tab(id)
+  for _, tab in ipairs(self.tabs) do
+    if tab.id == id then
+      self.active_tab_id = id
+      return true
+    end
+  end
+  return nil, "unknown-tab"
+end
+
+function Workspace:focus_pane(id)
+  local pane = self.panes[id]
+  if pane == nil then return nil, "unknown-pane" end
+  local focused = assert(self:focus_tab(pane.tab_id))
+  local tab = self:active_tab()
+  tab.active_pane_id = pane.id
+  return focused
+end
+
+local function find_leaf(node, pane_id)
+  if node.kind == "leaf" then return node.pane_id == pane_id and node or nil end
+  return find_leaf(node.first, pane_id) or find_leaf(node.second, pane_id)
+end
+
+local function replace_child(parent, previous, replacement)
+  if parent == nil then return end
+  if parent.first == previous then
+    parent.first = replacement
+  else
+    assert(parent.second == previous, "workspace tree parent mismatch")
+    parent.second = replacement
+  end
+  replacement.parent = parent
+end
+
+function Workspace:split(direction, session, options)
+  options = options or {}
+  assert(direction == "vertical" or direction == "horizontal", "workspace split direction must be vertical or horizontal")
+  if self:pane_count() >= self.maximum_panes then return nil, "pane-limit" end
+  local tab = self:active_tab()
+  if tab == nil then return nil, "no-active-tab" end
+  local target = assert(find_leaf(tab.root, tab.active_pane_id), "active pane is not in tab tree")
+  local ratio = options.ratio or 0.5
+  assert(type(ratio) == "number" and ratio >= 0.1 and ratio <= 0.9, "workspace split ratio must be between 0.1 and 0.9")
+  self.next_pane_id = self.next_pane_id + 1
+  local pane = { id = self.next_pane_id, session = session, tab_id = tab.id }
+  self.panes[pane.id] = pane
+  local sibling = leaf(pane.id)
+  local split = {
+    direction = direction,
+    first = target,
+    second = sibling,
+    kind = "split",
+    ratio = ratio,
+  }
+  local parent = target.parent
+  target.parent = split
+  sibling.parent = split
+  split.parent = parent
+  if parent == nil then
+    tab.root = split
+  else
+    replace_child(parent, target, split)
+  end
+  tab.active_pane_id = pane.id
+  return pane
+end
+
+local function collect_leaves(node, output)
+  if node.kind == "leaf" then
+    output[#output + 1] = node
+    return
+  end
+  collect_leaves(node.first, output)
+  collect_leaves(node.second, output)
+end
+
+function Workspace:close_pane(id)
+  local pane = self.panes[id]
+  if pane == nil then return nil, "unknown-pane" end
+  local tab
+  for _, candidate in ipairs(self.tabs) do
+    if candidate.id == pane.tab_id then tab = candidate break end
+  end
+  assert(tab, "workspace pane has no tab")
+  if pane_count(tab.root) == 1 then return nil, "last-pane" end
+  local target = assert(find_leaf(tab.root, id), "workspace pane is not in tab tree")
+  local parent = assert(target.parent, "workspace non-root pane has no parent")
+  local sibling = parent.first == target and parent.second or parent.first
+  local grandparent = parent.parent
+  if grandparent == nil then
+    tab.root = sibling
+    sibling.parent = nil
+  else
+    replace_child(grandparent, parent, sibling)
+  end
+  self.panes[id] = nil
+  if self.on_close then self.on_close(pane.session, { pane_id = id, tab_id = tab.id }) end
+  if tab.active_pane_id == id then
+    local remaining = {}
+    collect_leaves(sibling, remaining)
+    tab.active_pane_id = remaining[1].pane_id
+  end
+  return true
+end
+
+function Workspace:close_tab(id)
+  local index
+  for candidate_index, tab in ipairs(self.tabs) do
+    if tab.id == id then index = candidate_index break end
+  end
+  if index == nil then return nil, "unknown-tab" end
+  local tab = self.tabs[index]
+  local leaves = {}
+  collect_leaves(tab.root, leaves)
+  for _, item in ipairs(leaves) do
+    local pane = self.panes[item.pane_id]
+    self.panes[item.pane_id] = nil
+    if self.on_close then self.on_close(pane.session, { pane_id = pane.id, tab_id = tab.id }) end
+  end
+  table.remove(self.tabs, index)
+  if self.active_tab_id == id then
+    local replacement = self.tabs[math.min(index, #self.tabs)]
+    self.active_tab_id = replacement and replacement.id or nil
+  end
+  return true
+end
+
+function Workspace:set_split_ratio(pane_id, ratio)
+  assert(type(ratio) == "number" and ratio >= 0.1 and ratio <= 0.9, "workspace split ratio must be between 0.1 and 0.9")
+  local pane = self.panes[pane_id]
+  if pane == nil then return nil, "unknown-pane" end
+  local tab = assert(self:tab(pane.tab_id), "workspace pane has no tab")
+  local leaf_node = assert(find_leaf(tab.root, pane_id))
+  local split = leaf_node.parent
+  if split == nil then return nil, "unsplit-pane" end
+  split.ratio = ratio
+  return true
+end
+
+function Workspace:layout(width, height)
+  assert(type(width) == "number" and width >= 1 and width % 1 == 0, "workspace width must be a positive integer")
+  assert(type(height) == "number" and height >= 1 and height % 1 == 0, "workspace height must be a positive integer")
+  local tab = self:active_tab()
+  if tab == nil then return {} end
+  local minimum_width, minimum_height = minimum_dimensions(tab.root)
+  if width < minimum_width or height < minimum_height then return nil, "insufficient-space" end
+  local result = {}
+  local function visit(node, x, y, available_width, available_height)
+    if node.kind == "leaf" then
+      result[#result + 1] = {
+        active = tab.active_pane_id == node.pane_id,
+        height = available_height,
+        pane_id = node.pane_id,
+        width = available_width,
+        x = x,
+        y = y,
+      }
+      return
+    end
+    if node.direction == "vertical" then
+      local first_minimum_width = minimum_dimensions(node.first)
+      local second_minimum_width = minimum_dimensions(node.second)
+      local first_width = math.max(first_minimum_width, math.min(available_width - second_minimum_width, math.floor(available_width * node.ratio + 0.5)))
+      visit(node.first, x, y, first_width, available_height)
+      visit(node.second, x + first_width, y, available_width - first_width, available_height)
+    else
+      local _, first_minimum_height = minimum_dimensions(node.first)
+      local _, second_minimum_height = minimum_dimensions(node.second)
+      local first_height = math.max(first_minimum_height, math.min(available_height - second_minimum_height, math.floor(available_height * node.ratio + 0.5)))
+      visit(node.first, x, y, available_width, first_height)
+      visit(node.second, x, y + first_height, available_width, available_height - first_height)
+    end
+  end
+  visit(tab.root, 0, 0, width, height)
+  return result
+end
+
+function Workspace:snapshot()
+  local tabs = {}
+  for index, tab in ipairs(self.tabs) do
+    tabs[index] = {
+      active_pane_id = tab.active_pane_id,
+      id = tab.id,
+      pane_count = pane_count(tab.root),
+      root = node_snapshot(tab.root),
+    }
+  end
+  return { active_tab_id = self.active_tab_id, tabs = tabs }
+end
+
+return Workspace
