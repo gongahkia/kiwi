@@ -123,6 +123,18 @@ make vttest                            # launch vttest if installed, in an inter
 make conformance-evidence              # audit terminfo, local tmux behavior, and native top when available
 ```
 
+Kiwi does not fetch media URLs while parsing terminal output. To explicitly
+load one HTTPS PNG from a source checkout, run this inside a Kiwi shell:
+
+```sh
+./script/kiwi-image https://images.example/kiwi.png
+```
+
+The helper follows HTTPS redirects only, limits downloaded data, validates the
+PNG header and dimensions, then emits the bounded direct-PNG Kitty graphics
+stream. It does not support GIF, animation, or video. Release and Nix installs
+provide the same command as `kiwi-image`.
+
 During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes, and `KIWI_HYPERLINK_COLOR` controls the underline. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `KIWI_AMBIGUOUS_WIDTH=1|2`, `KIWI_FONT`, `KIWI_FONT_FAMILY`, `KIWI_FONT_PX`, `KIWI_LIGATURES=1`, and `KIWI_CALT=1` configure the startup text system. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
 
 WGSL hot reload is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an explicit `KIWI_DEV_SHADER_PATH=/absolute/or/relative/terminal.wgsl`. Kiwi polls only that file at a 250 ms cadence; `F5` forces an immediate reload. It builds replacement modules and pipelines for every affected pass before swapping any active pipeline. Rejected source remains on disk for correction, while the last known-good pipelines stay active and the reason is reported to stderr. Without both settings, `F5` performs no shader compilation and production continues to use the bundled WGSL.

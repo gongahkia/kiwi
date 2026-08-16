@@ -36,6 +36,15 @@ make run ARGS='-- /usr/bin/printf "Kiwi\n"'
 The source workflow is not a system installation: the checkout is the launch
 location and `make run` sets the project-local terminfo path for its child.
 
+To display a remote PNG, run the explicit URL helper from inside that Kiwi
+shell. It fetches only a user-supplied HTTPS URL and then sends Kiwi's bounded
+direct-PNG graphics stream; it does not make automatic network requests and
+does not support GIFs or video:
+
+```sh
+./script/kiwi-image https://images.example/kiwi.png
+```
+
 ### Local release artifact
 
 For a relocatable, release-mode Linux x86_64 artifact, use a clean checkout:
@@ -49,12 +58,21 @@ tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi -- /bin/sh
 ```
 
+Inside the release terminal, use the installed helper for the same explicit
+HTTPS PNG path:
+
+```sh
+kiwi-image https://images.example/kiwi.png
+```
+
 Keep the extracted directory intact. Its launcher finds its own Lua source,
 terminfo, WGPU library, and native surface bridge relative to `bin/kiwi`; it
 does not install files into `/usr` or modify shell configuration. It still
 requires system LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, libpng, a Vulkan
 loader and driver, and a working Linux Wayland or X11 session. The adjacent
 checksum and `metadata.json` describe the artifact that was built.
+The optional `kiwi-image` helper also requires `curl`, `zsh`, and standard GNU
+core utilities from the host.
 
 For a pinned Nix package or development shell, use [NIX.md](NIX.md). It has
 the same Linux display/driver constraint and does not add a binary cache or
