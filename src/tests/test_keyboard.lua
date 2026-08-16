@@ -46,4 +46,23 @@ return {
     Assert.equal(Keyboard.key(glfw.key_f6, glfw.press, glfw.mod_control, modes, glfw).bytes, "\27[17;5~")
     Assert.equal(Keyboard.key(glfw.key_up, glfw.release, glfw.mod_shift, modes, glfw), nil)
   end,
+  keyboard_reports_kitty_event_types_for_non_text_keys = function()
+    local modes = { keyboard_flags = 2 }
+    Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, modes, glfw).bytes, "\27[1;1:1A")
+    Assert.equal(Keyboard.key(glfw.key_up, glfw.repeat_action, 0, modes, glfw).bytes, "\27[1;1:2A")
+    Assert.equal(Keyboard.key(glfw.key_up, glfw.release, 0, modes, glfw).bytes, "\27[1;1:3A")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.release, 0, modes, glfw), nil)
+  end,
+  keyboard_reports_all_kitty_keys_as_escape_codes = function()
+    local modes = { keyboard_flags = 8 }
+    local letter = Keyboard.key(string.byte("A"), glfw.press, 0, modes, glfw)
+    Assert.equal(letter.bytes, "\27[97u")
+    Assert.truthy(letter.suppress_text)
+    Assert.equal(Keyboard.text(string.byte("a"), modes), nil)
+    Assert.equal(Keyboard.key(glfw.key_enter, glfw.press, 0, modes, glfw).bytes, "\27[13u")
+    Assert.equal(Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control + glfw.mod_shift, modes, glfw).bytes, "\27[99;6u")
+    local event_modes = { keyboard_flags = 10 }
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, 0, event_modes, glfw).bytes, "\27[97;1:1u")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.release, 0, event_modes, glfw).bytes, "\27[97;1:3u")
+  end,
 }

@@ -88,10 +88,41 @@ reproducible-build gates for reconsidering it.
 
 ## Configuration
 
-Kiwi currently has no configuration-file search path and does not create a
-`$XDG_CONFIG_HOME/kiwi` directory. Startup configuration is explicit
-environment variables; change them in the invoking shell or a wrapper and
-restart Kiwi. For example, a source checkout can use:
+Kiwi reads `$XDG_CONFIG_HOME/kiwi/config`, or
+`$HOME/.config/kiwi/config` when XDG is unset. It never creates either path.
+Use `--config PATH` to select an explicit file; an explicit missing file is an
+error. The file is bounded to 64 KiB and 512 lines, has `key = value` syntax,
+and rejects unknown keys. Environment variables remain supported and override
+file values for compatibility with existing wrappers.
+
+```ini
+# ~/.config/kiwi/config; themes are kiwi, nord, or light
+theme = nord
+font-family = "Noto Sans Mono"
+font-size = 18
+ligatures = true
+contextual-alternates = true
+scrollback-limit = 4000
+ambiguous-width = 1
+foreground = #d8dee9
+background = #2e3440
+palette-1 = #bf616a
+selection-color = #5e81ac
+search-color = #ebcb8b
+hyperlink-color = #88c0d0
+command-regions = true
+command-region-color = #88c0d0
+```
+
+`F6` explicitly reloads the active configuration file. Kiwi validates the full
+replacement before changing live resources; invalid files leave the current
+configuration active. Theme, renderer colors, and font settings reload in the
+same session. `ambiguous-width` and `scrollback-limit` remain startup-only,
+because changing either would require semantic grid reflow or history
+retention changes; Kiwi reports that limitation instead of partially applying
+the file.
+
+For example, a source checkout can still use environment-only configuration:
 
 ```sh
 KIWI_FONT_FAMILY='Noto Sans Mono' \
@@ -107,7 +138,7 @@ An extracted artifact accepts the same variables before its launcher:
 KIWI_FONT_PX=18 ./kiwi-<version>-linux-x86_64/bin/kiwi -- /bin/sh
 ```
 
-The documented startup settings are intentionally small:
+The documented settings are intentionally small:
 
 | Variable | Default | Effect |
 | --- | --- | --- |
