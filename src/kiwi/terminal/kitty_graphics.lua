@@ -90,15 +90,16 @@ local function strict_base64(value)
 end
 
 local function media_header(bytes)
-  if #bytes < 24 or bytes:sub(1, 8) ~= "\137PNG\r\n\26\n" or bytes:sub(13, 16) ~= "IHDR" then
-    if #bytes < 10 or (bytes:sub(1, 6) ~= "GIF87a" and bytes:sub(1, 6) ~= "GIF89a") then return nil, "unsupported-media" end
-    return bytes:byte(7) + bytes:byte(8) * 0x100, bytes:byte(9) + bytes:byte(10) * 0x100, "gif"
+  if bytes:sub(1, 8) == "\137PNG\r\n\26\n" then
+    if #bytes < 24 or bytes:sub(13, 16) ~= "IHDR" then return nil, "png-header" end
+    local length = ((bytes:byte(9) * 0x100 + bytes:byte(10)) * 0x100 + bytes:byte(11)) * 0x100 + bytes:byte(12)
+    if length ~= 13 then return nil, "png-header" end
+    local width = ((bytes:byte(17) * 0x100 + bytes:byte(18)) * 0x100 + bytes:byte(19)) * 0x100 + bytes:byte(20)
+    local height = ((bytes:byte(21) * 0x100 + bytes:byte(22)) * 0x100 + bytes:byte(23)) * 0x100 + bytes:byte(24)
+    return width, height, "png"
   end
-  local length = ((bytes:byte(9) * 0x100 + bytes:byte(10)) * 0x100 + bytes:byte(11)) * 0x100 + bytes:byte(12)
-  if length ~= 13 then return nil, "png-header" end
-  local width = ((bytes:byte(17) * 0x100 + bytes:byte(18)) * 0x100 + bytes:byte(19)) * 0x100 + bytes:byte(20)
-  local height = ((bytes:byte(21) * 0x100 + bytes:byte(22)) * 0x100 + bytes:byte(23)) * 0x100 + bytes:byte(24)
-  return width, height, "png"
+  if #bytes < 10 or (bytes:sub(1, 6) ~= "GIF87a" and bytes:sub(1, 6) ~= "GIF89a") then return nil, "unsupported-media" end
+  return bytes:byte(7) + bytes:byte(8) * 0x100, bytes:byte(9) + bytes:byte(10) * 0x100, "gif"
 end
 
 local function protocol_response(id, status)

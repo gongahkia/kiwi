@@ -248,7 +248,7 @@ function KittyImages:create_texture(owner, image)
   local api = owner.native.lib
   local c = owner.native.constants
   local label = string.format("kitty-image-%d-%d", image.id, image.generation)
-  local entry = { generation = image.generation, id = image.id }
+  local entry = { frame_revision = image.frame_revision, generation = image.generation, id = image.id }
   local ok, result = xpcall(function()
     local texture_descriptor = ffi.new("WGPUTextureDescriptor")
     texture_descriptor.label = string_view(label .. "-texture")
@@ -290,10 +290,18 @@ end
 
 function KittyImages:ensure_texture(owner, graphics, image)
   local existing = self.textures[image.id]
-  if existing and existing.generation == image.generation then return existing, false end
+  if existing and existing.generation == image.generation then
+    if existing.frame_revision ~= image.frame_revision then
+      self:upload_pixels(owner, existing.texture, image)
+      existing.frame_revision = image.frame_revision
+      self.uploads = self.uploads + 1
+      return existing, true
+    end
+    return existing, false
+  end
   if existing then self:remove_texture(owner, graphics, image.id, nil, true) end
   if self.blocked[image.id] == image.generation then return nil, false end
-  local registered, reason = graphics:register_gpu_upload(image.id, image.generation, image.bytes)
+  local registered, reason = graphics:register_gpu_upload(image.id, image.generation, image.frame_bytes or image.bytes)
   if not registered then
     self.blocked[image.id] = image.generation
     return nil, false, reason
@@ -326,6 +334,7 @@ function KittyImages:sync(owner, model)
       end
     end
   end
+  if type(graphics.set_active_images) == "function" then graphics:set_active_images(wanted) end
   local changed = self:drain_gpu_releases(owner, graphics)
   local resident_ids = {}
   for id in pairs(self.textures) do resident_ids[#resident_ids + 1] = id end

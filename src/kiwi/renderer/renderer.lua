@@ -888,6 +888,10 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.extension_manager:consume_animations(time)
   local cursor_blink_delay = self:cursor_blink_delay(model)
   if cursor_blink_delay then self:schedule_animation("cursor", time, cursor_blink_delay) end
+  if model.kitty_graphics and type(model.kitty_graphics.animation_delay) == "function" then
+    local kitty_animation_delay = model.kitty_graphics:animation_delay(time)
+    if kitty_animation_delay then self:schedule_animation("kitty_images", time, kitty_animation_delay) end
+  end
   self.diagnostics.invalidation = self:invalidation_snapshot()
   self.diagnostics.extensions = self.extension_manager:snapshot()
   if self.inspector_enabled then self.diagnostics.inspector = self:inspector_snapshot() end
