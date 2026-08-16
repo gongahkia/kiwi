@@ -2,6 +2,7 @@
 set -euo pipefail
 
 readonly GIF='R0lGODlhAgACAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAAAAAACwAAAAAAgACAAACAoRRACH5BAAFAAAALAAAAAACAAIAgAAA/wAAAAIChFEAOw=='
+readonly APNG='iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAAAAAAAAQCEeRdzAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAACAAAAAgAAAAAAAAAAAAEAGQAA9jTBKQAAABJJREFUeJxj+MfA+I+BkQFCAQAf5gP97YntFAAAABpmY1RMAAAAAQAAAAIAAAACAAAAAAAAAAAAAQAZAABtRyv9AAAAFmZkQVQAAAACeJxjYGT4x8jwjwFCAQAX/gP9RayewQAAAABJRU5ErkJggg=='
 tty_state=''
 
 cleanup() {
@@ -16,6 +17,10 @@ fi
 
 printf '%s\n' 'Kitty GIF playback'
 print -rn -- $'\e_G'"a=t,i=1,s=2,v=2,f=100,t=d,m=0;$GIF"$'\e\\'
-print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=8,C=1,z=-1\e\\'
-printf '%s\n' 'red and blue frames alternate behind this text'
+print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=4,C=1,z=-1\e\\'
+print -rn -- $'\e[6;1H'
+print -rn -- $'\e_G'"a=t,i=2,s=2,v=2,f=100,t=d,m=0;$APNG"$'\e\\'
+print -rn -- $'\e_Ga=p,i=2,p=1,c=18,r=4,C=1,z=1\e\\'
+print -rn -- $'\e[2;1H'
+printf '%s\n' 'GIF and APNG frames alternate behind and over this text'
 sleep 1

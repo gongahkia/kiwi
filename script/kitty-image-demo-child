@@ -6,8 +6,10 @@ readonly ROOT=${0:A:h:h}
 printf '%s\n' 'Kitty image composition fixture'
 KIWI_IMAGE_ID=1 KIWI_IMAGE_PLACEMENT_ID=1 KIWI_IMAGE_COLUMNS=18 KIWI_IMAGE_ROWS=8 KIWI_IMAGE_Z=-1 \
   "$ROOT/script/kiwi-image" --file "$ROOT/assets/kiwi-bird.png"
-printf '%s\n' 'negative z stays behind this text and selection'
-KIWI_IMAGE_ID=1 KIWI_IMAGE_PLACEMENT_ID=2 KIWI_IMAGE_COLUMNS=18 KIWI_IMAGE_ROWS=1 KIWI_IMAGE_Z=1 \
+printf '%s\n' 'negative z image stays behind this text'
+printf '%s\n' 'selection remains visible'
+for _ in {1..6}; do print; done
+KIWI_IMAGE_ID=1 KIWI_IMAGE_PLACEMENT_ID=2 KIWI_IMAGE_COLUMNS=18 KIWI_IMAGE_ROWS=8 KIWI_IMAGE_Z=1 \
   "$ROOT/script/kiwi-image" --place-only
-printf '%s\n' 'zero or positive z appears over glyphs; cursor remains last'
+printf '%s\n' 'positive z image appears over this text; cursor remains last'
 sleep 1

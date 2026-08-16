@@ -20,12 +20,17 @@ for command in luajit curl unzip sha256sum pkg-config tic infocmp; do
   fi
 done
 
-for package in glfw3 freetype2 harfbuzz fontconfig libpng giflib; do
+for package in glfw3 freetype2 harfbuzz fontconfig libpng; do
   if ! pkg-config --exists "$package"; then
     print -u2 "Missing pkg-config package: $package. Install the Fedora development package documented in README.md."
     exit 1
   fi
 done
+
+if ! ldconfig -p 2>/dev/null | awk '$1 ~ /^libgif\.so/ { found = 1 } END { exit !found }'; then
+  print -u2 'Missing giflib runtime. Install the Fedora package documented in README.md.'
+  exit 1
+fi
 
 if [[ -f "$TARGET/lib/libwgpu_native.so" && -f "$TARGET/include/webgpu/webgpu.h" ]]; then
   print "wgpu-native $VERSION is already available at $TARGET"

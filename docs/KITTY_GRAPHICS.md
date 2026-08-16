@@ -189,8 +189,8 @@ clipping, image-pass ordering, per-row source slicing, offscreen texture release
 and cleanup.
 
 Run `make kitty-graphics-smoke` in a graphical session for the static PNG
-composition client, or `make kitty-animation-smoke` for the self-contained GIF
-playback client. On an adapter with timestamp-query support both report their
+composition client, or `make kitty-animation-smoke` for the self-contained
+GIF/APNG playback client. On an adapter with timestamp-query support both report their
 Kitty image pass samples; then run `make conformance-evidence` to record/replay
 the static stream alongside the other native conformance probes. The supported
 direct-image stream is intentionally not evidence for arbitrary third-party

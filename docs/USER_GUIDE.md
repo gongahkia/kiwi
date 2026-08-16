@@ -18,7 +18,7 @@ dependency, run the deterministic checks, and start Kiwi:
 git clone https://github.com/gongahkia/kiwi.git
 cd kiwi
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel giflib-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 make bootstrap
 make check
