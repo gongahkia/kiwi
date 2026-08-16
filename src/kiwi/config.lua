@@ -103,7 +103,6 @@ local function defaults()
     contextual_alternates = false,
     scrollback_limit = 2000,
     ambiguous_width = 1,
-    resize_reflow = true,
     foreground = nil,
     background = nil,
     palette = {},
@@ -141,8 +140,6 @@ local function apply_value(config, key, raw, line)
     config.scrollback_limit = parse_integer(raw, line, 0, 1000000)
   elseif key == "ambiguous-width" then
     config.ambiguous_width = parse_integer(raw, line, 1, 2)
-  elseif key == "resize-reflow" then
-    config.resize_reflow = parse_boolean(raw, line)
   elseif key == "foreground" then
     config.foreground = Config.parse_color(raw, line)
   elseif key == "background" then
@@ -217,7 +214,6 @@ function Config.apply_environment(config, environment)
     ["contextual-alternates"] = environment("KIWI_CALT") == "1" and "true" or environment("KIWI_CALT") == "0" and "false" or nil,
     ["scrollback-limit"] = environment("KIWI_SCROLLBACK"),
     ["ambiguous-width"] = environment("KIWI_AMBIGUOUS_WIDTH"),
-    ["resize-reflow"] = environment("KIWI_RESIZE_REFLOW") == "1" and "true" or environment("KIWI_RESIZE_REFLOW") == "0" and "false" or nil,
     ["selection-color"] = environment("KIWI_SELECTION_COLOR"),
     ["search-color"] = environment("KIWI_SEARCH_COLOR"),
     ["hyperlink-color"] = environment("KIWI_HYPERLINK_COLOR"),

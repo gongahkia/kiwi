@@ -11,7 +11,6 @@ return {
       font-size = 18
       ligatures = true
       osc52-write = true
-      resize-reflow = false
       palette-1 = #010203
       foreground = #112233
     ]], "test")
@@ -20,7 +19,6 @@ return {
     Assert.equal(config.font_size, 18)
     Assert.equal(config.ligatures, true)
     Assert.equal(config.osc52_write, true)
-    Assert.equal(config.resize_reflow, false)
     Assert.equal(Color.unpack(config.palette[1]).green, 2)
     Assert.equal(Color.unpack(config.foreground).red, 0x11)
   end,

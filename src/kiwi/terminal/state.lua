@@ -8,6 +8,7 @@ local Hyperlink = require("kiwi.terminal.hyperlink")
 local KittyGraphics = require("kiwi.terminal.kitty_graphics")
 local KittyPlacements = require("kiwi.terminal.kitty_placements")
 local Properties = require("kiwi.unicode.properties")
+local Reflow = require("kiwi.terminal.reflow")
 local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
 local Search = require("kiwi.input.search")
@@ -22,6 +23,7 @@ State.__index = State
 
 State.flags = Attributes.flags
 State.keyboard_supported_flags = 0x0b
+State.reflow = Reflow
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
 for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
