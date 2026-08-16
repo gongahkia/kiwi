@@ -140,6 +140,20 @@ function CommandRegions:reconcile_rows(rows)
   for _, region in ipairs(self.regions) do region.retained_rows = retained[region.id] or 0 end
 end
 
+function CommandRegions:remap_positions(scope, mapper)
+  assert(type(mapper) == "function", "command-region remap requires a mapper")
+  local fields = { "start", "last_position", "prompt_start", "command_start", "output_start", "finish" }
+  for _, region in ipairs(self.regions) do
+    for _, field in ipairs(fields) do
+      local position = region[field]
+      if position and position.scope == scope then
+        local remapped = mapper(position)
+        if remapped then region[field] = copy_position(remapped) end
+      end
+    end
+  end
+end
+
 function CommandRegions:finish(region, position, state, exit_status, interruption)
   region.finish = copy_position(position)
   region.last_position = copy_position(position)

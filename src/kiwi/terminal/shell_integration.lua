@@ -152,6 +152,19 @@ function ShellIntegration:apply_marker(value, position)
   return self:record(marker.kind, position, marker.exit_status), "accepted"
 end
 
+function ShellIntegration:remap_positions(scope, mapper)
+  assert(type(mapper) == "function", "shell integration remap requires a mapper")
+  for _, event in ipairs(self.events) do
+    if event.scope == scope then
+      local remapped = mapper(event)
+      if remapped then
+        event.column = remapped.column
+        event.line_id = remapped.line_id
+      end
+    end
+  end
+end
+
 function ShellIntegration:view()
   local events = {}
   for index, event in ipairs(self.events) do events[index] = copy_event(event) end
