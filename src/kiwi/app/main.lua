@@ -432,6 +432,8 @@ local function run_live(options)
       local child_status = pty:poll_exit()
       update_search_title()
 
+      if renderer:can_present(state) and state.kitty_graphics:advance(now) then renderer:invalidate("kitty_images") end
+
       do
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
         local previous_viewport = {
