@@ -70,6 +70,12 @@ local function assert_expected(fixture, state, parser)
   if expected.margins then
     Assert.equal(state.active_screen.top_margin, expected.margins.top, fixture.id .. " top margin")
     Assert.equal(state.active_screen.bottom_margin, expected.margins.bottom, fixture.id .. " bottom margin")
+    if expected.margins.left ~= nil then
+      Assert.equal(state.active_screen.left_margin, expected.margins.left, fixture.id .. " left margin")
+    end
+    if expected.margins.right ~= nil then
+      Assert.equal(state.active_screen.right_margin, expected.margins.right, fixture.id .. " right margin")
+    end
   end
   if expected.modes then
     for name, value in pairs(expected.modes) do

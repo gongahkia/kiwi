@@ -20,7 +20,7 @@ TERMINFO="$PWD/.build/terminfo" infocmp kiwi
 
 The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, basic SGR, and application cursor keys. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
-M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, margins, deferred autowrap, bounded primary scrollback, legacy keyboard encoding plus the negotiated Kitty disambiguation subset, PTY resize propagation, DSR/DA replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap, bounded primary scrollback, legacy keyboard encoding plus the negotiated Kitty disambiguation subset, PTY resize propagation, DSR/DA replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 ## Fedora prerequisites
 
@@ -182,9 +182,13 @@ pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
 alpha highlight; `KIWI_SEARCH_COLOR` has the same format. Neither input
 capability is advertised through terminfo.
 
-`Ctrl+Shift+T` opens a local tab, `Ctrl+Tab` cycles tabs, and `Ctrl+Shift+W`
-closes the active tab. Inactive tabs continue to service their PTYs; split-pane
-rendering is not yet exposed. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
+`Ctrl+Shift+T` opens a local tab and `Ctrl+Tab` cycles tabs. `Ctrl+Shift+Enter`
+creates a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
+`Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
+Each visible pane has its own terminal and PTY, is resized to its cell-layout
+rectangle, and is rendered into a scissored viewport in one shared WGPU frame.
+Primary-clicking a pane focuses it before pointer input is routed to that
+terminal. Inactive tabs continue to service their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
 Linux clipboard through GLFW. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.

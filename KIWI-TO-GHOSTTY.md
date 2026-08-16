@@ -22,11 +22,13 @@ facade with typed effects and render updates; terminal-local OSC palette/default
 colour operations; a strict XDG configuration file with themes, font controls,
 reload, and an explicit OSC 52 write-only opt-in; supported Kitty keyboard flags
 1, 2, and 8; and a bounded tab/split workspace topology. The live GLFW app now
-uses the tab lifecycle (`Ctrl+Shift+T`, `Ctrl+Tab`, `Ctrl+Shift+W`) and services
-inactive PTYs, but split **rendering** is not yet implemented.
+uses tabs and rendered vertical/horizontal split panes. Each visible pane owns
+an isolated terminal/PTY, is assigned its layout grid, and is composed through
+one shared WGPU surface acquisition with viewport/scissor isolation; inactive
+tabs continue to service their PTYs.
 
 The major remaining gaps are wider xterm/mouse/keyboard behavior,
-rendered split panes and native multi-window UI, automatic shell/SSH workflows,
+native multi-window UI, automatic shell/SSH workflows,
 system appearance/theme catalogues, native accessibility, macOS support, and a
 published C ABI. This is progress toward the architecture, not Ghostty parity.
 
@@ -36,7 +38,7 @@ published C ABI. This is progress toward the architecture, not Ghostty parity.
 | --- | --- | --- | --- |
 | Product intent | A daily-use, native terminal application for macOS and Linux. | A rendering-first terminal research platform, explicitly not a daily-driver or full-compatibility claim. | **Foundational gap.** The projects optimize for different completion criteria. |
 | Terminal compatibility | States an xterm-first, protocol-origin and de-facto-standard compatibility policy, with a VT reference that lists many supported controls and says more are supported. | A defined C0/ESC/CSI/OSC subset, exact 16-colour terminfo contract, and explicitly bounded unsupported cases. | **Large, ongoing gap.** This is not a single checklist item. |
-| Native application shell | Native windows, tabs, and splits; native components on both supported desktop platforms. | One GLFW/Vulkan terminal window; no windows/tabs/splits/session-layout model. | **Large application gap.** |
+| Native application shell | Native windows, tabs, and splits; native components on both supported desktop platforms. | One GLFW/Vulkan window with bounded tabs and real split panes, per-pane PTYs, grid resize, pointer focus routing, and shared-frame composition. | **Partial application gap.** Multi-window UI, native tab chrome, persistence, and platform-native integration remain absent. |
 | Platforms | Shipping macOS and Linux applications; Linux supports Wayland and X11. Windows application support is planned, not current. | Linux x86_64 only; no macOS or Windows runtime is claimed. | **Large platform gap.** macOS is a Ghostty advantage; Windows is not yet an app-level Ghostty advantage. |
 | Configuration and themes | Text config file, CLI equivalents, runtime reload, hundreds of options, built-in theme catalogue and system dark/light switching. | Startup environment variables and command-line options for a deliberately small set of research/runtime controls; no persistent user configuration model or theme catalogue. | **Large product gap.** |
 | Core reuse | Ghostty has a C-ABI core used by its platform GUIs, although its standalone public API remains unstable. | Lua modules are composed directly into one application; there is no supported embedding ABI. | **Architectural gap.** Detailed in [KIWI-TO-LIBGHOSTTY](KIWI-TO-LIBGHOSTTY). |
@@ -65,7 +67,7 @@ The Ghostty reference is not exhaustive, and Kiwi's source does contain more tha
 | --- | --- | --- |
 | **User-configurable font features and ligatures.** Ghostty documents ligature rendering plus selective OpenType feature enable/disable. | Kiwi has HarfBuzz shaping, Fontconfig fallback, a glyph-ID atlas, and opt-in ligature/`calt` startup toggles. | **Partial gap.** Kiwi has the foundation but not Ghostty's broader, documented end-user font-configuration surface. |
 | **Theme product.** Ghostty ships hundreds of themes, custom themes, and automatic system dark/light switching. | Kiwi has renderer colours and selected environment controls, but no persistent theme/configuration system or system-appearance integration. | **Clear product gap.** |
-| **Native window behavior and system integration.** Ghostty's macOS application integrates native tabs/splits, Quick Terminal, AppleScript, Quick Look, secure keyboard entry, and state recovery; Linux is a GTK4 application. | Kiwi uses one GLFW window and has no equivalent native UI/session/application integration. Its accessibility model is semantic-only; no AT-SPI, NSAccessibility, or UI Automation adapter is implemented. | **Clear platform/UI gap.** Do not infer that Ghostty's native UI claim alone proves every assistive-technology scenario; that needs a dedicated accessibility audit. |
+| **Native window behavior and system integration.** Ghostty's macOS application integrates native tabs/splits, Quick Terminal, AppleScript, Quick Look, secure keyboard entry, and state recovery; Linux is a GTK4 application. | Kiwi has GLFW-hosted tabs/splits rather than native widgets, and still has no multi-window/session restoration or AT-SPI, NSAccessibility, or UI Automation adapter. | **Clear platform/UI gap.** Do not infer that Ghostty's native UI claim alone proves every assistive-technology scenario; that needs a dedicated accessibility audit. |
 | **Renderer portability.** Ghostty documents Metal on macOS and OpenGL on Linux. | Kiwi uses a GLFW/WGPU native bridge with Vulkan on its supported Linux path. | **Platform scope gap, not a simple renderer-quality ranking.** GPU acceleration exists in both projects. |
 | **Bidirectional text.** | Ghostty's feature page says it correctly clusters some Arabic/Hebrew graphemes but currently supports only left-to-right text. Kiwi explicitly does not implement bidi. | **Not a Ghostty advantage today.** Neither project should claim general bidi/reordering from the evidence used here. |
 
@@ -75,7 +77,7 @@ Kiwi should not chase renderer backend parity as a proxy for product parity. Its
 
 | Ghostty capability | Kiwi status | What is missing |
 | --- | --- | --- |
-| Multiple windows, native tabs, and splits. | A single terminal window and one child PTY. | A session graph, terminal-surface lifecycle, split layout, tab/window commands, persistence policy, focus routing, per-surface PTY ownership, and native-widget adapters. |
+| Multiple windows, native tabs, and splits. | One GLFW window with rendered tabs/splits, pane hit-testing, per-pane PTY ownership, and bounded session layout. | Multiple windows, native-widget adapters/chrome, persistence and restoration policy, and platform lifecycle integration. |
 | Persistent user configuration, CLI parity, includes, and runtime reload. | Environment variables and project launch arguments; no user config discovery/reload system. | Schema, validation and diagnostics, precedence rules, safe reload boundaries, documentation generation, and per-platform paths. |
 | Theme inventory and appearance switching. | No theme catalogue or system appearance adapter. | Theme format, packaged assets, palette/default color precedence, system appearance signals, and live renderer invalidation. |
 | Linux desktop integration and distribution support. | Fedora-oriented source prerequisites, a local Linux x86_64 release artifact, and Nix support. | A supported-install matrix, desktop entry/icon/session behavior, GTK/Wayland/X11 strategy or an equally documented alternative, packaging/release policy, and end-user support boundary. |

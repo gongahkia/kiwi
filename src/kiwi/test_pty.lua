@@ -173,4 +173,31 @@ test("pty_ctrl_c_reaches_the_foreground_process_group", function()
   Assert.equal(status.code, 0)
 end)
 
+test("pty_sessions_keep_input_output_and_lifecycle_isolated", function()
+  local first = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'first:%s' \"$value\"" }, 10, 4, { TERM = "kiwi" })
+  local second = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'second:%s' \"$value\"" }, 17, 5, { TERM = "kiwi" })
+  first:enqueue("alpha\n")
+  second:enqueue("beta\n")
+  first:flush()
+  second:flush()
+  local first_output, second_output = "", ""
+  local first_status, second_status
+  for _ = 1, 400 do
+    first_output = first_output .. first:read_available()
+    second_output = second_output .. second:read_available()
+    first_status = first:poll_exit()
+    second_status = second:poll_exit()
+    if first_status and first.eof and second_status and second.eof then break end
+    ffi.C.usleep(5000)
+  end
+  first:shutdown()
+  second:shutdown()
+  Assert.truthy(first_output:find("first:alpha", 1, true) ~= nil)
+  Assert.truthy(second_output:find("second:beta", 1, true) ~= nil)
+  Assert.truthy(first_output:find("second:beta", 1, true) == nil)
+  Assert.truthy(second_output:find("first:alpha", 1, true) == nil)
+  Assert.equal(first_status.kind, "exit")
+  Assert.equal(second_status.kind, "exit")
+end)
+
 io.stdout:write(string.format("%d deterministic PTY integration tests passed.\n", total))

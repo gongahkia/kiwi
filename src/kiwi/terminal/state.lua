@@ -89,6 +89,7 @@ function State.new(columns, rows, options)
     modes = {
       autowrap = true,
       origin = false,
+      left_right_margin = false,
       insert = false,
       cursor_visible = true,
       cursor_style = 1,
@@ -723,6 +724,51 @@ function State:mark_region(top, bottom)
   self:invalidate_search()
 end
 
+function State:mark_rectangle(top, bottom, left, right)
+  for row = top, bottom do
+    local first = self:index(left, row)
+    local count = right - left + 1
+    self.damage:mark_range(first, count)
+    self.text_damage:mark_range(first, count)
+  end
+  self:invalidate_search()
+end
+
+function State:horizontal_margins()
+  if self.modes.left_right_margin then
+    return self.active_screen.left_margin, self.active_screen.right_margin
+  end
+  return 0, self.columns - 1
+end
+
+function State:cursor_within_horizontal_margins(cursor)
+  cursor = cursor or self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  return cursor.column >= left and cursor.column <= right
+end
+
+function State:horizontal_motion_bounds(cursor)
+  cursor = cursor or self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  if cursor.column < left then left = 0 end
+  if cursor.column > right then right = self.columns - 1 end
+  return left, right
+end
+
+function State:write_right_boundary(cursor)
+  cursor = cursor or self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  if cursor.column >= left and cursor.column <= right then return right end
+  return self.columns - 1
+end
+
+function State:carriage_return_column(cursor)
+  cursor = cursor or self.active_screen.cursor
+  local left = self:horizontal_margins()
+  if self.modes.origin or cursor.column >= left then return left end
+  return 0
+end
+
 function State:sync_cursor_visibility()
   self.cursor.visible = self.modes.cursor_visible and self.history_offset == 0
 end
@@ -761,7 +807,17 @@ function State:scroll_up(count)
   self:clear_grapheme_context()
   local screen = self.active_screen
   local top, bottom = screen.top_margin, screen.bottom_margin
+  local left, right = self:horizontal_margins()
   count = clamp(count or 1, 1, bottom - top + 1)
+  if left ~= 0 or right ~= self.columns - 1 then
+    screen:scroll_rect_up(top, bottom, left, right, count, function()
+      return self:cell_from_attributes(" ")
+    end)
+    for row = top, bottom do self:normalize_row(row) end
+    self:mark_rectangle(top, bottom, left, right)
+    self.stats.mutations = self.stats.mutations + (bottom - top + 1) * (right - left + 1)
+    return
+  end
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
     local evicted = self.scrollback:push(row)
     if evicted then
@@ -783,7 +839,17 @@ function State:scroll_down(count)
   self:clear_grapheme_context()
   local screen = self.active_screen
   local top, bottom = screen.top_margin, screen.bottom_margin
+  local left, right = self:horizontal_margins()
   count = clamp(count or 1, 1, bottom - top + 1)
+  if left ~= 0 or right ~= self.columns - 1 then
+    screen:scroll_rect_down(top, bottom, left, right, count, function()
+      return self:cell_from_attributes(" ")
+    end)
+    for row = top, bottom do self:normalize_row(row) end
+    self:mark_rectangle(top, bottom, left, right)
+    self.stats.mutations = self.stats.mutations + (bottom - top + 1) * (right - left + 1)
+    return
+  end
   screen:scroll_down(top, bottom, count, function(row)
     self:release_command_regions(row)
     self:release_kitty_placement_row(screen == self.primary and "primary" or "alternate", row)
@@ -795,7 +861,7 @@ end
 function State:index_line()
   local cursor = self.active_screen.cursor
   cursor.pending_wrap = false
-  if cursor.row == self.active_screen.bottom_margin then
+  if cursor.row == self.active_screen.bottom_margin and self:cursor_within_horizontal_margins(cursor) then
     self:scroll_up(1)
   elseif cursor.row < self.rows - 1 then
     self:set_cursor(cursor.column, cursor.row + 1)
@@ -805,7 +871,7 @@ end
 function State:reverse_index()
   local cursor = self.active_screen.cursor
   cursor.pending_wrap = false
-  if cursor.row == self.active_screen.top_margin then
+  if cursor.row == self.active_screen.top_margin and self:cursor_within_horizontal_margins(cursor) then
     self:scroll_down(1)
   elseif cursor.row > 0 then
     self:set_cursor(cursor.column, cursor.row - 1)
@@ -817,18 +883,19 @@ function State:line_feed()
 end
 
 function State:carriage_return()
-  self:set_cursor(0, self.active_screen.cursor.row)
+  local cursor = self.active_screen.cursor
+  self:set_cursor(self:carriage_return_column(cursor), cursor.row)
 end
 
 function State:backspace()
-  local cursor = self.active_screen.cursor
-  self:set_cursor(math.max(0, cursor.column - 1), cursor.row)
+  self:move_relative(0, -1)
 end
 
 function State:tab()
   local cursor = self.active_screen.cursor
-  local target = self.columns - 1
-  for column = cursor.column + 1, self.columns - 1 do
+  local _, maximum = self:horizontal_margins()
+  local target = maximum
+  for column = cursor.column + 1, maximum do
     if self.tab_stops[column] then
       target = column
       break
@@ -843,9 +910,10 @@ end
 
 function State:back_tab(count)
   local cursor = self.active_screen.cursor
+  local minimum = self.modes.origin and self:horizontal_margins() or 0
   for _ = 1, count or 1 do
-    local target = 0
-    for column = cursor.column - 1, 0, -1 do
+    local target = minimum
+    for column = cursor.column - 1, minimum, -1 do
       if self.tab_stops[column] then
         target = column
         break
@@ -908,15 +976,17 @@ function State:prepare_cluster_write(width)
     end
     cursor.pending_wrap = false
   end
-  if width == 2 and self.columns < 2 then
+  local right = self:write_right_boundary(cursor)
+  if width == 2 and right == 0 then
     self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
     width = 1
-  elseif width == 2 and cursor.column == self.columns - 1 then
+  elseif width == 2 and cursor.column == right then
     if self.modes.autowrap then
       screen.rows[cursor.row].wrapped = true
       self:carriage_return()
       self:index_line()
       cursor = screen.cursor
+      right = self:write_right_boundary(cursor)
     else
       self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
       width = 1
@@ -967,8 +1037,9 @@ function State:write_new_cluster(glyph, codepoint)
   context.codepoints = codepoints
   context.last_gcb = gcb
   self.grapheme_context = context
-  if column + width - 1 == self.columns - 1 then
-    self:set_cursor(self.columns - 1, row, true)
+  local right = self:write_right_boundary(cursor)
+  if column + width - 1 == right then
+    self:set_cursor(right, row, true)
     cursor.pending_wrap = true
   else
     self:set_cursor(column + width, row, true)
@@ -1000,14 +1071,15 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
   local column, row = context.column, context.row
   local cursor = self.active_screen.cursor
   if old_width == 1 and new_width == 2 then
-    local next_cell = column + 1 < self.columns and self.active_screen:get(column + 1, row) or nil
+    local right = self:write_right_boundary({ column = column })
+    local next_cell = column + 1 <= right and self.active_screen:get(column + 1, row) or nil
     if next_cell and next_cell.glyph == " " and not next_cell.continuation then
       updated.width = 2
       self:set_cell(column, row, updated)
       self:set_cell(column + 1, row, self:continuation_cell(column))
       if cursor.row == row and cursor.column == column + 1 then
-        self:set_cursor(math.min(self.columns - 1, column + 2), row, true)
-        cursor.pending_wrap = column + 1 == self.columns - 1
+        self:set_cursor(math.min(right, column + 2), row, true)
+        cursor.pending_wrap = column + 1 == right
       end
     else
       self.stats.text.width_change_clamped = self.stats.text.width_change_clamped + 1
@@ -1049,7 +1121,7 @@ function State:write_ascii_cluster(glyph, codepoint)
   context.codepoints = codepoints
   context.last_gcb = GCB.other
   self.grapheme_context = context
-  if column == self.columns - 1 then
+  if column == self:write_right_boundary(cursor) then
     cursor.pending_wrap = true
   else
     self:set_cursor(column + 1, row, true)
@@ -1219,9 +1291,14 @@ end
 function State:insert_characters(count)
   self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  if cursor.column < left or cursor.column > right then
+    cursor.pending_wrap = false
+    return
+  end
   local row = self.active_screen.rows[cursor.row]
-  count = math.min(count or 1, self.columns - cursor.column)
-  for column = self.columns - 1, cursor.column + count, -1 do
+  count = math.min(count or 1, right - cursor.column + 1)
+  for column = right, cursor.column + count, -1 do
     copy_cell(row.cells[column], row.cells[column - count])
   end
   for column = cursor.column, cursor.column + count - 1 do
@@ -1229,7 +1306,7 @@ function State:insert_characters(count)
   end
   self:normalize_row(cursor.row)
   local first = self:index(cursor.column, cursor.row)
-  local count = self.columns - cursor.column
+  local count = right - cursor.column + 1
   self.damage:mark_range(first, count)
   self.text_damage:mark_range(first, count)
   cursor.pending_wrap = false
@@ -1238,17 +1315,19 @@ end
 function State:delete_characters(count)
   self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  if cursor.column < left or cursor.column > right then return end
   local row = self.active_screen.rows[cursor.row]
-  count = math.min(count or 1, self.columns - cursor.column)
-  for column = cursor.column, self.columns - count - 1 do
+  count = math.min(count or 1, right - cursor.column + 1)
+  for column = cursor.column, right - count do
     copy_cell(row.cells[column], row.cells[column + count])
   end
-  for column = self.columns - count, self.columns - 1 do
+  for column = right - count + 1, right do
     copy_cell(row.cells[column], self:cell_from_attributes(" "))
   end
   self:normalize_row(cursor.row)
   local first = self:index(cursor.column, cursor.row)
-  local count = self.columns - cursor.column
+  local count = right - cursor.column + 1
   self.damage:mark_range(first, count)
   self.text_damage:mark_range(first, count)
   cursor.pending_wrap = false
@@ -1257,40 +1336,84 @@ end
 function State:insert_lines(count)
   self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
-  if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin then
+  local left, right = self:horizontal_margins()
+  if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin
+    or cursor.column < left or cursor.column > right then
     return
   end
   local bottom = self.active_screen.bottom_margin
-  self.active_screen:scroll_down(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), function(row)
-    self:release_command_regions(row)
-    self:release_kitty_placement_row(self:selection_scope(), row)
-  end)
-  self:mark_region(cursor.row, bottom)
+  count = clamp(count or 1, 1, bottom - cursor.row + 1)
+  if left == 0 and right == self.columns - 1 then
+    self.active_screen:scroll_down(cursor.row, bottom, count, function(row)
+      self:release_command_regions(row)
+      self:release_kitty_placement_row(self:selection_scope(), row)
+    end)
+    self:mark_region(cursor.row, bottom)
+  else
+    self.active_screen:scroll_rect_down(cursor.row, bottom, left, right, count, function()
+      return self:cell_from_attributes(" ")
+    end)
+    for row = cursor.row, bottom do self:normalize_row(row) end
+    self:mark_rectangle(cursor.row, bottom, left, right)
+  end
+  self:set_cursor(left, cursor.row)
 end
 
 function State:delete_lines(count)
   self:clear_grapheme_context()
   local cursor = self.active_screen.cursor
-  if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin then
+  local left, right = self:horizontal_margins()
+  if cursor.row < self.active_screen.top_margin or cursor.row > self.active_screen.bottom_margin
+    or cursor.column < left or cursor.column > right then
     return
   end
   local bottom = self.active_screen.bottom_margin
-  self.active_screen:scroll_up(cursor.row, bottom, clamp(count or 1, 1, bottom - cursor.row + 1), nil, function(row)
-    self:release_command_regions(row)
-    self:release_kitty_placement_row(self:selection_scope(), row)
-  end)
-  self:mark_region(cursor.row, bottom)
+  count = clamp(count or 1, 1, bottom - cursor.row + 1)
+  if left == 0 and right == self.columns - 1 then
+    self.active_screen:scroll_up(cursor.row, bottom, count, nil, function(row)
+      self:release_command_regions(row)
+      self:release_kitty_placement_row(self:selection_scope(), row)
+    end)
+    self:mark_region(cursor.row, bottom)
+  else
+    self.active_screen:scroll_rect_up(cursor.row, bottom, left, right, count, function()
+      return self:cell_from_attributes(" ")
+    end)
+    for row = cursor.row, bottom do self:normalize_row(row) end
+    self:mark_rectangle(cursor.row, bottom, left, right)
+  end
+  self:set_cursor(left, cursor.row)
 end
 
 function State:set_margins(top, bottom)
-  top = top or 1
-  bottom = bottom or self.rows
+  if top == nil or top == 0 then top = 1 end
+  if bottom == nil or bottom == 0 then bottom = self.rows end
   if top < 1 or bottom > self.rows or top >= bottom then
     return false
   end
   self.active_screen.top_margin = top - 1
   self.active_screen.bottom_margin = bottom - 1
-  self:set_cursor(0, self.modes.origin and self.active_screen.top_margin or 0)
+  local left = self:horizontal_margins()
+  self:set_cursor(self.modes.origin and left or 0, self.modes.origin and self.active_screen.top_margin or 0)
+  return true
+end
+
+function State:reset_horizontal_margins(screen)
+  screen = screen or self.active_screen
+  screen.left_margin = 0
+  screen.right_margin = self.columns - 1
+end
+
+function State:set_left_right_margins(left, right)
+  if not self.modes.left_right_margin then return false end
+  if left == nil or left == 0 then left = 1 end
+  if right == nil or right == 0 then right = self.columns end
+  if left < 1 or right > self.columns or left >= right then return false end
+  local screen = self.active_screen
+  screen.left_margin = left - 1
+  screen.right_margin = right - 1
+  self:clear_grapheme_context()
+  self:set_cursor(self.modes.origin and screen.left_margin or 0, self.modes.origin and screen.top_margin or 0)
   return true
 end
 
@@ -1298,7 +1421,10 @@ function State:move_cursor(row, column)
   row = row or 1
   column = column or 1
   if self.modes.origin then
-    row = self.active_screen.top_margin + row
+    row = clamp(self.active_screen.top_margin + row - 1, self.active_screen.top_margin, self.active_screen.bottom_margin)
+    column = clamp(self.active_screen.left_margin + column - 1, self.active_screen.left_margin, self.active_screen.right_margin)
+    self:set_cursor(column, row)
+    return
   end
   self:set_cursor(column - 1, row - 1)
 end
@@ -1307,7 +1433,8 @@ function State:move_relative(row_delta, column_delta)
   local cursor = self.active_screen.cursor
   local minimum_row = self.modes.origin and self.active_screen.top_margin or 0
   local maximum_row = self.modes.origin and self.active_screen.bottom_margin or self.rows - 1
-  self:set_cursor(clamp(cursor.column + column_delta, 0, self.columns - 1), clamp(cursor.row + row_delta, minimum_row, maximum_row))
+  local minimum_column, maximum_column = self:horizontal_motion_bounds(cursor)
+  self:set_cursor(clamp(cursor.column + column_delta, minimum_column, maximum_column), clamp(cursor.row + row_delta, minimum_row, maximum_row))
 end
 
 function State:set_tab_stop()
@@ -1408,6 +1535,7 @@ function State:reset()
   self.cursor = self.primary.cursor
   self.modes.autowrap = true
   self.modes.origin = false
+  self.modes.left_right_margin = false
   self.modes.insert = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
@@ -1454,6 +1582,7 @@ function State:soft_reset()
   self.modes.application_keypad = false
   self.modes.autowrap = true
   self.modes.origin = false
+  self.modes.left_right_margin = false
   self.modes.insert = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
@@ -1470,6 +1599,11 @@ function State:soft_reset()
   self.modes.mouse_protocol = "x10"
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
+  self.active_screen.top_margin = 0
+  self.active_screen.bottom_margin = self.rows - 1
+  self:reset_horizontal_margins(self.primary)
+  self:reset_horizontal_margins(self.alternate)
+  self:set_cursor(0, 0)
   self:sync_keyboard_flags()
   self:sync_cursor_visibility()
   self.last_print = nil
@@ -1479,6 +1613,10 @@ end
 
 function State:screen_alignment_test()
   self:clear_grapheme_context()
+  self.modes.origin = false
+  self.active_screen.top_margin = 0
+  self.active_screen.bottom_margin = self.rows - 1
+  self:reset_horizontal_margins()
   for row = 0, self.rows - 1 do
     for column = 0, self.columns - 1 do
       self:set_cell(column, row, self:cell_from_attributes("E", { codepoints = ascii_codepoints[string.byte("E")], width = 1 }))
@@ -1676,6 +1814,10 @@ function State:resize(columns, rows, options)
   self.primary.bottom_margin = rows - 1
   self.alternate.top_margin = 0
   self.alternate.bottom_margin = rows - 1
+  self.primary.left_margin = 0
+  self.primary.right_margin = columns - 1
+  self.alternate.left_margin = 0
+  self.alternate.right_margin = columns - 1
   self.active_screen = was_primary and self.primary or self.alternate
   self.cursor = self.active_screen.cursor
   self:sync_keyboard_flags()
@@ -1720,6 +1862,42 @@ local function csi_detail(action)
     final = action.final or "",
     colon = action.colon or false,
   }
+end
+
+local function sgr_status(attributes)
+  local parameters = {}
+  if attributes.bold then parameters[#parameters + 1] = 1 end
+  if attributes.faint then parameters[#parameters + 1] = 2 end
+  if attributes.italic then parameters[#parameters + 1] = 3 end
+  if attributes.underline then parameters[#parameters + 1] = 4 end
+  if attributes.inverse then parameters[#parameters + 1] = 7 end
+  if attributes.concealed then parameters[#parameters + 1] = 8 end
+  if attributes.strike then parameters[#parameters + 1] = 9 end
+  local function append_colour(value, foreground)
+    if value == nil then return end
+    local base = foreground and 30 or 40
+    local bright = foreground and 90 or 100
+    if value.kind == "indexed" then
+      if value.index < 8 then
+        parameters[#parameters + 1] = base + value.index
+      elseif value.index < 16 then
+        parameters[#parameters + 1] = bright + value.index - 8
+      else
+        parameters[#parameters + 1] = foreground and 38 or 48
+        parameters[#parameters + 1] = 5
+        parameters[#parameters + 1] = value.index
+      end
+    elseif value.kind == "rgb" then
+      parameters[#parameters + 1] = foreground and 38 or 48
+      parameters[#parameters + 1] = 2
+      parameters[#parameters + 1] = value.red
+      parameters[#parameters + 1] = value.green
+      parameters[#parameters + 1] = value.blue
+    end
+  end
+  append_colour(attributes.fg, true)
+  append_colour(attributes.bg, false)
+  return #parameters == 0 and "0m" or table.concat(parameters, ";") .. "m"
 end
 
 function State:apply_execute(code)
@@ -1775,10 +1953,18 @@ function State:apply_private_mode(parameters, enabled)
       self.modes.application_cursor = enabled
     elseif mode == 6 then
       self.modes.origin = enabled
-      self:set_cursor(0, enabled and self.active_screen.top_margin or 0)
+      local left = self:horizontal_margins()
+      self:set_cursor(enabled and left or 0, enabled and self.active_screen.top_margin or 0)
     elseif mode == 7 then
       self.modes.autowrap = enabled
       self.active_screen.cursor.pending_wrap = false
+    elseif mode == 69 then
+      self.modes.left_right_margin = enabled
+      if not enabled then
+        self:reset_horizontal_margins(self.primary)
+        self:reset_horizontal_margins(self.alternate)
+        self:clear_grapheme_context()
+      end
     elseif mode == 25 then
       self.modes.cursor_visible = enabled
       self:sync_cursor_visibility()
@@ -1969,6 +2155,8 @@ function State:mode_status(private, mode)
       enabled = modes.origin
     elseif mode == 7 then
       enabled = modes.autowrap
+    elseif mode == 69 then
+      enabled = modes.left_right_margin
     elseif mode == 25 then
       enabled = modes.cursor_visible
     elseif mode == 47 or mode == 1047 or mode == 1049 then
@@ -2057,16 +2245,25 @@ function State:apply_csi(action)
     self:move_relative(0, -parameter(parameters, 1, 1))
   elseif final == "E" then
     self:move_relative(parameter(parameters, 1, 1), 0)
-    self:set_cursor(0, self.cursor.row)
+    self:carriage_return()
   elseif final == "F" then
     self:move_relative(-parameter(parameters, 1, 1), 0)
-    self:set_cursor(0, self.cursor.row)
+    self:carriage_return()
   elseif final == "G" then
-    self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
+    if self.modes.origin then
+      self:move_cursor(self.cursor.row - self.active_screen.top_margin + 1, parameter(parameters, 1, 1))
+    else
+      self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
+    end
   elseif final == "`" then
-    self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
+    if self.modes.origin then
+      self:move_cursor(self.cursor.row - self.active_screen.top_margin + 1, parameter(parameters, 1, 1))
+    else
+      self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
+    end
   elseif final == "d" then
-    self:move_cursor(parameter(parameters, 1, 1), self.cursor.column + 1)
+    local column = self.modes.origin and self.cursor.column - self.active_screen.left_margin + 1 or self.cursor.column + 1
+    self:move_cursor(parameter(parameters, 1, 1), column)
   elseif final == "e" then
     self:move_relative(parameter(parameters, 1, 1), 0)
   elseif final == "a" then
@@ -2106,7 +2303,15 @@ function State:apply_csi(action)
   elseif final == "g" then
     self:clear_tab_stops(parameters[1] or 0)
   elseif final == "s" then
-    self:save_cursor()
+    if self.modes.left_right_margin then
+      if #parameters > 2 then
+        self:record_unknown("csi", csi_detail(action))
+      else
+        self:set_left_right_margins(parameters[1], parameters[2])
+      end
+    else
+      self:save_cursor()
+    end
   elseif final == "u" then
     self:restore_cursor()
   elseif final == "n" then
@@ -2122,6 +2327,25 @@ function State:apply_csi(action)
     self:respond("\27[?1;0c")
   else
     self:record_unknown("csi", csi_detail(action))
+  end
+end
+
+function State:apply_dcs(action)
+  local payload = action.payload
+  local response
+  if payload == "m" then
+    response = sgr_status(self.active_screen.attributes)
+  elseif payload == "r" then
+    response = string.format("%d;%dr", self.active_screen.top_margin + 1, self.active_screen.bottom_margin + 1)
+  elseif payload == "s" then
+    response = string.format("%d;%ds", self.active_screen.left_margin + 1, self.active_screen.right_margin + 1)
+  elseif payload == " q" then
+    response = string.format("%d q", self.modes.cursor_style)
+  end
+  if response then
+    self:respond("\27P1$r" .. response .. "\27\\")
+  else
+    self:respond("\27P0$r\27\\")
   end
 end
 
@@ -2448,6 +2672,8 @@ function State:apply(action)
     self:apply_osc(action)
   elseif action.kind == "apc" then
     self:apply_apc(action)
+  elseif action.kind == "dcs" then
+    self:apply_dcs(action)
   elseif action.kind == "ignore" then
     self:record_unknown(action.family, action.reason)
   else

@@ -45,6 +45,8 @@ local function parse_options()
       options.version = true
     elseif value == "--no-extensions" then
       options.no_extensions = true
+    elseif value == "--workspace-smoke" then
+      options.workspace_smoke = true
     elseif value == "--config" then
       index = index + 1
       options.config = assert(arg[index], "--config needs a path")
@@ -67,7 +69,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -437,6 +439,7 @@ local function run_live(options)
     end
 
     assert(refresh_workspace_layout())
+    if options.workspace_smoke then assert(create_split("vertical")) end
 
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
@@ -586,7 +589,7 @@ local function run_live(options)
         if not created then io.stderr:write("Kiwi vertical split rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("O") then
+      if key == string.byte("J") then
         local created, reason = create_split("horizontal")
         if not created then io.stderr:write("Kiwi horizontal split rejected: ", reason or "unavailable", "\n") end
         return true
