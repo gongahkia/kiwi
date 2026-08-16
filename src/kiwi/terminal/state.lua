@@ -1,4 +1,5 @@
 local Attributes = require("kiwi.terminal.attributes")
+local bit = require("bit")
 local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
@@ -64,6 +65,8 @@ end
 function State.new(columns, rows, options)
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
   options = options or {}
+  assert(options.effect_sink == nil or type(options.effect_sink) == "function", "terminal effect sink must be a function")
+  assert(options.queue_responses == nil or type(options.queue_responses) == "boolean", "terminal response queue selection must be a boolean")
   local self = setmetatable({
     columns = columns,
     rows = rows,
@@ -78,6 +81,7 @@ function State.new(columns, rows, options)
       cursor_visible = true,
       cursor_style = 1,
       application_cursor = false,
+      application_keypad = false,
       bracketed_paste = false,
       synchronized_output = false,
       mouse_tracking = "none",
@@ -97,7 +101,9 @@ function State.new(columns, rows, options)
     shell = ShellIntegration.new(options.shell_integration),
     command_regions = CommandRegions.new(options.command_regions),
     command_region_navigation = nil,
+    effect_sink = options.effect_sink,
     history_offset = 0,
+    queue_responses = options.queue_responses ~= false,
     title = nil,
     responses = {},
     grapheme_context_storage = {},
@@ -114,6 +120,8 @@ function State.new(columns, rows, options)
     kitty_graphics = KittyGraphics.new(options.kitty_graphics),
     kitty_placements = KittyPlacements.new(options.kitty_placements),
     next_hyperlink_id = 0,
+    last_print = nil,
+    max_repeat = options.max_repeat or 4096,
     stats = {
       mutations = 0,
       bells = 0,
@@ -126,6 +134,7 @@ function State.new(columns, rows, options)
   assert(self.max_cluster_codepoints >= 8, "terminal max_cluster_codepoints must be at least 8")
   assert(self.hyperlink_limit >= 1 and self.hyperlink_limit % 1 == 0, "terminal hyperlink limit must be a positive integer")
   assert(self.hyperlink_uri_maximum_bytes >= 1 and self.hyperlink_uri_maximum_bytes % 1 == 0, "terminal hyperlink URI limit must be a positive integer")
+  assert(self.max_repeat >= 1 and self.max_repeat % 1 == 0, "terminal repeat limit must be a positive integer")
   self.kitty_graphics.on_image_release = function(id)
     self:detach_kitty_placement_records(self.kitty_placements:remove_image(id))
   end
@@ -792,6 +801,24 @@ function State:tab()
   self:set_cursor(target, cursor.row)
 end
 
+function State:forward_tab(count)
+  for _ = 1, count or 1 do self:tab() end
+end
+
+function State:back_tab(count)
+  local cursor = self.active_screen.cursor
+  for _ = 1, count or 1 do
+    local target = 0
+    for column = cursor.column - 1, 0, -1 do
+      if self.tab_stops[column] then
+        target = column
+        break
+      end
+    end
+    self:set_cursor(target, cursor.row)
+  end
+end
+
 local function copied_codepoints(codepoints, extra)
   local result = {}
   for index, codepoint in ipairs(codepoints or {}) do
@@ -998,6 +1025,7 @@ function State:write_codepoint(glyph, codepoint)
   local context = self.grapheme_context
   if codepoint >= 0x20 and codepoint <= 0x7e and (context == nil or context.last_gcb ~= GCB.prepend) then
     self:write_ascii_cluster(glyph, codepoint)
+    self.last_print = { codepoint = codepoint, glyph = glyph }
     return
   end
   local cell, context = self:current_grapheme_cluster()
@@ -1005,11 +1033,21 @@ function State:write_codepoint(glyph, codepoint)
     if counters then counters.grapheme_boundary_checks = (counters.grapheme_boundary_checks or 0) + 1 end
     if #context.codepoints < self.max_cluster_codepoints then
       self:extend_grapheme_cluster(cell, context, glyph, codepoint)
+      self.last_print = { codepoint = codepoint, glyph = glyph }
       return
     end
     self.stats.text.over_limit_clusters = self.stats.text.over_limit_clusters + 1
   end
   self:write_new_cluster(glyph, codepoint)
+  self.last_print = { codepoint = codepoint, glyph = glyph }
+end
+
+function State:repeat_last_print(count)
+  local previous = self.last_print
+  if previous == nil then return false end
+  count = math.min(count or 1, self.max_repeat)
+  for _ = 1, count do self:write_codepoint(previous.glyph, previous.codepoint) end
+  return true
 end
 
 function State:erase_cell(column, row)
@@ -1292,8 +1330,14 @@ function State:pop_responses()
   return responses
 end
 
+function State:emit_effect(kind, value)
+  if self.effect_sink then self.effect_sink(kind, value) end
+end
+
 function State:respond(value)
-  self.responses[#self.responses + 1] = value
+  assert(type(value) == "string", "terminal response must be a byte string")
+  if self.queue_responses then self.responses[#self.responses + 1] = value end
+  self:emit_effect("write_pty", { bytes = value })
 end
 
 function State:record_unknown(family, detail)
@@ -1305,6 +1349,7 @@ function State:record_unknown(family, detail)
       detail = detail,
     }
   end
+  self:emit_effect("unknown_sequence", { family = family, detail = detail })
 end
 
 function State:reset()
@@ -1323,6 +1368,7 @@ function State:reset()
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
   self.modes.application_cursor = false
+  self.modes.application_keypad = false
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
   self.modes.mouse_tracking = "none"
@@ -1341,12 +1387,54 @@ function State:reset()
   self.hyperlinks = {}
   self.hyperlink_ids = {}
   self.next_hyperlink_id = 0
+  self.last_print = nil
   self:clear_selection()
   self:clear_search()
   self.history_offset = 0
   self:sync_cursor_visibility()
   self.damage:mark_all()
   self.text_damage:mark_all()
+end
+
+function State:soft_reset()
+  self:clear_grapheme_context()
+  self.active_screen.attributes = Attributes.default()
+  self.active_screen.hyperlink_id = nil
+  self.active_screen.keyboard_flags = 0
+  self.active_screen.keyboard_stack = {}
+  self.modes.application_cursor = false
+  self.modes.application_keypad = false
+  self.modes.autowrap = true
+  self.modes.origin = false
+  self.modes.insert = false
+  self.modes.cursor_visible = true
+  self.modes.cursor_style = 1
+  self.modes.bracketed_paste = false
+  self.modes.synchronized_output = false
+  self.modes.mouse_tracking = "none"
+  self.modes.mouse_normal = false
+  self.modes.mouse_button = false
+  self.modes.mouse_any = false
+  self.modes.mouse_sgr = false
+  self.modes.focus_reporting = false
+  self.modes.mouse_generation = self.modes.mouse_generation + 1
+  self:sync_keyboard_flags()
+  self:sync_cursor_visibility()
+  self.last_print = nil
+  self.damage:mark_all()
+  self.text_damage:mark_all()
+end
+
+function State:screen_alignment_test()
+  self:clear_grapheme_context()
+  for row = 0, self.rows - 1 do
+    for column = 0, self.columns - 1 do
+      self:set_cell(column, row, self:cell_from_attributes("E", { codepoints = ascii_codepoints[string.byte("E")], width = 1 }))
+    end
+    self.active_screen.rows[row].wrapped = false
+  end
+  self:set_cursor(0, 0)
+  self.last_print = { codepoint = string.byte("E"), glyph = "E" }
 end
 
 function State:resize(columns, rows)
@@ -1422,6 +1510,7 @@ function State:apply_execute(code)
   end
   if code == 0x07 then
     self.stats.bells = self.stats.bells + 1
+    self:emit_effect("bell", {})
   elseif code == 0x08 then
     self:backspace()
   elseif code == 0x09 then
@@ -1449,6 +1538,12 @@ function State:apply_esc(action)
     self:restore_cursor()
   elseif action.intermediates == "" and action.final == "H" then
     self:set_tab_stop()
+  elseif action.intermediates == "" and action.final == "=" then
+    self.modes.application_keypad = true
+  elseif action.intermediates == "" and action.final == ">" then
+    self.modes.application_keypad = false
+  elseif action.intermediates == "#" and action.final == "8" then
+    self:screen_alignment_test()
   elseif action.intermediates == "" and action.final == "c" then
     self:reset()
   else
@@ -1535,13 +1630,16 @@ function State:set_keyboard_flags(flags)
 end
 
 function State:apply_keyboard_flags(flags, mode)
-  local requested = flags % 2
+  if flags < 0 or flags > 31 or flags % 1 ~= 0 then
+    self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
+    return
+  end
   if mode == 1 then
-    self:set_keyboard_flags(requested)
-  elseif mode == 2 and requested == 1 then
-    self:set_keyboard_flags(1)
-  elseif mode == 3 and requested == 1 then
-    self:set_keyboard_flags(0)
+    self:set_keyboard_flags(flags)
+  elseif mode == 2 then
+    self:set_keyboard_flags(bit.bor(self.active_screen.keyboard_flags, flags))
+  elseif mode == 3 then
+    self:set_keyboard_flags(bit.band(self.active_screen.keyboard_flags, bit.bnot(flags)))
   elseif mode ~= 2 and mode ~= 3 then
     self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
   end
@@ -1637,6 +1735,14 @@ function State:apply_csi(action)
     self:set_cursor_style(action)
     return
   end
+  if action.private == "!" and action.intermediates == "" and final == "p" then
+    if #parameters == 0 then
+      self:soft_reset()
+    else
+      self:record_unknown("csi", csi_detail(action))
+    end
+    return
+  end
   if action.private ~= "" then
     self:record_unknown("csi", csi_detail(action))
     return
@@ -1657,8 +1763,14 @@ function State:apply_csi(action)
     self:set_cursor(0, self.cursor.row)
   elseif final == "G" then
     self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
+  elseif final == "`" then
+    self:set_cursor(parameter(parameters, 1, 1) - 1, self.cursor.row)
   elseif final == "d" then
     self:move_cursor(parameter(parameters, 1, 1), self.cursor.column + 1)
+  elseif final == "e" then
+    self:move_relative(parameter(parameters, 1, 1), 0)
+  elseif final == "a" then
+    self:move_relative(0, parameter(parameters, 1, 1))
   elseif final == "H" or final == "f" then
     self:move_cursor(parameter(parameters, 1, 1), parameter(parameters, 2, 1))
   elseif final == "J" then
@@ -1679,6 +1791,12 @@ function State:apply_csi(action)
     self:scroll_up(parameter(parameters, 1, 1))
   elseif final == "T" then
     self:scroll_down(parameter(parameters, 1, 1))
+  elseif final == "I" then
+    self:forward_tab(parameter(parameters, 1, 1))
+  elseif final == "Z" then
+    self:back_tab(parameter(parameters, 1, 1))
+  elseif final == "b" then
+    if not self:repeat_last_print(parameter(parameters, 1, 1)) then self:record_unknown("csi", csi_detail(action)) end
   elseif final == "r" then
     self:set_margins(parameters[1], parameters[2])
   elseif final == "m" then
@@ -1710,9 +1828,18 @@ end
 function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
+    self:emit_effect("title_changed", { title = action.payload })
   elseif action.command == 7 then
     local event = self.shell:apply_cwd(action.payload, self:shell_position())
-    if event then self.command_regions:apply(event) end
+    if event then
+      self.command_regions:apply(event)
+      local directory = self.shell.current_directory
+      self:emit_effect("pwd_changed", {
+        host = directory.host,
+        path = directory.path,
+        uri = directory.uri,
+      })
+    end
   elseif action.command == 8 then
     local parsed = Hyperlink.parse_osc8(action.payload, self.hyperlink_uri_maximum_bytes)
     if parsed == nil then
@@ -1746,6 +1873,12 @@ function State:apply_osc(action)
     if event then
       local region = self.command_regions:apply(event)
       if region then self:attach_command_region(self.active_screen.rows[self.active_screen.cursor.row], region.id) end
+      self:emit_effect("shell_marker", {
+        exit_status = event.exit_status,
+        kind = event.kind,
+        line_id = event.line_id,
+        scope = event.scope,
+      })
     end
   else
     self:record_unknown("osc", { command = action.command })
