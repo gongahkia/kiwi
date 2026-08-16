@@ -53,6 +53,9 @@ return {
     Assert.equal(cursor.style, 5)
     Assert.equal(cursor.shape, "bar")
     Assert.equal(cursor.blink, true)
+    Assert.equal(cursor.color.red, 0x8c)
+    Assert.equal(cursor.color.green, 0xd9)
+    Assert.equal(cursor.color.blue, 0xe0)
     Assert.equal(Renderer.can_present({ context = { window = { minimized = false } } }, model), false)
     model.modes.synchronized_output = false
     Assert.equal(Renderer.can_present({ context = { window = { minimized = false } } }, model), true)

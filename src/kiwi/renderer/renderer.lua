@@ -8,6 +8,7 @@ local PassMetrics = require("kiwi.renderer.pass_metrics")
 local PassBudgets = require("kiwi.renderer.pass_budgets")
 local GpuTiming = require("kiwi.renderer.gpu_timing")
 local CommandRegions = require("kiwi.renderer.command_regions")
+local Color = require("kiwi.renderer.color")
 local Hyperlink = require("kiwi.renderer.hyperlink")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
@@ -31,8 +32,10 @@ typedef struct {
   float cursor_visible;
   float cursor_shape;
   float cursor_blink;
-  float padding0;
-  float padding1;
+  float cursor_red;
+  float cursor_green;
+  float cursor_blue;
+  float cursor_alpha;
   float selection_start_column;
   float selection_start_row;
   float selection_finish_column;
@@ -58,7 +61,7 @@ typedef struct {
   float command_region_green;
   float command_region_blue;
   float command_region_alpha;
-  float command_region_padding[3];
+  float command_region_padding[5];
   float command_region_boundaries[128];
 } KiwiFrameUniform;
 ]]
@@ -464,6 +467,8 @@ function Renderer:cursor_descriptor(model)
   local modes = model.modes or {}
   local style = modes.cursor_style or 1
   local details = cursor_styles[style] or cursor_styles[1]
+  local packed_color = model.cursor_color or Color.pack(0x8c, 0xd9, 0xe0, 0xff)
+  local color = Color.unpack(packed_color)
   return {
     column = model.cursor.column,
     row = model.cursor.row,
@@ -471,6 +476,7 @@ function Renderer:cursor_descriptor(model)
     style = style,
     shape = details.shape,
     blink = details.blink,
+    color = color,
   }
 end
 
@@ -749,8 +755,10 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame[0].cursor_visible = cursor.visible and 1 or 0
   self.frame[0].cursor_shape = cursor_shape_values[cursor.shape]
   self.frame[0].cursor_blink = cursor.blink and 1 or 0
-  self.frame[0].padding0 = 0
-  self.frame[0].padding1 = 0
+  self.frame[0].cursor_red = cursor.color.red / 255
+  self.frame[0].cursor_green = cursor.color.green / 255
+  self.frame[0].cursor_blue = cursor.color.blue / 255
+  self.frame[0].cursor_alpha = cursor.color.alpha / 255
   self.frame[0].selection_start_column = selection.start_column
   self.frame[0].selection_start_row = selection.start_row
   self.frame[0].selection_finish_column = selection.finish_column

@@ -30,8 +30,10 @@ struct FrameData {
   cursor_visible: f32,
   cursor_shape: f32,
   cursor_blink: f32,
-  padding0: f32,
-  padding1: f32,
+  cursor_red: f32,
+  cursor_green: f32,
+  cursor_blue: f32,
+  cursor_alpha: f32,
   selection_start_column: f32,
   selection_start_row: f32,
   selection_finish_column: f32,
@@ -229,7 +231,7 @@ fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
   result.position = vec4<f32>(normalized_position.x * 2.0 - 1.0, 1.0 - normalized_position.y * 2.0, 0.0, 1.0);
   result.local_position = local_position;
   result.uv = vec2<f32>(0.0);
-  result.fg = vec4<f32>(0.55, 0.85, 0.88, 1.0);
+  result.fg = vec4<f32>(frame.cursor_red, frame.cursor_green, frame.cursor_blue, frame.cursor_alpha);
   result.bg = result.fg;
   result.flags = 0u;
   result.glyph = 0u;

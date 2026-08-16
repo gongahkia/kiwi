@@ -137,7 +137,7 @@ return {
     }
     local passes = Passes.build(renderer)
     PassRegistry.validate(passes)
-    Assert.equal(ffi.sizeof("KiwiFrameUniform"), 672)
+    Assert.equal(ffi.sizeof("KiwiFrameUniform"), 688)
     Assert.equal(table.concat((function()
       local names = {}
       for index, pass in ipairs(passes) do names[index] = pass.name end
