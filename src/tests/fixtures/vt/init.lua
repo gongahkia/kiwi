@@ -4,6 +4,8 @@ return {
   require("tests.fixtures.vt.sgr_colours"),
   require("tests.fixtures.vt.wrap_and_scroll"),
   require("tests.fixtures.vt.margins_and_origin"),
+  require("tests.fixtures.vt.left_right_margins"),
+  require("tests.fixtures.vt.dcs_status"),
   require("tests.fixtures.vt.alternate_and_modes"),
   require("tests.fixtures.vt.cursor_style_and_sync"),
   require("tests.fixtures.vt.kitty_keyboard"),

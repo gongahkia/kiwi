@@ -40,6 +40,23 @@ return {
     Assert.equal(state:get(0, 2).glyph, "3")
     Assert.equal(state:get(0, 3).glyph, " ")
   end,
+  terminal_state_applies_left_right_margins_to_editing_and_origin_addressing = function()
+    local state = State.new(8, 3)
+    Parser.new(state):feed("ABC123\27[?69h\27[3;5s\27[4G\27[P")
+    Assert.equal(text_at(state, 0), "ABC2 3  ")
+    Assert.equal(state.active_screen.left_margin, 2)
+    Assert.equal(state.active_screen.right_margin, 4)
+
+    Parser.new(state):feed("\27[2;3r\27[?6h\27[1;1HX")
+    Assert.equal(state:get(2, 1).glyph, "X")
+    Assert.equal(state.cursor.column, 3)
+    Assert.equal(state.cursor.row, 1)
+
+    Parser.new(state):feed("\27[?69l")
+    Assert.equal(state.modes.left_right_margin, false)
+    Assert.equal(state.active_screen.left_margin, 0)
+    Assert.equal(state.active_screen.right_margin, 7)
+  end,
   terminal_state_keeps_alternate_screen_out_of_primary_scrollback = function()
     local state = State.new(3, 2, { scrollback_limit = 4 })
     state:set_cell(0, 0, state:cell_from_attributes("P"))
@@ -157,7 +174,7 @@ return {
     local responses = state:pop_responses()
     Assert.equal(responses[1], "\27[4;2$y")
     Assert.equal(responses[2], "\27[?7;1$y")
-    Assert.equal(responses[3], "\27[?69;0$y")
+    Assert.equal(responses[3], "\27[?69;2$y")
 
     state:apply(Actions.csi({ 4 }, "", "", "h"))
     state:apply(Actions.csi({ 1049 }, "?", "", "h"))

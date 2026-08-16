@@ -39,6 +39,8 @@ function Screen.new(columns, rows, blank_cell, line_id_factory)
     attributes = nil,
     top_margin = 0,
     bottom_margin = rows - 1,
+    left_margin = 0,
+    right_margin = columns - 1,
   }, Screen)
   for row = 0, rows - 1 do
     self.rows[row] = new_row(columns, blank_cell, line_id_factory)
@@ -121,6 +123,32 @@ function Screen:scroll_down(top, bottom, count, discard_row)
       self.rows[row] = self.rows[row - 1]
     end
     self.rows[top] = self:new_row()
+  end
+end
+
+function Screen:scroll_rect_up(top, bottom, left, right, count, cell_factory)
+  for _ = 1, count do
+    for row = top, bottom - 1 do
+      for column = left, right do
+        copy_cell(self.rows[row].cells[column], self.rows[row + 1].cells[column])
+      end
+    end
+    for column = left, right do
+      copy_cell(self.rows[bottom].cells[column], cell_factory())
+    end
+  end
+end
+
+function Screen:scroll_rect_down(top, bottom, left, right, count, cell_factory)
+  for _ = 1, count do
+    for row = bottom, top + 1, -1 do
+      for column = left, right do
+        copy_cell(self.rows[row].cells[column], self.rows[row - 1].cells[column])
+      end
+    end
+    for column = left, right do
+      copy_cell(self.rows[top].cells[column], cell_factory())
+    end
   end
 end
 

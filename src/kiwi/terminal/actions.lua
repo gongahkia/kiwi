@@ -31,6 +31,10 @@ function Actions.apc(payload)
   return { kind = "apc", payload = payload }
 end
 
+function Actions.dcs(payload)
+  return { kind = "dcs", payload = payload }
+end
+
 function Actions.ignore(family, reason)
   return { kind = "ignore", family = family, reason = reason }
 end
