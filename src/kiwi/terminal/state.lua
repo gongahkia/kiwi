@@ -1933,6 +1933,18 @@ function State:refresh_palette_slots(change)
   end
 end
 
+function State:configure_palette(configuration)
+  assert(type(configuration) == "table", "terminal palette configuration must be a table")
+  self.colors:set_default("foreground", assert(configuration.foreground, "terminal palette configuration needs a foreground colour"))
+  self.colors:set_default("background", assert(configuration.background, "terminal palette configuration needs a background colour"))
+  self.colors:reset_indexed()
+  for index, colour in pairs(configuration.palette or {}) do self.colors:set_indexed(index, colour) end
+  self:refresh_palette_slots({ all_indexed = true })
+  self:refresh_palette_slots({ channel = "foreground" })
+  self:refresh_palette_slots({ channel = "background" })
+  self:emit_effect("palette_changed", { configuration = true })
+end
+
 function State:apply_osc_palette(payload)
   local fields = osc_fields(payload)
   if #fields == 0 or #fields % 2 ~= 0 then return false end

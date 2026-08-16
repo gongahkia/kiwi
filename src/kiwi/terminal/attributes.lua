@@ -56,6 +56,7 @@ function Palette.new(options)
     indexed_overrides = {},
   }, Palette)
   assert(type(self.foreground) == "number" and type(self.background) == "number", "terminal default colours must be packed RGBA values")
+  for index, value in pairs(options.palette or {}) do self:set_indexed(index, value) end
   return self
 end
 
