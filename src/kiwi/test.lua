@@ -49,6 +49,7 @@ local tests = {
   require("tests.test_shell_scripts"),
   require("tests.test_command_regions"),
   require("tests.test_command_region_retention"),
+  require("tests.test_compositor"),
   require("tests.test_command_region_navigation"),
   require("tests.test_command_region_renderer"),
   require("tests.test_command_region_extension_sample"),

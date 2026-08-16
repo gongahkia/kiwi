@@ -17,6 +17,7 @@ local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local Pty = require("kiwi.process.pty")
+local Compositor = require("kiwi.renderer.compositor")
 local Renderer = require("kiwi.renderer.renderer")
 local Workspace = require("kiwi.session.workspace")
 local TextLab = require("kiwi.text.lab")
@@ -173,16 +174,22 @@ local function run_live(options)
   local configuration, configuration_path = Config.load(options.config)
   local window = Window.new(1600, 960, default_title, { release_mode = options.release_mode })
   local context
+  local compositor
   local renderer
   local font
   local pty
   local recorder
   local terminal
   local workspace
+  local pane_entries = {}
+  local pane_layouts = {}
+  local workspace_columns
+  local workspace_rows
   local destroy_session
   local ok, result = xpcall(function()
     local context_options = { gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
     context = Context.new(window, context_options)
+    compositor = Compositor.new(context)
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
       local probe_ok, probe_message = context:probe_timestamp_queries()
       io.stderr:write("Kiwi timestamp probe: ", probe_ok and "supported: " or "unavailable: ", probe_message, "\n")
@@ -190,6 +197,8 @@ local function run_live(options)
     font = new_font(window, configuration)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
+    workspace_columns = columns
+    workspace_rows = rows
     terminal = Terminal.new({
       columns = columns,
       rows = rows,
@@ -268,27 +277,63 @@ local function run_live(options)
       session.terminal:close()
     end
 
+    local function bind_active_session(session)
+      active_session = session
+      terminal = session.terminal
+      state = terminal.state
+      pty = session.pty
+      renderer = session.renderer
+      metrics = session.metrics
+      mouse = session.mouse
+      mouse_generation = session.mouse_generation
+      recovery = session.recovery
+      selection_pointer = session.selection_pointer
+    end
+
+    local function rebuild_session_renderer(session)
+      if session.renderer then session.renderer:destroy() end
+      session.renderer = Renderer.new(context, font, session.terminal.state, render_options)
+      session.renderer:invalidate("configuration")
+      if session == active_session then renderer = session.renderer end
+    end
+
+    local function refresh_workspace_layout()
+      local columns, rows = dimensions(window, font)
+      if columns == nil then return nil, "zero-sized drawable" end
+      workspace_columns = columns
+      workspace_rows = rows
+      local layout, reason = workspace:layout(columns, rows)
+      if layout == nil then return nil, reason end
+      pane_entries = {}
+      pane_layouts = {}
+      for _, placement in ipairs(layout) do
+        local pane = assert(workspace.panes[placement.pane_id], "workspace layout references an unknown pane")
+        local session = pane.session
+        local session_state = session.terminal.state
+        if session_state.columns ~= placement.width or session_state.rows ~= placement.height then
+          if session.renderer then
+            session.renderer:destroy()
+            session.renderer = nil
+          end
+          session.terminal:resize(placement.width, placement.height)
+          session.pty:resize(placement.width, placement.height)
+          if session == active_session and recorder then recorder:resize(placement.width, placement.height) end
+        end
+        if session.renderer == nil then rebuild_session_renderer(session) end
+        local viewport = Compositor.viewport(placement, font.cell_width, font.cell_height)
+        pane_layouts[pane.id] = { grid = placement, viewport = viewport }
+        pane_entries[#pane_entries + 1] = { model = session.terminal.state, renderer = session.renderer, viewport = viewport }
+      end
+      local active_pane = assert(workspace:active_pane(), "workspace has no active pane")
+      bind_active_session(active_pane.session)
+      return columns, rows
+    end
+
     local function activate_pane(id)
       local pane = id and workspace.panes[id] or workspace:active_pane()
       if pane == nil then return nil, "unknown-pane" end
-      local incoming = pane.session
-      if active_session == incoming then return true end
-      if renderer then
-        renderer:destroy()
-        active_session.renderer = nil
-      end
-      active_session = incoming
-      terminal = incoming.terminal
-      state = terminal.state
-      pty = incoming.pty
-      renderer = incoming.renderer or Renderer.new(context, font, state, render_options)
-      incoming.renderer = renderer
-      metrics = incoming.metrics
-      mouse = incoming.mouse
-      mouse_generation = incoming.mouse_generation
-      recovery = incoming.recovery
-      selection_pointer = incoming.selection_pointer
       assert(workspace:focus_pane(pane.id))
+      bind_active_session(pane.session)
       renderer:invalidate("terminal")
       return true
     end
@@ -321,6 +366,7 @@ local function run_live(options)
         mouse_generation = new_state.modes.mouse_generation,
         pty = new_pty,
         recovery = new_recovery,
+        renderer = nil,
         selection_pointer = SelectionPointer.new(),
         terminal = new_terminal,
       }
@@ -333,6 +379,7 @@ local function run_live(options)
         if tab.id == current.id then
           local next_tab = workspace.tabs[index % #workspace.tabs + 1]
           assert(workspace:focus_tab(next_tab.id))
+          assert(refresh_workspace_layout())
           return activate_pane(next_tab.active_pane_id)
         end
       end
@@ -347,6 +394,19 @@ local function run_live(options)
         destroy_session(session)
         return nil, reason
       end
+      assert(refresh_workspace_layout())
+      return activate_pane(pane.id)
+    end
+
+    local function create_split(direction)
+      if recorder then return nil, "splits are unavailable while --record is active" end
+      local session = new_session(1, 1)
+      local pane, reason = workspace:split(direction, session)
+      if pane == nil then
+        destroy_session(session)
+        return nil, reason
+      end
+      assert(refresh_workspace_layout())
       return activate_pane(pane.id)
     end
 
@@ -356,29 +416,32 @@ local function run_live(options)
         return true
       end
       local tab = assert(workspace:active_tab())
-      local outgoing = active_session
-      if renderer then
-        renderer:destroy()
-        renderer = nil
-        outgoing.renderer = nil
+      local closing = {}
+      for _, pane in pairs(workspace.panes) do
+        if pane.tab_id == tab.id then closing[#closing + 1] = pane.session end
       end
       assert(workspace:close_tab(tab.id))
-      destroy_session(outgoing)
-      active_session = nil
+      for _, session in ipairs(closing) do destroy_session(session) end
+      assert(refresh_workspace_layout())
       return activate_pane(assert(workspace:active_pane()).id)
     end
+
+    local function close_active_pane()
+      local pane = assert(workspace:active_pane())
+      local closed, reason = workspace:close_pane(pane.id)
+      if closed == nil and reason == "last-pane" then return close_active_tab() end
+      if closed == nil then return nil, reason end
+      destroy_session(pane.session)
+      assert(refresh_workspace_layout())
+      return activate_pane(assert(workspace:active_pane()).id)
+    end
+
+    assert(refresh_workspace_layout())
 
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
-      local previous_viewport = {
-        columns = state.columns,
-        rows = state.rows,
-        drawable_width = context.width,
-        drawable_height = context.height,
-        content_scale = font.content_scale,
-      }
       local previous_font = font
       local font_changed = reloaded.font_size ~= configuration.font_size
         or reloaded.font_path ~= configuration.font_path
@@ -386,13 +449,9 @@ local function run_live(options)
         or reloaded.ligatures ~= configuration.ligatures
         or reloaded.contextual_alternates ~= configuration.contextual_alternates
       local candidate_font = font_changed and new_font(window, reloaded) or font
-      if renderer then
-        renderer:destroy()
-        renderer = nil
-        active_session.renderer = nil
-      end
       configuration = reloaded
       configuration_path = path
+      render_options = renderer_options(options, configuration)
       for _, pane in pairs(workspace.panes) do
         pane.session.terminal.state:configure_palette({
           foreground = configuration.foreground,
@@ -405,48 +464,36 @@ local function run_live(options)
         font = candidate_font
         for _, pane in pairs(workspace.panes) do pane.session.metrics.font = font end
       end
-      local columns, rows = dimensions(window, font)
       for _, pane in pairs(workspace.panes) do
         local session = pane.session
-        local session_state = session.terminal.state
-        if columns and (columns ~= session_state.columns or rows ~= session_state.rows) then
-          session.terminal:resize(columns, rows)
-          session.pty:resize(columns, rows)
-          if session == active_session and recorder then recorder:resize(columns, rows) end
-        else
-          session_state:mark_all_dirty()
+        if session.renderer then
+          session.renderer:destroy()
+          session.renderer = nil
         end
+        session.terminal.state:mark_all_dirty()
       end
+      local refreshed, reason = refresh_workspace_layout()
+      if not refreshed then return nil, reason end
       if font_changed then previous_font:destroy() end
-      render_options = renderer_options(options, configuration)
-      renderer = Renderer.new(context, font, state, render_options)
-      active_session.renderer = renderer
-      renderer:resize(previous_viewport, {
-        columns = state.columns,
-        rows = state.rows,
-        drawable_width = context.width,
-        drawable_height = context.height,
-        content_scale = font.content_scale,
-      })
-      renderer:invalidate("configuration")
       return true
     end
 
     local function recreate_gpu()
-      if renderer then
-        renderer:destroy()
-        renderer = nil
-        active_session.renderer = nil
+      for _, pane in pairs(workspace.panes) do
+        local session = pane.session
+        if session.renderer then
+          session.renderer:destroy()
+          session.renderer = nil
+        end
       end
       if context then
         context:destroy()
         context = nil
       end
       context = Context.new(window, context_options)
+      compositor = Compositor.new(context)
       for _, pane in pairs(workspace.panes) do pane.session.metrics.context = context end
-      renderer = Renderer.new(context, font, state, render_options)
-      active_session.renderer = renderer
-      renderer:invalidate("configuration")
+      assert(refresh_workspace_layout())
     end
 
     local function handle_render_failure(reason)
@@ -530,10 +577,47 @@ local function run_live(options)
         return true
       end
       if key == string.byte("W") then
-        close_active_tab()
+        local closed, reason = close_active_pane()
+        if not closed then io.stderr:write("Kiwi pane closure rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
+      if key == glfw.key_enter then
+        local created, reason = create_split("vertical")
+        if not created then io.stderr:write("Kiwi vertical split rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
+      if key == string.byte("O") then
+        local created, reason = create_split("horizontal")
+        if not created then io.stderr:write("Kiwi horizontal split rejected: ", reason or "unavailable", "\n") end
         return true
       end
       return false
+    end
+
+    local pointer_pane_id
+    local function pointer_pane(event)
+      local pane
+      local placement
+      if event.kind == "button" and event.action == "press" then
+        local column = math.floor(event.x * (font.content_scale or 1) / font.cell_width)
+        local row = math.floor(event.y * (font.content_scale or 1) / font.cell_height)
+        pane, placement = workspace:pane_at(workspace_columns, workspace_rows, column, row)
+        if pane then
+          pointer_pane_id = pane.id
+          activate_pane(pane.id)
+        end
+      elseif pointer_pane_id then
+        pane = workspace.panes[pointer_pane_id]
+        placement = pane and pane_layouts[pane.id] and pane_layouts[pane.id].grid or nil
+      else
+        local column = math.floor(event.x * (font.content_scale or 1) / font.cell_width)
+        local row = math.floor(event.y * (font.content_scale or 1) / font.cell_height)
+        pane, placement = workspace:pane_at(workspace_columns, workspace_rows, column, row)
+      end
+      if pane == nil or placement == nil then return nil end
+      event.x = event.x - placement.x * font.cell_width / (font.content_scale or 1)
+      event.y = event.y - placement.y * font.cell_height / (font.content_scale or 1)
+      return pane
     end
 
     window:set_input_handlers(function(codepoint)
@@ -607,6 +691,8 @@ local function run_live(options)
       end
       return { handled = true, suppress_text = encoded.suppress_text }
     end, function(event)
+      local pane = pointer_pane(event)
+      if pane == nil then return end
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
@@ -624,6 +710,7 @@ local function run_live(options)
         encoded = mouse:wheel(event, state.modes)
       end
       if encoded then enqueue_input(encoded) end
+      if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
     end, function(focused)
       if not focused then selection_pointer:reset() end
       local encoded = mouse:focus(focused, state.modes)
@@ -633,7 +720,7 @@ local function run_live(options)
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
     while not window:should_close() do
       local now = window:time()
-      local deadline = renderer:next_render_deadline()
+      local deadline = compositor:next_render_deadline(pane_entries)
       local maximum_wait = window.minimized and 0.250 or 0.050
       local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
       window:wait_events(requested_wait)
@@ -654,7 +741,7 @@ local function run_live(options)
         end
       end
       if power then
-        local power_state = window.minimized and "minimized" or renderer:needs_render(now) and "active" or "idle"
+        local power_state = window.minimized and "minimized" or compositor:needs_render(pane_entries, now) and "active" or "idle"
         power:observe(now, power_state, requested_wait)
       end
       if soak and soak:step(now) then window:request_close() end
@@ -680,7 +767,7 @@ local function run_live(options)
             session.mouse_generation = session.terminal.state.modes.mouse_generation
             if session == active_session then mouse_generation = session.mouse_generation end
           end
-          if session == active_session then renderer:invalidate("terminal") end
+          if session.renderer then session.renderer:invalidate("terminal") end
         end
         local responses = session.terminal:pop_responses()
         if #responses > 0 then session.pty:enqueue(table.concat(responses)) end
@@ -696,86 +783,77 @@ local function run_live(options)
       local child_status = active_session.child_status
       update_search_title()
 
-      if renderer:can_present(state) and state.kitty_graphics:advance(now) then renderer:invalidate("kitty_images") end
+      for _, entry in ipairs(pane_entries) do
+        if entry.model.kitty_graphics:advance(now) then entry.renderer:invalidate("kitty_images") end
+      end
 
       do
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
-        local previous_viewport = {
-          columns = state.columns,
-          rows = state.rows,
-          drawable_width = context.width,
-          drawable_height = context.height,
-          content_scale = font.content_scale,
-        }
         local previous_font
         if scale_changed then
           previous_font = font
           font = new_font(window, configuration)
-          metrics.font = font
-        end
-        local new_columns, new_rows = dimensions(window, font)
-        if new_columns and (scale_changed or new_columns ~= state.columns or new_rows ~= state.rows) then
-          context:configure_surface()
-          renderer:invalidate("resize")
           for _, pane in pairs(workspace.panes) do
             local session = pane.session
-            local session_state = session.terminal.state
-            if new_columns ~= session_state.columns or new_rows ~= session_state.rows then
-              session.terminal:resize(new_columns, new_rows)
-              session.pty:resize(new_columns, new_rows)
-              if session == active_session and recorder then recorder:resize(new_columns, new_rows) end
-            else
-              session_state:mark_all_dirty()
+            session.metrics.font = font
+            if session.renderer then
+              session.renderer:destroy()
+              session.renderer = nil
             end
           end
-          if renderer then
-            renderer:resize(previous_viewport, {
-              columns = state.columns,
-              rows = state.rows,
-              drawable_width = context.width,
-              drawable_height = context.height,
-              content_scale = font.content_scale,
-            })
-            renderer:destroy()
-            active_session.renderer = nil
+        end
+        local new_columns, new_rows = dimensions(window, font)
+        if window.resized and not context:configure_surface() then
+          if previous_font then
+            previous_font:destroy()
+            previous_font = nil
           end
-          if previous_font then previous_font:destroy() end
-          renderer = Renderer.new(context, font, state, render_options)
-          active_session.renderer = renderer
+        elseif new_columns and (scale_changed or renderer == nil or new_columns ~= workspace_columns or new_rows ~= workspace_rows) then
+          assert(refresh_workspace_layout())
+          if previous_font then
+            previous_font:destroy()
+            previous_font = nil
+          end
+        elseif previous_font then
+          assert(refresh_workspace_layout())
+          previous_font:destroy()
+          previous_font = nil
         end
-        if window:take_shader_reload_request() then
-          local reloaded, message = renderer:reload_shaders(true)
-          report_shader_reload(reloaded, message)
-          if reloaded then renderer:invalidate("configuration") end
-        elseif renderer:shader_reload_enabled() then
-          report_shader_reload(renderer:poll_shader_reload(now))
+        if not window.minimized then
+          if window:take_shader_reload_request() then
+            for _, entry in ipairs(pane_entries) do
+              local reloaded, message = entry.renderer:reload_shaders(true)
+              if entry.renderer == renderer then report_shader_reload(reloaded, message) end
+              if reloaded then entry.renderer:invalidate("configuration") end
+            end
+          else
+            for _, entry in ipairs(pane_entries) do
+              if entry.renderer:shader_reload_enabled() then
+                local reloaded, message = entry.renderer:poll_shader_reload(now)
+                if entry.renderer == renderer then report_shader_reload(reloaded, message) end
+              end
+            end
+          end
         end
-        if renderer:needs_render(now) and renderer:can_present(state) then
-        local frame_start = now
-        local invalidation = (pacing or power) and renderer:invalidation_snapshot() or nil
-        local prepare_start = window:time()
-        renderer:update_model(state)
-        local prepare_elapsed = window:time() - prepare_start
-        local rendered, reason = renderer:render(state, now, window.debug_dirty, window.debug_boundaries)
-        if rendered and not simulated_device_loss and simulated_device_loss_frame > 0 and metrics.frame_number + 1 >= simulated_device_loss_frame then
-          simulated_device_loss = true
-          rendered, reason = false, "native GPU error: simulated device loss"
-        end
-        if not rendered and reason ~= "zero-sized drawable" then
-          handle_render_failure(reason)
-        end
-        local frame_completed = window:time()
-        if rendered and pacing then pacing:present(frame_start, frame_completed, invalidation.reasons) end
-        if rendered and power then power:present(invalidation.reasons, renderer.extension_manager:snapshot()) end
-        metrics:record(frame_completed - frame_start, prepare_elapsed, renderer)
-        if window.debug_metrics then
-          metrics:report(now)
-        end
-        if max_frames > 0 and metrics.frame_number >= max_frames then
-          break
-        end
-        end
-        if power and renderer:needs_render(now) and not renderer:can_present(state) then
+        if compositor:needs_render(pane_entries, now) and compositor:can_present(pane_entries) then
+          local frame_start = now
+          local invalidation = (pacing or power) and renderer:invalidation_snapshot() or nil
+          local prepare_start = window:time()
+          compositor:update_models(pane_entries)
+          local prepare_elapsed = window:time() - prepare_start
+          local rendered, reason = compositor:render(pane_entries, now, window.debug_dirty, window.debug_boundaries)
+          if rendered and not simulated_device_loss and simulated_device_loss_frame > 0 and metrics.frame_number + 1 >= simulated_device_loss_frame then
+            simulated_device_loss = true
+            rendered, reason = false, "native GPU error: simulated device loss"
+          end
+          if not rendered and reason ~= "zero-sized drawable" then handle_render_failure(reason) end
+          local frame_completed = window:time()
+          if rendered and pacing then pacing:present(frame_start, frame_completed, invalidation.reasons) end
+          if rendered and power then power:present(invalidation.reasons, renderer.extension_manager:snapshot()) end
+          metrics:record(frame_completed - frame_start, prepare_elapsed, renderer)
+          if window.debug_metrics then metrics:report(now) end
+          if max_frames > 0 and metrics.frame_number >= max_frames then break end
+        elseif power and compositor:needs_render(pane_entries, now) then
           power:defer(window.minimized and "minimized" or "synchronized-output")
         end
       end
