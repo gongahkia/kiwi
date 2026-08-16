@@ -1,0 +1,37 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+readonly VERSION=$(<"$ROOT/VERSION")
+readonly NAME="libkiwi-vt-$VERSION"
+readonly PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg=='
+
+KIWI_LIBKIWI_ALLOW_DIRTY=1 KIWI_LIBKIWI_DIST="$WORK/first" "$ROOT/script/package-libkiwi-vt"
+KIWI_LIBKIWI_ALLOW_DIRTY=1 KIWI_LIBKIWI_DIST="$WORK/second" "$ROOT/script/package-libkiwi-vt"
+
+cmp "$WORK/first/$NAME.tar.gz" "$WORK/second/$NAME.tar.gz"
+(cd "$WORK/first" && sha256sum --check "$NAME.tar.gz.sha256")
+tar -xzf "$WORK/first/$NAME.tar.gz" -C "$WORK"
+readonly PACKAGE="$WORK/$NAME"
+
+[[ ! -e "$PACKAGE/lua/kiwi/renderer" ]]
+[[ ! -e "$PACKAGE/lua/kiwi/platform" ]]
+[[ ! -e "$PACKAGE/lua/kiwi/ffi" ]]
+[[ -f "$PACKAGE/include/kiwi/vt.h" ]]
+[[ -f "$PACKAGE/lib/libkiwi_vt.so" ]]
+"$PACKAGE/bin/kiwi-vt" --help >/dev/null
+output=$(printf 'hello\r\n' | "$PACKAGE/bin/kiwi-vt" --columns 8 --rows 2)
+[[ "$output" == 'hello' ]]
+cc -std=c17 -Wall -Wextra -Werror -I"$PACKAGE/include" "$PACKAGE/examples/c_consumer.c" -L"$PACKAGE/lib" -lkiwi_vt -Wl,-rpath,"$PACKAGE/lib" -o "$WORK/c-consumer"
+"$WORK/c-consumer"
+KIWI_LIBKIWI_TEST_PNG="$PNG" LUA_PATH="$PACKAGE/lua/?.lua;$PACKAGE/lua/?/init.lua;;" "${LUAJIT:-luajit}" -e '
+  local VT = require("kiwi.vt")
+  local payload = os.getenv("KIWI_LIBKIWI_TEST_PNG")
+  local terminal = VT.new({ columns = 2, rows = 1 })
+  terminal:write("\27_Ga=q,i=1,s=1,v=1,f=100,t=d,m=0;" .. payload .. "\27\\")
+  assert(terminal:pop_responses()[1] == "\27_Gi=1;ERR:decoder-unavailable\27\\")
+'
+
+print "libkiwi-vt package check: reproducible core SDK archive, standalone Lua and C consumers, and explicit optional-media rejection passed."

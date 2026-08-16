@@ -1,4 +1,4 @@
-local Color = require("kiwi.renderer.color")
+local Color = require("kiwi.terminal.color")
 
 local Attributes = {}
 
@@ -13,6 +13,7 @@ Attributes.flags = {
   concealed = 0x80,
   strike = 0x100,
   hyperlink = 0x200,
+  protected = 0x400,
 }
 
 Attributes.default_foreground = Color.pack(0xd8, 0xde, 0xe9, 0xff)
@@ -112,6 +113,7 @@ function Attributes.default()
     inverse = false,
     concealed = false,
     strike = false,
+    protected = false,
   }
 end
 
@@ -153,6 +155,7 @@ function Attributes.resolve(value, palette)
   if value.inverse then flags = flags + Attributes.flags.inverse end
   if value.concealed then flags = flags + Attributes.flags.concealed end
   if value.strike then flags = flags + Attributes.flags.strike end
+  if value.protected then flags = flags + Attributes.flags.protected end
   return foreground, background, flags, foreground_slot, background_slot
 end
 

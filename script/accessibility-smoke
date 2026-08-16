@@ -15,7 +15,15 @@ else
   print "AT-SPI library: unavailable"
 fi
 
-for tool in at-spi2-registryd accerciser orca; do
+if command -v at-spi2-registryd >/dev/null; then
+  print "at-spi2-registryd: available"
+elif [[ -x /usr/libexec/at-spi2-registryd ]]; then
+  print "at-spi2-registryd: available at /usr/libexec/at-spi2-registryd"
+else
+  print "at-spi2-registryd: unavailable"
+fi
+
+for tool in accerciser orca; do
   if command -v "$tool" >/dev/null; then
     print "$tool: available"
   else
@@ -23,5 +31,17 @@ for tool in at-spi2-registryd accerciser orca; do
   fi
 done
 
+if command -v gdbus >/dev/null; then
+  atspi_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.a11y.Bus.GetAddress 2>/dev/null | sed -E "s/^\('([^']+)',\)$/\1/")
+  if [[ -n "$atspi_address" ]] && gdbus call --address "$atspi_address" --dest org.a11y.atspi.Registry --object-path /org/a11y/atspi/registry --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1; then
+    print "AT-SPI registry: reachable on the accessibility bus"
+  else
+    print "AT-SPI registry: unavailable"
+  fi
+else
+  print "AT-SPI registry: unavailable (gdbus is not installed)"
+fi
+
 print "semantic accessibility checks: passed via the deterministic test suite"
-print "native screen-reader smoke: skipped (Kiwi has no native AT-SPI, NSAccessibility, or UI Automation adapter)"
+print "native AT-SPI provider: built; run make accessibility-provider-smoke for a live registry/query check"
+print "native screen-reader smoke: not run (requires a manual assistive-technology session)"

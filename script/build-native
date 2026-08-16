@@ -14,9 +14,10 @@ mkdir -p "${OUTPUT:h}"
 cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
   -I"$WGPU/include" \
   $(pkg-config --cflags glfw3) \
-  "$ROOT/native/surface.c" \
+  $(pkg-config --cflags gio-2.0) \
+  "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" \
   -L"$WGPU/lib" -lwgpu_native \
-  $(pkg-config --libs glfw3) \
+  $(pkg-config --libs glfw3 gio-2.0) \
   -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
   -o "$OUTPUT"
 

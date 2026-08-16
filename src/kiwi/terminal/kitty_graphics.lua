@@ -1,5 +1,4 @@
 local Base64 = require("kiwi.terminal.base64")
-local ImageDecoder = require("kiwi.terminal.image_decoder")
 
 local KittyGraphics = {}
 KittyGraphics.__index = KittyGraphics
@@ -14,8 +13,11 @@ KittyGraphics.default_max_pixels = 16 * 1024 * 1024
 KittyGraphics.default_max_decoded_bytes = 64 * 1024 * 1024
 KittyGraphics.default_max_cpu_bytes = 64 * 1024 * 1024
 KittyGraphics.default_max_gpu_bytes = 64 * 1024 * 1024
-KittyGraphics.default_max_animation_bytes = ImageDecoder.default_max_animation_bytes
-KittyGraphics.default_max_animation_frames = ImageDecoder.default_max_frames
+-- Keep the terminal core loadable without libpng or giflib. The concrete
+-- decoder is loaded only for a completed image transfer.
+KittyGraphics.default_max_animation_bytes = 32 * 1024 * 1024
+KittyGraphics.default_max_animation_frames = 256
+KittyGraphics.minimum_animation_delay = 1 / 60
 
 local function positive_integer(value, name)
   assert(type(value) == "number" and value >= 1 and value % 1 == 0, name .. " must be a positive integer")
@@ -108,6 +110,7 @@ end
 
 function KittyGraphics.new(options)
   options = options or {}
+  assert(options.decoder == nil or (type(options.decoder) == "table" and type(options.decoder.decode) == "function"), "kitty graphics decoder must provide decode")
   local max_cpu_bytes = positive_integer(options.max_cpu_bytes or KittyGraphics.default_max_cpu_bytes, "kitty graphics CPU cache limit")
   local max_animation_bytes = positive_integer(options.max_animation_bytes or math.min(KittyGraphics.default_max_animation_bytes, max_cpu_bytes), "kitty graphics animation byte limit")
   local self = setmetatable({
@@ -126,6 +129,7 @@ function KittyGraphics.new(options)
     max_width = positive_integer(options.max_width or KittyGraphics.default_max_width, "kitty graphics width limit"),
     next_generation = 0,
     next_use = 0,
+    decoder = options.decoder,
     pending_gpu_releases = {},
     stats = {
       accepted = 0,
@@ -147,6 +151,14 @@ function KittyGraphics.new(options)
   assert(self.max_decoded_bytes <= self.max_cpu_bytes, "kitty graphics decoded-image limit must not exceed CPU cache limit")
   assert(self.max_animation_bytes <= self.max_cpu_bytes, "kitty graphics animation byte limit must not exceed CPU cache limit")
   return self
+end
+
+function KittyGraphics:decoder_for_transfer()
+  if self.decoder ~= nil then return self.decoder end
+  local loaded, decoder = pcall(require, "kiwi.terminal.image_decoder")
+  if not loaded or type(decoder) ~= "table" or type(decoder.decode) ~= "function" then return nil end
+  self.decoder = decoder
+  return decoder
 end
 
 function KittyGraphics:touch(image, gpu)
@@ -267,7 +279,9 @@ function KittyGraphics:complete_transfer(transfer, query)
   local width, height, format = media_header(bytes)
   if width == nil then return self:reject(height) end
   if width ~= transfer.width or height ~= transfer.height then return self:reject(format == "gif" and "gif-dimensions" or "png-dimensions") end
-  local decoded, media, reason = pcall(ImageDecoder.decode, bytes, transfer.width, transfer.height, {
+  local decoder = self:decoder_for_transfer()
+  if decoder == nil then return self:reject("decoder-unavailable") end
+  local decoded, media, reason = pcall(decoder.decode, bytes, transfer.width, transfer.height, {
     max_animation_bytes = self.max_animation_bytes,
     max_frames = self.max_animation_frames,
   })
@@ -432,7 +446,7 @@ function KittyGraphics:animation_delay(now)
     if image.active and not image.finished and #image.frames > 1 then
       local frame = image.frames[image.frame_index]
       if image.next_frame_at == nil then image.next_frame_at = now + frame.duration end
-      local candidate = math.max(ImageDecoder.minimum_delay, image.next_frame_at - now)
+      local candidate = math.max(KittyGraphics.minimum_animation_delay, image.next_frame_at - now)
       if delay == nil or candidate < delay then delay = candidate end
     end
   end

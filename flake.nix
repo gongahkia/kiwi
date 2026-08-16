@@ -12,6 +12,7 @@
         pkgs.fontconfig
         pkgs.freetype
         pkgs.giflib
+        pkgs.glib
         pkgs.glfw
         pkgs.harfbuzz
         pkgs.libpng
@@ -44,6 +45,7 @@
             pkgs.fish
             pkgs.gnumake
             pkgs.makeWrapper
+            pkgs.nushell
             pkgs.openssh
             pkgs.pkg-config
             pkgs.unzip
@@ -128,14 +130,70 @@
             runHook postInstall
           '';
         };
+      mkLibkiwiVt = { doCheck ? false }:
+        pkgs.stdenv.mkDerivation {
+          pname = "libkiwi-vt";
+          inherit version;
+          src = self;
+          inherit doCheck;
+
+          nativeBuildInputs = [
+            pkgs.gnumake
+            pkgs.zsh
+          ];
+
+          buildInputs = [ pkgs.luajit ];
+
+          dontConfigure = true;
+
+          buildPhase = ''
+            runHook preBuild
+            KIWI_VT_LUAJIT_RPATH=${pkgs.luajit}/lib ./script/build-libkiwi-vt
+            runHook postBuild
+          '';
+
+          checkPhase = ''
+            export LUAJIT=${pkgs.luajit}/bin/luajit
+            export LUA_PATH="$PWD/.build/libkiwi-vt/lua/?.lua;$PWD/.build/libkiwi-vt/lua/?/init.lua;;"
+            ${pkgs.luajit}/bin/luajit .build/libkiwi-vt/lua/kiwi/vt/demo.lua --help >/dev/null
+            output=$(printf 'hello\r\n' | ${pkgs.luajit}/bin/luajit .build/libkiwi-vt/lua/kiwi/vt/demo.lua --columns 8 --rows 2)
+            test "$output" = hello
+            cc -std=c17 -Wall -Wextra -Werror -I.build/libkiwi-vt/include src/tests/fixtures/libkiwi_vt_consumer.c -L.build/libkiwi-vt/lib -lkiwi_vt -Wl,-rpath,"$PWD/.build/libkiwi-vt/lib" -o libkiwi-vt-consumer
+            ./libkiwi-vt-consumer
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            install -Dm644 .build/libkiwi-vt/include/kiwi/vt.h "$out/include/kiwi/vt.h"
+            install -Dm755 .build/libkiwi-vt/lib/libkiwi_vt.so "$out/lib/libkiwi_vt.so"
+            cp -R .build/libkiwi-vt/lua "$out/lua"
+            install -Dm644 VERSION "$out/share/doc/libkiwi-vt/VERSION"
+            install -Dm644 docs/LIBKIWI.md "$out/share/doc/libkiwi-vt/LIBKIWI.md"
+            install -Dm644 src/tests/fixtures/libkiwi_vt_consumer.c "$out/share/doc/libkiwi-vt/examples/c_consumer.c"
+            install -d "$out/bin"
+            cat > "$out/bin/kiwi-vt" <<EOF
+            #!${pkgs.runtimeShell}
+            set -eu
+            export LUA_PATH="$out/lua/?.lua;$out/lua/?/init.lua;''${LUA_PATH:-}"
+            exec ${pkgs.luajit}/bin/luajit "$out/lua/kiwi/vt/demo.lua" "\$@"
+            EOF
+            chmod 755 "$out/bin/kiwi-vt"
+            runHook postInstall
+          '';
+        };
       package = mkKiwi { };
+      libkiwiVt = mkLibkiwiVt { };
     in {
       packages.${system} = {
         default = package;
         kiwi = package;
+        libkiwi-vt = libkiwiVt;
       };
 
-      checks.${system}.default = mkKiwi { doCheck = true; };
+      checks.${system} = {
+        default = mkKiwi { doCheck = true; };
+        libkiwi-vt = mkLibkiwiVt { doCheck = true; };
+      };
 
       devShells.${system}.default = pkgs.mkShell {
         inputsFrom = [ package ];

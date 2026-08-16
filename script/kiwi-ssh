@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-usage: kiwi-ssh [--no-terminfo] [--strict] -- host
+usage: kiwi-ssh [--no-terminfo] [--strict] [--ssh-option ARG]... -- host
 
 Install Kiwi's compiled terminfo entry in ~/.cache/kiwi/terminfo on the named
 remote host, then open an interactive login shell with TERM=kiwi. If setup
@@ -11,6 +11,9 @@ fails, the default behavior warns and falls back to TERM=xterm-256color.
 
 --no-terminfo  skip remote setup and use the xterm-256color fallback
 --strict       fail instead of falling back when remote setup fails
+--ssh-option   pass one connection option or its value to both ssh and scp;
+               repeat for every argument, for example:
+               --ssh-option -p --ssh-option 2222
 EOF
 }
 
@@ -29,12 +32,35 @@ ssh_bin=${KIWI_SSH_BIN:-ssh}
 scp_bin=${KIWI_SCP_BIN:-scp}
 setup=true
 strict=false
+ssh_options=''
+
+append_ssh_option() {
+  case "$1" in
+    ''|*"
+"*)
+      printf '%s\n' "kiwi-ssh: SSH option arguments must be non-empty single lines" >&2
+      exit 2
+      ;;
+  esac
+  if [ -n "$ssh_options" ]; then ssh_options="$ssh_options
+"; fi
+  ssh_options="$ssh_options$1"
+}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
     --no-terminfo) setup=false ;;
     --strict) strict=true ;;
+    --ssh-option)
+      shift
+      if [ "$#" -eq 0 ]; then
+        printf '%s\n' "kiwi-ssh: --ssh-option requires one argument" >&2
+        exit 2
+      fi
+      append_ssh_option "$1"
+      ;;
+    --ssh-option=*) append_ssh_option "${1#--ssh-option=}" ;;
     --) shift; break ;;
     *) printf '%s\n' "kiwi-ssh: use -- before the host; see --help" >&2; exit 2 ;;
   esac
@@ -62,25 +88,84 @@ if ! command -v "$scp_bin" >/dev/null 2>&1; then
   exit 127
 fi
 
+ssh_with_options() {
+  command=$1
+  set --
+  if [ -n "$ssh_options" ]; then
+    saved_ifs=$IFS
+    IFS='
+'
+    set -f
+    set -- $ssh_options
+    set +f
+    IFS=$saved_ifs
+  fi
+  "$ssh_bin" "$@" "$host" "$command"
+}
+
+scp_with_options() {
+  set --
+  if [ -n "$ssh_options" ]; then
+    saved_ifs=$IFS
+    IFS='
+'
+    set -f
+    set -- $ssh_options
+    set +f
+    IFS=$saved_ifs
+  fi
+  "$scp_bin" "$@" "$terminfo_entry" "$host:.cache/kiwi/terminfo/k/kiwi"
+}
+
 fallback() {
   printf '%s\n' "kiwi-ssh: remote Kiwi terminfo setup failed; falling back to TERM=xterm-256color" >&2
-  exec env TERM=xterm-256color "$ssh_bin" -tt "$host"
+  set --
+  if [ -n "$ssh_options" ]; then
+    saved_ifs=$IFS
+    IFS='
+'
+    set -f
+    set -- $ssh_options
+    set +f
+    IFS=$saved_ifs
+  fi
+  exec env TERM=xterm-256color "$ssh_bin" "$@" -tt "$host"
 }
 
 if [ "$setup" = false ]; then
-  exec env TERM=xterm-256color "$ssh_bin" -tt "$host"
+  set --
+  if [ -n "$ssh_options" ]; then
+    saved_ifs=$IFS
+    IFS='
+'
+    set -f
+    set -- $ssh_options
+    set +f
+    IFS=$saved_ifs
+  fi
+  exec env TERM=xterm-256color "$ssh_bin" "$@" -tt "$host"
 fi
 if [ ! -f "$terminfo_entry" ]; then
   printf '%s\n' "kiwi-ssh: missing compiled terminfo at $terminfo_entry; run make terminfo" >&2
   exit 2
 fi
 
-if ! "$ssh_bin" "$host" 'mkdir -p "$HOME/.cache/kiwi/terminfo/k"'; then
+if ! ssh_with_options 'mkdir -p "$HOME/.cache/kiwi/terminfo/k"'; then
   if [ "$strict" = true ]; then exit 1; fi
   fallback
 fi
-if ! "$scp_bin" "$terminfo_entry" "$host:.cache/kiwi/terminfo/k/kiwi"; then
+if ! scp_with_options; then
   if [ "$strict" = true ]; then exit 1; fi
   fallback
 fi
-exec env TERM=kiwi "$ssh_bin" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" exec "${SHELL:-/bin/sh}" -l'
+set --
+if [ -n "$ssh_options" ]; then
+  saved_ifs=$IFS
+  IFS='
+'
+  set -f
+  set -- $ssh_options
+  set +f
+  IFS=$saved_ifs
+fi
+exec env TERM=kiwi "$ssh_bin" "$@" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" exec "${SHELL:-/bin/sh}" -l'

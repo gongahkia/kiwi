@@ -1,9 +1,10 @@
 # Accessibility semantic model
 
-`kiwi.accessibility.model` is a platform-neutral data layer for future Linux,
-macOS, and Windows accessibility adapters. It is not an AT-SPI, NSAccessibility,
-or UI Automation adapter, and Kiwi does not claim screen-reader support until
-one of those adapters is implemented and validated in its native environment.
+`kiwi.accessibility.model` is the platform-neutral terminal-semantic layer for
+accessibility adapters. Linux now has a native AT-SPI provider built on top of
+that model. macOS NSAccessibility and Windows UI Automation adapters are still
+unimplemented, and Kiwi does not yet make an end-to-end screen-reader
+compatibility claim.
 
 ## Contract
 
@@ -42,7 +43,7 @@ or unbounded scrollback. It has no native allocation or cleanup responsibility.
 Its only retained state is the previous bounded snapshot used for change
 comparison.
 
-## Adapter procedure
+## Semantic-model procedure
 
 1. Create one model per terminal window and publish its initial snapshot after
    the native accessibility object exists.
@@ -55,56 +56,70 @@ comparison.
 4. Destroy the model with the native window/accessibility object. There are no
    native handles to release.
 
-An adapter must test the active terminal window with its native inspection and
-screen-reader tooling before advertising support. It must preserve the bounds,
-keep inaccessible shell/region data private by default, and document any
-platform-specific selection or caret mapping. The semantic model's unit tests
-cover Unicode anchors, wide cells, combining text, selection, resize, history
-viewports, and bounded scrollback export; they are not a screen-reader smoke
-test.
+An adapter must preserve the bounds, keep shell/region data private by default,
+and document its platform-specific selection and caret mapping. The semantic
+model's unit tests cover Unicode anchors, wide cells, combining text,
+selection, resize, history viewports, and bounded scrollback export; they are
+not a screen-reader test.
 
 ## Native Linux boundary
 
-An AT-SPI provider is a D-Bus server, not a client-library probe. A production
-Linux adapter must expose an `org.a11y.atspi.Accessible` root at
-`/org/a11y/atspi/accessible/root`, implement
-`org.a11y.atspi.Application` on that root, expose a terminal child with the
-Accessible and Text interfaces, and register the root through the registry's
-`org.a11y.atspi.Socket.Embed` handshake. It must then report bounded text and
-caret/selection state through AT-SPI character offsets and issue the relevant
-text, caret, selection, focus, and window notifications on the accessibility
-bus.
+`native/accessibility.c` is a GIO/D-Bus server compiled into the existing
+native bridge. On startup, unless `KIWI_ACCESSIBILITY=0`, it obtains the
+dedicated accessibility-bus address from `org.a11y.Bus`, exports an application
+root at `/org/a11y/atspi/accessible/root`, exports a terminal child at
+`/org/a11y/atspi/accessible/terminal`, and registers the root with the
+registry's `org.a11y.atspi.Socket.Embed` handshake. It does not attempt to use
+the ordinary session bus as the registry.
 
-The installed `atspi-2` library is principally a client API. Linking it or
-calling its initialization function would neither expose Kiwi's D-Bus objects
-nor register an application. Kiwi therefore deliberately has no partial
-adapter in the normal build: an unregistered or query-only shim would make the
-semantic data look available while remaining invisible to assistive technology.
-The current model remains the input contract for a future provider.
+The root implements `Accessible` and `Application`; the child implements
+`Accessible` and `Text`. The child represents the active Kiwi pane, reports
+terminal and focusable states, uses the current safe window title as its
+accessible name, and exports a fresh bounded projection after each live-event
+turn. The projection contains at most 256 physical viewport rows and 64 KiB of
+UTF-8 text. It inserts LF separators between physical rows, collapses wide-cell
+continuation cells, and maps caret/selection cell gaps to UTF-8 character
+offsets. It does not traverse or materialize retained scrollback outside that
+bounded viewport.
+
+The provider supports text fetches, character reads, character and physical
+line ranges, caret, and the current local selection. It emits bounded whole-
+viewport replacement events for output, caret movement, selection changes, and
+focus-state changes. `SetCaretOffset` and selection mutation methods remain
+read-only because terminal output is not an editable text buffer. Precise word
+and sentence segmentation, styled text attributes, geometry/component APIs,
+multiple simultaneously exposed panes, and native window notifications are not
+implemented. Non-character `GetStringAtOffset` granularities deliberately
+return the physical line rather than claiming locale-aware word or sentence
+segmentation.
+
+The provider is optional: inability to contact the session or accessibility bus
+does not stop Kiwi. Set `KIWI_ACCESSIBILITY_DIAGNOSTICS=1` to report that
+fallback. The installed `atspi-2` client library is not used for provider
+registration; GIO owns the exported objects and their lifecycle.
 
 ## M9 smoke evidence
 
-Run `make accessibility-smoke` for the repeatable semantic-data smoke check.
-It first runs the deterministic suite, including selection/caret events and a
-4,096-row scrollback fixture. That fixture instruments `visible_row` and
-asserts that a two-row export reads only the two viewport rows plus its first
-and last bounds probes; it is data-layer evidence, not a memory-profile claim.
-The report then records the host kernel, AT-SPI library version when present,
-and whether `at-spi2-registryd`, Accerciser, and Orca are available.
+`make accessibility-smoke` runs the deterministic semantic tests, builds the
+native bridge, and reports the AT-SPI library, local registry executable,
+assistive-tool availability, and registry reachability. It is safe in a
+non-graphical session and does not open a window.
 
-On the assessed Fedora 43 host, AT-SPI 2.58.7 is installed, but
-`at-spi2-registryd` and Accerciser are unavailable. Kiwi has no AT-SPI adapter,
-so there is **No access** to a meaningful native screen-reader observation even
-if a screen-reader executable is present. The smoke command therefore reports
-the native check as skipped; it does not infer support from the presence of an
-AT-SPI client library.
+`make accessibility-provider-smoke` is the live Linux protocol test. It opens
+a short-lived Kiwi window, waits for its registry registration, and verifies
+from a separate D-Bus client that the registry exposes a Kiwi root and terminal
+child whose accessible name contains the child-process OSC 2 title and whose
+bounded text contains the child-process sentinel. It verifies that
+`Text.CharacterCount` is positive and observes a subsequent `TextChanged`
+event. It skips only when the desktop display, `gdbus`, `org.a11y.Bus`, or the
+registry is unavailable.
 
-Once a Linux adapter exists, repeat the command with the registry and an
-inspection tool installed, then verify that a running Kiwi window exposes the
-bounded viewport, caret movement, output change, and selection endpoints. The
-equivalent macOS NSAccessibility and Windows UI Automation checks require their
-own native adapter and platform tooling. Until those observations are captured,
-Kiwi makes no screen-reader compatibility claim.
+On the assessed Fedora 43 desktop, the provider handshake and external text
+query passed using AT-SPI 2.58.7. This is protocol-level evidence, not an Orca
+or other screen-reader interaction test. A manual assistive-technology session
+must still check spoken output changes, navigation behavior, focus transitions,
+and selection reporting before Kiwi can claim screen-reader compatibility. The
+equivalent macOS and Windows checks require their own native adapters.
 
 ## References
 

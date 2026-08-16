@@ -17,7 +17,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | dec-special-graphics | G0/G1 ASCII, UK, and DEC Special Graphics designation with SI/SO shifts |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
-| kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
+| kitty-keyboard | Kitty keyboard query, supported flags 1/2/8/16 mode stack, alternate-screen isolation, malformed negotiation |
 | kitty-graphics | bounded direct-image APC-G transfer and chunk-boundary invariance |
 | kitty-graphics-actions | transfer, query, placement, clear, soft delete, and hard delete lifecycle |
 | kitty-graphics-composition | visible negative/positive z placement input for renderer assertions |
@@ -26,7 +26,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | osc-and-strings | OSC 2 ST title and safe DCS discard |
 | osc8-hyperlinks | OSC 8 open/close, stable `id` reuse, and both BEL/ST termination |
 | shell-integration | OSC 7 current directory plus OSC 133 A/B/C/D shell markers with BEL/ST termination |
-| shell-integration-scripts | captured v1 Bash/Zsh/fish OSC 7/133 emission shape |
+| shell-integration-scripts | captured v1 Bash/Zsh/fish OSC 7/133 emission shape; Nushell when `nu` is installed |
 | osc52-policy | OSC 52 default denial and bounded oversized payload handling |
 | utf8-and-malformed | split Unicode, invalid UTF-8 replacement, bounded CSI recovery |
 
@@ -57,21 +57,21 @@ claiming formal verification or allocator-independent memory totals.
 
 | Family | Implemented M1 behavior | Terminfo exposure |
 | --- | --- | --- |
-| C0 | BEL count, BS, HT, LF/VT/FF, CR; NUL/DEL ignored | `bel`, `cr`, `ind`, `nel` |
+| C0 | BEL count, BS, HT, LF/VT/FF, CR; NUL/DEL ignored. Standard LNM (`CSI 20 h/l`) optionally applies CR before LF/VT/FF. | `bel`, `cr`, `ind`, `nel` |
 | ESC | IND, NEL, RI, save/restore cursor, HTS, RIS; G0/G1 ASCII, UK, and DEC Special Graphics designation with SI/SO | `ind`, `ri`, `sc`, `rc`, `nel`, `smacs`, `rmacs`, `acsc` |
 | cursor CSI | CUU/CUD/CUF/CUB, CNL/CPL, CHA, VPA, CUP/HVP | `cuu`, `cud`, `cuf`, `cub`, `hpa`, `vpa`, `cup`, `home` |
-| erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
+| erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL; VT220 DECSCA plus visible-screen selective display/line erase (DECSED `?0/1/2J`, DECSEL `?0/1/2K`) for protected cells. Selective saved-line erase (`?3J`) and rectangular selective erase are unsupported. | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, DECLRMM/DECSLRM rectangular scrolling, IND/RI at margins | `csr`, `ind`, `ri` |
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg; colon-form `4:n` underline styles retained as an underline | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | Dynamic colours | OSC 4, 10, 11, and 12 updates/queries; OSC 104, 110, 111, and 112 reset paths | none; these are private terminal controls, not terminfo capability claims |
-| modes | IRM; declared RQM/DECRQM queries (IRM; DECCKM, DECOM, DECAWM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); DECSCUSR cursor styles; Kitty keyboard level-one disambiguation; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
+| modes | IRM and LNM; declared RQM/DECRQM queries (IRM, LNM; DECCKM, DECOM, DECAWM, xterm reverse-wrap mode 45, DECBKM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); xterm one-level save/restore for the independent implemented private-mode subset (cursor/origin/wrap/reverse-wrap/visibility/backarrow/margins/focus/alternate-scroll/bracketed-paste/synchronized-output); DECSCUSR cursor styles; DECKPAM/DECKPNM keypad input; DECBKM backspace/DEL negotiation; Kitty keyboard flags 1/2/8/16; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
-| replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
+| replies | DSR 5/6, conservative primary/secondary DA subsets, and read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`) | not advertised as a terminfo capability |
 | OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes | not advertised |
-| DCS/APC/PM/SOS | bounded discard through ST; DCS DECRQSS replies for SGR, DECSTBM, DECSLRM, and DECSCUSR only | all other DCS families, including Sixel, remain discarded and unadvertised |
+| DCS/APC/PM/SOS | bounded discard through ST; DCS DECRQSS replies for SGR, DECSTBM, DECSLRM, DECSCUSR, DECSCA, and current page height (DECSLPP) only | all other DCS families, including Sixel, remain discarded and unadvertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
 
@@ -114,7 +114,7 @@ the oldest with counters. Canonical replay snapshots retain opaque IDs/events
 but omit directory host/path/URI; shell metadata has no renderer resource,
 diagnostic payload, or execution privilege. The `shell-integration` fixture
 covers both OSC terminators; `shell-integration-scripts` captures the v1
-Bash/Zsh/fish emission order. The application injects supported initial shells
+Bash/Zsh/fish/Nushell emission order. The application injects supported initial shells
 by default without changing dotfiles; manual source blocks remain necessary
 after a shell transition or explicit-command launch. Activation, disablement,
 and removal are documented in
@@ -200,9 +200,9 @@ The M4 selection model stores no text payload: it records two directional endpoi
 
 When application mouse tracking is inactive, the primary button provides local selection: drag extends an inclusive grapheme-cell range, a double-click selects a documented word run, and a triple-click selects the full physical row. GLFW logical positions map through the current content scale and current cell geometry, then clamp to the current viewport; this maps history rows through the state model instead of reconstructing text in input code. Word characters are ASCII letters, digits, `_`, and any leading scalar from U+0080 onward; punctuation and whitespace select their own grapheme cell. With enabled X10, normal, button-event, or any-event tracking, application reporting takes precedence and Kiwi starts no local selection.
 
-The renderer derives a bounded visible range from those stable endpoints and alpha-blends `terminal/selection` after the cell background but before shaped glyphs; cursor rendering remains last. This keeps selected text readable and wide/combining ownership unchanged. `KIWI_SELECTION_COLOR` accepts `#RRGGBB` (default alpha `70`) or `#RRGGBBAA`; the default is `#5E81AC70`. Selection-only pointer changes request the bounded `selection` redraw reason without marking terminal or text damage. The platform-neutral accessibility semantic model can export those stable endpoints, but no native screen-reader adapter or modifier override exists yet; the full contracts are [ADR 0021](adr/0021-grapheme-aware-selection-state.md), [ADR 0022](adr/0022-pointer-selection-gestures.md), [ADR 0023](adr/0023-selection-render-pass.md), and [ADR 0037](adr/0037-accessibility-semantic-model.md).
+The renderer derives a bounded visible range from those stable endpoints and alpha-blends `terminal/selection` after the cell background but before shaped glyphs; cursor rendering remains last. This keeps selected text readable and wide/combining ownership unchanged. `KIWI_SELECTION_COLOR` accepts `#RRGGBB` (default alpha `70`) or `#RRGGBBAA`; the default is `#5E81AC70`. Selection-only pointer changes request the bounded `selection` redraw reason without marking terminal or text damage. The Linux AT-SPI provider exports those endpoints as read-only UTF-8 character offsets for the active pane; screen-reader behavior remains unverified, and other platforms have no native adapter. The full contracts are [ADR 0021](adr/0021-grapheme-aware-selection-state.md), [ADR 0022](adr/0022-pointer-selection-gestures.md), [ADR 0023](adr/0023-selection-render-pass.md), and [ADR 0037](adr/0037-accessibility-semantic-model.md).
 
-`Ctrl+Shift+C` copies the visible, non-empty normalized selection through GLFW's main-thread Linux clipboard bridge. It emits the stored anchor glyph once, skips continuation cells, joins soft-wrapped physical rows, and inserts one LF between hard rows; it never copies renderer display substitutions. `Ctrl+Shift+V` reads at most 1,048,576 bytes, rejects unavailable, oversized, NUL-containing bridge data, or invalid UTF-8 input without PTY writes, and otherwise writes exact bytes. When DECSET 2004 is active, it adds exactly one `CSI 200~` / `CSI 201~` pair outside that byte limit. Clipboard diagnostics contain counters and status categories only, never clipboard content. Primary selection, rich formats, automatic synchronization, OSC 52 writes, and a modifier override remain out of scope.
+`Ctrl+Shift+C` copies the visible, non-empty normalized selection through GLFW's main-thread Linux clipboard bridge. It emits the stored anchor glyph once, skips continuation cells, joins soft-wrapped physical rows, and inserts one LF between hard rows; it never copies renderer display substitutions. `Ctrl+Shift+V` reads at most 1,048,576 bytes, rejects unavailable, oversized, NUL-containing bridge data, or invalid UTF-8 input without PTY writes, and otherwise writes exact bytes. When DECSET 2004 is active, it adds exactly one `CSI 200~` / `CSI 201~` pair outside that byte limit. Clipboard diagnostics contain counters and status categories only, never clipboard content. Primary selection, rich formats, automatic synchronization, OSC 52 reads/queries, and a modifier override remain out of scope; the separate bounded OSC 52 write-only subset is opt-in.
 
 ## Scrollback search
 
@@ -236,29 +236,61 @@ an unbounded damage store. The mode is global across primary/alternate screen
 switches, is replayed deterministically, suppresses cursor-blink scheduling,
 and has no terminfo advertisement.
 
-## Kitty keyboard disambiguation
+## Read-only geometry queries
 
-Kiwi implements only Kitty keyboard progressive-enhancement flag 1
-(disambiguate escape codes). A client queries with `CSI ? u`; Kiwi replies with
-`CSI ? 0 u` or `CSI ? 1 u`. `CSI = flags ; mode u` supports replace, set, and
-clear operations, while `CSI > flags u` pushes the active screen’s mode and
-`CSI < count u` restores it. Each primary/alternate screen owns a separate
-stack of at most eight entries; pushing a ninth evicts the oldest. RIS resets
-both flags and stacks.
+Kiwi answers xterm window-operation queries `CSI 14 t`, `CSI 16 t`, and
+`CSI 18 t` with its focused pane's text-area pixel size, physical cell size,
+and grid size respectively. The app updates those metrics after every
+pane/font-layout change; the pure core returns pixel replies only after its
+host has supplied both metrics. The host never accepts `CSI 8 ; rows ; cols t`
+or any other application-driven window operation, so terminal output cannot
+resize, move, iconify, raise, lower, or otherwise control a Kiwi window.
+
+## Application keypad
+
+`ESC =` enables DECKPAM and `ESC >` restores DECKPNM. In the former, GLFW and
+the public Lua/C input helpers encode keypad digits, decimal point, arithmetic
+operators, Enter, and equals as their documented VT220 SS3 forms; in the
+latter they encode the matching printable bytes. Kiwi does not receive a
+portable Num Lock override from this GLFW path, and it does not invent Kitty
+all-keys keypad values: when Kitty all-keys flag 8 is negotiated, that protocol
+takes precedence and a public keypad event is explicitly unencoded.
+
+## Kitty keyboard progressive enhancement
+
+Kiwi implements Kitty keyboard progressive-enhancement flags 1
+(disambiguate escape codes), 2 (event types), 8 (report all supported keys),
+and 16 (report associated text when flag 8 is active). A client queries with
+`CSI ? u`; Kiwi replies with the exact active supported-bit mask. `CSI = flags
+; mode u` supports replace, set, and clear
+operations, while `CSI > flags u` pushes the active screen’s mode and `CSI <
+count u` restores it. Each primary/alternate screen owns a separate stack of
+at most eight entries; pushing a ninth evicts the oldest. RIS resets both
+flags and stacks.
 
 With flag 1 enabled, Escape and modified printable ASCII keys use `CSI
 codepoint ; modifier u`; modified cursor, navigation, and F1–F12 keys use the
-Kitty-compatible modified functional-key form. Unmodified UTF-8 text and
-Enter, Tab, and Backspace keep their legacy bytes. Modifier values are one
-plus the Kitty bit field for Shift, Alt, Ctrl, and Super. The mode takes
-precedence over terminal-local `Shift+PageUp/Down` history navigation.
+Kitty-compatible modified functional-key form. Flag 2 appends the supported
+press/repeat/release event type to key parameters and permits release reports
+for functional keys. Flag 8 emits escape-code reports for supported printable,
+Escape, Enter, Tab, and Backspace keys and suppresses the corresponding text
+callback; it does not claim layout-derived key identities outside that set.
+When flags 8 and 16 are both active, the GLFW boundary holds at most one
+printable key for the current event turn, then attaches every non-control
+Unicode text callback received in that turn to its Kitty report. An unmatched
+physical key is flushed without associated text; a pure IME text event is
+represented as `CSI 0;;…u`. The public Lua and C input APIs accept an explicit
+bounded scalar sequence for non-GLFW hosts. Flag 16 is cleared if flag 8 is
+not active. Modifier values are one plus the Kitty bit field for Shift, Alt,
+Ctrl, and Super. Negotiated keyboard mode takes precedence over terminal-local
+`Shift+PageUp/Down` history navigation.
 
-Flags 2 (event types), 4 (alternate keys), 8 (all keys), and 16 (associated
-text) are deliberately not implemented. They need accurate release, layout,
-and text-event correlation that the current GLFW input boundary does not yet
-provide. Requested unsupported bits are absent from the subsequent query
-reply; applications that do not negotiate flag 1 retain Kiwi’s legacy input
-behavior. This runtime protocol has no terminfo advertisement.
+Flag 4 (alternate keys) remains deliberately unsupported because it needs a
+reliable layout-derived shifted/base-key identity, which GLFW's key/text
+callbacks do not expose. Requested unsupported bits are absent from the
+subsequent query reply; applications that do not negotiate a supported flag
+retain Kiwi’s legacy input behavior. This runtime protocol has no terminfo
+advertisement.
 
 ## Mouse and focus reporting
 
@@ -266,8 +298,11 @@ Kiwi supports DECSET/DECRST X10 (`?9`), normal (`?1000`), button-event
 (`?1002`), and any-event (`?1003`) tracking. These are mutually exclusive.
 Focus reporting is independent through `?1004`. Encoding is independently
 selected by X10 single-byte coordinates (default), UTF-8 coordinates (`?1005`),
-SGR coordinates (`?1006`), or URXVT decimal coordinates (`?1015`); enabling an
-encoding replaces the previous encoding. X10 reporting is press-only. Normal,
+SGR cell coordinates (`?1006`), SGR physical-pixel coordinates (`?1016`), or
+URXVT decimal coordinates (`?1015`); enabling an encoding replaces the
+previous encoding. `?1016` uses the `CSI < Cb ; Px ; Py M` / `m` SGR form with
+1-origin physical coordinates relative to the focused pane's clipped viewport.
+X10 reporting is press-only. Normal,
 button-event, and any-event reports retain xterm button/modifier values;
 classic and URXVT reports use `CSI M` forms, while SGR press/motion/wheel is
 `CSI < Cb ; Cx ; Cy M` and release is `CSI < Cb ; Cx ; Cy m`. Classic
@@ -276,8 +311,19 @@ coordinates to 65,535. Button-event motion requires a held supported button;
 any-event motion is coalesced to cell transitions; wheel callbacks emit at
 most 16 reports. Focus in/out is `CSI I` / `CSI O`.
 
-Pixel (1016), highlight, locator, horizontal-wheel, gesture, and touch
-encoding are not implemented. A reported mouse event takes precedence over
+Xterm alternate-scroll (`?1007`) is independent of mouse encoding. When it is
+enabled, the active screen is alternate, and application mouse tracking is
+disabled, wheel input emits at most 16 normal `CSI A`/`CSI B` cursor controls.
+Primary-screen history remains a Kiwi-local UI operation. Application mouse
+tracking always takes precedence over alternate-scroll.
+
+With application mouse tracking enabled, a horizontal GLFW scroll offset emits
+xterm's wheel-style button 6 (right) or 7 (left) report in the currently
+selected coordinate encoding. Vertical reports are emitted first when one
+callback carries both axes; each axis is independently capped at 16 reports.
+
+Highlight, locator, gesture, and touch encoding are not implemented. A
+reported mouse event takes precedence over
 local selection: enabled X10, normal, button-event, and any-event modes forward
 the event to the child and cancel any local drag. Focus loss and any mouse mode
 reconfiguration clear held-button and local-drag state. RIS resets tracking,
@@ -316,7 +362,8 @@ fidelity or general application compatibility.
 | Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY=<temporary>/vt.jsonl` | Passed structurally: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions all replayed without parser errors, ignored actions, or unknown controls. It is an automated vttest-style sequence run, not the external `vttest` program or a visual certification. |
 | Native Kitty graphics | `make kitty-graphics-smoke`; `make kitty-animation-smoke`; or `make conformance-evidence` | The static PNG path passed structurally on 2026-08-10 with the self-contained direct-PNG client: replay had zero parser errors/ignored/unknown controls, and GPU timestamp output contained both `terminal/kitty_images_under` and `terminal/kitty_images_over`. The GIF/APNG playback smoke is a separate bounded native check. These verify selected Kiwi protocol streams and pass dispatch, not broad Kitty-client compatibility or pixel-perfect screenshot comparison. |
 | Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY=<temporary>/vim.jsonl` | Passed structurally with Vim 9.2 on 2026-08-16: it emitted SGR mouse and button-event activation; replay reported 5,542 bytes, 4,893 actions, zero errors, ignored actions, and unknown controls. This proves its activation sequence, not an interactive pointer usability claim. |
-| Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /usr/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY=<temporary>/nvim.jsonl` | Passed structurally with Neovim 0.11.6 under `TERM=kiwi` on 2026-08-16: it emitted Kitty `CSI ? u`, `CSI > 1 u`, and `CSI < u`; replay reported 5,129 bytes, 4,769 actions, and zero parser errors. Three ignored actions and one unknown CSI startup control remain outside Kiwi’s documented subset. This proves negotiated mode handling, not physical-key usability. |
+| Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /usr/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY=<temporary>/nvim.jsonl` | Passed structurally with Neovim 0.11.6 under `TERM=kiwi` on 2026-08-16: it emitted Kitty `CSI ? u`, `CSI > 1 u`, and `CSI < u`; replay reported 5,129 bytes, 4,769 actions, and zero parser errors, ignored actions, or unknown controls after colon-form SGR and bounded XTGETTCAP support were added. This proves negotiated mode handling, not physical-key usability. |
+| Native AT-SPI provider | `make accessibility-provider-smoke` | Passed structurally on 2026-08-17: the live provider completed registry `Socket.Embed`; an external D-Bus client found its Kiwi application root and terminal child, read the child process's OSC 2 title as the terminal accessible name, read the bounded sentinel viewport, observed a positive character count, and received a `TextChanged` event. This is protocol evidence, not a screen-reader usability certification. |
 | Local tmux | `env -u COLORTERM TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, `COLORTERM=truecolor`, and `tput colors` returned `256`, even though the outer invocation removed `COLORTERM`. tmux owns this nested contract; it does not authorize Kiwi itself to advertise 256 colours or truecolour. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
 | SSH | `make kiwi-ssh SSH_ARGS='-- <controlled-host>'`, then `infocmp kiwi; tput colors` | The deterministic suite verifies upload and launch ordering against local SSH/SCP stubs. No access to a controlled remote host or credentials; the localhost probe stopped at host-key verification. No SSH deployment compatibility claim is made. |
@@ -329,7 +376,7 @@ M2 terminal-width outcomes are deterministic rather than a claim to emulate the 
 
 ## Known unsupported/deferred behavior
 
-M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, full private-use font coverage guarantees, Kitty keyboard alternate-key and associated-text flags (4 and 16), pixel/gesture mouse protocols, OSC hyperlink previews, file/custom-scheme activation, OSC shell integration UI, Sixel, video, broader Kitty graphics support, or exhaustive DEC private mode behavior. RQM/DECRQM replies are limited to Kiwi's implemented IRM and DEC modes; an unrecognized mode reports status `0`, and no reply implies support for any omitted mode. Primary column resize reflows bounded soft-wrapped text, but it does not implement bidi or Unicode line breaking and releases fixed Kitty placement anchors rather than distorting their geometry. Kitty flags 1, 2, and 8 are negotiated and encoded through the GLFW host path: disambiguation, press/repeat/release for non-text keys, and all-key escape-code reporting. OSC 4/10/11/104/110/111 palette and default-colour changes are supported with bounded `#RRGGBB` and `rgb:` values, including queries and updates to retained palette/default cells; OSC 12 and remaining OSC colour controls are not. The bounded PNG/APNG/GIF Kitty APC-G transfer/cache, explicit cell-placement, and fixed image-composition subset is specified in [KITTY_GRAPHICS.md](KITTY_GRAPHICS.md). Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
+M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji/COLR/CBDT/SVG composition, full private-use font coverage guarantees, Kitty keyboard alternate-key flag 4, touch or gesture mouse protocols, OSC hyperlink previews, file/custom-scheme activation, OSC shell integration UI, Sixel, video, broader Kitty graphics support, or exhaustive DEC private mode behavior. RQM/DECRQM replies are limited to Kiwi's implemented IRM and DEC modes; an unrecognized mode reports status `0`, and no reply implies support for any omitted mode. Primary column resize reflows bounded soft-wrapped text, but it does not implement bidi or Unicode line breaking and releases fixed Kitty placement anchors rather than distorting their geometry. Kitty flags 1, 2, 8, and 16 are negotiated and encoded through the GLFW and public host paths: disambiguation, press/repeat/release for non-text keys, all-key escape-code reporting, and bounded associated text. OSC 4/10/11/12/104/110/111/112 palette, default-colour, and cursor-colour changes are supported with bounded `#RRGGBB` and `rgb:` values, including queries and updates to retained palette/default cells; remaining OSC colour controls are not. The bounded PNG/APNG/GIF Kitty APC-G transfer/cache, explicit cell-placement, and fixed image-composition subset is specified in [KITTY_GRAPHICS.md](KITTY_GRAPHICS.md). Italic state is retained but has no dedicated italic geometry in the current glyph renderer. Unknown sequences increment counters and retain at most 16 structured samples; control-string payloads are not logged.
 
 ## VTTEST workflow
 

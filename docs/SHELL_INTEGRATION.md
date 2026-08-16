@@ -2,11 +2,12 @@
 
 Kiwi can consume advisory OSC 7 current-directory records and OSC 133 prompt,
 command, output, and completion markers. The versioned scripts in
-`integrations/v1/` emit those sequences for Bash, Zsh, and fish. Kiwi injects
+`integrations/v1/` emit those sequences for Bash, Zsh, fish, and Nushell. Kiwi injects
 the relevant script into its **initial default shell** without editing a
 dotfile: Bash first sources the usual `.bashrc`, Zsh restores the user's
-`ZDOTDIR` before sourcing `.zshrc`, and fish evaluates its normal configuration
-before its init command. Explicit `-- command …` launches and shells started
+`ZDOTDIR` before sourcing `.zshrc`, fish evaluates its normal configuration
+before its init command, and Nushell loads the asset with its documented
+`--execute` then `--interactive` startup form. Explicit `-- command …` launches and shells started
 from inside the terminal are not injected.
 
 The injection is enabled by default as `shell-integration = auto`. Disable it
@@ -48,11 +49,22 @@ if status is-interactive; and test "$TERM" = kiwi
 end
 ```
 
+```nu
+# ~/.config/nushell/config.nu
+# `source` requires a parse-time literal path; the asset itself stays inert
+# outside an interactive Kiwi session.
+if (($env.TERM? | default '') == 'kiwi') {
+  $env.KIWI_SHELL_INTEGRATION = '1'
+}
+source "/absolute/path/to/kiwi/integrations/v1/kiwi.nu"
+```
+
 Every script independently requires an interactive shell, `TERM=kiwi`, and
 `KIWI_SHELL_INTEGRATION=1`; otherwise it returns without output or prompt
 changes. The Bash script declines to activate when `PROMPT_COMMAND` is an
-array, because v1 only preserves the scalar form. The scripts are safe to
-source again after activation.
+array, because v1 only preserves the scalar form. The Nushell script retains
+the pre-existing `pre_prompt` and `pre_execution` hooks and is safe to source
+again after activation.
 
 ## Behavior and limits
 
@@ -60,7 +72,9 @@ At the first prompt each script emits a bounded `OSC 7;file://… BEL` record
 followed by `OSC 133;A BEL`. Before each command it emits `OSC 133;B BEL` and
 `OSC 133;C BEL`; after it finishes it emits `OSC 133;D;<status> BEL`, then the
 next prompt emits current-directory and `A` again. Bash uses `PS0` plus
-`PROMPT_COMMAND`; Zsh and fish use their native pre-command and prompt hooks.
+`PROMPT_COMMAND`; Zsh, fish, and Nushell use their native pre-command and
+prompt hooks. Nushell's `pre_prompt` hook reads the bounded `LAST_EXIT_CODE`
+value before it writes the next prompt lifecycle record.
 
 The current directory is URI-percent-encoded and emitted only when it is an
 absolute path at most 2,048 bytes. A hostname is included only when it is
@@ -83,7 +97,9 @@ kiwi_shell_integration_uninstall
 
 The helper removes only the hooks installed by v1. In Bash it restores the
 scalar `PROMPT_COMMAND` and `PS0` values present when the script was sourced.
-It does not revert unrelated prompt changes made after activation.
+It does not revert unrelated prompt changes made after activation. Nushell
+restores the complete `hooks` record saved when this asset was sourced, so
+hooks added after activation must be re-added after uninstalling.
 
 ## SSH terminfo setup
 
@@ -95,30 +111,37 @@ private cache. It does not alter `/etc`, the remote login profile, or local
 SSH configuration; each invocation re-uploads the small compiled entry rather
 than retaining a local destination cache.
 
-The command intentionally accepts exactly one destination after `--`; it is
-not a general replacement for `ssh` with arbitrary options or remote commands.
-Use `--no-terminfo` to open the conservative `xterm-256color` fallback without
-uploading, or `--strict` to fail when setup cannot complete. The normal mode
-also falls back to `xterm-256color` after a failed remote mkdir/upload, and
-prints that downgrade to stderr. A successful local stub test proves argument
-and transfer ordering only; it does not certify a particular real host,
-credential policy, or remote terminal library.
+The command intentionally accepts exactly one destination after `--` and no
+remote command. It is not a general replacement for `ssh`. Repeat
+`--ssh-option ARG` for each explicit connection argument; Kiwi passes those
+arguments, in order, to the remote mkdir, the `scp` transfer, and the final
+SSH login. For example, use `./script/kiwi-ssh --ssh-option -p --ssh-option
+2222 -- user@host`. This preserves a non-default port or identity/configuration
+option across both stages without parsing a shell string. Use `--no-terminfo`
+to open the conservative `xterm-256color` fallback without uploading, or
+`--strict` to fail when setup cannot complete. The normal mode also falls back
+to `xterm-256color` after a failed remote mkdir/upload, and prints that
+downgrade to stderr. A successful local stub test proves argument and transfer
+ordering only; it does not certify a particular real host, credential policy,
+or remote terminal library.
 
 ## Verification
 
-The deterministic suite sources each script in a disposable interactive shell,
-captures the documented OSC byte stream, and feeds it through Kiwi's parser
-and command-region model:
+The deterministic suite sources every supported shell installed on the host in
+a disposable interactive shell, captures the documented OSC byte stream, and
+feeds it through Kiwi's parser and command-region model. Nushell-specific
+checks are skipped only when `nu` is unavailable:
 
 ```sh
 make test
 ```
 
-For a direct local syntax check where all three shells are installed:
+For a direct local syntax check where all four shells are installed:
 
 ```sh
 bash -n integrations/v1/kiwi.bash
 zsh -n integrations/v1/kiwi.zsh
 fish -n integrations/v1/kiwi.fish
+nu --no-config-file -i -c 'source "integrations/v1/kiwi.nu"'
 sh -n script/kiwi-ssh
 ```

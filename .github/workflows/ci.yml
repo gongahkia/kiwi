@@ -19,9 +19,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin \
-            libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
+            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
       - name: deterministic checks
-        run: make check
+        run: make check && make libkiwi-vt-check
 
   artifact:
     name: release artifact
@@ -35,9 +35,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin \
-            libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
+            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
       - name: build reproducible release-mode artifact
-        run: make release-check && make release
+        run: make release-check && make release && make libkiwi-vt
       - name: upload artifact and checksum metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

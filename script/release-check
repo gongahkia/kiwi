@@ -26,6 +26,7 @@ for document in ACCESSIBILITY AUR CONFORMANCE NIX RENDERER_API SHELL_INTEGRATION
   [[ -f "$WORK/$NAME/share/doc/kiwi/docs/$document.md" ]]
 done
 [[ -f "$WORK/$NAME/share/kiwi/integrations/v1/kiwi.bash" ]]
+[[ -f "$WORK/$NAME/share/kiwi/integrations/v1/kiwi.nu" ]]
 [[ -f "$WORK/$NAME/share/kiwi/integrations/v1/inject/kiwi.bashrc" ]]
 "$WORK/$NAME/bin/kiwi-vt" --help >/dev/null
 "$WORK/$NAME/bin/kiwi-ssh" --help >/dev/null

@@ -1,0 +1,91 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly LUAJIT=${LUAJIT:-luajit}
+
+if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "SKIP AT-SPI provider smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."
+  exit 0
+fi
+if ! command -v gdbus >/dev/null; then
+  print "SKIP AT-SPI provider smoke: gdbus is not installed."
+  exit 0
+fi
+
+atspi_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus --method org.a11y.Bus.GetAddress 2>/dev/null | sed -E "s/^\('([^']+)',\)$/\1/")
+if [[ -z "$atspi_address" ]]; then
+  print "SKIP AT-SPI provider smoke: org.a11y.Bus is unavailable on this session."
+  exit 0
+fi
+if ! gdbus call --address "$atspi_address" --dest org.a11y.atspi.Registry --object-path /org/a11y/atspi/registry --method org.freedesktop.DBus.Peer.Ping >/dev/null 2>&1; then
+  print "SKIP AT-SPI provider smoke: the AT-SPI registry is unavailable."
+  exit 0
+fi
+
+registered_buses() {
+  gdbus call --address "$atspi_address" --dest org.a11y.atspi.Registry --object-path /org/a11y/atspi/accessible/root --method org.a11y.atspi.Accessible.GetChildren \
+    | grep -oE "':1\\.[0-9]+'" | tr -d "'" || true
+}
+
+readonly before=$(registered_buses)
+temporary=$(mktemp -d)
+app_pid=""
+monitor_pid=""
+cleanup() {
+  if [[ -n "$monitor_pid" ]] && kill -0 "$monitor_pid" 2>/dev/null; then
+    kill "$monitor_pid" 2>/dev/null || true
+    wait "$monitor_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
+    kill "$app_pid" 2>/dev/null || true
+    wait "$app_pid" 2>/dev/null || true
+  fi
+  rm -rf -- "$temporary"
+}
+trap cleanup EXIT INT TERM
+
+export KIWI_ROOT="$ROOT"
+export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;${LUA_PATH:-}"
+KIWI_ACCESSIBILITY=1 KIWI_ACCESSIBILITY_DIAGNOSTICS=1 KIWI_MAX_FRAMES=0 \
+  "$LUAJIT" "$ROOT/src/kiwi/app/main.lua" -- /bin/sh -c 'printf "\\033]2;Kiwi accessibility smoke title\\007Kiwi accessibility smoke initial\\n"; sleep 4; printf "Kiwi accessibility smoke update\\n"; sleep 16' \
+  >"$temporary/kiwi.out" 2>&1 < /dev/null &
+app_pid=$!
+
+for _ in {1..160}; do
+  if ! kill -0 "$app_pid" 2>/dev/null; then
+    sed -n '1,120p' "$temporary/kiwi.out" >&2
+    print -u2 "FAIL AT-SPI provider smoke: Kiwi exited before registration."
+    exit 1
+  fi
+  for bus in "${(@f)$(registered_buses)}"; do
+    if print -r -- "$before" | grep -Fxq "$bus"; then continue; fi
+    name=$(gdbus call --address "$atspi_address" --dest "$bus" --object-path /org/a11y/atspi/accessible/root --method org.freedesktop.DBus.Properties.Get org.a11y.atspi.Accessible Name 2>/dev/null || true)
+    if [[ "$name" != *"Kiwi"* ]]; then continue; fi
+    text=$(gdbus call --address "$atspi_address" --dest "$bus" --object-path /org/a11y/atspi/accessible/terminal --method org.a11y.atspi.Text.GetText 0 -- -1 2>/dev/null || true)
+    if [[ "$text" != *"Kiwi accessibility smoke initial"* ]]; then continue; fi
+    terminal_name=$(gdbus call --address "$atspi_address" --dest "$bus" --object-path /org/a11y/atspi/accessible/terminal --method org.freedesktop.DBus.Properties.Get org.a11y.atspi.Accessible Name 2>/dev/null || true)
+    if [[ "$terminal_name" != *"Kiwi accessibility smoke title"* ]]; then continue; fi
+    characters=$(gdbus call --address "$atspi_address" --dest "$bus" --object-path /org/a11y/atspi/accessible/terminal --method org.freedesktop.DBus.Properties.Get org.a11y.atspi.Text CharacterCount 2>/dev/null || true)
+    if ! print -r -- "$characters" | grep -Eq '<[1-9][0-9]*>'; then
+      print -u2 "FAIL AT-SPI provider smoke: terminal character count was not positive."
+      exit 1
+    fi
+    gdbus monitor --address "$atspi_address" --dest "$bus" --object-path /org/a11y/atspi/accessible/terminal >"$temporary/events.out" 2>&1 &
+    monitor_pid=$!
+    for _ in {1..60}; do
+      if grep -q 'TextChanged' "$temporary/events.out"; then
+        print "PASS AT-SPI provider: registry root, titled terminal child, bounded text query, and text-change event"
+        exit 0
+      fi
+      sleep 0.1
+    done
+    print -u2 "FAIL AT-SPI provider smoke: no TextChanged event was observed."
+    exit 1
+  done
+  sleep 0.1
+done
+
+sed -n '1,120p' "$temporary/kiwi.out" >&2
+print -u2 "FAIL AT-SPI provider smoke: no registered Kiwi terminal with the smoke text was found."
+exit 1

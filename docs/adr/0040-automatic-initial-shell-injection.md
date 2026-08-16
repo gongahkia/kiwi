@@ -2,7 +2,7 @@
 
 ## Context
 
-The reversible v1 Bash, Zsh, and fish assets from ADR 0031 were usable only
+The reversible v1 Bash, Zsh, fish, and Nushell assets from ADR 0031 were usable only
 when a user manually sourced them. That left Kiwi's default shell without the
 documented OSC 7/133 metadata unless the user edited a dotfile, despite the
 application already knowing the initial shell, launch environment, and
@@ -11,7 +11,7 @@ versioned integration directory.
 ## Decision
 
 When `shell-integration = auto` (the default), Kiwi prepares only its initial
-default Bash, Zsh, or fish command. It does not edit a dotfile:
+default Bash, Zsh, fish, or Nushell command. It does not edit a dotfile:
 
 - Bash runs an injected `--rcfile` that first sources the user's normal
   readable `.bashrc`, then enables `KIWI_SHELL_INTEGRATION=1` and sources the
@@ -21,6 +21,11 @@ default Bash, Zsh, or fish command. It does not edit a dotfile:
   user's normal `.zshrc`, then enables and sources the v1 Zsh asset.
 - Fish uses `--init-command`, which runs after fish has read its normal
   configuration, to enable and source the v1 fish asset.
+- Nushell uses `--execute 'source "<literal asset path>"' --interactive`, which
+  loads the v1 asset without replacing its configuration files. Nushell's
+  `source` argument must be a parse-time literal, so the launcher escapes and
+  supplies the resolved asset path rather than relying on an environment
+  variable at parse time.
 
 Explicit child commands and shells started later inside Kiwi are deliberately
 unchanged. They may use the existing manual-source blocks. An unsupported
@@ -44,3 +49,4 @@ explicit remote-terminfo helper and does not alter this decision.
 - [GNU Bash invocation](https://www.gnu.org/software/bash/manual/html_node/Bash-Startup-Files.html)
 - [Zsh startup files](https://zsh.sourceforge.io/Doc/Release/Files.html)
 - [Fish invocation](https://fishshell.com/docs/current/cmds/fish.html)
+- [Nushell hooks](https://www.nushell.sh/book/hooks.html)

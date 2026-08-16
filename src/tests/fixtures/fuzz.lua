@@ -19,4 +19,8 @@ return {
     id = "repeated-mode-reset",
     input = string.rep("\27[?1049h\27[?2004h\27[?2004l\27[?1049l", 32) .. "\27cafter",
   },
+  {
+    id = "reverse-wraparound-margins",
+    input = "\27[?45h\27[2;3r\27[?69h\27[2;3s\8\8\27[?7l\8\27cafter",
+  },
 }

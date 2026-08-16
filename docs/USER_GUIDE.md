@@ -18,7 +18,7 @@ dependency, run the deterministic checks, and start Kiwi:
 git clone https://github.com/gongahkia/kiwi.git
 cd kiwi
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glib2-devel glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 make bootstrap
 make check
@@ -72,8 +72,8 @@ kiwi-image https://images.example/kiwi.png
 Keep the extracted directory intact. Its launcher finds its own Lua source,
 terminfo, WGPU library, and native surface bridge relative to `bin/kiwi`; it
 does not install files into `/usr` or modify shell configuration. It still
-requires system LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan
-loader and driver, and a working Linux Wayland or X11 session. The adjacent
+requires system LuaJIT, GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib,
+libpng, a Vulkan loader and driver, and a working Linux Wayland or X11 session. The adjacent
 checksum and `metadata.json` describe the artifact that was built.
 The optional `kiwi-image` helper also requires `curl`, `zsh`, and standard GNU
 core utilities from the host.
@@ -158,9 +158,9 @@ The documented settings are intentionally small:
 | `KIWI_HYPERLINK_COLOR` | `#88C0D0FF` | OSC 8 hyperlink underline, in the same format. |
 | `KIWI_COMMAND_REGIONS` | disabled | Set to `1` for the built-in visible command/output separator pass. |
 | `KIWI_COMMAND_REGION_COLOR` | `#88C0D055` | Command-region separator color, in the same format. |
-| `KIWI_SHELL_INJECTION` | `auto` | Set to `none` to disable automatic initial Bash/Zsh/fish integration. |
+| `KIWI_SHELL_INJECTION` | `auto` | Set to `none` to disable automatic initial Bash/Zsh/fish/Nushell integration. |
 
-Kiwi injects the versioned Bash, Zsh, and fish snippets into its initial
+Kiwi injects the versioned Bash, Zsh, fish, and Nushell snippets into its initial
 default shell by default, without editing a dotfile. Set
 `shell-integration = none` or `KIWI_SHELL_INJECTION=none` to disable it.
 Switched shells and explicit commands remain manual; follow
@@ -249,9 +249,10 @@ the complete API v1 capability boundary.
 
 Kiwi advertises a 16-colour terminfo contract and deliberately does not claim
 truecolour terminfo extensions or `COLORTERM`. It is Linux x86_64-only and has
-no implemented screen-reader adapter, primary selection, OSC 52 reads/queries,
-regular-expression search, full text indexing, command execution UI, or full
-xterm/VT certification. The current, precise limits are maintained in the
+a bounded AT-SPI provider but no validated end-to-end screen-reader result,
+primary selection, OSC 52 reads/queries, regular-expression search, full text
+indexing, command execution UI, or full xterm/VT certification. The current,
+precise limits are maintained in the
 [conformance matrix](CONFORMANCE.md), [text contract](TEXT.md),
 [accessibility contract](ACCESSIBILITY.md), and the repository
 [README](../README.md#deliberate-limits).

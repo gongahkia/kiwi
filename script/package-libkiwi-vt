@@ -1,0 +1,68 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly VERSION=$(<"$ROOT/VERSION")
+readonly API_VERSION=1
+readonly DIST=${KIWI_LIBKIWI_DIST:-"$ROOT/dist"}
+
+if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+  print -u2 "VERSION must be a numeric semantic version; found $VERSION"
+  exit 1
+fi
+if [[ "$DIST" != /* ]]; then
+  print -u2 "KIWI_LIBKIWI_DIST must be an absolute path; found $DIST"
+  exit 1
+fi
+
+revision=${KIWI_LIBKIWI_REVISION:-$(git -C "$ROOT" rev-parse --verify HEAD)}
+revision=$(git -C "$ROOT" rev-parse --verify "$revision^{commit}")
+source_date_epoch=${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" show -s --format=%ct "$revision")}
+if [[ ! "$source_date_epoch" =~ '^[0-9]+$' ]]; then
+  print -u2 "SOURCE_DATE_EPOCH must be an integer Unix timestamp; found $source_date_epoch"
+  exit 1
+fi
+
+if git -C "$ROOT" diff --quiet && git -C "$ROOT" diff --cached --quiet; then
+  tree_state=clean
+else
+  tree_state=dirty
+  if [[ ${KIWI_LIBKIWI_ALLOW_DIRTY:-0} != 1 ]]; then
+    print -u2 "Refusing to package libkiwi-vt from a dirty checkout; commit or set KIWI_LIBKIWI_ALLOW_DIRTY=1 for a local test artifact."
+    exit 1
+  fi
+fi
+
+readonly NAME="libkiwi-vt-$VERSION"
+readonly ARCHIVE="$DIST/$NAME.tar.gz"
+readonly CHECKSUM="$ARCHIVE.sha256"
+readonly WORK=$(mktemp -d)
+readonly STAGE="$WORK/$NAME"
+trap 'rm -rf "$WORK"' EXIT
+
+"$ROOT/script/build-libkiwi-vt"
+readonly BUILD="$ROOT/.build/libkiwi-vt"
+
+mkdir -p "$STAGE/bin" "$STAGE/docs" "$STAGE/examples" "$DIST"
+cp -R "$BUILD/include" "$STAGE/include"
+cp -R "$BUILD/lib" "$STAGE/lib"
+cp -R "$BUILD/lua" "$STAGE/lua"
+cp "$ROOT/VERSION" "$STAGE/VERSION"
+cp "$ROOT/docs/LIBKIWI.md" "$STAGE/docs/LIBKIWI.md"
+cp "$ROOT/src/tests/fixtures/libkiwi_vt_consumer.c" "$STAGE/examples/c_consumer.c"
+
+print '#!/bin/sh' > "$STAGE/bin/kiwi-vt"
+print 'set -eu' >> "$STAGE/bin/kiwi-vt"
+print 'root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)' >> "$STAGE/bin/kiwi-vt"
+print 'export LUA_PATH="$root/lua/?.lua;$root/lua/?/init.lua;;"' >> "$STAGE/bin/kiwi-vt"
+print 'exec "${LUAJIT:-luajit}" "$root/lua/kiwi/vt/demo.lua" "$@"' >> "$STAGE/bin/kiwi-vt"
+chmod 755 "$STAGE/bin/kiwi-vt"
+
+print -r -- "{\"schema_version\":1,\"name\":\"libkiwi-vt\",\"version\":\"$VERSION\",\"api_version\":$API_VERSION,\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"runtime\":\"LuaJIT\",\"c_abi\":true,\"includes_optional_media_decoder\":false}" > "$STAGE/metadata.json"
+
+rm -f "$ARCHIVE" "$CHECKSUM"
+tar -C "$WORK" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+(cd "$DIST" && sha256sum "${ARCHIVE:t}" > "${CHECKSUM:t}")
+
+print "libkiwi-vt SDK archive: $ARCHIVE"
+print "libkiwi-vt checksum: $CHECKSUM"

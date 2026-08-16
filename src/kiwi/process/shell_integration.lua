@@ -22,6 +22,12 @@ local function environment_value(environment, name)
   return os.getenv(name)
 end
 
+local function nushell_source_command(path)
+  if type(path) ~= "string" or path:find("\0", 1, true) or path:find("\r", 1, true) or path:find("\n", 1, true) then return nil end
+  path = path:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\t", "\\t")
+  return 'source "' .. path .. '"'
+end
+
 local function integration_environment(directory, script, environment)
   return {
     KIWI_SHELL_INTEGRATION = "1",
@@ -59,6 +65,12 @@ function ShellIntegration.prepare(command, directory, environment)
     local values = integration_environment(directory, script, environment)
     values.ZDOTDIR = values.KIWI_SHELL_INTEGRATION_INJECT_DIR
     return { command[1], "-i" }, values, nil
+  end
+  if shell == "nu" then
+    if not readable(directory .. "/" .. script) then return copy_command(command), {}, "resources-unavailable" end
+    local source_command = nushell_source_command(directory .. "/" .. script)
+    if source_command == nil then return copy_command(command), {}, "invalid-resource-path" end
+    return { command[1], "--execute", source_command, "--interactive" }, integration_environment(directory, script, environment), nil
   end
   return copy_command(command), {}, "unsupported-shell"
 end
