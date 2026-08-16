@@ -14,6 +14,22 @@ This document maps capabilities Ghostty demonstrably has that Kiwi does not, or 
 
 **Meaning of “missing.”** A row is a gap only where Ghostty documents or exposes the feature and Kiwi either documents it as out of scope or the current source has no corresponding application capability. It is not a claim that a feature is desirable for Kiwi's research goals. “Partial” means the underlying Kiwi kernel has related functionality but not the user-facing or compatibility-complete form.
 
+## Implementation status after this audit
+
+The original matrix is intentionally preserved as the baseline. Kiwi has since
+closed several foundational rows: an internal host-neutral `kiwi.vt.terminal`
+facade with typed effects and render updates; terminal-local OSC palette/default
+colour operations; a strict XDG configuration file with themes, font controls,
+reload, and an explicit OSC 52 write-only opt-in; supported Kitty keyboard flags
+1, 2, and 8; and a bounded tab/split workspace topology. The live GLFW app now
+uses the tab lifecycle (`Ctrl+Shift+T`, `Ctrl+Tab`, `Ctrl+Shift+W`) and services
+inactive PTYs, but split **rendering** is not yet implemented.
+
+The major remaining gaps are resize reflow, wider xterm/mouse/keyboard behavior,
+rendered split panes and native multi-window UI, automatic shell/SSH workflows,
+system appearance/theme catalogues, native accessibility, macOS support, and a
+published C ABI. This is progress toward the architecture, not Ghostty parity.
+
 ## High-level comparison
 
 | Area | Ghostty | Kiwi today | Gap assessment |

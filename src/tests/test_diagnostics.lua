@@ -37,7 +37,7 @@ return {
     local state = State.new(4, 2)
     state:write_codepoint(Utf8.encode(0x4e2d), 0x4e2d)
     state:apply(Actions.csi({ 9998 }, "?", "", "h"))
-    state:apply(Actions.osc(9, "unreported payload"))
+    state:apply(Actions.osc(777, "unreported payload"))
     state:apply(Actions.apc("a=t,i=1,s=1,v=1,f=100,t=d,m=0;!!!!"))
     local metrics = metrics_for(state, {
       pty = { pid = 42, bytes_read = 128, bytes_written = 7 },
@@ -65,7 +65,7 @@ return {
     Assert.equal(snapshot.unknown_osc, 1)
     Assert.equal(snapshot.unknown_samples[1].detail.private, "?")
     Assert.equal(snapshot.unknown_samples[1].detail.final, "h")
-    Assert.equal(snapshot.unknown_samples[2].detail.command, 9)
+    Assert.equal(snapshot.unknown_samples[2].detail.command, 777)
     Assert.equal(snapshot.clipboard.maximum_bytes, 1048576)
     Assert.equal(snapshot.clipboard.counters.paste_invalid_utf8, 1)
     Assert.equal(snapshot.kitty_graphics.image_count, 0)

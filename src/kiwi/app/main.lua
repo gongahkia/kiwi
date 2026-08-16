@@ -18,6 +18,7 @@ local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local Pty = require("kiwi.process.pty")
 local Renderer = require("kiwi.renderer.renderer")
+local Workspace = require("kiwi.session.workspace")
 local TextLab = require("kiwi.text.lab")
 local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
@@ -177,6 +178,8 @@ local function run_live(options)
   local pty
   local recorder
   local terminal
+  local workspace
+  local destroy_session
   local ok, result = xpcall(function()
     local context_options = { gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
     context = Context.new(window, context_options)
@@ -193,6 +196,7 @@ local function run_live(options)
       state_options = {
         scrollback_limit = configuration.scrollback_limit,
         ambiguous_width = configuration.ambiguous_width,
+        osc52_write = configuration.osc52_write,
         colors = {
           foreground = configuration.foreground,
           background = configuration.background,
@@ -240,6 +244,129 @@ local function run_live(options)
     local selection_pointer = SelectionPointer.new()
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local configuration_reload_requested = false
+    workspace = Workspace.new()
+    local active_session = {
+      metrics = metrics,
+      mouse = mouse,
+      mouse_generation = mouse_generation,
+      pty = pty,
+      recovery = recovery,
+      renderer = renderer,
+      selection_pointer = selection_pointer,
+      terminal = terminal,
+    }
+    local first_pane = assert(workspace:new_tab(active_session))
+
+    destroy_session = function(session)
+      if session.closed then return end
+      session.closed = true
+      if session.renderer then
+        session.renderer:destroy()
+        session.renderer = nil
+      end
+      session.pty:shutdown()
+      session.terminal:close()
+    end
+
+    local function activate_pane(id)
+      local pane = id and workspace.panes[id] or workspace:active_pane()
+      if pane == nil then return nil, "unknown-pane" end
+      local incoming = pane.session
+      if active_session == incoming then return true end
+      if renderer then
+        renderer:destroy()
+        active_session.renderer = nil
+      end
+      active_session = incoming
+      terminal = incoming.terminal
+      state = terminal.state
+      pty = incoming.pty
+      renderer = incoming.renderer or Renderer.new(context, font, state, render_options)
+      incoming.renderer = renderer
+      metrics = incoming.metrics
+      mouse = incoming.mouse
+      mouse_generation = incoming.mouse_generation
+      recovery = incoming.recovery
+      selection_pointer = incoming.selection_pointer
+      assert(workspace:focus_pane(pane.id))
+      renderer:invalidate("terminal")
+      return true
+    end
+
+    local function new_session(columns, rows)
+      local new_terminal = Terminal.new({
+        columns = columns,
+        rows = rows,
+        state_options = {
+          scrollback_limit = configuration.scrollback_limit,
+          ambiguous_width = configuration.ambiguous_width,
+          osc52_write = configuration.osc52_write,
+          colors = {
+            foreground = configuration.foreground,
+            background = configuration.background,
+            palette = configuration.palette,
+          },
+        },
+      })
+      local new_state = new_terminal.state
+      local new_pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
+        TERM = "kiwi",
+        TERMINFO = root .. "/.build/terminfo",
+        COLORTERM = false,
+      })
+      local new_recovery = Recovery.new()
+      return {
+        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = new_terminal.parser, recovery = new_recovery }),
+        mouse = Mouse.new(),
+        mouse_generation = new_state.modes.mouse_generation,
+        pty = new_pty,
+        recovery = new_recovery,
+        selection_pointer = SelectionPointer.new(),
+        terminal = new_terminal,
+      }
+    end
+
+    local function focus_next_tab()
+      local current = workspace:active_tab()
+      if current == nil or workspace:tab_count() < 2 then return false end
+      for index, tab in ipairs(workspace.tabs) do
+        if tab.id == current.id then
+          local next_tab = workspace.tabs[index % #workspace.tabs + 1]
+          assert(workspace:focus_tab(next_tab.id))
+          return activate_pane(next_tab.active_pane_id)
+        end
+      end
+      return false
+    end
+
+    local function create_tab()
+      if recorder then return nil, "tabs are unavailable while --record is active" end
+      local session = new_session(state.columns, state.rows)
+      local pane, reason = workspace:new_tab(session)
+      if pane == nil then
+        destroy_session(session)
+        return nil, reason
+      end
+      return activate_pane(pane.id)
+    end
+
+    local function close_active_tab()
+      if workspace:tab_count() == 1 then
+        window:request_close()
+        return true
+      end
+      local tab = assert(workspace:active_tab())
+      local outgoing = active_session
+      if renderer then
+        renderer:destroy()
+        renderer = nil
+        outgoing.renderer = nil
+      end
+      assert(workspace:close_tab(tab.id))
+      destroy_session(outgoing)
+      active_session = nil
+      return activate_pane(assert(workspace:active_pane()).id)
+    end
 
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
@@ -262,29 +389,38 @@ local function run_live(options)
       if renderer then
         renderer:destroy()
         renderer = nil
+        active_session.renderer = nil
       end
       configuration = reloaded
       configuration_path = path
-      state:configure_palette({
-        foreground = configuration.foreground,
-        background = configuration.background,
-        palette = configuration.palette,
-      })
+      for _, pane in pairs(workspace.panes) do
+        pane.session.terminal.state:configure_palette({
+          foreground = configuration.foreground,
+          background = configuration.background,
+          palette = configuration.palette,
+        })
+        pane.session.terminal.state:configure_osc52_write(configuration.osc52_write)
+      end
       if font_changed then
         font = candidate_font
-        metrics.font = font
+        for _, pane in pairs(workspace.panes) do pane.session.metrics.font = font end
       end
       local columns, rows = dimensions(window, font)
-      if columns and (columns ~= state.columns or rows ~= state.rows) then
-        terminal:resize(columns, rows)
-        pty:resize(columns, rows)
-        if recorder then recorder:resize(columns, rows) end
-      else
-        state:mark_all_dirty()
+      for _, pane in pairs(workspace.panes) do
+        local session = pane.session
+        local session_state = session.terminal.state
+        if columns and (columns ~= session_state.columns or rows ~= session_state.rows) then
+          session.terminal:resize(columns, rows)
+          session.pty:resize(columns, rows)
+          if session == active_session and recorder then recorder:resize(columns, rows) end
+        else
+          session_state:mark_all_dirty()
+        end
       end
       if font_changed then previous_font:destroy() end
       render_options = renderer_options(options, configuration)
       renderer = Renderer.new(context, font, state, render_options)
+      active_session.renderer = renderer
       renderer:resize(previous_viewport, {
         columns = state.columns,
         rows = state.rows,
@@ -300,14 +436,16 @@ local function run_live(options)
       if renderer then
         renderer:destroy()
         renderer = nil
+        active_session.renderer = nil
       end
       if context then
         context:destroy()
         context = nil
       end
       context = Context.new(window, context_options)
-      metrics.context = context
+      for _, pane in pairs(workspace.panes) do pane.session.metrics.context = context end
       renderer = Renderer.new(context, font, state, render_options)
+      active_session.renderer = renderer
       renderer:invalidate("configuration")
     end
 
@@ -379,6 +517,25 @@ local function run_live(options)
       return false
     end
 
+    local function handle_workspace_key(key, action, modifiers)
+      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then return false end
+      if bit.band(modifiers, glfw.mod_control) ~= 0 and key == glfw.key_tab then
+        focus_next_tab()
+        return true
+      end
+      if bit.band(modifiers, glfw.mod_control + glfw.mod_shift) ~= glfw.mod_control + glfw.mod_shift then return false end
+      if key == string.byte("T") then
+        local created, reason = create_tab()
+        if not created then io.stderr:write("Kiwi tab creation rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
+      if key == string.byte("W") then
+        close_active_tab()
+        return true
+      end
+      return false
+    end
+
     window:set_input_handlers(function(codepoint)
       local text = Keyboard.text(codepoint, state.modes)
       if text then
@@ -392,6 +549,9 @@ local function run_live(options)
         end
       end
     end, function(key, action, modifiers)
+      if handle_workspace_key(key, action, modifiers) then
+        return { handled = true, suppress_text = true }
+      end
       if key == glfw.key_f6 and action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
         configuration_reload_requested = true
         return { handled = true, suppress_text = true }
@@ -503,25 +663,37 @@ local function run_live(options)
         enqueue_input("power-synthetic-input\n", true)
       end
 
-      local output = pty:read_available(pty_read_budget)
-      if #output > 0 then
-        if pacing then pacing:output(now) end
-        if power then power:output() end
-        if recorder then recorder:output(output) end
-        terminal:write(output)
-        if state.modes.mouse_generation ~= mouse_generation then
-          mouse:reset()
-          selection_pointer:reset()
-          mouse_generation = state.modes.mouse_generation
+      local per_session_read_budget = math.max(1, math.floor(pty_read_budget / math.max(1, workspace:pane_count())))
+      for _, pane in pairs(workspace.panes) do
+        local session = pane.session
+        local output = session.pty:read_available(per_session_read_budget)
+        if #output > 0 then
+          if session == active_session then
+            if pacing then pacing:output(now) end
+            if power then power:output() end
+            if recorder then recorder:output(output) end
+          end
+          session.terminal:write(output)
+          if session.terminal.state.modes.mouse_generation ~= session.mouse_generation then
+            session.mouse:reset()
+            session.selection_pointer:reset()
+            session.mouse_generation = session.terminal.state.modes.mouse_generation
+            if session == active_session then mouse_generation = session.mouse_generation end
+          end
+          if session == active_session then renderer:invalidate("terminal") end
         end
-        renderer:invalidate("terminal")
+        local responses = session.terminal:pop_responses()
+        if #responses > 0 then session.pty:enqueue(table.concat(responses)) end
+        for _, effect in ipairs(session.terminal:pop_effects()) do
+          if effect.kind == "clipboard_write_requested" then
+            local written, status = clipboard:write_osc52(effect.value.text)
+            if not written then io.stderr:write("Kiwi OSC 52 clipboard write rejected: ", status, "\n") end
+          end
+        end
+        session.pty:flush()
+        session.child_status = session.pty:poll_exit()
       end
-      local responses = terminal:pop_responses()
-      if #responses > 0 then
-        pty:enqueue(table.concat(responses))
-      end
-      pty:flush()
-      local child_status = pty:poll_exit()
+      local child_status = active_session.child_status
       update_search_title()
 
       if renderer:can_present(state) and state.kitty_graphics:advance(now) then renderer:invalidate("kitty_images") end
@@ -545,12 +717,16 @@ local function run_live(options)
         if new_columns and (scale_changed or new_columns ~= state.columns or new_rows ~= state.rows) then
           context:configure_surface()
           renderer:invalidate("resize")
-          if new_columns ~= state.columns or new_rows ~= state.rows then
-            terminal:resize(new_columns, new_rows)
-            pty:resize(new_columns, new_rows)
-            if recorder then recorder:resize(new_columns, new_rows) end
-          else
-            state:mark_all_dirty()
+          for _, pane in pairs(workspace.panes) do
+            local session = pane.session
+            local session_state = session.terminal.state
+            if new_columns ~= session_state.columns or new_rows ~= session_state.rows then
+              session.terminal:resize(new_columns, new_rows)
+              session.pty:resize(new_columns, new_rows)
+              if session == active_session and recorder then recorder:resize(new_columns, new_rows) end
+            else
+              session_state:mark_all_dirty()
+            end
           end
           if renderer then
             renderer:resize(previous_viewport, {
@@ -561,9 +737,11 @@ local function run_live(options)
               content_scale = font.content_scale,
             })
             renderer:destroy()
+            active_session.renderer = nil
           end
           if previous_font then previous_font:destroy() end
           renderer = Renderer.new(context, font, state, render_options)
+          active_session.renderer = renderer
         end
         if window:take_shader_reload_request() then
           local reloaded, message = renderer:reload_shaders(true)
@@ -601,7 +779,7 @@ local function run_live(options)
           power:defer(window.minimized and "minimized" or "synchronized-output")
         end
       end
-      if child_status and pty.eof then
+      if child_status and pty.eof and workspace:tab_count() == 1 then
         window:request_close()
       end
     end
@@ -634,6 +812,12 @@ local function run_live(options)
     end
   end, debug.traceback)
 
+  if workspace and destroy_session then
+    for _, pane in pairs(workspace.panes) do destroy_session(pane.session) end
+    pty = nil
+    terminal = nil
+    renderer = nil
+  end
   if pty then pty:shutdown() end
   if terminal then terminal:close() end
   if recorder then recorder:close() end

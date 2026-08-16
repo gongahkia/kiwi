@@ -91,12 +91,12 @@ function Terminal:finish()
   return result
 end
 
-function Terminal:resize(columns, rows)
+function Terminal:resize(columns, rows, options)
   self:assert_open()
   assert(not self.in_update, "cannot resize terminal during a render-state update")
   validate_dimension(columns, "terminal columns")
   validate_dimension(rows, "terminal rows")
-  self.state:resize(columns, rows)
+  self.state:resize(columns, rows, options)
 end
 
 function Terminal:begin_render_update()

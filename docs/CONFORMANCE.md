@@ -67,7 +67,7 @@ claiming formal verification or allocator-independent memory totals.
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
 | replies | DSR 5/6 and DA response subset | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; OSC 52 has no clipboard action or response | not advertised |
+| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; no visible payload | not advertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -80,7 +80,7 @@ The entry intentionally declares `colors#16`; it does not declare truecolour, it
 
 ## Clipboard and OSC 52 policy
 
-OSC 52 is default-denied: terminal output cannot read, write, clear, or query the system clipboard, trigger paste, or receive an OSC reply. The parser still bounds every OSC string to 4,096 bytes and records no OSC payload, only bounded command metadata or rejection reasons. Local clipboard behavior and the still-unimplemented future opt-in OSC 52 write modes are defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md).
+OSC 52 is default-denied. Setting `osc52-write = true` (or `KIWI_OSC52_WRITE=1`) explicitly permits only a bounded `c`, `p`, or `s` base64 write after UTF-8 and NUL validation; it cannot read, clear, or query the system clipboard and never receives an OSC reply. The terminal core emits a typed request and the GLFW host revalidates it before its one atomic clipboard call. The parser still bounds every OSC string to 4,096 bytes and neither diagnostics nor effects retain raw OSC payloads beyond that synchronous handoff. Local clipboard behavior is defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md).
 
 ## OSC 8 hyperlinks
 

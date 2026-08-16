@@ -112,6 +112,7 @@ search-color = #ebcb8b
 hyperlink-color = #88c0d0
 command-regions = true
 command-region-color = #88c0d0
+osc52-write = false
 ```
 
 `F6` explicitly reloads the active configuration file. Kiwi validates the full
@@ -121,6 +122,10 @@ same session. `ambiguous-width` and `scrollback-limit` remain startup-only,
 because changing either would require semantic grid reflow or history
 retention changes; Kiwi reports that limitation instead of partially applying
 the file.
+
+`osc52-write` remains `false` by default. Setting it to `true` permits only
+validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,
+clears, or automatic synchronization.
 
 For example, a source checkout can still use environment-only configuration:
 
@@ -241,7 +246,7 @@ the complete API v1 capability boundary.
 
 Kiwi advertises a 16-colour terminfo contract and deliberately does not claim
 truecolour terminfo extensions or `COLORTERM`. It is Linux x86_64-only and has
-no implemented screen-reader adapter, primary selection, OSC 52 writes,
+no implemented screen-reader adapter, primary selection, OSC 52 reads/queries,
 regular-expression search, full text indexing, command execution UI, or full
 xterm/VT certification. The current, precise limits are maintained in the
 [conformance matrix](CONFORMANCE.md), [text contract](TEXT.md),

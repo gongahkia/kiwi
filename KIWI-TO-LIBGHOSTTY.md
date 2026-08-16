@@ -2,11 +2,17 @@
 
 ## Conclusion
 
-Yes: extracting a useful `libkiwi` is feasible. It is **not** a packaging exercise and no `libkiwi` exists in this checkout today. The realistic peer is an emulator library tentatively called **`libkiwi-vt`**, not the current GLFW/WGPU application and not an immediate clone of all of Ghostty.
+Yes: extracting a useful `libkiwi` is feasible. It is **not** a packaging exercise and there is no published `libkiwi` ABI in this checkout. The realistic peer is an emulator library tentatively called **`libkiwi-vt`**, not the current GLFW/WGPU application and not an immediate clone of all of Ghostty.
 
 Kiwi already contains a strong candidate terminal kernel: incremental parsing, UTF-8/grapheme/width handling, screen and bounded scrollback state, terminal input encoding, semantic selection/search/link/shell metadata, damage tracking, and bounded Kitty graphics state. The present implementation is nonetheless application-owned LuaJIT code with mutable Lua tables, direct `Parser → State` calls, direct GPU/media coupling in terminal state, a JSON observation snapshot only, and no stable ABI, ownership rules, or host callback contract. Those seams must be created before another program can safely embed it.
 
-The recommendation is to extract a deliberately scoped `libkiwi-vt` with a C ABI (or first a rigorously versioned Lua API), keep platform/PTY/window/GPU/font code outside it, and make media decode plus application side effects host-provided optional interfaces. Treat it as a multi-phase refactor with no terminal-semantic changes in phase one.
+The initial extraction now exists as the internal, host-neutral `kiwi.vt.terminal`
+Lua facade plus `kiwi.vt.render_state`: it owns incremental writes, bounded typed
+effects, response draining, and explicit render-update acknowledgement without
+importing PTY, GLFW, WGPU, or font modules. Kiwi's application consumes it. It
+is not a C ABI, is intentionally single-threaded, and remains an internal v0
+Lua contract. The next publication step is opaque C handles, allocation/error
+rules, and external-consumer tests—not exporting mutable Lua tables.
 
 ## What “libghostty” means in this comparison
 

@@ -1,4 +1,5 @@
 local Attributes = require("kiwi.terminal.attributes")
+local Base64 = require("kiwi.terminal.base64")
 local bit = require("bit")
 local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
@@ -110,6 +111,8 @@ function State.new(columns, rows, options)
     command_regions = CommandRegions.new(options.command_regions),
     command_region_navigation = nil,
     effect_sink = options.effect_sink,
+    osc52_write = options.osc52_write == true,
+    osc52_maximum_bytes = options.osc52_maximum_bytes or 64 * 1024,
     history_offset = 0,
     queue_responses = options.queue_responses ~= false,
     title = nil,
@@ -143,6 +146,7 @@ function State.new(columns, rows, options)
   assert(self.hyperlink_limit >= 1 and self.hyperlink_limit % 1 == 0, "terminal hyperlink limit must be a positive integer")
   assert(self.hyperlink_uri_maximum_bytes >= 1 and self.hyperlink_uri_maximum_bytes % 1 == 0, "terminal hyperlink URI limit must be a positive integer")
   assert(self.max_repeat >= 1 and self.max_repeat % 1 == 0, "terminal repeat limit must be a positive integer")
+  assert(type(self.osc52_maximum_bytes) == "number" and self.osc52_maximum_bytes >= 1 and self.osc52_maximum_bytes % 1 == 0, "terminal OSC 52 byte limit must be a positive integer")
   self.kitty_graphics.on_image_release = function(id)
     self:detach_kitty_placement_records(self.kitty_placements:remove_image(id))
   end
@@ -1947,6 +1951,11 @@ function State:configure_palette(configuration)
   self:emit_effect("palette_changed", { configuration = true })
 end
 
+function State:configure_osc52_write(enabled)
+  assert(type(enabled) == "boolean", "terminal OSC 52 enablement must be a boolean")
+  self.osc52_write = enabled
+end
+
 function State:apply_osc_palette(payload)
   local fields = osc_fields(payload)
   if #fields == 0 or #fields % 2 ~= 0 then return false end
@@ -1982,6 +1991,40 @@ function State:apply_osc_default_colour(channel, command, payload)
   self.colors:set_default(channel, colour)
   self:refresh_palette_slots({ channel = channel })
   self:emit_effect("palette_changed", { default = channel })
+  return true
+end
+
+function State:apply_osc52(payload)
+  local selection, encoded = payload:match("^([^;]*);(.*)$")
+  if selection == nil or selection == "" or selection:find("[^cps]", 1) then return false end
+  if #encoded > math.floor((self.osc52_maximum_bytes + 2) / 3) * 4 then
+    self:emit_effect("clipboard_write_denied", { reason = "over-limit", selection = selection })
+    return true
+  end
+  local decoded_ok, text = pcall(Base64.decode, encoded)
+  if not decoded_ok or #text > self.osc52_maximum_bytes or text:find("\0", 1, true) then
+    self:emit_effect("clipboard_write_denied", { reason = "invalid", selection = selection })
+    return true
+  end
+  if not self.osc52_write then
+    self:emit_effect("clipboard_write_denied", { reason = "disabled", selection = selection })
+    return true
+  end
+  self:emit_effect("clipboard_write_requested", { selection = selection, text = text })
+  return true
+end
+
+function State:apply_osc9(payload)
+  if #payload > 1024 then return false end
+  local state, progress = payload:match("^4;([0-4]);(%d?%d?%d)$")
+  if state then
+    progress = tonumber(progress)
+    if progress > 100 then return false end
+    self:emit_effect("progress_changed", { progress = progress, state = tonumber(state) })
+    return true
+  end
+  if payload:find("\0", 1, true) or payload:find("\r", 1, true) or payload:find("\n", 1, true) then return false end
+  self:emit_effect("notification_requested", { body = payload })
   return true
 end
 
@@ -2034,6 +2077,10 @@ function State:apply_osc(action)
     if not self:apply_osc_default_colour("foreground", 10, action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 11 then
     if not self:apply_osc_default_colour("background", 11, action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 52 then
+    if not self:apply_osc52(action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 9 then
+    if not self:apply_osc9(action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 104 then
     if action.payload == "" then
       self.colors:reset_indexed()
