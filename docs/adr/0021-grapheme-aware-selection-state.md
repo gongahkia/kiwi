@@ -20,4 +20,10 @@ The model is deliberately independent of pointer events, rendering, and clipboar
 
 `State:set_selection(anchor_row, anchor_column, focus_row, focus_column)` maps clamped viewport coordinates to the active screen’s stable rows. `State:selection_view()` is the renderer/clipboard boundary. Pointer work must convert a cell hit to the documented gap before invoking it; copy work must reconstruct text only from the detached view and must follow ADR 0020’s size and security policy.
 
-The selection is not yet drawn, copied, searched, persisted in replay, or exposed through an accessibility API. Terminal writes may change the content of a still-retained selected row; selection state preserves the range, not a historical text snapshot. Tests cover ASCII, reverse input, wide/combining clusters, history, eviction, resize, dropped rows, coordinate clamps, and alternate-screen visibility.
+The selection is drawn, copied, searched, and exposed as a read-only bounded
+UTF-8 character range by the Linux AT-SPI provider for the active pane; it is
+not persisted in replay. Terminal writes may change the content of a
+still-retained selected row; selection state preserves the range, not a
+historical text snapshot. Tests cover ASCII, reverse input, wide/combining
+clusters, history, eviction, resize, dropped rows, coordinate clamps, and
+alternate-screen visibility.

@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo release release-check doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke workspace-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke workspace-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -19,6 +19,15 @@ release: native terminfo
 
 release-check: native terminfo
 	./script/release-check
+
+libkiwi-vt:
+	./script/package-libkiwi-vt
+
+libkiwi-vt-c:
+	./script/build-libkiwi-vt
+
+libkiwi-vt-check:
+	./script/libkiwi-vt-check
 
 doctor:
 	@$(LUAJIT) src/kiwi/doctor.lua $(ARGS)
@@ -86,8 +95,11 @@ vttest: native terminfo
 conformance-evidence: native terminfo
 	./script/conformance-evidence
 
-accessibility-smoke:
+accessibility-smoke: native
 	./script/accessibility-smoke
+
+accessibility-provider-smoke: native terminfo
+	./script/accessibility-provider-smoke
 
 test:
 	$(LUAJIT) src/kiwi/test.lua

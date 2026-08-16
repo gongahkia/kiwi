@@ -38,6 +38,7 @@ function Headless.render(view, options)
     },
     damage = view.damage,
     generation = view.generation,
+    input_modes = view.input_modes,
     lines = lines,
     rows = view.rows,
     selection = view.selection,

@@ -7,12 +7,23 @@ return {
     Assert.equal(Keyboard.text(0x20ac), "€")
     Assert.equal(Keyboard.key(glfw.key_enter, glfw.press, 0, {}, glfw).bytes, "\r")
     Assert.equal(Keyboard.key(glfw.key_backspace, glfw.press, 0, {}, glfw).bytes, "\127")
+    Assert.equal(Keyboard.key(glfw.key_backspace, glfw.press, 0, { backarrow = true }, glfw).bytes, "\b")
     Assert.equal(Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control, {}, glfw).bytes, "\003")
   end,
   keyboard_tracks_normal_and_application_cursor_modes = function()
     Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, { application_cursor = false }, glfw).bytes, "\27[A")
     Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, { application_cursor = true }, glfw).bytes, "\27OA")
     Assert.equal(Keyboard.key(glfw.key_page_up, glfw.press, glfw.mod_shift, {}, glfw).local_action, "scroll_up")
+  end,
+  keyboard_encodes_numeric_and_application_keypads = function()
+    Assert.equal(Keyboard.key(glfw.key_kp_1, glfw.press, 0, {}, glfw).bytes, "1")
+    Assert.equal(Keyboard.key(glfw.key_kp_decimal, glfw.press, 0, {}, glfw).bytes, ".")
+    Assert.equal(Keyboard.key(glfw.key_kp_enter, glfw.press, 0, { application_keypad = true }, glfw).bytes, "\27OM")
+    local one = Keyboard.key(glfw.key_kp_1, glfw.press, 0, { application_keypad = true }, glfw)
+    Assert.equal(one.bytes, "\27Oq")
+    Assert.truthy(one.suppress_text)
+    Assert.equal(Keyboard.key(glfw.key_kp_1, glfw.release, 0, { application_keypad = true }, glfw), nil)
+    Assert.equal(Keyboard.key(glfw.key_kp_1, glfw.press, 0, { application_keypad = true, keyboard_flags = 8 }, glfw), nil)
   end,
   keyboard_reserves_control_shift_clipboard_actions = function()
     local copy = Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control + glfw.mod_shift, { keyboard_flags = 1 }, glfw)
@@ -64,5 +75,12 @@ return {
     local event_modes = { keyboard_flags = 10 }
     Assert.equal(Keyboard.key(string.byte("A"), glfw.press, 0, event_modes, glfw).bytes, "\27[97;1:1u")
     Assert.equal(Keyboard.key(string.byte("A"), glfw.release, 0, event_modes, glfw).bytes, "\27[97;1:3u")
+  end,
+  keyboard_reports_kitty_associated_text_only_with_all_key_reporting = function()
+    local modes = { keyboard_flags = 24 }
+    local key = Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, modes, glfw, { associated_text = { string.byte("A") } })
+    Assert.equal(key.bytes, "\27[97;2;65u")
+    Assert.equal(Keyboard.text_sequence({ 0x00e5 }, modes), "\27[0;;229u")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, { keyboard_flags = 16 }, glfw, { associated_text = { string.byte("A") } }), nil)
   end,
 }

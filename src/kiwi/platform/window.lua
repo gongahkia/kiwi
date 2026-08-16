@@ -1,5 +1,6 @@
 local ffi = require("ffi")
 local glfw = require("kiwi.ffi.glfw")
+local Correlation = require("kiwi.input.correlation")
 
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
@@ -52,13 +53,21 @@ function Window.new(width, height, title, options)
     release_mode = options.release_mode == true,
     callbacks = {},
   }, Window)
+  self.input_correlation = Correlation.new(function(codepoints, event)
+    if self.on_text then self.on_text(codepoints, event) end
+  end)
   self.callbacks.resize = ffi.cast("GLFWframebuffersizefun", function(_, drawable_width, drawable_height)
     self.resized = true
     self.minimized = drawable_width <= 0 or drawable_height <= 0
   end)
-  self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, _, action, modifiers)
+  self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, scancode, action, modifiers)
+    self.input_correlation:flush()
     self.modifiers = modifiers
     local input = self.on_key and self.on_key(key, action, modifiers)
+    if input and input.defer_text then
+      self.input_correlation:defer({ key = key, scancode = scancode, action = action, modifiers = modifiers })
+      return
+    end
     if input and input.suppress_text then self.suppress_text = true end
     if input and input.handled then return end
     if action == glfw.constants.release then self.suppress_text = false end
@@ -75,13 +84,12 @@ function Window.new(width, height, title, options)
     end
   end)
   self.callbacks.character = ffi.cast("GLFWcharfun", function(_, codepoint)
+    if self.input_correlation:text(codepoint) then return end
     if self.suppress_text then
       self.suppress_text = false
       return
     end
-    if self.on_text then
-      self.on_text(codepoint)
-    end
+    if self.on_text then self.on_text({ codepoint }, nil) end
   end)
   self.callbacks.cursor_position = ffi.cast("GLFWcursorposfun", function(_, x, y)
     if self.on_pointer then self.on_pointer({ kind = "motion", x = x, y = y, modifiers = self.modifiers }) end
@@ -93,10 +101,10 @@ function Window.new(width, height, title, options)
       self.on_pointer({ kind = "button", button = button, action = action == glfw.constants.press and "press" or action == glfw.constants.release and "release" or "unknown", time = glfw.lib.glfwGetTime(), x = x, y = y, modifiers = modifiers })
     end
   end)
-  self.callbacks.scroll = ffi.cast("GLFWscrollfun", function(_, _, yoffset)
+  self.callbacks.scroll = ffi.cast("GLFWscrollfun", function(_, xoffset, yoffset)
     if self.on_pointer then
       local x, y = self:cursor_position()
-      self.on_pointer({ kind = "wheel", delta = yoffset, x = x, y = y, modifiers = self.modifiers })
+      self.on_pointer({ kind = "wheel", delta = yoffset, horizontal_delta = xoffset, x = x, y = y, modifiers = self.modifiers })
     end
   end)
   self.callbacks.focus = ffi.cast("GLFWwindowfocusfun", function(_, focused)
@@ -208,10 +216,12 @@ end
 
 function Window:poll_events()
   glfw.lib.glfwPollEvents()
+  self.input_correlation:flush()
 end
 
 function Window:wait_events(timeout)
   glfw.lib.glfwWaitEventsTimeout(timeout)
+  self.input_correlation:flush()
 end
 
 function Window:time()
@@ -219,6 +229,7 @@ function Window:time()
 end
 
 function Window:destroy()
+  self.input_correlation:flush()
   if self.handle ~= nil then
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil

@@ -52,6 +52,10 @@ local function selection_view(state)
   }
 end
 
+local function input_modes(state)
+  return state:input_modes()
+end
+
 -- The view is deliberately single-threaded: its cells are borrowed from the
 -- terminal for the begin/end update interval. Consumers must finish the
 -- update before mutating the terminal through the public facade.
@@ -67,6 +71,7 @@ local function new_view(owner, state)
     },
     damage = copy_damage(state.damage),
     generation = owner.generation,
+    input_modes = input_modes(state),
     rows = state.rows,
     selection = selection_view(state),
   }

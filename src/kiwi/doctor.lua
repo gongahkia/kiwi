@@ -153,7 +153,7 @@ function Doctor.collect(options)
     terminal = {
       feature_state = unavailable("no live terminal session is attached"),
       known_features = {
-        accessibility_adapter = unavailable("no AT-SPI, NSAccessibility, or UI Automation adapter is implemented"),
+        accessibility_adapter = unavailable("Linux AT-SPI is optional and doctor does not attach to a live accessibility bus; macOS and Windows adapters are unimplemented"),
         clipboard = { maximum_bytes = 1024 * 1024, status = "available" },
         kitty_graphics = { status = "available" },
         shell_integration = { status = "available" },

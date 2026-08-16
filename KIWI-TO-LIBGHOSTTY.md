@@ -2,7 +2,7 @@
 
 ## Conclusion
 
-Yes: extracting a useful `libkiwi` is feasible. It is **not** a packaging exercise and there is no published `libkiwi` ABI in this checkout. The realistic peer is an emulator library tentatively called **`libkiwi-vt`**, not the current GLFW/WGPU application and not an immediate clone of all of Ghostty.
+Yes: extracting a useful `libkiwi` is feasible. It is **not only** a packaging exercise. This checkout now publishes a deliberately narrow experimental `libkiwi-vt` C API v1, but it is not yet a full `libghostty-vt`-class embedding surface. The realistic peer is an emulator library called **`libkiwi-vt`**, not the current GLFW/WGPU application and not an immediate clone of all of Ghostty.
 
 Kiwi already contains a strong candidate terminal kernel: incremental parsing, UTF-8/grapheme/width handling, screen and bounded scrollback state, terminal input encoding, semantic selection/search/link/shell metadata, damage tracking, and bounded Kitty graphics state. The present implementation is nonetheless application-owned LuaJIT code with mutable Lua tables, direct `Parser → State` calls, direct GPU/media coupling in terminal state, a JSON observation snapshot only, and no stable ABI, ownership rules, or host callback contract. Those seams must be created before another program can safely embed it.
 
@@ -10,11 +10,18 @@ The initial extraction now exists as the experimental, host-neutral `kiwi.vt`
 Lua API v1, with `kiwi.vt.render_state` and `kiwi.vt.headless`: it owns
 incremental writes, bounded typed effects, response draining, borrowed
 render-update views, explicit damage acknowledgement, and logical headless
-projection without importing PTY, GLFW, WGPU, or font modules. Kiwi's
-application consumes the facade. It is not a C ABI, is intentionally
-single-threaded, and has a pre-1.0 stability policy. The next publication step
-is opaque C handles, allocation/error rules, and external-consumer tests—not
-exporting mutable Lua tables.
+projection without importing PTY, GLFW, WGPU, or font modules. `make
+libkiwi-vt` produces a reproducible Linux x86_64 SDK archive containing that
+Lua core plus `include/kiwi/vt.h` and `lib/libkiwi_vt.so`; the C v1 layer offers
+opaque handles, versioned options, explicit destruction, status codes, byte
+writes, resize, logical-text projection, frozen logical cell/grid snapshots,
+and one-at-a-time response draining.
+`make libkiwi-vt-check` proves both standalone consumers start without
+renderer, platform, FFI, or media-decoder modules. Kiwi's application consumes
+the richer Lua facade through a deliberately private mutable-state adapter.
+Both surfaces remain single-threaded and pre-1.0. The next publication work is
+to expand the C contract only where a real consumer needs it—not to export
+mutable Lua tables.
 
 ## What “libghostty” means in this comparison
 
@@ -52,7 +59,7 @@ This document compares a proposed `libkiwi-vt` primarily with that public `libgh
 
 | Proposed artifact | Responsibility | Current source candidates | Deliberate exclusion |
 | --- | --- | --- | --- |
-| `libkiwi-vt` | Parsing, state, Unicode/width, screen/scrollback, effects, input encoders, snapshots, renderer-neutral views. | `terminal/{parser,state,screen,scrollback,actions,attributes,damage,utf8,width,grapheme}`, `unicode/*`, host-neutral pieces of `input/*`. | PTY, GLFW, WGPU, font discovery/rasterization. |
+| `libkiwi-vt` | Parsing, state, Unicode/width, screen/scrollback, Lua effects/input/views, plus C v1 byte/resize/text/response/effect polling, logical render updates, and text/key/mouse/focus/paste encoding. | The renderer-free SDK built by `script/package-libkiwi-vt`: selected `terminal/*`, `unicode/*`, `input/{keyboard,mouse,search,selection}`, `vt/*`, `include/kiwi/vt.h`, and `libkiwi_vt.so`. | PTY, GLFW, WGPU, font discovery/rasterization, renderer/platform/FFI modules, the default media decoder, and C effect callbacks/selection/media APIs. |
 | `libkiwi-render-state` or a `libkiwi-vt` submodule | Transactional, dirty-region-aware screen projection for a renderer. | Terminal damage plus the read-only data requirements currently consumed by `renderer/*`. | WGSL, GPU resources, frame scheduling. |
 | `libkiwi-media` (optional) | Kitty image transport/cache/placement semantics and host callbacks for decode/storage. | `terminal/{kitty_graphics,kitty_placements,image_decoder}` after decoupling. | libpng/giflib hard dependency, GPU texture upload, network URL fetching. |
 | `kiwi-app` | PTY, window, WGPU renderer, fonts, clipboard/URL policy, shell integration UX, configuration, packaging. | `app`, `process`, `platform`, `gpu`, `renderer`, `font`, platform input adapters. | Public embedding ABI. |
@@ -68,7 +75,7 @@ This division is intentional. A consumer that only needs a terminal model should
 | Unicode 17 grapheme processing and deterministic width policy. | `unicode/*`, `terminal/{utf8,width}.lua`, [text contract](docs/TEXT.md). | A strong differentiator for an embedding API, if the policy/version becomes explicit. | **Reusable.** Export the Unicode data version and width policy in the API. |
 | Cell-level damage and separate text damage. | [`terminal/damage.lua`](src/kiwi/terminal/damage.lua) and renderer tests. | Useful basis for incremental render updates. | **Needs a stable read model and lifetime/clear rules.** |
 | Selection, exact search, hyperlinks, shell markers, command regions. | `input/{selection,search}.lua`, `terminal/{hyperlink,shell_integration,command_regions}.lua`. | Useful optional semantic APIs above raw terminal cells. | **Partition into optional features.** Do not make a window-title search UI or local URL opener part of the library. |
-| Keyboard/mouse protocol encoders. | [`input/keyboard.lua`](src/kiwi/input/keyboard.lua), [`input/mouse.lua`](src/kiwi/input/mouse.lua). | Natural host-neutral library functionality. | **Reusable after replacing GLFW event types with owned public structs.** |
+| Keyboard/mouse protocol encoders. | [`vt/input.lua`](src/kiwi/vt/input.lua), [`input/keyboard.lua`](src/kiwi/input/keyboard.lua), [`input/mouse.lua`](src/kiwi/input/mouse.lua). | Natural host-neutral library functionality. | **Initial extraction complete.** Public symbolic keys, modifier bits, text/key/paste helpers, and a stateful mouse encoder take no GLFW object. A render update publishes the needed input modes. |
 | Kitty image cache/placements and bounded PNG/APNG/GIF playback. | `terminal/{kitty_graphics,kitty_placements,image_decoder}.lua`, [Kitty graphics contract](docs/KITTY_GRAPHICS.md). | Optional modern terminal facility. | **Requires a hard boundary.** Current image lifetime is coupled to application-side decode and GPU upload assumptions. |
 | Recording/replay and JSON snapshot. | [`replay.lua`](src/kiwi/replay.lua), [`terminal/snapshot.lua`](src/kiwi/terminal/snapshot.lua). | Good test and diagnostic assets. | **Not yet a persistence API.** Kiwi's current snapshot is observation-only and cannot restore terminal state. |
 
@@ -76,45 +83,49 @@ This division is intentional. A consumer that only needs a terminal model should
 
 | Concern | `libghostty-vt` as audited | Current Kiwi / proposed `libkiwi-vt` | Gap and design response |
 | --- | --- | --- | --- |
-| **Public boundary** | C header with opaque handles and a documented API taxonomy; callable from C and Zig. Header warns that it is incomplete and unstable. | No public library, no C ABI, no opaque handles; `require`d Lua modules are internal implementation. | Define the consumer and ABI first. A Lua-only package can be useful internally, but it is not an equivalent to `libghostty-vt`. For broad embedding, provide a C ABI over owned handles. |
-| **Lifecycle, allocation, and errors** | Explicit `new/free` lifecycles, result codes, and optional custom allocator interface; documented borrowed-pointer lifetimes. | Lua garbage collection, mutable tables, `assert`/`error` patterns, and no allocator or foreign-runtime ownership contract. | Introduce opaque handle ownership, null/error behavior, per-call result codes, size/versioned structs, and a single allocation/free story before publishing. |
+| **Public boundary** | C header with opaque handles and a documented API taxonomy; callable from C and Zig. Header warns that it is incomplete and unstable. | Experimental LuaJIT API v1 plus experimental Linux x86_64 C API v1: documented opaque handles, header, shared object, and C consumer/check. The C surface covers bytes, resize, logical text, responses/effect polling, cell/grid render updates, and text/key/mouse/focus/paste encoding. | **Partial gap.** Kiwi now has a C entry point, but not `libghostty-vt`'s broad embedding taxonomy or non-C bindings. |
+| **Lifecycle, allocation, and errors** | Explicit `new/free` lifecycles, result codes, and optional custom allocator interface; documented borrowed-pointer lifetimes. | The C layer has explicit `new/free`, versioned/size-tagged options, bounded result codes, and borrowed error strings. It uses one internally allocated LuaJIT state per handle, with no custom allocator or ABI-stability promise. | **Partial gap.** Keep the small contract experimental; add allocator control only for an actual consumer need. |
 | **Byte-stream processing** | `GhosttyTerminal` receives VT bytes and retains parser continuation with explicit APIs. | `Parser:feed` sends actions directly to `State`; it is already incremental and bounded. | Preserve the parser's strengths but expose one terminal-write function plus well-defined continuation/limit configuration. Do not expose action tables as a permanent ABI. |
-| **Terminal effects / host policy** | Opt-in synchronous callbacks for PTY replies, bell, title/PWD, size/device/color queries, clipboard writes, notifications, progress, and unknown sequences; reentrancy is documented as forbidden. | State queues terminal responses and directly owns some metadata; application code drains responses and performs title/clipboard/link policy separately. | Replace hidden queues and ad hoc application calls with a typed effects vtable, userdata, opt-in switches, hard payload limits, and explicit no-reentrancy/thread rules. Keep OSC 52 default-denied unless the host enables it. |
-| **Render-state contract** | Separate render-state handle designed for incremental updates; exposes global/row dirty state, cell/row iterators, cursor and color data, with begin/end update for short terminal lock windows. | `kiwi.vt` now has `begin_render_update`/`end_render_update(consumed)`, copied cell/row accessors, cursor/selection data, and explicit logical-damage acknowledgement. The live GPU renderer still reads its internal `State`/semantic resources rather than that facade. | **Partial gap.** Apply the v1 view to the live renderer and formalize borrowed-data lifetime and update errors for a C boundary; it should not create GPU objects. |
-| **Threading** | Render-state documentation describes a controlled lock-held update window for a renderer/IO-thread design; individual callback contracts are explicit. | Current app is effectively one LuaJIT/GLFW event-loop design; no public threading contract. | State clearly whether `libkiwi-vt` is single-threaded in v0.1 or publish locking/serialization rules. Do not imply thread safety just because data is read-only at a moment. |
+| **Terminal effects / host policy** | Opt-in synchronous callbacks for PTY replies, bell, title/PWD, size/device/color queries, clipboard writes, notifications, progress, and unknown sequences; reentrancy is documented as forbidden. | Lua v1 queues bounded typed effects. C v1 now polls one typed effect at a time and uses a deterministic byte-safe JSON payload; it never invokes a foreign callback or OS action. PTY replies remain separately drainable. | **Partial gap.** C lacks a typed callback vtable and per-effect C structs. Keep OSC 52 default-denied unless the host enables it. |
+| **Render-state contract** | Separate render-state handle designed for incremental updates; exposes global/row dirty state, cell/row iterators, cursor and color data, with begin/end update for short terminal lock windows. | Lua v1 has copied cell/row accessors, cursor/selection data, and explicit acknowledgement. C v1 mirrors an opaque begin/end update with copied grid/cursor/damage state and per-cell UTF-8/style/color data; a separate copied input-mode query exposes host input policy without holding a render update. No operation may interleave with an active update. | **Partial gap.** C lacks row iterators, precise damage ranges, selection data, and a live-renderer migration. It creates no GPU objects. |
+| **Threading** | Render-state documentation describes a controlled lock-held update window for a renderer/IO-thread design; individual callback contracts are explicit. | Lua API v1 and C API v1 both explicitly require single-threaded, non-concurrent terminal use. The C handle owns one private LuaJIT state; the app remains one LuaJIT/GLFW event loop. | **Partial gap.** The constraint is now explicit, but there is no renderer/IO synchronization model. Do not imply thread safety because data is momentarily read-only. |
 | **Scrollback and reflow** | Supports scrollback, resize reflow, and caller-driven bounded incremental compression. | Bounded scrollback and primary-screen column reflow exist. Reflow preserves grapheme cells and remaps semantic positions, but it has no host-driven compression lifecycle and releases fixed Kitty placement anchors. | **Partial gap.** Expose reflow/eviction events, quotas, and compression controls in the eventual API; do not make placement geometry a silent side effect. |
 | **Snapshots** | Binary CRC-protected encoder plus a decoder that can restore a renderable terminal before incrementally prepending history; format v1 is also explicitly not compatibility-guaranteed. | Versioned JSON view of visible state and metadata only; no restore API. | Do not call Kiwi's current snapshot persistence. Add a decoder/restore lifecycle, parser-continuation rules, resource limits, and version policy—or retain replay as the supported persistence mechanism. |
-| **Input encoding** | Public key, mouse, focus, and paste utilities; key/mouse encoders can derive options from terminal state. | Internal keyboard/mouse encoders track Kiwi's subset and are invoked by the app. | Promote normalized events and byte-output buffers to the public boundary. Broaden protocol support separately from extraction. |
+| **Input encoding** | Public key, mouse, focus, and paste utilities; key/mouse encoders can derive options from terminal state. | `VT.Input` publishes symbolic key/text/mouse/focus/paste helpers and render views include the relevant detached terminal input modes, including alternate-screen and alternate-scroll state. C API v1 supplies size-tagged text/key/paste encoding, including bounded associated text for Kitty 8+16 reports, and an opaque terminal-owned mouse handle for button/motion/wheel/focus from current terminal modes, including optional SGR-Pixels coordinates, horizontal wheel, and alternate-scroll output. | **Partial gap.** The currently supported input subset has a C contract; broaden protocol coverage only with sequence and lifetime tests. |
 | **Selection and grids** | Public selection APIs, grid references including tracked references, and renderer-visible selection data. | Selection is grapheme-safe and tracks scrollback rows, but it is tightly combined with input/UI state and local clipboard behavior. | Keep terminal-semantic selection as optional host-neutral APIs; move pointer gestures, keybindings, and clipboard ownership to the application. Add durable reference/lifetime semantics. |
-| **Kitty graphics** | Optional system PNG decoder callback; library owns decoded RGBA/image/placement state and exposes placement iterators, geometry helpers, generation stamps, and borrowed-data lifetime. | Built-in PNG/GIF decode path, bounded cache, placement state, GPU-oriented renderer passes, GIF/APNG animation cadence. | The proposed library should expose decoded pixels/placements to the host and accept a decoder/storage interface. Animated image scheduling and texture upload belong in `kiwi-app` or an optional media/renderer layer. |
+| **Kitty graphics** | Optional system PNG decoder callback; library owns decoded RGBA/image/placement state and exposes placement iterators, geometry helpers, generation stamps, and borrowed-data lifetime. | Full Kiwi has a lazy built-in PNG/GIF decoder, bounded cache, placement state, GPU-oriented renderer passes, and GIF/APNG animation cadence. The core package contains no decoder and reports `decoder-unavailable` for an image query unless its host supplies one. | **Partial gap.** Expose decoded pixels/placements to the host through a stable public view and formalize decoder/storage callbacks. Animated image scheduling and texture upload belong in `kiwi-app` or an optional media/renderer layer. |
 | **Formatting / utility APIs** | Public terminal formatters (plain/VT/HTML), standalone OSC/SGR parsers, Unicode and I/O helpers. | No public equivalents; internal JSON/snapshot/replay/test utilities exist. | Low priority for first extraction. Add only after core views and lifetimes are stable, and only where a consumer need exists. |
-| **Portability** | Header targets C consumers and includes WebAssembly utilities; Ghostty docs describe its core as cross-platform. | Linux x86_64 application, LuaJIT plus Linux/native dependencies. | A C ABI alone does not make Kiwi portable. Start with a supported Linux ABI and toolchain; treat macOS, Windows, WASM, static linking, and cross-compilation as separate acceptance targets. |
-| **Release/support contract** | Public headers/examples exist, while the API explicitly remains unstable. | No library package, semantic versioning, ABI policy, installation package, examples, or compatibility test fixture for external consumers. | Publish no `libkiwi` until it has headers/bindings, examples, versioning policy, adversarial tests, and a compatibility promise appropriate to its maturity. |
+| **Portability** | Header targets C consumers and includes WebAssembly utilities; Ghostty docs describe its core as cross-platform. | Linux x86_64 C shared object dynamically loading system LuaJIT; Kiwi application remains Linux x86_64. | A C ABI alone does not make Kiwi portable. macOS, Windows, WASM, static linking, and cross-compilation need distinct build and runtime acceptance targets. |
+| **Release/support contract** | Public headers/examples exist, while the API explicitly remains unstable. | `libkiwi-vt` has versioned Lua and C API v1 documentation, a header, C example, reproducible SDK archive, extracted-C-consumer test, and a pre-1.0 policy. It has no bindings or compatibility guarantee. | **Partial gap.** Keep publishing conservative: source and ABI compatibility require explicit compatibility fixtures and external consumers before any stability promise. |
 
 ## The main blockers in the current code
 
 1. **The terminal core is not isolated from application policy.** `State.new` constructs search, selection, shell/command-region, hyperlink, and Kitty graphics objects. Some of those are good core semantics; others are UI and host-policy decisions. They need feature flags or separate ownership.
 
-2. **The renderer-neutral read boundary is not yet the live-renderer boundary.** `kiwi.vt` provides a versioned, single-threaded render update with copied cells and explicit damage acknowledgement, but the GPU renderer, font system, and semantic resources still coordinate through internal Lua structures. A C consumer needs owned/borrowed lifetimes, result codes, and compatibility tests.
+2. **The renderer-neutral read boundary is not yet the live-renderer boundary.** `kiwi.vt` provides a versioned, single-threaded render update with copied cells and explicit damage acknowledgement; C API v1 now mirrors a bounded cell/grid snapshot. The GPU renderer, font system, and semantic resources still coordinate through internal Lua structures, and C has no damage ranges, selection/input modes, or renderer adoption.
 
-3. **Media is coupled across layers.** Image parsing and cache state live with terminal state while playback, GPU textures, and redraw deadlines belong to the renderer/app. That is why the current direct implementation cannot simply be exported as a generic graphics API.
+3. **Media is only partially separated across layers.** The core now lazy-loads its default decoder and the core package omits all media/FFI modules, but image cache state still lives with terminal state while playback, GPU textures, and redraw deadlines belong to the renderer/app. That is why the current direct implementation cannot simply be exported as a generic graphics API.
 
-4. **Error and resource semantics are internal.** Lua assertions, garbage collection, arbitrary tables, and FFI/native object assumptions cannot cross a C ABI as-is. An embedded API needs bounded input validation, stable result codes, explicit destruction, and no foreign ownership ambiguity.
+4. **C error and resource semantics are only foundational.** API v1 validates bounded construction/write/resize inputs, has result codes, explicit destruction, and borrowed error diagnostics, but still has no custom allocator, typed effects vtable, callbacks, or foreign-runtime bindings beyond C. Those must stay deliberate rather than leaking Lua values.
 
 5. **Snapshot/replay semantics are not persistence semantics.** The current `Snapshot` encodes a visible diagnostic view. A library either needs an explicit restore format or must state that it deliberately has none.
 
-6. **Threading is unspecified.** A single app event loop is a reasonable implementation choice, but a reusable library must say whether all calls occur on one thread or what is protected. Renderer and I/O concurrency should not be added implicitly.
+6. **Threading is intentionally single-threaded.** API v1 requires each handle to be used on one thread with no concurrent operations. This is a documented limitation, not an I/O/render synchronization design; renderer and I/O concurrency should not be added implicitly.
 
 7. **The terminal contract remains deliberately narrower than Ghostty's.** Extraction will make Kiwi reusable; it does not by itself provide comprehensive legacy behavior, broad mouse/key protocol support, reflow-aware image placement, or full xterm compatibility. Those are independent feature projects.
 
 ## A practical extraction plan
 
-### Phase 0 — write the contract, no behavior change
+### Phase 0 — write the contract and prove a minimal consumer
 
 - Select the first consumer: Kiwi itself, a headless recorder, or a second renderer. Without a second consumer, an ABI risks simply fossilizing app internals.
-- Name the target `libkiwi-vt` and state a v0.x instability policy.
-- Define supported platform, language/runtime, ABI, allocator, threading, quota, Unicode-data, width-policy, and error contracts.
-- Write a public API design document with owned/borrowed pointer rules and callbacks. This must precede C headers.
+- Completed: name the target `libkiwi-vt`, state a v0.x instability policy,
+  publish Lua/C API contracts, package the Lua closure and Linux x86_64 C SDK
+  reproducibly, and prove standalone no-renderer/no-FFI Lua and C consumers.
+- Completed for C API v1: define its supported platform/runtime, opaque-handle
+  lifecycle, versioned options, bounds, errors, and single-thread rule. Still
+  required before widening it: quotas beyond construction, callbacks, allocator
+  policy, and a broader external-consumer matrix.
 
 ### Phase 1 — isolate a pure Lua core
 
@@ -129,11 +140,23 @@ This division is intentional. A consumer that only needs a terminal model should
 - Add a headless example that drives bytes, resizes, consumes effects, encodes input, and renders an ASCII/debug projection without GLFW/WGPU.
 - Run existing parser, replay, PTY, selection, Kitty graphics, and fuzz tests through both paths. This phase is complete only if no intended terminal behavior changed.
 
-### Phase 3 — publish a narrow embedding API
+### Phase 3 — widen the narrow embedding API only from consumer evidence
 
-- Add opaque handles, C-compatible structs with size/version fields, `new/free`, result codes, allocator rules, and bindings/examples for at least C.
-- Publish render-state iteration and dirty acknowledgement, not raw Lua tables or raw terminal internals.
-- Start with Linux support and a small, explicit API. Keep it marked experimental until ABI and semantic tests are stable.
+- Completed: publish opaque handles, a C-compatible size/versioned options
+  struct, `new/free`, result codes, a header/shared object, and a checked C
+  example for Linux x86_64.
+- Completed: publish a C begin/end render update with copied grid/cursor/damage
+  metadata, per-cell UTF-8/style/color data, explicit damage acknowledgement,
+  and a checked lifetime consumer. Never expose raw Lua tables or internals.
+- Completed: publish C text/key/paste encoding from current terminal modes,
+  with size-tagged key/result structs and checked local-action semantics.
+- Completed: publish a terminal-owned C mouse/focus handle with checked button,
+  wheel, focus, and terminal-destruction lifecycle semantics.
+- Completed: publish C polling of bounded typed effects, preserving byte values
+  in a deterministic JSON observation and leaving all host actions to callers.
+- Add typed effect callbacks, allocator policy, and bindings incrementally. Keep
+  the entire ABI marked experimental until external semantic and compatibility
+  tests are stable.
 
 ### Phase 4 — optional capability modules
 

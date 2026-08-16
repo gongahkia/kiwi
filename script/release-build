@@ -82,7 +82,7 @@ print 'if [[ ${1:-} == doctor ]]; then shift; exec "${LUAJIT:-luajit}" "$KIWI_IN
 print 'exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/app/main.lua" "$@"' >> "$STAGE/bin/kiwi"
 chmod 755 "$STAGE/bin/kiwi"
 
-print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":[\"curl\",\"luajit\",\"glfw\",\"freetype\",\"harfbuzz\",\"fontconfig\",\"giflib\",\"libpng\",\"vulkan-loader\",\"zsh\",\"openssh-clients\"]}" > "$STAGE/metadata.json"
+print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":[\"curl\",\"luajit\",\"glib2\",\"glfw\",\"freetype\",\"harfbuzz\",\"fontconfig\",\"giflib\",\"libpng\",\"vulkan-loader\",\"zsh\",\"openssh-clients\"]}" > "$STAGE/metadata.json"
 
 rm -f "$ARCHIVE" "$CHECKSUM"
 tar -C "$DIST" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"

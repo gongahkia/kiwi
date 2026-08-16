@@ -32,6 +32,15 @@ return {
     Assert.equal(values.ZDOTDIR, "integrations/v1/inject/zsh")
     Assert.equal(values.KIWI_SHELL_INTEGRATION_ORIGINAL_ZDOTDIR, "/home/test/.zsh")
   end,
+  shell_launcher_injects_nushell_through_its_execute_interactive_startup = function()
+    local command, values, reason = ShellIntegration.prepare({ "/usr/bin/nu" }, directory, environment({ HOME = "/home/test" }))
+    Assert.equal(reason, nil)
+    Assert.equal(command[1], "/usr/bin/nu")
+    Assert.equal(command[2], "--execute")
+    Assert.equal(command[3], "source \"integrations/v1/kiwi.nu\"")
+    Assert.equal(command[4], "--interactive")
+    Assert.equal(values.KIWI_SHELL_INTEGRATION_SCRIPT, "integrations/v1/kiwi.nu")
+  end,
   shell_launcher_leaves_unsupported_or_resource_missing_shells_unchanged = function()
     local command, values, reason = ShellIntegration.prepare({ "/bin/sh" }, directory, environment({ HOME = "/home/test" }))
     Assert.equal(command[1], "/bin/sh")

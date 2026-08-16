@@ -16,13 +16,13 @@ local Selection = require("kiwi.input.selection")
 local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
-local Color = require("kiwi.renderer.color")
+local Color = require("kiwi.terminal.color")
 
 local State = {}
 State.__index = State
 
 State.flags = Attributes.flags
-State.keyboard_supported_flags = 0x0b
+State.keyboard_supported_flags = 0x1b
 State.reflow = Reflow
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
@@ -86,16 +86,25 @@ local function clamp(value, lower, upper)
   return math.max(lower, math.min(value, upper))
 end
 
+local function valid_cell_metric(value)
+  return type(value) == "number" and value % 1 == 0 and value > 0 and value <= 65535
+end
+
 function State.new(columns, rows, options)
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
   options = options or {}
   assert(options.effect_sink == nil or type(options.effect_sink) == "function", "terminal effect sink must be a function")
   assert(options.queue_responses == nil or type(options.queue_responses) == "boolean", "terminal response queue selection must be a boolean")
   assert(options.reflow_on_resize == nil or type(options.reflow_on_resize) == "boolean", "terminal reflow policy must be a boolean")
+  assert((options.cell_width == nil) == (options.cell_height == nil), "terminal cell metrics must provide both width and height")
+  assert(options.cell_width == nil or valid_cell_metric(options.cell_width), "terminal cell width must be a positive integer no greater than 65535")
+  assert(options.cell_height == nil or valid_cell_metric(options.cell_height), "terminal cell height must be a positive integer no greater than 65535")
   local colors = Attributes.Palette.new(options.colors)
   local self = setmetatable({
     columns = columns,
     rows = rows,
+    cell_width = options.cell_width,
+    cell_height = options.cell_height,
     next_line_id = 0,
     colors = colors,
     cursor_color = default_cursor_color,
@@ -108,10 +117,13 @@ function State.new(columns, rows, options)
       origin = false,
       left_right_margin = false,
       insert = false,
+      newline = false,
       cursor_visible = true,
       cursor_style = 1,
       application_cursor = false,
       application_keypad = false,
+      backarrow = false,
+      reverse_wrap = false,
       bracketed_paste = false,
       synchronized_output = false,
       mouse_tracking = "none",
@@ -121,12 +133,15 @@ function State.new(columns, rows, options)
       mouse_any = false,
       mouse_utf8 = false,
       mouse_sgr = false,
+      mouse_pixels = false,
       mouse_urxvt = false,
       mouse_protocol = "x10",
+      alternate_scroll = false,
       focus_reporting = false,
       mouse_generation = 0,
       keyboard_flags = 0,
     },
+    saved_private_modes = {},
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
     search = Search.new(),
@@ -904,6 +919,9 @@ function State:reverse_index()
 end
 
 function State:line_feed()
+  if self.modes.newline then
+    self:carriage_return()
+  end
   self:index_line()
 end
 
@@ -913,7 +931,37 @@ function State:carriage_return()
 end
 
 function State:backspace()
-  self:move_relative(0, -1)
+  local cursor = self.active_screen.cursor
+  local left, right = self:horizontal_margins()
+  if cursor.column < left then left = 0 end
+  local reverse_wrap = self.modes.autowrap and self.modes.reverse_wrap
+  local count = reverse_wrap and cursor.pending_wrap and 0 or 1
+  local column = cursor.column - count
+  if column >= left then
+    self:set_cursor(column, cursor.row)
+    return
+  end
+  if not reverse_wrap then
+    self:set_cursor(left, cursor.row)
+    return
+  end
+
+  if cursor.column == left
+    and self:cursor_within_horizontal_margins(cursor)
+    and cursor.row >= self.active_screen.top_margin
+    and cursor.row <= self.active_screen.bottom_margin
+    and cursor.row == self.active_screen.top_margin then
+    self:set_cursor(right, self.active_screen.bottom_margin)
+    return
+  end
+
+  local width = right - left + 1
+  local offset = width * cursor.row + column - left
+  if offset < 0 then
+    local length = width * self.rows
+    offset = offset + (math.floor((-offset) / length) + 1) * length
+  end
+  self:set_cursor((offset % width) + left, math.floor(offset / width))
 end
 
 function State:tab()
@@ -1196,13 +1244,16 @@ function State:repeat_last_print(count)
   return true
 end
 
-function State:erase_cell(column, row)
+function State:erase_cell(column, row, selective)
+  if selective and bit.band(self:get(column, row).flags, Attributes.flags.protected) ~= 0 then
+    return false
+  end
   self:clear_grapheme_context()
   self:clear_cluster_at(column, row)
   return self:set_cell(column, row, self:cell_from_attributes(" "))
 end
 
-function State:erase_in_line(mode)
+function State:erase_in_line(mode, selective)
   local cursor = self.active_screen.cursor
   local first, last = cursor.column, self.columns - 1
   if mode == 1 then
@@ -1211,17 +1262,17 @@ function State:erase_in_line(mode)
     first, last = 0, self.columns - 1
   end
   for column = first, last do
-    self:erase_cell(column, cursor.row)
+    self:erase_cell(column, cursor.row, selective)
   end
   cursor.pending_wrap = false
 end
 
-function State:erase_in_display(mode)
+function State:erase_in_display(mode, selective)
   local cursor = self.active_screen.cursor
   if mode == 2 or mode == 3 then
     for row = 0, self.rows - 1 do
       for column = 0, self.columns - 1 do
-        self:erase_cell(column, row)
+        self:erase_cell(column, row, selective)
       end
     end
     if mode == 3 and self.active_screen == self.primary then
@@ -1234,19 +1285,34 @@ function State:erase_in_display(mode)
     for row = 0, cursor.row do
       local last = row == cursor.row and cursor.column or self.columns - 1
       for column = 0, last do
-        self:erase_cell(column, row)
+        self:erase_cell(column, row, selective)
       end
     end
   else
     for row = cursor.row, self.rows - 1 do
       local first = row == cursor.row and cursor.column or 0
       for column = first, self.columns - 1 do
-        self:erase_cell(column, row)
+        self:erase_cell(column, row, selective)
       end
     end
   end
-  if mode == 2 or mode == 3 then self:clear_visible_kitty_placements() end
+  if not selective and (mode == 2 or mode == 3) then self:clear_visible_kitty_placements() end
   cursor.pending_wrap = false
+end
+
+function State:set_character_protection(action)
+  if #action.parameters > 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local mode = action.parameters[1] or 0
+  if mode == 0 or mode == 2 then
+    self.active_screen.attributes.protected = false
+  elseif mode == 1 then
+    self.active_screen.attributes.protected = true
+  else
+    self:record_unknown("csi", csi_detail(action))
+  end
 end
 
 function State:erase_characters(count)
@@ -1575,10 +1641,13 @@ function State:reset()
   self.modes.origin = false
   self.modes.left_right_margin = false
   self.modes.insert = false
+  self.modes.newline = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
   self.modes.application_cursor = false
   self.modes.application_keypad = false
+  self.modes.backarrow = false
+  self.modes.reverse_wrap = false
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
   self.modes.mouse_tracking = "none"
@@ -1588,11 +1657,14 @@ function State:reset()
   self.modes.mouse_any = false
   self.modes.mouse_utf8 = false
   self.modes.mouse_sgr = false
+  self.modes.mouse_pixels = false
   self.modes.mouse_urxvt = false
   self.modes.mouse_protocol = "x10"
+  self.modes.alternate_scroll = false
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self.modes.keyboard_flags = 0
+  self.saved_private_modes = {}
   self:reset_tab_stops()
   self.scrollback:clear()
   self.shell:clear()
@@ -1618,10 +1690,13 @@ function State:soft_reset()
   self.active_screen.keyboard_stack = {}
   self.modes.application_cursor = false
   self.modes.application_keypad = false
+  self.modes.backarrow = false
+  self.modes.reverse_wrap = false
   self.modes.autowrap = true
   self.modes.origin = false
   self.modes.left_right_margin = false
   self.modes.insert = false
+  self.modes.newline = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
   self.modes.bracketed_paste = false
@@ -1633,10 +1708,13 @@ function State:soft_reset()
   self.modes.mouse_any = false
   self.modes.mouse_utf8 = false
   self.modes.mouse_sgr = false
+  self.modes.mouse_pixels = false
   self.modes.mouse_urxvt = false
   self.modes.mouse_protocol = "x10"
+  self.modes.alternate_scroll = false
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
+  self.saved_private_modes = {}
   self.active_screen.top_margin = 0
   self.active_screen.bottom_margin = self.rows - 1
   self:reset_horizontal_margins(self.primary)
@@ -1881,6 +1959,13 @@ function State:mark_all_dirty()
   self.text_damage:mark_all()
 end
 
+function State:set_cell_metrics(width, height)
+  assert(valid_cell_metric(width), "terminal cell width must be a positive integer no greater than 65535")
+  assert(valid_cell_metric(height), "terminal cell height must be a positive integer no greater than 65535")
+  self.cell_width = width
+  self.cell_height = height
+end
+
 local function parameter(parameters, index, fallback)
   local value = parameters[index]
   if value == nil or value == 0 then
@@ -2020,6 +2105,10 @@ function State:apply_private_mode(parameters, enabled)
     elseif mode == 7 then
       self.modes.autowrap = enabled
       self.active_screen.cursor.pending_wrap = false
+    elseif mode == 45 then
+      self.modes.reverse_wrap = enabled
+    elseif mode == 67 then
+      self.modes.backarrow = enabled
     elseif mode == 69 then
       self.modes.left_right_margin = enabled
       if not enabled then
@@ -2055,15 +2144,57 @@ function State:apply_private_mode(parameters, enabled)
       self:set_mouse_tracking("any", enabled)
     elseif mode == 1004 then
       self:set_focus_reporting(enabled)
+    elseif mode == 1007 then
+      self.modes.alternate_scroll = enabled
     elseif mode == 1006 then
       self:set_mouse_encoding("sgr", enabled)
     elseif mode == 1005 then
       self:set_mouse_encoding("utf8", enabled)
     elseif mode == 1015 then
       self:set_mouse_encoding("urxvt", enabled)
+    elseif mode == 1016 then
+      self:set_mouse_encoding("pixels", enabled)
     else
       self:record_unknown("csi", { private = "?", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
+  end
+end
+
+function State:restorable_private_mode_value(mode)
+  local modes = self.modes
+  if mode == 1 then return modes.application_cursor
+  elseif mode == 6 then return modes.origin
+  elseif mode == 7 then return modes.autowrap
+  elseif mode == 25 then return modes.cursor_visible
+  elseif mode == 45 then return modes.reverse_wrap
+  elseif mode == 67 then return modes.backarrow
+  elseif mode == 69 then return modes.left_right_margin
+  elseif mode == 1004 then return modes.focus_reporting
+  elseif mode == 1007 then return modes.alternate_scroll
+  elseif mode == 2004 then return modes.bracketed_paste
+  elseif mode == 2026 then return modes.synchronized_output
+  end
+end
+
+function State:save_private_modes(parameters, action)
+  for _, mode in ipairs(parameters) do
+    local value = self:restorable_private_mode_value(mode)
+    if value == nil then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    self.saved_private_modes[mode] = value
+  end
+end
+
+function State:restore_private_modes(parameters, action)
+  for _, mode in ipairs(parameters) do
+    if self:restorable_private_mode_value(mode) == nil then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    local saved = self.saved_private_modes[mode]
+    if saved ~= nil then self:apply_private_mode({ mode }, saved) end
   end
 end
 
@@ -2094,10 +2225,12 @@ function State:set_mouse_encoding(encoding, enabled)
   if enabled then
     self.modes.mouse_utf8 = false
     self.modes.mouse_sgr = false
+    self.modes.mouse_pixels = false
     self.modes.mouse_urxvt = false
   end
   self.modes[field] = enabled
-  self.modes.mouse_protocol = self.modes.mouse_sgr and "sgr"
+  self.modes.mouse_protocol = self.modes.mouse_pixels and "sgr-pixels"
+    or self.modes.mouse_sgr and "sgr"
     or self.modes.mouse_urxvt and "urxvt"
     or self.modes.mouse_utf8 and "utf8"
     or "x10"
@@ -2106,6 +2239,22 @@ end
 
 function State:set_focus_reporting(enabled)
   self.modes.focus_reporting = enabled
+end
+
+function State:input_modes()
+  local modes = self.modes
+  return {
+    alternate_screen = self.active_screen == self.alternate,
+    alternate_scroll = modes.alternate_scroll == true,
+    application_cursor = modes.application_cursor == true,
+    application_keypad = modes.application_keypad == true,
+    backarrow = modes.backarrow == true,
+    bracketed_paste = modes.bracketed_paste == true,
+    focus_reporting = modes.focus_reporting == true,
+    keyboard_flags = modes.keyboard_flags,
+    mouse_protocol = modes.mouse_protocol,
+    mouse_tracking = modes.mouse_tracking,
+  }
 end
 
 function State:sync_keyboard_flags()
@@ -2123,15 +2272,19 @@ function State:apply_keyboard_flags(flags, mode)
     return
   end
   flags = bit.band(flags, State.keyboard_supported_flags)
+  local next_flags
   if mode == 1 then
-    self:set_keyboard_flags(flags)
+    next_flags = flags
   elseif mode == 2 then
-    self:set_keyboard_flags(bit.bor(self.active_screen.keyboard_flags, flags))
+    next_flags = bit.bor(self.active_screen.keyboard_flags, flags)
   elseif mode == 3 then
-    self:set_keyboard_flags(bit.band(self.active_screen.keyboard_flags, bit.bnot(flags)))
+    next_flags = bit.band(self.active_screen.keyboard_flags, bit.bnot(flags))
   elseif mode ~= 2 and mode ~= 3 then
     self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
+    return
   end
+  if bit.band(next_flags, 16) ~= 0 and bit.band(next_flags, 8) == 0 then next_flags = bit.band(next_flags, bit.bnot(16)) end
+  self:set_keyboard_flags(next_flags)
 end
 
 function State:apply_keyboard_protocol(action)
@@ -2199,6 +2352,8 @@ function State:apply_standard_mode(parameters, enabled)
   for _, mode in ipairs(parameters) do
     if mode == 4 then
       self.modes.insert = enabled
+    elseif mode == 20 then
+      self.modes.newline = enabled
     else
       self:record_unknown("csi", { private = "", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
@@ -2208,7 +2363,13 @@ end
 function State:mode_status(private, mode)
   local enabled
   if private == "" then
-    if mode == 4 then enabled = self.modes.insert else return 0 end
+    if mode == 4 then
+      enabled = self.modes.insert
+    elseif mode == 20 then
+      enabled = self.modes.newline
+    else
+      return 0
+    end
   elseif private == "?" then
     local modes = self.modes
     if mode == 1 then
@@ -2217,6 +2378,10 @@ function State:mode_status(private, mode)
       enabled = modes.origin
     elseif mode == 7 then
       enabled = modes.autowrap
+    elseif mode == 45 then
+      enabled = modes.reverse_wrap
+    elseif mode == 67 then
+      enabled = modes.backarrow
     elseif mode == 69 then
       enabled = modes.left_right_margin
     elseif mode == 25 then
@@ -2233,12 +2398,16 @@ function State:mode_status(private, mode)
       enabled = modes.mouse_any
     elseif mode == 1004 then
       enabled = modes.focus_reporting
+    elseif mode == 1007 then
+      enabled = modes.alternate_scroll
     elseif mode == 1006 then
       enabled = modes.mouse_sgr
     elseif mode == 1005 then
       enabled = modes.mouse_utf8
     elseif mode == 1015 then
       enabled = modes.mouse_urxvt
+    elseif mode == 1016 then
+      enabled = modes.mouse_pixels
     elseif mode == 2004 then
       enabled = modes.bracketed_paste
     elseif mode == 2026 then
@@ -2260,6 +2429,47 @@ function State:report_mode(private, parameters, action)
   local mode = parameters[1] or 0
   local status = self:mode_status(private, mode)
   self:respond(string.format("\27[%s%d;%d$y", private, mode, status))
+end
+
+function State:report_window_operation(parameters, action)
+  if #parameters ~= 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local operation = parameters[1]
+  if operation == 18 then
+    self:respond(string.format("\27[8;%d;%dt", self.rows, self.columns))
+  elseif operation == 14 and self.cell_width ~= nil then
+    self:respond(string.format("\27[4;%d;%dt", self.rows * self.cell_height, self.columns * self.cell_width))
+  elseif operation == 16 and self.cell_width ~= nil then
+    self:respond(string.format("\27[6;%d;%dt", self.cell_height, self.cell_width))
+  else
+    self:record_unknown("csi", csi_detail(action))
+  end
+end
+
+function State:report_device_attributes(action)
+  if action.intermediates ~= "" then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  if action.private == "" then
+    if #action.parameters == 0 or (#action.parameters == 1 and action.parameters[1] == 0) then
+      self:respond("\27[?1;0c")
+    else
+      self:record_unknown("csi", csi_detail(action))
+    end
+  elseif action.private == ">" then
+    if #action.parameters == 0 or (#action.parameters == 1 and action.parameters[1] == 0) then
+      -- Identify a minimal VT100-compatible device without claiming xterm,
+      -- graphics, or any feature that Kiwi does not implement.
+      self:respond("\27[>0;1;0c")
+    else
+      self:record_unknown("csi", csi_detail(action))
+    end
+  else
+    self:record_unknown("csi", csi_detail(action))
+  end
 end
 
 function State:apply_csi(action)
@@ -2286,11 +2496,39 @@ function State:apply_csi(action)
     self:set_cursor_style(action)
     return
   end
+  if action.private == "" and action.intermediates == "\"" and final == "q" then
+    self:set_character_protection(action)
+    return
+  end
   if action.private == "!" and action.intermediates == "" and final == "p" then
     if #parameters == 0 then
       self:soft_reset()
     else
       self:record_unknown("csi", csi_detail(action))
+    end
+    return
+  end
+  if final == "c" then
+    self:report_device_attributes(action)
+    return
+  end
+  if action.private == "?" and action.intermediates == "" and (final == "J" or final == "K") then
+    if final == "J" and parameters[1] == 3 then
+      self:record_unknown("csi", csi_detail(action))
+      return
+    end
+    if final == "J" then
+      self:erase_in_display(parameters[1] or 0, true)
+    else
+      self:erase_in_line(parameters[1] or 0, true)
+    end
+    return
+  end
+  if action.private == "?" and action.intermediates == "" and (final == "s" or final == "r") then
+    if final == "s" then
+      self:save_private_modes(parameters, action)
+    else
+      self:restore_private_modes(parameters, action)
     end
     return
   end
@@ -2386,8 +2624,8 @@ function State:apply_csi(action)
     else
       self:record_unknown("csi", csi_detail(action))
     end
-  elseif final == "c" then
-    self:respond("\27[?1;0c")
+  elseif final == "t" then
+    self:report_window_operation(parameters, action)
   else
     self:record_unknown("csi", csi_detail(action))
   end
@@ -2404,6 +2642,10 @@ function State:apply_dcs(action)
     response = string.format("%d;%ds", self.active_screen.left_margin + 1, self.active_screen.right_margin + 1)
   elseif payload == " q" then
     response = string.format("%d q", self.modes.cursor_style)
+  elseif payload == "\"q" then
+    response = string.format("%d\"q", self.active_screen.attributes.protected and 1 or 0)
+  elseif payload == "t" then
+    response = string.format("%dt", self.rows)
   end
   if response then
     self:respond("\27P1$r" .. response .. "\27\\")

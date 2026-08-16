@@ -8,7 +8,7 @@ return {
   end,
   parser_fuzz_runs_saved_corpus_and_seeded_cases = function()
     local result = Fuzz.run({ seed = 17, cases = 3, maximum_bytes = 48 })
-    Assert.equal(result.corpus, 5)
+    Assert.equal(result.corpus, 6)
     Assert.equal(result.cases, 3)
     Assert.equal(result.seed, 17)
     Assert.equal(result.maximum_bytes, 48)

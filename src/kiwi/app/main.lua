@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local AtspiProjection = require("kiwi.accessibility.atspi")
 local bit = require("bit")
 local Build = require("kiwi.build")
 local Recovery = require("kiwi.gpu.recovery")
@@ -27,7 +28,9 @@ local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 local VT = require("kiwi.vt")
+local VTInternal = require("kiwi.vt.internal")
 local Window = require("kiwi.platform.window")
+local NativeAccessibility = require("kiwi.ffi.accessibility")
 local glfw = require("kiwi.ffi.glfw").constants
 
 local function number_from_env(name, fallback)
@@ -183,6 +186,7 @@ local function run_live(options)
   local pty
   local recorder
   local terminal
+  local accessibility
   local workspace
   local pane_entries = {}
   local pane_layouts = {}
@@ -209,6 +213,8 @@ local function run_live(options)
         scrollback_limit = configuration.scrollback_limit,
         ambiguous_width = configuration.ambiguous_width,
         osc52_write = configuration.osc52_write,
+        cell_width = font.cell_width,
+        cell_height = font.cell_height,
         colors = {
           foreground = configuration.foreground,
           background = configuration.background,
@@ -216,7 +222,7 @@ local function run_live(options)
         },
       },
     })
-    local state = terminal.state
+    local state = VTInternal.state(terminal)
     local root = os.getenv("KIWI_ROOT") or "."
     local terminfo_directory = os.getenv("KIWI_TERMINFO") or root .. "/.build/terminfo"
     local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
@@ -238,7 +244,7 @@ local function run_live(options)
     end
     local render_options = renderer_options(options, configuration)
     pty = spawn_child(options.command, columns, rows)
-    local parser = terminal.parser
+    local parser = VTInternal.parser(terminal)
     if options.record then
       recorder = Replay.Recorder.new(options.record)
       recorder:resize(columns, rows)
@@ -297,7 +303,7 @@ local function run_live(options)
     local function bind_active_session(session)
       active_session = session
       terminal = session.terminal
-      state = terminal.state
+      state = VTInternal.state(terminal)
       pty = session.pty
       renderer = session.renderer
       metrics = session.metrics
@@ -309,7 +315,7 @@ local function run_live(options)
 
     local function rebuild_session_renderer(session)
       if session.renderer then session.renderer:destroy() end
-      session.renderer = Renderer.new(context, font, session.terminal.state, render_options)
+      session.renderer = Renderer.new(context, font, VTInternal.state(session.terminal), render_options)
       session.renderer:invalidate("configuration")
       if session == active_session then renderer = session.renderer end
     end
@@ -326,7 +332,8 @@ local function run_live(options)
       for _, placement in ipairs(layout) do
         local pane = assert(workspace.panes[placement.pane_id], "workspace layout references an unknown pane")
         local session = pane.session
-        local session_state = session.terminal.state
+        local session_state = VTInternal.state(session.terminal)
+        session.terminal:set_cell_metrics(font.cell_width, font.cell_height)
         if session_state.columns ~= placement.width or session_state.rows ~= placement.height then
           if session.renderer then
             session.renderer:destroy()
@@ -339,7 +346,7 @@ local function run_live(options)
         if session.renderer == nil then rebuild_session_renderer(session) end
         local viewport = Compositor.viewport(placement, font.cell_width, font.cell_height)
         pane_layouts[pane.id] = { grid = placement, viewport = viewport }
-        pane_entries[#pane_entries + 1] = { model = session.terminal.state, renderer = session.renderer, viewport = viewport }
+        pane_entries[#pane_entries + 1] = { model = VTInternal.state(session.terminal), renderer = session.renderer, viewport = viewport }
       end
       local active_pane = assert(workspace:active_pane(), "workspace has no active pane")
       bind_active_session(active_pane.session)
@@ -363,6 +370,8 @@ local function run_live(options)
           scrollback_limit = configuration.scrollback_limit,
           ambiguous_width = configuration.ambiguous_width,
           osc52_write = configuration.osc52_write,
+          cell_width = font.cell_width,
+          cell_height = font.cell_height,
           colors = {
             foreground = configuration.foreground,
             background = configuration.background,
@@ -370,11 +379,11 @@ local function run_live(options)
           },
         },
       })
-      local new_state = new_terminal.state
+      local new_state = VTInternal.state(new_terminal)
       local new_pty = spawn_child(options.command, columns, rows)
       local new_recovery = Recovery.new()
       return {
-        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = new_terminal.parser, recovery = new_recovery }),
+        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = VTInternal.parser(new_terminal), recovery = new_recovery }),
         mouse = Mouse.new(),
         mouse_generation = new_state.modes.mouse_generation,
         pty = new_pty,
@@ -452,6 +461,29 @@ local function run_live(options)
     assert(refresh_workspace_layout())
     if options.workspace_smoke then assert(create_split("vertical")) end
 
+    local accessibility_projection = AtspiProjection.new()
+    local window_focused = true
+    local accessibility_reason
+    accessibility, accessibility_reason = NativeAccessibility.new()
+    if accessibility == nil and os.getenv("KIWI_ACCESSIBILITY_DIAGNOSTICS") == "1" then
+      io.stderr:write("Kiwi accessibility: unavailable: ", accessibility_reason, "\n")
+    end
+
+    local function sync_accessibility()
+      if accessibility == nil then return end
+      local projection = accessibility_projection:project(VTInternal.state(active_session.terminal))
+      local updated, reason = accessibility:update(projection, last_title or default_title, window_focused)
+      if updated then
+        accessibility:poll()
+        return
+      end
+      accessibility:destroy()
+      accessibility = nil
+      if os.getenv("KIWI_ACCESSIBILITY_DIAGNOSTICS") == "1" then
+        io.stderr:write("Kiwi accessibility: disabled after provider failure: ", reason, "\n")
+      end
+    end
+
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
@@ -467,12 +499,12 @@ local function run_live(options)
       configuration_path = path
       render_options = renderer_options(options, configuration)
       for _, pane in pairs(workspace.panes) do
-        pane.session.terminal.state:configure_palette({
+        VTInternal.state(pane.session.terminal):configure_palette({
           foreground = configuration.foreground,
           background = configuration.background,
           palette = configuration.palette,
         })
-        pane.session.terminal.state:configure_osc52_write(configuration.osc52_write)
+        VTInternal.state(pane.session.terminal):configure_osc52_write(configuration.osc52_write)
       end
       if font_changed then
         font = candidate_font
@@ -484,7 +516,7 @@ local function run_live(options)
           session.renderer:destroy()
           session.renderer = nil
         end
-        session.terminal.state:mark_all_dirty()
+        VTInternal.state(session.terminal):mark_all_dirty()
       end
       local refreshed, reason = refresh_workspace_layout()
       if not refreshed then return nil, reason end
@@ -631,11 +663,21 @@ local function run_live(options)
       if pane == nil or placement == nil then return nil end
       event.x = event.x - placement.x * font.cell_width / (font.content_scale or 1)
       event.y = event.y - placement.y * font.cell_height / (font.content_scale or 1)
+      local scale = font.content_scale or 1
+      local pixel_width = math.max(1, math.floor(placement.width * font.cell_width + 0.5))
+      local pixel_height = math.max(1, math.floor(placement.height * font.cell_height + 0.5))
+      event.pixel_x = math.max(1, math.min(pixel_width, math.floor(event.x * scale) + 1))
+      event.pixel_y = math.max(1, math.min(pixel_height, math.floor(event.y * scale) + 1))
       return pane
     end
 
-    window:set_input_handlers(function(codepoint)
-      local text = Keyboard.text(codepoint, state.modes)
+    window:set_input_handlers(function(codepoints, key_event)
+      if key_event then
+        local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, { associated_text = codepoints })
+        if encoded and encoded.bytes then enqueue_input(encoded.bytes) end
+        return
+      end
+      local text = Keyboard.text_sequence(codepoints, state.modes)
       if text then
         local search = state:search_view()
         if search.editing and search.visible then
@@ -657,6 +699,9 @@ local function run_live(options)
       if handle_search_key(key, action) then
         renderer:invalidate("search")
         return { handled = true, suppress_text = true }
+      end
+      if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw) then
+        return { handled = true, defer_text = true }
       end
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
       if not encoded then
@@ -717,17 +762,18 @@ local function run_live(options)
       if selection_changed then renderer:invalidate("selection") end
       local encoded
       if not hyperlink_handled and not selection_handled and event.kind == "button" then
-        encoded = mouse:button(event, state.modes)
+        encoded = mouse:button(event, state:input_modes())
       elseif not hyperlink_handled and not selection_handled and event.kind == "motion" then
-        encoded = mouse:motion(event, state.modes)
+        encoded = mouse:motion(event, state:input_modes())
       elseif not hyperlink_handled and not selection_handled and event.kind == "wheel" then
-        encoded = mouse:wheel(event, state.modes)
+        encoded = mouse:wheel(event, state:input_modes())
       end
       if encoded then enqueue_input(encoded) end
       if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
     end, function(focused)
+      window_focused = focused
       if not focused then selection_pointer:reset() end
-      local encoded = mouse:focus(focused, state.modes)
+      local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
 
@@ -775,10 +821,10 @@ local function run_live(options)
             if recorder then recorder:output(output) end
           end
           session.terminal:write(output)
-          if session.terminal.state.modes.mouse_generation ~= session.mouse_generation then
+          if VTInternal.state(session.terminal).modes.mouse_generation ~= session.mouse_generation then
             session.mouse:reset()
             session.selection_pointer:reset()
-            session.mouse_generation = session.terminal.state.modes.mouse_generation
+            session.mouse_generation = VTInternal.state(session.terminal).modes.mouse_generation
             if session == active_session then mouse_generation = session.mouse_generation end
           end
           if session.renderer then session.renderer:invalidate("terminal") end
@@ -796,6 +842,7 @@ local function run_live(options)
       end
       local child_status = active_session.child_status
       update_search_title()
+      sync_accessibility()
 
       for _, entry in ipairs(pane_entries) do
         if entry.model.kitty_graphics:advance(now) then entry.renderer:invalidate("kitty_images") end
@@ -909,6 +956,10 @@ local function run_live(options)
     pty = nil
     terminal = nil
     renderer = nil
+  end
+  if accessibility then
+    accessibility:destroy()
+    accessibility = nil
   end
   if pty then pty:shutdown() end
   if terminal then terminal:close() end

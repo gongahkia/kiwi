@@ -10,7 +10,9 @@ return {
     terminal:write("ok")
     local projection = Headless.render_terminal(terminal, { trim_trailing = true })
     Assert.equal(projection.text, "ok")
-    Assert.equal(terminal.state.damage.dirty_count > 0, true)
+    local view = terminal:begin_render_update()
+    Assert.equal(view.damage.cells > 0, true)
+    terminal:end_render_update(false)
   end,
   libkiwi_vt_headless_projection_uses_cluster_anchors_and_explicit_damage_acknowledgement = function()
     local terminal = VT.new({ columns = 5, rows = 2 })
@@ -19,7 +21,9 @@ return {
     Assert.equal(projection.lines[1], "A界B")
     Assert.equal(projection.lines[2], "")
     Assert.equal(projection.cursor.column, 4)
-    Assert.equal(terminal.state.damage.dirty_count, 0)
+    local view = terminal:begin_render_update()
+    Assert.equal(view.damage.cells, 0)
+    terminal:end_render_update(false)
   end,
   libkiwi_vt_headless_consumer_keeps_terminal_effects_in_the_host_boundary = function()
     local terminal = VT.new({ columns = 2, rows = 1 })

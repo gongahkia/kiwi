@@ -16,4 +16,10 @@ The selection model is already grapheme-safe and stable across bounded primary s
 
 ## Consequences
 
-The feature changes model state only. It has no selection highlight, clipboard transfer, hyperlink action, IME integration, replay event format, or accessibility export. Rendering is owned by the later selection-rendering milestone; clipboard behavior remains governed by ADR 0020. Tests cover scaled/clamped coordinates, forward and reverse wide-cell drags, double/triple expansion, scrollback/resize behavior, and application-mouse precedence.
+The gesture updates terminal selection state. The later renderer draws that
+state, the clipboard layer reconstructs a bounded copy, and the Linux AT-SPI
+provider projects its endpoints as read-only character offsets. It has no
+hyperlink action, IME integration, or replay event format. Clipboard behavior
+remains governed by ADR 0020. Tests cover scaled/clamped coordinates, forward
+and reverse wide-cell drags, double/triple expansion, scrollback/resize
+behavior, and application-mouse precedence.

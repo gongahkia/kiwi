@@ -51,7 +51,7 @@ terminal sessions. A remote or malformed URI cannot cause local file access or
 an external action because it remains terminal-state data only.
 
 The deterministic fixture uses OSC 7 and the OSC 133 A/B/C/D sequence emitted
-by common bash, zsh, and fish integrations, with both BEL and ST termination.
+by common bash, zsh, fish, and Nushell integrations, with both BEL and ST termination.
 Unit tests cover rejected schemes/forms, unknown markers, repeated/bounded
 records, reset, text non-mutation, and record/replay snapshot equivalence.
 A native record/replay exercise may validate parser/state handling but is not

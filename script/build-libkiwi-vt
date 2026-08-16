@@ -1,0 +1,37 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly VERSION=$(<"$ROOT/VERSION")
+readonly OUTPUT="$ROOT/.build/libkiwi-vt"
+typeset -a link_flags
+link_flags=()
+
+# Downstream packagers may embed the LuaJIT runtime location in the loader
+# search path. The default remains the system loader path used by the
+# standalone SDK archive.
+if [[ -n ${KIWI_VT_LUAJIT_RPATH:-} ]]; then
+  link_flags+=("-Wl,-rpath,$KIWI_VT_LUAJIT_RPATH")
+fi
+
+mkdir -p "$OUTPUT/include/kiwi" "$OUTPUT/lib" "$OUTPUT/lua/kiwi/input" "$OUTPUT/lua/kiwi/terminal" "$OUTPUT/lua/kiwi/unicode" "$OUTPUT/lua/kiwi/vt"
+cp "$ROOT/include/kiwi/vt.h" "$OUTPUT/include/kiwi/vt.h"
+for module in actions attributes base64 color command_regions damage hyperlink kitty_graphics kitty_placements parser reflow screen scrollback shell_integration state utf8 width; do
+  cp "$ROOT/src/kiwi/terminal/$module.lua" "$OUTPUT/lua/kiwi/terminal/$module.lua"
+done
+for module in generated grapheme properties; do
+  cp "$ROOT/src/kiwi/unicode/$module.lua" "$OUTPUT/lua/kiwi/unicode/$module.lua"
+done
+for module in keyboard mouse search selection; do
+  cp "$ROOT/src/kiwi/input/$module.lua" "$OUTPUT/lua/kiwi/input/$module.lua"
+done
+for module in demo headless init input render_state terminal; do
+  cp "$ROOT/src/kiwi/vt/$module.lua" "$OUTPUT/lua/kiwi/vt/$module.lua"
+done
+
+cc -std=c17 -fPIC -shared -Wall -Wextra -Werror -DKIWI_VT_BUILD \
+  -I"$ROOT/include" \
+  -DKIWI_VT_VERSION=\""$VERSION"\" \
+  "$ROOT/native/vt.c" -ldl "${link_flags[@]}" -o "$OUTPUT/lib/libkiwi_vt.so"
+
+print "Built $OUTPUT/lib/libkiwi_vt.so"

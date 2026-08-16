@@ -9,6 +9,7 @@ From a clean checkout with flakes enabled:
 
 ```sh
 nix build .#kiwi
+nix build .#libkiwi-vt
 nix flake check
 nix develop
 make check
@@ -19,6 +20,15 @@ local support data with `result/bin/kiwi doctor`. To install it into a user
 profile, use `nix profile install .#kiwi`. The package forces the same release
 mode as `make release`: development shader reload, renderer instrumentation,
 and debug shortcuts remain disabled by default.
+
+`nix build .#libkiwi-vt` produces the experimental Linux x86_64 C/Lua terminal
+SDK. Its public header and `lib/libkiwi_vt.so` are paired with the exact Lua
+core under `result/lua`; the library's loader search path is set to the pinned
+LuaJIT runtime. The example C consumer and API contract are installed under
+`result/share/doc/libkiwi-vt`. This is still experimental API v1, not a
+system-wide ABI compatibility promise. `nix flake check` compiles and runs the
+Lua and C consumers from the derivation; the source-checkout command
+`make libkiwi-vt-check` additionally proves the tarball is byte reproducible.
 
 The dev shell includes the LuaJIT, compiler, `pkg-config`, terminfo, GLFW,
 FreeType, HarfBuzz, Fontconfig, giflib, libpng, Vulkan-loader, and archive tools used by

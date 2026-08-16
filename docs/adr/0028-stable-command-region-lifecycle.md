@@ -64,7 +64,7 @@ renderer-owned lifecycle inference. The deterministic suite covers ordinary
 A/B/C/D, missing/out-of-order markers, repeats, scope changes, bounds, reset,
 fixture chunking, and snapshot privacy. The noninteractive repository sample
 exercises Kiwi's native PTY/parser/replay path; it does not certify a user's
-bash, zsh, or fish configuration. This environment's packaged defaults contain
+bash, zsh, fish, or Nushell configuration. This environment's packaged defaults contain
 no configured OSC 133 integration stream to capture without changing user
 shell state.
 

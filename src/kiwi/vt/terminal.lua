@@ -39,9 +39,9 @@ function Terminal.new(options)
   state_options.effect_sink = function(kind, value)
     self:emit_effect(kind, value)
   end
-  self.state = State.new(options.columns, options.rows, state_options)
-  self.parser = Parser.new(self.state, options.parser_options)
-  self.render_state = RenderState.new(self.state)
+  self._state = State.new(options.columns, options.rows, state_options)
+  self._parser = Parser.new(self._state, options.parser_options)
+  self._render_state = RenderState.new(self._state)
   return self
 end
 
@@ -70,7 +70,7 @@ function Terminal:write(bytes)
   assert(type(bytes) == "string", "terminal input must be a byte string")
   self.in_write = true
   local ok, result = xpcall(function()
-    self.parser:feed(bytes)
+    self._parser:feed(bytes)
     return #bytes
   end, debug.traceback)
   self.in_write = false
@@ -84,7 +84,7 @@ function Terminal:finish()
   assert(not self.in_write, "terminal effect callbacks must not finish the same terminal")
   self.in_write = true
   local ok, result = xpcall(function()
-    self.parser:finish()
+    self._parser:finish()
   end, debug.traceback)
   self.in_write = false
   if not ok then error(result, 0) end
@@ -96,7 +96,13 @@ function Terminal:resize(columns, rows, options)
   assert(not self.in_update, "cannot resize terminal during a render-state update")
   validate_dimension(columns, "terminal columns")
   validate_dimension(rows, "terminal rows")
-  self.state:resize(columns, rows, options)
+  self._state:resize(columns, rows, options)
+end
+
+function Terminal:set_cell_metrics(width, height)
+  self:assert_open()
+  assert(not self.in_update, "cannot change terminal cell metrics during a render-state update")
+  self._state:set_cell_metrics(width, height)
 end
 
 function Terminal:begin_render_update()
@@ -104,13 +110,13 @@ function Terminal:begin_render_update()
   assert(not self.in_write, "cannot begin a render-state update during terminal processing")
   assert(not self.in_update, "render-state update is already active")
   self.in_update = true
-  return self.render_state:begin_update()
+  return self._render_state:begin_update()
 end
 
 function Terminal:end_render_update(consumed)
   self:assert_open()
   assert(self.in_update, "render-state update is not active")
-  self.render_state:end_update(consumed == true)
+  self._render_state:end_update(consumed == true)
   self.in_update = false
 end
 
@@ -118,6 +124,16 @@ function Terminal:pop_responses()
   local responses = self.responses
   self.responses = {}
   return responses
+end
+
+function Terminal:pop_response()
+  if #self.responses == 0 then return nil end
+  return table.remove(self.responses, 1)
+end
+
+function Terminal:pop_effect()
+  if #self.effects == 0 then return nil end
+  return table.remove(self.effects, 1)
 end
 
 function Terminal:pop_effects()
@@ -133,6 +149,7 @@ function Terminal:diagnostics()
     api_version = Terminal.api_version,
     effect_errors = errors,
     effects_pending = #self.effects,
+    parser_errors = self._parser.stats.errors,
     responses_pending = #self.responses,
   }
 end

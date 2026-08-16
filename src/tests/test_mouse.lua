@@ -18,6 +18,8 @@ return {
     mouse:button({ button = 1, action = "release", column = 5, row = 2, modifiers = 0 }, modes("button"))
     Assert.equal(mouse:motion({ column = 6, row = 2, modifiers = 0x0004 }, modes("any")), "\27[<43;6;2M")
     Assert.equal(mouse:wheel({ delta = -2, column = 6, row = 2, modifiers = 0x0002 }, modes()), "\27[<81;6;2M\27[<81;6;2M")
+    Assert.equal(mouse:wheel({ horizontal_delta = 2, column = 6, row = 2, modifiers = 0x0002 }, modes()), "\27[<82;6;2M\27[<82;6;2M")
+    Assert.equal(mouse:wheel({ delta = 1, horizontal_delta = -1, column = 6, row = 2 }, modes()), "\27[<64;6;2M\27[<67;6;2M")
     Assert.equal(mouse:wheel({ delta = 0 / 0, column = 6, row = 2 }, modes()), nil)
   end,
   mouse_reports_the_declared_tracking_and_encoding_surface = function()
@@ -37,6 +39,25 @@ return {
     Assert.equal(mouse:button({ button = 1, action = "press", column = 300, row = 400 }, modes("normal", "urxvt")), "\27[34;300;400M")
     Assert.equal(mouse:button({ button = 0, action = "press", column = 224, row = 1 }, modes("normal", "x10")), nil)
     Assert.equal(mouse:button({ button = 0, action = "press", column = 2016, row = 1 }, modes("normal", "utf8")), nil)
+  end,
+  mouse_encodes_sgr_pixels_from_an_explicit_physical_pointer_position = function()
+    local mouse = Mouse.new()
+    local pixels = modes("normal", "sgr-pixels")
+    Assert.equal(mouse:button({ button = 0, action = "press", column = 4, row = 2, pixel_x = 14, pixel_y = 22, modifiers = 0x0001 }, pixels), "\27[<4;14;22M")
+    Assert.equal(mouse:button({ button = 0, action = "release", pixel_x = 14, pixel_y = 22, modifiers = 0x0001 }, pixels), "\27[<4;14;22m")
+    Assert.equal(mouse:button({ button = 0, action = "press", pixel_x = 0, pixel_y = 22 }, pixels), nil)
+    mouse:button({ button = 1, action = "press", pixel_x = 14, pixel_y = 22 }, modes("button", "sgr-pixels"))
+    Assert.equal(mouse:motion({ pixel_x = 15, pixel_y = 22 }, modes("button", "sgr-pixels")), "\27[<34;15;22M")
+    Assert.equal(mouse:wheel({ delta = 1, pixel_x = 15, pixel_y = 22 }, pixels), "\27[<64;15;22M")
+  end,
+  mouse_alternate_scroll_uses_cursor_controls_only_without_application_mouse_reporting = function()
+    local mouse = Mouse.new()
+    local alternate = { alternate_screen = true, alternate_scroll = true, mouse_tracking = "none" }
+    Assert.equal(mouse:wheel({ delta = 2 }, alternate), "\27[A\27[A")
+    Assert.equal(mouse:wheel({ delta = -1 }, alternate), "\27[B")
+    Assert.equal(mouse:wheel({ horizontal_delta = 1 }, alternate), nil)
+    Assert.equal(mouse:wheel({ delta = 1 }, { alternate_screen = false, alternate_scroll = true, mouse_tracking = "none" }), nil)
+    Assert.equal(mouse:wheel({ delta = 1, column = 1, row = 1 }, { alternate_screen = true, alternate_scroll = true, mouse_tracking = "normal", mouse_protocol = "sgr" }), "\27[<64;1;1M")
   end,
   mouse_encodes_focus_only_when_requested = function()
     local mouse = Mouse.new()

@@ -18,9 +18,9 @@ make terminfo
 TERMINFO="$PWD/.build/terminfo" infocmp kiwi
 ```
 
-The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, DEC Special Graphics line drawing, basic SGR, and application cursor keys. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
+The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, DEC Special Graphics line drawing, basic SGR, and application cursor/keypad input. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
-M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap, bounded primary scrollback, legacy keyboard encoding plus the negotiated Kitty disambiguation subset, PTY resize propagation, DSR/DA replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16, PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 ## Fedora prerequisites
 
@@ -28,7 +28,7 @@ Kiwi currently supports Linux x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glib2-devel glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
@@ -58,7 +58,7 @@ tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
 ```
 
-The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLFW,
+The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLib/GIO, GLFW,
 FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and the normal
 display-server runtime. `kiwi --version` reports the artifact version and
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
@@ -66,6 +66,14 @@ shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
 renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
 publish a GitHub release or claim portability beyond the documented Linux
 environment.
+
+`make libkiwi-vt` separately produces the reproducible, renderer-free
+`libkiwi-vt` SDK described in [docs/LIBKIWI.md](docs/LIBKIWI.md). It contains
+the experimental LuaJIT core and a narrow Linux x86_64 C shared library for
+byte input, resize, logical-text projection, logical cell/grid render updates,
+terminal-mode-aware text/key/mouse/focus/paste encoding, and queued terminal
+responses/effects. It is pre-1.0 and makes no ABI-stability claim.
+Nix users can build the same SDK surface with `nix build .#libkiwi-vt`.
 
 Nix users can build the pinned Linux x86_64 package with `nix build .#kiwi`,
 enter the matching development environment with `nix develop`, and run the
@@ -97,12 +105,16 @@ make test-pty                          # deterministic real-PTY integration test
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
+make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
+make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C consumer, and media-boundary check
 make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
+make accessibility-smoke                # semantic accessibility checks plus local AT-SPI availability report
+make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; skips without a desktop registry
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -176,8 +188,8 @@ intermediate terminal presentation until `CSI ? 2026 l` or RIS; neither mode
 is advertised through terminfo.
 
 X10/normal/button/any mouse tracking (9/1000/1002/1003), X10, UTF-8 (1005),
-URXVT (1015), and SGR (1006) coordinate encodings, plus focus reporting
-(1004), are supported with exact scope and local-selection precedence in the
+URXVT (1015), SGR-cell (1006), and SGR-pixel (1016) coordinate encodings,
+plus focus reporting (1004), are supported with exact scope and local-selection precedence in the
 [conformance matrix](docs/CONFORMANCE.md). Selected cells receive a
 pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
 `#RRGGBBAA`. The current scrollback-search result receives a second pre-glyph
@@ -200,10 +212,11 @@ provide committed Unicode text; the researched Wayland text-input boundary and
 detached lifecycle spike are documented in
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
-Kiwi exposes a bounded, platform-neutral semantic accessibility model for
-future adapters, but it has no implemented AT-SPI, NSAccessibility, or UI
-Automation bridge and therefore makes no screen-reader support claim. The
-contract and adapter procedure are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+Kiwi exposes a bounded semantic accessibility model and a Linux AT-SPI bridge
+for the active pane. The native provider is registry/query tested, but no
+end-to-end screen-reader session has been validated; macOS NSAccessibility and
+Windows UI Automation are unimplemented. The contract, limits, and smoke
+commands are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
 Kiwi currently supports Linux x86_64 only. Windows DX12/ConPTY feasibility was
 researched from a Linux cross-build environment but not run on a Windows host;
@@ -225,19 +238,20 @@ standard input and emits a logical text projection without starting a PTY,
 window, GPU, or font system; it is useful for integration and contract checks,
 not visual rendering.
 
-Kiwi automatically injects its reversible Bash, Zsh, or fish integration only
+Kiwi automatically injects its reversible Bash, Zsh, fish, or Nushell integration only
 for its initial default shell; it never edits a dotfile. Set
 `shell-integration = none` in the configuration file, or
 `KIWI_SHELL_INJECTION=none`, to disable injection. Use `make kiwi-ssh
-SSH_ARGS='-- user@host'` for an explicit SSH session that installs the compiled
-`kiwi` terminfo entry under the remote user's private cache before starting the
-remote shell. Its failure fallback uses `TERM=xterm-256color`; see
+SSH_ARGS='--ssh-option -p --ssh-option 2222 -- user@host'` for an explicit SSH
+session that installs the compiled `kiwi` terminfo entry under the remote
+user's private cache before starting the remote shell. Its failure fallback
+uses `TERM=xterm-256color`; see
 [SHELL_INTEGRATION.md](docs/SHELL_INTEGRATION.md) for limits and manual paths.
 
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output
 lifecycle when a cooperative shell emits them. The initial default Bash, Zsh,
-or fish shell receives Kiwi's reversible versioned asset automatically; manual
+fish, or Nushell shell receives Kiwi's reversible versioned asset automatically; manual
 source blocks remain available for switched shells and explicit-command
 launches, where they require `KIWI_SHELL_INTEGRATION=1`. Neither route enables
 path access, command execution, durable cross-session persistence, a renderer
@@ -273,6 +287,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette state with OSC 4/10/11/104/110/111 updates, primary-screen width reflow, and documented classic/UTF-8/URXVT/SGR mouse plus focus reporting. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, pixel/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

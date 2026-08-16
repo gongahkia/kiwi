@@ -24,18 +24,24 @@ wide/combining ranges snap to their complete semantic cluster.
 ## Consequences
 
 This gives Linux AT-SPI, macOS NSAccessibility, and Windows UI Automation
-adapters a common input without making any platform claim. It also avoids pixel
-scraping and preserves the state model's scrollback/width authority. A native
-adapter must create/destroy the model with its window and verify events with
-actual platform tooling before Kiwi claims screen-reader support.
+adapters a common input without pixel scraping and preserves the state model's
+scrollback/width authority. The Linux bridge creates one GIO/D-Bus application
+root and one `Text` terminal child for the active Kiwi pane. It obtains the
+dedicated accessibility bus from `org.a11y.Bus`, completes the registry
+`Socket.Embed` handshake, projects no more than 256 physical rows/64 KiB, and
+maps terminal cell gaps to UTF-8 character offsets. The provider owns D-Bus
+objects and event dispatch; terminal state still owns text, history, and
+selection semantics.
 
 Focused tests cover Unicode, wide/combining range mapping, selection endpoints,
 resize event ordering, history viewport updates, and a scrollback case that
-proves the exporter does not materialize the retained document. The current
-Linux checkout has no implemented adapter, so no AT-SPI or screen-reader result
-is claimed. A future provider must expose the required Accessible/Application
-D-Bus objects and complete the registry `Socket.Embed` handshake; availability
-of the `atspi-2` client library alone is not adapter evidence.
+proves the exporter does not materialize the retained document. The Linux
+provider smoke verifies registry discovery, the terminal child, and an external
+bounded text query. It does not replace a real screen-reader session, nor does
+it add macOS or Windows accessibility support. The provider exposes read-only
+text: it has no locale-aware word/sentence segmentation, text geometry, styled
+attributes, editable caret/selection operations, or multiple-pane accessibility
+tree.
 
 ## References
 
