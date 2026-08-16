@@ -8,6 +8,7 @@ local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
 local Clipboard = require("kiwi.input.clipboard")
+local Config = require("kiwi.config")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
@@ -41,6 +42,9 @@ local function parse_options()
       options.version = true
     elseif value == "--no-extensions" then
       options.no_extensions = true
+    elseif value == "--config" then
+      index = index + 1
+      options.config = assert(arg[index], "--config needs a path")
     elseif value == "--record" then
       index = index + 1
       options.record = assert(arg[index], "--record needs a JSONL path")
@@ -60,7 +64,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --version, --demo, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -80,14 +84,14 @@ local function content_scale(window)
   return math.max(xscale, yscale)
 end
 
-local function new_font(window)
+local function new_font(window, configuration)
   local scale = content_scale(window)
   local font = FontSystem.new({
-    pixel_height = math.max(1, math.floor(number_from_env("KIWI_FONT_PX", 20) * scale + 0.5)),
-    font_path = os.getenv("KIWI_FONT"),
-    primary_family = os.getenv("KIWI_FONT_FAMILY") or "monospace",
-    ligatures = os.getenv("KIWI_LIGATURES") == "1",
-    contextual_alternates = os.getenv("KIWI_CALT") == "1",
+    pixel_height = math.max(1, math.floor(configuration.font_size * scale + 0.5)),
+    font_path = configuration.font_path,
+    primary_family = configuration.font_family,
+    ligatures = configuration.ligatures,
+    contextual_alternates = configuration.contextual_alternates,
   })
   font.content_scale = scale
   return font
@@ -109,18 +113,18 @@ local function extension_limit_from_env(name, minimum, maximum, integer)
   return number
 end
 
-local function renderer_options(runtime_options)
+local function renderer_options(runtime_options, configuration)
   local release_mode = runtime_options.release_mode == true
   local options = {
     pass_metrics_enabled = not release_mode and os.getenv("KIWI_PASS_METRICS") == "1",
     pass_budgets_enabled = not release_mode and os.getenv("KIWI_PASS_BUDGETS") == "1",
     inspector_enabled = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR_PASS") or nil,
-    selection_color = os.getenv("KIWI_SELECTION_COLOR"),
-    search_color = os.getenv("KIWI_SEARCH_COLOR"),
-    hyperlink_color = os.getenv("KIWI_HYPERLINK_COLOR"),
-    command_region_visual_enabled = os.getenv("KIWI_COMMAND_REGIONS") == "1",
-    command_region_color = os.getenv("KIWI_COMMAND_REGION_COLOR"),
+    selection_color = configuration.selection_color,
+    search_color = configuration.search_color,
+    hyperlink_color = configuration.hyperlink_color,
+    command_region_visual_enabled = configuration.command_regions,
+    command_region_color = configuration.command_region_color,
     text_backend = TextLab.requested_backend(),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
@@ -164,6 +168,7 @@ end
 
 local function run_live(options)
   local default_title = "Kiwi M2 terminal"
+  local configuration, configuration_path = Config.load(options.config)
   local window = Window.new(1600, 960, default_title, { release_mode = options.release_mode })
   local context
   local renderer
@@ -178,20 +183,25 @@ local function run_live(options)
       local probe_ok, probe_message = context:probe_timestamp_queries()
       io.stderr:write("Kiwi timestamp probe: ", probe_ok and "supported: " or "unavailable: ", probe_message, "\n")
     end
-    font = new_font(window)
+    font = new_font(window, configuration)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
     terminal = Terminal.new({
       columns = columns,
       rows = rows,
       state_options = {
-        scrollback_limit = number_from_env("KIWI_SCROLLBACK", 2000),
-        ambiguous_width = number_from_env("KIWI_AMBIGUOUS_WIDTH", 1),
+        scrollback_limit = configuration.scrollback_limit,
+        ambiguous_width = configuration.ambiguous_width,
+        colors = {
+          foreground = configuration.foreground,
+          background = configuration.background,
+          palette = configuration.palette,
+        },
       },
     })
     local state = terminal.state
     local root = os.getenv("KIWI_ROOT") or "."
-    local render_options = renderer_options(options)
+    local render_options = renderer_options(options, configuration)
     pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
       TERM = "kiwi",
       TERMINFO = root .. "/.build/terminfo",
@@ -228,6 +238,62 @@ local function run_live(options)
     local mouse_generation = state.modes.mouse_generation
     local selection_pointer = SelectionPointer.new()
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
+    local configuration_reload_requested = false
+
+    local function apply_configuration(reloaded, path)
+      if reloaded.ambiguous_width ~= configuration.ambiguous_width then
+        return nil, "ambiguous-width requires a new terminal session"
+      end
+      local previous_viewport = {
+        columns = state.columns,
+        rows = state.rows,
+        drawable_width = context.width,
+        drawable_height = context.height,
+        content_scale = font.content_scale,
+      }
+      local previous_font = font
+      local font_changed = reloaded.font_size ~= configuration.font_size
+        or reloaded.font_path ~= configuration.font_path
+        or reloaded.font_family ~= configuration.font_family
+        or reloaded.ligatures ~= configuration.ligatures
+        or reloaded.contextual_alternates ~= configuration.contextual_alternates
+      local candidate_font = font_changed and new_font(window, reloaded) or font
+      if renderer then
+        renderer:destroy()
+        renderer = nil
+      end
+      configuration = reloaded
+      configuration_path = path
+      state:configure_palette({
+        foreground = configuration.foreground,
+        background = configuration.background,
+        palette = configuration.palette,
+      })
+      if font_changed then
+        font = candidate_font
+        metrics.font = font
+      end
+      local columns, rows = dimensions(window, font)
+      if columns and (columns ~= state.columns or rows ~= state.rows) then
+        terminal:resize(columns, rows)
+        pty:resize(columns, rows)
+        if recorder then recorder:resize(columns, rows) end
+      else
+        state:mark_all_dirty()
+      end
+      if font_changed then previous_font:destroy() end
+      render_options = renderer_options(options, configuration)
+      renderer = Renderer.new(context, font, state, render_options)
+      renderer:resize(previous_viewport, {
+        columns = state.columns,
+        rows = state.rows,
+        drawable_width = context.width,
+        drawable_height = context.height,
+        content_scale = font.content_scale,
+      })
+      renderer:invalidate("configuration")
+      return true
+    end
 
     local function recreate_gpu()
       if renderer then
@@ -325,6 +391,10 @@ local function run_live(options)
         end
       end
     end, function(key, action, modifiers)
+      if key == glfw.key_f6 and action == glfw.press then
+        configuration_reload_requested = true
+        return { handled = true, suppress_text = true }
+      end
       if handle_search_key(key, action) then
         renderer:invalidate("search")
         return { handled = true, suppress_text = true }
@@ -408,6 +478,20 @@ local function run_live(options)
       window:wait_events(requested_wait)
       window:poll_events()
       now = window:time()
+      if configuration_reload_requested then
+        configuration_reload_requested = false
+        local loaded, reloaded_or_error, path = pcall(Config.load, options.config)
+        if not loaded then
+          io.stderr:write("Kiwi configuration reload rejected: ", tostring(reloaded_or_error), "\n")
+        else
+          local applied, reason = apply_configuration(reloaded_or_error, path)
+          if not applied then
+            io.stderr:write("Kiwi configuration reload rejected: ", reason, "\n")
+          else
+            io.stdout:write("Kiwi configuration reloaded", configuration_path and ": " .. configuration_path or " (defaults)", "\n")
+          end
+        end
+      end
       if power then
         local power_state = window.minimized and "minimized" or renderer:needs_render(now) and "active" or "idle"
         power:observe(now, power_state, requested_wait)
@@ -453,7 +537,7 @@ local function run_live(options)
         local previous_font
         if scale_changed then
           previous_font = font
-          font = new_font(window)
+          font = new_font(window, configuration)
           metrics.font = font
         end
         local new_columns, new_rows = dimensions(window, font)
