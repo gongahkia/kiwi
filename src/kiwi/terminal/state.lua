@@ -97,10 +97,14 @@ function State.new(columns, rows, options)
       bracketed_paste = false,
       synchronized_output = false,
       mouse_tracking = "none",
+      mouse_x10 = false,
       mouse_normal = false,
       mouse_button = false,
       mouse_any = false,
+      mouse_utf8 = false,
       mouse_sgr = false,
+      mouse_urxvt = false,
+      mouse_protocol = "x10",
       focus_reporting = false,
       mouse_generation = 0,
       keyboard_flags = 0,
@@ -1412,10 +1416,14 @@ function State:reset()
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
   self.modes.mouse_tracking = "none"
+  self.modes.mouse_x10 = false
   self.modes.mouse_normal = false
   self.modes.mouse_button = false
   self.modes.mouse_any = false
+  self.modes.mouse_utf8 = false
   self.modes.mouse_sgr = false
+  self.modes.mouse_urxvt = false
+  self.modes.mouse_protocol = "x10"
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self.modes.keyboard_flags = 0
@@ -1452,10 +1460,14 @@ function State:soft_reset()
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
   self.modes.mouse_tracking = "none"
+  self.modes.mouse_x10 = false
   self.modes.mouse_normal = false
   self.modes.mouse_button = false
   self.modes.mouse_any = false
+  self.modes.mouse_utf8 = false
   self.modes.mouse_sgr = false
+  self.modes.mouse_urxvt = false
+  self.modes.mouse_protocol = "x10"
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self:sync_keyboard_flags()
@@ -1787,6 +1799,8 @@ function State:apply_private_mode(parameters, enabled)
       self.modes.synchronized_output = enabled
     elseif mode == 1000 then
       self:set_mouse_tracking("normal", enabled)
+    elseif mode == 9 then
+      self:set_mouse_tracking("x10", enabled)
     elseif mode == 1002 then
       self:set_mouse_tracking("button", enabled)
     elseif mode == 1003 then
@@ -1794,7 +1808,11 @@ function State:apply_private_mode(parameters, enabled)
     elseif mode == 1004 then
       self:set_focus_reporting(enabled)
     elseif mode == 1006 then
-      self:set_mouse_sgr(enabled)
+      self:set_mouse_encoding("sgr", enabled)
+    elseif mode == 1005 then
+      self:set_mouse_encoding("utf8", enabled)
+    elseif mode == 1015 then
+      self:set_mouse_encoding("urxvt", enabled)
     else
       self:record_unknown("csi", { private = "?", parameters = { mode }, intermediates = "", final = enabled and "h" or "l" })
     end
@@ -1804,10 +1822,17 @@ end
 function State:set_mouse_tracking(mode, enabled)
   local field = "mouse_" .. mode
   if self.modes[field] == enabled then return end
+  if enabled then
+    self.modes.mouse_x10 = false
+    self.modes.mouse_normal = false
+    self.modes.mouse_button = false
+    self.modes.mouse_any = false
+  end
   self.modes[field] = enabled
   local next_mode = self.modes.mouse_any and "any"
     or self.modes.mouse_button and "button"
     or self.modes.mouse_normal and "normal"
+    or self.modes.mouse_x10 and "x10"
     or "none"
   if self.modes.mouse_tracking ~= next_mode then
     self.modes.mouse_tracking = next_mode
@@ -1815,11 +1840,20 @@ function State:set_mouse_tracking(mode, enabled)
   self.modes.mouse_generation = self.modes.mouse_generation + 1
 end
 
-function State:set_mouse_sgr(enabled)
-  if self.modes.mouse_sgr ~= enabled then
-    self.modes.mouse_sgr = enabled
-    self.modes.mouse_generation = self.modes.mouse_generation + 1
+function State:set_mouse_encoding(encoding, enabled)
+  local field = "mouse_" .. encoding
+  if self.modes[field] == enabled then return end
+  if enabled then
+    self.modes.mouse_utf8 = false
+    self.modes.mouse_sgr = false
+    self.modes.mouse_urxvt = false
   end
+  self.modes[field] = enabled
+  self.modes.mouse_protocol = self.modes.mouse_sgr and "sgr"
+    or self.modes.mouse_urxvt and "urxvt"
+    or self.modes.mouse_utf8 and "utf8"
+    or "x10"
+  self.modes.mouse_generation = self.modes.mouse_generation + 1
 end
 
 function State:set_focus_reporting(enabled)
@@ -1941,6 +1975,8 @@ function State:mode_status(private, mode)
       enabled = self.active_screen == self.alternate
     elseif mode == 1000 then
       enabled = modes.mouse_normal
+    elseif mode == 9 then
+      enabled = modes.mouse_x10
     elseif mode == 1002 then
       enabled = modes.mouse_button
     elseif mode == 1003 then
@@ -1949,6 +1985,10 @@ function State:mode_status(private, mode)
       enabled = modes.focus_reporting
     elseif mode == 1006 then
       enabled = modes.mouse_sgr
+    elseif mode == 1005 then
+      enabled = modes.mouse_utf8
+    elseif mode == 1015 then
+      enabled = modes.mouse_urxvt
     elseif mode == 2004 then
       enabled = modes.bracketed_paste
     elseif mode == 2026 then
