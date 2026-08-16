@@ -75,7 +75,7 @@ claiming formal verification or allocator-independent memory totals.
 
 ## TERM contract
 
-The child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app passes `TERMINFO` and an absent `COLORTERM` through a child-only environment vector to `execvpe`.
+The ordinary child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app passes the source or installed `TERMINFO` and an absent `COLORTERM` through a child-only environment vector to `execvpe`. The explicit `kiwi-ssh` fallback instead uses `TERM=xterm-256color` when it cannot prepare the remote entry.
 
 The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
 
@@ -112,8 +112,10 @@ the oldest with counters. Canonical replay snapshots retain opaque IDs/events
 but omit directory host/path/URI; shell metadata has no renderer resource,
 diagnostic payload, or execution privilege. The `shell-integration` fixture
 covers both OSC terminators; `shell-integration-scripts` captures the v1
-Bash/Zsh/fish emission order. Versioned scripts are explicit opt-in assets,
-not automatic shell setup; activation and removal are documented in
+Bash/Zsh/fish emission order. The application injects supported initial shells
+by default without changing dotfiles; manual source blocks remain necessary
+after a shell transition or explicit-command launch. Activation, disablement,
+and removal are documented in
 [SHELL_INTEGRATION.md](SHELL_INTEGRATION.md). [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
 and [ADR 0031](adr/0031-opt-in-shell-integration-assets.md) define the
 boundary.
@@ -315,7 +317,7 @@ fidelity or general application compatibility.
 | Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /usr/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY=<temporary>/nvim.jsonl` | Passed structurally with Neovim 0.11.6 under `TERM=kiwi` on 2026-08-16: it emitted Kitty `CSI ? u`, `CSI > 1 u`, and `CSI < u`; replay reported 5,129 bytes, 4,769 actions, and zero parser errors. Three ignored actions and one unknown CSI startup control remain outside Kiwi’s documented subset. This proves negotiated mode handling, not physical-key usability. |
 | Local tmux | `env -u COLORTERM TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, `COLORTERM=truecolor`, and `tput colors` returned `256`, even though the outer invocation removed `COLORTERM`. tmux owns this nested contract; it does not authorize Kiwi itself to advertise 256 colours or truecolour. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
-| SSH | `TERMINFO=.build/terminfo ssh -o SendEnv=TERM -o SetEnv=TERM=kiwi <controlled-host> 'infocmp kiwi; tput colors'` | No access to a controlled remote host or credentials; the localhost probe stopped at host-key verification. No SSH deployment compatibility claim is made. Install the matching terminfo entry remotely before the probe. |
+| SSH | `make kiwi-ssh SSH_ARGS='-- <controlled-host>'`, then `infocmp kiwi; tput colors` | The deterministic suite verifies upload and launch ordering against local SSH/SCP stubs. No access to a controlled remote host or credentials; the localhost probe stopped at host-key verification. No SSH deployment compatibility claim is made. |
 
 ## Unicode conformance
 

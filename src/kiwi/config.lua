@@ -112,6 +112,7 @@ local function defaults()
     command_region_color = nil,
     command_regions = false,
     osc52_write = false,
+    shell_integration = "auto",
   }
 end
 
@@ -160,6 +161,10 @@ local function apply_value(config, key, raw, line)
     config.command_regions = parse_boolean(raw, line)
   elseif key == "osc52-write" then
     config.osc52_write = parse_boolean(raw, line)
+  elseif key == "shell-integration" then
+    local mode = parse_string(raw, line)
+    if mode ~= "auto" and mode ~= "none" then error("configuration line " .. line .. " shell-integration must be auto or none") end
+    config.shell_integration = mode
   else
     local palette_index = key:match("^palette%-(%d+)$")
     if palette_index == nil then error("configuration line " .. line .. " has an unknown key: " .. key) end
@@ -220,6 +225,7 @@ function Config.apply_environment(config, environment)
     ["command-region-color"] = environment("KIWI_COMMAND_REGION_COLOR"),
     ["command-regions"] = environment("KIWI_COMMAND_REGIONS") == "1" and "true" or environment("KIWI_COMMAND_REGIONS") == "0" and "false" or nil,
     ["osc52-write"] = environment("KIWI_OSC52_WRITE") == "1" and "true" or environment("KIWI_OSC52_WRITE") == "0" and "false" or nil,
+    ["shell-integration"] = environment("KIWI_SHELL_INJECTION"),
   }
   for key, value in pairs(values) do
     if value ~= nil and value ~= "" then apply_value(config, key, value, "environment " .. key) end

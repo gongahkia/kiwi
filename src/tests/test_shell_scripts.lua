@@ -59,4 +59,15 @@ return {
     local output = capture("TERM=kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -ic 'PROMPT_COMMAND=\"printf original:\\$?\"; source integrations/v1/kiwi.bash; false; eval \"$PROMPT_COMMAND\"'")
     Assert.truthy(output:find("original:1", 1, true) ~= nil)
   end,
+
+  shell_integration_launchers_source_the_supported_initial_shells = function()
+    local bash = capture("TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.bash KIWI_SHELL_INTEGRATION_ORIGINAL_BASHRC=/dev/null bash --noprofile --rcfile integrations/v1/inject/kiwi.bashrc -ic '__kiwi_bash_prompt'")
+    Assert.truthy(bash:find("\27]133;A\7", 1, true) ~= nil)
+
+    local zsh = capture("TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.zsh KIWI_SHELL_INTEGRATION_ORIGINAL_ZDOTDIR=/dev/null KIWI_SHELL_INTEGRATION_INJECT_DIR=integrations/v1/inject/zsh ZDOTDIR=integrations/v1/inject/zsh zsh -i -c '__kiwi_zsh_precmd'")
+    Assert.truthy(zsh:find("\27]133;A\7", 1, true) ~= nil)
+
+    local fish = capture("TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.fish fish --no-config --init-command 'source $KIWI_SHELL_INTEGRATION_SCRIPT' -ic 'emit fish_prompt'")
+    Assert.truthy(fish:find("\27]133;A\7", 1, true) ~= nil)
+  end,
 }

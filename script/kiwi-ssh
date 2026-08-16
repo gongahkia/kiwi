@@ -1,0 +1,86 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  cat <<'EOF'
+usage: kiwi-ssh [--no-terminfo] [--strict] -- host
+
+Install Kiwi's compiled terminfo entry in ~/.cache/kiwi/terminfo on the named
+remote host, then open an interactive login shell with TERM=kiwi. If setup
+fails, the default behavior warns and falls back to TERM=xterm-256color.
+
+--no-terminfo  skip remote setup and use the xterm-256color fallback
+--strict       fail instead of falling back when remote setup fails
+EOF
+}
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+project_root=${KIWI_ROOT:-$(CDPATH= cd -- "$script_dir/.." && pwd)}
+terminfo_root=${KIWI_TERMINFO:-}
+if [ -z "$terminfo_root" ]; then
+  if [ -f "$project_root/.build/terminfo/k/kiwi" ]; then
+    terminfo_root="$project_root/.build/terminfo"
+  else
+    terminfo_root="$project_root/share/terminfo"
+  fi
+fi
+terminfo_entry="$terminfo_root/k/kiwi"
+ssh_bin=${KIWI_SSH_BIN:-ssh}
+scp_bin=${KIWI_SCP_BIN:-scp}
+setup=true
+strict=false
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --help|-h) usage; exit 0 ;;
+    --no-terminfo) setup=false ;;
+    --strict) strict=true ;;
+    --) shift; break ;;
+    *) printf '%s\n' "kiwi-ssh: use -- before the host; see --help" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [ "$#" -ne 1 ]; then
+  printf '%s\n' "kiwi-ssh: exactly one host is required after --" >&2
+  exit 2
+fi
+host=$1
+case "$host" in
+  ''|-*|*[[:space:]]*)
+    printf '%s\n' "kiwi-ssh: host must be one non-option SSH destination" >&2
+    exit 2
+    ;;
+esac
+
+if ! command -v "$ssh_bin" >/dev/null 2>&1; then
+  printf '%s\n' "kiwi-ssh: SSH client is unavailable: $ssh_bin" >&2
+  exit 127
+fi
+if ! command -v "$scp_bin" >/dev/null 2>&1; then
+  printf '%s\n' "kiwi-ssh: SCP client is unavailable: $scp_bin" >&2
+  exit 127
+fi
+
+fallback() {
+  printf '%s\n' "kiwi-ssh: remote Kiwi terminfo setup failed; falling back to TERM=xterm-256color" >&2
+  exec env TERM=xterm-256color "$ssh_bin" -tt "$host"
+}
+
+if [ "$setup" = false ]; then
+  exec env TERM=xterm-256color "$ssh_bin" -tt "$host"
+fi
+if [ ! -f "$terminfo_entry" ]; then
+  printf '%s\n' "kiwi-ssh: missing compiled terminfo at $terminfo_entry; run make terminfo" >&2
+  exit 2
+fi
+
+if ! "$ssh_bin" "$host" 'mkdir -p "$HOME/.cache/kiwi/terminfo/k"'; then
+  if [ "$strict" = true ]; then exit 1; fi
+  fallback
+fi
+if ! "$scp_bin" "$terminfo_entry" "$host:.cache/kiwi/terminfo/k/kiwi"; then
+  if [ "$strict" = true ]; then exit 1; fi
+  fallback
+fi
+exec env TERM=kiwi "$ssh_bin" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" exec "${SHELL:-/bin/sh}" -l'

@@ -2,6 +2,11 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-project_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
-export LUA_PATH="$project_root/src/?.lua;$project_root/src/?/init.lua;;"
-exec "${LUAJIT:-luajit}" "$project_root/src/kiwi/vt/demo.lua" "$@"
+project_root=${KIWI_ROOT:-$(CDPATH= cd -- "$script_dir/.." && pwd)}
+if [ -d "$project_root/src/kiwi" ]; then
+  lua_root="$project_root/src"
+else
+  lua_root="$project_root/share/kiwi/lua"
+fi
+export LUA_PATH="$lua_root/?.lua;$lua_root/?/init.lua;;"
+exec "${LUAJIT:-luajit}" "$lua_root/kiwi/vt/demo.lua" "$@"

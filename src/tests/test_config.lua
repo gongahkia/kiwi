@@ -11,6 +11,7 @@ return {
       font-size = 18
       ligatures = true
       osc52-write = true
+      shell-integration = none
       palette-1 = #010203
       foreground = #112233
     ]], "test")
@@ -19,6 +20,7 @@ return {
     Assert.equal(config.font_size, 18)
     Assert.equal(config.ligatures, true)
     Assert.equal(config.osc52_write, true)
+    Assert.equal(config.shell_integration, "none")
     Assert.equal(Color.unpack(config.palette[1]).green, 2)
     Assert.equal(Color.unpack(config.foreground).red, 0x11)
   end,
@@ -27,6 +29,7 @@ return {
     Assert.truthy(not pcall(Config.parse, "font-size = 0", "test"))
     Assert.truthy(not pcall(Config.parse, "background = teal", "test"))
     Assert.truthy(not pcall(Config.parse, "theme = unknown", "test"))
+    Assert.truthy(not pcall(Config.parse, "shell-integration = always", "test"))
   end,
   configuration_environment_overrides_file_values_without_mutating_other_values = function()
     local config = Config.parse("font-size = 14\nligatures = false\n", "test")
@@ -34,12 +37,14 @@ return {
       KIWI_FONT_PX = "22",
       KIWI_LIGATURES = "1",
       KIWI_SCROLLBACK = "3000",
+      KIWI_SHELL_INJECTION = "none",
     }
     Config.apply_environment(config, function(name) return values[name] end)
     Assert.equal(config.font_size, 22)
     Assert.equal(config.ligatures, true)
     Assert.equal(config.scrollback_limit, 3000)
     Assert.equal(config.font_family, "monospace")
+    Assert.equal(config.shell_integration, "none")
   end,
   configuration_default_path_prefers_xdg = function()
     Assert.equal(Config.default_path(function(name)

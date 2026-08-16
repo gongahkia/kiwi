@@ -97,6 +97,7 @@ make test-pty                          # deterministic real-PTY integration test
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
+make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
@@ -224,6 +225,15 @@ standard input and emits a logical text projection without starting a PTY,
 window, GPU, or font system; it is useful for integration and contract checks,
 not visual rendering.
 
+Kiwi automatically injects its reversible Bash, Zsh, or fish integration only
+for its initial default shell; it never edits a dotfile. Set
+`shell-integration = none` in the configuration file, or
+`KIWI_SHELL_INJECTION=none`, to disable injection. Use `make kiwi-ssh
+SSH_ARGS='-- user@host'` for an explicit SSH session that installs the compiled
+`kiwi` terminfo entry under the remote user's private cache before starting the
+remote shell. Its failure fallback uses `TERM=xterm-256color`; see
+[SHELL_INTEGRATION.md](docs/SHELL_INTEGRATION.md) for limits and manual paths.
+
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output
 lifecycle when a cooperative shell emits them. Versioned Bash, Zsh, and fish
@@ -263,6 +273,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette state with OSC 4/10/11/104/110/111 updates, primary-screen width reflow, and documented classic/UTF-8/URXVT/SGR mouse plus focus reporting. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, opt-in Bash/Zsh/fish scripts, and bounded PNG/APNG/GIF Kitty image composition, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, pixel/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette state with OSC 4/10/11/104/110/111 updates, primary-screen width reflow, and documented classic/UTF-8/URXVT/SGR mouse plus focus reporting. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, pixel/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

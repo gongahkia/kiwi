@@ -48,6 +48,8 @@ local tests = {
   require("tests.test_hyperlink"),
   require("tests.test_shell_integration"),
   require("tests.test_shell_scripts"),
+  require("tests.test_shell_launcher"),
+  require("tests.test_kiwi_ssh"),
   require("tests.test_command_regions"),
   require("tests.test_command_region_retention"),
   require("tests.test_compositor"),
