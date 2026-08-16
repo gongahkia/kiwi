@@ -1,4 +1,5 @@
 local bit = require("bit")
+local Utf8 = require("kiwi.terminal.utf8")
 
 local Mouse = {}
 Mouse.__index = Mouse
@@ -18,11 +19,6 @@ local function modifier_code(modifiers)
   return result
 end
 
-local function valid_position(column, row)
-  return type(column) == "number" and column % 1 == 0 and column >= 1 and column <= 65535
-    and type(row) == "number" and row % 1 == 0 and row >= 1 and row <= 65535
-end
-
 local function finite_number(value)
   return type(value) == "number" and value == value and value > -math.huge and value < math.huge
 end
@@ -33,8 +29,28 @@ end
 
 local function tracking_mode(modes)
   local mode = modes and modes.mouse_tracking
-  if mode == "normal" or mode == "button" or mode == "any" then return mode end
+  if mode == "x10" or mode == "normal" or mode == "button" or mode == "any" then return mode end
   return "none"
+end
+
+local function protocol(modes)
+  local value = modes and modes.mouse_protocol
+  if value == "x10" or value == "utf8" or value == "sgr" or value == "urxvt" then return value end
+  return modes and modes.mouse_sgr and "sgr" or "x10"
+end
+
+local function valid_position(column, row, encoding)
+  local maximum = encoding == "x10" and 223 or encoding == "utf8" and 2015 or 65535
+  return type(column) == "number" and column % 1 == 0 and column >= 1 and column <= maximum
+    and type(row) == "number" and row % 1 == 0 and row >= 1 and row <= maximum
+end
+
+local function encode(encoding, code, column, row, release)
+  if encoding == "sgr" then return sgr(code, column, row, release) end
+  if release then code = bit.band(code, 28) + 3 end
+  if encoding == "urxvt" then return string.format("\27[%d;%d;%dM", code + 32, column, row) end
+  if encoding == "utf8" then return "\27[M" .. string.char(code + 32) .. Utf8.encode(column + 32) .. Utf8.encode(row + 32) end
+  return "\27[M" .. string.char(code + 32, column + 32, row + 32)
 end
 
 function Mouse.new()
@@ -48,7 +64,7 @@ function Mouse:reset()
 end
 
 function Mouse:enabled(modes)
-  return modes and modes.mouse_sgr == true and tracking_mode(modes) ~= "none"
+  return modes and tracking_mode(modes) ~= "none"
 end
 
 function Mouse:button(event, modes)
@@ -57,13 +73,16 @@ function Mouse:button(event, modes)
   if event.action == "press" then self.buttons[event.button] = true else self.buttons[event.button] = nil end
   self.last_column = nil
   self.last_row = nil
-  if not self:enabled(modes) or not valid_position(event.column, event.row) then return nil end
-  return sgr(code + modifier_code(event.modifiers), event.column, event.row, event.action == "release")
+  local encoding = protocol(modes)
+  if not self:enabled(modes) or not valid_position(event.column, event.row, encoding) then return nil end
+  if tracking_mode(modes) == "x10" and event.action == "release" then return nil end
+  return encode(encoding, code + modifier_code(event.modifiers), event.column, event.row, event.action == "release")
 end
 
 function Mouse:motion(event, modes)
   local tracking = tracking_mode(modes)
-  if not self:enabled(modes) or tracking == "normal" or not valid_position(event.column, event.row) then return nil end
+  local encoding = protocol(modes)
+  if not self:enabled(modes) or tracking == "x10" or tracking == "normal" or not valid_position(event.column, event.row, encoding) then return nil end
   if self.last_column == event.column and self.last_row == event.row then return nil end
   local button
   for index = 0, 2 do
@@ -75,13 +94,14 @@ function Mouse:motion(event, modes)
   if tracking == "button" and button == nil then return nil end
   self.last_column = event.column
   self.last_row = event.row
-  return sgr(32 + (button or 3) + modifier_code(event.modifiers), event.column, event.row, false)
+  return encode(encoding, 32 + (button or 3) + modifier_code(event.modifiers), event.column, event.row, false)
 end
 
 function Mouse:wheel(event, modes)
-  if not self:enabled(modes) or not valid_position(event.column, event.row) or not finite_number(event.delta) or event.delta == 0 then return nil end
+  local encoding = protocol(modes)
+  if not self:enabled(modes) or not valid_position(event.column, event.row, encoding) or not finite_number(event.delta) or event.delta == 0 then return nil end
   local count = math.min(16, math.max(1, math.floor(math.abs(event.delta) + 0.5)))
-  local report = sgr((event.delta > 0 and 64 or 65) + modifier_code(event.modifiers), event.column, event.row, false)
+  local report = encode(encoding, (event.delta > 0 and 64 or 65) + modifier_code(event.modifiers), event.column, event.row, false)
   return string.rep(report, count)
 end
 
