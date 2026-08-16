@@ -18,7 +18,7 @@ dependency, run the deterministic checks, and start Kiwi:
 git clone https://github.com/gongahkia/kiwi.git
 cd kiwi
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glfw-devel freetype-devel harfbuzz-devel giflib-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 make bootstrap
 make check
@@ -36,10 +36,10 @@ make run ARGS='-- /usr/bin/printf "Kiwi\n"'
 The source workflow is not a system installation: the checkout is the launch
 location and `make run` sets the project-local terminfo path for its child.
 
-To display a remote PNG, run the explicit URL helper from inside that Kiwi
-shell. It fetches only a user-supplied HTTPS URL and then sends Kiwi's bounded
-direct-PNG graphics stream; it does not make automatic network requests and
-does not support GIFs or video:
+To display a remote PNG, APNG, or GIF, run the explicit URL helper from inside
+that Kiwi shell. It fetches only a user-supplied HTTPS URL and then sends
+Kiwi's bounded direct-image graphics stream; it does not make automatic network
+requests and does not support video:
 
 ```sh
 ./script/kiwi-image https://images.example/kiwi.png
@@ -59,7 +59,7 @@ tar -xzf "dist/$release.tar.gz"
 ```
 
 Inside the release terminal, use the installed helper for the same explicit
-HTTPS PNG path:
+HTTPS PNG, APNG, or GIF path:
 
 ```sh
 kiwi-image https://images.example/kiwi.png
@@ -68,7 +68,7 @@ kiwi-image https://images.example/kiwi.png
 Keep the extracted directory intact. Its launcher finds its own Lua source,
 terminfo, WGPU library, and native surface bridge relative to `bin/kiwi`; it
 does not install files into `/usr` or modify shell configuration. It still
-requires system LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, libpng, a Vulkan
+requires system LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan
 loader and driver, and a working Linux Wayland or X11 session. The adjacent
 checksum and `metadata.json` describe the artifact that was built.
 The optional `kiwi-image` helper also requires `curl`, `zsh`, and standard GNU

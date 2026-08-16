@@ -1,9 +1,9 @@
 # Kitty graphics protocol transfer and cache
 
 Kiwi implements a deliberately narrow M7 subset of the Kitty graphics
-protocol: a direct inline PNG can be transferred through APC-G, decoded into a
-bounded CPU RGBA cache, placed over explicit terminal cells, and composed by a
-renderer-owned WGPU texture cache.
+protocol: direct inline PNG, APNG, and GIF data can be transferred through
+APC-G, decoded into a bounded CPU RGBA cache, placed over explicit terminal
+cells, and composed by a renderer-owned WGPU texture cache.
 
 ## Framing and accepted subset
 
@@ -17,40 +17,43 @@ with no duplicate or unknown keys. The only accepted actions are:
 
 | Action | Required fields | Effect |
 | --- | --- | --- |
-| `a=t` | `i`, `s`, `v`, `f=100`, `t=d` | Transfer an inline PNG and cache its decoded RGBA bytes after final validation. |
+| `a=t` | `i`, `s`, `v`, `f=100`, `t=d` | Transfer inline PNG, APNG, or GIF bytes and cache bounded decoded RGBA frames after final validation. |
 | `a=q` | the same transfer fields | Validate and decode without caching; reply `OK` or a bounded error code. |
 | `a=p` | `i`, `p`, `c`, `r`, `C=1`; optional `z` | Place a stored image in a stationary explicit cell rectangle. |
 | `a=d` | `d=a`, or `d=i`/`d=I` with `i`; optional `p` for `d=i`/`d=I` | Clear visible placements, soft-delete placements, or delete image data and placements. |
 
 `m=1` starts or continues one transfer; its next graphics action must contain
 only `m=0` or `m=1`. Image IDs are non-zero unsigned 32-bit integers. Kiwi
-accepts only PNG (`f=100`) sent directly (`t=d`). Placement requires a non-zero
-image and placement ID, explicit positive `c`/`r`, and `C=1`, which selects the
-documented no-cursor-movement policy. It may specify a signed 32-bit `z` index.
-`a=T`, inferred dimensions, default cursor movement, source rectangles, pixel
-offsets, relative/virtual placements, raw RGB/RGBA, zlib compression,
-filesystem/shared-memory/file-descriptor media, animation, Unicode placeholders,
-and unlisted controls are rejected.
+accepts PNG, APNG, or GIF bytes sent directly with `f=100` and `t=d`. This is a
+Kiwi extension of the otherwise PNG-labelled direct transfer field, not a claim
+that unmodified third-party Kitty clients negotiate these formats. Placement
+requires a non-zero image and placement ID, explicit positive `c`/`r`, and
+`C=1`, which selects the documented no-cursor-movement policy. It may specify a
+signed 32-bit `z` index. `a=T`, inferred dimensions, default cursor movement,
+source rectangles, pixel offsets, relative/virtual placements, raw RGB/RGBA,
+zlib compression, filesystem/shared-memory/file-descriptor media, Unicode
+placeholders, and unlisted controls are rejected.
 
 ## Explicit HTTPS URL helper
 
 Kiwi does not fetch image URLs while parsing terminal output. The optional
 `kiwi-image` client is an explicit user action that downloads one HTTPS URL
-with `curl`, validates it as a bounded PNG, then emits the direct-PNG APC-G
-stream above. It accepts HTTPS redirects only, uses connection and total
-timeouts, limits downloaded PNG data to 720 KiB, validates the PNG signature
-and IHDR dimensions, and keeps the encoded transfer below Kiwi's 1 MiB limit.
-It does not accept `http`, `file`, other non-HTTPS protocols, GIF, WebP,
-animation, or video.
+with `curl`, validates it as a bounded PNG/APNG or GIF, then emits Kiwi's
+direct-image APC-G stream. It accepts HTTPS redirects only, uses connection and
+total timeouts, limits downloaded image data to 720 KiB, validates the PNG/APNG
+IHDR or GIF logical-screen dimensions, and keeps the encoded transfer below
+Kiwi's 1 MiB limit. It does not accept `http`, `file`, other non-HTTPS
+protocols, WebP, or video.
 
 From a source checkout, run this inside a Kiwi shell:
 
 ```sh
-./script/kiwi-image https://images.example/kiwi.png
+./script/kiwi-image https://images.example/kiwi.gif
 ```
 
 The release artifact and Nix package install the same helper as `kiwi-image`.
-Use `--file path.png` for a local direct-PNG transfer, `--columns N` and
+Use `--file path.png`, `--file path.apng`, or `--file path.gif` for a local
+direct-image transfer, `--columns N` and
 `--rows N` to set the terminal-cell rectangle, and `--z N` to choose its
 composition layer. The helper suppresses the terminal's local echo while it
 waits for the placement acknowledgement, so protocol reply bytes do not appear
@@ -60,21 +63,28 @@ as `^[` text in an interactive shell.
 
 The default limits are 4,096 APC bytes, 1 MiB encoded transfer data, 256
 transfer chunks, one in-flight transfer, 64 image IDs, dimensions from 1 to
-8,192 pixels, 16 MiB pixels per image, 64 MiB decoded RGBA per image, 64 MiB
-total CPU cache, and 64 MiB accounted GPU cache. All limits are constructor
-options for focused tests; production uses these defaults.
+8,192 pixels, 16 MiB pixels per canvas, 64 MiB decoded RGBA per static image,
+256 retained animation frames, 32 MiB retained composited RGBA bytes per
+animation, 64 MiB total CPU cache, and 64 MiB accounted GPU cache. The
+animation-byte cap derives from a lower configured CPU cap, so focused tiny-cache
+tests remain valid. All limits are constructor options; production uses these
+defaults.
 
 Kiwi parses and bounds controls before retaining transfer bytes. It validates
-the strict Base64 shape, PNG signature, `IHDR` dimensions, declared dimensions,
-pixel count, and RGBA byte count before allocating the RGBA buffer. libpng's
-simplified in-memory read API then decodes only into that pre-sized buffer.
-Malformed or failed commands clear their in-flight transfer and do not alter
-terminal cells, cursor, scrollback, or an existing cached image.
+the strict Base64 shape, detected-media header, declared dimensions, pixel
+count, and RGBA byte count before allocating the first RGBA buffer. Static PNG
+uses libpng's simplified in-memory read API. APNG validates chunk bounds, CRCs,
+sequence numbers, frame controls, blend/disposal operations, and declared frame
+count before reconstructing and compositing each retained frame through libpng.
+GIF uses giflib to decode indexed frames, including local/global palettes,
+transparency, interlace, disposal, and loop metadata. Malformed or failed
+commands clear their in-flight transfer and do not alter terminal cells, cursor,
+scrollback, or an existing cached image.
 
 While a transfer is incomplete, its bounded Base64 chunks are terminal-model
 data. They are concatenated only on the final chunk, decoded, then discarded.
-The retained image record owns only its decoded RGBA allocation and metadata;
-it never retains the source payload.
+The retained image record owns only static RGBA pixels or bounded composited
+animation frames plus metadata; it never retains the source payload.
 
 ## Placement lifecycle
 
@@ -112,15 +122,17 @@ replacement when the image-count or CPU-byte bound would be exceeded. Replacing
 an ID releases its prior record before the replacement becomes visible.
 
 The terminal model does not own a WGPU texture or any other native handle. The
-renderer obtains a stable `{ id, generation, width, height, bytes, pixels }`
-upload descriptor, reserves logical GPU bytes, then creates and owns the
-texture, view, and bind group through the renderer resource registry. A
-generation mismatch, cache eviction, deletion, reset, renderer recreation, or
-placement leaving the viewport releases the native objects and logical byte
-accounting together. GPU cache eviction uses the same deterministic ordering
-and returns release descriptors for the renderer to destroy. This keeps
-terminal snapshots, diagnostics, replay, scrollback, and extension resources
-free of pixels and native handles.
+renderer obtains a stable `{ id, generation, width, height, frame_bytes,
+frame_revision, pixels }` upload descriptor, reserves logical GPU bytes for one
+canvas, then creates and owns the texture, view, and bind group through the
+renderer resource registry. An animated frame rewrite updates that resident
+texture in place; it does not retain a GPU texture per frame. A generation
+mismatch, cache eviction, deletion, reset, renderer recreation, or placement
+leaving the viewport releases the native objects and logical byte accounting
+together. GPU cache eviction uses the same deterministic ordering and returns
+release descriptors for the renderer to destroy. This keeps terminal snapshots,
+diagnostics, replay, scrollback, and extension resources free of pixels and
+native handles.
 
 `terminal.kitty_images` is a typed, plain-data renderer resource. It reports
 bounded counts for visible instances, under/over layers, resident textures, and
@@ -141,9 +153,11 @@ background -> negative-z images -> selection -> search -> command separators
 Thus negative z-index images remain behind text and selection, zero or positive
 z-index images can cover glyphs, and the cursor remains visible above both.
 Within either image layer, terminal placement order (z-index, image ID,
-placement ID) is retained. Arbitrary transforms, clipping shapes, source
-rectangles, image editing, animation, and an unbounded texture cache remain out
-of scope.
+placement ID) is retained. Animated images schedule their next bounded frame
+deadline only while they have a visible placement; GIF/APNG playback pauses
+while hidden and does not allocate another texture. Arbitrary transforms,
+clipping shapes, source rectangles, image editing, video, and an unbounded
+texture cache remain out of scope.
 
 The currently exposed model view/snapshot contains only image IDs, dimensions,
 byte totals, generation numbers, cache state, configured limits, and counters.
@@ -153,7 +167,8 @@ names, file descriptors, and native GPU handles.
 ## Failures, responses, and fixture coverage
 
 Failures record a fixed bounded reason such as `encoded-limit`,
-`invalid-base64`, `png-header`, `png-dimensions`, `png-decode`, or
+`invalid-base64`, `png-header`, `png-dimensions`, `png-decode`, `gif-decode`,
+`apng-frame-control`, `animation-frame-limit`, `animation-byte-limit`, or
 `cpu-cache-limit`. They are surfaced in the graphics cache counters and F4
 diagnostics without logging protocol data. Ordinary transfers do not emit a
 reply. A valid `a=q` responds `ESC _ Gi=<id>;OK ESC \\`; a failed query returns
@@ -166,22 +181,24 @@ PNG Base64 literal. Together they cover transfer, query, placement, visible
 negative/positive z composition input, clear, soft delete, and hard delete.
 `src/tests/fixtures/replay/kitty-placement.jsonl` verifies replay. Focused tests
 cover complete and chunked transfers, every parser split boundary, malformed and
-over-limit input, stable `encoded-limit` and `png-decode` diagnostics, query
-behavior, deterministic CPU/GPU accounting eviction, placement
-replacement/z-order, viewport/history movement, alternate screen/reset/clear/
-delete behavior, resize clipping, image-pass ordering, per-row source slicing,
-offscreen texture release, and cleanup.
+over-limit input, static PNG diagnostics, GIF/APNG frame decoding and playback,
+GIF background disposal, animation frame/byte limits, frame-texture rewrites,
+deterministic CPU/GPU accounting eviction, placement replacement/z-order,
+viewport/history movement, alternate screen/reset/clear/delete behavior, resize
+clipping, image-pass ordering, per-row source slicing, offscreen texture release,
+and cleanup.
 
-Run `make kitty-graphics-smoke` in a graphical session to launch the same
-self-contained direct-PNG client with timestamp instrumentation. On an adapter
-with timestamp-query support it reports both `terminal/kitty_images_under` and
-`terminal/kitty_images_over`; then run `make conformance-evidence` to
-record/replay the stream alongside the other native conformance probes. The
-supported direct-PNG stream is intentionally not evidence for arbitrary
-third-party Kitty client compatibility.
+Run `make kitty-graphics-smoke` in a graphical session for the static PNG
+composition client, or `make kitty-animation-smoke` for the self-contained GIF
+playback client. On an adapter with timestamp-query support both report their
+Kitty image pass samples; then run `make conformance-evidence` to record/replay
+the static stream alongside the other native conformance probes. The supported
+direct-image stream is intentionally not evidence for arbitrary third-party
+Kitty client compatibility.
 
 ## Sources
 
 - [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
 - [Kitty minimal chunked example](https://sw.kovidgoyal.net/kitty/graphics-protocol/#a-minimal-example)
+- [giflib](https://sourceforge.net/projects/giflib/)
 - [libpng simplified API](https://www.libpng.org/pub/png/libpng-manual.html)

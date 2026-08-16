@@ -42,8 +42,8 @@ LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wra
 
 ## Parser and state
 
-Kitty APC-G reaches a bounded terminal transfer model for direct inline PNG and
-a separate line-ID placement model. The transfer model validates and decodes
+Kitty APC-G reaches a bounded terminal transfer model for direct inline PNG,
+APNG, and GIF data and a separate line-ID placement model. The transfer model validates and decodes
 into a CPU cache, while the placement model follows scoped terminal rows through
 scrollback, alternate screens, resize, clear, and deletion. The renderer gets
 only stable upload and viewport-placement descriptors and native GPU handles

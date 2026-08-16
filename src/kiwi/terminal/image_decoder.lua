@@ -154,6 +154,19 @@ local function parse_png(bytes)
   return chunks
 end
 
+local function has_apng_chunk(bytes)
+  if #bytes < 33 or bytes:sub(1, 8) ~= png_signature then return false end
+  local offset = 9
+  while offset + 11 <= #bytes do
+    local length = be32(bytes, offset)
+    local finish = offset + 11 + length
+    if finish > #bytes then return false end
+    if bytes:sub(offset + 4, offset + 7) == "acTL" then return true end
+    offset = finish + 1
+  end
+  return false
+end
+
 local function parse_apng(bytes, expected_width, expected_height, options)
   local chunks, reason = parse_png(bytes)
   if chunks == nil then return nil, reason end
@@ -189,6 +202,7 @@ local function parse_apng(bytes, expected_width, expected_height, options)
   for _, chunk in ipairs(chunks) do
     local data = chunk.data
     local kind = chunk.kind
+    if seen_iend then return nil, "apng-chunk" end
     if kind == "IHDR" then
       if chunk ~= chunks[1] then return nil, "apng-chunk" end
     elseif kind == "acTL" then
@@ -444,7 +458,7 @@ function ImageDecoder.decode(bytes, expected_width, expected_height, options)
   options.max_animation_bytes = positive_integer(options.max_animation_bytes or ImageDecoder.default_max_animation_bytes, "animation byte limit")
   options.max_frames = positive_integer(options.max_frames or ImageDecoder.default_max_frames, "animation frame limit")
   if bytes:sub(1, 8) == png_signature then
-    if bytes:find("acTL", 9, true) then return parse_apng(bytes, expected_width, expected_height, options) end
+    if has_apng_chunk(bytes) then return parse_apng(bytes, expected_width, expected_height, options) end
     return decode_static_png(bytes, expected_width, expected_height)
   end
   if bytes:sub(1, 6) == "GIF87a" or bytes:sub(1, 6) == "GIF89a" then

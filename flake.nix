@@ -11,6 +11,7 @@
       runtimeLibraries = [
         pkgs.fontconfig
         pkgs.freetype
+        pkgs.giflib
         pkgs.glfw
         pkgs.harfbuzz
         pkgs.libpng

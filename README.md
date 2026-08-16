@@ -28,7 +28,7 @@ Kiwi currently supports Linux x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glfw-devel freetype-devel harfbuzz-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glfw-devel freetype-devel harfbuzz-devel giflib-devel libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
@@ -59,7 +59,7 @@ tar -xzf "dist/$release.tar.gz"
 ```
 
 The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLFW,
-FreeType, HarfBuzz, Fontconfig, libpng, a Vulkan loader/driver, and the normal
+FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and the normal
 display-server runtime. `kiwi --version` reports the artifact version and
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
 shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
@@ -100,6 +100,7 @@ make smoke                             # bounded native live-terminal GPU smoke 
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
+make kitty-animation-smoke              # bounded native GIF playback and frame-texture update smoke test
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -124,16 +125,17 @@ make conformance-evidence              # audit terminfo, local tmux behavior, an
 ```
 
 Kiwi does not fetch media URLs while parsing terminal output. To explicitly
-load one HTTPS PNG from a source checkout, run this inside a Kiwi shell:
+load one HTTPS PNG, APNG, or GIF from a source checkout, run this inside a Kiwi shell:
 
 ```sh
 ./script/kiwi-image https://images.example/kiwi.png
 ```
 
 The helper follows HTTPS redirects only, limits downloaded data, validates the
-PNG header and dimensions, then emits the bounded direct-PNG Kitty graphics
-stream. It does not support GIF, animation, or video. Release and Nix installs
-provide the same command as `kiwi-image`.
+PNG/APNG or GIF header and dimensions, then emits Kiwi's bounded direct-image
+graphics stream. GIF and APNG frames play through one GPU texture per visible
+image; video remains unsupported. Release and Nix installs provide the same
+command as `kiwi-image`.
 
 During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes, and `KIWI_HYPERLINK_COLOR` controls the underline. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `KIWI_AMBIGUOUS_WIDTH=1|2`, `KIWI_FONT`, `KIWI_FONT_FAMILY`, `KIWI_FONT_PX`, `KIWI_LIGATURES=1`, and `KIWI_CALT=1` configure the startup text system. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
 
@@ -234,7 +236,8 @@ API v1 grants them no drawing or GPU-allocation capability. See
 `KIWI_COMMAND_REGION_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to
 `#88C0D055`.
 
-Kitty graphics supports a bounded direct-PNG APC-G transfer/cache, explicit
+Kitty graphics supports a bounded direct-image APC-G transfer/cache for PNG,
+APNG, and GIF, explicit
 terminal-cell placements, and renderer-owned WGPU image composition. Negative
 z-index images render behind selection/text; zero and positive z-index images
 render after glyphs and before the cursor. Its exact parser, lifecycle, limits,
@@ -244,6 +247,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, opt-in Bash/Zsh/fish scripts, and bounded direct-PNG Kitty image composition, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, arbitrary image transforms or editing, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented direct-PNG Kitty APC-G transfer/cache, cell-placement, and composition subset. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, and the documented SGR mouse/focus subset. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, and safe OSC 8 hyperlinks, but not primary selections, rich formats, automatic synchronization, OSC 52 writes, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, opt-in Bash/Zsh/fish scripts, and bounded PNG/APNG/GIF Kitty image composition, but not automatic shell setup, durable cross-session persistence, path access, execution, command output summarization, a command palette, or a region UI. Kiwi does not implement bidi, Unicode line breaking, a runtime width-policy reflow, color emoji, a multiformat/multipage glyph atlas, legacy/pixel/gesture mouse protocols, arbitrary image transforms or editing, video, full reset/DECSTR coverage, every SGR rendering effect, or full xterm/VT100 certification. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains explicitly default-denied; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
