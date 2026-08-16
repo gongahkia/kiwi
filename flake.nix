@@ -85,6 +85,8 @@
             install -Dm644 docs/NIX.md "$out/share/doc/kiwi/NIX.md"
             install -Dm644 docs/SUPPORT.md "$out/share/doc/kiwi/SUPPORT.md"
             install -d "$out/bin" "$out/share/kiwi/lua"
+            install -Dm755 script/kiwi-image "$out/bin/kiwi-image"
+            substituteInPlace "$out/bin/kiwi-image" --replace-fail '#!/usr/bin/env zsh' '#!${pkgs.zsh}/bin/zsh'
             cp -R src/kiwi "$out/share/kiwi/lua/kiwi"
             tic -x -o "$out/share/terminfo" terminfo/kiwi.ti
 
@@ -99,6 +101,7 @@
             export TERMINFO="$out/share/terminfo"
             export LUA_PATH="$out/share/kiwi/lua/?.lua;$out/share/kiwi/lua/?/init.lua;;"
             export LD_LIBRARY_PATH="${libraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export PATH="$out/bin:''${PATH}"
             export FONTCONFIG_FILE="${fontConfig}"
             if [ "\$#" -gt 0 ] && [ "\$1" = doctor ]; then
               shift

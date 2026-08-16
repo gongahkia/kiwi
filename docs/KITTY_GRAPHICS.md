@@ -32,6 +32,30 @@ offsets, relative/virtual placements, raw RGB/RGBA, zlib compression,
 filesystem/shared-memory/file-descriptor media, animation, Unicode placeholders,
 and unlisted controls are rejected.
 
+## Explicit HTTPS URL helper
+
+Kiwi does not fetch image URLs while parsing terminal output. The optional
+`kiwi-image` client is an explicit user action that downloads one HTTPS URL
+with `curl`, validates it as a bounded PNG, then emits the direct-PNG APC-G
+stream above. It accepts HTTPS redirects only, uses connection and total
+timeouts, limits downloaded PNG data to 720 KiB, validates the PNG signature
+and IHDR dimensions, and keeps the encoded transfer below Kiwi's 1 MiB limit.
+It does not accept `http`, `file`, other non-HTTPS protocols, GIF, WebP,
+animation, or video.
+
+From a source checkout, run this inside a Kiwi shell:
+
+```sh
+./script/kiwi-image https://images.example/kiwi.png
+```
+
+The release artifact and Nix package install the same helper as `kiwi-image`.
+Use `--file path.png` for a local direct-PNG transfer, `--columns N` and
+`--rows N` to set the terminal-cell rectangle, and `--z N` to choose its
+composition layer. The helper suppresses the terminal's local echo while it
+waits for the placement acknowledgement, so protocol reply bytes do not appear
+as `^[` text in an interactive shell.
+
 ## Bounds and validation order
 
 The default limits are 4,096 APC bytes, 1 MiB encoded transfer data, 256

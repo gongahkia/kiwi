@@ -1,0 +1,159 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly MAX_ENCODED_BYTES=$((960 * 1024))
+readonly MAX_PNG_BYTES=$((720 * 1024))
+readonly MAX_PIXELS=$((16 * 1024 * 1024))
+readonly CHUNK_BYTES=4000
+
+usage() {
+  print -u2 'usage: kiwi-image [--file PATH | HTTPS_URL] [--id N] [--placement-id N] [--columns N] [--rows N] [--z N] [--place-only]'
+  exit 2
+}
+
+fail() {
+  print -u2 -- "kiwi-image: $1"
+  exit 1
+}
+
+positive_integer() {
+  [[ "$1" == <-> ]] && (( $1 > 0 && $1 <= 4294967295 ))
+}
+
+signed_integer() {
+  [[ "$1" == -<-> || "$1" == <-> ]] && (( $1 >= -2147483648 && $1 <= 2147483647 ))
+}
+
+image_id=${KIWI_IMAGE_ID:-1}
+placement_id=${KIWI_IMAGE_PLACEMENT_ID:-1}
+columns=${KIWI_IMAGE_COLUMNS:-18}
+rows=${KIWI_IMAGE_ROWS:-8}
+z_index=${KIWI_IMAGE_Z:--1}
+place_only=0
+source=''
+
+while (( $# > 0 )); do
+  case "$1" in
+    --file)
+      (( $# >= 2 )) || usage
+      [[ -z "$source" ]] || usage
+      source=$2
+      shift 2
+      ;;
+    --id)
+      (( $# >= 2 )) || usage
+      image_id=$2
+      shift 2
+      ;;
+    --placement-id)
+      (( $# >= 2 )) || usage
+      placement_id=$2
+      shift 2
+      ;;
+    --columns)
+      (( $# >= 2 )) || usage
+      columns=$2
+      shift 2
+      ;;
+    --rows)
+      (( $# >= 2 )) || usage
+      rows=$2
+      shift 2
+      ;;
+    --z)
+      (( $# >= 2 )) || usage
+      z_index=$2
+      shift 2
+      ;;
+    --place-only)
+      place_only=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      ;;
+    --*)
+      usage
+      ;;
+    *)
+      [[ -z "$source" ]] || usage
+      source=$1
+      shift
+      ;;
+  esac
+done
+
+[[ "${TERM:-}" == kiwi ]] || fail 'run this command inside Kiwi (TERM=kiwi)'
+positive_integer "$image_id" || fail '--id must be a positive 32-bit integer'
+positive_integer "$placement_id" || fail '--placement-id must be a positive 32-bit integer'
+positive_integer "$columns" || fail '--columns must be a positive integer'
+positive_integer "$rows" || fail '--rows must be a positive integer'
+signed_integer "$z_index" || fail '--z must be a signed 32-bit integer'
+(( place_only == 1 )) || [[ -n "$source" ]] || usage
+
+temporary=''
+tty_state=''
+
+cleanup() {
+  if [[ -n "$tty_state" ]]; then stty "$tty_state" 2>/dev/null || true; fi
+  if [[ -n "$temporary" ]]; then rm -f -- "$temporary"; fi
+}
+trap cleanup EXIT HUP INT TERM
+
+if (( place_only == 0 )); then
+  if [[ "$source" == https://* ]]; then
+    command -v curl >/dev/null || fail 'curl is required to fetch an HTTPS image URL'
+    temporary=$(mktemp)
+    curl --fail --location --silent --show-error \
+      --proto '=https' --proto-redir '=https' \
+      --connect-timeout 10 --max-time 30 --max-filesize "$MAX_PNG_BYTES" \
+      --output "$temporary" -- "$source" || fail 'could not download the image URL'
+    image=$temporary
+  elif [[ -f "$source" ]]; then
+    image=$source
+  else
+    fail 'source must be an existing PNG file or an HTTPS URL'
+  fi
+
+  image_bytes=$(wc -c < "$image")
+  (( image_bytes <= MAX_PNG_BYTES )) || fail 'PNG exceeds the 720 KiB URL-helper limit'
+  typeset -a header
+  header=($(LC_ALL=C od -An -v -tu1 -N 24 "$image"))
+  (( ${#header} == 24 )) || fail 'file is not a complete PNG header'
+  [[ ${header[1]} == 137 && ${header[2]} == 80 && ${header[3]} == 78 && ${header[4]} == 71 \
+    && ${header[5]} == 13 && ${header[6]} == 10 && ${header[7]} == 26 && ${header[8]} == 10 \
+    && ${header[9]} == 0 && ${header[10]} == 0 && ${header[11]} == 0 && ${header[12]} == 13 \
+    && ${header[13]} == 73 && ${header[14]} == 72 && ${header[15]} == 68 && ${header[16]} == 82 ]] \
+    || fail 'URL content is not a PNG image'
+  width=$(( header[17] * 16777216 + header[18] * 65536 + header[19] * 256 + header[20] ))
+  height=$(( header[21] * 16777216 + header[22] * 65536 + header[23] * 256 + header[24] ))
+  (( width > 0 && height > 0 && width * height <= MAX_PIXELS )) || fail 'PNG dimensions exceed Kiwi limits'
+  encoded=$(LC_ALL=C base64 --wrap=0 "$image")
+  (( ${#encoded} <= MAX_ENCODED_BYTES )) || fail 'encoded PNG exceeds the direct-transfer limit'
+fi
+
+if [[ -t 0 && -t 1 ]]; then
+  tty_state=$(stty -g)
+  stty -echo -echoctl
+fi
+
+if (( place_only == 0 )); then
+  offset=1
+  first=1
+  while (( offset <= ${#encoded} )); do
+    end=$(( offset + CHUNK_BYTES - 1 ))
+    chunk=${encoded[offset,end]}
+    next_offset=$(( end + 1 ))
+    more=$(( next_offset <= ${#encoded} ? 1 : 0 ))
+    if (( first == 1 )); then
+      print -rn -- $'\e_G'"a=t,i=$image_id,s=$width,v=$height,f=100,t=d,m=$more;$chunk"$'\e\\'
+      first=0
+    else
+      print -rn -- $'\e_G'"m=$more;$chunk"$'\e\\'
+    fi
+    offset=$next_offset
+  done
+fi
+
+print -rn -- $'\e_G'"a=p,i=$image_id,p=$placement_id,c=$columns,r=$rows,C=1,z=$z_index"$'\e\\'
+if [[ -n "$tty_state" ]]; then sleep 0.25; fi

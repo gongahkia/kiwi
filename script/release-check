@@ -18,6 +18,7 @@ version_output=$(KIWI_DEVELOPMENT=1 "$WORK/$NAME/bin/kiwi" --version)
 [[ -f "$WORK/$NAME/metadata.json" ]]
 [[ -d "$WORK/$NAME/share/terminfo" ]]
 [[ -f "$WORK/$NAME/share/doc/kiwi/README.md" ]]
+[[ -x "$WORK/$NAME/bin/kiwi-image" ]]
 for document in ACCESSIBILITY AUR CONFORMANCE NIX RENDERER_API SHELL_INTEGRATION SUPPORT TEXT USER_GUIDE; do
   [[ -f "$WORK/$NAME/share/doc/kiwi/docs/$document.md" ]]
 done
