@@ -7,7 +7,7 @@ readonly MAX_PIXELS=$((16 * 1024 * 1024))
 readonly CHUNK_BYTES=4000
 
 usage() {
-  print -u2 'usage: kiwi-image [--file PATH | HTTPS_URL] [--id N] [--placement-id N] [--columns N] [--rows N] [--z N] [--place-only]'
+  print -u2 'usage: kiwi-image [--file PATH | HTTPS_URL] [--id N] [--placement-id N] [--columns N] [--rows N] [--z N] [--place-only] [--no-cursor-advance]'
   exit 2
 }
 
@@ -29,6 +29,7 @@ placement_id=${KIWI_IMAGE_PLACEMENT_ID:-1}
 columns=${KIWI_IMAGE_COLUMNS:-18}
 rows=${KIWI_IMAGE_ROWS:-8}
 z_index=${KIWI_IMAGE_Z:--1}
+cursor_advance=1
 place_only=0
 source=''
 
@@ -69,6 +70,10 @@ while (( $# > 0 )); do
       place_only=1
       shift
       ;;
+    --no-cursor-advance)
+      cursor_advance=0
+      shift
+      ;;
     --help|-h)
       usage
       ;;
@@ -99,6 +104,24 @@ cleanup() {
   if [[ -n "$temporary" ]]; then rm -f -- "$temporary"; fi
 }
 trap cleanup EXIT HUP INT TERM
+
+await_placement_response() {
+  local byte=''
+  local expected=$'\e_G'"i=$image_id,p=$placement_id;OK"$'\e\\'
+  local failure_prefix=$'\e_G'"i=$image_id,p=$placement_id;"
+  local response=''
+
+  while IFS= read -r -k 1 -t 5 byte; do
+    response+=$byte
+    if [[ "$response" == *"$expected"* ]]; then return 0; fi
+    if [[ "$response" == *"$failure_prefix"*$'\e\\'* ]]; then
+      fail 'terminal rejected the image placement'
+    fi
+    if (( ${#response} > 4096 )); then response=${response[-512,-1]}; fi
+  done
+
+  fail 'terminal did not acknowledge the image placement'
+}
 
 if (( place_only == 0 )); then
   if [[ "$source" == https://* ]]; then
@@ -141,7 +164,7 @@ fi
 
 if [[ -t 0 && -t 1 ]]; then
   tty_state=$(stty -g)
-  stty -echo -echoctl
+  stty -echo -echoctl -icanon min 0 time 1
 fi
 
 if (( place_only == 0 )); then
@@ -163,4 +186,5 @@ if (( place_only == 0 )); then
 fi
 
 print -rn -- $'\e_G'"a=p,i=$image_id,p=$placement_id,c=$columns,r=$rows,C=1,z=$z_index"$'\e\\'
-if [[ -n "$tty_state" ]]; then sleep 0.25; fi
+if [[ -n "$tty_state" ]]; then await_placement_response; fi
+if (( cursor_advance == 1 )); then print -rn -- $'\e['"$rows"$'B\r'; fi
