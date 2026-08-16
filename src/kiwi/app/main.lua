@@ -25,7 +25,7 @@ local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
-local Terminal = require("kiwi.vt.terminal")
+local VT = require("kiwi.vt")
 local Window = require("kiwi.platform.window")
 local glfw = require("kiwi.ffi.glfw").constants
 
@@ -201,7 +201,7 @@ local function run_live(options)
     assert(columns ~= nil, "window has no drawable size")
     workspace_columns = columns
     workspace_rows = rows
-    terminal = Terminal.new({
+    terminal = VT.new({
       columns = columns,
       rows = rows,
       state_options = {
@@ -341,7 +341,7 @@ local function run_live(options)
     end
 
     local function new_session(columns, rows)
-      local new_terminal = Terminal.new({
+      local new_terminal = VT.new({
         columns = columns,
         rows = rows,
         state_options = {
