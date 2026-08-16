@@ -92,6 +92,14 @@ function Screen:resize(columns, rows, blank_cell)
   resized.saved_cursor.column = math.min(self.saved_cursor.column, columns - 1)
   resized.saved_cursor.row = math.min(self.saved_cursor.row, rows - 1)
   resized.saved_cursor.hyperlink_id = self.saved_cursor.hyperlink_id
+  resized.saved_cursor.attributes = self.saved_cursor.attributes
+  if self.saved_cursor.character_sets then
+    resized.saved_cursor.character_sets = {
+      g0 = self.saved_cursor.character_sets.g0,
+      g1 = self.saved_cursor.character_sets.g1,
+      gl = self.saved_cursor.character_sets.gl,
+    }
+  end
   resized.keyboard_flags = self.keyboard_flags
   for index, flags in ipairs(self.keyboard_stack) do
     resized.keyboard_stack[index] = flags

@@ -39,7 +39,8 @@ owns incremental writes, bounded terminal effects and responses, and an
 explicit begin/end render-update transaction. `kiwi.vt.headless` is a second,
 renderer-free consumer that projects the public render view into logical text.
 Neither module imports PTY, GLFW, WGPU, fonts, clipboard bridges, or network
-code. The API remains single-threaded and v0/experimental; its full contract
+code. The API remains single-threaded and experimental under a pre-1.0
+stability policy; its current API version is v1 and its full contract
 and non-goals are in [LIBKIWI.md](LIBKIWI.md).
 
 ## PTY and process boundary
