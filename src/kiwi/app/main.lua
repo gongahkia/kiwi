@@ -17,6 +17,7 @@ local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local Pty = require("kiwi.process.pty")
+local ShellIntegration = require("kiwi.process.shell_integration")
 local Compositor = require("kiwi.renderer.compositor")
 local Renderer = require("kiwi.renderer.renderer")
 local Workspace = require("kiwi.session.workspace")
@@ -217,12 +218,26 @@ local function run_live(options)
     })
     local state = terminal.state
     local root = os.getenv("KIWI_ROOT") or "."
+    local terminfo_directory = os.getenv("KIWI_TERMINFO") or root .. "/.build/terminfo"
+    local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
+    local function spawn_child(command, child_columns, child_rows)
+      local environment = {
+        TERM = "kiwi",
+        TERMINFO = terminfo_directory,
+        COLORTERM = false,
+      }
+      if command == nil and configuration.shell_integration == "auto" then
+        local integration_environment
+        command, integration_environment = ShellIntegration.prepare(Pty.default_command(), integration_directory)
+        for name, value in pairs(integration_environment) do environment[name] = value end
+      else
+        command = command or Pty.default_command()
+        if configuration.shell_integration == "none" then environment.KIWI_SHELL_INTEGRATION = false end
+      end
+      return Pty.spawn(command, child_columns, child_rows, environment)
+    end
     local render_options = renderer_options(options, configuration)
-    pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
-      TERM = "kiwi",
-      TERMINFO = root .. "/.build/terminfo",
-      COLORTERM = false,
-    })
+    pty = spawn_child(options.command, columns, rows)
     local parser = terminal.parser
     if options.record then
       recorder = Replay.Recorder.new(options.record)
@@ -356,11 +371,7 @@ local function run_live(options)
         },
       })
       local new_state = new_terminal.state
-      local new_pty = Pty.spawn(options.command or Pty.default_command(), columns, rows, {
-        TERM = "kiwi",
-        TERMINFO = root .. "/.build/terminfo",
-        COLORTERM = false,
-      })
+      local new_pty = spawn_child(options.command, columns, rows)
       local new_recovery = Recovery.new()
       return {
         metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = new_terminal.parser, recovery = new_recovery }),

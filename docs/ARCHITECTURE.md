@@ -44,7 +44,17 @@ and non-goals are in [LIBKIWI.md](LIBKIWI.md).
 
 ## PTY and process boundary
 
-`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. It builds a child-only environment vector before the fork and passes it directly to `execvpe`: the live child receives `TERM=kiwi` and the project-local `TERMINFO`, while inherited `COLORTERM` is removed to preserve Kiwi's 16-colour contract. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
+`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. It builds a child-only environment vector before the fork and passes it directly to `execvpe`: the live child receives `TERM=kiwi` and the source or installed `TERMINFO`, while inherited `COLORTERM` is removed to preserve Kiwi's 16-colour contract. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
+
+`process/shell_integration.lua` recognizes only that initial default command's
+`bash`, `zsh`, or `fish` basename. In the default `auto` mode it stages the
+corresponding versioned integration without writing user configuration: Bash
+sources the normal `.bashrc` before its hook, Zsh restores the user's
+`ZDOTDIR` before `.zshrc`, and fish runs its init command after normal config.
+`shell-integration = none`, an explicit command, a shell transition, an
+unsupported basename, or missing resources leaves injection off. The separate
+`kiwi-ssh` launcher transfers only the compiled terminfo entry to a remote
+per-user cache, and never becomes a parser or PTY dependency.
 
 LuaJIT owns all lifecycle policy and terminal logic. The small C bridge only wraps the ABI-sensitive `TIOCSWINSZ` and nonblocking-fd operations, alongside the pre-existing GLFW/wgpu surface bridge. It contains no parser or terminal state.
 

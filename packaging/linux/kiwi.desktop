@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kiwi
+Comment=GPU-accelerated terminal research platform
+Exec=kiwi
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=terminal;console;shell;
+StartupNotify=true

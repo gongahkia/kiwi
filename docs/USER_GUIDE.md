@@ -158,11 +158,14 @@ The documented settings are intentionally small:
 | `KIWI_HYPERLINK_COLOR` | `#88C0D0FF` | OSC 8 hyperlink underline, in the same format. |
 | `KIWI_COMMAND_REGIONS` | disabled | Set to `1` for the built-in visible command/output separator pass. |
 | `KIWI_COMMAND_REGION_COLOR` | `#88C0D055` | Command-region separator color, in the same format. |
+| `KIWI_SHELL_INJECTION` | `auto` | Set to `none` to disable automatic initial Bash/Zsh/fish integration. |
 
-Shell integration is separate and opt-in. The versioned Bash, Zsh, and fish
-snippets only emit OSC 7/133 metadata when they are explicitly sourced in an
-interactive `TERM=kiwi` shell with `KIWI_SHELL_INTEGRATION=1`; follow
-[SHELL_INTEGRATION.md](SHELL_INTEGRATION.md) to enable or remove them.
+Kiwi injects the versioned Bash, Zsh, and fish snippets into its initial
+default shell by default, without editing a dotfile. Set
+`shell-integration = none` or `KIWI_SHELL_INJECTION=none` to disable it.
+Switched shells and explicit commands remain manual; follow
+[SHELL_INTEGRATION.md](SHELL_INTEGRATION.md) for source blocks, removal, and
+the explicit `kiwi-ssh` remote-terminfo workflow.
 The source checkout keeps those snippets in `integrations/v1/`; an extracted
 artifact keeps the same versioned directory at `share/kiwi/integrations/v1/`.
 
