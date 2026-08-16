@@ -76,7 +76,7 @@ return {
     Assert.equal(#state:kitty_placements_view().placements, 0)
     Assert.truthy(state.kitty_placements:snapshot().stats.released >= 1)
   end,
-  kitty_placements_clear_alternate_resize_and_delete_have_bounded_lifecycles = function()
+  kitty_placements_release_primary_anchors_on_reflow_and_keep_alternate_lifecycles_bounded = function()
     local state = State.new(4, 2)
     local parser = Parser.new(state)
     upload(parser, 3)
@@ -85,10 +85,8 @@ return {
     state:pop_responses()
     state:resize(3, 1)
     local view = state:kitty_placements_view()
-    Assert.equal(#view.placements, 1)
-    Assert.equal(view.placements[1].columns, 1)
-    Assert.equal(#view.placements[1].rows, 1)
-    Assert.equal(view.placements[1].rows[1].source_row, 0)
+    Assert.equal(#view.placements, 0)
+    Assert.truthy(state.kitty_placements:snapshot().stats.released >= 1)
 
     state:erase_in_display(2)
     Assert.equal(#state:kitty_placements_view().placements, 0)

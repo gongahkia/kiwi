@@ -56,7 +56,7 @@ return {
     Assert.equal(direct:hyperlink_at(0, 0).uri, "https://example.test/a")
     local replayed = State.new(2, 1, { scrollback_limit = 2 })
     Parser.new(replayed):feed(source)
-    Assert.equal(replayed.scrollback:get(1).cells[0].hyperlink_id, direct.scrollback:get(1).cells[0].hyperlink_id)
+    Assert.equal(replayed.scrollback:get(1).cells[0].hyperlink_id, direct:get(0, 0).hyperlink_id)
   end,
 
   hyperlink_activation_requires_explicit_safe_pointer_or_keyboard_action = function()

@@ -31,4 +31,16 @@ return {
     Assert.equal(rows[1].line_id, 1)
     Assert.equal(rows[2].line_id, 2)
   end,
+  reflow_maps_blank_cell_gaps_and_flushes_a_trailing_soft_wrapped_line = function()
+    local next_id = 30
+    local source = row(1, "a", true)
+    local rows, map = Reflow.transform({ source }, 4, 3, function()
+      next_id = next_id + 1
+      return row(next_id, "", false)
+    end)
+    Assert.equal(#rows, 1)
+    local gap = Reflow.remap_position(map, source.line_id, 4)
+    Assert.equal(gap.line_id, rows[1].line_id)
+    Assert.equal(gap.column, 1)
+  end,
 }

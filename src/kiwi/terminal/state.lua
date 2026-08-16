@@ -76,6 +76,7 @@ function State.new(columns, rows, options)
   options = options or {}
   assert(options.effect_sink == nil or type(options.effect_sink) == "function", "terminal effect sink must be a function")
   assert(options.queue_responses == nil or type(options.queue_responses) == "boolean", "terminal response queue selection must be a boolean")
+  assert(options.reflow_on_resize == nil or type(options.reflow_on_resize) == "boolean", "terminal reflow policy must be a boolean")
   local colors = Attributes.Palette.new(options.colors)
   local self = setmetatable({
     columns = columns,
@@ -117,6 +118,7 @@ function State.new(columns, rows, options)
     osc52_maximum_bytes = options.osc52_maximum_bytes or 64 * 1024,
     history_offset = 0,
     queue_responses = options.queue_responses ~= false,
+    reflow_on_resize = options.reflow_on_resize ~= false,
     title = nil,
     responses = {},
     grapheme_context_storage = {},
@@ -1475,12 +1477,174 @@ function State:screen_alignment_test()
   self.last_print = { codepoint = string.byte("E"), glyph = "E" }
 end
 
-function State:resize(columns, rows)
+function State:is_reflow_blank(cell)
+  return cell.glyph == " "
+    and not cell.continuation
+    and (cell.width == nil or cell.width == 1)
+    and cell.codepoints == nil
+    and cell.display_text == nil
+    and cell.hyperlink_id == nil
+    and cell.flags == 0
+    and cell.fg == self.default_cell.fg
+    and cell.bg == self.default_cell.bg
+    and cell.fg_slot == self.default_cell.fg_slot
+    and cell.bg_slot == self.default_cell.bg_slot
+end
+
+function State:merge_reflow_row_metadata(target, source)
+  if source.command_regions_truncated then target.command_regions_truncated = true end
+  for _, id in ipairs(source.command_region_ids or {}) do
+    local ids = target.command_region_ids
+    if ids == nil then
+      ids = {}
+      target.command_region_ids = ids
+    end
+    local present = false
+    for _, existing in ipairs(ids) do
+      if existing == id then
+        present = true
+        break
+      end
+    end
+    if not present then
+      if #ids < self.command_regions.row_reference_limit then
+        ids[#ids + 1] = id
+      else
+        target.command_regions_truncated = true
+        self.command_regions:mark_row_reference_overflow(id)
+      end
+    end
+  end
+end
+
+function State:reflow_primary(columns, rows)
+  local old_columns = self.columns
+  local old_primary = self.primary
+  local document = self:selection_rows("primary")
+  local source_rows = {}
+  local source_document = {}
+  for _, entry in ipairs(document) do
+    source_rows[entry.line_id] = entry.row
+    source_document[#source_document + 1] = entry.row
+  end
+
+  local old_cursor = old_primary.cursor
+  local cursor_position = {
+    column = old_cursor.column + (old_cursor.pending_wrap and 1 or 0),
+    line_id = old_primary.rows[old_cursor.row].line_id,
+    scope = "primary",
+  }
+  local old_saved = old_primary.saved_cursor
+  local saved_position = {
+    column = old_saved.column,
+    line_id = old_primary.rows[old_saved.row].line_id,
+    scope = "primary",
+  }
+  local viewport_position
+  if self.active_screen == old_primary and self.history_offset > 0 then
+    local visible = self:visible_row(0)
+    viewport_position = { column = 0, line_id = visible.line_id, scope = "primary" }
+  end
+
+  -- Kitty placements own fixed cell rectangles. Reflow changes both axes, so
+  -- keeping their old anchors would draw corrupted geometry; keep the decoded
+  -- image cache but release the primary-screen placement records.
+  self:clear_kitty_placement_scope("primary")
+
+  local blank = function()
+    return self:blank_cell()
+  end
+  local primary = Screen.new(columns, rows, blank, function()
+    self.next_line_id = self.next_line_id + 1
+    return self.next_line_id
+  end)
+  primary.attributes = Attributes.copy(old_primary.attributes)
+  primary.hyperlink_id = old_primary.hyperlink_id
+  primary.keyboard_flags = old_primary.keyboard_flags
+  for index, flags in ipairs(old_primary.keyboard_stack) do primary.keyboard_stack[index] = flags end
+
+  local reflowed, map, membership = Reflow.transform(source_document, old_columns, columns, function()
+    return primary:new_row()
+  end, function(cell)
+    return self:is_reflow_blank(cell)
+  end)
+  local rows_by_line_id = {}
+  for _, row in ipairs(reflowed) do rows_by_line_id[row.line_id] = row end
+  for _, entry in ipairs(document) do
+    local target = rows_by_line_id[membership[entry.line_id]]
+    if target then self:merge_reflow_row_metadata(target, source_rows[entry.line_id]) end
+  end
+  for _, row in ipairs(reflowed) do row._reflow_sources = nil end
+
+  local remap = function(position)
+    local remapped = Reflow.remap_position(map, position.line_id, position.column)
+    if remapped then remapped.scope = position.scope end
+    return remapped
+  end
+  self.selection:remap("primary", remap)
+  self.command_regions:remap_positions("primary", remap)
+  self.shell:remap_positions("primary", remap)
+  local mapped_cursor = remap(cursor_position)
+  local mapped_saved = remap(saved_position)
+  local mapped_viewport = viewport_position and remap(viewport_position) or nil
+
+  local scrollback = Scrollback.new(self.scrollback.limit)
+  local first_visible = math.max(1, #reflowed - rows + 1)
+  for index = 1, first_visible - 1 do scrollback:push(reflowed[index]) end
+  local target_row = 0
+  for index = first_visible, #reflowed do
+    primary.rows[target_row] = reflowed[index]
+    target_row = target_row + 1
+  end
+
+  local function screen_location(position)
+    if position == nil then return nil end
+    for row = 0, rows - 1 do
+      if primary.rows[row].line_id == position.line_id then
+        return { column = clamp(position.column, 0, columns - 1), row = row }
+      end
+    end
+    return nil
+  end
+  local cursor = screen_location(mapped_cursor)
+  primary.cursor.column = cursor and cursor.column or 0
+  primary.cursor.row = cursor and cursor.row or 0
+  primary.cursor.pending_wrap = cursor ~= nil and mapped_cursor.column >= columns
+  primary.cursor.visible = old_cursor.visible
+  local saved = screen_location(mapped_saved)
+  primary.saved_cursor = {
+    attributes = Attributes.copy(old_saved.attributes or Attributes.default()),
+    column = saved and saved.column or 0,
+    hyperlink_id = old_saved.hyperlink_id,
+    row = saved and saved.row or 0,
+  }
+
+  local history_offset = 0
+  if mapped_viewport then
+    local position = nil
+    for index = 1, scrollback:size() do
+      if scrollback:get(index).line_id == mapped_viewport.line_id then
+        position = index
+        break
+      end
+    end
+    if position then history_offset = scrollback:size() - (position - 1) end
+  end
+  self.primary = primary
+  self.scrollback = scrollback
+  self.history_offset = history_offset
+end
+
+function State:resize(columns, rows, options)
   self:clear_grapheme_context()
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
+  options = options or {}
+  assert(type(options) == "table", "terminal resize options must be a table")
+  assert(options.reflow == nil or type(options.reflow) == "boolean", "terminal resize reflow option must be a boolean")
+  local reflow_primary = columns ~= self.columns and self.reflow_on_resize and options.reflow ~= false
   if rows < self.rows then
     for row = rows, self.rows - 1 do
-      self:release_kitty_placement_row("primary", self.primary.rows[row])
+      if not reflow_primary then self:release_kitty_placement_row("primary", self.primary.rows[row]) end
       self:release_kitty_placement_row("alternate", self.alternate.rows[row])
     end
   end
@@ -1488,7 +1652,11 @@ function State:resize(columns, rows)
   local blank = function()
     return self:blank_cell()
   end
-  self.primary = self.primary:resize(columns, rows, blank)
+  if reflow_primary then
+    self:reflow_primary(columns, rows)
+  else
+    self.primary = self.primary:resize(columns, rows, blank)
+  end
   self.alternate = self.alternate:resize(columns, rows, blank)
   self.columns = columns
   self.rows = rows
