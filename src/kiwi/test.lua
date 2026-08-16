@@ -3,6 +3,7 @@ local tests = {
   require("tests.test_build"),
   require("tests.test_doctor"),
   require("tests.test_paths"),
+  require("tests.test_config"),
   require("tests.test_terminal"),
   require("tests.test_synthetic"),
   require("tests.test_utf8"),
