@@ -276,6 +276,20 @@ function Workspace:layout(width, height)
   return result
 end
 
+function Workspace:pane_at(width, height, column, row)
+  assert(type(column) == "number" and column % 1 == 0, "workspace hit-test column must be an integer")
+  assert(type(row) == "number" and row % 1 == 0, "workspace hit-test row must be an integer")
+  if column < 0 or row < 0 or column >= width or row >= height then return nil, "outside-workspace" end
+  local layout, reason = self:layout(width, height)
+  if layout == nil then return nil, reason end
+  for _, pane in ipairs(layout) do
+    if column >= pane.x and column < pane.x + pane.width and row >= pane.y and row < pane.y + pane.height then
+      return self.panes[pane.pane_id], pane
+    end
+  end
+  return nil, "outside-workspace"
+end
+
 function Workspace:snapshot()
   local tabs = {}
   for index, tab in ipairs(self.tabs) do

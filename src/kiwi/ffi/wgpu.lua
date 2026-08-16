@@ -126,6 +126,8 @@ void wgpuCommandEncoderRelease(WGPUCommandEncoder encoder);
 void wgpuCommandBufferRelease(WGPUCommandBuffer buffer);
 void wgpuRenderPassEncoderSetPipeline(WGPURenderPassEncoder pass, WGPURenderPipeline pipeline);
 void wgpuRenderPassEncoderSetBindGroup(WGPURenderPassEncoder pass, uint32_t groupIndex, WGPUBindGroup group, size_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
+void wgpuRenderPassEncoderSetViewport(WGPURenderPassEncoder pass, float x, float y, float width, float height, float minDepth, float maxDepth);
+void wgpuRenderPassEncoderSetScissorRect(WGPURenderPassEncoder pass, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 void wgpuRenderPassEncoderDraw(WGPURenderPassEncoder pass, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
 void wgpuRenderPassEncoderEnd(WGPURenderPassEncoder pass);
 void wgpuRenderPassEncoderRelease(WGPURenderPassEncoder pass);

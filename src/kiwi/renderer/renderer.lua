@@ -790,12 +790,34 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions)
 end
 
+function Renderer:configure_pass_viewport(pass)
+  local viewport = self.frame_viewport
+  if viewport == nil then return end
+  self.native.lib.wgpuRenderPassEncoderSetViewport(
+    pass,
+    viewport.x,
+    viewport.y,
+    viewport.width,
+    viewport.height,
+    0,
+    1
+  )
+  self.native.lib.wgpuRenderPassEncoderSetScissorRect(pass, viewport.x, viewport.y, viewport.width, viewport.height)
+end
+
+function Renderer:pass_load_op(pass_info)
+  if self.frame_clear == false and pass_info.load_op == self.native.constants.load_clear then
+    return self.native.constants.load_load
+  end
+  return pass_info.load_op
+end
+
 function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resources)
   assert(resources["surface.color"] ~= nil, "semantic pass requires a presentation target")
   local attachment = ffi.new("WGPURenderPassColorAttachment")
   attachment.view = view
   attachment.depthSlice = 0xffffffff
-  attachment.loadOp = pass_info.load_op
+  attachment.loadOp = self:pass_load_op(pass_info)
   attachment.storeOp = self.native.constants.store_store
   attachment.clearValue.r = 0.075
   attachment.clearValue.g = 0.09
@@ -807,6 +829,7 @@ function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resource
   descriptor.colorAttachments = attachment
   if self.gpu_timing then descriptor.timestampWrites = self.gpu_timing:writes(pass_info.name) end
   local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. pass_info.name)
+  self:configure_pass_viewport(pass)
   self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.native.lib.wgpuRenderPassEncoderSetBindGroup(pass, 0, self.bind_group, 0, nil)
   self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, pass_info.instances(model), 0, 0)
@@ -819,7 +842,7 @@ function Renderer:encode_kitty_image_pass(pass_info, encoder, view, model, resou
   local attachment = ffi.new("WGPURenderPassColorAttachment")
   attachment.view = view
   attachment.depthSlice = 0xffffffff
-  attachment.loadOp = pass_info.load_op
+  attachment.loadOp = self:pass_load_op(pass_info)
   attachment.storeOp = self.native.constants.store_store
   local descriptor = ffi.new("WGPURenderPassDescriptor")
   descriptor.label = string_view(pass_info.name)
@@ -827,28 +850,27 @@ function Renderer:encode_kitty_image_pass(pass_info, encoder, view, model, resou
   descriptor.colorAttachments = attachment
   if self.gpu_timing then descriptor.timestampWrites = self.gpu_timing:writes(pass_info.name) end
   local pass = assert_handle(self.native.lib.wgpuCommandEncoderBeginRenderPass(encoder, descriptor), "render-pass creation for " .. pass_info.name)
+  self:configure_pass_viewport(pass)
   self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.kitty_images:encode(pass_info.image_layer, { handle = pass, native = self.native })
   self.native.lib.wgpuRenderPassEncoderEnd(pass)
   self.native.lib.wgpuRenderPassEncoderRelease(pass)
 end
 
-function Renderer:render(model, time, debug_dirty, debug_boundaries)
-  if self.context.window.minimized then
-    return false, "zero-sized drawable"
-  end
-  if self.context.window.resized and not self.context:configure_surface() then
-    return false, "zero-sized drawable"
+function Renderer:encode_into(encoder, view, model, time, debug_dirty, debug_boundaries, options)
+  options = options or {}
+  assert(options.clear == nil or type(options.clear) == "boolean", "renderer frame clear option must be a boolean")
+  local viewport = options.viewport
+  if viewport ~= nil then
+    assert(type(viewport) == "table", "renderer frame viewport must be a table")
+    for _, name in ipairs({ "x", "y", "width", "height" }) do
+      assert(type(viewport[name]) == "number" and viewport[name] >= 0 and viewport[name] % 1 == 0, "renderer frame viewport " .. name .. " must be a non-negative integer")
+    end
+    assert(viewport.width >= 1 and viewport.height >= 1, "renderer frame viewport dimensions must be positive")
   end
   self:update_frame(model, time, debug_dirty, debug_boundaries)
-  local surface_texture = ffi.new("WGPUSurfaceTexture")
-  self.native.lib.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
-  local c = self.native.constants
-  if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
-    return false, "surface acquire status " .. tonumber(surface_texture.status)
-  end
-  local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
-  local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
+  self.frame_clear = options.clear ~= false
+  self.frame_viewport = viewport
   if self.gpu_timing then self.gpu_timing:begin_frame() end
   self.pass_registry:begin_frame()
   self.pass_registry:prepare(self, model)
@@ -856,22 +878,12 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.pass_registry:end_frame()
   if self.gpu_timing then self.gpu_timing:resolve(encoder) end
   if self.pass_metrics.enabled then self.diagnostics.pass_cpu = self.pass_metrics:snapshot() end
-  self.diagnostics.extensions = self.extension_manager:snapshot()
-  local commands = ffi.new("WGPUCommandBuffer[1]")
-  commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
-  self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
+  self.frame_clear = nil
+  self.frame_viewport = nil
+end
+
+function Renderer:finish_frame(model, time)
   if self.gpu_timing then self.gpu_timing:submit() end
-  self.native.lib.wgpuCommandBufferRelease(commands[0])
-  self.native.lib.wgpuCommandEncoderRelease(encoder)
-  self.native.lib.wgpuTextureViewRelease(view)
-  local present_status = self.native.lib.wgpuSurfacePresent(self.context.surface)
-  self.native.lib.wgpuTextureRelease(surface_texture.texture)
-  if surface_texture.status == c.surface_success_suboptimal then
-    self.context.window.resized = true
-  end
-  if present_status ~= 1 then
-    return false, "surface present status " .. tonumber(present_status)
-  end
   self.native.lib.wgpuInstanceProcessEvents(self.context.instance)
   if self.gpu_timing then
     self.gpu_timing:poll()
@@ -879,10 +891,6 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   end
   self.pass_budgets:observe(self.diagnostics.pass_cpu, self.diagnostics.gpu_timing, time)
   self.diagnostics.pass_budgets = self.pass_budgets:snapshot()
-  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
-  if #native_error > 0 then
-    return false, "native GPU error: " .. native_error
-  end
   self.diagnostics.draw_calls = self.pass_registry:count()
   self.invalidation:consume_success(time)
   self.extension_manager:consume_animations(time)
@@ -895,6 +903,44 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   self.diagnostics.invalidation = self:invalidation_snapshot()
   self.diagnostics.extensions = self.extension_manager:snapshot()
   if self.inspector_enabled then self.diagnostics.inspector = self:inspector_snapshot() end
+end
+
+function Renderer:render(model, time, debug_dirty, debug_boundaries)
+  if self.context.window.minimized then
+    return false, "zero-sized drawable"
+  end
+  if self.context.window.resized and not self.context:configure_surface() then
+    return false, "zero-sized drawable"
+  end
+  local surface_texture = ffi.new("WGPUSurfaceTexture")
+  self.native.lib.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
+  local c = self.native.constants
+  if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
+    return false, "surface acquire status " .. tonumber(surface_texture.status)
+  end
+  local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
+  local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
+  self:encode_into(encoder, view, model, time, debug_dirty, debug_boundaries, { clear = true })
+  self.diagnostics.extensions = self.extension_manager:snapshot()
+  local commands = ffi.new("WGPUCommandBuffer[1]")
+  commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
+  self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
+  self.native.lib.wgpuCommandBufferRelease(commands[0])
+  self.native.lib.wgpuCommandEncoderRelease(encoder)
+  self.native.lib.wgpuTextureViewRelease(view)
+  local present_status = self.native.lib.wgpuSurfacePresent(self.context.surface)
+  self.native.lib.wgpuTextureRelease(surface_texture.texture)
+  if surface_texture.status == c.surface_success_suboptimal then
+    self.context.window.resized = true
+  end
+  if present_status ~= 1 then
+    return false, "surface present status " .. tonumber(present_status)
+  end
+  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
+  if #native_error > 0 then
+    return false, "native GPU error: " .. native_error
+  end
+  self:finish_frame(model, time)
   return true
 end
 

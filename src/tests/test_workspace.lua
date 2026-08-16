@@ -69,4 +69,18 @@ return {
     Assert.equal(snapshot.tabs[1].root.pane_id, pane.id)
     Assert.equal(snapshot.tabs[1].root.session, nil)
   end,
+  workspace_hit_testing_reuses_the_active_tab_cell_layout = function()
+    local workspace = Workspace.new()
+    local first = assert(workspace:new_tab("one"))
+    local second = assert(workspace:split("vertical", "two", { ratio = 0.4 }))
+    local left, left_layout = assert(workspace:pane_at(100, 30, 39, 29))
+    Assert.equal(left.id, first.id)
+    Assert.equal(left_layout.width, 40)
+    local right, right_layout = assert(workspace:pane_at(100, 30, 40, 0))
+    Assert.equal(right.id, second.id)
+    Assert.equal(right_layout.x, 40)
+    local outside, reason = workspace:pane_at(100, 30, 100, 0)
+    Assert.equal(outside, nil)
+    Assert.equal(reason, "outside-workspace")
+  end,
 }
