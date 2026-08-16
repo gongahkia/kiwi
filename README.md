@@ -18,7 +18,7 @@ make terminfo
 TERMINFO="$PWD/.build/terminfo" infocmp kiwi
 ```
 
-The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, basic SGR, and application cursor keys. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
+The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, DEC Special Graphics line drawing, basic SGR, and application cursor keys. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
 M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap, bounded primary scrollback, legacy keyboard encoding plus the negotiated Kitty disambiguation subset, PTY resize propagation, DSR/DA replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
@@ -236,13 +236,13 @@ remote shell. Its failure fallback uses `TERM=xterm-256color`; see
 
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output
-lifecycle when a cooperative shell emits them. Versioned Bash, Zsh, and fish
-assets are available as an explicit, reversible opt-in; they are inactive
-unless the user sources them in an interactive `TERM=kiwi` shell with
-`KIWI_SHELL_INTEGRATION=1`. They do not enable path access, command execution,
-durable cross-session persistence, a renderer resource, diagnostics output, or
-a UI. Opaque row associations move through bounded scrollback and degrade
-explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
+lifecycle when a cooperative shell emits them. The initial default Bash, Zsh,
+or fish shell receives Kiwi's reversible versioned asset automatically; manual
+source blocks remain available for switched shells and explicit-command
+launches, where they require `KIWI_SHELL_INTEGRATION=1`. Neither route enables
+path access, command execution, durable cross-session persistence, a renderer
+resource, diagnostics output, or a UI. Opaque row associations move through
+bounded scrollback and degrade explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
 [ADR 0027](docs/adr/0027-bounded-shell-integration-metadata.md),
 [ADR 0028](docs/adr/0028-stable-command-region-lifecycle.md), and
 [ADR 0029](docs/adr/0029-command-region-retention-and-snapshot-boundary.md).

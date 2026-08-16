@@ -63,6 +63,25 @@ cover Unicode anchors, wide cells, combining text, selection, resize, history
 viewports, and bounded scrollback export; they are not a screen-reader smoke
 test.
 
+## Native Linux boundary
+
+An AT-SPI provider is a D-Bus server, not a client-library probe. A production
+Linux adapter must expose an `org.a11y.atspi.Accessible` root at
+`/org/a11y/atspi/accessible/root`, implement
+`org.a11y.atspi.Application` on that root, expose a terminal child with the
+Accessible and Text interfaces, and register the root through the registry's
+`org.a11y.atspi.Socket.Embed` handshake. It must then report bounded text and
+caret/selection state through AT-SPI character offsets and issue the relevant
+text, caret, selection, focus, and window notifications on the accessibility
+bus.
+
+The installed `atspi-2` library is principally a client API. Linking it or
+calling its initialization function would neither expose Kiwi's D-Bus objects
+nor register an application. Kiwi therefore deliberately has no partial
+adapter in the normal build: an unregistered or query-only shim would make the
+semantic data look available while remaining invisible to assistive technology.
+The current model remains the input contract for a future provider.
+
 ## M9 smoke evidence
 
 Run `make accessibility-smoke` for the repeatable semantic-data smoke check.
@@ -86,3 +105,10 @@ bounded viewport, caret movement, output change, and selection endpoints. The
 equivalent macOS NSAccessibility and Windows UI Automation checks require their
 own native adapter and platform tooling. Until those observations are captured,
 Kiwi makes no screen-reader compatibility claim.
+
+## References
+
+- [AT-SPI Accessible provider contract](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Accessible.html)
+- [AT-SPI Application provider contract](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Application.html)
+- [AT-SPI registry `Socket.Embed` handshake](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Socket.html)
+- [AT-SPI Text interface](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Text.html)

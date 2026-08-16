@@ -6,13 +6,15 @@ Yes: extracting a useful `libkiwi` is feasible. It is **not** a packaging exerci
 
 Kiwi already contains a strong candidate terminal kernel: incremental parsing, UTF-8/grapheme/width handling, screen and bounded scrollback state, terminal input encoding, semantic selection/search/link/shell metadata, damage tracking, and bounded Kitty graphics state. The present implementation is nonetheless application-owned LuaJIT code with mutable Lua tables, direct `Parser → State` calls, direct GPU/media coupling in terminal state, a JSON observation snapshot only, and no stable ABI, ownership rules, or host callback contract. Those seams must be created before another program can safely embed it.
 
-The initial extraction now exists as the internal, host-neutral `kiwi.vt.terminal`
-Lua facade plus `kiwi.vt.render_state`: it owns incremental writes, bounded typed
-effects, response draining, and explicit render-update acknowledgement without
-importing PTY, GLFW, WGPU, or font modules. Kiwi's application consumes it. It
-is not a C ABI, is intentionally single-threaded, and remains an internal v0
-Lua contract. The next publication step is opaque C handles, allocation/error
-rules, and external-consumer tests—not exporting mutable Lua tables.
+The initial extraction now exists as the experimental, host-neutral `kiwi.vt`
+Lua API v1, with `kiwi.vt.render_state` and `kiwi.vt.headless`: it owns
+incremental writes, bounded typed effects, response draining, borrowed
+render-update views, explicit damage acknowledgement, and logical headless
+projection without importing PTY, GLFW, WGPU, or font modules. Kiwi's
+application consumes the facade. It is not a C ABI, is intentionally
+single-threaded, and has a pre-1.0 stability policy. The next publication step
+is opaque C handles, allocation/error rules, and external-consumer tests—not
+exporting mutable Lua tables.
 
 ## What “libghostty” means in this comparison
 
@@ -78,7 +80,7 @@ This division is intentional. A consumer that only needs a terminal model should
 | **Lifecycle, allocation, and errors** | Explicit `new/free` lifecycles, result codes, and optional custom allocator interface; documented borrowed-pointer lifetimes. | Lua garbage collection, mutable tables, `assert`/`error` patterns, and no allocator or foreign-runtime ownership contract. | Introduce opaque handle ownership, null/error behavior, per-call result codes, size/versioned structs, and a single allocation/free story before publishing. |
 | **Byte-stream processing** | `GhosttyTerminal` receives VT bytes and retains parser continuation with explicit APIs. | `Parser:feed` sends actions directly to `State`; it is already incremental and bounded. | Preserve the parser's strengths but expose one terminal-write function plus well-defined continuation/limit configuration. Do not expose action tables as a permanent ABI. |
 | **Terminal effects / host policy** | Opt-in synchronous callbacks for PTY replies, bell, title/PWD, size/device/color queries, clipboard writes, notifications, progress, and unknown sequences; reentrancy is documented as forbidden. | State queues terminal responses and directly owns some metadata; application code drains responses and performs title/clipboard/link policy separately. | Replace hidden queues and ad hoc application calls with a typed effects vtable, userdata, opt-in switches, hard payload limits, and explicit no-reentrancy/thread rules. Keep OSC 52 default-denied unless the host enables it. |
-| **Render-state contract** | Separate render-state handle designed for incremental updates; exposes global/row dirty state, cell/row iterators, cursor and color data, with begin/end update for short terminal lock windows. | Damage exists, but the live renderer reads Kiwi's concrete `State` and uses internal Lua data/semantic resources. No public snapshot lifetime or consumer clear protocol exists. | This is Kiwi's most important new abstraction. Build a terminal-owned render projection with transaction/update, iteration, borrowed-view lifetime, and dirty acknowledgement. It should not create GPU objects. |
+| **Render-state contract** | Separate render-state handle designed for incremental updates; exposes global/row dirty state, cell/row iterators, cursor and color data, with begin/end update for short terminal lock windows. | `kiwi.vt` now has `begin_render_update`/`end_render_update(consumed)`, copied cell/row accessors, cursor/selection data, and explicit logical-damage acknowledgement. The live GPU renderer still reads its internal `State`/semantic resources rather than that facade. | **Partial gap.** Apply the v1 view to the live renderer and formalize borrowed-data lifetime and update errors for a C boundary; it should not create GPU objects. |
 | **Threading** | Render-state documentation describes a controlled lock-held update window for a renderer/IO-thread design; individual callback contracts are explicit. | Current app is effectively one LuaJIT/GLFW event-loop design; no public threading contract. | State clearly whether `libkiwi-vt` is single-threaded in v0.1 or publish locking/serialization rules. Do not imply thread safety just because data is read-only at a moment. |
 | **Scrollback and reflow** | Supports scrollback, resize reflow, and caller-driven bounded incremental compression. | Bounded scrollback and primary-screen column reflow exist. Reflow preserves grapheme cells and remaps semantic positions, but it has no host-driven compression lifecycle and releases fixed Kitty placement anchors. | **Partial gap.** Expose reflow/eviction events, quotas, and compression controls in the eventual API; do not make placement geometry a silent side effect. |
 | **Snapshots** | Binary CRC-protected encoder plus a decoder that can restore a renderable terminal before incrementally prepending history; format v1 is also explicitly not compatibility-guaranteed. | Versioned JSON view of visible state and metadata only; no restore API. | Do not call Kiwi's current snapshot persistence. Add a decoder/restore lifecycle, parser-continuation rules, resource limits, and version policy—or retain replay as the supported persistence mechanism. |
@@ -93,7 +95,7 @@ This division is intentional. A consumer that only needs a terminal model should
 
 1. **The terminal core is not isolated from application policy.** `State.new` constructs search, selection, shell/command-region, hyperlink, and Kitty graphics objects. Some of those are good core semantics; others are UI and host-policy decisions. They need feature flags or separate ownership.
 
-2. **There is no renderer-neutral read boundary.** The current renderer, font system, and terminal state coordinate through internal Lua structures. A consumer needs a stable cell/row/style/cursor/selection/dirty view with documented ownership and invalidation rules.
+2. **The renderer-neutral read boundary is not yet the live-renderer boundary.** `kiwi.vt` provides a versioned, single-threaded render update with copied cells and explicit damage acknowledgement, but the GPU renderer, font system, and semantic resources still coordinate through internal Lua structures. A C consumer needs owned/borrowed lifetimes, result codes, and compatibility tests.
 
 3. **Media is coupled across layers.** Image parsing and cache state live with terminal state while playback, GPU textures, and redraw deadlines belong to the renderer/app. That is why the current direct implementation cannot simply be exported as a generic graphics API.
 

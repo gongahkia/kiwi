@@ -33,7 +33,9 @@ Focused tests cover Unicode, wide/combining range mapping, selection endpoints,
 resize event ordering, history viewport updates, and a scrollback case that
 proves the exporter does not materialize the retained document. The current
 Linux checkout has no implemented adapter, so no AT-SPI or screen-reader result
-is claimed.
+is claimed. A future provider must expose the required Accessible/Application
+D-Bus objects and complete the registry `Socket.Embed` handshake; availability
+of the `atspi-2` client library alone is not adapter evidence.
 
 ## References
 
@@ -41,3 +43,4 @@ is claimed.
 - [ADR 0021](0021-grapheme-aware-selection-state.md)
 - [ADR 0023](0023-selection-render-pass.md)
 - [TEXT.md](../TEXT.md)
+- [AT-SPI provider documentation](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/)

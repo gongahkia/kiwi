@@ -35,6 +35,10 @@ function Actions.dcs(payload)
   return { kind = "dcs", payload = payload }
 end
 
+function Actions.xtgettcap(payload)
+  return { kind = "xtgettcap", payload = payload }
+end
+
 function Actions.ignore(family, reason)
   return { kind = "ignore", family = family, reason = reason }
 end

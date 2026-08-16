@@ -1,5 +1,7 @@
 # ADR 0031: opt-in versioned shell integration assets
 
+**Status:** Superseded for initial-shell launch behavior by [ADR 0040](0040-automatic-initial-shell-injection.md). The versioned asset and manual-source safety boundary remain in force.
+
 ## Context
 
 Kiwi's bounded OSC 7/133 parser and command-region model need a practical way

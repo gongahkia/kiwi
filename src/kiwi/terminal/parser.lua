@@ -149,6 +149,8 @@ function Parser:finish_dcs()
     self:emit_action(Actions.ignore("dcs", "payload limit"))
   elseif payload:sub(1, 2) == "$q" then
     self:emit_action(Actions.dcs(payload:sub(3)))
+  elseif payload:sub(1, 2) == "+q" then
+    self:emit_action(Actions.xtgettcap(payload:sub(3)))
   else
     self.stats.ignored = self.stats.ignored + 1
     self:emit_action(Actions.ignore("dcs", "unsupported"))

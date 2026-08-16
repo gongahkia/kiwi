@@ -4,7 +4,7 @@ Kiwi implements a deliberately scoped xterm/VT-style behavioral subset. It is ne
 
 ## Test corpus
 
-The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua fixture names its source, grid, byte input, parser bounds where relevant, and expected screen/cursor/mode/response state. `test_conformance.lua` checks declared expectations and compares canonical snapshots when input is delivered whole, at every two-chunk split, one byte at a time, and with eight deterministic randomized chunk layouts.
+The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua fixture names its source, grid, byte input, parser bounds where relevant, and expected screen/cursor/mode/response state. `test_conformance.lua` checks declared expectations and compares canonical snapshots when input is delivered whole, at every two-chunk split, one byte at a time, and with eight deterministic randomized chunk layouts. The corpus covers G0/G1 ASCII, UK, and DEC Special Graphics designation, including SI/SO shifts used by terminfo line drawing.
 
 | Fixture | Primary coverage |
 | --- | --- |
@@ -14,6 +14,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | wrap-and-scroll | deferred right-margin wrap, IND, bounded history |
 | margins-and-origin | DECSTBM and DECOM |
 | left-right-margins | DECLRMM/DECSLRM rectangle scrolling and DECRQSS status |
+| dec-special-graphics | G0/G1 ASCII, UK, and DEC Special Graphics designation with SI/SO shifts |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
 | kitty-keyboard | Kitty keyboard query, level-one mode stack, alternate-screen isolation, malformed negotiation |
@@ -57,11 +58,11 @@ claiming formal verification or allocator-independent memory totals.
 | Family | Implemented M1 behavior | Terminfo exposure |
 | --- | --- | --- |
 | C0 | BEL count, BS, HT, LF/VT/FF, CR; NUL/DEL ignored | `bel`, `cr`, `ind`, `nel` |
-| ESC | IND, NEL, RI, save/restore cursor, HTS, RIS | `ind`, `ri`, `sc`, `rc`, `nel` |
+| ESC | IND, NEL, RI, save/restore cursor, HTS, RIS; G0/G1 ASCII, UK, and DEC Special Graphics designation with SI/SO | `ind`, `ri`, `sc`, `rc`, `nel`, `smacs`, `rmacs`, `acsc` |
 | cursor CSI | CUU/CUD/CUF/CUB, CNL/CPL, CHA, VPA, CUP/HVP | `cuu`, `cud`, `cuf`, `cub`, `hpa`, `vpa`, `cup`, `home` |
 | erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, DECLRMM/DECSLRM rectangular scrolling, IND/RI at margins | `csr`, `ind`, `ri` |
-| SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
+| SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg; colon-form `4:n` underline styles retained as an underline | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | modes | IRM; declared RQM/DECRQM queries (IRM; DECCKM, DECOM, DECAWM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); DECSCUSR cursor styles; Kitty keyboard level-one disambiguation; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
@@ -77,7 +78,7 @@ claiming formal verification or allocator-independent memory totals.
 
 The ordinary child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app passes the source or installed `TERMINFO` and an absent `COLORTERM` through a child-only environment vector to `execvpe`. The explicit `kiwi-ssh` fallback instead uses `TERM=xterm-256color` when it cannot prepare the remote entry.
 
-The entry intentionally declares `colors#16`; it does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
+The entry intentionally declares `colors#16`; it declares DEC Special Graphics line drawing through `smacs`, `rmacs`, and `acsc`, but does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
 
 ## Clipboard and OSC 52 policy
 

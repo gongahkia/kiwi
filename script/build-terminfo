@@ -13,4 +13,8 @@ fi
 mkdir -p "$OUTPUT"
 tic -x -o "$OUTPUT" "$SOURCE"
 TERMINFO="$OUTPUT" infocmp kiwi >/dev/null
+[[ "$(TERM=kiwi TERMINFO="$OUTPUT" tput smacs)" == $'\e(0' && "$(TERM=kiwi TERMINFO="$OUTPUT" tput rmacs)" == $'\e(B' ]] || {
+  print -u2 "Kiwi terminfo must expose the implemented DEC Special Graphics enter/exit sequences."
+  exit 1
+}
 print "Built project-local Kiwi terminfo at $OUTPUT"

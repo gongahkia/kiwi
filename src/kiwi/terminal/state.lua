@@ -28,6 +28,20 @@ local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
 for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
 
+local dec_special_graphics = {
+  ["_"] = " ", ["`"] = "◆", ["a"] = "▒", ["b"] = "␉", ["c"] = "␌", ["d"] = "␍", ["e"] = "␊",
+  ["f"] = "°", ["g"] = "±", ["h"] = "␤", ["i"] = "␋", ["j"] = "┘", ["k"] = "┐", ["l"] = "┌",
+  ["m"] = "└", ["n"] = "┼", ["o"] = "⎺", ["p"] = "⎻", ["q"] = "─", ["r"] = "⎼", ["s"] = "⎽",
+  ["t"] = "├", ["u"] = "┤", ["v"] = "┴", ["w"] = "┬", ["x"] = "│", ["y"] = "≤", ["z"] = "≥",
+  ["{"] = "π", ["|"] = "≠", ["}"] = "£", ["~"] = "·",
+}
+
+local uk_character_set = { ["#"] = "£" }
+
+local function copy_character_sets(character_sets)
+  return { g0 = character_sets.g0, g1 = character_sets.g1, gl = character_sets.gl }
+end
+
 local function copy_cell(destination, source)
   destination.glyph = source.glyph
   destination.fg = source.fg
@@ -142,6 +156,7 @@ function State.new(columns, rows, options)
     next_hyperlink_id = 0,
     last_print = nil,
     max_repeat = options.max_repeat or 4096,
+    character_sets = { g0 = "ascii", g1 = "ascii", gl = "g0" },
     stats = {
       mutations = 0,
       bells = 0,
@@ -793,13 +808,20 @@ end
 
 function State:save_cursor()
   local cursor = self.active_screen.cursor
-  self.active_screen.saved_cursor = { column = cursor.column, row = cursor.row, attributes = Attributes.copy(self.active_screen.attributes), hyperlink_id = self.active_screen.hyperlink_id }
+  self.active_screen.saved_cursor = {
+    column = cursor.column,
+    row = cursor.row,
+    attributes = Attributes.copy(self.active_screen.attributes),
+    hyperlink_id = self.active_screen.hyperlink_id,
+    character_sets = copy_character_sets(self.character_sets),
+  }
 end
 
 function State:restore_cursor()
   local saved = self.active_screen.saved_cursor
   self.active_screen.attributes = Attributes.copy(saved.attributes or Attributes.default())
   self.active_screen.hyperlink_id = saved.hyperlink_id
+  if saved.character_sets then self.character_sets = copy_character_sets(saved.character_sets) end
   self:set_cursor(saved.column, saved.row)
 end
 
@@ -1130,6 +1152,17 @@ end
 
 function State:write_codepoint(glyph, codepoint)
   codepoint = codepoint or Utf8.decode_one(glyph)
+  local character_set = self.character_sets[self.character_sets.gl]
+  local translation
+  if character_set == "dec_special_graphics" then
+    translation = dec_special_graphics[glyph]
+  elseif character_set == "uk" then
+    translation = uk_character_set[glyph]
+  end
+  if translation then
+    glyph = translation
+    codepoint = Utf8.decode_one(glyph)
+  end
   local counters = self.text_counters
   if counters then counters.unicode_scalars = (counters.unicode_scalars or 0) + 1 end
   local context = self.grapheme_context
@@ -1458,6 +1491,7 @@ function State:switch_alternate(enable, save_cursor)
         row = self.primary.cursor.row,
         attributes = Attributes.copy(self.primary.attributes),
         hyperlink_id = self.primary.hyperlink_id,
+        character_sets = copy_character_sets(self.character_sets),
       }
     end
     self.active_screen = self.alternate
@@ -1533,6 +1567,7 @@ function State:reset()
   self.alternate.attributes = Attributes.default()
   self.active_screen = self.primary
   self.cursor = self.primary.cursor
+  self.character_sets = { g0 = "ascii", g1 = "ascii", gl = "g0" }
   self.modes.autowrap = true
   self.modes.origin = false
   self.modes.left_right_margin = false
@@ -1768,6 +1803,7 @@ function State:reflow_primary(columns, rows)
     hyperlink_id = old_saved.hyperlink_id,
     row = saved and saved.row or 0,
   }
+  if old_saved.character_sets then primary.saved_cursor.character_sets = copy_character_sets(old_saved.character_sets) end
 
   local history_offset = 0
   if mapped_viewport then
@@ -1864,6 +1900,20 @@ local function csi_detail(action)
   }
 end
 
+local function apply_colon_sgr(state, action)
+  local parameters = action.parameters
+  if action.private ~= "" or action.intermediates ~= "" or action.final ~= "m" or #parameters ~= 2 or parameters[1] ~= 4 then
+    return false
+  end
+  local style = parameters[2]
+  if style == nil or style < 0 or style > 5 then return false end
+  -- Kiwi has one underline rendering mode. Retain the semantic underline for
+  -- every standardized colon-form underline style without pretending to draw
+  -- curl, dots, or dashes differently.
+  state.active_screen.attributes.underline = style ~= 0
+  return true
+end
+
 local function sgr_status(attributes)
   local parameters = {}
   if attributes.bold then parameters[#parameters + 1] = 1 end
@@ -1915,6 +1965,12 @@ function State:apply_execute(code)
     self:line_feed()
   elseif code == 0x0d then
     self:carriage_return()
+  elseif code == 0x0e then
+    self:clear_grapheme_context()
+    self.character_sets.gl = "g1"
+  elseif code == 0x0f then
+    self:clear_grapheme_context()
+    self.character_sets.gl = "g0"
   else
     self:record_unknown("control", string.format("0x%02x", code))
   end
@@ -1938,6 +1994,9 @@ function State:apply_esc(action)
     self.modes.application_keypad = true
   elseif action.intermediates == "" and action.final == ">" then
     self.modes.application_keypad = false
+  elseif (action.intermediates == "(" or action.intermediates == ")") and (action.final == "0" or action.final == "A" or action.final == "B") then
+    local bank = action.intermediates == "(" and "g0" or "g1"
+    self.character_sets[bank] = ({ ["0"] = "dec_special_graphics", A = "uk", B = "ascii" })[action.final]
   elseif action.intermediates == "#" and action.final == "8" then
     self:screen_alignment_test()
   elseif action.intermediates == "" and action.final == "c" then
@@ -2202,6 +2261,7 @@ end
 
 function State:apply_csi(action)
   if action.colon then
+    if apply_colon_sgr(self, action) then return end
     self:record_unknown("csi", csi_detail(action))
     return
   end
@@ -2347,6 +2407,48 @@ function State:apply_dcs(action)
   else
     self:respond("\27P0$r\27\\")
   end
+end
+
+local function decode_xtgettcap_name(value)
+  if #value == 0 or #value % 2 ~= 0 or not value:match("^[%x]+$") then return nil end
+  local bytes = {}
+  for index = 1, #value, 2 do
+    local byte = tonumber(value:sub(index, index + 1), 16)
+    if byte < 0x20 or byte > 0x7e then return nil end
+    bytes[#bytes + 1] = string.char(byte)
+  end
+  return table.concat(bytes)
+end
+
+local function hex_encode(value)
+  return (value:gsub(".", function(character) return string.format("%02x", string.byte(character)) end))
+end
+
+function State:apply_xtgettcap(action)
+  local names = {}
+  for name in (action.payload .. ";"):gmatch("(.-);") do
+    if #names >= 32 then
+      self:respond("\27P0+r\27\\")
+      return
+    end
+    names[#names + 1] = name
+  end
+  if #names == 0 then
+    self:respond("\27P0+r\27\\")
+    return
+  end
+  local capabilities = { Co = "16", TN = "kiwi" }
+  local response = {}
+  for _, encoded_name in ipairs(names) do
+    local name = decode_xtgettcap_name(encoded_name)
+    local value = name and capabilities[name]
+    if value == nil then
+      self:respond("\27P0+r\27\\")
+      return
+    end
+    response[#response + 1] = encoded_name:lower() .. "=" .. hex_encode(value)
+  end
+  self:respond("\27P1+r" .. table.concat(response, ";") .. "\27\\")
 end
 
 local function parse_osc_colour(value)
@@ -2674,6 +2776,8 @@ function State:apply(action)
     self:apply_apc(action)
   elseif action.kind == "dcs" then
     self:apply_dcs(action)
+  elseif action.kind == "xtgettcap" then
+    self:apply_xtgettcap(action)
   elseif action.kind == "ignore" then
     self:record_unknown(action.family, action.reason)
   else

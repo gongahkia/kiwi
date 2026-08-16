@@ -1,8 +1,8 @@
 # libkiwi-vt (experimental Lua API)
 
 `libkiwi-vt` is Kiwi's renderer-neutral terminal-emulation boundary. In this
-source checkout it is an **experimental, LuaJIT-only v0 API**, imported as
-`kiwi.vt`. It is not a C ABI, does not promise ABI stability, and does not
+source checkout it is an **experimental, LuaJIT-only API v1 under a pre-1.0
+stability policy**, imported as `kiwi.vt`. It is not a C ABI, does not promise ABI stability, and does not
 make Kiwi portable beyond the supported application platform.
 
 The boundary deliberately excludes PTYs, GLFW, WGPU, fonts, clipboard bridges,
@@ -39,7 +39,7 @@ system.
 ## Version and ownership contract
 
 `VT.api_version` is `1`. New incompatible behavior requires a new API version;
-the v0 API may still gain compatible fields and methods. Callers must require
+the experimental API may still gain compatible fields and methods. Callers must require
 the module once and compare this number before relying on an optional feature.
 
 | Surface | Ownership and rule |

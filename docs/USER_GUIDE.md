@@ -219,7 +219,7 @@ and neither can draw or allocate GPU resources under API v1.
 | Module | API | Reads | What it demonstrates | Constraints |
 | --- | --- | --- | --- | --- |
 | `kiwi.renderer.samples.damage_observer` | v1 | `terminal.damage`, `frame.timing` | A semantic observer that requests one 250 ms redraw only after terminal damage. | It owns no GPU state or overlay and must not schedule another idle redraw. |
-| `kiwi.renderer.samples.command_region_observer` | v1 | `terminal.command_regions`, `frame.timing` | A semantic observer that retains the current visible boundary count. | It owns no GPU state or drawing capability; useful boundaries require terminal OSC 133 data, such as the opt-in shell integration. |
+| `kiwi.renderer.samples.command_region_observer` | v1 | `terminal.command_regions`, `frame.timing` | A semantic observer that retains the current visible boundary count. | It owns no GPU state or drawing capability; useful boundaries require terminal OSC 133 data, such as Kiwi's automatic initial-shell integration or a manual switched-shell setup. |
 
 Enable exactly one sample from a source checkout with `KIWI_RENDER_EXTENSIONS`:
 
