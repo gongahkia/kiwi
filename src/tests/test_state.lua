@@ -153,6 +153,19 @@ return {
     state:apply(Actions.osc(11, "?"))
     Assert.truthy(state:pop_responses()[1]:match("^\27%]11;rgb:"))
   end,
+  terminal_state_applies_queries_and_resets_osc_cursor_colour = function()
+    local effects = {}
+    local state = State.new(3, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })
+    local initial = state.cursor_color
+    state:apply(Actions.osc(12, "#010203"))
+    Assert.equal(state.cursor_color, Color.pack(1, 2, 3, 0xff))
+    Assert.equal(effects[#effects].kind, "cursor_color_changed")
+    state:apply(Actions.osc(12, "?"))
+    Assert.equal(state:pop_responses()[1], "\27]12;rgb:0101/0202/0303\27\\")
+    state:apply(Actions.osc(112, ""))
+    Assert.equal(state.cursor_color, initial)
+    Assert.truthy(effects[#effects].value.reset)
+  end,
   terminal_state_denies_osc52_unless_the_host_explicitly_enables_it = function()
     local effects = {}
     local state = State.new(4, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })

@@ -37,6 +37,7 @@ local dec_special_graphics = {
 }
 
 local uk_character_set = { ["#"] = "£" }
+local default_cursor_color = Color.pack(0x8c, 0xd9, 0xe0, 0xff)
 
 local function copy_character_sets(character_sets)
   return { g0 = character_sets.g0, g1 = character_sets.g1, gl = character_sets.gl }
@@ -97,6 +98,8 @@ function State.new(columns, rows, options)
     rows = rows,
     next_line_id = 0,
     colors = colors,
+    cursor_color = default_cursor_color,
+    cursor_default_color = default_cursor_color,
     default_cell = { glyph = " ", fg = colors.foreground, bg = colors.background, fg_slot = 0, bg_slot = 0, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
     text_damage = Damage.new(columns * rows),
@@ -2583,6 +2586,26 @@ function State:apply_osc_default_colour(channel, command, payload)
   return true
 end
 
+function State:apply_osc_cursor_colour(command, payload)
+  if command == 112 then
+    if payload ~= "" then return false end
+    self.cursor_color = self.cursor_default_color
+    self.damage:mark(self:index(self.cursor.column, self.cursor.row))
+    self:emit_effect("cursor_color_changed", { reset = true })
+    return true
+  end
+  if payload == "?" then
+    self:respond(string.format("\27]12;%s\27\\", encode_osc_colour(self.cursor_color)))
+    return true
+  end
+  local colour = parse_osc_colour(payload)
+  if colour == nil then return false end
+  self.cursor_color = colour
+  self.damage:mark(self:index(self.cursor.column, self.cursor.row))
+  self:emit_effect("cursor_color_changed", { reset = false })
+  return true
+end
+
 function State:apply_osc52(payload)
   local selection, encoded = payload:match("^([^;]*);(.*)$")
   if selection == nil or selection == "" or selection:find("[^cps]", 1) then return false end
@@ -2666,6 +2689,8 @@ function State:apply_osc(action)
     if not self:apply_osc_default_colour("foreground", 10, action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 11 then
     if not self:apply_osc_default_colour("background", 11, action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 12 or action.command == 112 then
+    if not self:apply_osc_cursor_colour(action.command, action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 52 then
     if not self:apply_osc52(action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 9 then
