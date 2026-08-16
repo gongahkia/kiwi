@@ -90,7 +90,7 @@ under `/usr/share/terminfo` and `/usr/share/doc/kiwi`. The package must not
 write shell configuration or a Kiwi configuration file at install time.
 
 Runtime dependencies need to cover the existing release contract (LuaJIT,
-GLFW, FreeType, HarfBuzz, Fontconfig, libpng, the Vulkan loader, and a
+GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, the Vulkan loader, and a
 user-selected compatible Vulkan driver). Build and test dependencies must be
 derived from the actual `script/build-native`, `script/build-terminfo`, and
 `make check` commands, then verified against the current Arch package

@@ -14,7 +14,8 @@ if [[ -t 0 && -t 1 ]]; then
   stty -echo -echoctl
 fi
 
-printf '%s\n' 'Kitty GIF playback fixture: red and blue frames alternate behind this text'
+printf '%s\n' 'Kitty GIF playback'
 print -rn -- $'\e_G'"a=t,i=1,s=2,v=2,f=100,t=d,m=0;$GIF"$'\e\\'
 print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=8,C=1,z=-1\e\\'
+printf '%s\n' 'red and blue frames alternate behind this text'
 sleep 1

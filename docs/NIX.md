@@ -21,7 +21,7 @@ mode as `make release`: development shader reload, renderer instrumentation,
 and debug shortcuts remain disabled by default.
 
 The dev shell includes the LuaJIT, compiler, `pkg-config`, terminfo, GLFW,
-FreeType, HarfBuzz, Fontconfig, libpng, Vulkan-loader, and archive tools used by
+FreeType, HarfBuzz, Fontconfig, giflib, libpng, Vulkan-loader, and archive tools used by
 the repository commands. It does not provide a running compositor, a Vulkan
 driver, a binary cache, or cross-platform builds. A native window still needs a
 working Linux Wayland/X11 session and compatible Vulkan driver.
