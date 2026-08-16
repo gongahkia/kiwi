@@ -5,6 +5,8 @@ local function copy_cell(destination, source)
   destination.glyph = source.glyph
   destination.fg = source.fg
   destination.bg = source.bg
+  destination.fg_slot = source.fg_slot
+  destination.bg_slot = source.bg_slot
   destination.flags = source.flags
   destination.codepoints = source.codepoints
   destination.width = source.width
