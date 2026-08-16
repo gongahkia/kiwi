@@ -2,6 +2,7 @@ local Assert = require("tests.assert")
 local Actions = require("kiwi.terminal.actions")
 local Base64 = require("kiwi.terminal.base64")
 local Color = require("kiwi.renderer.color")
+local Parser = require("kiwi.terminal.parser")
 local State = require("kiwi.terminal.state")
 
 local function text_at(state, row)
@@ -149,6 +150,25 @@ return {
     Assert.equal(responses[1], "\27[0n")
     Assert.equal(responses[2], "\27[2;3R")
     Assert.equal(responses[3], "\27[?1;0c")
+  end,
+  terminal_state_reports_the_declared_standard_and_dec_mode_subset = function()
+    local state = State.new(4, 2)
+    Parser.new(state):feed("\27[4$p\27[?7$p\27[?69$p")
+    local responses = state:pop_responses()
+    Assert.equal(responses[1], "\27[4;2$y")
+    Assert.equal(responses[2], "\27[?7;1$y")
+    Assert.equal(responses[3], "\27[?69;0$y")
+
+    state:apply(Actions.csi({ 4 }, "", "", "h"))
+    state:apply(Actions.csi({ 1049 }, "?", "", "h"))
+    state:apply(Actions.csi({ 4 }, "", "$", "p"))
+    state:apply(Actions.csi({ 1049 }, "?", "$", "p"))
+    responses = state:pop_responses()
+    Assert.equal(responses[1], "\27[4;1$y")
+    Assert.equal(responses[2], "\27[?1049;1$y")
+
+    state:apply(Actions.csi({ 1, 2 }, "?", "$", "p"))
+    Assert.equal(state.stats.unknown.csi, 1)
   end,
   terminal_state_models_cursor_style_across_alternate_and_reset = function()
     local state = State.new(4, 2)

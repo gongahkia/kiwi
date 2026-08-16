@@ -16,7 +16,7 @@ Layered parser/state/damage/packing/scroll benchmarks, LuaJIT profiler evidence,
 
 ## M2 — complete: bounded native text foundation
 
-Pinned Unicode 17 data and full UAX #29 EGC conformance, deterministic terminal width, grapheme/anchor/continuation cells, HarfBuzz shaping, Fontconfig fallback, glyph-ID alpha atlas rendering, diagnostics, native-text benchmarks, and bounded stress checks are implemented. M2 deliberately remains LTR-only, grayscale-atlas-only, and startup-configured; bidi, color emoji, atlas paging/eviction, runtime reflow, and text-quality expansion remain deferred.
+Pinned Unicode 17 data and full UAX #29 EGC conformance, deterministic terminal width, grapheme/anchor/continuation cells, HarfBuzz shaping, Fontconfig fallback, glyph-ID alpha atlas rendering, primary-screen column reflow, diagnostics, native-text benchmarks, and bounded stress checks are implemented. M2 deliberately remains LTR-only, grayscale-atlas-only, and startup-configured; bidi, color emoji, atlas paging/eviction, reflow-aware image placement, and text-quality expansion remain deferred.
 
 ## M2.5 — complete: performance hardening
 

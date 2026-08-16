@@ -1923,6 +1923,55 @@ function State:apply_standard_mode(parameters, enabled)
   end
 end
 
+function State:mode_status(private, mode)
+  local enabled
+  if private == "" then
+    if mode == 4 then enabled = self.modes.insert else return 0 end
+  elseif private == "?" then
+    local modes = self.modes
+    if mode == 1 then
+      enabled = modes.application_cursor
+    elseif mode == 6 then
+      enabled = modes.origin
+    elseif mode == 7 then
+      enabled = modes.autowrap
+    elseif mode == 25 then
+      enabled = modes.cursor_visible
+    elseif mode == 47 or mode == 1047 or mode == 1049 then
+      enabled = self.active_screen == self.alternate
+    elseif mode == 1000 then
+      enabled = modes.mouse_normal
+    elseif mode == 1002 then
+      enabled = modes.mouse_button
+    elseif mode == 1003 then
+      enabled = modes.mouse_any
+    elseif mode == 1004 then
+      enabled = modes.focus_reporting
+    elseif mode == 1006 then
+      enabled = modes.mouse_sgr
+    elseif mode == 2004 then
+      enabled = modes.bracketed_paste
+    elseif mode == 2026 then
+      enabled = modes.synchronized_output
+    else
+      return 0
+    end
+  else
+    return 0
+  end
+  return enabled and 1 or 2
+end
+
+function State:report_mode(private, parameters, action)
+  if #parameters > 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local mode = parameters[1] or 0
+  local status = self:mode_status(private, mode)
+  self:respond(string.format("\27[%s%d;%d$y", private, mode, status))
+end
+
 function State:apply_csi(action)
   if action.colon then
     self:record_unknown("csi", csi_detail(action))
@@ -1930,6 +1979,10 @@ function State:apply_csi(action)
   end
   local parameters = action.parameters
   local final = action.final
+  if action.intermediates == "$" and final == "p" and (action.private == "" or action.private == "?") then
+    self:report_mode(action.private, parameters, action)
+    return
+  end
   if action.private == "?" and (final == "h" or final == "l") then
     self:apply_private_mode(parameters, final == "h")
     return

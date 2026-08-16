@@ -8,7 +8,7 @@ Rows receive monotonically increasing IDs when a screen creates them. Primary-sc
 
 When normalizing a range, a boundary that lands in a wide-cell continuation snaps outwards: the lower boundary moves to the anchor and the upper boundary moves after the complete cluster. Combining code points are already represented by their anchor cell, so a gap cannot split them. The directional endpoints remain available for gesture consumers, while `selection_view()` returns detached, normalized data for consumers; modifying that result cannot change terminal state.
 
-Kiwi does not reflow lines on resize. Resize preserves IDs for retained screen rows, clamps each endpoint into the new column range, and re-applies grapheme snapping. If either selected row is removed by a row-count reduction, primary-scrollback eviction, replacement of its alternate screen, or reset, the complete selection clears. A selection from the inactive screen remains stored but has `visible=false` until that screen is active.
+On a primary-screen column resize, Kiwi reflows the bounded scrollback-plus-screen document and translates both endpoints through the same old-row/cell-gap to new-row/cell-gap map. The first output segment keeps each logical line's first row ID; later segments receive new IDs. A selection therefore follows text through ordinary reflow and is snapped again against the resulting wide cells. The primary scrollback limit remains a physical-row cap, so a narrowing resize can evict reflowed rows; if either remapped endpoint is no longer retained, the complete selection clears. Alternate-screen resize remains fixed-grid and clamps retained endpoints. A selection from the inactive screen remains stored but has `visible=false` until that screen is active.
 
 ## Rationale
 
