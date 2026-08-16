@@ -100,10 +100,14 @@ ID. This keeps placement state independent of pixels and rendering.
 
 Full-screen primary scrolling moves anchors into scrollback with their text.
 History navigation maps the same anchors back into the viewport. When a
-scrollback row is evicted, a margin scroll discards a row, or resize removes a
-row, that row reference is clipped; the placement is released only when no row
-references remain. A narrower resize clips the cell width or releases an anchor
-that no longer intersects the grid. `CSI 2 J` clears visible placement anchors;
+scrollback row is evicted, a margin scroll discards a row, or a fixed-grid
+resize removes a row, that row reference is clipped; the placement is released
+only when no row references remain. A primary-screen column resize instead
+reflows text and releases every primary placement anchor before rebuilding the
+grid: the placement's fixed rectangle cannot be translated safely through text
+reflow. The decoded image cache remains available for a later placement. An
+alternate-screen or same-column resize clips the cell width or releases an
+anchor that no longer intersects the grid. `CSI 2 J` clears visible placement anchors;
 other erase commands leave graphics unchanged. Entering a fresh `1049`
 alternate screen clears alternate placements, while ordinary primary/alternate
 switching keeps each scope separate. A terminal reset clears all placements and
