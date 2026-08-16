@@ -26,6 +26,7 @@ local tests = {
   require("tests.test_kitty_image_renderer"),
   require("tests.test_fuzz"),
   require("tests.test_replay"),
+  require("tests.test_reflow"),
   require("tests.test_diagnostics"),
   require("tests.test_conformance"),
   require("tests.test_parser_bench"),

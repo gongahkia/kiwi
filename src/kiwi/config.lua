@@ -103,6 +103,7 @@ local function defaults()
     contextual_alternates = false,
     scrollback_limit = 2000,
     ambiguous_width = 1,
+    resize_reflow = true,
     foreground = nil,
     background = nil,
     palette = {},
@@ -111,6 +112,7 @@ local function defaults()
     hyperlink_color = nil,
     command_region_color = nil,
     command_regions = false,
+    osc52_write = false,
   }
 end
 
@@ -139,6 +141,8 @@ local function apply_value(config, key, raw, line)
     config.scrollback_limit = parse_integer(raw, line, 0, 1000000)
   elseif key == "ambiguous-width" then
     config.ambiguous_width = parse_integer(raw, line, 1, 2)
+  elseif key == "resize-reflow" then
+    config.resize_reflow = parse_boolean(raw, line)
   elseif key == "foreground" then
     config.foreground = Config.parse_color(raw, line)
   elseif key == "background" then
@@ -157,6 +161,8 @@ local function apply_value(config, key, raw, line)
     Config.parse_color(config.command_region_color, line)
   elseif key == "command-regions" then
     config.command_regions = parse_boolean(raw, line)
+  elseif key == "osc52-write" then
+    config.osc52_write = parse_boolean(raw, line)
   else
     local palette_index = key:match("^palette%-(%d+)$")
     if palette_index == nil then error("configuration line " .. line .. " has an unknown key: " .. key) end
@@ -211,11 +217,13 @@ function Config.apply_environment(config, environment)
     ["contextual-alternates"] = environment("KIWI_CALT") == "1" and "true" or environment("KIWI_CALT") == "0" and "false" or nil,
     ["scrollback-limit"] = environment("KIWI_SCROLLBACK"),
     ["ambiguous-width"] = environment("KIWI_AMBIGUOUS_WIDTH"),
+    ["resize-reflow"] = environment("KIWI_RESIZE_REFLOW") == "1" and "true" or environment("KIWI_RESIZE_REFLOW") == "0" and "false" or nil,
     ["selection-color"] = environment("KIWI_SELECTION_COLOR"),
     ["search-color"] = environment("KIWI_SEARCH_COLOR"),
     ["hyperlink-color"] = environment("KIWI_HYPERLINK_COLOR"),
     ["command-region-color"] = environment("KIWI_COMMAND_REGION_COLOR"),
     ["command-regions"] = environment("KIWI_COMMAND_REGIONS") == "1" and "true" or environment("KIWI_COMMAND_REGIONS") == "0" and "false" or nil,
+    ["osc52-write"] = environment("KIWI_OSC52_WRITE") == "1" and "true" or environment("KIWI_OSC52_WRITE") == "0" and "false" or nil,
   }
   for key, value in pairs(values) do
     if value ~= nil and value ~= "" then apply_value(config, key, value, "environment " .. key) end

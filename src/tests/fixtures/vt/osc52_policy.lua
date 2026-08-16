@@ -9,6 +9,6 @@ return {
     rows = { "AB " },
     cursor = { column = 2, row = 0 },
     parser = { ignored = 1 },
-    unknown = { osc = 2 },
+    unknown = { osc = 1 },
   },
 }

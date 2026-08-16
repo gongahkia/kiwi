@@ -1,5 +1,6 @@
 local Assert = require("tests.assert")
 local Actions = require("kiwi.terminal.actions")
+local Base64 = require("kiwi.terminal.base64")
 local Color = require("kiwi.renderer.color")
 local State = require("kiwi.terminal.state")
 
@@ -95,6 +96,32 @@ return {
     Assert.equal(literal.blue, 7)
     state:apply(Actions.osc(11, "?"))
     Assert.truthy(state:pop_responses()[1]:match("^\27%]11;rgb:"))
+  end,
+  terminal_state_denies_osc52_unless_the_host_explicitly_enables_it = function()
+    local effects = {}
+    local state = State.new(4, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })
+    state:apply(Actions.osc(52, "c;" .. Base64.encode("clipboard text")))
+    Assert.equal(effects[#effects].kind, "clipboard_write_denied")
+    Assert.equal(effects[#effects].value.reason, "disabled")
+    state:configure_osc52_write(true)
+    state:apply(Actions.osc(52, "c;" .. Base64.encode("clipboard text")))
+    Assert.equal(effects[#effects].kind, "clipboard_write_requested")
+    Assert.equal(effects[#effects].value.text, "clipboard text")
+    state:apply(Actions.osc(52, "c;%%%%"))
+    Assert.equal(effects[#effects].kind, "clipboard_write_denied")
+    Assert.equal(effects[#effects].value.reason, "invalid")
+  end,
+  terminal_state_emits_bounded_notification_and_progress_effects = function()
+    local effects = {}
+    local state = State.new(4, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })
+    state:apply(Actions.osc(9, "build completed"))
+    Assert.equal(effects[#effects].kind, "notification_requested")
+    Assert.equal(effects[#effects].value.body, "build completed")
+    state:apply(Actions.osc(9, "4;1;73"))
+    Assert.equal(effects[#effects].kind, "progress_changed")
+    Assert.equal(effects[#effects].value.progress, 73)
+    state:apply(Actions.osc(9, "4;1;101"))
+    Assert.equal(state.stats.unknown.osc, 1)
   end,
   terminal_state_configures_a_complete_host_theme_without_losing_palette_sources = function()
     local state = State.new(3, 1)

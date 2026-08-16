@@ -39,6 +39,10 @@ function Clipboard.new(bridge, options)
       copy_over_limit = 0,
       copy_unavailable = 0,
       copy_platform_error = 0,
+      osc52_success = 0,
+      osc52_over_limit = 0,
+      osc52_invalid_utf8 = 0,
+      osc52_platform_error = 0,
       paste_success = 0,
       paste_empty = 0,
       paste_over_limit = 0,
@@ -69,6 +73,24 @@ function Clipboard:copy(state)
     return false, status
   end
   self:record("copy", "success")
+  return true, "success"
+end
+
+function Clipboard:write_osc52(text)
+  if #text > self.maximum_bytes then
+    self:record("osc52", "over_limit")
+    return false, "over-limit"
+  end
+  if not valid_utf8(text) then
+    self:record("osc52", "invalid_utf8")
+    return false, "invalid-utf8"
+  end
+  local written, status = self.bridge:clipboard_write(text)
+  if not written then
+    self:record("osc52", "platform_error")
+    return false, status == "unavailable" and "unavailable" or "platform-error"
+  end
+  self:record("osc52", "success")
   return true, "success"
 end
 

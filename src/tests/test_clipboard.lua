@@ -94,4 +94,16 @@ return {
     Assert.equal(bytes, nil)
     Assert.equal(status, "over_limit")
   end,
+  clipboard_osc52_write_keeps_platform_and_utf8_validation_at_the_host_boundary = function()
+    local platform = bridge()
+    local clipboard = Clipboard.new(platform, { maximum_bytes = 4 })
+    Assert.truthy(clipboard:write_osc52("ok"))
+    Assert.equal(platform.written, "ok")
+    local written, status = clipboard:write_osc52("hello")
+    Assert.equal(written, false)
+    Assert.equal(status, "over-limit")
+    written, status = clipboard:write_osc52("\255")
+    Assert.equal(written, false)
+    Assert.equal(status, "invalid-utf8")
+  end,
 }
