@@ -67,7 +67,7 @@ return {
     Assert.equal(line.finish.column, 7)
   end,
 
-  selection_pointer_targets_the_scrollback_viewport_and_survives_resize = function()
+  selection_pointer_targets_the_scrollback_viewport_and_clears_when_reflow_evicts_it = function()
     local state = State.new(3, 2, { scrollback_limit = 1 })
     write_row(state, 0, { 0x6f, 0x6e, 0x65 })
     write_row(state, 1, { 0x74, 0x77, 0x6f })
@@ -80,7 +80,7 @@ return {
     Assert.equal(selection.start.column, 1)
     Assert.equal(selection.finish.column, 3)
     state:resize(2, 2)
-    Assert.equal(state:selection_view().finish.column, 2)
+    Assert.truthy(not state:selection_view().active)
   end,
 
   selection_pointer_defers_to_application_mouse_reporting = function()

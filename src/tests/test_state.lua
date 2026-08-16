@@ -287,4 +287,16 @@ return {
     state:switch_alternate(false, true)
     Assert.equal(state:get(0, 0).glyph, "P")
   end,
+  terminal_state_reflows_primary_scrollback_selection_and_cursor_on_column_resize = function()
+    local state = State.new(4, 2, { scrollback_limit = 4 })
+    for _, glyph in ipairs({ "a", "b", "c", "d", "e", "f" }) do state:write_codepoint(glyph) end
+    Assert.truthy(state:set_selection(0, 1, 1, 2))
+    state:resize(3, 2)
+    Assert.equal(text_at(state, 0), "abc")
+    Assert.equal(text_at(state, 1), "def")
+    Assert.equal(state:selection_text(32), "bcdef")
+    Assert.equal(state.cursor.row, 1)
+    Assert.equal(state.cursor.column, 2)
+    Assert.truthy(state.cursor.pending_wrap)
+  end,
 }

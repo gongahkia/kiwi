@@ -62,6 +62,19 @@ return {
     Assert.equal(snapshot.command_regions.regions[1].text, nil)
   end,
 
+  command_region_and_shell_marker_positions_follow_primary_reflow = function()
+    local state = State.new(4, 2)
+    for _, glyph in ipairs({ "a", "b", "c", "d", "e" }) do state:write_codepoint(glyph) end
+    marker(state, "A")
+    state:resize(3, 2)
+    local region = state.command_regions:view().regions[1]
+    Assert.equal(region.start.line_id, state.primary.rows[1].line_id)
+    Assert.equal(region.start.column, 2)
+    local event = state.shell:view().events[1]
+    Assert.equal(event.line_id, region.start.line_id)
+    Assert.equal(event.column, region.start.column)
+  end,
+
   command_region_rows_mark_same_row_overflow_without_dangling_references = function()
     local state = State.new(8, 1, { command_regions = { row_reference_limit = 1 } })
     marker(state, "A")
