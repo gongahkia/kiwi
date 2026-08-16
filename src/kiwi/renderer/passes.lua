@@ -102,6 +102,7 @@ function Passes.build(renderer)
   local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
       return renderer.glyph_count or 0
     end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.hyperlinks", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, command_regions and { "terminal/command_regions" } or { "terminal/search" })
+  glyph.blend = "alpha"
   function glyph:initialize(owner)
     initialize_pipeline(owner, self, "glyph-pass", "glyph_vs", "glyph_fs")
   end

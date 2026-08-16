@@ -81,6 +81,7 @@ return {
     Assert.equal(passes[3].reads[1], "terminal.search")
     Assert.equal(passes[3].after[1], "terminal/selection")
     Assert.equal(passes[4].after[1], "terminal/search")
+    Assert.equal(passes[4].blend, "alpha")
     Assert.equal(passes[5].after[1], "terminal/glyph")
   end,
 }
