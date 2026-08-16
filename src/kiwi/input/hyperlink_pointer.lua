@@ -4,7 +4,7 @@ local HyperlinkPointer = {}
 HyperlinkPointer.__index = HyperlinkPointer
 
 local function application_mouse_enabled(modes)
-  return modes and modes.mouse_sgr == true and (modes.mouse_tracking == "normal" or modes.mouse_tracking == "button" or modes.mouse_tracking == "any")
+  return modes and (modes.mouse_tracking == "x10" or modes.mouse_tracking == "normal" or modes.mouse_tracking == "button" or modes.mouse_tracking == "any")
 end
 
 function HyperlinkPointer.new(activator, glfw)
