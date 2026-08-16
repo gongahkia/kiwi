@@ -14,6 +14,7 @@ local Selection = require("kiwi.input.selection")
 local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
+local Color = require("kiwi.renderer.color")
 
 local State = {}
 State.__index = State
@@ -27,6 +28,8 @@ local function copy_cell(destination, source)
   destination.glyph = source.glyph
   destination.fg = source.fg
   destination.bg = source.bg
+  destination.fg_slot = source.fg_slot
+  destination.bg_slot = source.bg_slot
   destination.flags = source.flags
   destination.codepoints = source.codepoints
   destination.width = source.width
@@ -49,6 +52,8 @@ local function same_cell(left, right)
   return left.glyph == right.glyph
     and left.fg == right.fg
     and left.bg == right.bg
+    and left.fg_slot == right.fg_slot
+    and left.bg_slot == right.bg_slot
     and left.flags == right.flags
     and left.width == right.width
     and left.continuation == right.continuation
@@ -67,11 +72,13 @@ function State.new(columns, rows, options)
   options = options or {}
   assert(options.effect_sink == nil or type(options.effect_sink) == "function", "terminal effect sink must be a function")
   assert(options.queue_responses == nil or type(options.queue_responses) == "boolean", "terminal response queue selection must be a boolean")
+  local colors = Attributes.Palette.new(options.colors)
   local self = setmetatable({
     columns = columns,
     rows = rows,
     next_line_id = 0,
-    default_cell = { glyph = " ", fg = Attributes.default_foreground, bg = Attributes.default_background, flags = 0, width = 1 },
+    colors = colors,
+    default_cell = { glyph = " ", fg = colors.foreground, bg = colors.background, fg_slot = 0, bg_slot = 0, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
     text_damage = Damage.new(columns * rows),
     modes = {
@@ -156,7 +163,15 @@ function State.new(columns, rows, options)
 end
 
 function State:blank_cell()
-  return { glyph = " ", fg = self.default_cell.fg, bg = self.default_cell.bg, flags = 0, width = 1 }
+  return {
+    glyph = " ",
+    fg = self.default_cell.fg,
+    bg = self.default_cell.bg,
+    fg_slot = self.default_cell.fg_slot,
+    bg_slot = self.default_cell.bg_slot,
+    flags = 0,
+    width = 1,
+  }
 end
 
 function State:new_screen()
@@ -169,7 +184,7 @@ function State:new_screen()
 end
 
 function State:cell_from_attributes(glyph, metadata)
-  local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   metadata = metadata or {}
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
@@ -177,6 +192,8 @@ function State:cell_from_attributes(glyph, metadata)
     glyph = glyph,
     fg = foreground,
     bg = background,
+    fg_slot = foreground_slot,
+    bg_slot = background_slot,
     flags = flags,
     codepoints = metadata.codepoints,
     width = metadata.width or 1,
@@ -188,13 +205,15 @@ function State:cell_from_attributes(glyph, metadata)
 end
 
 function State:ascii_cell(glyph, codepoints)
-  local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   return {
     glyph = glyph,
     fg = foreground,
     bg = background,
+    fg_slot = foreground_slot,
+    bg_slot = background_slot,
     flags = flags,
     codepoints = codepoints,
     width = 1,
@@ -204,13 +223,15 @@ function State:ascii_cell(glyph, codepoints)
 end
 
 function State:set_ascii_cell(column, row, glyph, codepoints)
-  local foreground, background, flags = Attributes.resolve(self.active_screen.attributes)
+  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   local target = self.active_screen:get(column, row)
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   if target.glyph == glyph
     and target.fg == foreground
     and target.bg == background
+    and target.fg_slot == foreground_slot
+    and target.bg_slot == background_slot
     and target.flags == flags
     and target.codepoints == codepoints
     and target.width == 1
@@ -223,6 +244,8 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
   target.glyph = glyph
   target.fg = foreground
   target.bg = background
+  target.fg_slot = foreground_slot
+  target.bg_slot = background_slot
   target.flags = flags
   target.codepoints = codepoints
   target.width = 1
@@ -953,6 +976,8 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     glyph = cell.glyph .. glyph,
     fg = cell.fg,
     bg = cell.bg,
+    fg_slot = cell.fg_slot,
+    bg_slot = cell.bg_slot,
     flags = cell.flags,
     codepoints = codepoints,
     width = old_width,
@@ -1125,6 +1150,8 @@ function State:normalize_row(row_index)
           glyph = "",
           fg = anchor.fg,
           bg = anchor.bg,
+          fg_slot = anchor.fg_slot,
+          bg_slot = anchor.bg_slot,
           flags = anchor.flags,
           width = 0,
           continuation = true,
@@ -1138,6 +1165,8 @@ function State:normalize_row(row_index)
           glyph = cell.glyph,
           fg = cell.fg,
           bg = cell.bg,
+          fg_slot = cell.fg_slot,
+          bg_slot = cell.bg_slot,
           flags = cell.flags,
           codepoints = cell.codepoints,
           width = 1,
@@ -1151,6 +1180,8 @@ function State:normalize_row(row_index)
             glyph = "",
             fg = cell.fg,
             bg = cell.bg,
+            fg_slot = cell.fg_slot,
+            bg_slot = cell.bg_slot,
             flags = cell.flags,
             width = 0,
             continuation = true,
@@ -1825,6 +1856,121 @@ function State:apply_csi(action)
   end
 end
 
+local function parse_osc_colour(value)
+  if type(value) ~= "string" then return nil end
+  local red, green, blue = value:match("^#([%x][%x])([%x][%x])([%x][%x])$")
+  if red then return Color.pack(tonumber(red, 16), tonumber(green, 16), tonumber(blue, 16), 0xff) end
+  local components = { value:match("^rgb:([%x]+)/([%x]+)/([%x]+)$") }
+  if #components ~= 3 then return nil end
+  local channels = {}
+  for index, component in ipairs(components) do
+    if #component < 1 or #component > 4 then return nil end
+    local maximum = 16 ^ #component - 1
+    channels[index] = math.floor(tonumber(component, 16) * 255 / maximum + 0.5)
+  end
+  return Color.pack(channels[1], channels[2], channels[3], 0xff)
+end
+
+local function encode_osc_colour(value)
+  local colour = Color.unpack(value)
+  return string.format("rgb:%04x/%04x/%04x", colour.red * 0x101, colour.green * 0x101, colour.blue * 0x101)
+end
+
+local function osc_fields(payload)
+  local fields = {}
+  for field in (payload .. ";"):gmatch("(.-);") do fields[#fields + 1] = field end
+  return fields
+end
+
+function State:refresh_palette_slots(change)
+  local function refresh(cell)
+    local changed = false
+    if change.index ~= nil then
+      local slot = change.index + 1
+      if cell.fg_slot == slot then
+        cell.fg = self.colors:indexed(change.index)
+        changed = true
+      end
+      if cell.bg_slot == slot then
+        cell.bg = self.colors:indexed(change.index)
+        changed = true
+      end
+    elseif change.channel == "foreground" and cell.fg_slot == 0 then
+      cell.fg = self.colors.foreground
+      changed = true
+    elseif change.channel == "background" and cell.bg_slot == 0 then
+      cell.bg = self.colors.background
+      changed = true
+    elseif change.all_indexed then
+      if cell.fg_slot and cell.fg_slot > 0 then
+        cell.fg = self.colors:indexed(cell.fg_slot - 1)
+        changed = true
+      end
+      if cell.bg_slot and cell.bg_slot > 0 then
+        cell.bg = self.colors:indexed(cell.bg_slot - 1)
+        changed = true
+      end
+    end
+    return changed
+  end
+  local function refresh_rows(rows, count)
+    for row = 0, count - 1 do
+      for column = 0, self.columns - 1 do refresh(rows[row].cells[column]) end
+    end
+  end
+  refresh_rows(self.primary.rows, self.rows)
+  refresh_rows(self.alternate.rows, self.rows)
+  for index = 1, self.scrollback:size() do
+    local row = self.scrollback:get(index)
+    for column = 0, self.columns - 1 do refresh(row.cells[column]) end
+  end
+  if change.channel == "foreground" then self.default_cell.fg = self.colors.foreground end
+  if change.channel == "background" then self.default_cell.bg = self.colors.background end
+  if change.all_indexed or change.index ~= nil or change.channel ~= nil then
+    self.damage:mark_all()
+    self.text_damage:mark_all()
+    self:invalidate_search()
+  end
+end
+
+function State:apply_osc_palette(payload)
+  local fields = osc_fields(payload)
+  if #fields == 0 or #fields % 2 ~= 0 then return false end
+  local changes = {}
+  for index = 1, #fields, 2 do
+    local palette_index = tonumber(fields[index])
+    if palette_index == nil or palette_index < 0 or palette_index > 255 or palette_index % 1 ~= 0 then return false end
+    local value = fields[index + 1]
+    if value == "?" then
+      self:respond(string.format("\27]4;%d;%s\27\\", palette_index, encode_osc_colour(self.colors:indexed(palette_index))))
+    else
+      local colour = parse_osc_colour(value)
+      if colour == nil then return false end
+      changes[#changes + 1] = { index = palette_index, colour = colour }
+    end
+  end
+  for _, change in ipairs(changes) do
+    self.colors:set_indexed(change.index, change.colour)
+    self:refresh_palette_slots({ index = change.index })
+  end
+  if #changes > 0 then self:emit_effect("palette_changed", { count = #changes }) end
+  return true
+end
+
+function State:apply_osc_default_colour(channel, command, payload)
+  if payload == "?" then
+    local value = channel == "foreground" and self.colors.foreground or self.colors.background
+    self:respond(string.format("\27]%d;%s\27\\", command, encode_osc_colour(value)))
+    return true
+  end
+  local colour = parse_osc_colour(payload)
+  if colour == nil then return false end
+  self.colors:set_default(channel, colour)
+  self:refresh_palette_slots({ channel = channel })
+  self:emit_effect("palette_changed", { default = channel })
+  return true
+end
+
 function State:apply_osc(action)
   if action.command == 0 or action.command == 2 then
     self.title = action.payload
@@ -1867,6 +2013,36 @@ function State:apply_osc(action)
         self.active_screen.hyperlink_id = link.id
         self.stats.hyperlinks.opened = self.stats.hyperlinks.opened + 1
       end
+    end
+  elseif action.command == 4 then
+    if not self:apply_osc_palette(action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 10 then
+    if not self:apply_osc_default_colour("foreground", 10, action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 11 then
+    if not self:apply_osc_default_colour("background", 11, action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 104 then
+    if action.payload == "" then
+      self.colors:reset_indexed()
+      self:refresh_palette_slots({ all_indexed = true })
+      self:emit_effect("palette_changed", { reset = "indexed" })
+    else
+      local palette_index = tonumber(action.payload)
+      if palette_index == nil or palette_index < 0 or palette_index > 255 or palette_index % 1 ~= 0 then
+        self:record_unknown("osc", { command = action.command })
+      else
+        self.colors:reset_indexed(palette_index)
+        self:refresh_palette_slots({ index = palette_index })
+        self:emit_effect("palette_changed", { reset = palette_index })
+      end
+    end
+  elseif action.command == 110 or action.command == 111 then
+    if action.payload ~= "" then
+      self:record_unknown("osc", { command = action.command })
+    else
+      local channel = action.command == 110 and "foreground" or "background"
+      self.colors:reset_default(channel)
+      self:refresh_palette_slots({ channel = channel })
+      self:emit_effect("palette_changed", { reset = channel })
     end
   elseif action.command == 133 then
     local event = self.shell:apply_marker(action.payload, self:shell_position())

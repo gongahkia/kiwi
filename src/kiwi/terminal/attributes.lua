@@ -18,7 +18,7 @@ Attributes.flags = {
 Attributes.default_foreground = Color.pack(0xd8, 0xde, 0xe9, 0xff)
 Attributes.default_background = Color.pack(0x20, 0x24, 0x2b, 0xff)
 
-local palette = {
+local standard_palette = {
   Color.pack(0x3b, 0x42, 0x52, 0xff), Color.pack(0xbf, 0x61, 0x6a, 0xff),
   Color.pack(0xa3, 0xbe, 0x8c, 0xff), Color.pack(0xeb, 0xcb, 0x8b, 0xff),
   Color.pack(0x81, 0xa1, 0xc1, 0xff), Color.pack(0xb4, 0x8e, 0xad, 0xff),
@@ -31,7 +31,7 @@ local palette = {
 
 local function indexed_color(index)
   if index < 16 then
-    return palette[index + 1]
+    return standard_palette[index + 1]
   end
   if index >= 232 then
     local grey = 8 + (index - 232) * 10
@@ -45,14 +45,59 @@ local function indexed_color(index)
   return Color.pack(scale[red + 1], scale[green + 1], scale[blue + 1], 0xff)
 end
 
-local function resolve_color(color, fallback)
+local Palette = {}
+Palette.__index = Palette
+
+function Palette.new(options)
+  options = options or {}
+  local self = setmetatable({
+    foreground = options.foreground or Attributes.default_foreground,
+    background = options.background or Attributes.default_background,
+    indexed_overrides = {},
+  }, Palette)
+  assert(type(self.foreground) == "number" and type(self.background) == "number", "terminal default colours must be packed RGBA values")
+  return self
+end
+
+function Palette:indexed(index)
+  assert(type(index) == "number" and index >= 0 and index <= 255 and index % 1 == 0, "terminal palette index must be an integer from 0 through 255")
+  return self.indexed_overrides[index] or indexed_color(index)
+end
+
+function Palette:set_indexed(index, value)
+  assert(type(value) == "number", "terminal palette colour must be a packed RGBA value")
+  self:indexed(index)
+  self.indexed_overrides[index] = value
+end
+
+function Palette:reset_indexed(index)
+  if index == nil then
+    self.indexed_overrides = {}
+    return
+  end
+  self:indexed(index)
+  self.indexed_overrides[index] = nil
+end
+
+function Palette:set_default(channel, value)
+  assert(channel == "foreground" or channel == "background", "terminal palette default channel is invalid")
+  assert(type(value) == "number", "terminal default colour must be a packed RGBA value")
+  self[channel] = value
+end
+
+function Palette:reset_default(channel)
+  assert(channel == "foreground" or channel == "background", "terminal palette default channel is invalid")
+  self[channel] = channel == "foreground" and Attributes.default_foreground or Attributes.default_background
+end
+
+function Palette:resolve_color(color, channel)
   if color == nil then
-    return fallback
+    return channel == "foreground" and self.foreground or self.background, 0
   end
   if color.kind == "rgb" then
-    return Color.pack(color.red, color.green, color.blue, 0xff)
+    return Color.pack(color.red, color.green, color.blue, 0xff), nil
   end
-  return indexed_color(color.index)
+  return self:indexed(color.index), color.index + 1
 end
 
 function Attributes.default()
@@ -85,14 +130,17 @@ function Attributes.copy(value)
   return copy
 end
 
-function Attributes.resolve(value)
-  local foreground = resolve_color(value.fg, Attributes.default_foreground)
-  local background = resolve_color(value.bg, Attributes.default_background)
+function Attributes.resolve(value, palette)
+  palette = palette or Attributes.default_palette
+  local foreground, foreground_slot = palette:resolve_color(value.fg, "foreground")
+  local background, background_slot = palette:resolve_color(value.bg, "background")
   if value.inverse then
     foreground, background = background, foreground
+    foreground_slot, background_slot = background_slot, foreground_slot
   end
   if value.concealed then
     foreground = background
+    foreground_slot = background_slot
   end
   local flags = 0
   if value.bold then flags = flags + Attributes.flags.bold end
@@ -104,7 +152,7 @@ function Attributes.resolve(value)
   if value.inverse then flags = flags + Attributes.flags.inverse end
   if value.concealed then flags = flags + Attributes.flags.concealed end
   if value.strike then flags = flags + Attributes.flags.strike end
-  return foreground, background, flags
+  return foreground, background, flags, foreground_slot, background_slot
 end
 
 function Attributes.apply_sgr(current, parameters)
@@ -170,5 +218,8 @@ function Attributes.apply_sgr(current, parameters)
   end
   return current
 end
+
+Attributes.Palette = Palette
+Attributes.default_palette = Palette.new()
 
 return Attributes
