@@ -96,6 +96,7 @@ make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make run                               # launch the default shell
 make demo                              # retain the M0 synthetic renderer mode
+make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
 make smoke                             # bounded native live-terminal GPU smoke test; skips without display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
@@ -216,6 +217,12 @@ macOS build or runtime support is claimed; see [ADR
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
+
+The experimental, renderer-neutral Lua terminal boundary is documented in
+[LIBKIWI.md](docs/LIBKIWI.md). `make vt-demo` consumes terminal bytes from
+standard input and emits a logical text projection without starting a PTY,
+window, GPU, or font system; it is useful for integration and contract checks,
+not visual rendering.
 
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output

@@ -34,6 +34,14 @@ workspace layout -> one shared frame compositor -> pane viewport/scissor -> rend
 
 The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
 
+`kiwi.vt` is the experimental, host-neutral Lua facade over that kernel. It
+owns incremental writes, bounded terminal effects and responses, and an
+explicit begin/end render-update transaction. `kiwi.vt.headless` is a second,
+renderer-free consumer that projects the public render view into logical text.
+Neither module imports PTY, GLFW, WGPU, fonts, clipboard bridges, or network
+code. The API remains single-threaded and v0/experimental; its full contract
+and non-goals are in [LIBKIWI.md](LIBKIWI.md).
+
 ## PTY and process boundary
 
 `process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. It builds a child-only environment vector before the fork and passes it directly to `execvpe`: the live child receives `TERM=kiwi` and the project-local `TERMINFO`, while inherited `COLORTERM` is removed to preserve Kiwi's 16-colour contract. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.

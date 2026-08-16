@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+project_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+export LUA_PATH="$project_root/src/?.lua;$project_root/src/?/init.lua;;"
+exec "${LUAJIT:-luajit}" "$project_root/src/kiwi/vt/demo.lua" "$@"

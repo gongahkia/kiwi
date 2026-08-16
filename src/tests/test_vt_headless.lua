@@ -1,0 +1,31 @@
+local Assert = require("tests.assert")
+local VT = require("kiwi.vt")
+local Headless = require("kiwi.vt.headless")
+
+return {
+  libkiwi_vt_exports_a_versioned_constructor_without_platform_dependencies = function()
+    Assert.equal(VT.api_version, 1)
+    Assert.equal(VT.Terminal.api_version, VT.api_version)
+    local terminal = VT.new({ columns = 3, rows = 1 })
+    terminal:write("ok")
+    local projection = Headless.render_terminal(terminal, { trim_trailing = true })
+    Assert.equal(projection.text, "ok")
+    Assert.equal(terminal.state.damage.dirty_count > 0, true)
+  end,
+  libkiwi_vt_headless_projection_uses_cluster_anchors_and_explicit_damage_acknowledgement = function()
+    local terminal = VT.new({ columns = 5, rows = 2 })
+    terminal:write("A界B")
+    local projection = Headless.render_terminal(terminal, { consume_damage = true, trim_trailing = true })
+    Assert.equal(projection.lines[1], "A界B")
+    Assert.equal(projection.lines[2], "")
+    Assert.equal(projection.cursor.column, 4)
+    Assert.equal(terminal.state.damage.dirty_count, 0)
+  end,
+  libkiwi_vt_headless_consumer_keeps_terminal_effects_in_the_host_boundary = function()
+    local terminal = VT.new({ columns = 2, rows = 1 })
+    terminal:write("\27[5n")
+    local projection = Headless.render_terminal(terminal, { trim_trailing = true })
+    Assert.equal(projection.text, "")
+    Assert.equal(terminal:pop_responses()[1], "\27[0n")
+  end,
+}
