@@ -1,5 +1,5 @@
 local Base64 = require("kiwi.terminal.base64")
-local Png = require("kiwi.ffi.png")
+local ImageDecoder = require("kiwi.terminal.image_decoder")
 
 local KittyGraphics = {}
 KittyGraphics.__index = KittyGraphics
@@ -14,6 +14,8 @@ KittyGraphics.default_max_pixels = 16 * 1024 * 1024
 KittyGraphics.default_max_decoded_bytes = 64 * 1024 * 1024
 KittyGraphics.default_max_cpu_bytes = 64 * 1024 * 1024
 KittyGraphics.default_max_gpu_bytes = 64 * 1024 * 1024
+KittyGraphics.default_max_animation_bytes = ImageDecoder.default_max_animation_bytes
+KittyGraphics.default_max_animation_frames = ImageDecoder.default_max_frames
 
 local function positive_integer(value, name)
   assert(type(value) == "number" and value >= 1 and value % 1 == 0, name .. " must be a positive integer")
@@ -32,6 +34,7 @@ local function copy_stats(stats)
     last_error = stats.last_error,
     rejected = stats.rejected,
     released = stats.released,
+    frames_advanced = stats.frames_advanced,
     transfers_completed = stats.transfers_completed,
     transfers_interrupted = stats.transfers_interrupted,
   }
@@ -86,15 +89,16 @@ local function strict_base64(value)
   return true
 end
 
-local function png_header(bytes)
+local function media_header(bytes)
   if #bytes < 24 or bytes:sub(1, 8) ~= "\137PNG\r\n\26\n" or bytes:sub(13, 16) ~= "IHDR" then
-    return nil, "png-header"
+    if #bytes < 10 or (bytes:sub(1, 6) ~= "GIF87a" and bytes:sub(1, 6) ~= "GIF89a") then return nil, "unsupported-media" end
+    return bytes:byte(7) + bytes:byte(8) * 0x100, bytes:byte(9) + bytes:byte(10) * 0x100, "gif"
   end
   local length = ((bytes:byte(9) * 0x100 + bytes:byte(10)) * 0x100 + bytes:byte(11)) * 0x100 + bytes:byte(12)
   if length ~= 13 then return nil, "png-header" end
   local width = ((bytes:byte(17) * 0x100 + bytes:byte(18)) * 0x100 + bytes:byte(19)) * 0x100 + bytes:byte(20)
   local height = ((bytes:byte(21) * 0x100 + bytes:byte(22)) * 0x100 + bytes:byte(23)) * 0x100 + bytes:byte(24)
-  return width, height
+  return width, height, "png"
 end
 
 local function protocol_response(id, status)
@@ -106,6 +110,8 @@ function KittyGraphics.new(options)
   local self = setmetatable({
     images = {},
     max_apc_bytes = positive_integer(options.max_apc_bytes or KittyGraphics.default_max_apc_bytes, "kitty graphics APC limit"),
+    max_animation_bytes = positive_integer(options.max_animation_bytes or KittyGraphics.default_max_animation_bytes, "kitty graphics animation byte limit"),
+    max_animation_frames = positive_integer(options.max_animation_frames or KittyGraphics.default_max_animation_frames, "kitty graphics animation frame limit"),
     max_cpu_bytes = positive_integer(options.max_cpu_bytes or KittyGraphics.default_max_cpu_bytes, "kitty graphics CPU cache limit"),
     max_decoded_bytes = positive_integer(options.max_decoded_bytes or KittyGraphics.default_max_decoded_bytes, "kitty graphics decoded-image limit"),
     max_encoded_bytes = positive_integer(options.max_encoded_bytes or KittyGraphics.default_max_encoded_bytes, "kitty graphics encoded transfer limit"),
@@ -123,6 +129,7 @@ function KittyGraphics.new(options)
       cpu_bytes = 0,
       decoded = 0,
       evicted = 0,
+      frames_advanced = 0,
       gpu_bytes = 0,
       gpu_evicted = 0,
       gpu_released = 0,
@@ -135,6 +142,7 @@ function KittyGraphics.new(options)
     transfer = nil,
   }, KittyGraphics)
   assert(self.max_decoded_bytes <= self.max_cpu_bytes, "kitty graphics decoded-image limit must not exceed CPU cache limit")
+  assert(self.max_animation_bytes <= self.max_cpu_bytes, "kitty graphics animation byte limit must not exceed CPU cache limit")
   return self
 end
 
@@ -253,12 +261,15 @@ function KittyGraphics:complete_transfer(transfer, query)
   if not strict_base64(transfer.encoded) then return self:reject("invalid-base64") end
   local decoded, bytes = pcall(Base64.decode, transfer.encoded)
   if not decoded then return self:reject("invalid-base64") end
-  local width, height = png_header(bytes)
+  local width, height, format = media_header(bytes)
   if width == nil then return self:reject(height) end
-  if width ~= transfer.width or height ~= transfer.height then return self:reject("png-dimensions") end
-  local decoded_png, pixels, reason = pcall(Png.decode_rgba, bytes, transfer.width, transfer.height, transfer.bytes)
-  if not decoded_png then return self:reject("png-decode") end
-  if pixels == nil then return self:reject(reason) end
+  if width ~= transfer.width or height ~= transfer.height then return self:reject(format == "gif" and "gif-dimensions" or "png-dimensions") end
+  local decoded, media, reason = pcall(ImageDecoder.decode, bytes, transfer.width, transfer.height, {
+    max_animation_bytes = self.max_animation_bytes,
+    max_frames = self.max_animation_frames,
+  })
+  if not decoded then return self:reject(format == "gif" and "gif-decode" or "png-decode") end
+  if media == nil then return self:reject(reason) end
 
   self.stats.decoded = self.stats.decoded + 1
   self.stats.transfers_completed = self.stats.transfers_completed + 1
@@ -268,13 +279,22 @@ function KittyGraphics:complete_transfer(transfer, query)
 
   self.next_generation = self.next_generation + 1
   local image = {
-    bytes = transfer.bytes,
+    active = false,
+    bytes = media.bytes,
+    cycles = 1,
+    finished = false,
+    format = media.format,
+    frame_bytes = media.frame_bytes,
+    frame_index = 1,
+    frame_revision = 1,
+    frames = media.frames,
     generation = self.next_generation,
     gpu_bytes = 0,
-    height = transfer.height,
+    height = media.height,
     id = transfer.id,
-    pixels = pixels,
-    width = transfer.width,
+    pixels = media.frames[1].pixels,
+    plays = media.plays,
+    width = media.width,
   }
   if not self:store(image) then return self:reject("cpu-cache-limit") end
   return { ok = true }
@@ -366,12 +386,15 @@ function KittyGraphics:upload_descriptor(id)
   local image = self.images[id]
   if image == nil then return nil, "unknown-image" end
   self:touch(image, false)
+  local frame = image.frames[image.frame_index]
   return {
     bytes = image.bytes,
+    frame_bytes = image.frame_bytes,
+    frame_revision = image.frame_revision,
     generation = image.generation,
     height = image.height,
     id = image.id,
-    pixels = image.pixels,
+    pixels = frame.pixels,
     width = image.width,
   }
 end
@@ -380,7 +403,7 @@ function KittyGraphics:register_gpu_upload(id, generation, bytes)
   local image = self.images[id]
   if image == nil or image.generation ~= generation then return nil, "stale-image" end
   if image.gpu_bytes ~= 0 then return nil, "gpu-already-registered" end
-  if bytes ~= image.bytes or bytes > self.max_gpu_bytes then return nil, "gpu-limit" end
+  if bytes ~= image.frame_bytes or bytes > self.max_gpu_bytes then return nil, "gpu-limit" end
   while self.stats.gpu_bytes + bytes > self.max_gpu_bytes do
     local victim = self:gpu_victim(id)
     if victim == nil then return nil, "gpu-limit" end
@@ -390,6 +413,58 @@ function KittyGraphics:register_gpu_upload(id, generation, bytes)
   self.stats.gpu_bytes = self.stats.gpu_bytes + bytes
   self:touch(image, true)
   return true
+end
+
+function KittyGraphics:set_active_images(ids)
+  for id, image in pairs(self.images) do
+    local active = ids[id] == true
+    if image.active and not active then image.next_frame_at = nil end
+    image.active = active
+  end
+end
+
+function KittyGraphics:animation_delay(now)
+  local delay
+  for _, image in pairs(self.images) do
+    if image.active and not image.finished and #image.frames > 1 then
+      local frame = image.frames[image.frame_index]
+      if image.next_frame_at == nil then image.next_frame_at = now + frame.duration end
+      local candidate = math.max(ImageDecoder.minimum_delay, image.next_frame_at - now)
+      if delay == nil or candidate < delay then delay = candidate end
+    end
+  end
+  return delay
+end
+
+function KittyGraphics:advance(now)
+  local changed = false
+  for _, image in pairs(self.images) do
+    if image.active and not image.finished and #image.frames > 1 and image.next_frame_at and now >= image.next_frame_at then
+      local advances = 0
+      while now >= image.next_frame_at and advances < #image.frames do
+        if image.frame_index < #image.frames then
+          image.frame_index = image.frame_index + 1
+        elseif image.plays == 0 or image.cycles < image.plays then
+          image.cycles = image.cycles + 1
+          image.frame_index = 1
+        else
+          image.finished = true
+          image.next_frame_at = nil
+          break
+        end
+        image.pixels = image.frames[image.frame_index].pixels
+        image.frame_revision = image.frame_revision + 1
+        image.next_frame_at = image.next_frame_at + image.frames[image.frame_index].duration
+        self.stats.frames_advanced = self.stats.frames_advanced + 1
+        advances = advances + 1
+        changed = true
+      end
+      if not image.finished and advances == #image.frames and now >= image.next_frame_at then
+        image.next_frame_at = now + image.frames[image.frame_index].duration
+      end
+    end
+  end
+  return changed
 end
 
 function KittyGraphics:release_gpu_upload(id, generation, reason)
@@ -424,10 +499,15 @@ function KittyGraphics:view()
   for _, image in pairs(self.images) do
     images[#images + 1] = {
       bytes = image.bytes,
+      animated = #image.frames > 1,
+      format = image.format,
+      frame = image.frame_index,
+      frames = #image.frames,
       generation = image.generation,
       gpu = image.gpu_bytes == 0 and "unallocated" or "uploaded",
       height = image.height,
       id = image.id,
+      plays = image.plays,
       width = image.width,
     }
   end
