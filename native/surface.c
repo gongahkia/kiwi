@@ -1,10 +1,17 @@
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#if !defined(__APPLE__)
 #define GLFW_EXPOSE_NATIVE_WAYLAND
 #define GLFW_EXPOSE_NATIVE_X11
+#endif
 #include <GLFW/glfw3.h>
+#if !defined(__APPLE__)
 #include <GLFW/glfw3native.h>
+#endif
 #include <webgpu/webgpu.h>
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -17,6 +24,14 @@
 #include <unistd.h>
 
 static char kiwi_surface_error[2048];
+
+void kiwi_surface_set_error(const char *message) {
+  if (message == NULL) {
+    kiwi_surface_error[0] = '\0';
+    return;
+  }
+  snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "%s", message);
+}
 
 static void kiwi_copy_message(WGPUStringView message) {
   size_t length = message.length;
@@ -177,6 +192,7 @@ void kiwi_surface_clear_error(void) {
   kiwi_surface_error[0] = '\0';
 }
 
+#if !defined(__APPLE__)
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
   WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
   int platform = glfwGetPlatform();
@@ -201,6 +217,23 @@ WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
            "GLFW platform %d has no Kiwi M0 wgpu-native surface binding", platform);
   return NULL;
 }
+#endif
+
+uint32_t kiwi_native_backend_type(void) {
+#if defined(__APPLE__)
+  return WGPUBackendType_Metal;
+#else
+  return WGPUBackendType_Vulkan;
+#endif
+}
+
+const char *kiwi_native_backend_name(void) {
+#if defined(__APPLE__)
+  return "Metal";
+#else
+  return "Vulkan";
+#endif
+}
 
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface) {
   KiwiRequestResult result = {0};
@@ -209,7 +242,7 @@ WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface
 
   kiwi_surface_error[0] = '\0';
   options.featureLevel = WGPUFeatureLevel_Core;
-  options.backendType = WGPUBackendType_Vulkan;
+  options.backendType = kiwi_native_backend_type();
   options.compatibleSurface = surface;
   callback.mode = WGPUCallbackMode_AllowProcessEvents;
   callback.callback = kiwi_adapter_callback;
@@ -636,6 +669,59 @@ int kiwi_pty_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+static const char *kiwi_environment_value(char *const envp[], const char *name) {
+  const size_t name_length = strlen(name);
+  for (size_t index = 0; envp != NULL && envp[index] != NULL; ++index) {
+    if (strncmp(envp[index], name, name_length) == 0 && envp[index][name_length] == '=') {
+      return envp[index] + name_length + 1;
+    }
+  }
+  return NULL;
+}
+
+int kiwi_execvpe(const char *file, char *const argv[], char *const envp[]) {
+#if !defined(__APPLE__)
+  return execvpe(file, argv, envp);
+#else
+  if (file == NULL || file[0] == '\0') {
+    errno = ENOENT;
+    return -1;
+  }
+  if (strchr(file, '/') != NULL) return execve(file, argv, envp);
+
+  const char *path = kiwi_environment_value(envp, "PATH");
+  if (path == NULL || path[0] == '\0') path = "/usr/bin:/bin";
+  int saved_error = ENOENT;
+  const char *segment = path;
+  while (true) {
+    const char *separator = strchr(segment, ':');
+    const size_t directory_length = separator == NULL ? strlen(segment) : (size_t)(separator - segment);
+    const size_t file_length = strlen(file);
+    if (directory_length <= SIZE_MAX - file_length - 2) {
+      char *candidate = malloc(directory_length + file_length + 2);
+      if (candidate == NULL) {
+        errno = ENOMEM;
+        return -1;
+      }
+      if (directory_length == 0) {
+        memcpy(candidate, file, file_length + 1);
+      } else {
+        memcpy(candidate, segment, directory_length);
+        candidate[directory_length] = '/';
+        memcpy(candidate + directory_length + 1, file, file_length + 1);
+      }
+      (void)execve(candidate, argv, envp);
+      if (errno != ENOENT && errno != ENOTDIR) saved_error = errno;
+      free(candidate);
+    }
+    if (separator == NULL) break;
+    segment = separator + 1;
+  }
+  errno = saved_error;
+  return -1;
+#endif
+}
+
 int kiwi_open_uri(const char *uri) {
   if (uri == NULL || uri[0] == '\0') {
     errno = EINVAL;
@@ -654,7 +740,11 @@ int kiwi_open_uri(const char *uri) {
       (void)dup2(null_fd, STDERR_FILENO);
       if (null_fd > STDERR_FILENO) (void)close(null_fd);
     }
+#if defined(__APPLE__)
+    execlp("open", "open", uri, (char *)NULL);
+#else
     execlp("xdg-open", "xdg-open", uri, (char *)NULL);
+#endif
     _exit(127);
   }
   int status;

@@ -7,10 +7,12 @@ local gif = "R0lGODlhAgACAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAAAAAACwAAAA
 local apng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAAAAAAAAQCEeRdzAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAACAAAAAgAAAAAAAAAAAAEAGQAA9jTBKQAAABJJREFUeJxj+MfA+I+BkQFCAQAf5gP97YntFAAAABpmY1RMAAAAAQAAAAIAAAACAAAAAAAAAAAAAQAZAABtRyv9AAAAFmZkQVQAAAACeJxjYGT4x8jwjwFCAQAX/gP9RayewQAAAABJRU5ErkJggg=="
 
 local function capture(command)
-  local pipe = assert(io.popen(command .. " 2>&1", "r"))
+  local pipe = assert(io.popen("(" .. command .. " 2>&1); kiwi_exit=$?; printf '\\n__KIWI_EXIT_STATUS:%s' \"$kiwi_exit\"", "r"))
   local output = pipe:read("*a")
-  local ok = pipe:close()
-  return output, ok == true
+  pipe:close()
+  local body, status = output:match("^(.*)\n__KIWI_EXIT_STATUS:(%d+)$")
+  assert(body ~= nil and status ~= nil, "kiwi-image capture did not report an exit status")
+  return body, status == "0"
 end
 
 local function temporary_image(encoded, extension)

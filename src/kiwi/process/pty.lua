@@ -4,7 +4,6 @@ local ffi = require("ffi")
 ffi.cdef[[
 typedef struct { unsigned short ws_row; unsigned short ws_col; unsigned short ws_xpixel; unsigned short ws_ypixel; } KiwiWinsize;
 int forkpty(int* amaster, char* name, const void* termp, const KiwiWinsize* winp);
-int execvpe(const char* file, char* const argv[], char* const envp[]);
 void _exit(int status);
 int close(int fd);
 long read(int fd, void* buffer, unsigned long count);
@@ -15,18 +14,23 @@ extern char **environ;
 int usleep(unsigned int usec);
 int kiwi_pty_resize(int fd, unsigned short columns, unsigned short rows);
 int kiwi_pty_set_nonblocking(int fd);
+int kiwi_execvpe(const char* file, char* const argv[], char* const envp[]);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
+local library_extension = ffi.os == "OSX" and ".dylib" or ".so"
+local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface" .. library_extension
 local native_ok, native = pcall(ffi.load, native_path)
 if not native_ok then
   error("Unable to load Kiwi native bridge at " .. native_path .. "; run make native: " .. tostring(native))
 end
 
-local util_ok, util = pcall(ffi.load, "util")
-if not util_ok then
-  util_ok, util = pcall(ffi.load, "libutil.so.1")
+local util_ok, util
+if ffi.os == "OSX" then
+  util_ok, util = pcall(ffi.load, "System")
+else
+  util_ok, util = pcall(ffi.load, "util")
+  if not util_ok then util_ok, util = pcall(ffi.load, "libutil.so.1") end
 end
 if not util_ok then
   error("Unable to load libutil for forkpty: " .. tostring(util))
@@ -36,7 +40,7 @@ local Pty = {}
 Pty.__index = Pty
 
 local constants = {
-  eagain = 11,
+  eagain = ffi.os == "OSX" and 35 or 11,
   eintr = 4,
   eio = 5,
   wnohang = 1,
@@ -133,7 +137,7 @@ function Pty.spawn(command, columns, rows, environment)
     error(errno_message("forkpty"))
   end
   if pid == 0 then
-    ffi.C.execvpe(argv[0], argv, child_environment)
+    native.kiwi_execvpe(argv[0], argv, child_environment)
     ffi.C._exit(127)
   end
 

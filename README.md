@@ -1,10 +1,10 @@
 # Kiwi
 
-Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux terminal; M2.5 adds measured write-path attribution and local performance hardening. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
+Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux and macOS terminal; M2.5 adds measured write-path attribution and local performance hardening. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
 
 ## Current scope
 
-`make run` opens a native GLFW/Vulkan window and starts `$SHELL` when it is an absolute path, otherwise `/bin/sh`. An explicit child follows `--`:
+`make run` opens a native GLFW window backed by Vulkan on Linux or Metal on macOS, then starts `$SHELL` when it is an absolute path, otherwise `/bin/sh`. An explicit child follows `--`:
 
 ```sh
 make run
@@ -22,7 +22,7 @@ The entry honestly advertises 16 colours, cursor movement, erasing/editing, scro
 
 M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16, PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
-## Fedora prerequisites
+## Linux prerequisites
 
 Kiwi currently supports Linux x86_64. On Fedora 43:
 
@@ -34,9 +34,21 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 
 `make bootstrap` validates the local tools, GLFW/FreeType/HarfBuzz/Fontconfig metadata, `tic`/`infocmp`, and the pinned official wgpu-native archive.
 
+## macOS prerequisites
+
+The macOS source target is verified on macOS 14+ Apple Silicon. Install the source dependencies with Homebrew, then build and run from the checkout:
+
+```sh
+brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+make check
+make run
+```
+
+Kiwi uses GLFW's Cocoa window, a `CAMetalLayer` WebGPU surface, and Metal; it retains FreeType/HarfBuzz for rasterization and shaping while Fontconfig provides the current font-discovery/fallback implementation. The matching macOS x86_64 bootstrap path exists but has not been validated on an Intel Mac. See [MACOS.md](docs/MACOS.md) for the supported boundary and verification status.
+
 ## Local release artifact
 
-`make release` creates `dist/kiwi-<version>-linux-x86_64.tar.gz` and its
+`make release` creates `dist/kiwi-<version>-<target>.tar.gz` and its
 adjacent SHA-256 file. The archive contains the Lua sources, native surface
 bridge, pinned wgpu-native runtime, compiled `kiwi` terminfo, a launcher, and
 `metadata.json` with the version, Git revision, source-date epoch, dependency
@@ -58,9 +70,7 @@ tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
 ```
 
-The archive is for Linux x86_64 only and still needs a system LuaJIT plus GLib/GIO, GLFW,
-FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and the normal
-display-server runtime. `kiwi --version` reports the artifact version and
+The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher; it is unsigned and not notarized. `kiwi --version` reports the artifact version and
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
 shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
 renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
@@ -69,7 +79,7 @@ environment.
 
 `make libkiwi-vt` separately produces the reproducible, renderer-free
 `libkiwi-vt` SDK described in [docs/LIBKIWI.md](docs/LIBKIWI.md). It contains
-the experimental LuaJIT core and a narrow Linux x86_64 C shared library for
+the experimental LuaJIT core and a narrow Linux x86_64 or macOS arm64 C shared library for
 byte input, resize, logical-text projection, logical cell/grid render updates,
 terminal-mode-aware text/key/mouse/focus/paste encoding, and queued terminal
 responses/effects. It is pre-1.0 and makes no ABI-stability claim.
@@ -94,7 +104,7 @@ and support boundaries, see the [user guide](docs/USER_GUIDE.md).
 ```sh
 make bootstrap                         # validate prerequisites and fetch pinned wgpu-native
 make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
-make release                           # create a local, checksummed Linux x86_64 release-mode artifact
+make release                           # create a local, checksummed release-mode artifact for the current target
 make release-check                     # rebuild the artifact twice and verify byte identity, metadata, terminfo, and release mode
 make doctor                            # local, privacy-bounded human-readable support report
 make doctor ARGS='--json --bundle kiwi-support.json' # machine-readable report and explicit local bundle
@@ -212,21 +222,18 @@ provide committed Unicode text; the researched Wayland text-input boundary and
 detached lifecycle spike are documented in
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
-Kiwi exposes a bounded semantic accessibility model and a Linux AT-SPI bridge
+Kiwi exposes a bounded semantic accessibility model, a Linux AT-SPI bridge, and a macOS NSAccessibility element
 for the active pane. The native provider is registry/query tested, but no
-end-to-end screen-reader session has been validated; macOS NSAccessibility and
-Windows UI Automation are unimplemented. The contract, limits, and smoke
+end-to-end screen-reader session has been validated; Windows UI Automation is
+unimplemented. The contract, limits, and smoke
 commands are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
-Kiwi currently supports Linux x86_64 only. Windows DX12/ConPTY feasibility was
+Kiwi supports Linux x86_64 and, on a verified source path, macOS arm64. Windows DX12/ConPTY feasibility was
 researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
-macOS Metal/Cocoa feasibility was also assessed without a macOS host or target
-artifacts. The pinned header exposes a prospective Metal surface seam, but no
-macOS build or runtime support is claimed; see [ADR
-0039](docs/adr/0039-macos-native-feasibility.md).
+macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. Intel macOS, VoiceOver behavior, IME preedit, and signing/notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
 
 ## Replay
 

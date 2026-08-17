@@ -29,9 +29,25 @@ for module in demo headless init input render_state terminal; do
   cp "$ROOT/src/kiwi/vt/$module.lua" "$OUTPUT/lua/kiwi/vt/$module.lua"
 done
 
-cc -std=c17 -fPIC -shared -Wall -Wextra -Werror -DKIWI_VT_BUILD \
-  -I"$ROOT/include" \
-  -DKIWI_VT_VERSION=\""$VERSION"\" \
-  "$ROOT/native/vt.c" -ldl "${link_flags[@]}" -o "$OUTPUT/lib/libkiwi_vt.so"
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    cc -std=c17 -fPIC -shared -Wall -Wextra -Werror -DKIWI_VT_BUILD \
+      -I"$ROOT/include" \
+      -DKIWI_VT_VERSION=\""$VERSION"\" \
+      "$ROOT/native/vt.c" -ldl "${link_flags[@]}" -o "$OUTPUT/lib/libkiwi_vt.so"
+    readonly LIBRARY="$OUTPUT/lib/libkiwi_vt.so"
+    ;;
+  Darwin-arm64|Darwin-x86_64)
+    cc -std=c17 -fPIC -dynamiclib -Wall -Wextra -Werror -DKIWI_VT_BUILD \
+      -I"$ROOT/include" \
+      -DKIWI_VT_VERSION=\""$VERSION"\" \
+      "$ROOT/native/vt.c" "${link_flags[@]}" -o "$OUTPUT/lib/libkiwi_vt.dylib"
+    readonly LIBRARY="$OUTPUT/lib/libkiwi_vt.dylib"
+    ;;
+  *)
+    print -u2 "libkiwi-vt build supports Linux x86_64, macOS arm64, and macOS x86_64; found $(uname -s) $(uname -m)."
+    exit 1
+    ;;
+esac
 
-print "Built $OUTPUT/lib/libkiwi_vt.so"
+print "Built $LIBRARY"

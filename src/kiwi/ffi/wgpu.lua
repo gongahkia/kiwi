@@ -155,16 +155,19 @@ uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker* tracker);
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char* source_code);
 const char* kiwi_surface_last_error(void);
 void kiwi_surface_clear_error(void);
+uint32_t kiwi_native_backend_type(void);
+const char* kiwi_native_backend_name(void);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local library_path = os.getenv("KIWI_WGPU_LIB") or root .. "/.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so"
+local library_extension = ffi.os == "OSX" and ".dylib" or ".so"
+local library_path = os.getenv("KIWI_WGPU_LIB") or root .. "/.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native" .. library_extension
 local ok, library = pcall(ffi.load, library_path, true)
 if not ok then
   error("Unable to load pinned wgpu-native v29.0.1.1 at " .. library_path .. "; run make bootstrap: " .. tostring(library))
 end
 
-local surface_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
+local surface_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface" .. library_extension
 local surface_ok, surface = pcall(ffi.load, surface_path)
 if not surface_ok then
   error("Unable to load Kiwi's GLFW surface bridge at " .. surface_path .. "; run make native: " .. tostring(surface))
@@ -177,6 +180,7 @@ return {
   constants = {
     surface_success_optimal = 1,
     surface_success_suboptimal = 2,
+    surface_occluded = 0x00030001,
     texture_format_r8_unorm = 1,
     texture_format_rgba8_unorm = 0x16,
     texture_usage_copy_dst = 0x02,

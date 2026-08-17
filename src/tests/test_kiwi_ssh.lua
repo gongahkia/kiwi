@@ -13,8 +13,12 @@ local function temporary_directory()
 end
 
 local function execute(command)
-  local ok, _, status = os.execute(command)
-  return ok == true or status == 0
+  local pipe = assert(io.popen("(" .. command .. "); kiwi_exit=$?; printf '\\n__KIWI_EXIT_STATUS:%s' \"$kiwi_exit\"", "r"))
+  local output = pipe:read("*a")
+  pipe:close()
+  local status = output:match("\n__KIWI_EXIT_STATUS:(%d+)$")
+  assert(status ~= nil, "command did not report an exit status")
+  return status == "0"
 end
 
 return {

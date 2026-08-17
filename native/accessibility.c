@@ -379,7 +379,8 @@ static void kiwi_a11y_unregister(KiwiAccessibility *adapter) {
   adapter->root_accessible_registration = 0;
 }
 
-KiwiAccessibility *kiwi_accessibility_new(void) {
+KiwiAccessibility *kiwi_accessibility_new(void *window) {
+  (void)window;
   kiwi_accessibility_error[0] = '\0';
   KiwiAccessibility *adapter = g_new0(KiwiAccessibility, 1);
   GError *error = NULL;

@@ -17,3 +17,4 @@ bench/results/*.json
 !bench/results/example.json
 bench/profiles/
 AGENTS.md
+.codex/

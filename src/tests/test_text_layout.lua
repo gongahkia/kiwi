@@ -71,6 +71,9 @@ return {
   end,
   text_caches_bound_atlas_growth_and_negative_fallback_lookups = function()
     local system = System.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 2 } })
+    -- U+10FFFF may resolve to a platform Last Resort font, so make this cache test
+    -- exercise a deterministic resolver miss rather than host font coverage.
+    system.resolver.fallback = function() return nil end
     local face = assert(system:face_for_cluster({ string.byte("A") }))
     assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("A"))))
     assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("B"))))

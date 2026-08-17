@@ -8,7 +8,8 @@ int kiwi_open_uri(const char* uri);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
+local library_extension = ffi.os == "OSX" and ".dylib" or ".so"
+local native_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface" .. library_extension
 local native_ok, native = pcall(ffi.load, native_path)
 if not native_ok then error("Unable to load Kiwi native bridge at " .. native_path .. "; run make native: " .. tostring(native)) end
 
@@ -34,6 +35,7 @@ function Window.new(width, height, title, options)
   glfw.lib.glfwWindowHint(glfw.constants.client_api, glfw.constants.no_api)
   glfw.lib.glfwWindowHint(glfw.constants.resizable, glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.visible, options.visible == false and glfw.constants.no or glfw.constants.yes)
+  glfw.lib.glfwWindowHint(glfw.constants.scale_framebuffer, glfw.constants.yes)
   local handle = glfw.lib.glfwCreateWindow(width, height, title, nil, nil)
   if handle == nil then
     glfw.lib.glfwTerminate()
@@ -114,6 +116,9 @@ function Window.new(width, height, title, options)
     self.minimized = iconified ~= 0
     self.resized = true
   end)
+  self.callbacks.content_scale = ffi.cast("GLFWwindowcontentscalefun", function()
+    self.resized = true
+  end)
   glfw.lib.glfwSetFramebufferSizeCallback(handle, self.callbacks.resize)
   glfw.lib.glfwSetKeyCallback(handle, self.callbacks.key)
   glfw.lib.glfwSetCharCallback(handle, self.callbacks.character)
@@ -122,6 +127,7 @@ function Window.new(width, height, title, options)
   glfw.lib.glfwSetScrollCallback(handle, self.callbacks.scroll)
   glfw.lib.glfwSetWindowFocusCallback(handle, self.callbacks.focus)
   glfw.lib.glfwSetWindowIconifyCallback(handle, self.callbacks.iconify)
+  glfw.lib.glfwSetWindowContentScaleCallback(handle, self.callbacks.content_scale)
   return self
 end
 

@@ -6,6 +6,24 @@ readonly VERSION=$(<"$ROOT/VERSION")
 readonly API_VERSION=1
 readonly DIST=${KIWI_LIBKIWI_DIST:-"$ROOT/dist"}
 
+sha256_file() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) readonly TARGET=linux-x86_64 ;;
+  Darwin-arm64) readonly TARGET=macos-arm64 ;;
+  Darwin-x86_64) readonly TARGET=macos-x86_64 ;;
+  *)
+    print -u2 "libkiwi-vt packaging supports Linux x86_64, macOS arm64, and macOS x86_64; found $(uname -s) $(uname -m)."
+    exit 1
+    ;;
+esac
+
 if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
   print -u2 "VERSION must be a numeric semantic version; found $VERSION"
   exit 1
@@ -33,7 +51,11 @@ else
   fi
 fi
 
-readonly NAME="libkiwi-vt-$VERSION"
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  readonly NAME="libkiwi-vt-$VERSION"
+else
+  readonly NAME="libkiwi-vt-$VERSION-$TARGET"
+fi
 readonly ARCHIVE="$DIST/$NAME.tar.gz"
 readonly CHECKSUM="$ARCHIVE.sha256"
 readonly WORK=$(mktemp -d)
@@ -55,14 +77,21 @@ print '#!/bin/sh' > "$STAGE/bin/kiwi-vt"
 print 'set -eu' >> "$STAGE/bin/kiwi-vt"
 print 'root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)' >> "$STAGE/bin/kiwi-vt"
 print 'export LUA_PATH="$root/lua/?.lua;$root/lua/?/init.lua;;"' >> "$STAGE/bin/kiwi-vt"
+print 'if [ -z "${KIWI_VT_LUAJIT_LIB:-}" ] && command -v pkg-config >/dev/null 2>&1 && pkg-config --exists luajit; then export KIWI_VT_LUAJIT_LIB="$(pkg-config --variable=libdir luajit)/libluajit-5.1.2.dylib"; fi' >> "$STAGE/bin/kiwi-vt"
 print 'exec "${LUAJIT:-luajit}" "$root/lua/kiwi/vt/demo.lua" "$@"' >> "$STAGE/bin/kiwi-vt"
 chmod 755 "$STAGE/bin/kiwi-vt"
 
-print -r -- "{\"schema_version\":1,\"name\":\"libkiwi-vt\",\"version\":\"$VERSION\",\"api_version\":$API_VERSION,\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"runtime\":\"LuaJIT\",\"c_abi\":true,\"includes_optional_media_decoder\":false}" > "$STAGE/metadata.json"
+print -r -- "{\"schema_version\":1,\"name\":\"libkiwi-vt\",\"version\":\"$VERSION\",\"api_version\":$API_VERSION,\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"$TARGET\",\"runtime\":\"LuaJIT\",\"c_abi\":true,\"includes_optional_media_decoder\":false}" > "$STAGE/metadata.json"
 
 rm -f "$ARCHIVE" "$CHECKSUM"
-tar -C "$WORK" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
-(cd "$DIST" && sha256sum "${ARCHIVE:t}" > "${CHECKSUM:t}")
+if [[ "$(uname -s)" == Darwin ]]; then
+  archive_time=$(date -r "$source_date_epoch" '+%Y%m%d%H%M.%S')
+  find "$STAGE" -exec touch -h -t "$archive_time" {} +
+  COPYFILE_DISABLE=1 tar -C "$WORK" --format ustar --uid 0 --gid 0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+else
+  tar -C "$WORK" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+fi
+print "$(sha256_file "$ARCHIVE")  ${ARCHIVE:t}" > "$CHECKSUM"
 
 print "libkiwi-vt SDK archive: $ARCHIVE"
 print "libkiwi-vt checksum: $CHECKSUM"

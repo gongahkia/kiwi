@@ -30,7 +30,7 @@ function Context.new(window, options)
 
     self.adapter = wgpu.surface.kiwi_request_adapter_sync(self.instance, self.surface)
     if self.adapter == nil then
-      error("Unable to request a Vulkan-capable adapter: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+      error("Unable to request a " .. ffi.string(wgpu.surface.kiwi_native_backend_name()) .. " adapter: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
     end
 
     local adapter_info = ffi.new("WGPUAdapterInfo")
@@ -42,7 +42,8 @@ function Context.new(window, options)
       device = message_text(adapter_info.device),
       description = message_text(adapter_info.description),
       backend = adapter_info.backendType,
-      backend_name = adapter_info.backendType == 6 and "Vulkan" or ("backend-" .. adapter_info.backendType),
+      backend_name = adapter_info.backendType == wgpu.surface.kiwi_native_backend_type()
+        and ffi.string(wgpu.surface.kiwi_native_backend_name()) or ("backend-" .. adapter_info.backendType),
     }
     api.wgpuAdapterInfoFreeMembers(adapter_info)
     self.timestamp_query_supported = api.wgpuAdapterHasFeature(self.adapter, 9) ~= 0

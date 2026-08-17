@@ -79,6 +79,7 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   local c = self.native.constants
   local surface_texture = ffi.new("WGPUSurfaceTexture")
   api.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
+  if surface_texture.status == c.surface_occluded then return false, "surface occluded" end
   if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
     return false, "surface acquire status " .. tonumber(surface_texture.status)
   end

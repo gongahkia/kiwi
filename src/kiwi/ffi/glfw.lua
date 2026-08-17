@@ -10,6 +10,7 @@ typedef void (*GLFWmousebuttonfun)(GLFWwindow* window, int button, int action, i
 typedef void (*GLFWscrollfun)(GLFWwindow* window, double xoffset, double yoffset);
 typedef void (*GLFWwindowfocusfun)(GLFWwindow* window, int focused);
 typedef void (*GLFWwindowiconifyfun)(GLFWwindow* window, int iconified);
+typedef void (*GLFWwindowcontentscalefun)(GLFWwindow* window, float xscale, float yscale);
 int glfwInit(void);
 void glfwTerminate(void);
 void glfwWindowHint(int hint, int value);
@@ -33,6 +34,7 @@ GLFWmousebuttonfun glfwSetMouseButtonCallback(GLFWwindow* window, GLFWmousebutto
 GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun callback);
 GLFWwindowfocusfun glfwSetWindowFocusCallback(GLFWwindow* window, GLFWwindowfocusfun callback);
 GLFWwindowiconifyfun glfwSetWindowIconifyCallback(GLFWwindow* window, GLFWwindowiconifyfun callback);
+GLFWwindowcontentscalefun glfwSetWindowContentScaleCallback(GLFWwindow* window, GLFWwindowcontentscalefun callback);
 void glfwSetWindowTitle(GLFWwindow* window, const char* title);
 void glfwSetClipboardString(GLFWwindow* window, const char* string);
 const char* glfwGetClipboardString(GLFWwindow* window);
@@ -53,6 +55,7 @@ return {
     no_api = 0,
     resizable = 0x00020003,
     visible = 0x00020004,
+    scale_framebuffer = 0x0002200D,
     yes = 1,
     no = 0,
     release = 0,

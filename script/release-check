@@ -9,15 +9,31 @@ KIWI_RELEASE_ALLOW_DIRTY=1 KIWI_RELEASE_DIST="$WORK/first" "$ROOT/script/release
 KIWI_RELEASE_ALLOW_DIRTY=1 KIWI_RELEASE_DIST="$WORK/second" "$ROOT/script/release-build"
 
 readonly VERSION=$(<"$ROOT/VERSION")
-readonly NAME="kiwi-$VERSION-linux-x86_64"
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) readonly TARGET=linux-x86_64; readonly LIBRARY_EXTENSION=so ;;
+  Darwin-arm64) readonly TARGET=macos-arm64; readonly LIBRARY_EXTENSION=dylib ;;
+  Darwin-x86_64) readonly TARGET=macos-x86_64; readonly LIBRARY_EXTENSION=dylib ;;
+  *) print -u2 "release checks require a supported Kiwi target"; exit 1 ;;
+esac
+readonly NAME="kiwi-$VERSION-$TARGET"
 cmp "$WORK/first/$NAME.tar.gz" "$WORK/second/$NAME.tar.gz"
-(cd "$WORK/first" && sha256sum --check "$NAME.tar.gz.sha256")
+if command -v sha256sum >/dev/null; then
+  (cd "$WORK/first" && sha256sum --check "$NAME.tar.gz.sha256")
+else
+  (cd "$WORK/first" && shasum -a 256 -c "$NAME.tar.gz.sha256")
+fi
 tar -xzf "$WORK/first/$NAME.tar.gz" -C "$WORK"
 version_output=$(KIWI_DEVELOPMENT=1 "$WORK/$NAME/bin/kiwi" --version)
 [[ "$version_output" == "Kiwi $VERSION (revision "*", mode release)" ]]
 [[ -f "$WORK/$NAME/metadata.json" ]]
 [[ -d "$WORK/$NAME/share/terminfo" ]]
-[[ -f "$WORK/$NAME/share/applications/kiwi.desktop" ]]
+[[ -f "$WORK/$NAME/lib/libkiwi_surface.$LIBRARY_EXTENSION" ]]
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  [[ -f "$WORK/$NAME/share/applications/kiwi.desktop" ]]
+else
+  [[ -x "$WORK/$NAME/Kiwi.app/Contents/MacOS/Kiwi" ]]
+  plutil -lint "$WORK/$NAME/Kiwi.app/Contents/Info.plist" >/dev/null
+fi
 [[ -f "$WORK/$NAME/share/doc/kiwi/README.md" ]]
 [[ -x "$WORK/$NAME/bin/kiwi-image" ]]
 [[ -x "$WORK/$NAME/bin/kiwi-ssh" ]]

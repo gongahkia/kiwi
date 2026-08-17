@@ -3,22 +3,52 @@ set -euo pipefail
 
 readonly ROOT=${0:A:h:h}
 readonly WGPU="$ROOT/.deps/wgpu-native-v29.0.1.1"
-readonly OUTPUT="$ROOT/.build/native/libkiwi_surface.so"
 
-if [[ ! -f "$WGPU/include/webgpu/webgpu.h" || ! -f "$WGPU/lib/libwgpu_native.so" ]]; then
-  print -u2 "wgpu-native v29.0.1.1 is missing; run make bootstrap first."
-  exit 1
-fi
-
-mkdir -p "${OUTPUT:h}"
-cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
-  -I"$WGPU/include" \
-  $(pkg-config --cflags glfw3) \
-  $(pkg-config --cflags gio-2.0) \
-  "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" \
-  -L"$WGPU/lib" -lwgpu_native \
-  $(pkg-config --libs glfw3 gio-2.0) \
-  -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
-  -o "$OUTPUT"
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    readonly OUTPUT="$ROOT/.build/native/libkiwi_surface.so"
+    [[ -f "$WGPU/include/webgpu/webgpu.h" && -f "$WGPU/lib/libwgpu_native.so" ]] || {
+      print -u2 "wgpu-native v29.0.1.1 is missing; run make bootstrap first."
+      exit 1
+    }
+    mkdir -p "${OUTPUT:h}"
+    cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
+      -I"$WGPU/include" \
+      $(pkg-config --cflags glfw3) \
+      $(pkg-config --cflags gio-2.0) \
+      "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" \
+      -L"$WGPU/lib" -lwgpu_native \
+      $(pkg-config --libs glfw3 gio-2.0) \
+      -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
+      -o "$OUTPUT"
+    ;;
+  Darwin-arm64|Darwin-x86_64)
+    readonly OUTPUT="$ROOT/.build/native/libkiwi_surface.dylib"
+    [[ -f "$WGPU/include/webgpu/webgpu.h" && -f "$WGPU/lib/libwgpu_native.dylib" ]] || {
+      print -u2 "wgpu-native v29.0.1.1 is missing; run make bootstrap first."
+      exit 1
+    }
+    mkdir -p "${OUTPUT:h}"
+    cc -std=c17 -fPIC -Wall -Wextra -Werror -c \
+      -I"$WGPU/include" $(pkg-config --cflags glfw3) \
+      "$ROOT/native/surface.c" -o "$ROOT/.build/native/surface.o"
+    cc -fPIC -Wall -Wextra -Werror -c \
+      -I"$WGPU/include" $(pkg-config --cflags glfw3) \
+      "$ROOT/native/surface_macos.m" -o "$ROOT/.build/native/surface_macos.o"
+    cc -fPIC -Wall -Wextra -Werror -c \
+      $(pkg-config --cflags glfw3) \
+      "$ROOT/native/accessibility_macos.m" -o "$ROOT/.build/native/accessibility_macos.o"
+    cc -dynamiclib -Wall -Wextra -Werror \
+      "$ROOT/.build/native/surface.o" "$ROOT/.build/native/surface_macos.o" "$ROOT/.build/native/accessibility_macos.o" \
+      -L"$WGPU/lib" -lwgpu_native $(pkg-config --libs glfw3) \
+      -framework AppKit -framework QuartzCore \
+      -Wl,-rpath,@loader_path/../../.deps/wgpu-native-v29.0.1.1/lib -Wl,-rpath,@loader_path \
+      -o "$OUTPUT"
+    ;;
+  *)
+    print -u2 "native build supports Linux x86_64, macOS arm64, and macOS x86_64; found $(uname -s) $(uname -m)."
+    exit 1
+    ;;
+esac
 
 print "Built $OUTPUT"
