@@ -60,7 +60,7 @@ gpu-timing-smoke: native terminfo
 	KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES=10 $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes
 
 kitty-graphics-smoke: native terminfo
-	KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-120} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- ./script/kitty-image-demo-child
+	./script/kitty-graphics-smoke
 
 kitty-animation-smoke: native terminfo
 	KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-120} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- ./script/kitty-animation-demo-child

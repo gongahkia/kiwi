@@ -425,7 +425,7 @@ The same run measured real full-screen scroll at 0.0336 ms mean for 80x24 and 0.
 
 The checked limits are exact defaults, overrideable only for deliberately different test environments:
 
-- `KIWI_PTY_READ_BUDGET=4096`: no one live-loop turn reads more than 4 KiB;
+- `KIWI_PTY_READ_BUDGET=4096`: no one ordinary live-loop turn reads more than 4 KiB; an already-open Kitty graphics transfer may additionally use the fairly divided `KIWI_KITTY_TRANSFER_READ_BUDGET=262144` fast path;
 - `KIWI_BURST_MAX_SERVICE_MS=250`: a service turn above 250 ms fails the run;
 - `KIWI_BURST_MAX_HEAP_KIB=65536`: retained Lua heap growth above 64 MiB fails the run.
 
