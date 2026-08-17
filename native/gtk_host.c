@@ -30,6 +30,8 @@ struct KiwiGtkHost {
   GtkWidget *content;
   KiwiGtkCallbacks callbacks;
   GdkSurface *surface;
+  struct wl_surface *presentation_surface;
+  struct wl_subsurface *presentation_subsurface;
   int should_close;
 };
 
@@ -42,6 +44,11 @@ typedef struct KiwiGtkClipboardRead {
 } KiwiGtkClipboardRead;
 
 static char kiwi_gtk_error[1024];
+static GtkApplication *kiwi_gtk_application;
+
+typedef struct KiwiGtkWaylandRegistry {
+  struct wl_subcompositor *subcompositor;
+} KiwiGtkWaylandRegistry;
 
 enum {
   KIWI_GTK_ACTION_PRESS = 1,
@@ -55,6 +62,75 @@ enum {
 
 static void kiwi_gtk_set_error(const char *message) {
   snprintf(kiwi_gtk_error, sizeof(kiwi_gtk_error), "%s", message == NULL ? "unknown GTK host error" : message);
+}
+
+static void kiwi_gtk_wayland_registry_global(void *userdata, struct wl_registry *registry,
+                                             uint32_t name, const char *interface,
+                                             uint32_t version) {
+  KiwiGtkWaylandRegistry *state = userdata;
+  if (state->subcompositor == NULL && strcmp(interface, "wl_subcompositor") == 0) {
+    uint32_t supported_version = version < 1 ? version : 1;
+    state->subcompositor = wl_registry_bind(registry, name, &wl_subcompositor_interface,
+                                            supported_version);
+  }
+}
+
+static void kiwi_gtk_wayland_registry_global_remove(void *userdata, struct wl_registry *registry,
+                                                    uint32_t name) {
+  (void)userdata;
+  (void)registry;
+  (void)name;
+}
+
+static const struct wl_registry_listener kiwi_gtk_wayland_registry_listener = {
+  .global = kiwi_gtk_wayland_registry_global,
+  .global_remove = kiwi_gtk_wayland_registry_global_remove,
+};
+
+static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
+                                                         GdkDisplay *display) {
+  if (host->presentation_surface != NULL) return 1;
+
+  struct wl_display *wayland_display = gdk_wayland_display_get_wl_display(display);
+  struct wl_compositor *compositor = gdk_wayland_display_get_wl_compositor(display);
+  struct wl_surface *parent = gdk_wayland_surface_get_wl_surface(host->surface);
+  if (wayland_display == NULL || compositor == NULL || parent == NULL) {
+    kiwi_gtk_set_error("GTK Wayland host has no realized parent surface");
+    return 0;
+  }
+
+  KiwiGtkWaylandRegistry state = {0};
+  struct wl_registry *registry = wl_display_get_registry(wayland_display);
+  if (registry == NULL || wl_registry_add_listener(registry, &kiwi_gtk_wayland_registry_listener,
+                                                   &state) != 0 ||
+      wl_display_roundtrip(wayland_display) < 0 || state.subcompositor == NULL) {
+    if (registry != NULL) wl_registry_destroy(registry);
+    if (state.subcompositor != NULL) wl_subcompositor_destroy(state.subcompositor);
+    kiwi_gtk_set_error("Wayland compositor does not expose wl_subcompositor");
+    return 0;
+  }
+
+  host->presentation_surface = wl_compositor_create_surface(compositor);
+  if (host->presentation_surface == NULL) {
+    wl_subcompositor_destroy(state.subcompositor);
+    wl_registry_destroy(registry);
+    kiwi_gtk_set_error("could not create Wayland presentation surface");
+    return 0;
+  }
+  host->presentation_subsurface = wl_subcompositor_get_subsurface(
+      state.subcompositor, host->presentation_surface, parent);
+  wl_subcompositor_destroy(state.subcompositor);
+  wl_registry_destroy(registry);
+  if (host->presentation_subsurface == NULL) {
+    wl_surface_destroy(host->presentation_surface);
+    host->presentation_surface = NULL;
+    kiwi_gtk_set_error("could not create Wayland presentation subsurface");
+    return 0;
+  }
+  wl_subsurface_set_desync(host->presentation_subsurface);
+  wl_subsurface_set_position(host->presentation_subsurface, 0, 0);
+  wl_subsurface_place_above(host->presentation_subsurface, parent);
+  return 1;
 }
 
 static uint32_t kiwi_gtk_modifiers(GdkModifierType state) {
@@ -146,15 +222,23 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
   }
   KiwiGtkHost *host = g_new0(KiwiGtkHost, 1);
   host->callbacks = *callbacks;
-  GError *error = NULL;
-  host->application = gtk_application_new(application_id, G_APPLICATION_NON_UNIQUE);
-  if (!g_application_register(G_APPLICATION(host->application), NULL, &error)) {
-    kiwi_gtk_set_error(error == NULL ? "GTK application registration failed" : error->message);
-    if (error != NULL) g_error_free(error);
-    g_object_unref(host->application);
+  if (kiwi_gtk_application == NULL) {
+    GError *error = NULL;
+    kiwi_gtk_application = gtk_application_new(application_id, G_APPLICATION_NON_UNIQUE);
+    if (!g_application_register(G_APPLICATION(kiwi_gtk_application), NULL, &error)) {
+      kiwi_gtk_set_error(error == NULL ? "GTK application registration failed" : error->message);
+      if (error != NULL) g_error_free(error);
+      g_object_unref(kiwi_gtk_application);
+      kiwi_gtk_application = NULL;
+      g_free(host);
+      return NULL;
+    }
+  } else if (g_strcmp0(g_application_get_application_id(G_APPLICATION(kiwi_gtk_application)), application_id) != 0) {
+    kiwi_gtk_set_error("GTK process already owns a different application ID");
     g_free(host);
     return NULL;
   }
+  host->application = g_object_ref(kiwi_gtk_application);
   host->window = gtk_application_window_new(host->application);
   gtk_window_set_default_size(GTK_WINDOW(host->window), width, height);
   gtk_window_set_title(GTK_WINDOW(host->window), title);
@@ -198,6 +282,8 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
 
 void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   if (host == NULL) return;
+  if (host->presentation_subsurface != NULL) wl_subsurface_destroy(host->presentation_subsurface);
+  if (host->presentation_surface != NULL) wl_surface_destroy(host->presentation_surface);
   if (host->window != NULL) gtk_window_destroy(GTK_WINDOW(host->window));
   if (host->application != NULL) g_object_unref(host->application);
   g_free(host);
@@ -219,8 +305,10 @@ void kiwi_gtk_host_request_close(KiwiGtkHost *host) { if (host != NULL) host->sh
 void kiwi_gtk_host_set_title(KiwiGtkHost *host, const char *title) { if (host != NULL && title != NULL) gtk_window_set_title(GTK_WINDOW(host->window), title); }
 
 void kiwi_gtk_host_drawable_size(const KiwiGtkHost *host, int *width, int *height) {
-  if (width != NULL) *width = host == NULL ? 0 : gtk_widget_get_width(host->content);
-  if (height != NULL) *height = host == NULL ? 0 : gtk_widget_get_height(host->content);
+  double scale = host == NULL || host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface);
+  if (scale <= 0.0) scale = 1.0;
+  if (width != NULL) *width = host == NULL ? 0 : (int)(gtk_widget_get_width(host->content) * scale + 0.5);
+  if (height != NULL) *height = host == NULL ? 0 : (int)(gtk_widget_get_height(host->content) * scale + 0.5);
 }
 
 double kiwi_gtk_host_content_scale(const KiwiGtkHost *host) { return host == NULL || host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface); }
@@ -299,9 +387,10 @@ void *kiwi_gtk_host_create_surface(void *instance_pointer, KiwiGtkHost *host) {
   WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
   GdkDisplay *display = gdk_surface_get_display(host->surface);
   if (GDK_IS_WAYLAND_DISPLAY(display)) {
+    if (!kiwi_gtk_wayland_create_presentation_surface(host, display)) return NULL;
     WGPUSurfaceSourceWaylandSurface source = WGPU_SURFACE_SOURCE_WAYLAND_SURFACE_INIT;
     source.display = gdk_wayland_display_get_wl_display(display);
-    source.surface = gdk_wayland_surface_get_wl_surface(host->surface);
+    source.surface = host->presentation_surface;
     descriptor.nextInChain = (WGPUChainedStruct *)&source;
     return wgpuInstanceCreateSurface(instance, &descriptor);
   }
@@ -322,6 +411,11 @@ int kiwi_gtk_host_set_drawable_size(KiwiGtkHost *host, uint32_t width, uint32_t 
   if (host == NULL || host->surface == NULL || width == 0 || height == 0) {
     kiwi_gtk_set_error("GTK host has no nonzero realized drawable");
     return 0;
+  }
+  GdkDisplay *display = gdk_surface_get_display(host->surface);
+  if (GDK_IS_WAYLAND_DISPLAY(display) && host->presentation_surface != NULL) {
+    int scale = gdk_surface_get_scale_factor(host->surface);
+    wl_surface_set_buffer_scale(host->presentation_surface, scale > 0 ? scale : 1);
   }
   return 1;
 }

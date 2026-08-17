@@ -41,6 +41,7 @@ local glfw = require("kiwi.ffi.glfw").constants
 local Window = {}
 Window.__index = Window
 Window.bridge = native
+local live_windows = 0
 
 local special_keys = {
   [0xff08] = glfw.key_backspace,
@@ -112,6 +113,7 @@ function Window.new(width, height, title)
     self:destroy()
     error("Unable to create GTK window: " .. ffi.string(native.kiwi_gtk_host_last_error()))
   end
+  live_windows = live_windows + 1
   return self
 end
 
@@ -171,9 +173,15 @@ function Window:poll_events() Window.pump(self, 0) end
 function Window:wait_events(timeout) Window.pump(self, timeout) end
 
 function Window:destroy()
-  if self.handle ~= nil then native.kiwi_gtk_host_destroy(self.handle); self.handle = nil end
+  if self.handle ~= nil then
+    native.kiwi_gtk_host_destroy(self.handle)
+    self.handle = nil
+    live_windows = live_windows - 1
+  end
   for _, callback in pairs(self.callbacks or {}) do callback:free() end
 end
+
+function Window.live_count() return live_windows end
 
 function Window.pump(window, timeout)
   native.kiwi_gtk_host_pump(window.handle, math.max(0, math.floor(timeout * 1000 + 0.5)))

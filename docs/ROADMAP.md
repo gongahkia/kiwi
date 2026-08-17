@@ -27,9 +27,11 @@ declared complete.
 ## R2 — native hosts
 
 - The internal host facade and host-owned WGPU surface contract are complete.
-- GTK4 has an X11 single-window rendering/PTY feasibility host; fix its
-  current Wayland presentation protocol failure before qualifying it.
-- Build AppKit only after GTK4 has that evidence, around the same
+- GTK4's bounded Wayland/X11 rendering and PTY feasibility runs pass. Its
+  Wayland WGPU presenter owns a child surface beneath the GTK toplevel, which
+  avoids competing frame commits. Interactive desktop qualification remains
+  outstanding.
+- Build AppKit only after that GTK4 desktop qualification, around the same
   terminal/session/renderer seams.
 - Keep terminal state, PTY policy, and renderer ownership free of platform UI
   handles. See [NATIVE_HOSTS.md](NATIVE_HOSTS.md).

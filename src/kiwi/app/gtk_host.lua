@@ -40,4 +40,8 @@ function Host.surface_error()
   return ffi.string(require("kiwi.platform.gtk_window").bridge.kiwi_gtk_host_last_error())
 end
 
+function Host.live_count()
+  return Window.live_count()
+end
+
 return Host
