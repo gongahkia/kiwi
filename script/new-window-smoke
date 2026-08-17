@@ -9,4 +9,5 @@ fi
 
 make -C "$ROOT" native terminfo
 KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
+  KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
   "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --multi-window-smoke -- /usr/bin/yes

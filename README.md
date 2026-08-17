@@ -133,6 +133,8 @@ make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/re
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
+make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
+make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
 make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, two Metal surfaces, and development-app launch smoke
@@ -220,10 +222,14 @@ capability is advertised through terminfo.
 `Ctrl+Shift+T` opens a local tab and `Ctrl+Tab` cycles tabs. `Ctrl+Shift+Enter`
 creates a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
 `Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
-Each visible pane has its own terminal and PTY, is resized to its cell-layout
-rectangle, and is rendered into a scissored viewport in one shared WGPU frame.
-Primary-clicking a pane focuses it before pointer input is routed to that
-terminal. Inactive tabs continue to service their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
+`Ctrl+Shift+N` creates a same-process default-shell window; `Ctrl+Shift+M`
+moves the active live session to a new window, and `Ctrl+Shift+Alt+M` moves it
+to the next open window as a tab. `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` create
+fresh default-shell counterparts. Each visible pane has its own terminal and
+PTY, is resized to its cell-layout rectangle, and is rendered into a scissored
+viewport in one shared WGPU frame. Primary-clicking a pane focuses it before
+pointer input is routed to that terminal. Inactive tabs continue to service
+their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
 GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.

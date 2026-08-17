@@ -53,6 +53,56 @@ function Workspace.new(options)
   return self
 end
 
+local function restore_node(node, workspace, tab, new_session, pane_ids, depth)
+  assert(type(node) == "table" and depth <= 64, "workspace snapshot has an invalid layout tree")
+  if node.kind == "leaf" then
+    assert_positive_integer(node.pane_id, "workspace snapshot pane id")
+    assert(pane_ids[node.pane_id] == nil, "workspace snapshot reuses a pane id")
+    local session = assert(new_session(node.pane_id, tab.id), "workspace session factory returned nil")
+    local pane = { id = node.pane_id, session = session, tab_id = tab.id }
+    workspace.panes[pane.id] = pane
+    pane_ids[pane.id] = true
+    workspace.next_pane_id = math.max(workspace.next_pane_id, pane.id)
+    return leaf(pane.id)
+  end
+  assert(node.kind == "split" and (node.direction == "vertical" or node.direction == "horizontal"), "workspace snapshot has an invalid split")
+  assert(type(node.ratio) == "number" and node.ratio >= 0.1 and node.ratio <= 0.9, "workspace snapshot has an invalid split ratio")
+  local restored = {
+    direction = node.direction,
+    kind = "split",
+    ratio = node.ratio,
+  }
+  restored.first = restore_node(node.first, workspace, tab, new_session, pane_ids, depth + 1)
+  restored.second = restore_node(node.second, workspace, tab, new_session, pane_ids, depth + 1)
+  restored.first.parent = restored
+  restored.second.parent = restored
+  return restored
+end
+
+function Workspace.restore(snapshot, new_session, options)
+  assert(type(snapshot) == "table" and type(snapshot.tabs) == "table", "workspace restore needs a snapshot")
+  assert(type(new_session) == "function", "workspace restore needs a session factory")
+  local workspace = Workspace.new(options)
+  assert_positive_integer(snapshot.active_tab_id, "workspace snapshot active tab id")
+  local pane_ids = {}
+  for _, item in ipairs(snapshot.tabs) do
+    assert(type(item) == "table", "workspace snapshot has an invalid tab")
+    assert_positive_integer(item.id, "workspace snapshot tab id")
+    assert_positive_integer(item.active_pane_id, "workspace snapshot active pane id")
+    assert(workspace:tab(item.id) == nil, "workspace snapshot reuses a tab id")
+    assert(workspace:tab_count() < workspace.maximum_tabs, "workspace snapshot exceeds the tab limit")
+    local tab = { active_pane_id = item.active_pane_id, id = item.id }
+    tab.root = restore_node(item.root, workspace, tab, new_session, pane_ids, 0)
+    assert(workspace.panes[tab.active_pane_id] and workspace.panes[tab.active_pane_id].tab_id == tab.id, "workspace snapshot active pane is outside its tab")
+    workspace.tabs[#workspace.tabs + 1] = tab
+    workspace.next_tab_id = math.max(workspace.next_tab_id, tab.id)
+  end
+  assert(workspace:tab(snapshot.active_tab_id) ~= nil, "workspace snapshot active tab is unknown")
+  assert(workspace:pane_count() <= workspace.maximum_panes, "workspace snapshot exceeds the pane limit")
+  workspace.active_tab_id = snapshot.active_tab_id
+  return workspace
+end
+
 function Workspace:tab_count()
   return #self.tabs
 end

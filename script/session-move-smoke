@@ -1,0 +1,17 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "SKIP native session-move smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."
+  exit 0
+fi
+
+export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;"
+make -C "$ROOT" native terminfo
+log=$(mktemp "${TMPDIR:-/tmp}/kiwi-session-move.XXXXXX")
+trap 'rm -f "$log"' EXIT
+KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
+  KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --session-move-smoke -- /usr/bin/yes | tee "$log"
+rg -q "Kiwi session-move smoke passed" "$log"
