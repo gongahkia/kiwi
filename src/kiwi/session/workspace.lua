@@ -204,6 +204,61 @@ function Workspace:close_pane(id)
   return true
 end
 
+-- Removes a pane without closing its session. Hosts use this when transferring a
+-- live PTY to another workspace; ordinary close_pane remains the destructive API.
+function Workspace:detach_pane(id)
+  local pane = self.panes[id]
+  if pane == nil then return nil, "unknown-pane" end
+  local tab = assert(self:tab(pane.tab_id), "workspace pane has no tab")
+  local target = assert(find_leaf(tab.root, id), "workspace pane is not in tab tree")
+  local removed_tab = false
+  if pane_count(tab.root) == 1 then
+    for index, candidate in ipairs(self.tabs) do
+      if candidate == tab then
+        table.remove(self.tabs, index)
+        break
+      end
+    end
+    if self.active_tab_id == tab.id then
+      local replacement = self.tabs[1]
+      self.active_tab_id = replacement and replacement.id or nil
+    end
+    removed_tab = true
+  else
+    local parent = assert(target.parent, "workspace non-root pane has no parent")
+    local sibling = parent.first == target and parent.second or parent.first
+    local grandparent = parent.parent
+    if grandparent == nil then
+      tab.root = sibling
+      sibling.parent = nil
+    else
+      replace_child(grandparent, parent, sibling)
+    end
+    if tab.active_pane_id == id then
+      local leaves = {}
+      collect_leaves(sibling, leaves)
+      tab.active_pane_id = leaves[1].pane_id
+    end
+  end
+  self.panes[id] = nil
+  pane.tab_id = nil
+  return pane, { removed_tab = removed_tab, tab_id = tab.id }
+end
+
+function Workspace:adopt_tab(session)
+  return self:new_tab(session)
+end
+
+function Workspace:adopt_split(tab_id, direction, session, options)
+  local target = self:tab(tab_id)
+  if target == nil then return nil, "unknown-tab" end
+  local previous = self.active_tab_id
+  self.active_tab_id = target.id
+  local pane, reason = self:split(direction, session, options)
+  if pane == nil then self.active_tab_id = previous end
+  return pane, reason
+end
+
 function Workspace:close_tab(id)
   local index
   for candidate_index, tab in ipairs(self.tabs) do
