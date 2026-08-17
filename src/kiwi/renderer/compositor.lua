@@ -30,7 +30,7 @@ end
 
 function Compositor.new(context)
   assert(type(context) == "table" and context.native and context.window, "compositor needs a GPU context")
-  return setmetatable({ context = context, native = context.native }, Compositor)
+  return setmetatable({ context = context, native = context.native, frame = 0 }, Compositor)
 end
 
 function Compositor:validate(entries)
@@ -101,11 +101,15 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
         viewport = entry.viewport,
       })
     end
+    self.frame = self.frame + 1
+    self.context:begin_framebuffer_capture(self.frame)
+    self.context:encode_framebuffer_capture(encoder, surface_texture.texture)
     local commands = ffi.new("WGPUCommandBuffer[1]")
     commands[0] = api.wgpuCommandEncoderFinish(encoder, nil)
     if commands[0] == nil then error("command-buffer creation returned a null handle") end
     api.wgpuQueueSubmit(self.context.queue, 1, commands)
     api.wgpuCommandBufferRelease(commands[0])
+    self.context:submit_framebuffer_capture()
   end, debug.traceback)
   api.wgpuCommandEncoderRelease(encoder)
   api.wgpuTextureViewRelease(view)
@@ -118,6 +122,7 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
   if #native_error > 0 then return false, "native GPU error: " .. native_error end
   for _, entry in ipairs(entries) do entry.renderer:finish_frame(entry.model, time) end
+  self.context:poll_framebuffer_capture()
   return true
 end
 

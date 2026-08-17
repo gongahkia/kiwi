@@ -38,8 +38,11 @@ case "$(uname -s)-$(uname -m)" in
     cc -fPIC -Wall -Wextra -Werror -c \
       $(pkg-config --cflags glfw3) \
       "$ROOT/native/accessibility_macos.m" -o "$ROOT/.build/native/accessibility_macos.o"
+    cc -fPIC -Wall -Wextra -Werror -c \
+      $(pkg-config --cflags glfw3) \
+      "$ROOT/native/ime_macos.m" -o "$ROOT/.build/native/ime_macos.o"
     cc -dynamiclib -Wall -Wextra -Werror \
-      "$ROOT/.build/native/surface.o" "$ROOT/.build/native/surface_macos.o" "$ROOT/.build/native/accessibility_macos.o" \
+      "$ROOT/.build/native/surface.o" "$ROOT/.build/native/surface_macos.o" "$ROOT/.build/native/accessibility_macos.o" "$ROOT/.build/native/ime_macos.o" \
       -L"$WGPU/lib" -lwgpu_native $(pkg-config --libs glfw3) \
       -framework AppKit -framework QuartzCore \
       -Wl,-rpath,@loader_path/../../.deps/wgpu-native-v29.0.1.1/lib -Wl,-rpath,@loader_path \

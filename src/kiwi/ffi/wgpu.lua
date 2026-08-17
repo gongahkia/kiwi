@@ -27,6 +27,7 @@ typedef struct WGPUSurfaceImpl* WGPUSurface;
 typedef struct WGPUTextureImpl* WGPUTexture;
 typedef struct WGPUTextureViewImpl* WGPUTextureView;
 typedef struct KiwiTimestampTracker KiwiTimestampTracker;
+typedef struct KiwiFramebufferCapture KiwiFramebufferCapture;
 typedef struct GLFWwindow GLFWwindow;
 
 typedef struct { const char* data; size_t length; } WGPUStringView;
@@ -81,6 +82,7 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; size_t co
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandEncoderDescriptor;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandBufferDescriptor;
 typedef struct { uint64_t frame; uint32_t pass_index; uint64_t begin_ticks; uint64_t end_ticks; uint64_t map_latency_ns; } KiwiTimestampSample;
+typedef struct { uint64_t frame; uint64_t checksum; uint64_t opaque_pixels; uint64_t red_dominant_pixels; uint64_t blue_dominant_pixels; } KiwiFramebufferSample;
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallbackInfo callbackInfo);
@@ -153,6 +155,14 @@ void kiwi_timestamp_tracker_submit(KiwiTimestampTracker* tracker);
 int kiwi_timestamp_tracker_poll(KiwiTimestampTracker* tracker, KiwiTimestampSample* samples, uint32_t capacity);
 uint32_t kiwi_timestamp_tracker_pending(const KiwiTimestampTracker* tracker);
 uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker* tracker);
+KiwiFramebufferCapture* kiwi_framebuffer_capture_new(WGPUInstance instance, WGPUDevice device, uint32_t width, uint32_t height, uint32_t format);
+void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture* capture);
+int kiwi_framebuffer_capture_begin(KiwiFramebufferCapture* capture, uint64_t frame);
+void kiwi_framebuffer_capture_encode(KiwiFramebufferCapture* capture, WGPUCommandEncoder encoder, WGPUTexture texture);
+void kiwi_framebuffer_capture_submit(KiwiFramebufferCapture* capture);
+int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture* capture, KiwiFramebufferSample* sample);
+uint32_t kiwi_framebuffer_capture_pending(const KiwiFramebufferCapture* capture);
+uint32_t kiwi_framebuffer_capture_dropped(const KiwiFramebufferCapture* capture);
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char* source_code);
 const char* kiwi_surface_last_error(void);
 void kiwi_surface_clear_error(void);
@@ -184,6 +194,8 @@ return {
     surface_occluded = 0x00030001,
     texture_format_r8_unorm = 1,
     texture_format_rgba8_unorm = 0x16,
+    texture_format_bgra8_unorm = 0x1b,
+    texture_usage_copy_src = 0x01,
     texture_usage_copy_dst = 0x02,
     texture_usage_texture_binding = 0x04,
     texture_usage_render_attachment = 0x10,

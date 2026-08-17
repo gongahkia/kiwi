@@ -92,6 +92,12 @@ local function select_glyph(atlas, glyph_text)
   return glyph, glyph_text
 end
 
+local function preedit_signature(model)
+  local preedit = model.ime_preedit
+  if type(preedit) ~= "table" or type(preedit.text) ~= "string" or #preedit.text == 0 then return "" end
+  return table.concat({ preedit.text, preedit.column or -1, preedit.row or -1 }, "\0")
+end
+
 local cursor_styles = {
   [1] = { shape = "block", blink = true },
   [2] = { shape = "block", blink = false },
@@ -687,6 +693,9 @@ end
 
 function Renderer:update_model(model)
   local damage = model.damage
+  local current_preedit_signature = preedit_signature(model)
+  local preedit_changed = self.preedit_signature ~= current_preedit_signature
+  self.preedit_signature = current_preedit_signature
   local shaped_glyphs = self.text_backend:update(model)
   if self.kitty_images:sync(self, model) then self:invalidate("kitty_images") end
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
@@ -719,7 +728,7 @@ function Renderer:update_model(model)
   self.diagnostics.glyph_instances_uploaded = 0
   self.diagnostics.glyph_bytes_uploaded = 0
   self.diagnostics.glyph_instances_dropped = 0
-  if self.layout.stats.rows_reshaped > 0 then
+  if self.layout.stats.rows_reshaped > 0 or preedit_changed then
     local glyph_count = math.min(#shaped_glyphs, self.glyph_capacity)
     for index = 1, glyph_count do self:pack_shaped_glyph(shaped_glyphs[index], index - 1) end
     if glyph_count > 0 then

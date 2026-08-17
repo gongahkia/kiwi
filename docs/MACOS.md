@@ -33,8 +33,9 @@ native build, terminal PTY lifecycle, C SDK, artifact reproducibility, and a
 live GLFW/Cocoa/Metal render path.
 
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
-private AppKit pasteboard, checks the bounded `NSAccessibilityStaticText`
-projection, creates two independent Cocoa/Metal surfaces, moves one live PTY
+private AppKit pasteboard, checks the bounded `NSAccessibilityTextArea`
+projection and `NSTextInputClient` marked/commit/candidate-rectangle lifecycle,
+creates two independent Cocoa/Metal surfaces, moves one live PTY
 between them, writes and restores a bounded tab/split topology with fresh
 shells, resizes the primary drawable after the second window closes, then
 stages and launches the project-local `Kiwi-dev.app`.
@@ -43,11 +44,14 @@ through LaunchServices after checking archive reproducibility. It
 does not read or replace the user's general clipboard, so it is not a test of
 third-party clipboard-manager behavior or rich clipboard formats.
 
-NSAccessibility receives a bounded active-pane text element and update/focus
-notifications. No VoiceOver session has been tested, so this is an adapter
-implementation rather than a screen-reader compatibility claim. GLFW supplies
-committed Unicode input and clipboard support; IME preedit remains unavailable,
-matching Kiwi's existing input scope.
+NSAccessibility receives a bounded active-pane read-only text area with value,
+visible range, caret/selection range, and update/focus notifications.
+`make voiceover-validation` checks that adapter contract on a real Cocoa view,
+but cannot enable or assess spoken VoiceOver output; manual VoiceOver
+navigation remains required. On macOS, a small `NSTextInputClient` overlay
+keeps AppKit marked text, commit delivery, and the candidate rectangle at the
+active pane cursor while transiently rendering preedit without mutating the
+terminal grid or PTY. Real input-source qualification remains manual.
 
 The bootstrap script can select the matching macOS x86_64 wgpu-native archive,
 but that path has not been compiled or run on an Intel Mac. The macOS bundle

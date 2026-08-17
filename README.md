@@ -250,7 +250,7 @@ researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
-macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. Intel macOS, VoiceOver behavior, IME preedit, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling and an `NSAccessibilityTextArea` adapter; `make cocoa-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those native seams. Intel macOS, real input-source and VoiceOver interaction, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
 
 ## Replay
 

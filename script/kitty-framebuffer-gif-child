@@ -1,0 +1,10 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly GIF='R0lGODlhAgACAPAAAP8AAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQAAAAAACwAAAAAAgACAAACAoRRACH5BAAFAAAALAAAAAACAAIAgAAA/wAAAAIChFEAOw=='
+
+printf '%s\n' 'Kiwi framebuffer GIF fixture'
+print -rn -- $'\e_Ga=t,i=1,s=2,v=2,f=100,t=d,m=0;'"$GIF"$'\e\\'
+print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=8,C=1,z=1\e\\'
+printf '%s\n' 'GIF alternates opaque red and blue frames over this text'
+sleep 1

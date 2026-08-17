@@ -1,4 +1,6 @@
 local Utf8 = require("kiwi.terminal.utf8")
+local Grapheme = require("kiwi.unicode.grapheme")
+local Width = require("kiwi.terminal.width")
 
 local Layout = {}
 Layout.__index = Layout
@@ -186,6 +188,45 @@ function Layout:shape_row(state, row)
   return self:shape_runs(self:build_runs(state, row), row)
 end
 
+function Layout:append_preedit(state, output)
+  local preedit = state.ime_preedit
+  if type(preedit) ~= "table" or type(preedit.text) ~= "string" or #preedit.text == 0 then return end
+  if type(preedit.column) ~= "number" or type(preedit.row) ~= "number" then return end
+  local codepoints = {}
+  local valid = true
+  local decoder = Utf8.Decoder.new(function(codepoint, _, replaced)
+    if replaced then valid = false else codepoints[#codepoints + 1] = codepoint end
+  end)
+  for index = 1, #preedit.text do decoder:feed_byte(preedit.text:byte(index)) end
+  decoder:finish()
+  if not valid or #codepoints == 0 then return end
+
+  local column = math.max(0, math.floor(preedit.column))
+  local row = math.max(0, math.floor(preedit.row))
+  local metrics = self.font_system.metrics
+  local cell = { fg = state.default_cell.fg, flags = 0x20 }
+  for _, cluster in ipairs(Grapheme.segment(codepoints)) do
+    if column >= state.columns then
+      column = 0
+      row = row + 1
+    end
+    if row >= state.rows then break end
+    local face = self.font_system:face_for_cluster(cluster)
+    if face ~= nil then
+      local text_parts = {}
+      for _, codepoint in ipairs(cluster) do text_parts[#text_parts + 1] = Utf8.encode(codepoint) end
+      local shaped = face:shape(table.concat(text_parts), self.font_system.shape_options)
+      local pen_x = column * metrics.cell_width
+      for _, glyph in ipairs(shaped) do
+        self:append_glyph(output, face, glyph, column, row, cell, pen_x)
+        pen_x = pen_x + glyph.x_advance / 64
+      end
+      self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped
+    end
+    column = column + Width.columns(cluster, state.width_policy)
+  end
+end
+
 function Layout:update(state)
   self:begin_frame()
   local glyphs = {}
@@ -208,6 +249,7 @@ function Layout:update(state)
     self.stats.visible_runs = self.stats.visible_runs + self.rows[row].runs
     for _, glyph in ipairs(self.rows[row].glyphs) do glyphs[#glyphs + 1] = glyph end
   end
+  self:append_preedit(state, glyphs)
   self.stats.visible_glyphs = #glyphs
   if state.text_damage then state.text_damage:clear() end
   return glyphs

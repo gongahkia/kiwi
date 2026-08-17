@@ -20,6 +20,21 @@ local ok, message = xpcall(function()
   require_result(clipboard_ok, "Cocoa private pasteboard smoke failed: " .. tostring(clipboard_message))
   local accessibility_ok, accessibility_message = window:cocoa_accessibility_round_trip()
   require_result(accessibility_ok, "Cocoa accessibility smoke failed: " .. tostring(accessibility_message))
+  local text_input_ok, text_input_message = window:cocoa_text_input_round_trip()
+  require_result(text_input_ok, "Cocoa text-input smoke failed: " .. tostring(text_input_message))
+  local marked = {}
+  local committed = {}
+  local enabled, enabled_message = window:enable_cocoa_text_input(function(text, selection_start, selection_end)
+    marked[#marked + 1] = { selection_end = selection_end, selection_start = selection_start, text = text }
+  end, function(text)
+    committed[#committed + 1] = text
+  end)
+  require_result(enabled, "Cocoa text-input callback bridge could not be enabled: " .. tostring(enabled_message))
+  require_result(window:set_cocoa_text_input_caret(12, 18, 9, 18), "Cocoa text-input caret could not be updated")
+  local injected, injected_message = window:cocoa_text_input_inject_smoke()
+  require_result(injected, "Cocoa text-input callback bridge failed: " .. tostring(injected_message))
+  require_result(#marked == 2 and marked[1].text == "中" and marked[1].selection_start == 0 and marked[1].selection_end == 3 and marked[2].text == "", "Cocoa text-input callback bridge did not deliver marked-text lifecycle")
+  require_result(#committed == 1 and committed[1] == "語", "Cocoa text-input callback bridge did not deliver committed UTF-8")
 
   local initial_width, initial_height = window:drawable_size()
   window:set_size(640, 480)
@@ -40,7 +55,7 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end

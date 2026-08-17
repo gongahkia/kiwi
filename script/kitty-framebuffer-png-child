@@ -1,0 +1,10 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly PNG='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAACklEQVQI12NgAAAAAgAB4iG8MwAAAABJRU5ErkJggg=='
+
+printf '%s\n' 'Kiwi framebuffer PNG fixture'
+print -rn -- $'\e_Ga=t,i=1,s=1,v=1,f=100,t=d,m=0;'"$PNG"$'\e\\'
+print -rn -- $'\e_Ga=p,i=1,p=1,c=18,r=8,C=1,z=1\e\\'
+printf '%s\n' 'opaque red PNG covers this text'
+sleep 1

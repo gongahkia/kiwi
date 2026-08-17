@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local ffi = require("ffi")
 local AtspiProjection = require("kiwi.accessibility.atspi")
 local bit = require("bit")
 local Build = require("kiwi.build")
@@ -10,6 +11,7 @@ local Demo = require("kiwi.app.demo")
 local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
 local Clipboard = require("kiwi.input.clipboard")
+local Composition = require("kiwi.input.composition")
 local Config = require("kiwi.config")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
@@ -195,6 +197,21 @@ local function report_pass_budgets(renderer)
   end
 end
 
+local function report_framebuffer_capture(context)
+  local capture = context:framebuffer_capture_snapshot()
+  io.stdout:write(string.format("Kiwi framebuffer capture: samples=%d pending=%d dropped=%d\n", #capture.samples, capture.pending, capture.dropped))
+  for _, sample in ipairs(capture.samples) do
+    io.stdout:write(string.format(
+      "Kiwi framebuffer sample: frame=%d checksum=%s opaque=%d red=%d blue=%d\n",
+      sample.frame,
+      sample.checksum,
+      sample.opaque_pixels,
+      sample.red_dominant_pixels,
+      sample.blue_dominant_pixels
+    ))
+  end
+end
+
 local function run_window_controller(options)
   local default_title = "Kiwi M2 terminal"
   local configuration, configuration_path = Config.load(options.config)
@@ -217,7 +234,10 @@ local function run_window_controller(options)
   local workspace_rows
   local destroy_session
   local ok, result = xpcall(function()
-    local context_options = { gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1" }
+    local context_options = {
+      framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
+      gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1",
+    }
     context = Context.new(window, context_options)
     compositor = Compositor.new(context)
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
@@ -277,6 +297,7 @@ local function run_window_controller(options)
     local mouse
     local mouse_generation
     local selection_pointer
+    local composition
     if options.moved_session then
       active_session = options.moved_session
       terminal = active_session.terminal
@@ -364,6 +385,11 @@ local function run_window_controller(options)
     end
 
     local function bind_active_session(session)
+      if composition ~= nil and state ~= nil and state ~= VTInternal.state(session.terminal) then
+        state.ime_preedit = nil
+        composition:leave()
+        composition:enter()
+      end
       active_session = session
       terminal = session.terminal
       state = VTInternal.state(terminal)
@@ -726,12 +752,68 @@ local function run_window_controller(options)
       if status ~= "navigated" then io.stderr:write("Kiwi regions: ", status:gsub("-", " "), "\n") end
     end
 
+    composition = Composition.new()
+    composition:enter()
+
+    local function update_preedit_overlay(update)
+      local preedit = update.preedit
+      if preedit.text == "" then
+        state.ime_preedit = nil
+      else
+        state.ime_preedit = {
+          column = state.cursor.column,
+          cursor_begin = preedit.cursor_begin,
+          cursor_end = preedit.cursor_end,
+          row = state.cursor.row,
+          text = preedit.text,
+        }
+      end
+      renderer:invalidate("terminal")
+    end
+
+    local function apply_cocoa_preedit(text, selection_start, selection_end)
+      if not composition.focused then composition:enter() end
+      local accepted, status = composition:offer_preedit(text, selection_start, selection_end)
+      if not accepted then
+        io.stderr:write("Kiwi IME preedit rejected: ", status, "\n")
+        return
+      end
+      local update = assert(composition:done())
+      update_preedit_overlay(update)
+    end
+
+    local function apply_cocoa_commit(text)
+      if not composition.focused then composition:enter() end
+      local accepted, status = composition:offer_preedit("", 0, 0)
+      if accepted then update_preedit_overlay(assert(composition:done())) end
+      accepted, status = composition:offer_commit(text)
+      if not accepted then
+        io.stderr:write("Kiwi IME commit rejected: ", status, "\n")
+        return
+      end
+      local update = assert(composition:done())
+      update_preedit_overlay(update)
+      return update.commit
+    end
+
     local function update_search_title()
       local search = state:search_view()
       local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
       if title ~= last_title then
         window:set_title(title)
         last_title = title
+      end
+    end
+
+    local function handle_committed_text(text)
+      if text == nil or #text == 0 then return end
+      local search = state:search_view()
+      if search.editing and search.visible then
+        local appended, status = state:search_append(text)
+        if not appended then report_search_status(status) end
+        renderer:invalidate("search")
+      else
+        enqueue_input(text)
       end
     end
 
@@ -850,16 +932,7 @@ local function run_window_controller(options)
         return
       end
       local text = Keyboard.text_sequence(codepoints, state.modes)
-      if text then
-        local search = state:search_view()
-        if search.editing and search.visible then
-          local appended, status = state:search_append(text)
-          if not appended then report_search_status(status) end
-          renderer:invalidate("search")
-        else
-          enqueue_input(text)
-        end
-      end
+      handle_committed_text(text)
     end, function(key, action, modifiers)
       if handle_workspace_key(key, action, modifiers) then
         options.application:mark_layout_dirty()
@@ -945,10 +1018,36 @@ local function run_window_controller(options)
       if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
     end, function(focused)
       window_focused = focused
-      if not focused then selection_pointer:reset() end
+      if not focused then
+        selection_pointer:reset()
+        state.ime_preedit = nil
+        composition:leave()
+        renderer:invalidate("terminal")
+      else
+        composition:enter()
+      end
       local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
+    if ffi.os == "OSX" then
+      local enabled, reason = window:enable_cocoa_text_input(apply_cocoa_preedit, function(text)
+        handle_committed_text(apply_cocoa_commit(text))
+      end)
+      if not enabled then io.stderr:write("Kiwi IME: unavailable: ", reason, "\n") end
+    end
+    local function sync_cocoa_text_input_caret()
+      local pane = workspace:active_pane()
+      local layout = pane and pane_layouts[pane.id]
+      if layout == nil then return end
+      local scale = font.content_scale or 1
+      local cursor = state.cursor
+      window:set_cocoa_text_input_caret(
+        (layout.grid.x + cursor.column) * font.cell_width / scale,
+        (layout.grid.y + cursor.row) * font.cell_height / scale,
+        math.max(1, font.cell_width / scale),
+        math.max(1, font.cell_height / scale)
+      )
+    end
     if transfer_confirmation_pending then
       if options.session_move_smoke then
         assert(options.moved_session.session_move_smoke_source_id == options.transfer_source_id, "session-move smoke lost the transferred session identity")
@@ -1078,6 +1177,7 @@ local function run_window_controller(options)
       local child_status = active_session.child_status
       update_search_title()
       sync_accessibility()
+      sync_cocoa_text_input_caret()
 
       for _, entry in ipairs(pane_entries) do
         if entry.model.kitty_graphics:advance(now) then entry.renderer:invalidate("kitty_images") end
@@ -1196,6 +1296,7 @@ local function run_window_controller(options)
     end
     if renderer and not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS_REPORT") == "1" then report_gpu_timing(renderer) end
     if renderer and not options.release_mode and os.getenv("KIWI_PASS_BUDGETS_REPORT") == "1" then report_pass_budgets(renderer) end
+    if os.getenv("KIWI_FRAMEBUFFER_CAPTURE_REPORT") == "1" then report_framebuffer_capture(context) end
     if options.inspect then
       local column = options.inspect.column or state.cursor.column
       local row = options.inspect.row or state.cursor.row
