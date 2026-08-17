@@ -28,6 +28,7 @@ return {
     Assert.equal(recovery:decide("surface acquire status 2").action, "retry-surface")
     Assert.equal(recovery:snapshot().device_retries, 0)
     Assert.equal(recovery:decide("zero-sized drawable").action, "wait")
+    Assert.equal(recovery:decide("surface occluded").action, "wait")
   end,
   gpu_recovery_bounds_history = function()
     local recovery = Recovery.new({ history_limit = 1, message_limit = 4 })

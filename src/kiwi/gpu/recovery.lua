@@ -18,7 +18,7 @@ end
 
 local function classify(reason)
   local text = tostring(reason or "unknown GPU error")
-  if text == "zero-sized drawable" then return "wait" end
+  if text == "zero-sized drawable" or text == "surface occluded" then return "wait" end
   if text:match("^surface acquire status ") or text:match("^surface present status ") then return "retry-surface" end
   if text:find("wgpu device lost", 1, true) or text:find("simulated device loss", 1, true) then return "device-loss" end
   if text:match("^native GPU error:") then return "fatal-native-error" end
@@ -90,7 +90,7 @@ function Recovery:snapshot()
     device_retries = self.device_retries,
     history = history,
     limits = { device_retries = self.max_device_retries, diagnostic_entries = self.history_limit, diagnostic_message_bytes = self.message_limit },
-    policy = "retry one device loss by recreating the GPU context; exit for a second loss or another native GPU error",
+    policy = "wait for zero-sized or occluded surfaces, retry one device loss by recreating the GPU context, and exit for a second loss or another native GPU error",
   }
 end
 

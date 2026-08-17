@@ -132,7 +132,7 @@ make timestamp-probe                   # opt-in timestamp-query capability/readb
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
-make new-window-smoke                   # bounded native Ctrl+Shift+N launch-path smoke; skips without Linux display
+make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
 make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, two Metal surfaces, and development-app launch smoke

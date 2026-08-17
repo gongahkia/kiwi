@@ -47,13 +47,13 @@ direct Ghostty product parity today**. The previous report’s Linux-only and
 Cocoa/Metal, use clipboard and resize bridges, launch both development and
 extracted release `.app` bundles, and expose a bounded native accessibility
 projection. Native macOS tabs/windows, VoiceOver validation, IME preedit,
-session restoration, broad configuration, and broad VT compatibility remain
-incomplete.
+cross-window session movement, layout restoration, broad configuration, and
+broad VT compatibility remain incomplete.
 
 | Area | Kiwi now | Daily-driver target | Status |
 | --- | --- | --- | --- |
 | Linux and macOS runtime | Linux x86_64 Vulkan and macOS arm64 Cocoa/Metal are built locally; macOS has deterministic core/PTY/Cocoa/release-bundle checks. | Maintain the same executable, PTY, renderer, clipboard, resize, packaging, and smoke behavior on both targets. | **Partial** — Linux and Intel macOS require their own evidence. |
-| Window/workspace model | One GLFW window contains bounded custom-rendered tabs and horizontal/vertical splits; panes have independent PTYs. | Multiple windows, per-window workspaces, lifecycle-safe close behavior, and persisted/restored non-sensitive layout state. | **Partial** |
+| Window/workspace model | `Ctrl+Shift+N` creates a fresh default-shell native window through one process-wide scheduler. Each controller owns its GLFW/Cocoa window, WGPU context, compositor, workspace tabs/splits, and pane PTYs. | Cross-window session movement/duplication, lifecycle-safe close behavior under interactive load, and persisted/restored non-sensitive layout state. | **Partial** |
 | Native desktop UX | Cocoa window and basic `NSAccessibilityStaticText` adapter on macOS; AT-SPI active-pane adapter on Linux. | Platform-appropriate menu/shortcut/accessibility behavior, native validation, and no loss of core terminal semantics. | **Partial** |
 | Text and media | Unicode 17 clusters, HarfBuzz shaping, Fontconfig fallback, bounded atlas, and PNG/APNG/GIF Kitty subset. | Stable behavior in daily applications; visual media tests supplement pass-level GPU checks. | **Partial** |
 | Configuration | Strict bounded XDG file, environment overrides, reload, and `kiwi`, `nord`, and `light` themes. | Broader documented settings, multiple theme sources, system appearance behavior, and platform path precedence. | **Partial** |
@@ -100,7 +100,7 @@ a copy of Ghostty’s evolving VT reference.
 | Priority | Workstream | Why it blocks daily use | Next implementation milestone |
 | --- | --- | --- | --- |
 | P0 | Release application behavior | A graphical macOS release bundle must be launchable by Finder/LaunchServices, not only from a shell. | **Implemented:** deterministic signed Mach-O bundle launcher plus extracted-bundle `open` smoke in `release-check`. |
-| P1 | Multi-window/session layer | A daily terminal needs independent windows and safe state restoration, not only one workspace tree. | Introduce a platform-neutral window manager with independent workspace ownership and a non-sensitive layout snapshot. |
+| P1 | Multi-window/session layer | A daily terminal needs independent windows and safe state restoration, not only one workspace tree. | Connect live cross-window session movement/duplication and bounded layout restoration to the existing controller manager. |
 | P1 | Accessibility and IME | Basic projected text is not evidence of a usable screen-reader or composed-text experience. | Add repeatable macOS accessibility inspection and IME composition hooks; run manual VoiceOver validation. |
 | P1 | Configuration and themes | Three hard-coded themes and a small key set do not meet common desktop configuration needs. | Add documented theme sources, macOS config-path precedence, and system-appearance selection without unbounded includes. |
 | P1 | VT compatibility | Terminal programs depend on behavioral details beyond parser recognition. | Publish v1 of the sequence ledger and implement high-value gaps with corpus tests before widening terminfo. |
@@ -131,11 +131,13 @@ mouse, general bidi, and many DEC private modes remain explicitly unsupported.
 
 Ghostty documents multiple native windows with tabs and splits, macOS-native
 components, Quick Terminal, AppleScript, Quick Look, secure keyboard entry,
-and state recovery. Kiwi has one custom-rendered GLFW workspace window with
-real tabs/splits. That is valuable core work but is not equivalent to
-multi-window, native chrome, or restoration. The first Kiwi milestone is a
-platform-neutral window/session manager; the platform adapter must own native
-window creation and destruction while `kiwi.vt` remains free of host handles.
+and state recovery. Kiwi now has a process-wide live-window scheduler: each
+custom-rendered GLFW workspace has its own WGPU context and PTY set, while GLFW
+events are polled once for all controllers. This fulfills the basic
+same-application window lifecycle, but it is not yet equivalent to Ghostty's
+native chrome, cross-window session operations, or restoration. The next Kiwi
+milestone is connecting the platform-neutral session/window model to these
+live controllers while `kiwi.vt` remains free of host handles.
 
 On macOS, Kiwi’s Cocoa bridge is real and verified for a private pasteboard,
 drawable resize, Metal surface configuration, and development app-bundle
@@ -189,6 +191,7 @@ confirmation remains part of the current image qualification.
 - [macOS support boundary](docs/MACOS.md)
 - [accessibility boundary](docs/ACCESSIBILITY.md)
 - [live workspace composition](src/kiwi/app/main.lua)
+- [live window manager](src/kiwi/app/window_manager.lua)
 - [GLFW platform adapter](src/kiwi/platform/window.lua)
 
 ### Ghostty, official documentation
