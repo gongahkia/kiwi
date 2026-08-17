@@ -17,7 +17,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
 fi
 
 stop_previous() {
-  [[ -f "$PID_FILE" ]] || return
+  [[ -f "$PID_FILE" ]] || return 0
   local pid=$(<"$PID_FILE")
   if [[ "$pid" == <-> ]] && kill -0 "$pid" 2>/dev/null; then
     local command=$(ps -p "$pid" -o command= 2>/dev/null || true)

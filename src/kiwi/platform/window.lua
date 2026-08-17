@@ -5,6 +5,8 @@ local Correlation = require("kiwi.input.correlation")
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
 int kiwi_open_uri(const char* uri);
+int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
+const char* kiwi_surface_last_error(void);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
@@ -165,6 +167,15 @@ function Window:clipboard_write(text)
   glfw.lib.glfwSetClipboardString(self.handle, text)
   local message = glfw.lib.glfwGetError(code)
   if message ~= nil or code[0] ~= 0 then return false, "platform-error" end
+  return true
+end
+
+function Window:cocoa_private_clipboard_round_trip(text)
+  if ffi.os ~= "OSX" then return nil, "Cocoa pasteboard checks are unavailable on this platform" end
+  assert(type(text) == "string" and #text > 0 and not text:find("\0", 1, true), "Cocoa pasteboard text must be a non-empty NUL-free string")
+  if native.kiwi_cocoa_private_pasteboard_round_trip(text, #text) == 0 then
+    return false, ffi.string(native.kiwi_surface_last_error())
+  end
   return true
 end
 
