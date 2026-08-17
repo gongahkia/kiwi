@@ -14,7 +14,10 @@ cd "$ROOT"
 make native terminfo
 "${LUAJIT:-luajit}" src/kiwi/cocoa_smoke.lua
 
-KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify
+KIWI_MAX_FRAMES=0 ./script/build_and_run.sh --verify
+app_pid=$(<"$PID_FILE")
+[[ "$app_pid" == <-> ]]
+kill "$app_pid"
 for _ in {1..50}; do
   [[ ! -e "$PID_FILE" ]] && break
   sleep 0.1
