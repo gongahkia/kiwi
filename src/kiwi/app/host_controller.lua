@@ -1,5 +1,5 @@
+-- Internal terminal/session/renderer controller shared by native hosts.
 local Context = require("kiwi.gpu.context")
-local ffi = require("ffi")
 local AtspiProjection = require("kiwi.accessibility.atspi")
 local bit = require("bit")
 local Build = require("kiwi.build")
@@ -26,6 +26,7 @@ local Renderer = require("kiwi.renderer.renderer")
 local LayoutStore = require("kiwi.session.layout_store")
 local Workspace = require("kiwi.session.workspace")
 local LiveWindowManager = require("kiwi.app.window_manager")
+local GLFWHost = require("kiwi.app.glfw_host")
 local TextLab = require("kiwi.text.lab")
 local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
@@ -33,9 +34,7 @@ local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 local VT = require("kiwi.vt")
 local VTInternal = require("kiwi.vt.internal")
-local Window = require("kiwi.platform.window")
 local NativeAccessibility = require("kiwi.ffi.accessibility")
-local glfw = require("kiwi.ffi.glfw").constants
 
 local function number_from_env(name, fallback)
   local value = tonumber(os.getenv(name))
@@ -212,11 +211,10 @@ local function report_framebuffer_capture(context)
   end
 end
 
-local function run_window_controller(options)
+local function run_host_controller(window, host, options)
   local default_title = "Kiwi M2 terminal"
   local configuration, configuration_path = Config.load(options.config)
-  local geometry = options.geometry
-  local window = Window.new(geometry and geometry.width or 1600, geometry and geometry.height or 960, default_title, { release_mode = options.release_mode })
+  local glfw = host.keymap
   local started_at = window:time()
   if geometry then window:set_position(geometry.x, geometry.y) end
   local context
@@ -1029,7 +1027,7 @@ local function run_window_controller(options)
       local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
-    if ffi.os == "OSX" then
+    if host.platform == "OSX" then
       local enabled, reason = window:enable_cocoa_text_input(apply_cocoa_preedit, function(text)
         handle_committed_text(apply_cocoa_commit(text))
       end)
@@ -1052,7 +1050,7 @@ local function run_window_controller(options)
       if options.session_move_smoke then
         assert(options.moved_session.session_move_smoke_source_id == options.transfer_source_id, "session-move smoke lost the transferred session identity")
         assert(options.moved_session.pty == pty, "session-move smoke replaced the transferred PTY")
-        assert(Window.live_count() == 2, "session-move smoke did not retain both native windows during handoff")
+        assert(host.live_count() == 2, "session-move smoke did not retain both native windows during handoff")
         options.application.session_move_smoke_reported = true
       end
       assert(options.application:confirm_transfer(options.controller_id))
@@ -1081,14 +1079,14 @@ local function run_window_controller(options)
         end
       end
       local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
-      options.application:await_events(window, requested_wait)
+      host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
-        options.application:await_events(window, 0)
+        host.await_events(options.application, window, 0)
       end
       if window:should_close() then break end
       capture_geometry_change()
       if options.multi_window_smoke and not options.application.multi_window_smoke_reported then
-        assert(Window.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
+        assert(host.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
         options.application.multi_window_smoke_reported = true
         io.stdout:write("Kiwi same-process multi-window smoke passed: two native window controllers share this application process.\n")
       end
@@ -1355,7 +1353,9 @@ elseif options.replay then
 elseif options.demo then
   Demo.run()
 else
-  LiveWindowManager.new(run_window_controller, options, {
+  LiveWindowManager.new(function(controller_options)
+    return GLFWHost.run(controller_options, "Kiwi M2 terminal", run_host_controller)
+  end, options, {
     layout_path = os.getenv("KIWI_LAYOUT_PATH") or LayoutStore.path(),
     layout_store = LayoutStore,
   }):run()
