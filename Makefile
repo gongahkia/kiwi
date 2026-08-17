@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke workspace-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke workspace-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -31,6 +31,9 @@ libkiwi-vt-check:
 
 compatibility:
 	$(LUAJIT) src/kiwi/terminal/compatibility.lua
+
+daily-driver-compatibility:
+	./script/daily-driver-compatibility $(COMPAT_ARGS)
 
 doctor:
 	@$(LUAJIT) src/kiwi/doctor.lua $(ARGS)

@@ -1,0 +1,269 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly LUAJIT_BIN=${LUAJIT:-luajit}
+readonly WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-daily-driver.XXXXXX")
+readonly RESULTS="$WORK_DIR/checks.tsv"
+readonly TERMINFO_DIR="$ROOT/.build/terminfo"
+readonly TMUX_SOCKET="kiwi-daily-driver-$$"
+
+typeset report_path=""
+typeset ssh_host=${KIWI_COMPAT_SSH_HOST:-}
+typeset require_desktop=false
+typeset allow_public_clipboard=false
+typeset -a ssh_options
+typeset native_session=false
+typeset overall_failed=false
+
+usage() {
+  cat <<'EOF'
+usage: daily-driver-compatibility [--require-desktop] [--allow-public-clipboard] [--report PATH] [--ssh-host HOST] [--ssh-option ARG]...
+
+Run bounded daily-driver compatibility evidence. The suite never keeps terminal,
+shell, or clipboard content. --require-desktop turns an unavailable Linux
+graphical session into a failing qualification. On Linux,
+--allow-public-clipboard writes a fixed probe and restores the exact prior
+clipboard; use it only in an isolated desktop session. --ssh-host (or
+KIWI_COMPAT_SSH_HOST) runs the fixed remote terminfo probe after upload.
+EOF
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --allow-public-clipboard) allow_public_clipboard=true ;;
+    --require-desktop) require_desktop=true ;;
+    --report)
+      shift
+      (( $# > 0 )) || { print -u2 -- "daily-driver-compatibility: --report needs a path"; exit 2; }
+      report_path=$1
+      ;;
+    --ssh-host)
+      shift
+      (( $# > 0 )) || { print -u2 -- "daily-driver-compatibility: --ssh-host needs a host"; exit 2; }
+      ssh_host=$1
+      ;;
+    --ssh-option)
+      shift
+      (( $# > 0 )) || { print -u2 -- "daily-driver-compatibility: --ssh-option needs one argument"; exit 2; }
+      ssh_options+=("$1")
+      ;;
+    --help|-h) usage; exit 0 ;;
+    *) print -u2 -- "daily-driver-compatibility: unknown option: $1"; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+cleanup() {
+  tmux -L "$TMUX_SOCKET" kill-server >/dev/null 2>&1 || true
+  rm -rf -- "$WORK_DIR"
+}
+trap cleanup EXIT
+
+record_result() {
+  local name=$1
+  local result_status=$2
+  local detail=$3
+  [[ "$detail" != *$'\n'* && "$detail" != *$'\t'* ]] || { print -u2 -- "daily-driver-compatibility: result detail is not single-line"; exit 2; }
+  printf '%s\t%s\t%s\n' "$name" "$result_status" "$detail" >> "$RESULTS"
+  print -r -- "${name}: ${result_status}; ${detail}"
+  if [[ "$result_status" == failed ]]; then overall_failed=true; fi
+}
+
+require_clean_replay() {
+  [[ "$REPLAY_SUMMARY" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]]
+}
+
+run_native_recording() {
+  local name=$1
+  shift
+  local recording="$WORK_DIR/${name}.jsonl"
+  local output="$WORK_DIR/${name}.stdout"
+  local errors="$WORK_DIR/${name}.stderr"
+  if ! KIWI_MAX_FRAMES="${KIWI_COMPAT_MAX_FRAMES:-120}" "$LUAJIT_BIN" "$ROOT/src/kiwi/app/main.lua" --no-extensions --record "$recording" -- "$@" >"$output" 2>"$errors"; then
+    return 1
+  fi
+  REPLAY_SUMMARY=$("$LUAJIT_BIN" "$ROOT/src/kiwi/replay.lua" "$recording" 2>&1 >/dev/null) || return 1
+  RECORDING_PATH=$recording
+  return 0
+}
+
+recorded_output() {
+  rg -o '"data":"[^"]*' "$1" | sed 's/"data":"//' | while IFS= read -r encoded; do
+    if base64 -d </dev/null >/dev/null 2>&1; then
+      print -rn -- "$encoded" | base64 -d
+    else
+      print -rn -- "$encoded" | base64 -D
+    fi
+  done
+}
+
+shell_probe() {
+  local name=$1
+  local output=$2
+  if [[ "$output" == *$'\e]7;file://'* && "$output" == *$'\e]133;A'* ]]; then
+    record_result "shell-${name}" passed "the versioned prompt integration emitted OSC 7 and OSC 133"
+  else
+    record_result "shell-${name}" failed "the versioned prompt integration did not emit its required metadata"
+  fi
+}
+
+export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;"
+export KIWI_ROOT="$ROOT"
+cd "$ROOT"
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64|Darwin-arm64|Darwin-x86_64) ;;
+  *) print -u2 -- "daily-driver-compatibility: unsupported qualification platform: $(uname -s)-$(uname -m)"; exit 2 ;;
+esac
+
+make native terminfo
+
+if [[ "$(uname -s)" == Darwin || -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+  native_session=true
+  record_result desktop-session passed "a native graphical session is available"
+else
+  record_result desktop-session skipped "neither DISPLAY nor WAYLAND_DISPLAY is available"
+  if [[ "$require_desktop" == true ]]; then overall_failed=true; fi
+fi
+
+if TERMINFO="$TERMINFO_DIR" infocmp -1 kiwi >/dev/null && [[ "$(TERM=kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == 16 ]]; then
+  record_result terminfo passed "Kiwi advertises the documented 16-colour terminal contract"
+else
+  record_result terminfo failed "the compiled Kiwi terminfo entry is unavailable or advertises the wrong colour count"
+fi
+
+if (( $+commands[tmux] )); then
+  if env -u COLORTERM TERM=kiwi TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-compatibility '/bin/sh -c '\''printf "term=%s colors=" "$TERM"; tput colors; sleep 2'\''' && sleep 1; then
+    tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-compatibility -S -20)
+    if [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=kiwi"* && "$tmux_output" == *"colors=256"* ]]; then
+      record_result tmux passed "tmux supplied its nested 256-colour TERM contract"
+    else
+      record_result tmux failed "tmux did not provide the expected nested TERM and colour contract"
+    fi
+  else
+    record_result tmux failed "tmux could not create a detached compatibility session"
+  fi
+else
+  record_result tmux skipped "tmux is not installed"
+fi
+
+if (( $+commands[bash] )); then
+  bash_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.bash" HOSTNAME=kiwi.example bash --noprofile --norc -ic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_bash_prompt' 2>/dev/null) || bash_output=""
+  shell_probe bash "$bash_output"
+else
+  record_result shell-bash skipped "Bash is not installed"
+fi
+
+if (( $+commands[zsh] )); then
+  zsh_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.zsh" HOSTNAME=kiwi.example zsh -dfic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_zsh_precmd' 2>/dev/null) || zsh_output=""
+  shell_probe zsh "$zsh_output"
+else
+  record_result shell-zsh skipped "Zsh is not installed"
+fi
+
+if (( $+commands[fish] )); then
+  fish_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.fish" HOSTNAME=kiwi.example fish --no-config -ic 'source $KIWI_COMPAT_SHELL_SCRIPT; cd /tmp; emit fish_prompt' 2>/dev/null) || fish_output=""
+  shell_probe fish "$fish_output"
+else
+  record_result shell-fish skipped "fish is not installed"
+fi
+
+if (( $+commands[nu] )); then
+  nu_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=kiwi.example nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; cd /tmp; __kiwi_nu_prompt' 2>/dev/null) || nu_output=""
+  shell_probe nu "$nu_output"
+else
+  record_result shell-nu skipped "Nushell is not installed"
+fi
+
+if [[ "$native_session" == true ]]; then
+  if run_native_recording shell-integration "$ROOT/script/shell-integration-child" && require_clean_replay; then
+    record_result native-shell-integration passed "native recording and replay accepted the shell metadata fixture"
+  else
+    record_result native-shell-integration failed "native recording or replay rejected the shell metadata fixture"
+  fi
+
+  if run_native_recording hyperlinks "$ROOT/script/compatibility-hyperlink-child" && require_clean_replay; then
+    record_result hyperlinks passed "native recording and replay accepted bounded OSC 8 links"
+  else
+    record_result hyperlinks failed "native recording or replay rejected the bounded OSC 8 fixture"
+  fi
+
+  if [[ "$(uname -s)" == Darwin || "$allow_public_clipboard" == true ]]; then
+    clipboard_environment=0
+    if [[ "$allow_public_clipboard" == true ]]; then clipboard_environment=1; fi
+    if KIWI_COMPAT_ALLOW_PUBLIC_CLIPBOARD="$clipboard_environment" "$LUAJIT_BIN" "$ROOT/src/kiwi/compatibility/clipboard_smoke.lua" >/dev/null 2>&1; then
+      record_result clipboard passed "the platform clipboard bridge completed its bounded round trip"
+    else
+      record_result clipboard failed "the platform clipboard bridge could not complete its bounded round trip"
+    fi
+  else
+    record_result clipboard manual "Linux public clipboard testing needs --allow-public-clipboard in an isolated desktop session"
+  fi
+
+  if (( $+commands[nvim] )); then
+    if run_native_recording neovim nvim -u NONE -n -c 'sleep 200m' -c 'qa!'; then
+      keyboard_bytes=$(recorded_output "$RECORDING_PATH" | tr '\033' '@')
+      if [[ "$REPLAY_SUMMARY" == *"errors=0"* && "$keyboard_bytes" == *'@[?u'* && "$keyboard_bytes" == *'@[>1u'* && "$keyboard_bytes" == *'@[<u'* ]]; then
+        record_result neovim passed "Neovim completed its Kitty keyboard query, push, and pop exchange"
+      else
+        record_result neovim failed "Neovim did not complete the expected Kitty keyboard exchange"
+      fi
+    else
+      record_result neovim failed "Neovim could not complete its bounded native recording"
+    fi
+  else
+    record_result neovim skipped "Neovim is not installed"
+  fi
+
+  if (( $+commands[vim] )); then
+    if run_native_recording vim vim -Nu NONE -n -c 'set ttym=sgr' -c 'set mouse=a' -c 'redraw!' -c 'qa!' && require_clean_replay; then
+      record_result vim passed "Vim mouse-mode startup replayed without parser errors or unknown controls"
+    else
+      record_result vim failed "Vim mouse-mode startup did not complete a clean native replay"
+    fi
+  else
+    record_result vim skipped "Vim is not installed"
+  fi
+
+  if (( $+commands[top] )); then
+    if [[ "$(uname -s)" == Darwin ]]; then
+      top_command=(top -l 1 -s 0)
+    else
+      top_command=(top -b -n 1 -d 0.1)
+    fi
+    if run_native_recording top "${top_command[@]}" && require_clean_replay; then
+      record_result top passed "the system TUI completed a clean bounded native replay"
+    else
+      record_result top failed "the system TUI did not complete a clean bounded native replay"
+    fi
+  else
+    record_result top skipped "top is not installed"
+  fi
+else
+  for name in native-shell-integration hyperlinks clipboard neovim vim top; do
+    record_result "$name" skipped "a native graphical session is unavailable"
+  done
+fi
+
+if [[ -n "$ssh_host" ]]; then
+  ssh_command=("$ROOT/script/kiwi-ssh" --probe)
+  for ssh_option in "${ssh_options[@]}"; do ssh_command+=(--ssh-option "$ssh_option"); done
+  ssh_command+=(-- "$ssh_host")
+  if ssh_output=$(KIWI_TERMINFO="$TERMINFO_DIR" "${ssh_command[@]}" 2>&1) && [[ "$ssh_output" == *"kiwi-ssh probe: terminfo=kiwi colors=16"* ]]; then
+    record_result ssh passed "the controlled remote accepted the private Kiwi terminfo entry"
+  else
+    record_result ssh failed "the controlled remote terminfo probe did not complete"
+  fi
+else
+  record_result ssh skipped "set --ssh-host or KIWI_COMPAT_SSH_HOST for a controlled remote probe"
+fi
+
+if [[ -n "$report_path" ]]; then
+  mkdir -p -- "${report_path:h}"
+  "$LUAJIT_BIN" "$ROOT/src/kiwi/compatibility/qualification.lua" --input "$RESULTS" --output "$report_path"
+  print -r -- "daily-driver-compatibility: privacy-bounded report written to $report_path"
+fi
+
+if [[ "$overall_failed" == true ]]; then exit 1; fi
+print "daily-driver-compatibility: completed without failed checks."

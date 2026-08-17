@@ -348,6 +348,16 @@ errors; its other unsupported startup controls remain separately visible. The
 temporary recordings are removed at the end because `top` contains host process
 data.
 
+`make daily-driver-compatibility` complements that protocol-focused command
+with tmux nesting; installed Bash/Zsh/fish/Nu integration assets; native shell
+metadata and OSC 8; Neovim, Vim, and `top` record/replay; an optional controlled
+remote SSH terminfo probe; and platform clipboard bridge coverage. Invoke it
+with `COMPAT_ARGS='--require-desktop --report artifacts/compatibility.json'` on
+a qualification host. Linux public clipboard mutation remains opt-in through
+`--allow-public-clipboard`; the suite otherwise records it as manual. Its JSON
+report keeps no terminal, shell, clipboard, or recording content, and an
+unavailable prerequisite is a skip rather than compatibility evidence.
+
 Every protocol-capability change must add a targeted deterministic fixture,
 run `make check`, run this command where its prerequisites are available, and
 update the matrix below with the exact command, version/configuration, result,

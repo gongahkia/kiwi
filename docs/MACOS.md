@@ -32,6 +32,14 @@ The verified local checks are `make check`, `make libkiwi-vt-check`,
 native build, terminal PTY lifecycle, C SDK, artifact reproducibility, and a
 live GLFW/Cocoa/Metal render path.
 
+`make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/compatibility.json'`
+adds bounded tmux, shell-integration, OSC 8, Neovim, Vim, `top`, private
+pasteboard, and optional controlled-SSH evidence. The repository's
+`macos-15-intel` CI job is the Intel x86_64 collection path; it verifies the
+architecture before running the same suite. It must complete successfully
+before Intel macOS can be described as qualified. Current recorded native
+macOS evidence remains Apple Silicon.
+
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
 private AppKit pasteboard, checks the bounded `NSAccessibilityTextArea`
 projection and `NSTextInputClient` marked/commit/candidate-rectangle lifecycle,

@@ -943,6 +943,7 @@ int kiwi_pty_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+#if defined(__APPLE__)
 static const char *kiwi_environment_value(char *const envp[], const char *name) {
   const size_t name_length = strlen(name);
   for (size_t index = 0; envp != NULL && envp[index] != NULL; ++index) {
@@ -952,6 +953,7 @@ static const char *kiwi_environment_value(char *const envp[], const char *name) 
   }
   return NULL;
 }
+#endif
 
 int kiwi_execvpe(const char *file, char *const argv[], char *const envp[]) {
 #if !defined(__APPLE__)
