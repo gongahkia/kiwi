@@ -3,7 +3,7 @@
 ## Status
 
 **Ledger version:** 0.1  
-**Goal:** daily-driver compatibility on documented Linux x86_64 and macOS arm64 targets  
+**Goal:** daily-driver compatibility on documented Linux x86_64 and macOS arm64 targets, with Intel macOS qualification tracked separately
 **Current release status:** experimental; this ledger is not a release-readiness declaration.
 
 This ledger is the versioned contract behind the daily-driver goal. A row can
@@ -77,16 +77,49 @@ DEC private modes, and unbounded remote media are not in the current daily-drive
 target. They remain unsupported unless a future ledger revision explicitly adds
 them with a security and test plan.
 
+## Compatibility qualification suite
+
+`make daily-driver-compatibility` is the cross-platform, bounded evidence
+command for daily-driver surfaces. It builds the native bridge and local
+terminfo, then checks tmux's nested TERM contract; Bash, Zsh, fish, and
+Nushell OSC 7/133 integration when installed; native shell-metadata and OSC 8
+record/replay; Neovim's Kitty keyboard negotiation; Vim mouse-mode startup;
+and the host `top` TUI. A provided `--ssh-host` (or
+`KIWI_COMPAT_SSH_HOST`) enables the fixed `kiwi-ssh --probe` workflow: it
+uploads the local private terminfo entry then confirms `infocmp kiwi` and
+`tput colors` on that controlled remote host.
+
+Use `--require-desktop` for a qualification runner. On Linux, the option fails
+instead of skipping when neither `DISPLAY` nor `WAYLAND_DISPLAY` is available.
+On macOS, native window creation is the platform boundary. The command does not
+retain recordings, terminal output, shell output, or clipboard data. Pass
+`--report path.json` to retain only the bounded machine/OS/session/GPU summary
+and check statuses; review that report before sharing it.
+
+Clipboard has an explicit safety boundary. macOS uses a private AppKit
+pasteboard round trip. Linux public clipboard qualification is manual by
+default; `--allow-public-clipboard` is only for an isolated desktop session and
+writes a fixed probe before restoring the exact prior value. It refuses to
+write when it cannot first preserve the current value. Neither route tests
+third-party clipboard managers, rich formats, or concurrent clipboard changes.
+
+The repository has an Intel macOS GitHub Actions qualification job on
+`macos-15-intel` and a manually dispatched self-hosted `kiwi-desktop` Linux
+workflow. A successful run is required evidence, not an implicit support claim.
+At this revision, the recorded macOS native evidence is Apple Silicon; the
+Intel job and a real Linux desktop runner are the mechanisms for collecting the
+missing qualification.
+
 ## Required manual qualification
 
-Automation does not replace these per-target checks:
+The suite is structural and does not replace these per-target checks:
 
-- Linux x86_64: shell, Neovim or another full-screen TUI, tmux, resize,
-  selection/clipboard, SSH, Unicode/emoji, accessibility screen reader, and
-  suspend/restore behavior.
-- macOS arm64: Finder launch of the release `.app`, VoiceOver navigation,
-  native IME composition, clipboard permission behavior, display-scale change,
-  window lifecycle, TUI, SSH, Unicode/emoji, and visible PNG/APNG/GIF fixtures.
+- Linux x86_64: interactive Neovim and tmux use, resize, selection/copy/paste,
+  SSH login, Unicode/emoji, accessibility screen reader, and suspend/restore.
+- macOS arm64 and Intel: Finder launch of the release `.app`, VoiceOver
+  navigation, native IME composition, public clipboard permission behavior,
+  display-scale change, window lifecycle, interactive TUI/SSH, Unicode/emoji,
+  and visible PNG/APNG/GIF fixtures.
 
 Record the machine, OS, desktop/session, GPU, and failure reproduction without
 capturing terminal contents or clipboard data. See [SUPPORT.md](SUPPORT.md) for

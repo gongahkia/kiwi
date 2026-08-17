@@ -126,6 +126,8 @@ make vt-demo                           # renderer-free libkiwi-vt projection; re
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
 make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C consumer, and media-boundary check
 make compatibility                     # machine-readable versioned terminal compatibility manifest
+make daily-driver-compatibility        # bounded cross-platform compatibility evidence; skips unavailable desktop/remote checks
+make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/compatibility.json' # dedicated desktop qualification report
 make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
 make smoke                             # bounded native live-terminal GPU smoke test; skips without Linux display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames

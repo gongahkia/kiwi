@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-usage: kiwi-ssh [--no-terminfo] [--strict] [--ssh-option ARG]... -- host
+usage: kiwi-ssh [--no-terminfo] [--strict] [--probe] [--ssh-option ARG]... -- host
 
 Install Kiwi's compiled terminfo entry in ~/.cache/kiwi/terminfo on the named
 remote host, then open an interactive login shell with TERM=kiwi. If setup
@@ -11,6 +11,7 @@ fails, the default behavior warns and falls back to TERM=xterm-256color.
 
 --no-terminfo  skip remote setup and use the xterm-256color fallback
 --strict       fail instead of falling back when remote setup fails
+--probe        after setup, verify the remote private entry and print a fixed result
 --ssh-option   pass one connection option or its value to both ssh and scp;
                repeat for every argument, for example:
                --ssh-option -p --ssh-option 2222
@@ -32,6 +33,7 @@ ssh_bin=${KIWI_SSH_BIN:-ssh}
 scp_bin=${KIWI_SCP_BIN:-scp}
 setup=true
 strict=false
+probe=false
 ssh_options=''
 
 append_ssh_option() {
@@ -52,6 +54,7 @@ while [ "$#" -gt 0 ]; do
     --help|-h) usage; exit 0 ;;
     --no-terminfo) setup=false ;;
     --strict) strict=true ;;
+    --probe) probe=true ;;
     --ssh-option)
       shift
       if [ "$#" -eq 0 ]; then
@@ -66,6 +69,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$probe" = true ] && [ "$setup" = false ]; then
+  printf '%s\n' "kiwi-ssh: --probe requires remote terminfo setup" >&2
+  exit 2
+fi
 
 if [ "$#" -ne 1 ]; then
   printf '%s\n' "kiwi-ssh: exactly one host is required after --" >&2
@@ -167,5 +175,8 @@ if [ -n "$ssh_options" ]; then
   set -- $ssh_options
   set +f
   IFS=$saved_ifs
+fi
+if [ "$probe" = true ]; then
+  exec env TERM=kiwi "$ssh_bin" "$@" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo"; export TERM TERMINFO; infocmp kiwi >/dev/null && [ "$(tput colors)" = 16 ] && printf "%s\n" "kiwi-ssh probe: terminfo=kiwi colors=16"'
 fi
 exec env TERM=kiwi "$ssh_bin" "$@" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" exec "${SHELL:-/bin/sh}" -l'

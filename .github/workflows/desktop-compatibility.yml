@@ -1,0 +1,38 @@
+name: Desktop compatibility qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-desktop:
+    name: daily-driver compatibility (Linux desktop)
+    runs-on: [self-hosted, Linux, X64, kiwi-desktop]
+    environment: desktop-compatibility
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: verify an isolated graphical qualification session
+        run: |
+          test -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}"
+          command -v tmux
+          command -v nvim
+          command -v vim
+          command -v bash
+          command -v zsh
+          command -v fish
+          command -v nu
+      - name: collect bounded Linux desktop evidence
+        env:
+          KIWI_COMPAT_SSH_HOST: ${{ secrets.KIWI_COMPAT_SSH_HOST }}
+        run: |
+          mkdir -p artifacts
+          make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/linux-desktop-compatibility.json'
+      - name: upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kiwi-linux-desktop-compatibility
+          path: artifacts/linux-desktop-compatibility.json
+          if-no-files-found: warn

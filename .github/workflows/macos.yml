@@ -22,6 +22,29 @@ jobs:
       - name: deterministic checks
         run: make check && make cocoa-smoke && make libkiwi-vt-check
 
+  intel-compatibility:
+    name: daily-driver compatibility (Intel)
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: verify runner architecture
+        run: test "$(uname -m)" = x86_64
+      - name: install compatibility dependencies
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses tmux neovim fish nushell
+      - name: collect bounded Intel compatibility evidence
+        run: |
+          mkdir -p artifacts
+          make check
+          make cocoa-smoke
+          make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
+      - name: upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kiwi-macos-intel-compatibility
+          path: artifacts/macos-intel-compatibility.json
+          if-no-files-found: warn
+
   artifact:
     name: release artifact (Apple Silicon)
     needs: check
