@@ -44,6 +44,8 @@ local function default_path_exists(path)
 end
 
 local function session_kind(getenv)
+  local jit_runtime = rawget(_G, "jit") or {}
+  if jit_runtime.os == "OSX" then return "cocoa" end
   if getenv("WAYLAND_DISPLAY") then return "wayland" end
   if getenv("DISPLAY") then return "x11" end
   return "unavailable"
@@ -77,7 +79,7 @@ end
 
 local function default_gpu_probe(getenv)
   if session_kind(getenv) == "unavailable" then
-    return unavailable("no Wayland or X11 display is available")
+    return unavailable("no supported graphical display is available")
   end
 
   local window
@@ -153,7 +155,9 @@ function Doctor.collect(options)
     terminal = {
       feature_state = unavailable("no live terminal session is attached"),
       known_features = {
-        accessibility_adapter = unavailable("Linux AT-SPI is optional and doctor does not attach to a live accessibility bus; macOS and Windows adapters are unimplemented"),
+        accessibility_adapter = unavailable((jit.os == "OSX")
+          and "macOS NSAccessibility is optional and doctor does not attach to a live accessibility client"
+          or "Linux AT-SPI is optional and doctor does not attach to a live accessibility bus; Windows adapters are unimplemented"),
         clipboard = { maximum_bytes = 1024 * 1024, status = "available" },
         kitty_graphics = { status = "available" },
         shell_integration = { status = "available" },

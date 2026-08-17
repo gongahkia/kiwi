@@ -464,7 +464,7 @@ local function run_live(options)
     local accessibility_projection = AtspiProjection.new()
     local window_focused = true
     local accessibility_reason
-    accessibility, accessibility_reason = NativeAccessibility.new()
+    accessibility, accessibility_reason = NativeAccessibility.new(window)
     if accessibility == nil and os.getenv("KIWI_ACCESSIBILITY_DIAGNOSTICS") == "1" then
       io.stderr:write("Kiwi accessibility: unavailable: ", accessibility_reason, "\n")
     end

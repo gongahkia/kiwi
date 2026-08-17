@@ -923,6 +923,7 @@ function Renderer:render(model, time, debug_dirty, debug_boundaries)
   local surface_texture = ffi.new("WGPUSurfaceTexture")
   self.native.lib.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
   local c = self.native.constants
+  if surface_texture.status == c.surface_occluded then return false, "surface occluded" end
   if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
     return false, "surface acquire status " .. tonumber(surface_texture.status)
   end

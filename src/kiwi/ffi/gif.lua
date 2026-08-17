@@ -48,6 +48,8 @@ GifFileType *DGifOpenFileHandle(int FileHandle, int *Error);
 int DGifSlurp(GifFileType *GifFile);
 int DGifCloseFile(GifFileType *GifFile, int *Error);
 int memfd_create(const char *name, unsigned int flags);
+int mkstemp(char *template);
+int unlink(const char *path);
 long write(int fd, const void *buffer, unsigned long count);
 long lseek(int fd, long offset, int whence);
 int close(int fd);
@@ -63,8 +65,17 @@ end
 
 local Gif = {}
 
+local function temporary_descriptor()
+  if ffi.os ~= "OSX" then return ffi.C.memfd_create("kiwi-gif", 1) end
+  local template = ffi.new("char[?]", #"/tmp/kiwi-gif-XXXXXX" + 1)
+  ffi.copy(template, "/tmp/kiwi-gif-XXXXXX")
+  local descriptor = ffi.C.mkstemp(template)
+  if descriptor >= 0 then ffi.C.unlink(template) end
+  return descriptor
+end
+
 function Gif.with_file(bytes, callback)
-  local descriptor = ffi.C.memfd_create("kiwi-gif", 1)
+  local descriptor = temporary_descriptor()
   if descriptor < 0 then return nil, "gif-open" end
   local offset = 1
   while offset <= #bytes do

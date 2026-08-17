@@ -203,16 +203,26 @@ static void kiwi_lua_getglobal(kiwi_lua_api *lua, lua_State *state, const char *
 
 static bool kiwi_vt_load_lua(kiwi_vt_terminal *terminal) {
   static const char *const names[] = {
+#if defined(__APPLE__)
+      "libluajit-5.1.2.dylib",
+      "libluajit-5.1.dylib",
+      "libluajit.dylib",
+#else
       "libluajit-5.1.so.2",
       "libluajit-5.1.so",
+#endif
       NULL,
   };
   kiwi_lua_api *lua = &terminal->lua;
+  const char *configured = getenv("KIWI_VT_LUAJIT_LIB");
+  if (configured != NULL && configured[0] != '\0') {
+    lua->library = dlopen(configured, RTLD_NOW | RTLD_LOCAL);
+  }
   for (size_t index = 0; names[index] != NULL && lua->library == NULL; ++index) {
     lua->library = dlopen(names[index], RTLD_NOW | RTLD_LOCAL);
   }
   if (lua->library == NULL) {
-    kiwi_vt_set_error(terminal, "LuaJIT runtime unavailable: %s", dlerror() == NULL ? "dlopen failed" : dlerror());
+    kiwi_vt_set_error(terminal, "LuaJIT runtime unavailable%s%s: %s", configured == NULL || configured[0] == '\0' ? "" : " at ", configured == NULL || configured[0] == '\0' ? "" : configured, dlerror() == NULL ? "dlopen failed" : dlerror());
     return false;
   }
 

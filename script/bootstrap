@@ -3,36 +3,63 @@ set -euo pipefail
 
 readonly ROOT=${0:A:h:h}
 readonly VERSION='v29.0.1.1'
-readonly ARCHIVE="wgpu-linux-x86_64-release.zip"
-readonly SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
+readonly PLATFORM="$(uname -s)-$(uname -m)"
 readonly TARGET="$ROOT/.deps/wgpu-native-$VERSION"
+
+case "$PLATFORM" in
+  Linux-x86_64)
+    readonly ARCHIVE="wgpu-linux-x86_64-release.zip"
+    readonly SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
+    ;;
+  Darwin-arm64)
+    readonly ARCHIVE="wgpu-macos-aarch64-release.zip"
+    readonly SHA256='a5797a37b1adf720bcd5dcffb291edbbd5b7b14be0a3874c28e6393a655a7a3e'
+    ;;
+  Darwin-x86_64)
+    readonly ARCHIVE="wgpu-macos-x86_64-release.zip"
+    readonly SHA256='8e2f7378548ddd0e2cf21e7d864dda46e953f0af724855a33778b85ead206d41'
+    ;;
+  *)
+    print -u2 "Kiwi bootstrap supports Linux x86_64, macOS arm64, and macOS x86_64; found $(uname -s) $(uname -m)."
+    exit 1
+    ;;
+esac
 readonly URL="https://github.com/gfx-rs/wgpu-native/releases/download/$VERSION/$ARCHIVE"
+readonly WGPU_LIBRARY_EXTENSION=$([[ "$(uname -s)" == Darwin ]] && print dylib || print so)
 
-if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
-  print -u2 "Kiwi M0 bootstrap currently supports Linux x86_64; found $(uname -s) $(uname -m)."
-  exit 1
-fi
+sha256_file() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
 
-for command in luajit curl unzip sha256sum pkg-config tic infocmp; do
+for command in luajit curl unzip pkg-config tic infocmp; do
   if ! command -v "$command" >/dev/null; then
     print -u2 "Missing required command: $command"
     exit 1
   fi
 done
 
-for package in gio-2.0 glfw3 freetype2 harfbuzz fontconfig libpng; do
+typeset -a packages
+packages=(glfw3 freetype2 harfbuzz fontconfig libpng)
+if [[ "$(uname -s)" == Linux ]]; then packages+=(gio-2.0); fi
+for package in $packages; do
   if ! pkg-config --exists "$package"; then
     print -u2 "Missing pkg-config package: $package. Install the Fedora development package documented in README.md."
     exit 1
   fi
 done
 
-if ! ldconfig -p 2>/dev/null | awk '$1 ~ /^libgif\.so/ { found = 1 } END { exit !found }'; then
-  print -u2 'Missing giflib runtime. Install the Fedora package documented in README.md.'
-  exit 1
+if [[ "$(uname -s)" == Linux ]]; then
+  if ! ldconfig -p 2>/dev/null | awk '$1 ~ /^libgif\.so/ { found = 1 } END { exit !found }'; then
+    print -u2 'Missing giflib runtime. Install the Fedora package documented in README.md.'
+    exit 1
+  fi
 fi
 
-if [[ -f "$TARGET/lib/libwgpu_native.so" && -f "$TARGET/include/webgpu/webgpu.h" ]]; then
+if [[ -f "$TARGET/lib/libwgpu_native.$WGPU_LIBRARY_EXTENSION" && -f "$TARGET/include/webgpu/webgpu.h" ]]; then
   print "wgpu-native $VERSION is already available at $TARGET"
   exit 0
 fi
@@ -41,7 +68,7 @@ mkdir -p "$ROOT/.deps"
 archive_path="$ROOT/.deps/$ARCHIVE"
 print "Downloading wgpu-native $VERSION from the official release..."
 curl --fail --location --retry 3 --output "$archive_path" "$URL"
-actual_sha=$(sha256sum "$archive_path" | awk '{print $1}')
+actual_sha=$(sha256_file "$archive_path")
 if [[ "$actual_sha" != "$SHA256" ]]; then
   print -u2 "wgpu-native archive checksum mismatch: expected $SHA256, got $actual_sha"
   exit 1

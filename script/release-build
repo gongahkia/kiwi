@@ -4,15 +4,44 @@ set -euo pipefail
 readonly ROOT=${0:A:h:h}
 readonly VERSION=$(<"$ROOT/VERSION")
 readonly WGPU_VERSION='v29.0.1.1'
-readonly WGPU_SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
-readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-linux-x86_64-release.zip"
 readonly WGPU="$ROOT/.deps/wgpu-native-$WGPU_VERSION"
 readonly DIST=${KIWI_RELEASE_DIST:-"$ROOT/dist"}
 
-if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
-  print -u2 "Kiwi release artifacts currently support Linux x86_64; found $(uname -s) $(uname -m)."
-  exit 1
-fi
+sha256_file() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    readonly TARGET=linux-x86_64
+    readonly LIBRARY_EXTENSION=so
+    readonly WGPU_SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
+    readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-linux-x86_64-release.zip"
+    readonly RUNTIME_DEPENDENCIES='["curl","luajit","glib2","glfw","freetype","harfbuzz","fontconfig","giflib","libpng","vulkan-loader","zsh","openssh-clients"]'
+    ;;
+  Darwin-arm64)
+    readonly TARGET=macos-arm64
+    readonly LIBRARY_EXTENSION=dylib
+    readonly WGPU_SHA256='a5797a37b1adf720bcd5dcffb291edbbd5b7b14be0a3874c28e6393a655a7a3e'
+    readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-macos-aarch64-release.zip"
+    readonly RUNTIME_DEPENDENCIES='["curl","luajit","glfw","freetype","harfbuzz","fontconfig","giflib","libpng","zsh","openssh"]'
+    ;;
+  Darwin-x86_64)
+    readonly TARGET=macos-x86_64
+    readonly LIBRARY_EXTENSION=dylib
+    readonly WGPU_SHA256='8e2f7378548ddd0e2cf21e7d864dda46e953f0af724855a33778b85ead206d41'
+    readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-macos-x86_64-release.zip"
+    readonly RUNTIME_DEPENDENCIES='["curl","luajit","glfw","freetype","harfbuzz","fontconfig","giflib","libpng","zsh","openssh"]'
+    ;;
+  *)
+    print -u2 "Kiwi release artifacts support Linux x86_64, macOS arm64, and macOS x86_64; found $(uname -s) $(uname -m)."
+    exit 1
+    ;;
+esac
 if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
   print -u2 "VERSION must be a numeric semantic version; found $VERSION"
   exit 1
@@ -42,25 +71,28 @@ fi
 "$ROOT/script/build-native"
 "$ROOT/script/build-terminfo"
 
-readonly NAME="kiwi-$VERSION-linux-x86_64"
+readonly NAME="kiwi-$VERSION-$TARGET"
 readonly STAGE="$DIST/$NAME"
 readonly ARCHIVE="$DIST/$NAME.tar.gz"
 readonly CHECKSUM="$ARCHIVE.sha256"
 
 mkdir -p "$DIST"
 rm -rf "$STAGE"
-mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/share/applications" "$STAGE/share/kiwi/lua" "$STAGE/share/terminfo" "$STAGE/share/doc/kiwi"
+mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/share/kiwi/lua" "$STAGE/share/terminfo" "$STAGE/share/doc/kiwi"
 cp -R "$ROOT/src/kiwi" "$STAGE/share/kiwi/lua/kiwi"
 cp -R "$ROOT/integrations" "$STAGE/share/kiwi/integrations"
-cp "$ROOT/.build/native/libkiwi_surface.so" "$STAGE/lib/libkiwi_surface.so"
-cp "$WGPU/lib/libwgpu_native.so" "$STAGE/lib/libwgpu_native.so"
+cp "$ROOT/.build/native/libkiwi_surface.$LIBRARY_EXTENSION" "$STAGE/lib/libkiwi_surface.$LIBRARY_EXTENSION"
+cp "$WGPU/lib/libwgpu_native.$LIBRARY_EXTENSION" "$STAGE/lib/libwgpu_native.$LIBRARY_EXTENSION"
 cp "$ROOT/VERSION" "$STAGE/VERSION"
 print -r -- "$revision" > "$STAGE/BUILD_REVISION"
 cp "$ROOT/script/kiwi-image" "$STAGE/bin/kiwi-image"
 cp "$ROOT/script/kiwi-ssh" "$STAGE/bin/kiwi-ssh"
 cp "$ROOT/script/kiwi-vt" "$STAGE/bin/kiwi-vt"
 chmod 755 "$STAGE/bin/kiwi-image" "$STAGE/bin/kiwi-ssh" "$STAGE/bin/kiwi-vt"
-cp "$ROOT/packaging/linux/kiwi.desktop" "$STAGE/share/applications/kiwi.desktop"
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  mkdir -p "$STAGE/share/applications"
+  cp "$ROOT/packaging/linux/kiwi.desktop" "$STAGE/share/applications/kiwi.desktop"
+fi
 cp "$ROOT/README.md" "$STAGE/share/doc/kiwi/README.md"
 cp -R "$ROOT/docs" "$STAGE/share/doc/kiwi/docs"
 tic -x -o "$STAGE/share/terminfo" "$ROOT/terminfo/kiwi.ti"
@@ -69,8 +101,8 @@ print '#!/usr/bin/env zsh' > "$STAGE/bin/kiwi"
 print 'set -euo pipefail' >> "$STAGE/bin/kiwi"
 print 'readonly KIWI_INSTALL_ROOT=${0:A:h:h}' >> "$STAGE/bin/kiwi"
 print 'export KIWI_ROOT="$KIWI_INSTALL_ROOT"' >> "$STAGE/bin/kiwi"
-print 'export KIWI_WGPU_LIB="$KIWI_INSTALL_ROOT/lib/libwgpu_native.so"' >> "$STAGE/bin/kiwi"
-print 'export KIWI_SURFACE_LIB="$KIWI_INSTALL_ROOT/lib/libkiwi_surface.so"' >> "$STAGE/bin/kiwi"
+print "export KIWI_WGPU_LIB=\"\$KIWI_INSTALL_ROOT/lib/libwgpu_native.$LIBRARY_EXTENSION\"" >> "$STAGE/bin/kiwi"
+print "export KIWI_SURFACE_LIB=\"\$KIWI_INSTALL_ROOT/lib/libkiwi_surface.$LIBRARY_EXTENSION\"" >> "$STAGE/bin/kiwi"
 print 'export KIWI_RELEASE=1' >> "$STAGE/bin/kiwi"
 print 'export TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
 print 'export KIWI_TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
@@ -82,11 +114,29 @@ print 'if [[ ${1:-} == doctor ]]; then shift; exec "${LUAJIT:-luajit}" "$KIWI_IN
 print 'exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/app/main.lua" "$@"' >> "$STAGE/bin/kiwi"
 chmod 755 "$STAGE/bin/kiwi"
 
-print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"linux-x86_64\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":[\"curl\",\"luajit\",\"glib2\",\"glfw\",\"freetype\",\"harfbuzz\",\"fontconfig\",\"giflib\",\"libpng\",\"vulkan-loader\",\"zsh\",\"openssh-clients\"]}" > "$STAGE/metadata.json"
+if [[ "$TARGET" == macos-* ]]; then
+  mkdir -p "$STAGE/Kiwi.app/Contents/MacOS"
+  print '<?xml version="1.0" encoding="UTF-8"?>' > "$STAGE/Kiwi.app/Contents/Info.plist"
+  print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$STAGE/Kiwi.app/Contents/Info.plist"
+  print '<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Kiwi</string><key>CFBundleIdentifier</key><string>io.github.gongahkia.kiwi</string><key>CFBundleName</key><string>Kiwi</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>' >> "$STAGE/Kiwi.app/Contents/Info.plist"
+  print '#!/usr/bin/env zsh' > "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  print 'set -euo pipefail' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  print 'readonly KIWI_APP_ROOT=${0:A:h:h:h:h}' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  print 'exec "$KIWI_APP_ROOT/bin/kiwi" "$@"' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  chmod 755 "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+fi
+
+print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"$TARGET\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":$RUNTIME_DEPENDENCIES}" > "$STAGE/metadata.json"
 
 rm -f "$ARCHIVE" "$CHECKSUM"
-tar -C "$DIST" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
-(cd "$DIST" && sha256sum "${ARCHIVE:t}" > "${CHECKSUM:t}")
+if [[ "$(uname -s)" == Darwin ]]; then
+  archive_time=$(date -r "$source_date_epoch" '+%Y%m%d%H%M.%S')
+  find "$STAGE" -exec touch -h -t "$archive_time" {} +
+  COPYFILE_DISABLE=1 tar -C "$DIST" --format ustar --uid 0 --gid 0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+else
+  tar -C "$DIST" --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 --numeric-owner -cf - "$NAME" | gzip -n > "$ARCHIVE"
+fi
+print "$(sha256_file "$ARCHIVE")  ${ARCHIVE:t}" > "$CHECKSUM"
 
 print "Kiwi release artifact: $ARCHIVE"
 print "Kiwi release checksum: $CHECKSUM"

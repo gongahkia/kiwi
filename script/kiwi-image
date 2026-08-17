@@ -158,7 +158,7 @@ if (( place_only == 0 )); then
     fail 'file is not a complete PNG, APNG, or GIF image'
   fi
   (( width > 0 && height > 0 && width * height <= MAX_PIXELS )) || fail "$image_format dimensions exceed Kiwi limits"
-  encoded=$(LC_ALL=C base64 --wrap=0 "$image")
+  encoded=$(LC_ALL=C base64 < "$image" | tr -d '\n')
   (( ${#encoded} <= MAX_ENCODED_BYTES )) || fail 'encoded image exceeds the direct-transfer limit'
 fi
 

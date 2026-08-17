@@ -2,7 +2,7 @@ local ffi = require("ffi")
 
 ffi.cdef[[
 typedef struct KiwiAccessibility KiwiAccessibility;
-KiwiAccessibility *kiwi_accessibility_new(void);
+KiwiAccessibility *kiwi_accessibility_new(void *window);
 void kiwi_accessibility_destroy(KiwiAccessibility *adapter);
 int kiwi_accessibility_update(KiwiAccessibility *adapter, const char *text, size_t text_bytes, int32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char *title);
 void kiwi_accessibility_poll(KiwiAccessibility *adapter);
@@ -18,10 +18,10 @@ local loaded, library = pcall(ffi.load, library_path)
 local Accessibility = {}
 Accessibility.__index = Accessibility
 
-function Accessibility.new()
+function Accessibility.new(window)
   if os.getenv("KIWI_ACCESSIBILITY") == "0" then return nil, "disabled by KIWI_ACCESSIBILITY=0" end
   if not loaded then return nil, "could not load the Kiwi native accessibility bridge: " .. tostring(library) end
-  local adapter = library.kiwi_accessibility_new()
+  local adapter = library.kiwi_accessibility_new(window and window.handle or nil)
   if adapter == nil then return nil, ffi.string(library.kiwi_accessibility_last_error()) end
   return setmetatable({ adapter = adapter, library = library }, Accessibility)
 end
