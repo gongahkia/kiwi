@@ -35,19 +35,10 @@ stage_app() {
   print '<?xml version="1.0" encoding="UTF-8"?>' > "$APP/Contents/Info.plist"
   print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP/Contents/Info.plist"
   print "<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>$APP_NAME</string><key>CFBundleIdentifier</key><string>$BUNDLE_ID</string><key>CFBundleName</key><string>$APP_NAME</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>" >> "$APP/Contents/Info.plist"
-  print '#!/usr/bin/env zsh' > "$LAUNCHER"
-  print 'set -euo pipefail' >> "$LAUNCHER"
-  print "readonly KIWI_SOURCE_ROOT=\"$ROOT\"" >> "$LAUNCHER"
-  print "readonly KIWI_SOURCE_LUAJIT=\"$LUAJIT_BIN\"" >> "$LAUNCHER"
-  print 'readonly KIWI_PID_FILE="$KIWI_SOURCE_ROOT/.build/kiwi-dev.pid"' >> "$LAUNCHER"
-  print 'export KIWI_ROOT="$KIWI_SOURCE_ROOT"' >> "$LAUNCHER"
-  print 'export LUA_PATH="$KIWI_SOURCE_ROOT/src/?.lua;$KIWI_SOURCE_ROOT/src/?/init.lua;;"' >> "$LAUNCHER"
-  print '"$KIWI_SOURCE_LUAJIT" "$KIWI_SOURCE_ROOT/src/kiwi/app/main.lua" "$@" &' >> "$LAUNCHER"
-  print 'readonly KIWI_CHILD=$!' >> "$LAUNCHER"
-  print 'print -r -- "$KIWI_CHILD" > "$KIWI_PID_FILE"' >> "$LAUNCHER"
-  print 'trap "rm -f \"$KIWI_PID_FILE\"" EXIT' >> "$LAUNCHER"
-  print 'wait "$KIWI_CHILD"' >> "$LAUNCHER"
-  chmod 755 "$LAUNCHER"
+  cc -std=c17 -Wall -Wextra -Werror \
+    "-DKIWI_SOURCE_ROOT=\"$ROOT\"" \
+    "-DKIWI_SOURCE_LUAJIT=\"$LUAJIT_BIN\"" \
+    "$ROOT/native/macos_launcher.c" -o "$LAUNCHER"
 }
 
 stop_previous
