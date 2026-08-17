@@ -1,0 +1,6 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+print -rn -- $'\e]8;id=kiwi-compatibility;https://example.test/kiwi\e\\'
+print -rn -- 'Kiwi hyperlink qualification'
+print -rn -- $'\e]8;;\e\\\r\n'
