@@ -2,25 +2,26 @@
 set -euo pipefail
 
 readonly ROOT=${0:A:h:h}
-readonly MAX_FIRST_VISIBLE_FRAME=8
 readonly MAX_FRAMES=${KIWI_MAX_FRAMES:-120}
+readonly MAX_TRANSFER_TO_PRESENT_MS=${KIWI_KITTY_MAX_TRANSFER_TO_PRESENT_MS:-750}
 
 set +e
 output=$(KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_KITTY_GRAPHICS_REPORT=1 KIWI_MAX_FRAMES="$MAX_FRAMES" \
   "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- "$ROOT/script/kitty-image-demo-child" 2>&1)
-status=$?
+exit_status=$?
 set -e
 print -r -- "$output"
-(( status == 0 )) || exit "$status"
+(( exit_status == 0 )) || exit "$exit_status"
 
-first_visible=$(print -r -- "$output" | sed -nE 's/^Kiwi kitty graphics: first-visible=frame:([0-9]+) .*/\1/p' | tail -n 1)
-[[ "$first_visible" == <-> ]] || {
+presentation=$(print -r -- "$output" | sed -nE 's/^Kiwi kitty graphics: first-visible=frame:([0-9]+) transfer-to-present=([0-9]+\.[0-9]+)ms$/\1 \2/p' | tail -n 1)
+[[ -n "$presentation" ]] || {
   print -u2 "Kitty graphics smoke failed: no uploaded image was presented."
   exit 1
 }
-(( first_visible <= MAX_FIRST_VISIBLE_FRAME )) || {
-  print -u2 "Kitty graphics smoke failed: first image was not presented within $MAX_FIRST_VISIBLE_FRAME frames (got $first_visible)."
+read -r first_visible transfer_to_present_ms <<< "$presentation"
+(( ${transfer_to_present_ms%.*} <= MAX_TRANSFER_TO_PRESENT_MS )) || {
+  print -u2 "Kitty graphics smoke failed: first image took ${transfer_to_present_ms}ms after transfer start (limit ${MAX_TRANSFER_TO_PRESENT_MS}ms)."
   exit 1
 }
 
-print "Kitty graphics smoke passed: uploaded image instances reached a successful presented frame $first_visible."
+print "Kitty graphics smoke passed: uploaded image instances reached successful presented frame $first_visible in ${transfer_to_present_ms}ms."

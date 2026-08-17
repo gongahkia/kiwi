@@ -792,6 +792,12 @@ local function run_live(options)
       local now = window:time()
       local deadline = compositor:next_render_deadline(pane_entries)
       local maximum_wait = window.minimized and 0.250 or 0.050
+      for _, pane in pairs(workspace.panes) do
+        if VTInternal.state(pane.session.terminal).kitty_graphics.transfer ~= nil then
+          maximum_wait = math.min(maximum_wait, 0.001)
+          break
+        end
+      end
       local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
       window:wait_events(requested_wait)
       window:poll_events()
@@ -827,8 +833,11 @@ local function run_live(options)
           if power then power:output() end
           if recorder then recorder:output(output) end
         end
-        session.terminal:write(output)
         local session_state = VTInternal.state(session.terminal)
+        local image_count = session_state.kitty_graphics:image_count()
+        local placement_count = #session_state.kitty_placements.placements
+        session.terminal:write(output)
+        session_state = VTInternal.state(session.terminal)
         if kitty_graphics_report and kitty_transfer_started_at == nil and session_state.kitty_graphics.transfer ~= nil then
           kitty_transfer_started_at = now
         end
@@ -838,7 +847,11 @@ local function run_live(options)
           session.mouse_generation = session_state.modes.mouse_generation
           if session == active_session then mouse_generation = session.mouse_generation end
         end
-        if session.renderer then session.renderer:invalidate("terminal") end
+        local kitty_graphics_changed = image_count ~= session_state.kitty_graphics:image_count()
+          or placement_count ~= #session_state.kitty_placements.placements
+        if session.renderer and (session_state.damage.dirty_count > 0 or kitty_graphics_changed) then
+          session.renderer:invalidate(kitty_graphics_changed and "kitty_images" or "terminal")
+        end
       end
 
       local panes = {}
