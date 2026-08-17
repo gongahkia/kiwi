@@ -1,0 +1,39 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "SKIP native layout-restore smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."
+  exit 0
+fi
+
+export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;"
+make -C "$ROOT" native terminfo
+layout_root=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-layout.XXXXXX")
+readonly layout_path="$layout_root/workspace-v1.json"
+trap 'rm -rf "$layout_root"' EXIT
+
+KIWI_LAYOUT_PATH="$layout_path" \
+  KIWI_LAYOUT_PERSISTENCE=1 \
+  KIWI_LAYOUT_RESTORE=0 \
+  KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
+  KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --workspace-smoke -- /usr/bin/yes
+test -s "$layout_path"
+KIWI_LAYOUT_PATH="$layout_path" "${LUAJIT:-luajit}" -e '
+  local layout = assert(require("kiwi.session.layout_store").load(assert(os.getenv("KIWI_LAYOUT_PATH"))))
+  assert(#layout.windows == 1)
+  assert(#layout.windows[1].workspace.tabs == 1)
+  assert(layout.windows[1].workspace.tabs[1].root.kind == "split")
+'
+
+log=$(mktemp "${TMPDIR:-/tmp}/kiwi-layout-restore.XXXXXX")
+trap 'rm -rf "$layout_root"; rm -f "$log"' EXIT
+KIWI_LAYOUT_PATH="$layout_path" \
+  KIWI_LAYOUT_PERSISTENCE=0 \
+  KIWI_LAYOUT_RESTORE=1 \
+  KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
+  KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- /usr/bin/yes | tee "$log"
+rg -q "Kiwi layout restored: tabs=1 panes=2; each pane received a fresh shell session\." "$log"
+print "Kiwi layout-restore smoke passed: bounded window geometry and tab/split topology restored with fresh shells."

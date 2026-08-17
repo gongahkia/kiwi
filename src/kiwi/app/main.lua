@@ -21,6 +21,7 @@ local Pty = require("kiwi.process.pty")
 local ShellIntegration = require("kiwi.process.shell_integration")
 local Compositor = require("kiwi.renderer.compositor")
 local Renderer = require("kiwi.renderer.renderer")
+local LayoutStore = require("kiwi.session.layout_store")
 local Workspace = require("kiwi.session.workspace")
 local LiveWindowManager = require("kiwi.app.window_manager")
 local TextLab = require("kiwi.text.lab")
@@ -40,7 +41,12 @@ local function number_from_env(name, fallback)
 end
 
 local function parse_options()
-  local options = { demo = os.getenv("KIWI_DEMO") == "1", release_mode = Build.info().release_mode }
+  local options = {
+    demo = os.getenv("KIWI_DEMO") == "1",
+    layout_persistence = os.getenv("KIWI_LAYOUT_PERSISTENCE") ~= "0",
+    layout_restore = os.getenv("KIWI_LAYOUT_RESTORE") ~= "0",
+    release_mode = Build.info().release_mode,
+  }
   local index = 1
   while index <= #arg do
     local value = arg[index]
@@ -54,6 +60,11 @@ local function parse_options()
       options.workspace_smoke = true
     elseif value == "--multi-window-smoke" then
       options.multi_window_smoke = true
+    elseif value == "--session-move-smoke" then
+      options.session_move_smoke = true
+    elseif value == "--no-restore-layout" then
+      options.layout_persistence = false
+      options.layout_restore = false
     elseif value == "--config" then
       index = index + 1
       options.config = assert(arg[index], "--config needs a path")
@@ -76,10 +87,16 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --multi-window-smoke, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
+  if options.record or options.multi_window_smoke or options.session_move_smoke then
+    options.layout_persistence = false
+    options.layout_restore = false
+  end
+  if options.workspace_smoke and os.getenv("KIWI_LAYOUT_PERSISTENCE") == nil then options.layout_persistence = false end
+  if options.workspace_smoke and os.getenv("KIWI_LAYOUT_RESTORE") == nil then options.layout_restore = false end
   return options
 end
 
@@ -181,7 +198,10 @@ end
 local function run_window_controller(options)
   local default_title = "Kiwi M2 terminal"
   local configuration, configuration_path = Config.load(options.config)
-  local window = Window.new(1600, 960, default_title, { release_mode = options.release_mode })
+  local geometry = options.geometry
+  local window = Window.new(geometry and geometry.width or 1600, geometry and geometry.height or 960, default_title, { release_mode = options.release_mode })
+  local started_at = window:time()
+  if geometry then window:set_position(geometry.x, geometry.y) end
   local context
   local compositor
   local renderer
@@ -209,23 +229,24 @@ local function run_window_controller(options)
     assert(columns ~= nil, "window has no drawable size")
     workspace_columns = columns
     workspace_rows = rows
-    terminal = VT.new({
-      columns = columns,
-      rows = rows,
-      state_options = {
-        scrollback_limit = configuration.scrollback_limit,
-        ambiguous_width = configuration.ambiguous_width,
-        osc52_write = configuration.osc52_write,
-        cell_width = font.cell_width,
-        cell_height = font.cell_height,
-        colors = {
-          foreground = configuration.foreground,
-          background = configuration.background,
-          palette = configuration.palette,
+    local function new_terminal(child_columns, child_rows)
+      return VT.new({
+        columns = child_columns,
+        rows = child_rows,
+        state_options = {
+          scrollback_limit = configuration.scrollback_limit,
+          ambiguous_width = configuration.ambiguous_width,
+          osc52_write = configuration.osc52_write,
+          cell_width = font.cell_width,
+          cell_height = font.cell_height,
+          colors = {
+            foreground = configuration.foreground,
+            background = configuration.background,
+            palette = configuration.palette,
+          },
         },
-      },
-    })
-    local state = VTInternal.state(terminal)
+      })
+    end
     local root = os.getenv("KIWI_ROOT") or "."
     local terminfo_directory = os.getenv("KIWI_TERMINFO") or root .. "/.build/terminfo"
     local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
@@ -246,19 +267,66 @@ local function run_window_controller(options)
       return Pty.spawn(command, child_columns, child_rows, environment)
     end
     local render_options = renderer_options(options, configuration)
-    pty = spawn_child(options.command, columns, rows)
-    local parser = VTInternal.parser(terminal)
+    local clipboard = Clipboard.new(window)
+    local hyperlink = Hyperlink.new(window)
+    local active_session
+    local state
+    local parser
+    local recovery
+    local metrics
+    local mouse
+    local mouse_generation
+    local selection_pointer
+    if options.moved_session then
+      active_session = options.moved_session
+      terminal = active_session.terminal
+      state = VTInternal.state(terminal)
+      pty = active_session.pty
+      parser = VTInternal.parser(terminal)
+      recovery = active_session.recovery
+      if active_session.renderer then
+        active_session.renderer:destroy()
+        active_session.renderer = nil
+      end
+      renderer = nil
+      metrics = active_session.metrics
+      metrics.context = context
+      metrics.font = font
+      metrics.model = state
+      metrics:set_runtime({ clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
+      mouse = active_session.mouse
+      mouse_generation = state.modes.mouse_generation
+      active_session.mouse_generation = mouse_generation
+      selection_pointer = active_session.selection_pointer
+    else
+      terminal = new_terminal(columns, rows)
+      state = VTInternal.state(terminal)
+      pty = spawn_child(options.command, columns, rows)
+      parser = VTInternal.parser(terminal)
+      recovery = Recovery.new()
+      renderer = Renderer.new(context, font, state, render_options)
+      metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
+      mouse = Mouse.new()
+      mouse_generation = state.modes.mouse_generation
+      selection_pointer = SelectionPointer.new()
+      active_session = {
+        metrics = metrics,
+        mouse = mouse,
+        mouse_generation = mouse_generation,
+        pty = pty,
+        recovery = recovery,
+        renderer = renderer,
+        selection_pointer = selection_pointer,
+        terminal = terminal,
+      }
+    end
     if options.record then
       recorder = Replay.Recorder.new(options.record)
       recorder:resize(columns, rows)
     end
-    renderer = Renderer.new(context, font, state, render_options)
-    local clipboard = Clipboard.new(window)
-    local hyperlink = Hyperlink.new(window)
-    local recovery = Recovery.new()
-    local metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
+    local max_seconds = number_from_env("KIWI_MAX_SECONDS", 0)
     local simulated_device_loss_frame = number_from_env("KIWI_SIMULATE_DEVICE_LOSS_FRAME", 0)
     local simulated_device_loss = false
     local soak_seconds = number_from_env("KIWI_DEVICE_SOAK_SECONDS", 0)
@@ -279,23 +347,10 @@ local function run_window_controller(options)
     local power = power_report and Power.new({ active_poll_seconds = 0.050, minimized_poll_seconds = 0.250 }) or nil
     local power_synthetic_input = power and os.getenv("KIWI_POWER_SYNTHETIC_INPUT") == "1"
     local synthetic_input_sent = false
-    local mouse = Mouse.new()
-    local mouse_generation = state.modes.mouse_generation
-    local selection_pointer = SelectionPointer.new()
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local configuration_reload_requested = false
     workspace = Workspace.new()
-    local active_session = {
-      metrics = metrics,
-      mouse = mouse,
-      mouse_generation = mouse_generation,
-      pty = pty,
-      recovery = recovery,
-      renderer = renderer,
-      selection_pointer = selection_pointer,
-      terminal = terminal,
-    }
-    local first_pane = assert(workspace:new_tab(active_session))
+    assert(workspace:new_tab(active_session))
 
     destroy_session = function(session)
       if session.closed then return end
@@ -367,39 +422,32 @@ local function run_window_controller(options)
       assert(workspace:focus_pane(pane.id))
       bind_active_session(pane.session)
       renderer:invalidate("terminal")
+      options.application:mark_layout_dirty()
       return true
     end
 
-    local function new_session(columns, rows)
-      local new_terminal = VT.new({
-        columns = columns,
-        rows = rows,
-        state_options = {
-          scrollback_limit = configuration.scrollback_limit,
-          ambiguous_width = configuration.ambiguous_width,
-          osc52_write = configuration.osc52_write,
-          cell_width = font.cell_width,
-          cell_height = font.cell_height,
-          colors = {
-            foreground = configuration.foreground,
-            background = configuration.background,
-            palette = configuration.palette,
-          },
-        },
-      })
-      local new_state = VTInternal.state(new_terminal)
-      local new_pty = spawn_child(options.command, columns, rows)
+    local function new_session(columns, rows, command)
+      local session_terminal = new_terminal(columns, rows)
+      local new_state = VTInternal.state(session_terminal)
+      local new_pty = spawn_child(command == false and nil or command or options.command, columns, rows)
       local new_recovery = Recovery.new()
       return {
-        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = VTInternal.parser(new_terminal), recovery = new_recovery }),
+        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = VTInternal.parser(session_terminal), recovery = new_recovery }),
         mouse = Mouse.new(),
         mouse_generation = new_state.modes.mouse_generation,
         pty = new_pty,
         recovery = new_recovery,
         renderer = nil,
         selection_pointer = SelectionPointer.new(),
-        terminal = new_terminal,
+        terminal = session_terminal,
       }
+    end
+
+    if options.restored_workspace then
+      destroy_session(active_session)
+      workspace = Workspace.restore(options.restored_workspace, function()
+        return new_session(columns, rows, false)
+      end)
     end
 
     local function focus_next_tab()
@@ -468,6 +516,96 @@ local function run_window_controller(options)
 
     assert(refresh_workspace_layout())
     if options.workspace_smoke then assert(create_split("vertical")) end
+    if options.layout_restored then
+      io.stdout:write(string.format("Kiwi layout restored: tabs=%d panes=%d; each pane received a fresh shell session.\n", workspace:tab_count(), workspace:pane_count()))
+    end
+
+    local pending_transfer
+    local transferred_away
+    local function rebind_session_to_this_window(session)
+      if session.renderer then
+        session.renderer:destroy()
+        session.renderer = nil
+      end
+      local session_state = VTInternal.state(session.terminal)
+      session.metrics.context = context
+      session.metrics.font = font
+      session.metrics.model = session_state
+      session.metrics:set_runtime({ clipboard = clipboard, pty = session.pty, parser = VTInternal.parser(session.terminal), recovery = session.recovery })
+      session.mouse_generation = session_state.modes.mouse_generation
+      session_state:mark_all_dirty()
+    end
+
+    local function begin_transfer()
+      if pending_transfer then return nil, "transfer-pending" end
+      local pane = workspace:active_pane()
+      if pane == nil then return nil, "no-active-pane" end
+      local detached, reason = workspace:detach_pane(pane.id)
+      if detached == nil then return nil, reason end
+      pending_transfer = detached.session
+      if workspace:tab_count() > 0 then
+        assert(refresh_workspace_layout())
+        assert(activate_pane(assert(workspace:active_pane()).id))
+      else
+        pane_entries = {}
+        pane_layouts = {}
+      end
+      return pending_transfer
+    end
+
+    local function restore_transfer(session)
+      if pending_transfer ~= session then return nil, "unknown-transfer" end
+      local pane, reason = workspace:adopt_tab(session)
+      if pane == nil then return nil, reason end
+      pending_transfer = nil
+      rebind_session_to_this_window(session)
+      assert(refresh_workspace_layout())
+      return activate_pane(pane.id)
+    end
+
+    local function complete_transfer(session)
+      if pending_transfer ~= session then return nil, "unknown-transfer" end
+      pending_transfer = nil
+      if workspace:tab_count() == 0 then
+        transferred_away = session
+        assert(options.application:unregister_controller(options.controller_id))
+        window:request_close()
+        return true
+      end
+      assert(refresh_workspace_layout())
+      return activate_pane(assert(workspace:active_pane()).id)
+    end
+
+    local function accept_transfer(session)
+      local pane, reason = workspace:adopt_tab(session)
+      if pane == nil then return nil, reason end
+      rebind_session_to_this_window(session)
+      assert(refresh_workspace_layout())
+      assert(activate_pane(pane.id))
+      return true
+    end
+
+    assert(options.application:register_controller(options.controller_id, {
+      accept_transfer = accept_transfer,
+      begin_transfer = begin_transfer,
+      complete_transfer = complete_transfer,
+      destroy_session = destroy_session,
+      new_session = function() return new_session(1, 1, false) end,
+      restore_transfer = restore_transfer,
+      snapshot = function()
+        return { geometry = window:geometry(), workspace = workspace:snapshot() }
+      end,
+    }))
+    local transfer_confirmation_pending = options.transfer_source_id ~= nil
+    local last_geometry = window:geometry()
+
+    local function capture_geometry_change()
+      local current = window:geometry()
+      if current.x ~= last_geometry.x or current.y ~= last_geometry.y or current.width ~= last_geometry.width or current.height ~= last_geometry.height then
+        last_geometry = current
+        options.application:mark_layout_dirty()
+      end
+    end
 
     local accessibility_projection = AtspiProjection.new()
     local window_focused = true
@@ -635,6 +773,27 @@ local function run_window_controller(options)
         if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
         return true
       end
+      if key == string.byte("M") then
+        if options.session_move_smoke_requester then active_session.session_move_smoke_source_id = options.controller_id end
+        local moved, reason
+        if bit.band(modifiers, glfw.mod_alt) ~= 0 then
+          moved, reason = options.application:move_active_to_next_window(options.controller_id)
+        else
+          moved, reason = options.application:move_active_to_new_window(options.controller_id)
+        end
+        if not moved then io.stderr:write("Kiwi session move rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
+      if key == string.byte("D") then
+        local duplicated, reason
+        if bit.band(modifiers, glfw.mod_alt) ~= 0 then
+          duplicated, reason = options.application:duplicate_active_to_next_window(options.controller_id)
+        else
+          duplicated, reason = options.application:request_window(configuration_path)
+        end
+        if not duplicated then io.stderr:write("Kiwi session duplication rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
       if key == string.byte("W") then
         local closed, reason = close_active_pane()
         if not closed then io.stderr:write("Kiwi pane closure rejected: ", reason or "unavailable", "\n") end
@@ -703,6 +862,7 @@ local function run_window_controller(options)
       end
     end, function(key, action, modifiers)
       if handle_workspace_key(key, action, modifiers) then
+        options.application:mark_layout_dirty()
         return { handled = true, suppress_text = true }
       end
       if key == glfw.key_f6 and action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
@@ -789,13 +949,30 @@ local function run_window_controller(options)
       local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
+    if transfer_confirmation_pending then
+      if options.session_move_smoke then
+        assert(options.moved_session.session_move_smoke_source_id == options.transfer_source_id, "session-move smoke lost the transferred session identity")
+        assert(options.moved_session.pty == pty, "session-move smoke replaced the transferred PTY")
+        assert(Window.live_count() == 2, "session-move smoke did not retain both native windows during handoff")
+        options.application.session_move_smoke_reported = true
+      end
+      assert(options.application:confirm_transfer(options.controller_id))
+    end
     if options.multi_window_smoke_requester then
       assert(handle_workspace_key(string.byte("N"), glfw.press, glfw.mod_control + glfw.mod_shift))
     end
+    if options.session_move_smoke_requester then
+      assert(handle_workspace_key(string.byte("M"), glfw.press, glfw.mod_control + glfw.mod_shift))
+    end
 
-    io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
+    local child_label = options.moved_session and "moved-session" or options.command and options.command[1] or Pty.default_command()[1]
+    io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", child_label, columns, rows, font.font_path))
+    if options.session_move_smoke and options.application.session_move_smoke_reported then
+      io.stdout:write("Kiwi session-move smoke passed: one live PTY moved between native windows in this application process.\n")
+    end
     while not window:should_close() do
       local now = window:time()
+      if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
       local maximum_wait = window.minimized and 0.250 or 0.050
       for _, pane in pairs(workspace.panes) do
@@ -806,6 +983,11 @@ local function run_window_controller(options)
       end
       local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
       options.application:await_events(window, requested_wait)
+      while pending_transfer and not window:should_close() do
+        options.application:await_events(window, 0)
+      end
+      if window:should_close() then break end
+      capture_geometry_change()
       if options.multi_window_smoke and not options.application.multi_window_smoke_reported then
         assert(Window.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
         options.application.multi_window_smoke_reported = true
@@ -985,7 +1167,7 @@ local function run_window_controller(options)
         window:request_close()
       end
     end
-    terminal:finish()
+    if terminal and (transferred_away == nil or terminal ~= transferred_away.terminal) then terminal:finish() end
     if kitty_graphics_report then
       if kitty_first_visible_at then
         local transfer_to_present_ms = kitty_transfer_started_at and (kitty_first_visible_at - kitty_transfer_started_at) * 1000 or -1
@@ -1022,8 +1204,21 @@ local function run_window_controller(options)
     end
   end, debug.traceback)
 
+  if options.application then options.application:unregister_controller(options.controller_id) end
+  local preserve_transferred_session = options.moved_session ~= nil and not options.transfer_confirmed
+  if preserve_transferred_session and options.moved_session.renderer then
+    options.moved_session.renderer:destroy()
+    options.moved_session.renderer = nil
+  end
   if workspace and destroy_session then
-    for _, pane in pairs(workspace.panes) do destroy_session(pane.session) end
+    for _, pane in pairs(workspace.panes) do
+      if not (preserve_transferred_session and pane.session == options.moved_session) then destroy_session(pane.session) end
+    end
+    pty = nil
+    terminal = nil
+    renderer = nil
+  end
+  if preserve_transferred_session then
     pty = nil
     terminal = nil
     renderer = nil
@@ -1059,5 +1254,8 @@ elseif options.replay then
 elseif options.demo then
   Demo.run()
 else
-  LiveWindowManager.new(run_window_controller, options):run()
+  LiveWindowManager.new(run_window_controller, options, {
+    layout_path = os.getenv("KIWI_LAYOUT_PATH") or LayoutStore.path(),
+    layout_store = LayoutStore,
+  }):run()
 end

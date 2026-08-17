@@ -213,6 +213,22 @@ function Window:set_size(width, height)
   glfw.lib.glfwSetWindowSize(self.handle, width, height)
 end
 
+function Window:set_position(x, y)
+  assert(type(x) == "number" and x % 1 == 0, "window x position must be an integer")
+  assert(type(y) == "number" and y % 1 == 0, "window y position must be an integer")
+  glfw.lib.glfwSetWindowPos(self.handle, x, y)
+end
+
+function Window:geometry()
+  local x = ffi.new("int[1]")
+  local y = ffi.new("int[1]")
+  local width = ffi.new("int[1]")
+  local height = ffi.new("int[1]")
+  glfw.lib.glfwGetWindowPos(self.handle, x, y)
+  glfw.lib.glfwGetWindowSize(self.handle, width, height)
+  return { height = height[0], width = width[0], x = x[0], y = y[0] }
+end
+
 function Window:iconify()
   glfw.lib.glfwIconifyWindow(self.handle)
 end

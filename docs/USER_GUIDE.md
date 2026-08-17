@@ -155,13 +155,29 @@ because changing either would require semantic grid reflow or history
 retention changes; Kiwi reports that limitation instead of partially applying
 the file.
 
-`Ctrl+Shift+N` opens an independent Kiwi application window. Each window starts
-with its own default-shell workspace; it does not clone terminal text, clipboard
-contents, or a running child process. On a packaged macOS build it asks
-LaunchServices for a new `Kiwi.app` instance; source and Linux launches spawn a
-separate LuaJIT process with the active explicit configuration path when one
-was supplied. The current custom-rendered tab/split workspace remains scoped to
-one window, and no layout is persisted or restored yet.
+`Ctrl+Shift+N` creates a new default-shell native window in the same Kiwi
+process. `Ctrl+Shift+M` moves the active pane's live PTY, terminal state, and
+scrollback into a newly created window; `Ctrl+Shift+Alt+M` moves it into the
+next open Kiwi window as a tab. These actions do not copy the session or restart
+its child process. `Ctrl+Shift+D` opens a fresh default-shell window, while
+`Ctrl+Shift+Alt+D` adds a fresh default-shell tab to the next open window. A
+move or duplicate to an existing window is rejected when there is no other
+Kiwi window; all of these operations are unavailable while `--record` is
+active.
+
+Kiwi attempts to persist bounded window geometry plus tab/split topology and
+the active tab/pane on normal live-session changes, reporting an I/O failure to
+stderr. Successful updates use a temporary file and same-directory rename. It
+restores that topology with one fresh default shell per pane at the next launch;
+terminal text, scrollback, running processes, command arguments, clipboard
+data, and environment values are never written. The default path is
+`~/Library/Application Support/io.github.gongahkia.kiwi/workspace-v1.json` on
+macOS and `$XDG_STATE_HOME/kiwi/workspace-v1.json` (or
+`~/.local/state/kiwi/workspace-v1.json`) on Linux. Set `KIWI_LAYOUT_PATH` to
+use a different file, `KIWI_LAYOUT_PERSISTENCE=0` or
+`KIWI_LAYOUT_RESTORE=0` to disable one direction, or pass
+`--no-restore-layout` to disable both. Malformed, oversized, or unknown-schema
+files are rejected with a diagnostic and never evaluated as code.
 
 `osc52-write` remains `false` by default. Setting it to `true` permits only
 validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,

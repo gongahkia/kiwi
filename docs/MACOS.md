@@ -34,9 +34,10 @@ live GLFW/Cocoa/Metal render path.
 
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
 private AppKit pasteboard, checks the bounded `NSAccessibilityStaticText`
-projection, creates two independent Cocoa/Metal surfaces, resizes the primary
-drawable after the second window closes, then stages and launches the
-project-local `Kiwi-dev.app`.
+projection, creates two independent Cocoa/Metal surfaces, moves one live PTY
+between them, writes and restores a bounded tab/split topology with fresh
+shells, resizes the primary drawable after the second window closes, then
+stages and launches the project-local `Kiwi-dev.app`.
 `make release-check` additionally launches an extracted release `Kiwi.app`
 through LaunchServices after checking archive reproducibility. It
 does not read or replace the user's general clipboard, so it is not a test of
