@@ -41,6 +41,8 @@ native text widget or a replacement renderer.
 3. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`; bounded single-window, framebuffer
    capture, and same-process multi-window runs pass on the Fedora/KWin session.
+   Run `make gtk-wayland-smoke` and `make gtk-wayland-multi-window-smoke` from
+   a Wayland session to repeat the first and third checks.
    Complete interactive desktop qualification before adding AppKit. Each later
    adapter owns its event loop and drawing surface; neither calls terminal-state
    internals.
