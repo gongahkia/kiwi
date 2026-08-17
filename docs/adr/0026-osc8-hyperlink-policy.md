@@ -30,11 +30,12 @@ and `terminal/state.lua` owns the resulting cell metadata.
   the pointer only while application mouse reporting is inactive, and
   `Ctrl+Shift+O` opens one under the visible cursor. Both actions are reserved
   before Kitty keyboard encoding and never enqueue PTY input.
-- `input/hyperlink.lua` validates again at the user-intent boundary. The Linux
-  bridge double-forks and calls `xdg-open` through `execlp` with the URI as one
-  argv value; it performs no shell interpolation and redirects detached child
-  standard streams to `/dev/null`. Successful launch only means the bridge
-  spawned the opener, not that a desktop handler accepted or displayed it.
+- `input/hyperlink.lua` validates again at the user-intent boundary. The
+  platform bridge double-forks and calls `xdg-open` on Linux or `open` on
+  macOS with the URI as one argv value; it performs no shell interpolation and
+  redirects detached child standard streams to `/dev/null`. Successful launch
+  only means the bridge spawned the opener, not that a desktop handler accepted
+  or displayed it.
 
 ## Rationale
 

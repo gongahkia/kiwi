@@ -24,7 +24,7 @@ M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, ve
 
 ## Linux prerequisites
 
-Kiwi currently supports Linux x86_64. On Fedora 43:
+The Linux support target is x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
@@ -36,7 +36,7 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 
 ## macOS prerequisites
 
-The macOS source target is verified on macOS 14+ Apple Silicon. Install the source dependencies with Homebrew, then build and run from the checkout:
+The macOS source target is verified on macOS 26.5.2 Apple Silicon. Install the source dependencies with Homebrew, then build and run from the checkout:
 
 ```sh
 brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
@@ -64,7 +64,13 @@ To verify a retained artifact from the checkout root, use its adjacent
 checksum from inside `dist/`:
 
 ```sh
-release="kiwi-$(< VERSION)-linux-x86_64"
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) target=linux-x86_64 ;;
+  Darwin-arm64) target=macos-arm64 ;;
+  Darwin-x86_64) target=macos-x86_64 ;;
+  *) print -u2 "unsupported Kiwi release target"; exit 1 ;;
+esac
+release="kiwi-$(< VERSION)-$target"
 (cd dist && sha256sum --check "$release.tar.gz.sha256")
 tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
@@ -74,8 +80,8 @@ The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, FreeType, HarfBuzz,
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
 shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
 renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
-publish a GitHub release or claim portability beyond the documented Linux
-environment.
+publish a GitHub release or claim portability beyond the documented Linux and
+macOS environments.
 
 `make libkiwi-vt` separately produces the reproducible, renderer-free
 `libkiwi-vt` SDK described in [docs/LIBKIWI.md](docs/LIBKIWI.md). It contains
@@ -118,13 +124,13 @@ make vt-demo                           # renderer-free libkiwi-vt projection; re
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
 make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C consumer, and media-boundary check
 make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
-make smoke                             # bounded native live-terminal GPU smoke test; skips without display
+make smoke                             # bounded native live-terminal GPU smoke test; skips without Linux display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
-make accessibility-smoke                # semantic accessibility checks plus local AT-SPI availability report
-make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; skips without a desktop registry
+make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
+make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -213,7 +219,7 @@ Each visible pane has its own terminal and PTY, is resized to its cell-layout
 rectangle, and is rendered into a scissored viewport in one shared WGPU frame.
 Primary-clicking a pane focuses it before pointer input is routed to that
 terminal. Inactive tabs continue to service their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
-Linux clipboard through GLFW. Clipboard reads/writes are limited to 1 MiB;
+GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
 
@@ -294,6 +300,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds local Linux clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds GLFW clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset/DECSTR and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

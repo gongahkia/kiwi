@@ -4,6 +4,11 @@ set -euo pipefail
 readonly ROOT=${0:A:h:h}
 readonly LUAJIT=${LUAJIT:-luajit}
 
+if [[ "$(uname -s)" == Darwin ]]; then
+  print "SKIP accessibility provider registry smoke: it exercises Linux AT-SPI; macOS NSAccessibility requires a manual VoiceOver session."
+  exit 0
+fi
+
 if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
   print "SKIP AT-SPI provider smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."
   exit 0

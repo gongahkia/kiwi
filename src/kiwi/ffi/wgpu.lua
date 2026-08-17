@@ -139,6 +139,7 @@ uint32_t wgpuSurfacePresent(WGPUSurface surface);
 void wgpuSurfaceUnconfigure(WGPUSurface surface);
 void wgpuSurfaceRelease(WGPUSurface surface);
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow* window);
+int kiwi_surface_set_drawable_size(GLFWwindow* window, uint32_t width, uint32_t height);
 WGPUAdapter kiwi_request_adapter_sync(WGPUInstance instance, WGPUSurface surface);
 WGPUDevice kiwi_request_device_sync(WGPUInstance instance, WGPUAdapter adapter);
 WGPUDevice kiwi_request_timestamp_device_sync(WGPUInstance instance, WGPUAdapter adapter);

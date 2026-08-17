@@ -41,6 +41,7 @@ end
 
 function Environment.collect(timestamp, iterations, warmup)
   local dirty = command_output("git diff --quiet --ignore-submodules --; printf '%s' $?")
+  local macos = jit.os == "OSX"
   return {
     timestamp_utc = timestamp,
     revision = {
@@ -50,9 +51,9 @@ function Environment.collect(timestamp, iterations, warmup)
     },
     system = {
       architecture = jit.arch,
-      cpu_model = command_output("sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo | head -n 1"),
-      cpu_affinity = command_output("taskset -pc $$ | sed 's/.*: //'"),
-      cpu_governor = file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+      cpu_model = macos and command_output("sysctl -n machdep.cpu.brand_string 2>/dev/null") or command_output("sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo | head -n 1"),
+      cpu_affinity = macos and "unavailable" or command_output("taskset -pc $$ | sed 's/.*: //'"),
+      cpu_governor = macos and "unavailable" or file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
       gl_renderer = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL renderer string: //p' | head -n 1"),
       gl_version = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL core profile version string: //p' | head -n 1"),
       kernel = command_output("uname -srm"),
@@ -81,7 +82,7 @@ end
 
 function Environment.collect_pacing(timestamp, measurement)
   local environment = Environment.collect(timestamp, measurement.sample_limit, measurement.warmup_frames)
-  local session = os.getenv("WAYLAND_DISPLAY") and "wayland" or os.getenv("DISPLAY") and "x11" or "unavailable"
+  local session = jit.os == "OSX" and "cocoa" or os.getenv("WAYLAND_DISPLAY") and "wayland" or os.getenv("DISPLAY") and "x11" or "unavailable"
   environment.configuration = {
     sample_limit = measurement.sample_limit,
     warmup_frames = measurement.warmup_frames,

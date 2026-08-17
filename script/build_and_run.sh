@@ -11,6 +11,11 @@ readonly LAUNCHER="$MACOS/$APP_NAME"
 readonly PID_FILE="$ROOT/.build/kiwi-dev.pid"
 readonly LUAJIT_BIN=${LUAJIT:-$(command -v luajit)}
 
+if [[ "$(uname -s)" != Darwin ]]; then
+  print -u2 "build_and_run.sh is the macOS app launcher; use make run on $(uname -s)."
+  exit 1
+fi
+
 stop_previous() {
   [[ -f "$PID_FILE" ]] || return
   local pid=$(<"$PID_FILE")
@@ -29,7 +34,7 @@ stage_app() {
   mkdir -p "$MACOS"
   print '<?xml version="1.0" encoding="UTF-8"?>' > "$APP/Contents/Info.plist"
   print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP/Contents/Info.plist"
-  print "<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>$APP_NAME</string><key>CFBundleIdentifier</key><string>$BUNDLE_ID</string><key>CFBundleName</key><string>$APP_NAME</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>" >> "$APP/Contents/Info.plist"
+  print "<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>$APP_NAME</string><key>CFBundleIdentifier</key><string>$BUNDLE_ID</string><key>CFBundleName</key><string>$APP_NAME</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>" >> "$APP/Contents/Info.plist"
   print '#!/usr/bin/env zsh' > "$LAUNCHER"
   print 'set -euo pipefail' >> "$LAUNCHER"
   print "readonly KIWI_SOURCE_ROOT=\"$ROOT\"" >> "$LAUNCHER"

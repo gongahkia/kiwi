@@ -1,96 +1,71 @@
-# ADR 0039: macOS native feasibility
+# ADR 0039: macOS native support
 
-## Research result
+## Status
 
-This assessment ran on Fedora Linux 43 x86_64, not macOS. `xcrun` and
-`osxcross` are absent. **No access** was available to a macOS version or
-architecture, Xcode toolchain, Cocoa desktop, Metal adapter, Core Text font
-database, NSPasteboard, IME, accessibility APIs, or a high-DPI display.
-
-The checked-in wgpu-native v29.0.1.1 dependency has only Linux
-`libwgpu_native.so`/`.a`; `script/bootstrap` rejects every non-Linux-x86_64
-host and downloads the Linux archive, while `script/build-native` creates a
-Linux `.so` with `pkg-config`. The current C bridge selects GLFW Wayland/X11
-native handles and Vulkan. It therefore cannot build or run as a macOS target.
-
-The pinned header does declare both `WGPUBackendType_Metal` and
-`WGPUSurfaceSourceMetalLayer`, whose layer is a `CAMetalLayer *`. Upstream wgpu
-lists Metal as first-class on macOS/iOS and wgpu-native publishes macOS binary
-releases. GLFW exposes Cocoa `NSWindow` and `NSView` handles and documents that
-macOS framebuffer size can change independently of window size as content scale
-changes. Those facts establish possible seams; they are not evidence that the
-pinned wgpu binary, Cocoa view/layer lifetime, or Kiwi renderer works on macOS.
-
-`platform.window` already queries GLFW framebuffer size and content scale, but
-its callbacks and renderer recreation path have only Linux evidence. The font
-resolver directly loads Fontconfig; Core Text offers font descriptors and
-cascading, but no Core Text provider is implemented. `process.pty` is POSIX in
-shape, yet its LuaJIT FFI depends on Linux `libutil` loading and `execvpe`; its
-macOS ABI, child environment, resize, and cleanup behavior remain unknown.
-
-## Minimum implementation backlog
-
-1. Split bootstrap/build selection from the Linux archive and `.so` naming.
-   Pin a checksum-verified matching macOS wgpu-native archive for each supported
-   architecture, record the macOS/Xcode/GLFW/LuaJIT toolchain, and retain the
-   existing Linux route unchanged.
-2. Split the native bridge into common WGPU code and a macOS Objective-C bridge.
-   The macOS bridge must acquire the GLFW Cocoa view on the GLFW main thread,
-   own a `CAMetalLayer` lifetime, create the exact pinned Metal-layer surface,
-   request Metal explicitly, and report window/surface failures at the platform
-   boundary. It must not expose Cocoa or WGPU handles to terminal state.
-3. Put platform font discovery behind the existing path-and-face boundary.
-   A macOS provider may resolve a configured file first and use a tested Core
-   Text descriptor/cascade path for fallback. Do not substitute Core Text
-   shaping for Kiwi's existing FreeType/HarfBuzz ownership without separate
-   text-equivalence evidence.
-4. Make the POSIX session contract explicit and compile its macOS implementation
-   against the target host. Verify spawn, inherited environment, bounded reads,
-   `TIOCSWINSZ`, EOF, child reaping, and Ctrl-C behavior before reusing it.
-5. Keep GLFW character input, clipboard, focus, and content-scale handling in
-   `platform.window`. Test NSPasteboard permissions/failures, committed input
-   and IME scope, regular-to-Retina movement, minimize/restore, and the future
-   accessibility adapter independently.
-
-## Required macOS validation matrix
-
-| Area | Required native evidence |
-| --- | --- |
-| target | macOS version/architecture, Xcode version, pinned archive checksum, GLFW and LuaJIT ABI |
-| GPU/window | Cocoa view + CAMetalLayer surface, Metal adapter/device/shader/present, resize/minimize/close |
-| scale | framebuffer and content-scale transitions between normal and Retina displays, resulting grid/font/renderer recreation |
-| PTY | shell output/input, resize, EOF, reaping, and interrupt behavior |
-| text | configured primary font, fallback CJK/combining/emoji behavior, provider failure path |
-| input/system | committed keys, clipboard read/write failure and success, IME limitation, accessibility adapter smoke |
-| regressions | focused macOS tests plus unchanged Linux `make check` |
-
-On a supported macOS host, after the target-specific bootstrap/build support
-exists, the interactive smoke command is:
-
-```sh
-KIWI_MAX_FRAMES=900 make run ARGS='-- /bin/sh -c "printf kiwi-macos-smoke; sleep 15"'
-```
-
-During those 15 seconds, resize, minimize/restore, type a committed character,
-paste a short UTF-8 string, and close the window. Record the target/toolchain,
-observable result, and failure text. This is a proposed future-host command;
-the current bootstrap intentionally rejects macOS, so it has not been run.
+Implemented and verified on one Apple Silicon macOS host on 2026-08-17. This
+is source-build evidence, not a general macOS compatibility or distribution
+claim.
 
 ## Decision
 
-Defer [issue #143](https://github.com/gongahkia/kiwi/issues/143). macOS support
-has a bounded architecture route, but there is no macOS host or target binary
-to validate the required native behavior. Do not add guessed Cocoa, Core Text,
-or platform FFI branches. `make check` is Linux regression evidence only and
-cannot prove a macOS target.
+Keep the Linux x86_64 path intact and add a separate macOS boundary rather than
+introducing Cocoa/Metal APIs into terminal state.
+
+- `script/bootstrap` selects checksum-pinned wgpu-native archives for Linux
+  x86_64, macOS arm64, and macOS x86_64. The macOS arm64 archive was fetched,
+  verified, compiled, and run; the x86_64 selection is present but unverified
+  on Intel hardware.
+- The common native bridge selects Vulkan on Linux and Metal on macOS. The
+  Objective-C `native/surface_macos.m` obtains GLFW's Cocoa `NSView` on the
+  main thread, installs a `CAMetalLayer`, and creates a WebGPU Metal-layer
+  surface. Lua terminal state never receives a Cocoa, Metal, or WGPU handle.
+- The macOS PTY route uses the system `forkpty` symbols and a C
+  `kiwi_execvpe` helper. It searches the explicit child-only `PATH` then calls
+  `execve`; Linux continues to delegate to `execvpe`. This preserves the
+  existing environment contract without relying on a Linux-only LuaJIT FFI
+  symbol.
+- The shared FreeType/HarfBuzz/Fontconfig text path remains in use. A Core Text
+  provider is not introduced or claimed.
+- `native/accessibility_macos.m` attaches one bounded NSAccessibility static
+  text element to the GLFW content view. It reports the active pane title and
+  viewport text and posts value/focus notifications; it is not a complete text
+  accessibility implementation.
+- Release and C-SDK packaging use `.dylib` on macOS, include a convenience
+  `Kiwi.app` in macOS release archives, and use portable checksum/archive
+  commands. Artifacts are unsigned and unnotarized.
+
+## Verification
+
+On the verified Apple Silicon host:
+
+| Area | Evidence | Result and limit |
+| --- | --- | --- |
+| Native bridge | `make native` | Passed: compiled the common C bridge plus Cocoa/Metal and NSAccessibility Objective-C sources into `libkiwi_surface.dylib`. |
+| Regression suite | `make check` | Passed: 332 deterministic LuaJIT tests, parser fuzz, all 10 PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
+| Live window/GPU | `KIWI_MAX_FRAMES=30 make run ARGS='-- /bin/sh -c "printf kiwi-macos-smoke; sleep 2"'` | Passed: a native GLFW/Cocoa/Metal session initialized and printed the child sentinel. This is not a Retina, minimize/restore, or multi-display usability result. |
+| C SDK | `make libkiwi-vt-check` | Passed: reproducible macOS archive plus Lua and C consumer checks. The C consumer used the Homebrew LuaJIT library path supplied by the package launcher. |
+| Release artifact | `make release-check` | Passed: two macOS archives were byte-identical; checksum, metadata, terminfo, `Kiwi.app` layout, and release-mode launcher checks passed. |
+| App launch scaffold | `KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify` | Passed: the project-local app bundle staged, launched, and cleaned its tracked child PID. It does not inspect pixels or accessibility clients. |
+
+## Remaining validation and support boundaries
+
+- The implementation has not been compiled or run on macOS x86_64.
+- No specific macOS minimum-version claim is made; only the host above is
+  verified. A deployment target must be selected and tested before making one.
+- No VoiceOver session has exercised the NSAccessibility adapter. Its spoken
+  output, rotor/navigation behavior, focus, and selection semantics are
+  unverified.
+- IME preedit, high-DPI/display transitions, minimize/restore, clipboard
+  behavior, and physical rendering fidelity have not been manually tested on
+  macOS.
+- macOS release archives are not signed or notarized, so they are not a
+  distribution-ready application.
+- Linux source was retained but was not built in this macOS verification run.
 
 ## References
 
-- [wgpu supported platforms](https://github.com/gfx-rs/wgpu)
-- [wgpu-native binary releases](https://github.com/gfx-rs/wgpu-native)
+- [wgpu-native binary releases](https://github.com/gfx-rs/wgpu-native/releases)
 - [GLFW native access](https://www.glfw.org/docs/latest/group__native.html)
 - [GLFW window and content-scale guide](https://www.glfw.org/docs/latest/window.html)
 - [Apple CAMetalLayer documentation](https://developer.apple.com/documentation/quartzcore/cametallayer)
-- [Apple Core Text documentation](https://developer.apple.com/documentation/coretext/)
-- [Apple NSPasteboard documentation](https://developer.apple.com/documentation/appkit/nspasteboard)
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
+- [macOS support notes](../MACOS.md)
