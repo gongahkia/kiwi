@@ -65,6 +65,10 @@ and intentionally separates supported, partial, deferred, and next-version
 work. The versioned work sequence below prioritizes behavior that affects common
 shells and full-screen terminal applications.
 
+The workload and evidence rules that decide this priority are in
+[DAILY_DRIVER_CORPUS.md](DAILY_DRIVER_CORPUS.md). A protocol is not promoted
+solely because it is listed by another terminal or accepted by Kiwi's parser.
+
 | Version | Scope | Current evidence | Gate before advertising |
 | --- | --- | --- | --- |
 | 1.0 | Current documented C0/ESC/CSI/OSC subset; primary/alternate state; Unicode clusters; PTY resize; mouse/focus; selection; OSC 8; bounded OSC 52; selected Kitty keyboard; bounded PNG/APNG/GIF graphics. | Deterministic terminal, parser, PTY, replay, and renderer tests. | Keep terminfo at its documented 16-colour capability boundary. |

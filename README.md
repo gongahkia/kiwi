@@ -98,10 +98,10 @@ enter the matching development environment with `nix develop`, and run the
 flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
 the pinned-input update procedure and driver/display limitations.
 
-Arch/AUR publication is currently deferred: the project has no publicly
-fetchable immutable source archive, release tag, license file, or authorized
-AUR maintainer. The evidence and prerequisites for revisiting that decision
-are in [AUR.md](docs/AUR.md).
+Arch/AUR publication is currently deferred pending the first public,
+immutable source release and an authorized AUR maintainer. Kiwi is MIT
+licensed; see [LICENSE](LICENSE), [RELEASES.md](docs/RELEASES.md), and
+[AUR.md](docs/AUR.md) for the release and packaging contracts.
 
 For the supported source and artifact launch paths, environment-only
 configuration, safe-mode troubleshooting, maintained render-extension examples,
@@ -236,9 +236,9 @@ GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
 
-Kiwi has no production IME/preedit bridge. GLFW character callbacks continue to
-provide committed Unicode text; the researched Wayland text-input boundary and
-detached lifecycle spike are documented in
+Kiwi has a bounded macOS Cocoa preedit/commit adapter. GLFW character callbacks
+continue to provide committed Unicode text; Wayland has no production text-input
+bridge, and its researched lifecycle boundary is documented in
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
 Kiwi exposes a bounded semantic accessibility model, a Linux AT-SPI bridge, and a macOS NSAccessibility element
@@ -253,6 +253,10 @@ no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
 macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling and an `NSAccessibilityTextArea` adapter; `make cocoa-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those native seams. Intel macOS, real input-source and VoiceOver interaction, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+
+## License
+
+Kiwi is licensed under the [MIT License](LICENSE).
 
 ## Replay
 

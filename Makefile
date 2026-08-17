@@ -130,7 +130,7 @@ voiceover-validation: native
 cocoa-smoke: native terminfo
 	./script/cocoa-smoke
 
-test:
+test: native
 	$(LUAJIT) src/kiwi/test.lua
 
 test-fuzz:
