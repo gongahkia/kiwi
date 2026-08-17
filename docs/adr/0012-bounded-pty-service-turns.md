@@ -6,7 +6,7 @@ The M1 PTY reader drained until `EAGAIN` before returning to GLFW event polling.
 
 ## Decision
 
-`Pty:read_available` accepts an optional byte budget. The live app uses 4 KiB per service turn by default, configurable through `KIWI_PTY_READ_BUDGET`. The reader preserves ordering and returns the remaining bytes on later polls. The real-PTY burst harness enforces the same budget and checks a 250 ms maximum service-turn and 64 MiB retained-heap limit by default.
+`Pty:read_available` accepts an optional byte budget. The live app uses 4 KiB per service turn by default, configurable through `KIWI_PTY_READ_BUDGET`. Once the terminal parser has opened a Kitty graphics transfer, that pane may additionally read from the bounded and fairly divided `KIWI_KITTY_TRANSFER_READ_BUDGET` (256 KiB by default) in the same turn. This exception is limited to an already-recognized image transfer, so ordinary bulk output retains the 4 KiB fairness bound. The reader preserves ordering and returns the remaining bytes on later polls. The real-PTY burst harness enforces the ordinary budget and checks a 250 ms maximum service-turn and 64 MiB retained-heap limit by default.
 
 ## Consequences
 
