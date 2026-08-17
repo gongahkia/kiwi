@@ -18,9 +18,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin \
-            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev
+            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev
       - name: deterministic checks
-        run: make check && make libkiwi-vt-check
+        run: make check && make libkiwi-vt-check && make gtk-host-check
 
   artifact:
     name: release artifact

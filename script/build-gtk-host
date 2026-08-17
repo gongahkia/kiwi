@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly WGPU="$ROOT/.deps/wgpu-native-v29.0.1.1"
+readonly OUTPUT="$ROOT/.build/native/libkiwi_gtk_host.so"
+
+[[ "$(uname -s)-$(uname -m)" == Linux-x86_64 ]] || {
+  print -u2 "GTK host build supports Linux x86_64; found $(uname -s) $(uname -m)."
+  exit 1
+}
+[[ -f "$WGPU/include/webgpu/webgpu.h" && -f "$WGPU/lib/libwgpu_native.so" ]] || {
+  print -u2 "wgpu-native v29.0.1.1 is missing; run make bootstrap first."
+  exit 1
+}
+pkg-config --exists gtk4 || {
+  print -u2 "GTK4 development files are required; install gtk4-devel."
+  exit 1
+}
+
+mkdir -p "${OUTPUT:h}"
+cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
+  -I"$WGPU/include" \
+  $(pkg-config --cflags gtk4) \
+  "$ROOT/native/gtk_host.c" \
+  -L"$WGPU/lib" -lwgpu_native \
+  $(pkg-config --libs gtk4) \
+  -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
+  -o "$OUTPUT"
+
+print "Built $OUTPUT"

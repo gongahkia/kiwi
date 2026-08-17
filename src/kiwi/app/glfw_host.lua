@@ -24,6 +24,32 @@ function Host.await_events(application, window, timeout)
   return application:await_events(window, timeout)
 end
 
+function Host.create_surface(instance, window)
+  return require("kiwi.ffi.wgpu").surface.kiwi_surface_from_glfw(instance, window.handle)
+end
+
+function Host.set_drawable_size(window, width, height)
+  return require("kiwi.ffi.wgpu").surface.kiwi_surface_set_drawable_size(window.handle, width, height) ~= 0
+end
+
+function Host.surface_error()
+  return require("ffi").string(require("kiwi.ffi.wgpu").surface.kiwi_surface_last_error())
+end
+
+if ffi.os == "OSX" then
+  function Host.enable_text_input(window, on_preedit, on_commit)
+    return window:enable_cocoa_text_input(on_preedit, on_commit)
+  end
+
+  function Host.set_text_input_caret(window, x, y, width, height)
+    return window:set_cocoa_text_input_caret(x, y, width, height)
+  end
+end
+
+function Host.accessibility_new(window)
+  return require("kiwi.ffi.accessibility").new(window)
+end
+
 function Host.live_count()
   return Window.live_count()
 end

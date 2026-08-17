@@ -23,21 +23,23 @@ only after a second real consumer requires a documented, testable capability.
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | AppKit | NSWindow/menus/tabs, NSTextInputClient, NSAccessibility, lifecycle and recovery | build, launch, IME, VoiceOver contract, tabs/splits, and release-bundle checks |
-| Linux x86_64 | GTK4 | application/window/menu integration, GTK clipboard/accessibility, session lifecycle | build, Wayland/X11 launch, Orca/AT-SPI contract, tabs/splits, and desktop qualification |
+| Linux x86_64 | GTK4 | application/window integration, clipboard, input, session lifecycle, and drawing surface | **Feasibility only:** ABI build and an X11 WGPU/PTy smoke pass. Wayland currently reaches presentation then receives a compositor protocol error; accessibility, IME, tabs/splits, and desktop qualification remain deferred. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
 
 ## Migration sequence
 
-1. Extract an internal host facade from `app/main.lua`: create/destroy a
-   session, route terminal input and resize, consume terminal effects, and
-   request a frame. Preserve the current GLFW path as its first consumer.
-2. Move workspace/window policy behind that facade. Session transfer and
-   layout restoration remain model operations, while each host maps them to
-   native windows, tabs, and split containers.
-3. Add AppKit and GTK4 adapters one at a time. Each adapter owns its event loop
-   integration and drawing surface; neither calls terminal-state internals.
+1. The internal facade and host-owned WGPU-surface contract are implemented.
+   GLFW remains the reference consumer.
+2. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
+   `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
+   Wayland/X11 surface discovery, title/resize/focus/input, clipboard writes,
+   URI opening, and the existing GPU-rendered terminal content. `make
+   gtk-host-check` validates its independent bridge ABI without a display.
+3. Complete GTK Wayland and desktop qualification before adding AppKit. Each
+   later adapter owns its event loop and drawing surface; neither calls
+   terminal-state internals.
 4. Promote a host only after it passes the daily-driver corpus on its native
    platform. GLFW is then retained as a test/demo harness, not the product UI.
 

@@ -86,9 +86,10 @@ local function default_gpu_probe(getenv)
   local context
   local ok, result = xpcall(function()
     local Window = require("kiwi.platform.window")
+    local GLFWHost = require("kiwi.app.glfw_host")
     local Context = require("kiwi.gpu.context")
     window = Window.new(1, 1, "Kiwi doctor", { release_mode = true, visible = false })
-    context = Context.new(window)
+    context = Context.new(GLFWHost, window)
     return {
       adapter = {
         backend = bounded(context.adapter_info.backend_name),

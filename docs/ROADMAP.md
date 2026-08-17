@@ -26,8 +26,11 @@ declared complete.
 
 ## R2 — native hosts
 
-- Extract the internal host facade from the current GLFW application.
-- Build thin AppKit and GTK4 hosts around the terminal/session/renderer seams.
+- The internal host facade and host-owned WGPU surface contract are complete.
+- GTK4 has an X11 single-window rendering/PTY feasibility host; fix its
+  current Wayland presentation protocol failure before qualifying it.
+- Build AppKit only after GTK4 has that evidence, around the same
+  terminal/session/renderer seams.
 - Keep terminal state, PTY policy, and renderer ownership free of platform UI
   handles. See [NATIVE_HOSTS.md](NATIVE_HOSTS.md).
 
