@@ -1,6 +1,5 @@
 local Build = require("kiwi.build")
 local Demo = require("kiwi.app.demo")
-local GLFWHost = require("kiwi.app.glfw_host")
 local HostController = require("kiwi.app.host_controller")
 local LayoutStore = require("kiwi.session.layout_store")
 local LiveWindowManager = require("kiwi.app.window_manager")
@@ -85,10 +84,20 @@ elseif options.replay then
 elseif options.demo then
   Demo.run()
 else
+  local requested_host = os.getenv("KIWI_HOST") or "glfw"
+  local Host
+  if requested_host == "glfw" then
+    Host = require("kiwi.app.glfw_host")
+  elseif requested_host == "gtk" then
+    Host = require("kiwi.app.gtk_host")
+  else
+    error("KIWI_HOST must be glfw or gtk")
+  end
   LiveWindowManager.new(function(controller_options)
-    return GLFWHost.run(controller_options, "Kiwi M2 terminal", HostController.run)
+    return Host.run(controller_options, "Kiwi M2 terminal", HostController.run)
   end, options, {
     layout_path = os.getenv("KIWI_LAYOUT_PATH") or LayoutStore.path(),
     layout_store = LayoutStore,
+    window_api = Host.window_api,
   }):run()
 end

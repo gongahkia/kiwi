@@ -1,5 +1,6 @@
 local Context = require("kiwi.gpu.context")
 local Window = require("kiwi.platform.window")
+local GLFWHost = require("kiwi.app.glfw_host")
 
 local function require_result(result, message)
   assert(result, message)
@@ -11,9 +12,9 @@ local second_window
 local second_context
 local ok, message = xpcall(function()
   window = Window.new(320, 240, "Kiwi Cocoa smoke")
-  context = Context.new(window)
+  context = Context.new(GLFWHost, window)
   second_window = Window.new(240, 180, "Kiwi Cocoa second-window smoke")
-  second_context = Context.new(second_window)
+  second_context = Context.new(GLFWHost, second_window)
   require_result(Window.live_count() == 2, "Cocoa multi-window smoke did not retain both GLFW windows")
 
   local clipboard_ok, clipboard_message = window:cocoa_private_clipboard_round_trip("kiwi-cocoa-private-pasteboard-✓")

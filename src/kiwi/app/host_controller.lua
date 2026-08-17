@@ -26,7 +26,6 @@ local TextLab = require("kiwi.text.lab")
 local Replay = require("kiwi.terminal.replay")
 local VT = require("kiwi.vt")
 local VTInternal = require("kiwi.vt.internal")
-local NativeAccessibility = require("kiwi.ffi.accessibility")
 
 local Controller = {}
 
@@ -170,7 +169,7 @@ function Controller.run(window, host, options)
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
       gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1",
     }
-    context = Context.new(window, context_options)
+    context = Context.new(host, window, context_options)
     compositor = Compositor.new(context)
     if os.getenv("KIWI_TIMESTAMP_PROBE") == "1" then
       local probe_ok, probe_message = context:probe_timestamp_queries()
@@ -568,7 +567,7 @@ function Controller.run(window, host, options)
     local accessibility_projection = AtspiProjection.new()
     local window_focused = true
     local accessibility_reason
-    accessibility, accessibility_reason = NativeAccessibility.new(window)
+    accessibility, accessibility_reason = host.accessibility_new and host.accessibility_new(window) or nil, "unavailable for this host"
     if accessibility == nil and os.getenv("KIWI_ACCESSIBILITY_DIAGNOSTICS") == "1" then
       io.stderr:write("Kiwi accessibility: unavailable: ", accessibility_reason, "\n")
     end
@@ -640,7 +639,7 @@ function Controller.run(window, host, options)
         context:destroy()
         context = nil
       end
-      context = Context.new(window, context_options)
+      context = Context.new(host, window, context_options)
       compositor = Compositor.new(context)
       for _, pane in pairs(workspace.panes) do pane.session.metrics.context = context end
       assert(refresh_workspace_layout())
@@ -961,8 +960,8 @@ function Controller.run(window, host, options)
       local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
-    if host.platform == "OSX" then
-      local enabled, reason = window:enable_cocoa_text_input(apply_cocoa_preedit, function(text)
+    if host.enable_text_input then
+      local enabled, reason = host.enable_text_input(window, apply_cocoa_preedit, function(text)
         handle_committed_text(apply_cocoa_commit(text))
       end)
       if not enabled then io.stderr:write("Kiwi IME: unavailable: ", reason, "\n") end
@@ -973,7 +972,8 @@ function Controller.run(window, host, options)
       if layout == nil then return end
       local scale = font.content_scale or 1
       local cursor = state.cursor
-      window:set_cocoa_text_input_caret(
+      if not host.set_text_input_caret then return end
+      host.set_text_input_caret(window,
         (layout.grid.x + cursor.column) * font.cell_width / scale,
         (layout.grid.y + cursor.row) * font.cell_height / scale,
         math.max(1, font.cell_width / scale),

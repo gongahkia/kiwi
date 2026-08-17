@@ -18,11 +18,13 @@ local function assert_handle(handle, label)
   return handle
 end
 
-function Context.new(window, options)
+function Context.new(host, window, options)
   options = options or {}
+  assert(type(host) == "table" and type(host.create_surface) == "function" and type(host.set_drawable_size) == "function", "GPU context needs a host surface provider")
   assert(options.gpu_timestamps == nil or type(options.gpu_timestamps) == "boolean", "GPU timestamp option must be a boolean")
   assert(options.framebuffer_capture == nil or type(options.framebuffer_capture) == "boolean", "framebuffer capture option must be a boolean")
   local self = setmetatable({
+    host = host,
     window = window,
     native = wgpu,
     framebuffer_capture_requested = options.framebuffer_capture == true,
@@ -32,7 +34,9 @@ function Context.new(window, options)
     local api = wgpu.lib
     local instance_descriptor = ffi.new("WGPUInstanceDescriptor")
     self.instance = assert_handle(api.wgpuCreateInstance(instance_descriptor), "wgpuCreateInstance")
-    self.surface = assert_handle(wgpu.surface.kiwi_surface_from_glfw(self.instance, window.handle), "kiwi_surface_from_glfw: " .. ffi.string(wgpu.surface.kiwi_surface_last_error()))
+    local surface = host.create_surface(self.instance, window)
+    local surface_error = host.surface_error and host.surface_error() or ffi.string(wgpu.surface.kiwi_surface_last_error())
+    self.surface = assert_handle(surface, "host surface creation: " .. surface_error)
 
     self.adapter = wgpu.surface.kiwi_request_adapter_sync(self.instance, self.surface)
     if self.adapter == nil then
@@ -97,11 +101,12 @@ function Context:configure_surface()
   if width <= 0 or height <= 0 then
     return false
   end
-  if self.native.surface.kiwi_surface_set_drawable_size(self.window.handle, width, height) == 0 then
-    error("Unable to update native surface drawable size: " .. ffi.string(self.native.surface.kiwi_surface_last_error()))
+  if not self.host.set_drawable_size(self.window, width, height) then
+    local surface_error = self.host.surface_error and self.host.surface_error() or ffi.string(self.native.surface.kiwi_surface_last_error())
+    error("Unable to update native surface drawable size: " .. surface_error)
   end
   local capabilities = ffi.new("WGPUSurfaceCapabilities")
-  if self.native.lib.wgpuSurfaceGetCapabilities(self.surface, self.adapter, capabilities) ~= 1 or capabilities.formatCount == 0 then
+  if self.native.lib.wgpuSurfaceGetCapabilities(self.surface, self.adapter, capabilities) ~= 1 or capabilities.formatCount == 0 or capabilities.alphaModeCount == 0 then
     error("Unable to query surface capabilities")
   end
   local supports_copy_src = math.floor(tonumber(capabilities.usages) / self.native.constants.texture_usage_copy_src) % 2 == 1
@@ -117,7 +122,7 @@ function Context:configure_surface()
   if self.framebuffer_capture_requested then config.usage = config.usage + self.native.constants.texture_usage_copy_src end
   config.width = width
   config.height = height
-  config.alphaMode = self.native.constants.alpha_opaque
+  config.alphaMode = capabilities.alphaModes[0]
   config.presentMode = self.native.constants.present_fifo
   self.native.lib.wgpuSurfaceConfigure(self.surface, config)
   self.native.lib.wgpuSurfaceCapabilitiesFreeMembers(capabilities)

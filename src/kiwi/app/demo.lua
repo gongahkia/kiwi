@@ -4,6 +4,7 @@ local Metrics = require("kiwi.diagnostics.metrics")
 local Renderer = require("kiwi.renderer.renderer")
 local Synthetic = require("kiwi.terminal.synthetic")
 local Window = require("kiwi.platform.window")
+local GLFWHost = require("kiwi.app.glfw_host")
 
 local Demo = {}
 
@@ -18,7 +19,7 @@ function Demo.run()
   local renderer
   local font
   local ok, result = xpcall(function()
-    context = Context.new(window, { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" })
+    context = Context.new(GLFWHost, window, { gpu_timestamps = os.getenv("KIWI_GPU_TIMESTAMPS") == "1" })
     local model = Synthetic.new(number_from_env("KIWI_SEED", 0x4b495749), 160, 50)
     font = FontSystem.new({ pixel_height = number_from_env("KIWI_FONT_PX", 20) })
     renderer = Renderer.new(context, font, model, { pass_budgets_enabled = os.getenv("KIWI_PASS_BUDGETS") == "1" })
