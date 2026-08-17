@@ -1,0 +1,44 @@
+name: macOS CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check (Apple Silicon)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: verify runner architecture
+        run: test "$(uname -m)" = arm64
+      - name: install build dependencies
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+      - name: deterministic checks
+        run: make check && make libkiwi-vt-check
+
+  artifact:
+    name: release artifact (Apple Silicon)
+    needs: check
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: verify runner architecture
+        run: test "$(uname -m)" = arm64
+      - name: install packaging dependencies
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+      - name: build reproducible release-mode artifact
+        run: make release-check && make release && make libkiwi-vt
+      - name: upload artifact and checksum metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kiwi-macos-arm64
+          path: dist/**
+          if-no-files-found: error
