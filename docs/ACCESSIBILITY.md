@@ -108,11 +108,13 @@ notifications after updates. It is removed again when Kiwi destroys the
 window. The adapter does not expose editable text, character ranges, selection
 ranges, or multiple panes as separate accessibility elements.
 
-`make accessibility-smoke` runs the deterministic semantic checks and reports
-this macOS boundary. `make accessibility-provider-smoke` is intentionally an
-AT-SPI-only test and reports a skip on macOS. No VoiceOver session has been
-performed, so these checks do not establish spoken-output, navigation, focus,
-or selection usability.
+`make cocoa-smoke` creates this adapter and checks its static-text role,
+identifier, label, UTF-8 value, focus state, and teardown restoration on a
+real Cocoa view. `make accessibility-smoke` runs the deterministic semantic
+checks and reports this macOS boundary. `make accessibility-provider-smoke` is
+intentionally an AT-SPI-only test and reports a skip on macOS. No VoiceOver
+session has been performed, so these checks do not establish spoken-output,
+navigation, focus, or selection usability.
 
 ## M9 smoke evidence
 

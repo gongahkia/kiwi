@@ -5,7 +5,10 @@ local Correlation = require("kiwi.input.correlation")
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
 int kiwi_open_uri(const char* uri);
+int kiwi_spawn_lua_window(const char* interpreter, const char* script, const char* config_path);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
+int kiwi_cocoa_accessibility_round_trip(void* window);
+int kiwi_open_application(const char* bundle_path);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -17,6 +20,8 @@ if not native_ok then error("Unable to load Kiwi native bridge at " .. native_pa
 
 local Window = {}
 Window.__index = Window
+
+local live_windows = 0
 
 local function glfw_error()
   local code = ffi.new("int[1]")
@@ -30,7 +35,7 @@ end
 function Window.new(width, height, title, options)
   options = options or {}
   assert(options.visible == nil or type(options.visible) == "boolean", "window visibility must be a boolean")
-  if glfw.lib.glfwInit() == 0 then
+  if live_windows == 0 and glfw.lib.glfwInit() == 0 then
     error("Unable to initialize GLFW: " .. glfw_error())
   end
 
@@ -40,9 +45,10 @@ function Window.new(width, height, title, options)
   glfw.lib.glfwWindowHint(glfw.constants.scale_framebuffer, glfw.constants.yes)
   local handle = glfw.lib.glfwCreateWindow(width, height, title, nil, nil)
   if handle == nil then
-    glfw.lib.glfwTerminate()
+    if live_windows == 0 then glfw.lib.glfwTerminate() end
     error("Unable to create a native GLFW window: " .. glfw_error())
   end
+  live_windows = live_windows + 1
 
   local self = setmetatable({
     handle = handle,
@@ -179,9 +185,35 @@ function Window:cocoa_private_clipboard_round_trip(text)
   return true
 end
 
+function Window:cocoa_accessibility_round_trip()
+  if ffi.os ~= "OSX" then return nil, "Cocoa accessibility checks are unavailable on this platform" end
+  if native.kiwi_cocoa_accessibility_round_trip(self.handle) == 0 then
+    return false, ffi.string(native.kiwi_surface_last_error())
+  end
+  return true
+end
+
 function Window:open_uri(uri)
   assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
   if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
+  return true
+end
+
+function Window:open_new_window(configuration_path)
+  assert(configuration_path == nil or (type(configuration_path) == "string" and #configuration_path > 0 and not configuration_path:find("\0", 1, true)), "new-window configuration path must be a non-empty NUL-free string")
+  local bundle = os.getenv("KIWI_APP_BUNDLE")
+  if ffi.os == "OSX" and type(bundle) == "string" and #bundle > 0 then
+    if native.kiwi_open_application(bundle) == 0 then return false, ffi.string(native.kiwi_surface_last_error()) end
+    return true
+  end
+  local interpreter = arg[-1]
+  local script = arg[0]
+  if type(interpreter) ~= "string" or #interpreter == 0 or type(script) ~= "string" or #script == 0 then
+    return false, "Kiwi cannot determine the current LuaJIT launch command"
+  end
+  if native.kiwi_spawn_lua_window(interpreter, script, configuration_path) ~= 0 then
+    return false, ffi.string(native.kiwi_surface_last_error())
+  end
   return true
 end
 
@@ -250,8 +282,14 @@ function Window:destroy()
   if self.handle ~= nil then
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil
+    live_windows = live_windows - 1
+    assert(live_windows >= 0, "GLFW window lifetime underflow")
+    if live_windows == 0 then glfw.lib.glfwTerminate() end
   end
-  glfw.lib.glfwTerminate()
+end
+
+function Window.live_count()
+  return live_windows
 end
 
 return Window

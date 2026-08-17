@@ -32,7 +32,8 @@ introducing Cocoa/Metal APIs into terminal state.
   accessibility implementation.
 - Release and C-SDK packaging use `.dylib` on macOS, include a convenience
   `Kiwi.app` in macOS release archives, and use portable checksum/archive
-  commands. Artifacts are unsigned and unnotarized.
+  commands. The bundle launcher is deterministically ad-hoc signed for
+  LaunchServices; it has no Developer ID signature or notarization.
 
 ## Verification
 
@@ -41,10 +42,10 @@ On the verified Apple Silicon host:
 | Area | Evidence | Result and limit |
 | --- | --- | --- |
 | Native bridge | `make native` | Passed: compiled the common C bridge plus Cocoa/Metal and NSAccessibility Objective-C sources into `libkiwi_surface.dylib`. |
-| Regression suite | `make check` | Passed: 332 deterministic LuaJIT tests, parser fuzz, all 10 PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
+| Regression suite | `make check` | Passed: 337 deterministic LuaJIT tests, parser fuzz, all 10 PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
 | Live window/GPU | `KIWI_MAX_FRAMES=30 make run ARGS='-- /bin/sh -c "printf kiwi-macos-smoke; sleep 2"'` | Passed: a native GLFW/Cocoa/Metal session initialized and printed the child sentinel. This is not a Retina, minimize/restore, or multi-display usability result. |
 | C SDK | `make libkiwi-vt-check` | Passed: reproducible macOS archive plus Lua and C consumer checks. The C consumer used the Homebrew LuaJIT library path supplied by the package launcher. |
-| Release artifact | `make release-check` | Passed: two macOS archives were byte-identical; checksum, metadata, terminfo, `Kiwi.app` layout, and release-mode launcher checks passed. |
+| Release artifact | `make release-check` | Passed: two macOS archives were byte-identical; checksum, metadata, terminfo, `Kiwi.app` layout, deterministic ad-hoc launcher signature, release-mode launcher, and extracted-app LaunchServices checks passed. |
 | App launch scaffold | `KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify` | Passed: the project-local app bundle staged, launched, and cleaned its tracked child PID. It does not inspect pixels or accessibility clients. |
 
 ## Remaining validation and support boundaries
@@ -58,8 +59,8 @@ On the verified Apple Silicon host:
 - IME preedit, high-DPI/display transitions, minimize/restore, clipboard
   behavior, and physical rendering fidelity have not been manually tested on
   macOS.
-- macOS release archives are not signed or notarized, so they are not a
-  distribution-ready application.
+- macOS release archives have only a deterministic ad-hoc launcher signature
+  and are not notarized, so they are not a distribution-ready application.
 - Linux source was retained but was not built in this macOS verification run.
 
 ## References

@@ -1,6 +1,6 @@
 # Kiwi
 
-Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux and macOS terminal; M2.5 adds measured write-path attribution and local performance hardening. It is not a daily-driver terminal emulator or a claim of full VT/xterm compatibility.
+Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux and macOS terminal; M2.5 adds measured write-path attribution and local performance hardening. Kiwi now has an explicit daily-driver compatibility goal for its documented targets, but it is still experimental and does not claim full VT/xterm or Ghostty parity; see [KIWI-TO-GHOSTTY.md](KIWI-TO-GHOSTTY.md) and the [daily-driver compatibility ledger](docs/DAILY_DRIVER_COMPATIBILITY.md).
 
 ## Current scope
 
@@ -58,7 +58,9 @@ always attributable to its recorded revision. `make release-check` builds twice
 in a disposable directory with normalized archive metadata,
 compares the byte streams, verifies the checksum, extracts the archive, and
 confirms that its launcher reports release mode even when
-`KIWI_DEVELOPMENT=1` is inherited.
+`KIWI_DEVELOPMENT=1` is inherited. On macOS, it also launches the extracted
+`Kiwi.app` through LaunchServices and verifies that the packaged terminal
+process starts before it is stopped.
 
 To verify a retained artifact from the checkout root, use its adjacent
 checksum from inside `dist/`:
@@ -76,7 +78,7 @@ tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
 ```
 
-The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher; it is unsigned and not notarized. `kiwi --version` reports the artifact version and
+The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher. Its executable is deterministically ad-hoc signed so LaunchServices can launch it, but it has no Developer ID signature or notarization. `kiwi --version` reports the artifact version and
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
 shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
 renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
@@ -123,15 +125,17 @@ make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
 make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C consumer, and media-boundary check
+make compatibility                     # machine-readable versioned terminal compatibility manifest
 make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
 make smoke                             # bounded native live-terminal GPU smoke test; skips without Linux display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
+make new-window-smoke                   # bounded native Ctrl+Shift+N launch-path smoke; skips without Linux display
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
-make cocoa-smoke                        # macOS private-pasteboard, resize/Metal-surface, and development-app launch smoke
+make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, two Metal surfaces, and development-app launch smoke
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -240,7 +244,7 @@ researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
-macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. Intel macOS, VoiceOver behavior, IME preedit, and signing/notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. Intel macOS, VoiceOver behavior, IME preedit, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
 
 ## Replay
 

@@ -4,6 +4,7 @@ local tests = {
   require("tests.test_doctor"),
   require("tests.test_paths"),
   require("tests.test_config"),
+  require("tests.test_compatibility"),
   require("tests.test_workspace"),
   require("tests.test_terminal"),
   require("tests.test_synthetic"),
