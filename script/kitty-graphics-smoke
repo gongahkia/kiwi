@@ -5,9 +5,13 @@ readonly ROOT=${0:A:h:h}
 readonly MAX_FIRST_VISIBLE_FRAME=8
 readonly MAX_FRAMES=${KIWI_MAX_FRAMES:-120}
 
+set +e
 output=$(KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_KITTY_GRAPHICS_REPORT=1 KIWI_MAX_FRAMES="$MAX_FRAMES" \
   "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- "$ROOT/script/kitty-image-demo-child" 2>&1)
+status=$?
+set -e
 print -r -- "$output"
+(( status == 0 )) || exit "$status"
 
 first_visible=$(print -r -- "$output" | sed -nE 's/^Kiwi kitty graphics: first-visible=frame:([0-9]+) .*/\1/p' | tail -n 1)
 [[ "$first_visible" == <-> ]] || {
