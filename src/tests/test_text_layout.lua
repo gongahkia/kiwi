@@ -59,6 +59,20 @@ return {
     Assert.truthy(system.stats.fallback_hits >= 5)
     system:destroy()
   end,
+  text_layout_renders_transient_ime_preedit_without_mutating_terminal_cells = function()
+    local system = text_system()
+    local layout = Layout.new(system)
+    local state = State.new(8, 1)
+    state.ime_preedit = { column = 2, row = 0, text = "中" }
+    local glyphs = layout:update(state)
+    Assert.truthy(#glyphs >= 1)
+    Assert.equal(state:get(2, 0).glyph, " ")
+    Assert.equal(glyphs[1].cluster_column, 2)
+    Assert.equal(glyphs[1].flags % 64 >= 32, true)
+    state.ime_preedit = nil
+    Assert.equal(#layout:update(state), 0)
+    system:destroy()
+  end,
   dynamic_glyph_cache_keys_by_face_and_glyph_id_and_bounds_growth = function()
     local system = text_system()
     local primary = assert(system:face_for_cluster({ string.byte("A") }))

@@ -101,20 +101,25 @@ registration; GIO owns the exported objects and their lifecycle.
 ## Native macOS boundary
 
 `native/accessibility_macos.m` acquires GLFW's Cocoa content view on the main
-thread and attaches one bounded `NSAccessibilityStaticText` element for the
-active Kiwi pane. The element uses the safe terminal title as its label, the
-current bounded viewport text as its value, and emits value/focus
-notifications after updates. It is removed again when Kiwi destroys the
-window. The adapter does not expose editable text, character ranges, selection
-ranges, or multiple panes as separate accessibility elements.
+thread and attaches one bounded read-only `NSAccessibilityTextArea` element for
+the active Kiwi pane. The element uses the safe terminal title as its label and
+the current bounded viewport text as its value. It maps the platform-neutral
+Unicode-scalar caret/selection offsets into NSString's UTF-16 offset space,
+exposes visible, selected, and insertion ranges, and emits value, selected-text,
+and focus notifications after updates. It is removed again when Kiwi destroys
+the window. The adapter does not expose editable terminal text, styled
+attributes, geometry for individual terminal cells, or multiple panes as
+separate accessibility elements.
 
-`make cocoa-smoke` creates this adapter and checks its static-text role,
-identifier, label, UTF-8 value, focus state, and teardown restoration on a
-real Cocoa view. `make accessibility-smoke` runs the deterministic semantic
-checks and reports this macOS boundary. `make accessibility-provider-smoke` is
-intentionally an AT-SPI-only test and reports a skip on macOS. No VoiceOver
-session has been performed, so these checks do not establish spoken-output,
-navigation, focus, or selection usability.
+`make cocoa-smoke` creates this adapter and checks its text-area role,
+identifier, label, UTF-8 value, visible/selected ranges, focus state, and
+teardown restoration on a real Cocoa view. `make voiceover-validation` runs
+that adapter contract explicitly. `make accessibility-smoke` runs the
+deterministic semantic checks and reports this macOS boundary.
+`make accessibility-provider-smoke` is intentionally an AT-SPI-only test and
+reports a skip on macOS. No automated check can establish spoken output or
+real VoiceOver navigation, so focus, selection, resize, and pane-change
+usability still need a manual VoiceOver session.
 
 ## M9 smoke evidence
 

@@ -1,0 +1,50 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly MODE=${1:?usage: kitty-framebuffer-smoke png|gif|apng}
+readonly MAX_FRAMES=${KIWI_MAX_FRAMES:-120}
+readonly MINIMUM_DOMINANT_PIXELS=${KIWI_FRAMEBUFFER_MINIMUM_DOMINANT_PIXELS:-256}
+
+case "$MODE" in
+  png) child="$ROOT/script/kitty-framebuffer-png-child" ;;
+  gif) child="$ROOT/script/kitty-framebuffer-gif-child" ;;
+  apng) child="$ROOT/script/kitty-framebuffer-apng-child" ;;
+  *) print -u2 "unknown framebuffer fixture: $MODE"; exit 2 ;;
+esac
+
+set +e
+output=$(KIWI_FRAMEBUFFER_CAPTURE=1 KIWI_FRAMEBUFFER_CAPTURE_REPORT=1 KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES="$MAX_FRAMES" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- "$child" 2>&1)
+exit_status=$?
+set -e
+print -r -- "$output"
+(( exit_status == 0 )) || exit "$exit_status"
+
+samples=$(print -r -- "$output" | sed -nE 's/^Kiwi framebuffer capture: samples=([0-9]+) pending=([0-9]+) dropped=([0-9]+)$/\1 \2 \3/p' | tail -n 1)
+[[ -n "$samples" ]] || { print -u2 'Framebuffer smoke failed: no compositor readback report.'; exit 1; }
+read -r sample_count pending dropped <<< "$samples"
+(( sample_count > 0 )) || { print -u2 'Framebuffer smoke failed: no completed framebuffer samples.'; exit 1; }
+(( pending < 3 )) || { print -u2 'Framebuffer smoke failed: every capture slot remained pending.'; exit 1; }
+
+red_seen=0
+blue_seen=0
+typeset -A checksums
+while read -r frame checksum opaque red blue; do
+  [[ -n "$frame" ]] || continue
+  checksums[$checksum]=1
+  (( red >= MINIMUM_DOMINANT_PIXELS )) && red_seen=1
+  (( blue >= MINIMUM_DOMINANT_PIXELS )) && blue_seen=1
+done < <(print -r -- "$output" | sed -nE 's/^Kiwi framebuffer sample: frame=([0-9]+) checksum=([^ ]+) opaque=([0-9]+) red=([0-9]+) blue=([0-9]+)$/\1 \2 \3 \4 \5/p')
+
+(( red_seen == 1 )) || { print -u2 "Framebuffer smoke failed: $MODE never produced a red image-sized region."; exit 1; }
+if [[ "$MODE" != png ]]; then
+  (( blue_seen == 1 )) || { print -u2 "Framebuffer smoke failed: $MODE never produced its blue animation frame."; exit 1; }
+  (( ${#checksums} >= 2 )) || { print -u2 "Framebuffer smoke failed: $MODE did not alter framebuffer pixels across animation frames."; exit 1; }
+fi
+
+if [[ "$MODE" == png ]]; then
+  print "Kitty framebuffer PNG smoke passed: compositor readback observed the expected image pixels."
+else
+  print "Kitty framebuffer $MODE smoke passed: compositor readback observed the expected image pixels and animation change."
+fi

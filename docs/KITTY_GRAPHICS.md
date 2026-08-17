@@ -202,6 +202,15 @@ the static stream alongside the other native conformance probes. The supported
 direct-image stream is intentionally not evidence for arbitrary third-party
 Kitty client compatibility.
 
+`make kitty-framebuffer-smoke` is the stronger visual complement: it enables
+an opt-in, 32 MiB-bounded GPU surface readback queue, then asserts pixels from
+the composed framebuffer. Its PNG fixture must contain a large red image
+region; its separate GIF and APNG fixtures must each expose red and blue frames
+with distinct framebuffer hashes. This validates decoding, texture upload,
+placement, composition order, presentation-target copying, and animation at a
+pixel-observable boundary. It does not claim colour-managed screenshot parity
+or arbitrary third-party image compatibility.
+
 ## Sources
 
 - [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/)

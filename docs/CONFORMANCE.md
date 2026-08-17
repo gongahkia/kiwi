@@ -187,12 +187,15 @@ defines the full contract.
 ## Input method status
 
 GLFW character callbacks provide committed Unicode code points, including normal
-platform dead-key composition, but Kiwi has no production preedit, candidate,
-or Wayland text-input lifecycle. The detached bounded composition spike is
-research evidence only; it does not activate an IME, alter terminal input, or
-claim compositor integration. [ADR 0025](adr/0025-wayland-ime-and-window-stack.md)
-records the tested Wayland environment, required lifecycle, and future
-platform boundary.
+platform dead-key composition. On macOS, Kiwi additionally installs a bounded
+`NSTextInputClient` responder over the GLFW Cocoa view: AppKit marked text is
+kept outside the terminal grid, rendered as a transient underlined preedit
+overlay, committed through the same PTY input boundary, and anchored to the
+active cursor for the candidate window. The native bridge caps each marked or
+committed UTF-8 payload at 1,024 bytes and cancels preedit on focus/pane
+changes. Linux still has no production Wayland text-input lifecycle. The shared
+bounded composition state machine and the remaining Wayland boundary are
+documented in [ADR 0025](adr/0025-wayland-ime-and-window-stack.md).
 
 ## Selection model
 

@@ -131,7 +131,7 @@ typedef struct KiwiTimestampSample {
  * Kitty-media smoke tests inspect pixels produced by the compositor, rather
  * than image-upload or pass-registration metadata.
  */
-enum { KIWI_FRAMEBUFFER_SLOT_COUNT = 3, KIWI_FRAMEBUFFER_MAX_BYTES = 16 * 1024 * 1024 };
+enum { KIWI_FRAMEBUFFER_SLOT_COUNT = 3, KIWI_FRAMEBUFFER_MAX_BYTES = 32 * 1024 * 1024 };
 
 typedef struct KiwiFramebufferMapState {
   WGPUMapAsyncStatus status;
@@ -165,6 +165,8 @@ typedef struct KiwiFramebufferSample {
   uint64_t red_dominant_pixels;
   uint64_t blue_dominant_pixels;
 } KiwiFramebufferSample;
+
+void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture *capture);
 
 void kiwi_timestamp_tracker_destroy(KiwiTimestampTracker *tracker);
 
@@ -706,6 +708,212 @@ uint32_t kiwi_timestamp_tracker_pending(const KiwiTimestampTracker *tracker) {
 
 uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker *tracker) {
   return tracker == NULL ? 0 : tracker->dropped_frames;
+}
+
+KiwiFramebufferCapture *kiwi_framebuffer_capture_new(WGPUInstance instance, WGPUDevice device,
+                                                      uint32_t width, uint32_t height, uint32_t format) {
+  if (instance == NULL || device == NULL || width == 0 || height == 0) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture requires a live device and nonzero dimensions");
+    return NULL;
+  }
+  if (format != WGPUTextureFormat_RGBA8Unorm && format != WGPUTextureFormat_RGBA8UnormSrgb
+      && format != WGPUTextureFormat_BGRA8Unorm && format != WGPUTextureFormat_BGRA8UnormSrgb) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture supports only RGBA8/BGRA8 surfaces (format=%u)", format);
+    return NULL;
+  }
+  const uint64_t source_bytes_per_row = (uint64_t)width * 4;
+  const uint64_t bytes_per_row = (source_bytes_per_row + 255) & ~UINT64_C(255);
+  const uint64_t byte_size = bytes_per_row * height;
+  if (byte_size == 0 || byte_size > KIWI_FRAMEBUFFER_MAX_BYTES || bytes_per_row > UINT32_MAX) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture size %llux%llu exceeds the %u-byte diagnostic bound",
+             (unsigned long long)bytes_per_row, (unsigned long long)height, KIWI_FRAMEBUFFER_MAX_BYTES);
+    return NULL;
+  }
+  KiwiFramebufferCapture *capture = calloc(1, sizeof(*capture));
+  if (capture == NULL) {
+    snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture allocation failed");
+    return NULL;
+  }
+  capture->instance = instance;
+  capture->width = width;
+  capture->height = height;
+  capture->format = format;
+  capture->bytes_per_row = (uint32_t)bytes_per_row;
+  capture->byte_size = byte_size;
+  capture->active_slot = -1;
+  for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+    KiwiFramebufferSlot *slot = &capture->slots[index];
+    slot->map = calloc(1, sizeof(*slot->map));
+    if (slot->map == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture map-state allocation failed");
+      kiwi_framebuffer_capture_destroy(capture);
+      return NULL;
+    }
+    WGPUBufferDescriptor descriptor = WGPU_BUFFER_DESCRIPTOR_INIT;
+    descriptor.label = (WGPUStringView){.data = "kiwi-framebuffer-capture", .length = WGPU_STRLEN};
+    descriptor.size = byte_size;
+    descriptor.usage = WGPUBufferUsage_MapRead | WGPUBufferUsage_CopyDst;
+    slot->read_buffer = wgpuDeviceCreateBuffer(device, &descriptor);
+    if (slot->read_buffer == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture readback buffer allocation failed");
+      kiwi_framebuffer_capture_destroy(capture);
+      return NULL;
+    }
+  }
+  return capture;
+}
+
+void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture *capture) {
+  if (capture == NULL) return;
+  for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+    KiwiFramebufferSlot *slot = &capture->slots[index];
+    if (slot->map != NULL && slot->map_requested && slot->map->status == 0 && slot->read_buffer != NULL) {
+      wgpuBufferUnmap(slot->read_buffer);
+    }
+  }
+  for (int attempt = 0; attempt < 100 && capture->instance != NULL; ++attempt) {
+    int pending = 0;
+    for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+      KiwiFramebufferSlot *slot = &capture->slots[index];
+      if (slot->map != NULL && slot->map_requested && slot->map->status == 0) pending = 1;
+    }
+    if (!pending) break;
+    wgpuInstanceProcessEvents(capture->instance);
+    const struct timespec delay = {.tv_sec = 0, .tv_nsec = 1000000};
+    nanosleep(&delay, NULL);
+  }
+  for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+    KiwiFramebufferSlot *slot = &capture->slots[index];
+    if (slot->map != NULL && slot->map_requested && slot->map->status == WGPUMapAsyncStatus_Success && slot->read_buffer != NULL) {
+      wgpuBufferUnmap(slot->read_buffer);
+    }
+    if (slot->map != NULL) {
+      if (slot->map_requested && slot->map->status == 0) slot->map->detached = 1;
+      else free(slot->map);
+    }
+    if (slot->read_buffer != NULL) wgpuBufferRelease(slot->read_buffer);
+  }
+  free(capture);
+}
+
+int kiwi_framebuffer_capture_begin(KiwiFramebufferCapture *capture, uint64_t frame) {
+  if (capture == NULL || capture->active_slot >= 0) return 0;
+  for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+    KiwiFramebufferSlot *slot = &capture->slots[index];
+    if (!slot->occupied) {
+      slot->occupied = 1;
+      slot->map->status = 0;
+      slot->frame = frame;
+      slot->map_requested = 0;
+      capture->active_slot = (int)index;
+      return 1;
+    }
+  }
+  capture->dropped_frames += 1;
+  return 0;
+}
+
+void kiwi_framebuffer_capture_encode(KiwiFramebufferCapture *capture, WGPUCommandEncoder encoder, WGPUTexture texture) {
+  if (capture == NULL || capture->active_slot < 0 || encoder == NULL || texture == NULL) return;
+  KiwiFramebufferSlot *slot = &capture->slots[capture->active_slot];
+  WGPUTexelCopyTextureInfo source = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+  source.texture = texture;
+  source.aspect = WGPUTextureAspect_All;
+  WGPUTexelCopyBufferInfo destination = WGPU_TEXEL_COPY_BUFFER_INFO_INIT;
+  destination.buffer = slot->read_buffer;
+  destination.layout.bytesPerRow = capture->bytes_per_row;
+  destination.layout.rowsPerImage = capture->height;
+  WGPUExtent3D extent = {.width = capture->width, .height = capture->height, .depthOrArrayLayers = 1};
+  wgpuCommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &extent);
+}
+
+void kiwi_framebuffer_capture_submit(KiwiFramebufferCapture *capture) {
+  if (capture == NULL || capture->active_slot < 0) return;
+  KiwiFramebufferSlot *slot = &capture->slots[capture->active_slot];
+  WGPUBufferMapCallbackInfo callback = WGPU_BUFFER_MAP_CALLBACK_INFO_INIT;
+  callback.mode = WGPUCallbackMode_AllowProcessEvents;
+  callback.callback = kiwi_framebuffer_map_callback;
+  callback.userdata1 = slot->map;
+  (void)wgpuBufferMapAsync(slot->read_buffer, WGPUMapMode_Read, 0, capture->byte_size, callback);
+  slot->map_requested = 1;
+  capture->active_slot = -1;
+}
+
+static void kiwi_framebuffer_pixel(const KiwiFramebufferCapture *capture, const uint8_t *pixel,
+                                   uint8_t *red, uint8_t *green, uint8_t *blue, uint8_t *alpha) {
+  if (capture->format == WGPUTextureFormat_BGRA8Unorm || capture->format == WGPUTextureFormat_BGRA8UnormSrgb) {
+    *blue = pixel[0];
+    *green = pixel[1];
+    *red = pixel[2];
+  } else {
+    *red = pixel[0];
+    *green = pixel[1];
+    *blue = pixel[2];
+  }
+  *alpha = pixel[3];
+}
+
+int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture *capture, KiwiFramebufferSample *sample) {
+  if (capture == NULL || sample == NULL) return -1;
+  for (uint32_t slot_index = 0; slot_index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++slot_index) {
+    KiwiFramebufferSlot *slot = &capture->slots[slot_index];
+    if (!slot->occupied || !slot->map_requested || slot->map->status == 0) continue;
+    if (slot->map->status != WGPUMapAsyncStatus_Success) {
+      slot->occupied = 0;
+      slot->map_requested = 0;
+      slot->map->status = 0;
+      return -1;
+    }
+    const uint8_t *pixels = wgpuBufferGetConstMappedRange(slot->read_buffer, 0, capture->byte_size);
+    if (pixels == NULL) {
+      snprintf(kiwi_surface_error, sizeof(kiwi_surface_error), "framebuffer capture mapped range was null");
+      wgpuBufferUnmap(slot->read_buffer);
+      slot->occupied = 0;
+      slot->map_requested = 0;
+      slot->map->status = 0;
+      return -1;
+    }
+    KiwiFramebufferSample result = {.frame = slot->frame, .checksum = UINT64_C(1469598103934665603)};
+    for (uint32_t row = 0; row < capture->height; ++row) {
+      const uint8_t *line = pixels + (uint64_t)row * capture->bytes_per_row;
+      for (uint32_t column = 0; column < capture->width; ++column) {
+        const uint8_t *pixel = line + (uint64_t)column * 4;
+        uint8_t red, green, blue, alpha;
+        kiwi_framebuffer_pixel(capture, pixel, &red, &green, &blue, &alpha);
+        result.checksum ^= red;
+        result.checksum *= UINT64_C(1099511628211);
+        result.checksum ^= green;
+        result.checksum *= UINT64_C(1099511628211);
+        result.checksum ^= blue;
+        result.checksum *= UINT64_C(1099511628211);
+        result.checksum ^= alpha;
+        result.checksum *= UINT64_C(1099511628211);
+        if (alpha > 0) result.opaque_pixels += 1;
+        if (red >= 160 && (int)red >= (int)green + 48 && (int)red >= (int)blue + 48) result.red_dominant_pixels += 1;
+        if (blue >= 160 && (int)blue >= (int)red + 48 && (int)blue >= (int)green + 48) result.blue_dominant_pixels += 1;
+      }
+    }
+    *sample = result;
+    wgpuBufferUnmap(slot->read_buffer);
+    slot->occupied = 0;
+    slot->map_requested = 0;
+    slot->map->status = 0;
+    return 1;
+  }
+  return 0;
+}
+
+uint32_t kiwi_framebuffer_capture_pending(const KiwiFramebufferCapture *capture) {
+  if (capture == NULL) return 0;
+  uint32_t pending = 0;
+  for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
+    if (capture->slots[index].occupied) pending += 1;
+  }
+  return pending;
+}
+
+uint32_t kiwi_framebuffer_capture_dropped(const KiwiFramebufferCapture *capture) {
+  return capture == NULL ? 0 : capture->dropped_frames;
 }
 
 WGPUShaderModule kiwi_shader_from_wgsl(WGPUDevice device, const char *source_code) {

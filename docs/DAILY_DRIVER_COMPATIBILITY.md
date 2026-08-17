@@ -26,7 +26,7 @@ enough to support an interactive terminal behavior.
 | Local reproducible release archive | supported | supported | `make release-check` rebuilds, compares, checksums, extracts, and invokes the release launcher | **Partial:** macOS launcher is deterministically ad-hoc signed only; Developer ID signing and notarization are absent. |
 | Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and no Intel macOS result. |
 | Resize and clipboard bridge | GLFW adapter | GLFW Cocoa plus private Cocoa pasteboard smoke | `make cocoa-smoke` | **Partial:** public clipboard behavior requires manual user validation. |
-| Image composition | native smoke when a display is available | native smoke on Metal | `make kitty-graphics-smoke`, `make kitty-animation-smoke` | **Manual:** GPU pass/frame evidence is not pixel-readback coverage. |
+| Image composition | native surface smoke when a display is available | native Metal surface smoke | `make kitty-graphics-smoke`, `make kitty-animation-smoke`, `make kitty-framebuffer-smoke` | **Partial:** framebuffer readback asserts rendered PNG pixels and GIF/APNG red/blue frame changes; real application images still need manual qualification. |
 
 ## Desktop/session contract
 
@@ -43,8 +43,8 @@ enough to support an interactive terminal behavior.
 | Capability | Current behavior | Required evidence to become supported | Status |
 | --- | --- | --- | --- |
 | Committed Unicode input | GLFW character callbacks feed the terminal through bounded key/text correlation. | Native tests for representative composed Unicode text on Linux and macOS. | partial |
-| IME composition/preedit | No preedit range, candidate, or composition lifecycle. | Platform text-input adapter, preedit/commit/cancel state machine, and a native IME test plan. | planned |
-| macOS accessibility | One bounded `NSAccessibilityStaticText` projection for the active pane. | Accessibility Inspector assertions plus manual VoiceOver navigation, caret, selection, resize, and pane-change validation. | manual |
+| IME composition/preedit | GLFW committed text only; no Wayland text-input lifecycle. | macOS has an `NSTextInputClient` responder with bounded marked-text/commit callbacks, a transient preedit overlay, and a cursor-anchored candidate rectangle. | **Partial:** `make cocoa-smoke` verifies the native and Lua callback lifecycle; real input-source qualification remains manual. |
+| macOS accessibility | One bounded read-only `NSAccessibilityTextArea` projection for the active pane, with value, visible range, caret/selection, focus, and notifications. | `make voiceover-validation` plus manual VoiceOver navigation, caret, selection, resize, and pane-change validation. | manual |
 | Linux accessibility | Bounded AT-SPI text projection for the active pane plus provider smoke. | Orca or equivalent manual navigation/selection/resize validation on a supported desktop session. | manual |
 
 ## Configuration and appearance contract

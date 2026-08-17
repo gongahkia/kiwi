@@ -141,13 +141,15 @@ deadline scheduler and are neither run nor caught up while minimized.
 
 GLFW codepoints are UTF-8 encoded for the active pane's PTY unless `input/search.lua` owns an active `Ctrl+Shift+F` title-bar query. `Enter` submits it, `Escape` clears it, and `Ctrl+Shift+G/R` moves the bounded exact-match set forward/backward; all four actions remain local under Kitty keyboard disambiguation. `Ctrl+Shift+T` creates a tab, `Ctrl+Tab` switches tabs, `Ctrl+Shift+Enter` and `Ctrl+Shift+J` create vertical and horizontal splits, and `Ctrl+Shift+W` closes the active pane or its final-pane tab. These workspace bindings are disabled when Kitty keyboard mode owns application-reserved input. `Ctrl+Shift+C/V` are likewise reserved explicit local copy/paste actions; the former reconstructs the visible normalized selection and the latter validates the GLFW clipboard before enqueuing exact or bracketed input. `Ctrl+Shift+O` and `Ctrl+primary-click` are explicit local OSC 8 actions, which revalidate the cursor/pointer target then pass allowed URI schemes as one argv element to detached `xdg-open`; they never send terminal input. `Ctrl+Alt+P/C/O` and Shift-forward variants navigate resolved prompt/command/output positions through primary history only; they remain local and report gated/no-target states when search editing, Kitty keyboard mode, alternate screen, or retention prevents a move. Other physical keys encode CR, DEL, TAB, ESC, Ctrl-letter controls, normal/application arrows, navigation keys, and Alt-letter escape prefixes. Pointer callbacks hit-test the active workspace rectangle, then map GLFW logical coordinates through current content scale and that pane's local cell dimensions. With application mouse tracking enabled, `input/mouse.lua` retains only supported button/cell state and emits bounded reports for the child; SGR-Pixels derives 1-origin physical coordinates from the same pane-local point and clamps them to the pane's clipped physical viewport, while GLFW horizontal scroll becomes xterm wheel button 6/7. With no application mouse tracking, xterm alternate-scroll sends a bounded normal Up/Down control only on the alternate screen. Otherwise `input/selection_pointer.lua` owns primary-button drag, double-click word, and triple-click row gestures, passing grapheme-safe gaps to terminal state and requesting a selection-only redraw when that range changes. `renderer/selection.lua` and `renderer/search.lua` map their ranges into the current viewport; their alpha passes sit between background and glyph rendering, while `renderer/hyperlink.lua` publishes only a bounded visible-cell count and underline color for the glyph pass. Scroll and focus callbacks continue through the mouse boundary. `Shift+PageUp/Down` is terminal-local history navigation unless the negotiated keyboard mode owns that key. Parser output feeds terminal state; pending DSR/DA and keyboard-query response bytes are queued back to the PTY in the same nonblocking write path.
 
-`input/composition_spike.lua` specifies a detached, bounded preedit/commit/done
-lifecycle but is intentionally not installed as a GLFW callback or Wayland
-client. A future platform text-input bridge must remain main-thread, route
-committed text through this input boundary, and keep preedit outside terminal
-state, PTY, replay, clipboard, and diagnostics. GLFW remains the owner of the
-window and event loop; a compiled Wayland bridge may use its native display and
-surface only after runtime platform selection. See [ADR 0025](adr/0025-wayland-ime-and-window-stack.md).
+`input/composition.lua` promotes the bounded preedit/commit/done state machine
+into the macOS Cocoa boundary. An `NSTextInputClient` overlay remains the first
+responder over GLFW's Cocoa view, forwards non-text keys back to GLFW, routes
+commits through the existing PTY input boundary, and keeps preedit transient:
+it is shaped and underlined by `text/layout.lua` without changing terminal
+cells, replay, clipboard, or diagnostics. The active pane's logical cursor is
+converted to a Cocoa screen rectangle for AppKit's candidate window. GLFW
+remains the window/event-loop owner; Linux Wayland text input is still a future
+platform adapter. See [ADR 0025](adr/0025-wayland-ime-and-window-stack.md).
 
 ## Unicode grid, shaping, and glyph fallback
 
@@ -161,10 +163,12 @@ and ordered change events without pixel scraping, native handles, shell
 metadata, or full-scrollback materialization. Linux `native/accessibility.c`
 uses that contract to export one AT-SPI Application root and one Text terminal
 child for the active pane through the dedicated accessibility bus.
-`native/accessibility_macos.m` instead attaches one bounded NSAccessibility
-static-text element to GLFW's Cocoa content view. Both leave terminal state
-platform neutral. The Linux bridge is protocol-tested; neither adapter has an
-end-to-end screen-reader result. Windows still needs an adapter.
+`native/accessibility_macos.m` instead attaches one bounded read-only
+NSAccessibility text area to GLFW's Cocoa content view, translating scalar
+offsets into NSString UTF-16 ranges for caret and selection. Both leave terminal
+state platform neutral. The Linux bridge is protocol-tested and the macOS
+adapter has a real-Cocoa contract smoke; neither adapter has an end-to-end
+screen-reader result. Windows still needs an adapter.
 
 The native bridge shares WGPU and POSIX PTY operations, then chooses a platform
 surface and backend at the boundary: GLFW Wayland/X11 with Vulkan on Linux, or

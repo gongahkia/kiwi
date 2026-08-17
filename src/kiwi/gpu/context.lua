@@ -21,7 +21,13 @@ end
 function Context.new(window, options)
   options = options or {}
   assert(options.gpu_timestamps == nil or type(options.gpu_timestamps) == "boolean", "GPU timestamp option must be a boolean")
-  local self = setmetatable({ window = window, native = wgpu }, Context)
+  assert(options.framebuffer_capture == nil or type(options.framebuffer_capture) == "boolean", "framebuffer capture option must be a boolean")
+  local self = setmetatable({
+    window = window,
+    native = wgpu,
+    framebuffer_capture_requested = options.framebuffer_capture == true,
+    framebuffer_samples = {},
+  }, Context)
   local ok, result = xpcall(function()
     local api = wgpu.lib
     local instance_descriptor = ffi.new("WGPUInstanceDescriptor")
@@ -98,21 +104,95 @@ function Context:configure_surface()
   if self.native.lib.wgpuSurfaceGetCapabilities(self.surface, self.adapter, capabilities) ~= 1 or capabilities.formatCount == 0 then
     error("Unable to query surface capabilities")
   end
+  local supports_copy_src = math.floor(tonumber(capabilities.usages) / self.native.constants.texture_usage_copy_src) % 2 == 1
+  if self.framebuffer_capture_requested and not supports_copy_src then
+    self.native.lib.wgpuSurfaceCapabilitiesFreeMembers(capabilities)
+    error("surface does not expose copy-src usage required for framebuffer capture")
+  end
   self.surface_format = capabilities.formats[0]
   local config = ffi.new("WGPUSurfaceConfiguration")
   config.device = self.device
   config.format = self.surface_format
   config.usage = self.native.constants.texture_usage_render_attachment
+  if self.framebuffer_capture_requested then config.usage = config.usage + self.native.constants.texture_usage_copy_src end
   config.width = width
   config.height = height
   config.alphaMode = self.native.constants.alpha_opaque
   config.presentMode = self.native.constants.present_fifo
   self.native.lib.wgpuSurfaceConfigure(self.surface, config)
   self.native.lib.wgpuSurfaceCapabilitiesFreeMembers(capabilities)
+  if self.framebuffer_capture ~= nil then
+    self.native.surface.kiwi_framebuffer_capture_destroy(self.framebuffer_capture)
+    self.framebuffer_capture = nil
+  end
+  if self.framebuffer_capture_requested then
+    self.native.surface.kiwi_surface_clear_error()
+    self.framebuffer_capture = self.native.surface.kiwi_framebuffer_capture_new(self.instance, self.device, width, height, self.surface_format)
+    if self.framebuffer_capture == nil then
+      error("Unable to create framebuffer capture: " .. ffi.string(self.native.surface.kiwi_surface_last_error()))
+    end
+    self.framebuffer_samples = {}
+  end
   self.width = width
   self.height = height
   self.window.resized = false
   return true
+end
+
+function Context:begin_framebuffer_capture(frame)
+  if self.framebuffer_capture == nil then return false end
+  assert(type(frame) == "number" and frame >= 0 and frame % 1 == 0, "framebuffer capture frame must be a non-negative integer")
+  return self.native.surface.kiwi_framebuffer_capture_begin(self.framebuffer_capture, frame) ~= 0
+end
+
+function Context:encode_framebuffer_capture(encoder, texture)
+  if self.framebuffer_capture ~= nil then
+    self.native.surface.kiwi_framebuffer_capture_encode(self.framebuffer_capture, encoder, texture)
+  end
+end
+
+function Context:submit_framebuffer_capture()
+  if self.framebuffer_capture ~= nil then self.native.surface.kiwi_framebuffer_capture_submit(self.framebuffer_capture) end
+end
+
+function Context:poll_framebuffer_capture()
+  if self.framebuffer_capture == nil then return {} end
+  local sample = ffi.new("KiwiFramebufferSample[1]")
+  local captured = {}
+  while true do
+    local status = self.native.surface.kiwi_framebuffer_capture_poll(self.framebuffer_capture, sample)
+    if status == 0 then break end
+    if status < 0 then error("Framebuffer capture failed: " .. ffi.string(self.native.surface.kiwi_surface_last_error())) end
+    local item = {
+      blue_dominant_pixels = tonumber(sample[0].blue_dominant_pixels),
+      checksum = tostring(sample[0].checksum),
+      frame = tonumber(sample[0].frame),
+      opaque_pixels = tonumber(sample[0].opaque_pixels),
+      red_dominant_pixels = tonumber(sample[0].red_dominant_pixels),
+    }
+    captured[#captured + 1] = item
+    self.framebuffer_samples[#self.framebuffer_samples + 1] = item
+    if #self.framebuffer_samples > 32 then table.remove(self.framebuffer_samples, 1) end
+  end
+  return captured
+end
+
+function Context:framebuffer_capture_snapshot()
+  local samples = {}
+  for index, sample in ipairs(self.framebuffer_samples) do
+    samples[index] = {
+      blue_dominant_pixels = sample.blue_dominant_pixels,
+      checksum = sample.checksum,
+      frame = sample.frame,
+      opaque_pixels = sample.opaque_pixels,
+      red_dominant_pixels = sample.red_dominant_pixels,
+    }
+  end
+  return {
+    dropped = self.framebuffer_capture and tonumber(self.native.surface.kiwi_framebuffer_capture_dropped(self.framebuffer_capture)) or 0,
+    pending = self.framebuffer_capture and tonumber(self.native.surface.kiwi_framebuffer_capture_pending(self.framebuffer_capture)) or 0,
+    samples = samples,
+  }
 end
 
 function Context:next_renderer_generation()
@@ -131,6 +211,10 @@ end
 
 function Context:destroy()
   local api = self.native.lib
+  if self.framebuffer_capture ~= nil then
+    self.native.surface.kiwi_framebuffer_capture_destroy(self.framebuffer_capture)
+    self.framebuffer_capture = nil
+  end
   if self.surface ~= nil then
     api.wgpuSurfaceUnconfigure(self.surface)
     api.wgpuSurfaceRelease(self.surface)

@@ -7,6 +7,13 @@ size_t strnlen(const char* text, size_t maximum);
 int kiwi_open_uri(const char* uri);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
 int kiwi_cocoa_accessibility_round_trip(void* window);
+typedef struct KiwiCocoaTextInput KiwiCocoaTextInput;
+typedef void (*KiwiCocoaTextInputCallback)(void* userdata, const char* text, size_t text_bytes, int32_t selection_start, int32_t selection_end);
+KiwiCocoaTextInput* kiwi_cocoa_text_input_new(void* window, KiwiCocoaTextInputCallback preedit, KiwiCocoaTextInputCallback commit, void* userdata);
+void kiwi_cocoa_text_input_destroy(KiwiCocoaTextInput* adapter);
+void kiwi_cocoa_text_input_set_caret(KiwiCocoaTextInput* adapter, double x, double y, double width, double height);
+int kiwi_cocoa_text_input_round_trip(void* window);
+int kiwi_cocoa_text_input_inject_smoke(KiwiCocoaTextInput* adapter);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -191,6 +198,52 @@ function Window:cocoa_accessibility_round_trip()
   return true
 end
 
+function Window:cocoa_text_input_round_trip()
+  if ffi.os ~= "OSX" then return nil, "Cocoa text-input checks are unavailable on this platform" end
+  if native.kiwi_cocoa_text_input_round_trip(self.handle) == 0 then
+    return false, ffi.string(native.kiwi_surface_last_error())
+  end
+  return true
+end
+
+function Window:enable_cocoa_text_input(on_preedit, on_commit)
+  if ffi.os ~= "OSX" then return nil, "Cocoa text input is unavailable on this platform" end
+  assert(type(on_preedit) == "function" and type(on_commit) == "function", "Cocoa text input needs preedit and commit callbacks")
+  if self.cocoa_text_input ~= nil then return true end
+  self.callbacks.cocoa_preedit = ffi.cast("KiwiCocoaTextInputCallback", function(_, text, text_bytes, selection_start, selection_end)
+    local value = tonumber(text_bytes) == 0 and "" or ffi.string(text, tonumber(text_bytes))
+    on_preedit(value, tonumber(selection_start), tonumber(selection_end))
+  end)
+  self.callbacks.cocoa_commit = ffi.cast("KiwiCocoaTextInputCallback", function(_, text, text_bytes)
+    local value = tonumber(text_bytes) == 0 and "" or ffi.string(text, tonumber(text_bytes))
+    on_commit(value)
+  end)
+  self.cocoa_text_input = native.kiwi_cocoa_text_input_new(self.handle, self.callbacks.cocoa_preedit, self.callbacks.cocoa_commit, nil)
+  if self.cocoa_text_input == nil then
+    self.callbacks.cocoa_preedit = nil
+    self.callbacks.cocoa_commit = nil
+    return nil, ffi.string(native.kiwi_surface_last_error())
+  end
+  return true
+end
+
+function Window:set_cocoa_text_input_caret(x, y, width, height)
+  if self.cocoa_text_input == nil then return false end
+  for _, value in ipairs({ x, y, width, height }) do
+    assert(type(value) == "number" and value == value and value > -math.huge and value < math.huge, "Cocoa text-input caret coordinates must be finite")
+  end
+  native.kiwi_cocoa_text_input_set_caret(self.cocoa_text_input, x, y, width, height)
+  return true
+end
+
+function Window:cocoa_text_input_inject_smoke()
+  if self.cocoa_text_input == nil then return nil, "Cocoa text input is not enabled" end
+  if native.kiwi_cocoa_text_input_inject_smoke(self.cocoa_text_input) == 0 then
+    return false, ffi.string(native.kiwi_surface_last_error())
+  end
+  return true
+end
+
 function Window:open_uri(uri)
   assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
   if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
@@ -292,6 +345,12 @@ end
 
 function Window:destroy()
   self.input_correlation:flush()
+  if self.cocoa_text_input ~= nil then
+    native.kiwi_cocoa_text_input_destroy(self.cocoa_text_input)
+    self.cocoa_text_input = nil
+    self.callbacks.cocoa_preedit = nil
+    self.callbacks.cocoa_commit = nil
+  end
   if self.handle ~= nil then
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil

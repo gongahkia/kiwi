@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+
+if [[ "$(uname -s)" != Darwin ]]; then
+  print 'SKIP VoiceOver adapter validation: macOS is required.'
+  exit 0
+fi
+
+cd "$ROOT"
+make native
+"${LUAJIT:-luajit}" src/kiwi/cocoa_smoke.lua
+print 'VoiceOver adapter validation passed: a bounded read-only NSAccessibility text area exposes value, visible range, caret/selection range, focus, and change notifications.'
+print 'Manual VoiceOver speech/navigation qualification remains required; this check cannot enable or listen to VoiceOver.'

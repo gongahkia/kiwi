@@ -46,15 +46,17 @@ direct Ghostty product parity today**. The previous report’s Linux-only and
 “no macOS/NSAccessibility” claims are obsolete: macOS arm64 can build, run via
 Cocoa/Metal, use clipboard and resize bridges, launch both development and
 extracted release `.app` bundles, and expose a bounded native accessibility
-projection. Native macOS tabs/windows, VoiceOver validation, IME preedit,
-cross-window session movement and bounded layout restoration are now
-implemented, but broad configuration and VT compatibility remain incomplete.
+projection. Native macOS tabs/windows, bounded IME preedit, cross-window
+session movement, layout restoration, visual Kitty-image framebuffer checks,
+and a VoiceOver-facing accessibility adapter are now implemented. Real
+VoiceOver speech/navigation and input-source sessions remain manual gates, and
+broad configuration and VT compatibility remain incomplete.
 
 | Area | Kiwi now | Daily-driver target | Status |
 | --- | --- | --- | --- |
 | Linux and macOS runtime | Linux x86_64 Vulkan and macOS arm64 Cocoa/Metal are built locally; macOS has deterministic core/PTY/Cocoa/release-bundle checks. | Maintain the same executable, PTY, renderer, clipboard, resize, packaging, and smoke behavior on both targets. | **Partial** — Linux and Intel macOS require their own evidence. |
 | Window/workspace model | One process-wide scheduler owns independent GLFW/Cocoa windows, WGPU contexts, compositors, workspaces, and PTY sets. `Ctrl+Shift+M` moves a live pane session to a new window, `Ctrl+Shift+Alt+M` moves it to the next window as a tab, and the corresponding `D` bindings create fresh default-shell sessions. Schema-v1 persistence restores only geometry and tab/split topology with fresh shells. | Native menu/window integration, user-selectable move targets, schema migration, and interactive Linux/macOS lifecycle qualification. | **Partial** |
-| Native desktop UX | Cocoa window and basic `NSAccessibilityStaticText` adapter on macOS; AT-SPI active-pane adapter on Linux. | Platform-appropriate menu/shortcut/accessibility behavior, native validation, and no loss of core terminal semantics. | **Partial** |
+| Native desktop UX | Cocoa window, bounded `NSTextInputClient` preedit/candidate bridge, and read-only `NSAccessibilityTextArea` adapter on macOS; AT-SPI active-pane adapter on Linux. | Platform-appropriate menu/shortcut/accessibility behavior, native validation, and no loss of core terminal semantics. | **Partial** |
 | Text and media | Unicode 17 clusters, HarfBuzz shaping, Fontconfig fallback, bounded atlas, and PNG/APNG/GIF Kitty subset. | Stable behavior in daily applications; visual media tests supplement pass-level GPU checks. | **Partial** |
 | Configuration | Strict bounded XDG file, environment overrides, reload, and `kiwi`, `nord`, and `light` themes. | Broader documented settings, multiple theme sources, system appearance behavior, and platform path precedence. | **Partial** |
 | Terminal contract | Tested C0/ESC/CSI/OSC subset, primary/alternate screens, reflow, selected Kitty keyboard/mouse modes, OSC 8/52 policy, and local terminfo. | A versioned xterm-oriented compatibility ledger, regression corpus, honest terminfo, and documented policy for every advertised sequence. | **Partial** |
@@ -144,12 +146,14 @@ broader recovery model; `kiwi.vt` remains free of host handles.
 
 On macOS, Kiwi’s Cocoa bridge is real and verified for a private pasteboard,
 drawable resize, Metal surface configuration, and development app-bundle
-launch. An extracted release `.app` is now also launch-tested. Its current
-accessibility adapter is one bounded static-text element for the active pane;
-it does not expose editable text, ranges, selections, panes, or a completed
-VoiceOver user experience. GLFW delivers committed Unicode codepoints but does
-not expose IME preedit/composition, so composed East Asian input is a blocker
-for daily-driver qualification.
+launch. An extracted release `.app` is now also launch-tested. Its active-pane
+accessibility adapter is a bounded read-only text area with value, visible,
+caret, and selection ranges. The Cocoa text-input responder receives marked
+text and commits, draws transient underlined preedit, and reports a cursor-
+anchored candidate rectangle. `make cocoa-smoke` exercises both Objective-C
+and Lua callback lifecycles; `make voiceover-validation` exercises the
+accessibility contract. Neither can establish a spoken VoiceOver session or a
+real third-party input-source workflow, which remain daily-driver gates.
 
 ### Configuration and appearance
 
@@ -171,8 +175,10 @@ composition. Ghostty has a broader end-user feature surface including font
 feature selection, a large theme catalogue, and native application behavior.
 
 Kiwi’s Kitty PNG/APNG/GIF smoke tests prove the renderer schedules the image
-passes and frame updates. They are not pixel-readback tests; manual visual
-confirmation remains part of the current image qualification.
+passes and frame updates. `make kitty-framebuffer-smoke` adds bounded native
+surface readback: it sees the composed PNG region and the distinct red/blue
+GIF and APNG frames. Manual visual confirmation of real application images,
+colour management, and display behavior remains part of qualification.
 
 ## Features that are not useful parity signals
 
