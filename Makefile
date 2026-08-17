@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native gtk-host gtk-host-check gtk-run terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke workspace-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native gtk-host gtk-host-check gtk-run gtk-wayland-smoke gtk-wayland-multi-window-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke workspace-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -19,6 +19,12 @@ gtk-host-check: gtk-host
 
 gtk-run: gtk-host native terminfo
 	KIWI_HOST=gtk $(LUAJIT) src/kiwi/app/main.lua $(ARGS)
+
+gtk-wayland-smoke: gtk-host native terminfo
+	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK Wayland smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
+gtk-wayland-multi-window-smoke: gtk-host native terminfo
+	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK Wayland multi-window smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-8} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --multi-window-smoke -- /usr/bin/yes; fi
 
 terminfo: bootstrap
 	./script/build-terminfo
