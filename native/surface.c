@@ -125,6 +125,47 @@ typedef struct KiwiTimestampSample {
   uint64_t map_latency_ns;
 } KiwiTimestampSample;
 
+/*
+ * Framebuffer capture is deliberately an opt-in diagnostic path.  It copies a
+ * presented surface texture into a bounded MAP_READ buffer so the native
+ * Kitty-media smoke tests inspect pixels produced by the compositor, rather
+ * than image-upload or pass-registration metadata.
+ */
+enum { KIWI_FRAMEBUFFER_SLOT_COUNT = 3, KIWI_FRAMEBUFFER_MAX_BYTES = 16 * 1024 * 1024 };
+
+typedef struct KiwiFramebufferMapState {
+  WGPUMapAsyncStatus status;
+  int detached;
+} KiwiFramebufferMapState;
+
+typedef struct KiwiFramebufferSlot {
+  WGPUBuffer read_buffer;
+  KiwiFramebufferMapState *map;
+  uint64_t frame;
+  int occupied;
+  int map_requested;
+} KiwiFramebufferSlot;
+
+typedef struct KiwiFramebufferCapture {
+  WGPUInstance instance;
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
+  uint32_t bytes_per_row;
+  uint64_t byte_size;
+  int active_slot;
+  uint32_t dropped_frames;
+  KiwiFramebufferSlot slots[KIWI_FRAMEBUFFER_SLOT_COUNT];
+} KiwiFramebufferCapture;
+
+typedef struct KiwiFramebufferSample {
+  uint64_t frame;
+  uint64_t checksum;
+  uint64_t opaque_pixels;
+  uint64_t red_dominant_pixels;
+  uint64_t blue_dominant_pixels;
+} KiwiFramebufferSample;
+
 void kiwi_timestamp_tracker_destroy(KiwiTimestampTracker *tracker);
 
 static void kiwi_buffer_map_callback(WGPUMapAsyncStatus status, WGPUStringView message,
@@ -145,6 +186,15 @@ static void kiwi_timestamp_map_callback(WGPUMapAsyncStatus status, WGPUStringVie
   if (status != WGPUMapAsyncStatus_Success) {
     kiwi_copy_message(message);
   }
+  if (map->detached) free(map);
+}
+
+static void kiwi_framebuffer_map_callback(WGPUMapAsyncStatus status, WGPUStringView message,
+                                          void *userdata1, void *userdata2) {
+  (void)userdata2;
+  KiwiFramebufferMapState *map = userdata1;
+  map->status = status;
+  if (status != WGPUMapAsyncStatus_Success) kiwi_copy_message(message);
   if (map->detached) free(map);
 }
 
