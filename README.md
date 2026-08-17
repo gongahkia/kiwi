@@ -131,6 +131,7 @@ make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphi
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
+make cocoa-smoke                        # macOS private-pasteboard, resize/Metal-surface, and development-app launch smoke
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display

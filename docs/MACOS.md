@@ -32,6 +32,12 @@ The verified local checks are `make check`, `make libkiwi-vt-check`,
 native build, terminal PTY lifecycle, C SDK, artifact reproducibility, and a
 live GLFW/Cocoa/Metal render path.
 
+`make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
+private AppKit pasteboard, resizes a real Cocoa/Metal window and reconfigures
+its drawable, then stages and launches the project-local `Kiwi-dev.app`. It
+does not read or replace the user's general clipboard, so it is not a test of
+third-party clipboard-manager behavior or rich clipboard formats.
+
 NSAccessibility receives a bounded active-pane text element and update/focus
 notifications. No VoiceOver session has been tested, so this is an adapter
 implementation rather than a screen-reader compatibility claim. GLFW supplies

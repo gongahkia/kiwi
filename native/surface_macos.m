@@ -60,3 +60,32 @@ int kiwi_surface_set_drawable_size(GLFWwindow *window, uint32_t width, uint32_t 
     return 1;
   }
 }
+
+int kiwi_cocoa_private_pasteboard_round_trip(const char *text, size_t text_bytes) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa pasteboard checks must run on the main thread");
+      return 0;
+    }
+    if (text == NULL || text_bytes == 0 || text_bytes > 4096 || memchr(text, '\0', text_bytes) != NULL) {
+      kiwi_surface_set_error("invalid bounded Cocoa pasteboard text");
+      return 0;
+    }
+    NSString *expected = [[[NSString alloc] initWithBytes:text length:text_bytes encoding:NSUTF8StringEncoding] autorelease];
+    if (expected == nil) {
+      kiwi_surface_set_error("Cocoa pasteboard text is not valid UTF-8");
+      return 0;
+    }
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithUniqueName];
+    if (pasteboard == nil || ![pasteboard clearContents] || ![pasteboard setString:expected forType:NSPasteboardTypeString]) {
+      kiwi_surface_set_error("could not write the private Cocoa pasteboard");
+      return 0;
+    }
+    NSString *actual = [pasteboard stringForType:NSPasteboardTypeString];
+    if (actual == nil || ![actual isEqualToString:expected]) {
+      kiwi_surface_set_error("private Cocoa pasteboard round trip did not preserve text");
+      return 0;
+    }
+    return 1;
+  }
+}

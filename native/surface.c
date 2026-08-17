@@ -226,6 +226,13 @@ int kiwi_surface_set_drawable_size(GLFWwindow *window, uint32_t width, uint32_t 
   (void)height;
   return 1;
 }
+
+int kiwi_cocoa_private_pasteboard_round_trip(const char *text, size_t text_bytes) {
+  (void)text;
+  (void)text_bytes;
+  errno = ENOTSUP;
+  return 0;
+}
 #endif
 
 uint32_t kiwi_native_backend_type(void) {
