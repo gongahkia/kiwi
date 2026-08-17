@@ -23,7 +23,7 @@ only after a second real consumer requires a documented, testable capability.
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | AppKit | NSWindow/menus/tabs, NSTextInputClient, NSAccessibility, lifecycle and recovery | build, launch, IME, VoiceOver contract, tabs/splits, and release-bundle checks |
-| Linux x86_64 | GTK4 | application/window integration, clipboard, input, session lifecycle, and drawing surface | **Feasibility only:** ABI build and an X11 WGPU/PTy smoke pass. Wayland currently reaches presentation then receives a compositor protocol error; accessibility, IME, tabs/splits, and desktop qualification remain deferred. |
+| Linux x86_64 | GTK4 | application/window integration, clipboard, input, session lifecycle, and drawing surface | **Feasibility only:** ABI build plus bounded Wayland/X11 WGPU/PTy rendering runs. Wayland presents through a host-owned child surface, so GTK retains its toplevel surface. Accessibility, IME, tabs/splits, and desktop qualification remain deferred. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -34,12 +34,16 @@ native text widget or a replacement renderer.
    GLFW remains the reference consumer.
 2. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
-   Wayland/X11 surface discovery, title/resize/focus/input, clipboard writes,
+   Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
+   reads/writes,
    URI opening, and the existing GPU-rendered terminal content. `make
    gtk-host-check` validates its independent bridge ABI without a display.
-3. Complete GTK Wayland and desktop qualification before adding AppKit. Each
-   later adapter owns its event loop and drawing surface; neither calls
-   terminal-state internals.
+3. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
+   than sharing GTK's toplevel `wl_surface`; bounded single-window, framebuffer
+   capture, and same-process multi-window runs pass on the Fedora/KWin session.
+   Complete interactive desktop qualification before adding AppKit. Each later
+   adapter owns its event loop and drawing surface; neither calls terminal-state
+   internals.
 4. Promote a host only after it passes the daily-driver corpus on its native
    platform. GLFW is then retained as a test/demo harness, not the product UI.
 
