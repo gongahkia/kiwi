@@ -119,11 +119,12 @@ if [[ "$TARGET" == macos-* ]]; then
   print '<?xml version="1.0" encoding="UTF-8"?>' > "$STAGE/Kiwi.app/Contents/Info.plist"
   print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$STAGE/Kiwi.app/Contents/Info.plist"
   print '<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Kiwi</string><key>CFBundleIdentifier</key><string>io.github.gongahkia.kiwi</string><key>CFBundleName</key><string>Kiwi</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>' >> "$STAGE/Kiwi.app/Contents/Info.plist"
-  print '#!/usr/bin/env zsh' > "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
-  print 'set -euo pipefail' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
-  print 'readonly KIWI_APP_ROOT=${0:A:h:h:h:h}' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
-  print 'exec "$KIWI_APP_ROOT/bin/kiwi" "$@"' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
-  chmod 755 "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  cc -std=c17 -Wall -Wextra -Werror "$ROOT/native/macos_macho_uuid.c" -o "$ROOT/.build/macos-macho-uuid"
+  cc -std=c17 -Wall -Wextra -Werror -Wl,-no_adhoc_codesign \
+    "$ROOT/native/macos_bundle_launcher.c" -o "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+  launcher_uuid=$(print -rn -- "$revision" | shasum -a 256 | awk '{print substr($1, 1, 32)}')
+  "$ROOT/.build/macos-macho-uuid" "$STAGE/Kiwi.app/Contents/MacOS/Kiwi" "$launcher_uuid"
+  codesign --force --sign - --identifier io.github.gongahkia.kiwi "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
 fi
 
 print -r -- "{\"schema_version\":1,\"name\":\"kiwi\",\"version\":\"$VERSION\",\"revision\":\"$revision\",\"source_date_epoch\":$source_date_epoch,\"source_tree\":\"$tree_state\",\"target\":\"$TARGET\",\"release_mode\":true,\"wgpu_native\":{\"version\":\"$WGPU_VERSION\",\"archive_sha256\":\"$WGPU_SHA256\",\"url\":\"$WGPU_URL\"},\"runtime_dependencies\":$RUNTIME_DEPENDENCIES}" > "$STAGE/metadata.json"

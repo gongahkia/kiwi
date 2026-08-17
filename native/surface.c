@@ -773,3 +773,37 @@ int kiwi_open_uri(const char *uri) {
   } while (errno == EINTR);
   return -1;
 }
+
+int kiwi_spawn_lua_window(const char *interpreter, const char *script, const char *config_path) {
+  if (interpreter == NULL || interpreter[0] == '\0' || script == NULL || script[0] == '\0') {
+    errno = EINVAL;
+    return -1;
+  }
+  pid_t child = fork();
+  if (child < 0) return -1;
+  if (child == 0) {
+    pid_t detached = fork();
+    if (detached < 0) _exit(127);
+    if (detached > 0) _exit(0);
+    if (getenv("KIWI_NEW_WINDOW_SMOKE_MARKER") != NULL && setenv("KIWI_NEW_WINDOW_CHILD", "1", 1) != 0) _exit(127);
+    char *const arguments[] = {
+      (char *)interpreter,
+      (char *)script,
+      config_path == NULL ? NULL : "--config",
+      (char *)config_path,
+      NULL,
+    };
+    execvp(interpreter, arguments);
+    _exit(127);
+  }
+  int status;
+  do {
+    if (waitpid(child, &status, 0) == child) {
+      if (WIFEXITED(status) && WEXITSTATUS(status) == 0) return 0;
+      kiwi_surface_set_error("could not start a detached Kiwi window");
+      errno = EIO;
+      return -1;
+    }
+  } while (errno == EINTR);
+  return -1;
+}

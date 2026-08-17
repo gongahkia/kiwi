@@ -24,6 +24,66 @@ local themes = {
     foreground = "#2e3440",
     background = "#eceff4",
   },
+  dracula = {
+    foreground = "#f8f8f2",
+    background = "#282a36",
+    palette = {
+      [0] = "#21222c", [1] = "#ff5555", [2] = "#50fa7b", [3] = "#f1fa8c",
+      [4] = "#bd93f9", [5] = "#ff79c6", [6] = "#8be9fd", [7] = "#f8f8f2",
+      [8] = "#6272a4", [9] = "#ff6e6e", [10] = "#69ff94", [11] = "#ffffa5",
+      [12] = "#d6acff", [13] = "#ff92df", [14] = "#a4ffff", [15] = "#ffffff",
+    },
+  },
+  ["gruvbox-dark"] = {
+    foreground = "#ebdbb2",
+    background = "#282828",
+    palette = {
+      [0] = "#282828", [1] = "#cc241d", [2] = "#98971a", [3] = "#d79921",
+      [4] = "#458588", [5] = "#b16286", [6] = "#689d6a", [7] = "#a89984",
+      [8] = "#928374", [9] = "#fb4934", [10] = "#b8bb26", [11] = "#fabd2f",
+      [12] = "#83a598", [13] = "#d3869b", [14] = "#8ec07c", [15] = "#ebdbb2",
+    },
+  },
+  ["solarized-dark"] = {
+    foreground = "#839496",
+    background = "#002b36",
+    palette = {
+      [0] = "#073642", [1] = "#dc322f", [2] = "#859900", [3] = "#b58900",
+      [4] = "#268bd2", [5] = "#d33682", [6] = "#2aa198", [7] = "#eee8d5",
+      [8] = "#002b36", [9] = "#cb4b16", [10] = "#586e75", [11] = "#657b83",
+      [12] = "#839496", [13] = "#6c71c4", [14] = "#93a1a1", [15] = "#fdf6e3",
+    },
+  },
+  ["solarized-light"] = {
+    foreground = "#657b83",
+    background = "#fdf6e3",
+    palette = {
+      [0] = "#073642", [1] = "#dc322f", [2] = "#859900", [3] = "#b58900",
+      [4] = "#268bd2", [5] = "#d33682", [6] = "#2aa198", [7] = "#eee8d5",
+      [8] = "#002b36", [9] = "#cb4b16", [10] = "#586e75", [11] = "#657b83",
+      [12] = "#839496", [13] = "#6c71c4", [14] = "#93a1a1", [15] = "#fdf6e3",
+    },
+  },
+  ["tokyo-night"] = {
+    foreground = "#c0caf5",
+    background = "#1a1b26",
+    palette = {
+      [0] = "#15161e", [1] = "#f7768e", [2] = "#9ece6a", [3] = "#e0af68",
+      [4] = "#7aa2f7", [5] = "#bb9af7", [6] = "#7dcfff", [7] = "#a9b1d6",
+      [8] = "#414868", [9] = "#ff899d", [10] = "#9fe044", [11] = "#faba4a",
+      [12] = "#8db0ff", [13] = "#c7a9ff", [14] = "#a4daff", [15] = "#c0caf5",
+    },
+  },
+  ["catppuccin-mocha"] = {
+    foreground = "#cdd6f4",
+    background = "#1e1e2e",
+    palette = {
+      [0] = "#45475a", [1] = "#f38ba8", [2] = "#a6e3a1", [3] = "#f9e2af",
+      [4] = "#89b4fa", [5] = "#f5c2e7", [6] = "#94e2d5", [7] = "#bac2de",
+      [8] = "#585b70", [9] = "#f38ba8", [10] = "#a6e3a1", [11] = "#f9e2af",
+      [12] = "#89b4fa", [13] = "#f5c2e7", [14] = "#94e2d5", [15] = "#a6adc8",
+    },
+  },
 }
 
 local function copy_table(source)
@@ -174,7 +234,7 @@ local function apply_value(config, key, raw, line)
   end
 end
 
-function Config.parse(text, source)
+function Config.parse(text, source, base)
   assert(type(text) == "string", "configuration text must be a string")
   if #text > Config.maximum_bytes then error("configuration " .. (source or "input") .. " exceeds " .. Config.maximum_bytes .. " bytes") end
   local assignments = {}
@@ -189,7 +249,7 @@ function Config.parse(text, source)
       assignments[#assignments + 1] = { key = key, value = value, line = count }
     end
   end
-  local config = defaults()
+  local config = base and copy_table(base) or defaults()
   for _, assignment in ipairs(assignments) do
     if assignment.key == "theme" then apply_theme(config, parse_string(assignment.value, assignment.line), assignment.line) end
   end
@@ -200,13 +260,25 @@ function Config.parse(text, source)
   return config
 end
 
-function Config.default_path(environment)
+function Config.default_paths(environment, platform)
   environment = environment or os.getenv
+  platform = platform or (jit and jit.os) or ""
+  local paths = {}
   local xdg = environment("XDG_CONFIG_HOME")
-  if type(xdg) == "string" and #xdg > 0 then return xdg .. "/kiwi/config" end
   local home = environment("HOME")
-  if type(home) == "string" and #home > 0 then return home .. "/.config/kiwi/config" end
-  return nil
+  if type(xdg) == "string" and #xdg > 0 then
+    paths[#paths + 1] = xdg .. "/kiwi/config"
+  elseif type(home) == "string" and #home > 0 then
+    paths[#paths + 1] = home .. "/.config/kiwi/config"
+  end
+  if platform == "OSX" and type(home) == "string" and #home > 0 then
+    paths[#paths + 1] = home .. "/Library/Application Support/io.github.gongahkia.kiwi/config"
+  end
+  return paths
+end
+
+function Config.default_path(environment, platform)
+  return Config.default_paths(environment, platform)[1]
 end
 
 function Config.apply_environment(config, environment)
@@ -235,19 +307,24 @@ end
 
 function Config.load(path, environment)
   local explicit = path ~= nil
-  path = path or Config.default_path(environment)
-  if path == nil then return Config.apply_environment(Config.parse("", "defaults"), environment), nil end
-  local handle = io.open(path, "rb")
-  if handle == nil then
-    if explicit then error("could not open configuration file: " .. path) end
-    return Config.apply_environment(Config.parse("", "defaults"), environment), nil
+  local paths = explicit and { path } or Config.default_paths(environment)
+  local config = Config.parse("", "defaults")
+  local loaded_path = nil
+  for _, candidate in ipairs(paths) do
+    local handle = io.open(candidate, "rb")
+    if handle == nil then
+      if explicit then error("could not open configuration file: " .. candidate) end
+    else
+      local text = handle:read(Config.maximum_bytes + 1)
+      handle:close()
+      if text == nil then error("could not read configuration file: " .. candidate) end
+      config = Config.parse(text, candidate, config)
+      loaded_path = candidate
+    end
   end
-  local text = handle:read(Config.maximum_bytes + 1)
-  handle:close()
-  if text == nil then error("could not read configuration file: " .. path) end
-  local config = Config.apply_environment(Config.parse(text, path), environment)
-  config.path = path
-  return config, path
+  config = Config.apply_environment(config, environment)
+  config.path = loaded_path
+  return config, loaded_path
 end
 
 function Config.theme_names()

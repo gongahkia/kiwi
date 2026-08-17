@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly TEMPORARY=$(mktemp -d)
+trap 'rm -rf "$TEMPORARY"' EXIT
+
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print "SKIP native new-window smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."
+  exit 0
+fi
+
+make -C "$ROOT" native
+KIWI_NEW_WINDOW_SMOKE_MARKER="$TEMPORARY/child" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/new_window_smoke.lua"

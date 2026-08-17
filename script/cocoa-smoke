@@ -13,6 +13,7 @@ fi
 cd "$ROOT"
 make native terminfo
 "${LUAJIT:-luajit}" src/kiwi/cocoa_smoke.lua
+./script/new-window-smoke
 
 KIWI_MAX_FRAMES=0 ./script/build_and_run.sh --verify
 app_pid=$(<"$PID_FILE")
@@ -27,5 +28,6 @@ plutil -lint "$APP/Contents/Info.plist" >/dev/null
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$APP/Contents/Info.plist")" == APPL ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")" == Kiwi ]]
 [[ -x "$APP/Contents/MacOS/Kiwi" ]]
+otool -l "$APP/Contents/MacOS/Kiwi" | rg -q 'LC_UUID'
 
-print "Cocoa smoke passed: private clipboard, resized Metal surface, and app-bundle launch."
+print "Cocoa smoke passed: private clipboard, NSAccessibility projection, resized Metal surfaces, UUID-bearing app launcher, and app-bundle launch."

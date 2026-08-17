@@ -102,7 +102,8 @@ requires the target's native runtime dependencies. On Linux those are LuaJIT,
 GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader
 and driver, and Wayland or X11. On macOS they are the corresponding Homebrew
 LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, and libpng libraries; the
-archive also contains an unsigned, unnotarized `Kiwi.app` launcher. The
+archive also contains a deterministically ad-hoc-signed, unnotarized
+`Kiwi.app` launcher. It has no Developer ID signature. The
 adjacent checksum and `metadata.json` describe the artifact that was built.
 The optional `kiwi-image` helper also requires `curl`, `zsh`, and standard GNU
 core utilities from the host.
@@ -118,15 +119,17 @@ reproducible-build gates for reconsidering it.
 ## Configuration
 
 Kiwi reads `$XDG_CONFIG_HOME/kiwi/config`, or
-`$HOME/.config/kiwi/config` when XDG is unset. It never creates either path.
-Use `--config PATH` to select an explicit file; an explicit missing file is an
-error. The file is bounded to 64 KiB and 512 lines, has `key = value` syntax,
-and rejects unknown keys. Environment variables remain supported and override
-file values for compatibility with existing wrappers.
+`$HOME/.config/kiwi/config` when XDG is unset. On macOS it then reads
+`$HOME/Library/Application Support/io.github.gongahkia.kiwi/config`; values in
+that platform-specific file override XDG values. Kiwi never creates either
+path. Use `--config PATH` to select one explicit file; an explicit missing file
+is an error. Each file is bounded to 64 KiB and 512 lines, has `key = value`
+syntax, and rejects unknown keys. Environment variables remain supported and
+override file values for compatibility with existing wrappers.
 
 ```ini
-# ~/.config/kiwi/config; themes are kiwi, nord, or light
-theme = nord
+# ~/.config/kiwi/config; see the named themes below
+theme = catppuccin-mocha
 font-family = "Noto Sans Mono"
 font-size = 18
 ligatures = true
@@ -152,9 +155,24 @@ because changing either would require semantic grid reflow or history
 retention changes; Kiwi reports that limitation instead of partially applying
 the file.
 
+`Ctrl+Shift+N` opens an independent Kiwi application window. Each window starts
+with its own default-shell workspace; it does not clone terminal text, clipboard
+contents, or a running child process. On a packaged macOS build it asks
+LaunchServices for a new `Kiwi.app` instance; source and Linux launches spawn a
+separate LuaJIT process with the active explicit configuration path when one
+was supplied. The current custom-rendered tab/split workspace remains scoped to
+one window, and no layout is persisted or restored yet.
+
 `osc52-write` remains `false` by default. Setting it to `true` permits only
 validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,
 clears, or automatic synchronization.
+
+The built-in themes are `kiwi`, `nord`, `light`, `dracula`, `gruvbox-dark`,
+`solarized-dark`, `solarized-light`, `tokyo-night`, and `catppuccin-mocha`.
+`foreground`, `background`, and `palette-N` remain explicit per-user overrides,
+so a configuration file is also a bounded custom theme. Kiwi does not yet load
+external theme files or follow system dark/light appearance; those are tracked
+as daily-driver compatibility work rather than implied by the named themes.
 
 For example, a source checkout can still use environment-only configuration:
 

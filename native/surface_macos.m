@@ -5,6 +5,9 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <webgpu/webgpu.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 extern void kiwi_surface_set_error(const char *message);
 
@@ -88,4 +91,29 @@ int kiwi_cocoa_private_pasteboard_round_trip(const char *text, size_t text_bytes
     }
     return 1;
   }
+}
+
+int kiwi_open_application(const char *bundle_path) {
+  if (bundle_path == NULL || bundle_path[0] == '\0') {
+    errno = EINVAL;
+    return -1;
+  }
+  pid_t child = fork();
+  if (child < 0) return -1;
+  if (child == 0) {
+    pid_t detached = fork();
+    if (detached < 0) _exit(127);
+    if (detached > 0) _exit(0);
+    execl("/usr/bin/open", "open", "-n", bundle_path, (char *)NULL);
+    _exit(127);
+  }
+  int status;
+  do {
+    if (waitpid(child, &status, 0) == child) {
+      if (WIFEXITED(status) && WEXITSTATUS(status) == 0) return 0;
+      errno = EIO;
+      return -1;
+    }
+  } while (errno == EINTR);
+  return -1;
 }

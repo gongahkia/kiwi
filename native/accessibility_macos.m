@@ -92,6 +92,34 @@ int kiwi_accessibility_update(KiwiAccessibility *adapter, const char *text, size
   return 1;
 }
 
+int kiwi_cocoa_accessibility_round_trip(void *opaque_window) {
+  GLFWwindow *window = opaque_window;
+  NSView *view = window == NULL ? nil : glfwGetCocoaView(window);
+  if (view == nil) {
+    kiwi_a11y_set_error("GLFW did not expose a Cocoa accessibility view");
+    return 0;
+  }
+  NSArray *const children_before = [[view accessibilityChildren] copy];
+  KiwiAccessibility *const adapter = kiwi_accessibility_new(opaque_window);
+  if (adapter == NULL) {
+    [children_before release];
+    return 0;
+  }
+  static const char text[] = "Kiwi accessibility smoke \xE2\x9C\x93";
+  static const char title[] = "Kiwi accessibility smoke title";
+  int valid = kiwi_accessibility_update(adapter, text, sizeof(text) - 1, 26, 26, -1, -1, 1, title);
+  valid = valid && [adapter->terminal.accessibilityIdentifier isEqualToString:@"kiwi.terminal"];
+  valid = valid && [adapter->terminal.accessibilityRole isEqualToString:NSAccessibilityStaticTextRole];
+  valid = valid && [adapter->terminal.accessibilityLabel isEqualToString:[NSString stringWithUTF8String:title]];
+  valid = valid && [adapter->terminal.accessibilityValue isEqualToString:[NSString stringWithUTF8String:text]];
+  valid = valid && adapter->terminal.accessibilityFocused;
+  kiwi_accessibility_destroy(adapter);
+  valid = valid && [[view accessibilityChildren] isEqualToArray:children_before];
+  [children_before release];
+  if (!valid) kiwi_a11y_set_error("Cocoa accessibility projection round trip did not preserve its declared semantics");
+  return valid;
+}
+
 void kiwi_accessibility_poll(KiwiAccessibility *adapter) {
   (void)adapter;
 }

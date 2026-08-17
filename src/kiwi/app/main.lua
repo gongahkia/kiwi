@@ -622,6 +622,11 @@ local function run_live(options)
         if not created then io.stderr:write("Kiwi tab creation rejected: ", reason or "unavailable", "\n") end
         return true
       end
+      if key == string.byte("N") then
+        local opened, reason = window:open_new_window(configuration_path)
+        if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
       if key == string.byte("W") then
         local closed, reason = close_active_pane()
         if not closed then io.stderr:write("Kiwi pane closure rejected: ", reason or "unavailable", "\n") end
