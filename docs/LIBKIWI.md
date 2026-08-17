@@ -3,10 +3,10 @@
 `libkiwi-vt` is Kiwi's renderer-neutral terminal-emulation boundary. It has
 an **experimental pre-1.0 Lua API v1**, imported as `kiwi.vt`, and an
 **experimental C API v1** in `include/kiwi/vt.h`. Neither API has an ABI or
-source-compatibility promise. The C API is a small Linux x86_64 adapter over
-the same LuaJIT core; it does not make Kiwi portable beyond the supported
-application platform. Mutable terminal state is an application-private
-adapter, not a consumer API.
+source-compatibility promise. The C API is a small Linux x86_64 and macOS
+arm64 adapter over the same LuaJIT core; it does not make Kiwi portable beyond
+the supported application platform. Mutable terminal state is an
+application-private adapter, not a consumer API.
 
 The boundary deliberately excludes PTYs, GLFW, WGPU, fonts, clipboard bridges,
 URL opening, and network fetching. Escape-sequence effects are retained as
@@ -44,10 +44,14 @@ system.
 
 `make libkiwi-vt` creates a reproducible, renderer-free SDK archive in
 `dist/`. It contains the core Lua modules, `include/kiwi/vt.h`,
-`lib/libkiwi_vt.so`, the standalone Lua launcher, and a C consumer example.
-The shared object dynamically loads the system LuaJIT runtime and finds the
-archive's adjacent `lua/` directory by default. It supports Linux x86_64 only;
-set `KIWI_LIBKIWI_LUA_ROOT` only when deliberately relocating the Lua files.
+`lib/libkiwi_vt.so` on Linux or `lib/libkiwi_vt.dylib` on macOS, the standalone
+Lua launcher, and a C consumer example. The shared library dynamically loads
+the system LuaJIT runtime and finds the archive's adjacent `lua/` directory by
+default. The verified targets are Linux x86_64 and macOS arm64; the macOS
+x86_64 archive path is unverified. Set `KIWI_LIBKIWI_LUA_ROOT` only when
+deliberately relocating the Lua files, and set
+`KIWI_VT_LUAJIT_LIB=/absolute/path/to/libluajit-5.1.2.dylib` when macOS cannot
+discover a nonstandard LuaJIT runtime.
 It deliberately excludes renderer, platform, process, FFI, and image-decoder
 modules. `make libkiwi-vt-c` builds the unpackaged C SDK into
 `.build/libkiwi-vt`; `make libkiwi-vt-check` builds the archive twice, runs

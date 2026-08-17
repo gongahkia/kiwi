@@ -180,11 +180,11 @@ registry retains an active pass after shutdown. It does not create a window,
 adapter, device, surface, or native GPU resource; its results establish only
 Lua lifecycle and ownership behavior.
 
-`make device-soak-native` is an opt-in graphical companion. It skips with an
-explicit message when neither `DISPLAY` nor `WAYLAND_DISPLAY` is available.
-Otherwise it runs `/usr/bin/yes` in Kiwi, repeatedly invokes GLFW resize,
-iconify, and restore operations, and loads a test-only optional pass that
-disables itself on encoding. The run ends after
+`make device-soak-native` is an opt-in graphical companion. On Linux it skips
+with an explicit message when neither `DISPLAY` nor `WAYLAND_DISPLAY` is
+available; on macOS it uses the native Cocoa session. It runs `/usr/bin/yes` in
+Kiwi, repeatedly invokes GLFW resize, iconify, and restore operations, and
+loads a test-only optional pass that disables itself on encoding. The run ends after
 `KIWI_DEVICE_SOAK_SECONDS` (default `10`); a longer local run remains bounded,
 for example:
 

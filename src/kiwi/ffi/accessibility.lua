@@ -12,7 +12,8 @@ const char *kiwi_accessibility_last_error(void);
 ]]
 
 local root = os.getenv("KIWI_ROOT") or "."
-local library_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface.so"
+local library_extension = ffi.os == "OSX" and ".dylib" or ".so"
+local library_path = os.getenv("KIWI_SURFACE_LIB") or root .. "/.build/native/libkiwi_surface" .. library_extension
 local loaded, library = pcall(ffi.load, library_path)
 
 local Accessibility = {}
@@ -27,9 +28,9 @@ function Accessibility.new(window)
 end
 
 function Accessibility:update(projection, title, focused)
-  assert(type(projection) == "table" and type(projection.text) == "string", "AT-SPI update needs a text projection")
-  assert(type(title) == "string" and not title:find("\0", 1, true), "AT-SPI title must be NUL-free")
-  assert(type(focused) == "boolean", "AT-SPI focus state must be a boolean")
+  assert(type(projection) == "table" and type(projection.text) == "string", "accessibility update needs a text projection")
+  assert(type(title) == "string" and not title:find("\0", 1, true), "accessibility title must be NUL-free")
+  assert(type(focused) == "boolean", "accessibility focus state must be a boolean")
   local success = self.library.kiwi_accessibility_update(
     self.adapter,
     projection.text,

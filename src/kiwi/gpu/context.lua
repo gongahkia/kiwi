@@ -91,6 +91,9 @@ function Context:configure_surface()
   if width <= 0 or height <= 0 then
     return false
   end
+  if self.native.surface.kiwi_surface_set_drawable_size(self.window.handle, width, height) == 0 then
+    error("Unable to update native surface drawable size: " .. ffi.string(self.native.surface.kiwi_surface_last_error()))
+  end
   local capabilities = ffi.new("WGPUSurfaceCapabilities")
   if self.native.lib.wgpuSurfaceGetCapabilities(self.surface, self.adapter, capabilities) ~= 1 or capabilities.formatCount == 0 then
     error("Unable to query surface capabilities")

@@ -29,7 +29,7 @@ PTY master <---------------- terminal responses (DSR/DA)
 text/layout.lua -> HarfBuzz glyph IDs -> bounded alpha atlas
                                              |
                                              v
-workspace layout -> one shared frame compositor -> pane viewport/scissor -> renderer: background -> negative-z images -> selection -> search -> shaped glyph + hyperlink underline -> zero/positive-z images -> cursor -> wgpu-native -> Vulkan
+workspace layout -> one shared frame compositor -> pane viewport/scissor -> renderer: background -> negative-z images -> selection -> search -> shaped glyph + hyperlink underline -> zero/positive-z images -> cursor -> wgpu-native -> Vulkan (Linux) / Metal (macOS)
 ```
 
 The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
@@ -45,7 +45,7 @@ and non-goals are in [LIBKIWI.md](LIBKIWI.md).
 
 ## PTY and process boundary
 
-`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. It builds a child-only environment vector before the fork and passes it directly to `execvpe`: the live child receives `TERM=kiwi` and the source or installed `TERMINFO`, while inherited `COLORTERM` is removed to preserve Kiwi's 16-colour contract. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
+`process/pty.lua` owns a `forkpty` child lifecycle. It validates argv/environment values, establishes the initial winsize, uses a nonblocking PTY master, reads at most `KIWI_PTY_READ_BUDGET` bytes per live-loop service turn (4 KiB by default), queues partial writes, observes exit with `waitpid(WNOHANG)`, and performs bounded HUP → TERM → KILL shutdown/reap on window close. The budget leaves event polling, terminal responses, and presentation opportunities between a busy child's chunks; no bytes are discarded. It builds a child-only environment vector before the fork and calls the native `kiwi_execvpe` bridge: Linux delegates to `execvpe`, while macOS searches the child-only `PATH` and calls `execve`. The live child receives `TERM=kiwi` and the source or installed `TERMINFO`, while inherited `COLORTERM` is removed to preserve Kiwi's 16-colour contract. The default command is an absolute `$SHELL` or `/bin/sh`; `-- command args...` bypasses shell selection.
 
 `process/shell_integration.lua` recognizes only that initial default command's
 `bash`, `zsh`, `fish`, or `nu` basename. In the default `auto` mode it stages the
@@ -61,7 +61,7 @@ per-user cache, and never becomes a parser or PTY dependency.
 LuaJIT owns the application lifecycle policy and terminal logic. The app's
 small C bridge wraps ABI-sensitive `TIOCSWINSZ` and nonblocking-fd operations,
 alongside the GLFW/wgpu surface bridge; it contains no parser or terminal
-state. Separately, the experimental Linux x86_64 `libkiwi-vt` SDK has a narrow
+state. Separately, the experimental Linux x86_64 and macOS arm64 `libkiwi-vt` SDK has a narrow
 C shim that creates one private LuaJIT state per opaque terminal handle. Its
 documented C v1 boundary is byte input, resize, logical-text projection, and
 queued terminal responses; it is not used as a native renderer or PTY bridge.
@@ -160,22 +160,20 @@ a bounded current viewport, stable line-ID and cell-gap caret/selection ranges,
 and ordered change events without pixel scraping, native handles, shell
 metadata, or full-scrollback materialization. Linux `native/accessibility.c`
 uses that contract to export one AT-SPI Application root and one Text terminal
-child for the active pane through the dedicated accessibility bus. It owns
-D-Bus object registration and dispatch while terminal state remains platform
-neutral. The bridge is protocol-tested but not yet validated with a screen
-reader; macOS and Windows still need their own adapters.
+child for the active pane through the dedicated accessibility bus.
+`native/accessibility_macos.m` instead attaches one bounded NSAccessibility
+static-text element to GLFW's Cocoa content view. Both leave terminal state
+platform neutral. The Linux bridge is protocol-tested; neither adapter has an
+end-to-end screen-reader result. Windows still needs an adapter.
 
-The current native bridge is Linux-only: it owns GLFW Wayland/X11 surfaces,
-Vulkan selection, and POSIX PTY support. A Windows route needs a separate HWND
-DX12 surface implementation and a ConPTY-backed process-session adapter rather
-than conditionally compiling those APIs into terminal state. The scoped seam
-and unverified native test matrix are in [ADR 0038](adr/0038-windows-native-feasibility.md).
-
-A macOS route requires a separately owned Cocoa view/`CAMetalLayer` Metal
-surface bridge, target-specific wgpu/bootstrap artifacts, and a tested font and
-POSIX-session provider. GLFW framebuffer/content-scale queries alone do not
-validate Retina behavior. The proposed narrow boundary and native validation
-matrix are in [ADR 0039](adr/0039-macos-native-feasibility.md).
+The native bridge shares WGPU and POSIX PTY operations, then chooses a platform
+surface and backend at the boundary: GLFW Wayland/X11 with Vulkan on Linux, or
+GLFW Cocoa's `NSView` with a main-thread `CAMetalLayer` and Metal on macOS. A
+Windows route needs a separate HWND DX12 surface implementation and a
+ConPTY-backed process-session adapter rather than conditionally compiling those
+APIs into terminal state. The scoped seam and unverified native test matrix are
+in [ADR 0038](adr/0038-windows-native-feasibility.md). macOS implementation
+evidence and remaining gaps are in [ADR 0039](adr/0039-macos-native-feasibility.md).
 
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. Both alpha passes and the hyperlink glyph decoration remain semantic presentation, rather than part of a terminal bitmap.
 

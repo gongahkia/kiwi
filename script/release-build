@@ -118,7 +118,7 @@ if [[ "$TARGET" == macos-* ]]; then
   mkdir -p "$STAGE/Kiwi.app/Contents/MacOS"
   print '<?xml version="1.0" encoding="UTF-8"?>' > "$STAGE/Kiwi.app/Contents/Info.plist"
   print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$STAGE/Kiwi.app/Contents/Info.plist"
-  print '<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Kiwi</string><key>CFBundleIdentifier</key><string>io.github.gongahkia.kiwi</string><key>CFBundleName</key><string>Kiwi</string><key>CFBundlePackageType</key><string>APPL</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>' >> "$STAGE/Kiwi.app/Contents/Info.plist"
+  print '<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Kiwi</string><key>CFBundleIdentifier</key><string>io.github.gongahkia.kiwi</string><key>CFBundleName</key><string>Kiwi</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>' >> "$STAGE/Kiwi.app/Contents/Info.plist"
   print '#!/usr/bin/env zsh' > "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
   print 'set -euo pipefail' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
   print 'readonly KIWI_APP_ROOT=${0:A:h:h:h:h}' >> "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"

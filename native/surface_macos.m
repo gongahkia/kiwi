@@ -42,3 +42,21 @@ WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
     return surface;
   }
 }
+
+int kiwi_surface_set_drawable_size(GLFWwindow *window, uint32_t width, uint32_t height) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa drawable-size updates must run on the main thread");
+      return 0;
+    }
+    NSView *view = glfwGetCocoaView(window);
+    CAMetalLayer *layer = [view.layer isKindOfClass:[CAMetalLayer class]] ? (CAMetalLayer *)view.layer : nil;
+    if (view == nil || layer == nil || width == 0 || height == 0) {
+      kiwi_surface_set_error("GLFW did not expose a configured Cocoa Metal layer");
+      return 0;
+    }
+    layer.contentsScale = view.window.backingScaleFactor > 0.0 ? view.window.backingScaleFactor : 1.0;
+    layer.drawableSize = CGSizeMake(width, height);
+    return 1;
+  }
+}

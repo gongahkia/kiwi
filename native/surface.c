@@ -219,6 +219,15 @@ WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
 }
 #endif
 
+#if !defined(__APPLE__)
+int kiwi_surface_set_drawable_size(GLFWwindow *window, uint32_t width, uint32_t height) {
+  (void)window;
+  (void)width;
+  (void)height;
+  return 1;
+}
+#endif
+
 uint32_t kiwi_native_backend_type(void) {
 #if defined(__APPLE__)
   return WGPUBackendType_Metal;

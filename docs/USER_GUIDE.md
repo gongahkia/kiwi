@@ -1,14 +1,14 @@
 # Kiwi user guide
 
-Kiwi is a rendering-first terminal research platform for Linux x86_64. It is
-useful for evaluating the implemented terminal and renderer contracts, but it
-is not presented as a daily-driver terminal emulator or a complete
-VT/xterm-compatible terminal. Read the [conformance matrix](CONFORMANCE.md)
-before depending on a protocol feature.
+Kiwi is a rendering-first terminal research platform for Linux x86_64 and a
+verified macOS arm64 source path. It is useful for evaluating the implemented
+terminal and renderer contracts, but it is not presented as a daily-driver
+terminal emulator or a complete VT/xterm-compatible terminal. Read the
+[conformance matrix](CONFORMANCE.md) before depending on a protocol feature.
 
 ## Install and start
 
-### Source checkout
+### Linux source checkout
 
 The Fedora 43 path is the maintained development workflow. From a clean
 checkout, install the native prerequisites, bootstrap the pinned native
@@ -36,6 +36,25 @@ make run ARGS='-- /usr/bin/printf "Kiwi\n"'
 The source workflow is not a system installation: the checkout is the launch
 location and `make run` sets the project-local terminfo path for its child.
 
+### macOS source checkout
+
+The verified macOS path is macOS 26.5.2 on Apple Silicon. It shares the terminal
+kernel and text stack with Linux, but presents through GLFW Cocoa,
+`CAMetalLayer`, and Metal:
+
+```sh
+git clone https://github.com/gongahkia/kiwi.git
+cd kiwi
+brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+make bootstrap
+make check
+make run
+```
+
+The macOS x86_64 bootstrap selection exists but has not been compiled or run on
+an Intel Mac. See [MACOS.md](MACOS.md) for the support boundary, runtime
+dependencies, and unverified areas.
+
 To display a remote PNG, APNG, or GIF, run the explicit URL helper from inside
 that Kiwi shell. It fetches only a user-supplied HTTPS URL and then sends
 Kiwi's bounded direct-image graphics stream; it does not make automatic network
@@ -51,12 +70,19 @@ overlap it. `--no-cursor-advance` is available for deliberate layered fixtures.
 
 ### Local release artifact
 
-For a relocatable, release-mode Linux x86_64 artifact, use a clean checkout:
+For a relocatable, release-mode artifact for the current supported target, use
+a clean checkout:
 
 ```sh
 make release
-release="kiwi-$(< VERSION)-linux-x86_64"
-(cd dist && sha256sum --check "$release.tar.gz.sha256")
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) target=linux-x86_64 ;;
+  Darwin-arm64) target=macos-arm64 ;;
+  Darwin-x86_64) target=macos-x86_64 ;;
+  *) print -u2 "unsupported Kiwi release target"; exit 1 ;;
+esac
+release="kiwi-$(< VERSION)-$target"
+(cd dist && { command -v sha256sum >/dev/null && sha256sum --check "$release.tar.gz.sha256" || shasum -a 256 -c "$release.tar.gz.sha256"; })
 tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
 ./"$release"/bin/kiwi -- /bin/sh
@@ -72,9 +98,12 @@ kiwi-image https://images.example/kiwi.png
 Keep the extracted directory intact. Its launcher finds its own Lua source,
 terminfo, WGPU library, and native surface bridge relative to `bin/kiwi`; it
 does not install files into `/usr` or modify shell configuration. It still
-requires system LuaJIT, GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib,
-libpng, a Vulkan loader and driver, and a working Linux Wayland or X11 session. The adjacent
-checksum and `metadata.json` describe the artifact that was built.
+requires the target's native runtime dependencies. On Linux those are LuaJIT,
+GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader
+and driver, and Wayland or X11. On macOS they are the corresponding Homebrew
+LuaJIT, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, and libpng libraries; the
+archive also contains an unsigned, unnotarized `Kiwi.app` launcher. The
+adjacent checksum and `metadata.json` describe the artifact that was built.
 The optional `kiwi-image` helper also requires `curl`, `zsh`, and standard GNU
 core utilities from the host.
 
@@ -140,7 +169,7 @@ make run
 An extracted artifact accepts the same variables before its launcher:
 
 ```sh
-KIWI_FONT_PX=18 ./kiwi-<version>-linux-x86_64/bin/kiwi -- /bin/sh
+KIWI_FONT_PX=18 ./kiwi-<version>-<target>/bin/kiwi -- /bin/sh
 ```
 
 The documented settings are intentionally small:
@@ -186,7 +215,7 @@ To rule out every configured render extension, start with `--no-extensions`:
 ```sh
 KIWI_RENDER_EXTENSIONS=local.example \
   make run ARGS='--no-extensions -- /bin/sh'
-./kiwi-<version>-linux-x86_64/bin/kiwi --no-extensions -- /bin/sh
+./kiwi-<version>-<target>/bin/kiwi --no-extensions -- /bin/sh
 ```
 
 Safe mode bypasses the module list before any extension is loaded and also
@@ -201,7 +230,7 @@ arbitrary environment content. Review a bundle before sharing it:
 
 ```sh
 make doctor ARGS='--json --bundle kiwi-support.json'
-./kiwi-<version>-linux-x86_64/bin/kiwi doctor --json --bundle kiwi-support.json
+./kiwi-<version>-<target>/bin/kiwi doctor --json --bundle kiwi-support.json
 ```
 
 The report is a fresh environment probe, not an attachment to a running
@@ -248,11 +277,12 @@ the complete API v1 capability boundary.
 ## Current limits
 
 Kiwi advertises a 16-colour terminfo contract and deliberately does not claim
-truecolour terminfo extensions or `COLORTERM`. It is Linux x86_64-only and has
-a bounded AT-SPI provider but no validated end-to-end screen-reader result,
-primary selection, OSC 52 reads/queries, regular-expression search, full text
-indexing, command execution UI, or full xterm/VT certification. The current,
-precise limits are maintained in the
+truecolour terminfo extensions or `COLORTERM`. Its supported targets are Linux
+x86_64 and a verified macOS arm64 source path. It has a bounded Linux AT-SPI
+provider and macOS NSAccessibility element, but no validated end-to-end
+screen-reader result, primary selection, OSC 52 reads/queries,
+regular-expression search, full text indexing, command execution UI, or full
+xterm/VT certification. The current, precise limits are maintained in the
 [conformance matrix](CONFORMANCE.md), [text contract](TEXT.md),
 [accessibility contract](ACCESSIBILITY.md), and the repository
 [README](../README.md#deliberate-limits).

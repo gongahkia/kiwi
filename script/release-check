@@ -38,7 +38,7 @@ fi
 [[ -x "$WORK/$NAME/bin/kiwi-image" ]]
 [[ -x "$WORK/$NAME/bin/kiwi-ssh" ]]
 [[ -x "$WORK/$NAME/bin/kiwi-vt" ]]
-for document in ACCESSIBILITY AUR CONFORMANCE NIX RENDERER_API SHELL_INTEGRATION SUPPORT TEXT USER_GUIDE; do
+for document in ACCESSIBILITY AUR CONFORMANCE MACOS NIX RENDERER_API SHELL_INTEGRATION SUPPORT TEXT USER_GUIDE; do
   [[ -f "$WORK/$NAME/share/doc/kiwi/docs/$document.md" ]]
 done
 [[ -f "$WORK/$NAME/share/kiwi/integrations/v1/kiwi.bash" ]]

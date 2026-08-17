@@ -1,6 +1,6 @@
 # macOS support
 
-Kiwi has a verified source-build path on macOS 14+ Apple Silicon. It uses a
+Kiwi has a verified source-build path on macOS 26.5.2 Apple Silicon. It uses a
 GLFW Cocoa window, an Objective-C `CAMetalLayer` bridge, and wgpu-native's
 Metal backend; the terminal kernel, HarfBuzz shaping, FreeType rasterization,
 and renderer passes are shared with Linux.

@@ -1,10 +1,10 @@
 # Accessibility semantic model
 
 `kiwi.accessibility.model` is the platform-neutral terminal-semantic layer for
-accessibility adapters. Linux now has a native AT-SPI provider built on top of
-that model. macOS NSAccessibility and Windows UI Automation adapters are still
-unimplemented, and Kiwi does not yet make an end-to-end screen-reader
-compatibility claim.
+accessibility adapters. Linux has a native AT-SPI provider and macOS has a
+native NSAccessibility element built on top of that model. Windows UI
+Automation is unimplemented, and Kiwi does not yet make an end-to-end
+screen-reader compatibility claim.
 
 ## Contract
 
@@ -98,6 +98,22 @@ does not stop Kiwi. Set `KIWI_ACCESSIBILITY_DIAGNOSTICS=1` to report that
 fallback. The installed `atspi-2` client library is not used for provider
 registration; GIO owns the exported objects and their lifecycle.
 
+## Native macOS boundary
+
+`native/accessibility_macos.m` acquires GLFW's Cocoa content view on the main
+thread and attaches one bounded `NSAccessibilityStaticText` element for the
+active Kiwi pane. The element uses the safe terminal title as its label, the
+current bounded viewport text as its value, and emits value/focus
+notifications after updates. It is removed again when Kiwi destroys the
+window. The adapter does not expose editable text, character ranges, selection
+ranges, or multiple panes as separate accessibility elements.
+
+`make accessibility-smoke` runs the deterministic semantic checks and reports
+this macOS boundary. `make accessibility-provider-smoke` is intentionally an
+AT-SPI-only test and reports a skip on macOS. No VoiceOver session has been
+performed, so these checks do not establish spoken-output, navigation, focus,
+or selection usability.
+
 ## M9 smoke evidence
 
 `make accessibility-smoke` runs the deterministic semantic tests, builds the
@@ -118,8 +134,8 @@ On the assessed Fedora 43 desktop, the provider handshake and external text
 query passed using AT-SPI 2.58.7. This is protocol-level evidence, not an Orca
 or other screen-reader interaction test. A manual assistive-technology session
 must still check spoken output changes, navigation behavior, focus transitions,
-and selection reporting before Kiwi can claim screen-reader compatibility. The
-equivalent macOS and Windows checks require their own native adapters.
+and selection reporting before Kiwi can claim screen-reader compatibility.
+macOS needs a manual VoiceOver result; Windows still needs its native adapter.
 
 ## References
 
