@@ -20,7 +20,7 @@ jobs:
       - name: install build dependencies
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
       - name: deterministic checks
-        run: make check && make libkiwi-vt-check
+        run: make check && make cocoa-smoke && make libkiwi-vt-check
 
   artifact:
     name: release artifact (Apple Silicon)
