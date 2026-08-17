@@ -8,6 +8,7 @@ local tests = {
   require("tests.test_workspace"),
   require("tests.test_window_manager"),
   require("tests.test_layout_store"),
+  require("tests.test_live_window_manager"),
   require("tests.test_terminal"),
   require("tests.test_synthetic"),
   require("tests.test_utf8"),

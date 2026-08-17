@@ -5,10 +5,8 @@ local Correlation = require("kiwi.input.correlation")
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
 int kiwi_open_uri(const char* uri);
-int kiwi_spawn_lua_window(const char* interpreter, const char* script, const char* config_path);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
 int kiwi_cocoa_accessibility_round_trip(void* window);
-int kiwi_open_application(const char* bundle_path);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -199,24 +197,6 @@ function Window:open_uri(uri)
   return true
 end
 
-function Window:open_new_window(configuration_path)
-  assert(configuration_path == nil or (type(configuration_path) == "string" and #configuration_path > 0 and not configuration_path:find("\0", 1, true)), "new-window configuration path must be a non-empty NUL-free string")
-  local bundle = os.getenv("KIWI_APP_BUNDLE")
-  if ffi.os == "OSX" and type(bundle) == "string" and #bundle > 0 then
-    if native.kiwi_open_application(bundle) == 0 then return false, ffi.string(native.kiwi_surface_last_error()) end
-    return true
-  end
-  local interpreter = arg[-1]
-  local script = arg[0]
-  if type(interpreter) ~= "string" or #interpreter == 0 or type(script) ~= "string" or #script == 0 then
-    return false, "Kiwi cannot determine the current LuaJIT launch command"
-  end
-  if native.kiwi_spawn_lua_window(interpreter, script, configuration_path) ~= 0 then
-    return false, ffi.string(native.kiwi_surface_last_error())
-  end
-  return true
-end
-
 function Window:take_shader_reload_request()
   local requested = self.shader_reload_requested
   self.shader_reload_requested = false
@@ -263,14 +243,31 @@ function Window:request_close()
   glfw.lib.glfwSetWindowShouldClose(self.handle, 1)
 end
 
-function Window:poll_events()
+local function flush_input_correlations(windows)
+  for _, window in ipairs(windows) do
+    if window.handle ~= nil then window.input_correlation:flush() end
+  end
+end
+
+function Window.poll_events_for(windows)
+  assert(type(windows) == "table", "event polling needs a window list")
   glfw.lib.glfwPollEvents()
-  self.input_correlation:flush()
+  flush_input_correlations(windows)
+end
+
+function Window.wait_events_for(timeout, windows)
+  assert(type(timeout) == "number" and timeout >= 0, "event wait timeout must be non-negative")
+  assert(type(windows) == "table", "event waiting needs a window list")
+  glfw.lib.glfwWaitEventsTimeout(timeout)
+  flush_input_correlations(windows)
+end
+
+function Window:poll_events()
+  Window.poll_events_for({ self })
 end
 
 function Window:wait_events(timeout)
-  glfw.lib.glfwWaitEventsTimeout(timeout)
-  self.input_correlation:flush()
+  Window.wait_events_for(timeout, { self })
 end
 
 function Window:time()

@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke workspace-smoke new-window-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-corpus-review text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke workspace-smoke same-process-window-smoke new-window-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -68,7 +68,10 @@ kitty-animation-smoke: native terminfo
 workspace-smoke: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP workspace smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --workspace-smoke -- /usr/bin/yes; fi
 
-new-window-smoke: native
+same-process-window-smoke: native terminfo
+	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP same-process window smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-2} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --multi-window-smoke -- /usr/bin/yes; fi
+
+new-window-smoke:
 	./script/new-window-smoke
 
 budget-smoke: native terminfo

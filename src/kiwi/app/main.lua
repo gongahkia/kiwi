@@ -22,6 +22,7 @@ local ShellIntegration = require("kiwi.process.shell_integration")
 local Compositor = require("kiwi.renderer.compositor")
 local Renderer = require("kiwi.renderer.renderer")
 local Workspace = require("kiwi.session.workspace")
+local LiveWindowManager = require("kiwi.app.window_manager")
 local TextLab = require("kiwi.text.lab")
 local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
@@ -51,6 +52,8 @@ local function parse_options()
       options.no_extensions = true
     elseif value == "--workspace-smoke" then
       options.workspace_smoke = true
+    elseif value == "--multi-window-smoke" then
+      options.multi_window_smoke = true
     elseif value == "--config" then
       index = index + 1
       options.config = assert(arg[index], "--config needs a path")
@@ -73,7 +76,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --multi-window-smoke, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -175,7 +178,7 @@ local function report_pass_budgets(renderer)
   end
 end
 
-local function run_live(options)
+local function run_window_controller(options)
   local default_title = "Kiwi M2 terminal"
   local configuration, configuration_path = Config.load(options.config)
   local window = Window.new(1600, 960, default_title, { release_mode = options.release_mode })
@@ -628,7 +631,7 @@ local function run_live(options)
         return true
       end
       if key == string.byte("N") then
-        local opened, reason = window:open_new_window(configuration_path)
+        local opened, reason = options.application:request_window(configuration_path)
         if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
         return true
       end
@@ -786,6 +789,9 @@ local function run_live(options)
       local encoded = mouse:focus(focused, state:input_modes())
       if encoded then enqueue_input(encoded) end
     end)
+    if options.multi_window_smoke_requester then
+      assert(handle_workspace_key(string.byte("N"), glfw.press, glfw.mod_control + glfw.mod_shift))
+    end
 
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
     while not window:should_close() do
@@ -799,8 +805,12 @@ local function run_live(options)
         end
       end
       local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
-      window:wait_events(requested_wait)
-      window:poll_events()
+      options.application:await_events(window, requested_wait)
+      if options.multi_window_smoke and not options.application.multi_window_smoke_reported then
+        assert(Window.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
+        options.application.multi_window_smoke_reported = true
+        io.stdout:write("Kiwi same-process multi-window smoke passed: two native window controllers share this application process.\n")
+      end
       now = window:time()
       if configuration_reload_requested then
         configuration_reload_requested = false
@@ -950,7 +960,7 @@ local function run_live(options)
             simulated_device_loss = true
             rendered, reason = false, "native GPU error: simulated device loss"
           end
-          if not rendered and reason ~= "zero-sized drawable" then handle_render_failure(reason) end
+          if not rendered and reason ~= "zero-sized drawable" and reason ~= "surface occluded" then handle_render_failure(reason) end
           local frame_completed = window:time()
           if rendered and kitty_graphics_report and kitty_first_visible_at == nil then
             for _, entry in ipairs(pane_entries) do
@@ -1049,5 +1059,5 @@ elseif options.replay then
 elseif options.demo then
   Demo.run()
 else
-  run_live(options)
+  LiveWindowManager.new(run_window_controller, options):run()
 end
