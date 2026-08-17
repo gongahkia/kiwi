@@ -2,11 +2,10 @@
 
 ## Decision
 
-Defer both a `PKGBUILD` and AUR publication. Kiwi does not currently provide a
-public, anonymously fetchable immutable source archive or a license file, so a
-recipe could not be reproduced by an AUR user or state a distribution license
-truthfully. This repository intentionally contains no AUR remote, package
-upload automation, binary distribution service, or telemetry.
+Defer both a `PKGBUILD` and AUR publication until Kiwi has its first public,
+immutable source release. Kiwi is MIT licensed, but an AUR recipe still needs a
+public source tag and an authorized maintainer. This repository intentionally
+contains no AUR remote, package upload automation, or telemetry.
 
 The decision is based on the repository state observed on 2026-08-11, not an
 assumption that the GitHub repository is public or private. A future
@@ -31,9 +30,9 @@ curl --location --silent --output /dev/null --write-out '%{http_code}\n' \
   https://codeload.github.com/gongahkia/kiwi/tar.gz/daf3a80a659ef419b9d1e3b312818e61a4312ef9
 ```
 
-Neither endpoint is a valid AUR source input in this state. The repository also
-contains no `LICENSE`, `COPYING`, `NOTICE`, or equivalent license file. These
-two facts block a public package independently of build tooling.
+Neither endpoint is a valid AUR source input in this state. Kiwi now includes
+an MIT `LICENSE`; public immutable source remains the outstanding distribution
+prerequisite.
 
 `makepkg`, `namcap`, and an Arch Linux container image were unavailable in the
 validation environment. No local `makepkg` build was attempted because its
@@ -54,15 +53,13 @@ are met:
    archive, and record its URL and verified SHA-256 in the `source` and
    `sha256sums` arrays. Do not use `SKIP` for either Kiwi or WGPU source
    integrity.
-2. Add an explicit repository license and use its exact SPDX identifier in the
-   package metadata.
-3. Create an upstream version tag for a stable `kiwi` package. Until then, a
+2. Create an upstream version tag for a stable `kiwi` package. Until then, a
    separately named `kiwi-git` package must derive `pkgver` from a fixed commit
    and clearly remain a development snapshot.
-4. Name an AUR-account holder who is explicitly authorized to own updates and
+3. Name an AUR-account holder who is explicitly authorized to own updates and
    adoption of the package. No such ownership or AUR publication authority is
    inferred from this repository.
-5. Build as an unprivileged user in a disposable Arch environment with
+4. Build as an unprivileged user in a disposable Arch environment with
    `makepkg --verifysource`, `makepkg`, and `namcap`; install the resulting
    package in a disposable system and run `kiwi --version`, `kiwi doctor
    --json`, and a bounded graphical smoke test when a Wayland/X11 session and
