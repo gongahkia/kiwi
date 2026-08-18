@@ -3,7 +3,8 @@ local ffi = require("ffi")
 ffi.cdef[[
 typedef struct KiwiGtkHost KiwiGtkHost;
 typedef uint32_t (*KiwiGtkKeyCallback)(void* userdata, uint32_t keyval, uint32_t modifiers, int action);
-typedef void (*KiwiGtkTextCallback)(void* userdata, uint32_t codepoint);
+typedef void (*KiwiGtkTextCallback)(void* userdata, const char* text, size_t text_bytes);
+typedef void (*KiwiGtkPreeditCallback)(void* userdata, const char* text, size_t text_bytes, uint32_t cursor_begin, uint32_t cursor_end);
 typedef void (*KiwiGtkPointerCallback)(void* userdata, int kind, double x, double y, double dx, double dy, uint32_t button, int action, uint32_t modifiers);
 typedef void (*KiwiGtkFocusCallback)(void* userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void* userdata, int width, int height, double scale);
@@ -13,6 +14,7 @@ typedef struct KiwiGtkCallbacks {
   KiwiGtkPointerCallback pointer;
   KiwiGtkResizeCallback resize;
   KiwiGtkTextCallback text;
+  KiwiGtkPreeditCallback preedit;
   void* userdata;
 } KiwiGtkCallbacks;
 KiwiGtkHost* kiwi_gtk_host_new(const char* application_id, int width, int height, const char* title, const KiwiGtkCallbacks* callbacks);
@@ -30,6 +32,10 @@ int kiwi_gtk_host_clipboard_read(KiwiGtkHost* host, char* destination, size_t ca
 int kiwi_gtk_host_open_uri(KiwiGtkHost* host, const char* uri);
 void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
+int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
+int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost* host);
+int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost* host);
+int kiwi_gtk_host_accessibility_update(KiwiGtkHost* host, const char* text, size_t text_bytes, uint32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char* title);
 const char* kiwi_gtk_host_last_error(void);
 ]]
 
@@ -38,6 +44,8 @@ local loaded, native = pcall(ffi.load, os.getenv("KIWI_GTK_HOST_LIB") or root ..
 if not loaded then error("Unable to load the Kiwi GTK host bridge; run make gtk-host: " .. tostring(native)) end
 
 local glfw = require("kiwi.ffi.glfw").constants
+local Correlation = require("kiwi.input.correlation")
+local Utf8 = require("kiwi.terminal.utf8")
 local Window = {}
 Window.__index = Window
 Window.bridge = native
@@ -67,21 +75,69 @@ end
 
 local function callback_flags(result)
   if type(result) ~= "table" then return 0 end
-  local flags = result.handled and 1 or 0
+  local flags = result.handled and not result.defer_text and 1 or 0
   if result.suppress_text then flags = flags + 2 end
+  if result.defer_text then flags = flags + 4 end
   return flags
+end
+
+local function codepoints_from_utf8(text)
+  local codepoints = {}
+  local invalid = false
+  local decoder = Utf8.Decoder.new(function(codepoint, _, replaced)
+    if replaced then invalid = true else codepoints[#codepoints + 1] = codepoint end
+  end)
+  for index = 1, #text do decoder:feed_byte(text:byte(index)) end
+  decoder:finish()
+  return invalid and nil or codepoints
+end
+
+local function callback_text(pointer, bytes)
+  if pointer == nil then return "" end
+  return ffi.string(pointer, tonumber(bytes))
 end
 
 function Window.new(width, height, title)
   assert(type(width) == "number" and width >= 1 and width % 1 == 0, "GTK window width must be a positive integer")
   assert(type(height) == "number" and height >= 1 and height % 1 == 0, "GTK window height must be a positive integer")
   local self = setmetatable({ callbacks = {}, height = height, minimized = false, resized = true, width = width }, Window)
-  self.callbacks.key = ffi.cast("KiwiGtkKeyCallback", function(_, keyval, modifiers, action)
-    if self.on_key == nil then return 0 end
-    return callback_flags(self.on_key(key_from_gdk(tonumber(keyval)), tonumber(action) == 1 and glfw.press or glfw.release, tonumber(modifiers)))
+  self.input_correlation = Correlation.new(function(codepoints, event)
+    if self.on_text then self.on_text(codepoints, event) end
   end)
-  self.callbacks.text = ffi.cast("KiwiGtkTextCallback", function(_, codepoint)
-    if self.on_text then self.on_text({ tonumber(codepoint) }, nil) end
+  self.callbacks.key = ffi.cast("KiwiGtkKeyCallback", function(_, keyval, modifiers, action)
+    self.input_correlation:flush()
+    if self.on_key == nil then return 0 end
+    local key = key_from_gdk(tonumber(keyval))
+    local key_action = tonumber(action) == 1 and glfw.press or glfw.release
+    local input = self.on_key(key, key_action, tonumber(modifiers))
+    if input and input.defer_text then
+      self.input_correlation:defer({ key = key, action = key_action, modifiers = tonumber(modifiers) })
+    end
+    return callback_flags(input)
+  end)
+  self.callbacks.text = ffi.cast("KiwiGtkTextCallback", function(_, text, text_bytes)
+    local committed = callback_text(text, text_bytes)
+    local codepoints = codepoints_from_utf8(committed)
+    local correlated = codepoints ~= nil and #codepoints > 0
+    if correlated then
+      for _, codepoint in ipairs(codepoints) do
+        if not self.input_correlation:text(codepoint) then
+          correlated = false
+          break
+        end
+      end
+    end
+    if correlated then return end
+    if self.on_commit then
+      self.on_commit(committed)
+    elseif self.on_text then
+      if codepoints then self.on_text(codepoints, nil) end
+    end
+  end)
+  self.callbacks.preedit = ffi.cast("KiwiGtkPreeditCallback", function(_, text, text_bytes, cursor_begin, cursor_end)
+    if self.on_preedit then
+      self.on_preedit(callback_text(text, text_bytes), tonumber(cursor_begin), tonumber(cursor_end))
+    end
   end)
   self.callbacks.pointer = ffi.cast("KiwiGtkPointerCallback", function(_, kind, x, y, dx, dy, button, action, modifiers)
     if self.on_pointer == nil then return end
@@ -108,6 +164,7 @@ function Window.new(width, height, title)
   callbacks.pointer = self.callbacks.pointer
   callbacks.resize = self.callbacks.resize
   callbacks.text = self.callbacks.text
+  callbacks.preedit = self.callbacks.preedit
   self.handle = native.kiwi_gtk_host_new("org.gongahkia.kiwi", width, height, title, callbacks)
   if self.handle == nil then
     self:destroy()
@@ -119,6 +176,45 @@ end
 
 function Window:set_input_handlers(on_text, on_key, on_pointer, on_focus)
   self.on_text, self.on_key, self.on_pointer, self.on_focus = on_text, on_key, on_pointer, on_focus
+end
+
+function Window:enable_text_input(on_preedit, on_commit)
+  assert(type(on_preedit) == "function" and type(on_commit) == "function", "GTK text input needs preedit and commit callbacks")
+  self.on_preedit, self.on_commit = on_preedit, on_commit
+  return true
+end
+
+function Window:set_text_input_caret(x, y, width, height)
+  local result = native.kiwi_gtk_host_set_text_input_caret(self.handle,
+    math.floor(x), math.floor(y), math.max(1, math.floor(width)), math.max(1, math.floor(height)))
+  if result ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:text_input_inject_smoke()
+  if native.kiwi_gtk_host_text_input_inject_smoke(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:key_text_inject_smoke()
+  if native.kiwi_gtk_host_key_text_inject_smoke(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:accessibility_new()
+  local window = self
+  return {
+    update = function(_, projection, title, focused)
+      local result = native.kiwi_gtk_host_accessibility_update(window.handle,
+        projection.text, #projection.text, projection.character_count,
+        projection.caret_offset, projection.selection_start, projection.selection_end,
+        focused and 1 or 0, title)
+      if result ~= 0 then return true end
+      return false, ffi.string(native.kiwi_gtk_host_last_error())
+    end,
+    poll = function() end,
+    destroy = function() end,
+  }
 end
 
 function Window:clipboard_read(maximum_bytes)

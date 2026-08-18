@@ -36,6 +36,18 @@ function Host.set_drawable_size(window, width, height)
   return require("kiwi.platform.gtk_window").bridge.kiwi_gtk_host_set_drawable_size(window.handle, width, height) ~= 0
 end
 
+function Host.enable_text_input(window, on_preedit, on_commit)
+  return window:enable_text_input(on_preedit, on_commit)
+end
+
+function Host.set_text_input_caret(window, x, y, width, height)
+  return window:set_text_input_caret(x, y, width, height)
+end
+
+function Host.accessibility_new(window)
+  return window:accessibility_new()
+end
+
 function Host.surface_error()
   return ffi.string(require("kiwi.platform.gtk_window").bridge.kiwi_gtk_host_last_error())
 end

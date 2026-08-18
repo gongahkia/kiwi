@@ -15,9 +15,10 @@ contract; this corpus defines the evidence required to change it.
 | SSH to a controlled host | private terminfo installation and conservative fallback | controlled remote probe |
 | Unicode/image fixtures | grapheme width, fallback, PNG/APNG/GIF composition | deterministic fixtures plus native image checks |
 
-`script/daily-driver-compatibility` is the automation entry point. A skipped
-desktop or remote check is evidence of an unavailable prerequisite, never a
-passing qualification.
+`script/daily-driver-compatibility` is the automation entry point. Its
+`--host glfw|gtk` option selects the desktop adapter for native workloads.
+A skipped desktop or remote check is evidence of an unavailable prerequisite,
+never a passing qualification.
 
 ## Change rule
 

@@ -1,4 +1,6 @@
-local Window = require("kiwi.platform.window")
+local requested_host = os.getenv("KIWI_HOST") or "glfw"
+assert(requested_host == "glfw" or requested_host == "gtk", "KIWI_HOST must be glfw or gtk")
+local Window = require(requested_host == "gtk" and "kiwi.platform.gtk_window" or "kiwi.platform.window")
 
 local maximum_bytes = 1024 * 1024
 local probe = "kiwi-compatibility-clipboard-✓"

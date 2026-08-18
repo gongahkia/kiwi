@@ -121,6 +121,10 @@ make test-fuzz                         # bounded seed-reproducible parser/state 
 make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make run                               # launch the default shell
+make gtk-run                           # launch through the GTK4 development host on Linux x86_64
+make gtk-wayland-smoke                 # bounded GTK Wayland WGPU/PTy smoke (requires a Wayland session)
+make gtk-input-smoke                   # GTK preedit/commit callback boundary smoke (requires a graphical session)
+make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
 make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
@@ -128,6 +132,7 @@ make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C co
 make compatibility                     # machine-readable versioned terminal compatibility manifest
 make daily-driver-compatibility        # bounded cross-platform compatibility evidence; skips unavailable desktop/remote checks
 make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/compatibility.json' # dedicated desktop qualification report
+make daily-driver-compatibility COMPAT_ARGS='--host gtk --require-desktop' # GTK-host rendering/PTY qualification; interactive checks remain manual
 make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
 make smoke                             # bounded native live-terminal GPU smoke test; skips without Linux display
 make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames

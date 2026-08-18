@@ -25,7 +25,7 @@ enough to support an interactive terminal behavior.
 | Source build, native surface, PTY, terminfo | supported in the documented Fedora-oriented source environment | supported in the documented Homebrew source environment | `make check`, `make test-pty` | **Partial:** clean-host qualification remains required. |
 | Local reproducible release archive | supported | supported | `make release-check` rebuilds, compares, checksums, extracts, and invokes the release launcher | **Partial:** macOS launcher is deterministically ad-hoc signed only; Developer ID signing and notarization are absent. |
 | Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and no Intel macOS result. |
-| Resize and clipboard bridge | GLFW adapter | GLFW Cocoa plus private Cocoa pasteboard smoke | `make cocoa-smoke` | **Partial:** public clipboard behavior requires manual user validation. |
+| Resize and clipboard bridge | GLFW and GTK4 adapters | GLFW Cocoa plus private Cocoa pasteboard smoke; GTK bounded clipboard bridge | `make cocoa-smoke`; `make daily-driver-compatibility COMPAT_ARGS='--host gtk'` | **Partial:** Linux public clipboard behavior requires manual user validation. |
 | Image composition | native surface smoke when a display is available | native Metal surface smoke | `make kitty-graphics-smoke`, `make kitty-animation-smoke`, `make kitty-framebuffer-smoke` | **Partial:** framebuffer readback asserts rendered PNG pixels and GIF/APNG red/blue frame changes; real application images still need manual qualification. |
 
 ## Desktop/session contract
@@ -42,10 +42,10 @@ enough to support an interactive terminal behavior.
 
 | Capability | Current behavior | Required evidence to become supported | Status |
 | --- | --- | --- | --- |
-| Committed Unicode input | GLFW character callbacks feed the terminal through bounded key/text correlation. | Native tests for representative composed Unicode text on Linux and macOS. | partial |
-| IME composition/preedit | GLFW committed text only; no Wayland text-input lifecycle. | macOS has an `NSTextInputClient` responder with bounded marked-text/commit callbacks, a transient preedit overlay, and a cursor-anchored candidate rectangle. | **Partial:** `make cocoa-smoke` verifies the native and Lua callback lifecycle; real input-source qualification remains manual. |
+| Committed Unicode input | GLFW character callbacks and GTK `GtkIMMulticontext` commits feed the terminal through bounded key/text correlation. | Native representative composed Unicode input on Linux and macOS. | **Partial:** `make gtk-input-smoke` exercises GTK's bounded UTF-8 callback boundary; real keyboard input remains manual. |
+| IME composition/preedit | GTK has a `GtkIMMulticontext` attached to the terminal widget, bounded preedit/commit callbacks, a transient preedit overlay, and a cursor-anchored candidate rectangle. macOS has the corresponding `NSTextInputClient` responder. | Input-source composition, candidate placement, cancellation, focus changes, and Kitty-keyboard interaction on each native desktop. | **Partial:** `make gtk-input-smoke` and `make cocoa-smoke` verify their native/Lua callback lifecycles; real input-source qualification remains manual. |
 | macOS accessibility | One bounded read-only `NSAccessibilityTextArea` projection for the active pane, with value, visible range, caret/selection, focus, and notifications. | `make voiceover-validation` plus manual VoiceOver navigation, caret, selection, resize, and pane-change validation. | manual |
-| Linux accessibility | Bounded AT-SPI text projection for the active pane plus provider smoke. | Orca or equivalent manual navigation/selection/resize validation on a supported desktop session. | manual |
+| Linux accessibility | GTK's terminal widget implements bounded read-only `GtkAccessibleText` for the active pane, including contents, caret, selection, focus state, and change notifications. | `make gtk-accessibility-smoke` plus Orca or equivalent manual navigation/selection/resize validation on a supported desktop session. | manual |
 
 ## Configuration and appearance contract
 
@@ -93,6 +93,12 @@ and the host `top` TUI. A provided `--ssh-host` (or
 uploads the local private terminfo entry then confirms `infocmp kiwi` and
 `tput colors` on that controlled remote host.
 
+Use `--host glfw` (the default) or `--host gtk` to select the native adapter
+for desktop workloads. GTK qualification is Linux x86_64 only and builds its
+private host bridge before launch. A passing run is bounded rendering/PTY
+evidence, not proof of interactive keyboard, IME, accessibility, public
+clipboard, or scaled-monitor behavior.
+
 Use `--require-desktop` for a qualification runner. On Linux, the option fails
 instead of skipping when neither `DISPLAY` nor `WAYLAND_DISPLAY` is available.
 On macOS, native window creation is the platform boundary. The command does not
@@ -118,8 +124,9 @@ missing qualification.
 
 The suite is structural and does not replace these per-target checks:
 
-- Linux x86_64: interactive Neovim and tmux use, resize, selection/copy/paste,
-  SSH login, Unicode/emoji, accessibility screen reader, and suspend/restore.
+- Linux x86_64: interactive Neovim and tmux use, resize and a fractional-scale
+  monitor, selection/copy/paste, GTK keyboard and IME composition/candidate
+  placement, SSH login, Unicode/emoji, Orca navigation, and suspend/restore.
 - macOS arm64 and Intel: Finder launch of the release `.app`, VoiceOver
   navigation, native IME composition, public clipboard permission behavior,
   display-scale change, window lifecycle, interactive TUI/SSH, Unicode/emoji,
