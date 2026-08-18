@@ -2,6 +2,7 @@
 #include <gdk/wayland/gdkwayland.h>
 #include <gdk/x11/gdkx.h>
 #include <webgpu/webgpu.h>
+#include <viewporter-client-protocol.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +11,9 @@
 typedef struct KiwiGtkHost KiwiGtkHost;
 
 typedef uint32_t (*KiwiGtkKeyCallback)(void *userdata, uint32_t keyval, uint32_t modifiers, int action);
-typedef void (*KiwiGtkTextCallback)(void *userdata, uint32_t codepoint);
+typedef void (*KiwiGtkTextCallback)(void *userdata, const char *text, size_t text_bytes);
+typedef void (*KiwiGtkPreeditCallback)(void *userdata, const char *text, size_t text_bytes,
+                                       uint32_t cursor_begin, uint32_t cursor_end);
 typedef void (*KiwiGtkPointerCallback)(void *userdata, int kind, double x, double y, double dx, double dy, uint32_t button, int action, uint32_t modifiers);
 typedef void (*KiwiGtkFocusCallback)(void *userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void *userdata, int width, int height, double scale);
@@ -21,8 +24,27 @@ typedef struct KiwiGtkCallbacks {
   KiwiGtkPointerCallback pointer;
   KiwiGtkResizeCallback resize;
   KiwiGtkTextCallback text;
+  KiwiGtkPreeditCallback preedit;
   void *userdata;
 } KiwiGtkCallbacks;
+
+typedef struct _KiwiGtkTerminal {
+  GtkDrawingArea parent_instance;
+  char *text;
+  guint character_count;
+  guint caret_offset;
+  guint selection_start;
+  guint selection_end;
+} KiwiGtkTerminal;
+
+typedef struct _KiwiGtkTerminalClass {
+  GtkDrawingAreaClass parent_class;
+} KiwiGtkTerminalClass;
+
+#define KIWI_TYPE_GTK_TERMINAL (kiwi_gtk_terminal_get_type())
+#define KIWI_GTK_TERMINAL(value) ((KiwiGtkTerminal *)(value))
+
+static GType kiwi_gtk_terminal_get_type(void);
 
 struct KiwiGtkHost {
   GtkApplication *application;
@@ -30,8 +52,10 @@ struct KiwiGtkHost {
   GtkWidget *content;
   KiwiGtkCallbacks callbacks;
   GdkSurface *surface;
+  GtkIMContext *im_context;
   struct wl_surface *presentation_surface;
   struct wl_subsurface *presentation_subsurface;
+  struct wp_viewport *presentation_viewport;
   int should_close;
 };
 
@@ -46,8 +70,251 @@ typedef struct KiwiGtkClipboardRead {
 static char kiwi_gtk_error[1024];
 static GtkApplication *kiwi_gtk_application;
 
+enum {
+  KIWI_GTK_ACCESSIBILITY_MAXIMUM_BYTES = 64 * 1024,
+  KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES = 1024,
+};
+
+static void kiwi_gtk_set_error(const char *message);
+static void kiwi_gtk_terminal_accessible_text_init(GtkAccessibleTextInterface *interface);
+
+G_DEFINE_TYPE_WITH_CODE(KiwiGtkTerminal, kiwi_gtk_terminal, GTK_TYPE_DRAWING_AREA,
+                        G_IMPLEMENT_INTERFACE(GTK_TYPE_ACCESSIBLE_TEXT,
+                                              kiwi_gtk_terminal_accessible_text_init))
+
+static const char *kiwi_gtk_terminal_offset_pointer(const KiwiGtkTerminal *terminal,
+                                                     guint offset) {
+  return g_utf8_offset_to_pointer(terminal->text,
+                                  MIN(offset, terminal->character_count));
+}
+
+static guint kiwi_gtk_terminal_pointer_offset(const KiwiGtkTerminal *terminal,
+                                              const char *pointer) {
+  return (guint)g_utf8_pointer_to_offset(terminal->text, pointer);
+}
+
+static GBytes *kiwi_gtk_terminal_contents(GtkAccessibleText *accessible,
+                                          unsigned int start, unsigned int end) {
+  KiwiGtkTerminal *terminal = KIWI_GTK_TERMINAL(accessible);
+  guint first = MIN(start, terminal->character_count);
+  guint last = end == G_MAXUINT ? terminal->character_count
+                                : MIN(end, terminal->character_count);
+  if (last < first) last = first;
+  const char *first_pointer = kiwi_gtk_terminal_offset_pointer(terminal, first);
+  const char *last_pointer = kiwi_gtk_terminal_offset_pointer(terminal, last);
+  return g_bytes_new(first_pointer, (gsize)(last_pointer - first_pointer));
+}
+
+static gboolean kiwi_gtk_terminal_word_character(gunichar character) {
+  return g_unichar_isalnum(character) || character == '_';
+}
+
+static GBytes *kiwi_gtk_terminal_contents_at(GtkAccessibleText *accessible,
+                                             unsigned int offset,
+                                             GtkAccessibleTextGranularity granularity,
+                                             unsigned int *start, unsigned int *end) {
+  KiwiGtkTerminal *terminal = KIWI_GTK_TERMINAL(accessible);
+  guint clamped_offset = MIN(offset, terminal->character_count);
+  const char *first = kiwi_gtk_terminal_offset_pointer(terminal, clamped_offset);
+  const char *last = first;
+  const char *text_end = kiwi_gtk_terminal_offset_pointer(terminal,
+                                                           terminal->character_count);
+
+  if (first < text_end) last = g_utf8_next_char(first);
+  if (granularity == GTK_ACCESSIBLE_TEXT_GRANULARITY_LINE ||
+      granularity == GTK_ACCESSIBLE_TEXT_GRANULARITY_PARAGRAPH) {
+    while (first > terminal->text) {
+      const char *previous = g_utf8_find_prev_char(terminal->text, first);
+      if (previous == NULL || *previous == '\n') break;
+      first = previous;
+    }
+    last = first;
+    while (last < text_end && *last != '\n') last = g_utf8_next_char(last);
+    if (last < text_end) last = g_utf8_next_char(last);
+  } else if (granularity == GTK_ACCESSIBLE_TEXT_GRANULARITY_WORD && first < text_end) {
+    if (kiwi_gtk_terminal_word_character(g_utf8_get_char(first))) {
+      while (first > terminal->text) {
+        const char *previous = g_utf8_find_prev_char(terminal->text, first);
+        if (previous == NULL || !kiwi_gtk_terminal_word_character(g_utf8_get_char(previous))) break;
+        first = previous;
+      }
+      last = first;
+      while (last < text_end && kiwi_gtk_terminal_word_character(g_utf8_get_char(last))) {
+        last = g_utf8_next_char(last);
+      }
+    }
+  } else if (granularity == GTK_ACCESSIBLE_TEXT_GRANULARITY_SENTENCE && first < text_end) {
+    while (first > terminal->text) {
+      const char *previous = g_utf8_find_prev_char(terminal->text, first);
+      if (previous == NULL || *previous == '\n' || *previous == '.' ||
+          *previous == '!' || *previous == '?') {
+        break;
+      }
+      first = previous;
+    }
+    last = first;
+    while (last < text_end) {
+      gunichar character = g_utf8_get_char(last);
+      last = g_utf8_next_char(last);
+      if (character == '\n' || character == '.' || character == '!' || character == '?') {
+        break;
+      }
+    }
+  }
+
+  if (start != NULL) *start = kiwi_gtk_terminal_pointer_offset(terminal, first);
+  if (end != NULL) *end = kiwi_gtk_terminal_pointer_offset(terminal, last);
+  return g_bytes_new(first, (gsize)(last - first));
+}
+
+static unsigned int kiwi_gtk_terminal_caret_position(GtkAccessibleText *accessible) {
+  return KIWI_GTK_TERMINAL(accessible)->caret_offset;
+}
+
+static gboolean kiwi_gtk_terminal_selection(GtkAccessibleText *accessible,
+                                            gsize *n_ranges,
+                                            GtkAccessibleTextRange **ranges) {
+  KiwiGtkTerminal *terminal = KIWI_GTK_TERMINAL(accessible);
+  guint start = MIN(terminal->selection_start, terminal->selection_end);
+  guint end = MAX(terminal->selection_start, terminal->selection_end);
+  if (start == end) {
+    if (n_ranges != NULL) *n_ranges = 0;
+    if (ranges != NULL) *ranges = NULL;
+    return FALSE;
+  }
+  if (n_ranges != NULL) *n_ranges = 1;
+  if (ranges != NULL) {
+    *ranges = g_new(GtkAccessibleTextRange, 1);
+    (*ranges)[0].start = start;
+    (*ranges)[0].length = end - start;
+  }
+  return TRUE;
+}
+
+static gboolean kiwi_gtk_terminal_attributes(GtkAccessibleText *accessible,
+                                             unsigned int offset, gsize *n_ranges,
+                                             GtkAccessibleTextRange **ranges,
+                                             char ***attribute_names,
+                                             char ***attribute_values) {
+  (void)accessible;
+  (void)offset;
+  if (n_ranges != NULL) *n_ranges = 0;
+  if (ranges != NULL) *ranges = NULL;
+  if (attribute_names != NULL) *attribute_names = NULL;
+  if (attribute_values != NULL) *attribute_values = NULL;
+  return FALSE;
+}
+
+static void kiwi_gtk_terminal_default_attributes(GtkAccessibleText *accessible,
+                                                 char ***attribute_names,
+                                                 char ***attribute_values) {
+  (void)accessible;
+  if (attribute_names != NULL) *attribute_names = NULL;
+  if (attribute_values != NULL) *attribute_values = NULL;
+}
+
+static gboolean kiwi_gtk_terminal_extents(GtkAccessibleText *accessible,
+                                          unsigned int start, unsigned int end,
+                                          graphene_rect_t *extents) {
+  (void)accessible;
+  (void)start;
+  (void)end;
+  (void)extents;
+  return FALSE;
+}
+
+static gboolean kiwi_gtk_terminal_offset(GtkAccessibleText *accessible,
+                                         const graphene_point_t *point,
+                                         unsigned int *offset) {
+  (void)accessible;
+  (void)point;
+  (void)offset;
+  return FALSE;
+}
+
+static void kiwi_gtk_terminal_accessible_text_init(GtkAccessibleTextInterface *interface) {
+  interface->get_contents = kiwi_gtk_terminal_contents;
+  interface->get_contents_at = kiwi_gtk_terminal_contents_at;
+  interface->get_caret_position = kiwi_gtk_terminal_caret_position;
+  interface->get_selection = kiwi_gtk_terminal_selection;
+  interface->get_attributes = kiwi_gtk_terminal_attributes;
+  interface->get_default_attributes = kiwi_gtk_terminal_default_attributes;
+  interface->get_extents = kiwi_gtk_terminal_extents;
+  interface->get_offset = kiwi_gtk_terminal_offset;
+}
+
+static void kiwi_gtk_terminal_finalize(GObject *object) {
+  KiwiGtkTerminal *terminal = KIWI_GTK_TERMINAL(object);
+  g_free(terminal->text);
+  G_OBJECT_CLASS(kiwi_gtk_terminal_parent_class)->finalize(object);
+}
+
+static void kiwi_gtk_terminal_class_init(KiwiGtkTerminalClass *klass) {
+  GObjectClass *object_class = G_OBJECT_CLASS(klass);
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
+  object_class->finalize = kiwi_gtk_terminal_finalize;
+  gtk_widget_class_set_accessible_role(widget_class, GTK_ACCESSIBLE_ROLE_TEXT_BOX);
+}
+
+static void kiwi_gtk_terminal_init(KiwiGtkTerminal *terminal) {
+  terminal->text = g_strdup("");
+  gtk_widget_set_focusable(GTK_WIDGET(terminal), TRUE);
+}
+
+static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
+                                    size_t text_bytes, uint32_t character_count,
+                                    int32_t caret_offset, int32_t selection_start,
+                                    int32_t selection_end, const char *title) {
+  if (text == NULL || text_bytes > KIWI_GTK_ACCESSIBILITY_MAXIMUM_BYTES ||
+      !g_utf8_validate(text, (gssize)text_bytes, NULL) ||
+      g_utf8_strlen(text, (gssize)text_bytes) != character_count) {
+    kiwi_gtk_set_error("GTK accessibility update is not bounded valid UTF-8");
+    return 0;
+  }
+  if (caret_offset < -1 || caret_offset > (int32_t)character_count ||
+      selection_start < -1 || selection_start > (int32_t)character_count ||
+      selection_end < -1 || selection_end > (int32_t)character_count) {
+    kiwi_gtk_set_error("GTK accessibility update contains invalid text offsets");
+    return 0;
+  }
+
+  guint old_count = terminal->character_count;
+  guint previous_caret = terminal->caret_offset;
+  guint previous_selection_start = terminal->selection_start;
+  guint previous_selection_end = terminal->selection_end;
+  if (old_count > 0) {
+    gtk_accessible_text_update_contents(GTK_ACCESSIBLE_TEXT(terminal),
+                                        GTK_ACCESSIBLE_TEXT_CONTENT_CHANGE_REMOVE,
+                                        0, old_count);
+  }
+  g_free(terminal->text);
+  terminal->text = g_strndup(text, text_bytes);
+  terminal->character_count = character_count;
+  terminal->caret_offset = caret_offset < 0 ? character_count : (guint)caret_offset;
+  terminal->selection_start = selection_start < 0 ? terminal->caret_offset
+                                                   : (guint)selection_start;
+  terminal->selection_end = selection_end < 0 ? terminal->caret_offset
+                                               : (guint)selection_end;
+  gtk_accessible_update_property(GTK_ACCESSIBLE(terminal), GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                 title == NULL ? "Kiwi terminal" : title, -1);
+  if (character_count > 0) {
+    gtk_accessible_text_update_contents(GTK_ACCESSIBLE_TEXT(terminal),
+                                        GTK_ACCESSIBLE_TEXT_CONTENT_CHANGE_INSERT,
+                                        0, character_count);
+  }
+  if (previous_caret != terminal->caret_offset) {
+    gtk_accessible_text_update_caret_position(GTK_ACCESSIBLE_TEXT(terminal));
+  }
+  if (previous_selection_start != terminal->selection_start ||
+      previous_selection_end != terminal->selection_end) {
+    gtk_accessible_text_update_selection_bound(GTK_ACCESSIBLE_TEXT(terminal));
+  }
+  return 1;
+}
+
 typedef struct KiwiGtkWaylandRegistry {
   struct wl_subcompositor *subcompositor;
+  struct wp_viewporter *viewporter;
 } KiwiGtkWaylandRegistry;
 
 enum {
@@ -55,6 +322,7 @@ enum {
   KIWI_GTK_ACTION_RELEASE = 0,
   KIWI_GTK_INPUT_HANDLED = 1,
   KIWI_GTK_INPUT_SUPPRESS_TEXT = 2,
+  KIWI_GTK_INPUT_DEFER_TEXT = 4,
   KIWI_GTK_POINTER_MOTION = 1,
   KIWI_GTK_POINTER_BUTTON = 2,
   KIWI_GTK_POINTER_SCROLL = 3,
@@ -72,6 +340,10 @@ static void kiwi_gtk_wayland_registry_global(void *userdata, struct wl_registry 
     uint32_t supported_version = version < 1 ? version : 1;
     state->subcompositor = wl_registry_bind(registry, name, &wl_subcompositor_interface,
                                             supported_version);
+  } else if (state->viewporter == NULL && strcmp(interface, "wp_viewporter") == 0) {
+    uint32_t supported_version = version < 1 ? version : 1;
+    state->viewporter = wl_registry_bind(registry, name, &wp_viewporter_interface,
+                                         supported_version);
   }
 }
 
@@ -103,33 +375,61 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
   struct wl_registry *registry = wl_display_get_registry(wayland_display);
   if (registry == NULL || wl_registry_add_listener(registry, &kiwi_gtk_wayland_registry_listener,
                                                    &state) != 0 ||
-      wl_display_roundtrip(wayland_display) < 0 || state.subcompositor == NULL) {
+      wl_display_roundtrip(wayland_display) < 0 || state.subcompositor == NULL ||
+      state.viewporter == NULL) {
     if (registry != NULL) wl_registry_destroy(registry);
     if (state.subcompositor != NULL) wl_subcompositor_destroy(state.subcompositor);
-    kiwi_gtk_set_error("Wayland compositor does not expose wl_subcompositor");
+    if (state.viewporter != NULL) wp_viewporter_destroy(state.viewporter);
+    kiwi_gtk_set_error("Wayland compositor does not expose wl_subcompositor and wp_viewporter");
     return 0;
   }
 
   host->presentation_surface = wl_compositor_create_surface(compositor);
   if (host->presentation_surface == NULL) {
     wl_subcompositor_destroy(state.subcompositor);
+    wp_viewporter_destroy(state.viewporter);
     wl_registry_destroy(registry);
     kiwi_gtk_set_error("could not create Wayland presentation surface");
     return 0;
   }
   host->presentation_subsurface = wl_subcompositor_get_subsurface(
       state.subcompositor, host->presentation_surface, parent);
+  host->presentation_viewport = wp_viewporter_get_viewport(state.viewporter,
+                                                            host->presentation_surface);
   wl_subcompositor_destroy(state.subcompositor);
+  wp_viewporter_destroy(state.viewporter);
   wl_registry_destroy(registry);
-  if (host->presentation_subsurface == NULL) {
+  if (host->presentation_subsurface == NULL || host->presentation_viewport == NULL) {
+    if (host->presentation_viewport != NULL) {
+      wp_viewport_destroy(host->presentation_viewport);
+      host->presentation_viewport = NULL;
+    }
+    if (host->presentation_subsurface != NULL) {
+      wl_subsurface_destroy(host->presentation_subsurface);
+      host->presentation_subsurface = NULL;
+    }
     wl_surface_destroy(host->presentation_surface);
     host->presentation_surface = NULL;
-    kiwi_gtk_set_error("could not create Wayland presentation subsurface");
+    kiwi_gtk_set_error("could not create Wayland presentation subsurface or viewport");
     return 0;
   }
   wl_subsurface_set_desync(host->presentation_subsurface);
   wl_subsurface_set_position(host->presentation_subsurface, 0, 0);
   wl_subsurface_place_above(host->presentation_subsurface, parent);
+  wl_surface_set_buffer_scale(host->presentation_surface, 1);
+  return 1;
+}
+
+static int kiwi_gtk_wayland_update_viewport(KiwiGtkHost *host) {
+  int width = gtk_widget_get_width(host->content);
+  int height = gtk_widget_get_height(host->content);
+  if (host->presentation_surface == NULL || host->presentation_viewport == NULL ||
+      width < 1 || height < 1) {
+    kiwi_gtk_set_error("GTK Wayland host has no nonzero presentation viewport");
+    return 0;
+  }
+  wl_surface_set_buffer_scale(host->presentation_surface, 1);
+  wp_viewport_set_destination(host->presentation_viewport, width, height);
   return 1;
 }
 
@@ -164,11 +464,8 @@ static gboolean kiwi_gtk_key_pressed(GtkEventControllerKey *controller, guint ke
   (void)keycode;
   KiwiGtkHost *host = userdata;
   uint32_t result = host->callbacks.key == NULL ? 0 : host->callbacks.key(host->callbacks.userdata, keyval, kiwi_gtk_modifiers(state), KIWI_GTK_ACTION_PRESS);
-  gunichar character = gdk_keyval_to_unicode(keyval);
-  if (character != 0 && host->callbacks.text != NULL && (result & KIWI_GTK_INPUT_SUPPRESS_TEXT) == 0 && (state & (GDK_CONTROL_MASK | GDK_ALT_MASK | GDK_SUPER_MASK)) == 0) {
-    host->callbacks.text(host->callbacks.userdata, character);
-  }
-  return (result & KIWI_GTK_INPUT_HANDLED) != 0;
+  return (result & KIWI_GTK_INPUT_HANDLED) != 0 &&
+         (result & KIWI_GTK_INPUT_DEFER_TEXT) == 0;
 }
 
 static void kiwi_gtk_key_released(GtkEventControllerKey *controller, guint keyval, guint keycode, GdkModifierType state, gpointer userdata) {
@@ -178,15 +475,56 @@ static void kiwi_gtk_key_released(GtkEventControllerKey *controller, guint keyva
   if (host->callbacks.key != NULL) host->callbacks.key(host->callbacks.userdata, keyval, kiwi_gtk_modifiers(state), KIWI_GTK_ACTION_RELEASE);
 }
 
+static void kiwi_gtk_im_commit(GtkIMContext *context, const char *text, gpointer userdata) {
+  (void)context;
+  KiwiGtkHost *host = userdata;
+  if (text == NULL || host->callbacks.text == NULL) return;
+  size_t text_bytes = strlen(text);
+  if (text_bytes == 0) return;
+  if (text_bytes > KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES ||
+      !g_utf8_validate(text, (gssize)text_bytes, NULL)) {
+    kiwi_gtk_set_error("GTK input method committed invalid or oversized UTF-8");
+    return;
+  }
+  host->callbacks.text(host->callbacks.userdata, text, text_bytes);
+}
+
+static void kiwi_gtk_im_preedit_changed(GtkIMContext *context, gpointer userdata) {
+  KiwiGtkHost *host = userdata;
+  if (host->callbacks.preedit == NULL) return;
+  char *text = NULL;
+  PangoAttrList *attributes = NULL;
+  int cursor = 0;
+  gtk_im_context_get_preedit_string(context, &text, &attributes, &cursor);
+  size_t text_bytes = text == NULL ? 0 : strlen(text);
+  if (text == NULL || text_bytes > KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES ||
+      !g_utf8_validate(text, (gssize)text_bytes, NULL)) {
+    kiwi_gtk_set_error("GTK input method preedit is invalid or oversized UTF-8");
+  } else {
+    glong characters = g_utf8_strlen(text, (gssize)text_bytes);
+    glong clamped_cursor = CLAMP((glong)cursor, 0, characters);
+    uint32_t cursor_offset = (uint32_t)(g_utf8_offset_to_pointer(text, clamped_cursor) - text);
+    host->callbacks.preedit(host->callbacks.userdata, text, text_bytes,
+                            cursor_offset, cursor_offset);
+  }
+  if (attributes != NULL) pango_attr_list_unref(attributes);
+  g_free(text);
+}
+
 static void kiwi_gtk_focus_enter(GtkEventControllerFocus *controller, gpointer userdata) {
   (void)controller;
   KiwiGtkHost *host = userdata;
+  gtk_accessible_update_platform_state(GTK_ACCESSIBLE(host->content),
+                                       GTK_ACCESSIBLE_PLATFORM_STATE_FOCUSED);
   if (host->callbacks.focus != NULL) host->callbacks.focus(host->callbacks.userdata, 1);
 }
 
 static void kiwi_gtk_focus_leave(GtkEventControllerFocus *controller, gpointer userdata) {
   (void)controller;
   KiwiGtkHost *host = userdata;
+  if (host->im_context != NULL) gtk_im_context_reset(host->im_context);
+  gtk_accessible_update_platform_state(GTK_ACCESSIBLE(host->content),
+                                       GTK_ACCESSIBLE_PLATFORM_STATE_FOCUSED);
   if (host->callbacks.focus != NULL) host->callbacks.focus(host->callbacks.userdata, 0);
 }
 
@@ -242,16 +580,27 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
   host->window = gtk_application_window_new(host->application);
   gtk_window_set_default_size(GTK_WINDOW(host->window), width, height);
   gtk_window_set_title(GTK_WINDOW(host->window), title);
-  host->content = gtk_drawing_area_new();
+  host->content = g_object_new(KIWI_TYPE_GTK_TERMINAL, NULL);
   gtk_widget_set_hexpand(host->content, TRUE);
   gtk_widget_set_vexpand(host->content, TRUE);
   gtk_window_set_child(GTK_WINDOW(host->window), host->content);
   g_signal_connect(host->window, "close-request", G_CALLBACK(kiwi_gtk_close), host);
   g_signal_connect(host->content, "resize", G_CALLBACK(kiwi_gtk_resize), host);
-  GtkEventController *key = gtk_event_controller_key_new();
+  GtkEventControllerKey *key = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
+  gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(key), GTK_PHASE_CAPTURE);
   g_signal_connect(key, "key-pressed", G_CALLBACK(kiwi_gtk_key_pressed), host);
   g_signal_connect(key, "key-released", G_CALLBACK(kiwi_gtk_key_released), host);
-  gtk_widget_add_controller(host->content, key);
+  gtk_widget_add_controller(host->content, GTK_EVENT_CONTROLLER(key));
+
+  GtkEventControllerKey *im_key = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
+  GtkIMContext *im_context = gtk_im_multicontext_new();
+  gtk_im_context_set_client_widget(im_context, host->content);
+  g_signal_connect(im_context, "commit", G_CALLBACK(kiwi_gtk_im_commit), host);
+  g_signal_connect(im_context, "preedit-changed", G_CALLBACK(kiwi_gtk_im_preedit_changed), host);
+  gtk_event_controller_key_set_im_context(im_key, im_context);
+  host->im_context = gtk_event_controller_key_get_im_context(im_key);
+  g_object_unref(im_context);
+  gtk_widget_add_controller(host->content, GTK_EVENT_CONTROLLER(im_key));
   GtkEventController *focus = gtk_event_controller_focus_new();
   g_signal_connect(focus, "enter", G_CALLBACK(kiwi_gtk_focus_enter), host);
   g_signal_connect(focus, "leave", G_CALLBACK(kiwi_gtk_focus_leave), host);
@@ -282,6 +631,7 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
 
 void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   if (host == NULL) return;
+  if (host->presentation_viewport != NULL) wp_viewport_destroy(host->presentation_viewport);
   if (host->presentation_subsurface != NULL) wl_subsurface_destroy(host->presentation_subsurface);
   if (host->presentation_surface != NULL) wl_surface_destroy(host->presentation_surface);
   if (host->window != NULL) gtk_window_destroy(GTK_WINDOW(host->window));
@@ -414,10 +764,64 @@ int kiwi_gtk_host_set_drawable_size(KiwiGtkHost *host, uint32_t width, uint32_t 
   }
   GdkDisplay *display = gdk_surface_get_display(host->surface);
   if (GDK_IS_WAYLAND_DISPLAY(display) && host->presentation_surface != NULL) {
-    int scale = gdk_surface_get_scale_factor(host->surface);
-    wl_surface_set_buffer_scale(host->presentation_surface, scale > 0 ? scale : 1);
+    return kiwi_gtk_wayland_update_viewport(host);
   }
   return 1;
+}
+
+int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost *host, int x, int y,
+                                       int width, int height) {
+  if (host == NULL || host->im_context == NULL || x < 0 || y < 0 ||
+      width < 1 || height < 1) {
+    kiwi_gtk_set_error("GTK input method received an invalid caret rectangle");
+    return 0;
+  }
+  GdkRectangle rectangle = { x, y, width, height };
+  gtk_im_context_set_cursor_location(host->im_context, &rectangle);
+  return 1;
+}
+
+int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost *host) {
+  static const char preedit[] = "e\xCC\x81";
+  static const char commit[] = "\xE2\x9C\x93";
+  if (host == NULL || host->callbacks.preedit == NULL || host->callbacks.text == NULL) {
+    kiwi_gtk_set_error("GTK text-input smoke needs installed preedit and commit callbacks");
+    return 0;
+  }
+  host->callbacks.preedit(host->callbacks.userdata, preedit, sizeof(preedit) - 1,
+                          sizeof(preedit) - 1, sizeof(preedit) - 1);
+  host->callbacks.text(host->callbacks.userdata, commit, sizeof(commit) - 1);
+  return 1;
+}
+
+int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost *host) {
+  static const char text[] = "a";
+  if (host == NULL || host->callbacks.key == NULL || host->callbacks.text == NULL) {
+    kiwi_gtk_set_error("GTK key/text smoke needs installed key and text callbacks");
+    return 0;
+  }
+  if (kiwi_gtk_key_pressed(NULL, 'a', 0, 0, host)) {
+    kiwi_gtk_set_error("GTK key/text smoke expected the deferred key to reach the input method");
+    return 0;
+  }
+  kiwi_gtk_im_commit(NULL, text, host);
+  kiwi_gtk_key_released(NULL, 'a', 0, 0, host);
+  return 1;
+}
+
+int kiwi_gtk_host_accessibility_update(KiwiGtkHost *host, const char *text,
+                                       size_t text_bytes, uint32_t character_count,
+                                       int32_t caret_offset, int32_t selection_start,
+                                       int32_t selection_end, int focused,
+                                       const char *title) {
+  if (host == NULL || host->content == NULL) {
+    kiwi_gtk_set_error("GTK accessibility update has no terminal widget");
+    return 0;
+  }
+  (void)focused;
+  return kiwi_gtk_terminal_update(KIWI_GTK_TERMINAL(host->content), text, text_bytes,
+                                  character_count, caret_offset, selection_start,
+                                  selection_end, title);
 }
 
 const char *kiwi_gtk_host_last_error(void) { return kiwi_gtk_error; }

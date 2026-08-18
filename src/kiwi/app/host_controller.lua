@@ -24,6 +24,7 @@ local Renderer = require("kiwi.renderer.renderer")
 local Workspace = require("kiwi.session.workspace")
 local TextLab = require("kiwi.text.lab")
 local Replay = require("kiwi.terminal.replay")
+local Utf8 = require("kiwi.terminal.utf8")
 local VT = require("kiwi.vt")
 local VTInternal = require("kiwi.vt.internal")
 
@@ -45,6 +46,18 @@ end
 local function content_scale(window)
   local xscale, yscale = window:content_scale()
   return math.max(xscale, yscale)
+end
+
+local function codepoints_from_utf8(text)
+  if type(text) ~= "string" then return nil end
+  local codepoints = {}
+  local invalid = false
+  local decoder = Utf8.Decoder.new(function(codepoint, _, replaced)
+    if replaced then invalid = true else codepoints[#codepoints + 1] = codepoint end
+  end)
+  for index = 1, #text do decoder:feed_byte(text:byte(index)) end
+  decoder:finish()
+  return invalid and nil or codepoints
 end
 
 local function new_font(window, configuration)
@@ -702,7 +715,7 @@ function Controller.run(window, host, options)
       renderer:invalidate("terminal")
     end
 
-    local function apply_cocoa_preedit(text, selection_start, selection_end)
+    local function apply_preedit(text, selection_start, selection_end)
       if not composition.focused then composition:enter() end
       local accepted, status = composition:offer_preedit(text, selection_start, selection_end)
       if not accepted then
@@ -713,7 +726,7 @@ function Controller.run(window, host, options)
       update_preedit_overlay(update)
     end
 
-    local function apply_cocoa_commit(text)
+    local function apply_commit(text)
       if not composition.focused then composition:enter() end
       local accepted, status = composition:offer_preedit("", 0, 0)
       if accepted then update_preedit_overlay(assert(composition:done())) end
@@ -858,6 +871,7 @@ function Controller.run(window, host, options)
 
     window:set_input_handlers(function(codepoints, key_event)
       if key_event then
+        apply_commit("")
         local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, { associated_text = codepoints })
         if encoded and encoded.bytes then enqueue_input(encoded.bytes) end
         return
@@ -953,7 +967,7 @@ function Controller.run(window, host, options)
         selection_pointer:reset()
         state.ime_preedit = nil
         composition:leave()
-        renderer:invalidate("terminal")
+        if renderer then renderer:invalidate("terminal") end
       else
         composition:enter()
       end
@@ -961,12 +975,14 @@ function Controller.run(window, host, options)
       if encoded then enqueue_input(encoded) end
     end)
     if host.enable_text_input then
-      local enabled, reason = host.enable_text_input(window, apply_cocoa_preedit, function(text)
-        handle_committed_text(apply_cocoa_commit(text))
+      local enabled, reason = host.enable_text_input(window, apply_preedit, function(text)
+        local committed = apply_commit(text)
+        local codepoints = codepoints_from_utf8(committed)
+        handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, state.modes) or nil)
       end)
       if not enabled then io.stderr:write("Kiwi IME: unavailable: ", reason, "\n") end
     end
-    local function sync_cocoa_text_input_caret()
+    local function sync_text_input_caret()
       local pane = workspace:active_pane()
       local layout = pane and pane_layouts[pane.id]
       if layout == nil then return end
@@ -1109,7 +1125,7 @@ function Controller.run(window, host, options)
       local child_status = active_session.child_status
       update_search_title()
       sync_accessibility()
-      sync_cocoa_text_input_caret()
+      sync_text_input_caret()
 
       for _, entry in ipairs(pane_entries) do
         if entry.model.kitty_graphics:advance(now) then entry.renderer:invalidate("kitty_images") end
@@ -1121,6 +1137,7 @@ function Controller.run(window, host, options)
         if scale_changed then
           previous_font = font
           font = new_font(window, configuration)
+          window.resized = true
           for _, pane in pairs(workspace.panes) do
             local session = pane.session
             session.metrics.font = font

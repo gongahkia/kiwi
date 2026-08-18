@@ -21,8 +21,10 @@ pkg-config --exists gtk4 || {
 mkdir -p "${OUTPUT:h}"
 cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
   -I"$WGPU/include" \
+  -I"$ROOT/native/protocols" \
   $(pkg-config --cflags gtk4) \
   "$ROOT/native/gtk_host.c" \
+  "$ROOT/native/protocols/viewporter-client-protocol.c" \
   -L"$WGPU/lib" -lwgpu_native \
   $(pkg-config --libs gtk4) \
   -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
