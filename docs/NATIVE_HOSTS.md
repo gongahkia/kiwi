@@ -41,7 +41,8 @@ native text widget or a replacement renderer.
    `NSAccessibility` remain attached to the GLFW Cocoa view. It does **not**
    own `NSWindow`, native tab/split chrome, a settings surface, automation, or
    menu keyboard equivalents. `make cocoa-smoke` verifies the bridge structure
-   and C-to-Lua action callback, but not a user choosing every menu item.
+   and `make cocoa-menu-smoke` verifies a New Tab callback through the live
+   controller, but neither proves a user choosing every menu item.
 3. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
