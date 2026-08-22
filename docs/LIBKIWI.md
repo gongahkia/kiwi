@@ -71,12 +71,12 @@ the module once and compare this number before relying on an optional feature.
 
 | Surface | Ownership and rule |
 | --- | --- |
-| `VT.new({ columns, rows, state_options?, parser_options?, effects?, effect_limit? })` | Creates one single-threaded terminal. Dimensions and limits are validated. `effects` is an optional host callback table. |
+| `VT.new({ columns, rows, state_options?, parser_options?, effects?, effect_limit? })` | Creates one single-threaded terminal. Dimensions and limits are validated. `effects` is an optional host callback table. `state_options.keyboard_supported_flags` defaults to portable Kitty flags 1/2/8/16; a host may opt into flag 4 only when it can supply every key variant described below. |
 | `terminal:write(bytes)` / `finish()` / `resize(columns, rows, options?)` / `set_cell_metrics(width, height)` | Mutate terminal state or provide host-measured physical cell metrics. `write` consumes a Lua byte string incrementally. Calls during a render update are rejected. Metrics enable only read-only xterm geometry replies; they do not let terminal applications resize a host. |
 | `terminal:pop_response()` / `pop_responses()` / `pop_effect()` / `pop_effects()` | Transfer one response, all current responses, one effect, or all effects to the caller and remove them from the bounded queue. Response bytes are a subset of typed `write_pty` effects. |
 | `terminal:begin_render_update()` / `end_render_update(consumed)` | Bracket a borrowed read view. Do not write, resize, finish, or re-enter the terminal until the matching end call. `consumed=true` acknowledges logical damage; `false` leaves it pending. |
 | `view.input_modes` | Detached mode data needed to encode host input: application cursor/keypad, DECBKM backspace mode, bracketed paste, focus reporting, Kitty keyboard flags, current screen identity, alternate-scroll, and mouse tracking/protocol. |
-| `VT.Input` | Host-neutral input helpers. `text(codepoint, modes)`, `key({ key, action, modifiers? }, modes)`, `new_mouse()`, and `paste(bytes, modes)` return terminal bytes or a host-decided local-action token. Mouse events normally use 1-origin `column`/`row`; SGR-Pixels uses `pixel_x`/`pixel_y` instead. Symbolic special keys include `up`, `down`, `left`, `right`, `home`, `end`, `insert`, `delete`, `page_up`, `page_down`, `escape`, `enter`, `tab`, `backspace`, `f1` through `f12`, and `kp_0` through `kp_9` plus `kp_decimal`, `kp_divide`, `kp_multiply`, `kp_subtract`, `kp_add`, `kp_enter`, and `kp_equal`. |
+| `VT.Input` | Host-neutral input helpers. `text(codepoint, modes)`, `key({ key, action, modifiers?, layout_key?, shifted_key?, base_key? }, modes)`, `new_mouse()`, and `paste(bytes, modes)` return terminal bytes or a host-decided local-action token. The optional key scalars are the unshifted active-layout key, Shift active-layout key, and unshifted US PC-101 physical-position key for Kitty flag 4; provide all three only when the terminal construction opted into that flag. Mouse events normally use 1-origin `column`/`row`; SGR-Pixels uses `pixel_x`/`pixel_y` instead. Symbolic special keys include `up`, `down`, `left`, `right`, `home`, `end`, `insert`, `delete`, `page_up`, `page_down`, `escape`, `enter`, `tab`, `backspace`, `f1` through `f12`, and `kp_0` through `kp_9` plus `kp_decimal`, `kp_divide`, `kp_multiply`, `kp_subtract`, `kp_add`, `kp_enter`, and `kp_equal`. |
 | `kiwi.vt.headless.render(view, options?)` | Reads only the public render view and returns owned plain tables. Wide-cell continuation slots are omitted; their anchor cell contributes its full display text. |
 | `kiwi.vt.headless.render_terminal(terminal, options?)` | Convenience transaction that always closes its update, including when rendering errors. `consume_damage` defaults to false. |
 | `terminal:close()` | Releases bounded queues and prohibits further operations. It is idempotent outside active operations. |
@@ -144,7 +144,9 @@ kiwi_vt_terminal_free(terminal);
 `struct_size` must be at least `sizeof(kiwi_vt_options)` and `api_version`
 must equal `KIWI_VT_API_VERSION`. Versions and dimension/scrollback bounds are
 validated before creating a handle. Zero `scrollback_limit` selects the C API
-default of 2,000 rows. `kiwi_vt_version()` reports Kiwi's package version;
+default of 2,000 rows. Zero `keyboard_supported_flags` preserves the portable
+1/2/8/16 Kitty mask; a host may use `31` only when it supplies all three
+nonzero key variants for flag-4 events. `kiwi_vt_version()` reports Kiwi's package version;
 `kiwi_vt_api_version()` reports the C API version.
 
 | Function | Contract |
@@ -194,7 +196,12 @@ selection, or input-mode data.
 
 `kiwi_vt_terminal_encode_text`, `encode_key`, and `encode_paste` use the
 terminal's current negotiated modes without accepting a GLFW object or native
-handle. `kiwi_vt_key_event` and `kiwi_vt_input_result` are size-tagged.
+handle. `kiwi_vt_key_event` and `kiwi_vt_input_result` are size-tagged. Its
+optional `layout_key`, `shifted_key`, and `base_key` fields are non-control
+Unicode scalars (or zero when unavailable) for Kitty flag 4: respectively the
+unshifted active-layout result, Shift active-layout result, and unshifted US
+PC-101 physical-position result. A consumer must not opt into flag 4 unless it
+can provide those meanings; Kiwi does not derive one from another.
 `KIWI_VT_KEY_*`, `KIWI_VT_KEY_ACTION_*`, and `KIWI_VT_MODIFIER_*` are the
 complete symbolic C key vocabulary for this API version; printable keys use
 their ASCII code and `KIWI_VT_KEY_KP_*` covers the numeric keypad. A successful key operation can have no terminal bytes when

@@ -43,6 +43,8 @@ macOS evidence remains Apple Silicon.
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
 private AppKit pasteboard, checks the bounded `NSAccessibilityTextArea`
 projection and `NSTextInputClient` marked/commit/candidate-rectangle lifecycle,
+checks that the current Carbon keyboard layout resolves the layout, Shift, and
+PC-101 values used for Kitty keyboard flag 4,
 constructs the Cocoa global main menu and dispatches one logical action through
 its C-to-Lua callback bridge,
 creates two independent Cocoa/Metal surfaces, moves one live PTY
