@@ -324,12 +324,13 @@ not active. Modifier values are one plus the Kitty bit field for Shift, Alt,
 Ctrl, and Super. Negotiated keyboard mode takes precedence over terminal-local
 `Shift+PageUp/Down` history navigation.
 
-Flag 4 (alternate keys) remains deliberately unsupported because it needs a
-reliable layout-derived shifted/base-key identity, which GLFW's key/text
-callbacks do not expose. Requested unsupported bits are absent from the
-subsequent query reply; applications that do not negotiate a supported flag
-retain Kiwi’s legacy input behavior. This runtime protocol has no terminfo
-advertisement.
+Flag 4 (alternate keys) remains deliberately unsupported because it needs both
+the shifted value in the active keyboard layout and the base value for the
+physical PC-101 key. GLFW supplies a physical scancode and an unmodified
+layout-specific printable name, but its key/text callbacks do not supply that
+pair reliably. Requested unsupported bits are absent from the subsequent query
+reply; applications that do not negotiate a supported flag retain Kiwi’s
+legacy input behavior. This runtime protocol has no terminfo advertisement.
 
 ## Mouse and focus reporting
 
