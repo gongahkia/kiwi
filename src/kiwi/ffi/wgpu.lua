@@ -82,7 +82,7 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; size_t co
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandEncoderDescriptor;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandBufferDescriptor;
 typedef struct { uint64_t frame; uint32_t pass_index; uint64_t begin_ticks; uint64_t end_ticks; uint64_t map_latency_ns; } KiwiTimestampSample;
-typedef struct { uint64_t frame; uint64_t checksum; uint64_t opaque_pixels; uint64_t red_dominant_pixels; uint64_t blue_dominant_pixels; } KiwiFramebufferSample;
+typedef struct { uint64_t frame; uint64_t checksum; uint64_t opaque_pixels; uint64_t red_dominant_pixels; uint64_t blue_dominant_pixels; uint64_t expected_rgb_pixels; uint32_t modal_rgb; uint64_t modal_rgb_pixels; } KiwiFramebufferSample;
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallbackInfo callbackInfo);
@@ -156,6 +156,7 @@ int kiwi_timestamp_tracker_poll(KiwiTimestampTracker* tracker, KiwiTimestampSamp
 uint32_t kiwi_timestamp_tracker_pending(const KiwiTimestampTracker* tracker);
 uint32_t kiwi_timestamp_tracker_dropped(const KiwiTimestampTracker* tracker);
 KiwiFramebufferCapture* kiwi_framebuffer_capture_new(WGPUInstance instance, WGPUDevice device, uint32_t width, uint32_t height, uint32_t format);
+int kiwi_framebuffer_capture_set_expected_rgb(KiwiFramebufferCapture* capture, uint8_t red, uint8_t green, uint8_t blue, uint8_t tolerance);
 void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture* capture);
 int kiwi_framebuffer_capture_begin(KiwiFramebufferCapture* capture, uint64_t frame);
 void kiwi_framebuffer_capture_encode(KiwiFramebufferCapture* capture, WGPUCommandEncoder encoder, WGPUTexture texture);
@@ -194,7 +195,9 @@ return {
     surface_occluded = 0x00030001,
     texture_format_r8_unorm = 1,
     texture_format_rgba8_unorm = 0x16,
+    texture_format_rgba8_unorm_srgb = 0x17,
     texture_format_bgra8_unorm = 0x1b,
+    texture_format_bgra8_unorm_srgb = 0x1c,
     texture_usage_copy_src = 0x01,
     texture_usage_copy_dst = 0x02,
     texture_usage_texture_binding = 0x04,

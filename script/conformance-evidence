@@ -120,6 +120,12 @@ else
   }
 fi
 
+if [[ "$(uname -s)" == Darwin || -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
+  make truecolour-framebuffer-smoke
+else
+  print "native-truecolour-framebuffer: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+fi
+
 if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
   print "native-nvim-keyboard: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
 elif ! command -v nvim >/dev/null; then

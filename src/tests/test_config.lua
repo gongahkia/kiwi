@@ -83,6 +83,19 @@ return {
     Assert.equal(Color.unpack(dark.background).red, 0x28)
     Assert.equal(Color.unpack(light.background).red, 0xfd)
   end,
+  configuration_preserves_explicit_colours_when_system_appearance_changes = function()
+    local dark = Config.parse([[theme = system
+theme-dark = dracula
+theme-light = solarized-light
+foreground = #010203
+palette-1 = #a0b0c0
+]], "test", nil, { appearance = "dark" })
+    local light = Config.parse("appearance = light\n", "platform", dark, { appearance = "light" })
+    Assert.equal(light.resolved_appearance, "light")
+    Assert.equal(Color.unpack(light.background).red, 0xfd)
+    Assert.equal(Color.unpack(light.foreground).red, 1)
+    Assert.equal(Color.unpack(light.palette[1]).green, 0xb0)
+  end,
   configuration_loads_external_themes_as_bounded_colour_data_only = function()
     local requested
     local config = Config.parse([[theme-file = /trusted/theme.conf
@@ -112,5 +125,12 @@ keybind = ctrl+alt+t = new-tab
     Assert.equal(#config.keybindings, 2)
     Assert.equal(config.keybindings[1].action, "none")
     Assert.equal(config.keybindings[2].chord, "alt+control+t")
+  end,
+  configuration_parses_explicit_osc9_host_effect_policies = function()
+    local config = Config.parse("osc9-notifications = system\nosc9-progress = system\n", "test")
+    Assert.equal(config.osc9_notifications, "system")
+    Assert.equal(config.osc9_progress, "system")
+    Assert.truthy(not pcall(Config.parse, "osc9-notifications = always", "test"))
+    Assert.truthy(not pcall(Config.parse, "osc9-progress = true", "test"))
   end,
 }

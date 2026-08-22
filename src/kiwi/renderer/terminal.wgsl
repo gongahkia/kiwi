@@ -81,12 +81,27 @@ struct RasterOut {
 @group(0) @binding(3) var glyph_sampler: sampler;
 @group(0) @binding(4) var<uniform> frame: FrameData;
 
+fn srgb_channel_to_linear(channel: f32) -> f32 {
+  if (channel <= 0.04045) { return channel / 12.92; }
+  return pow((channel + 0.055) / 1.055, 2.4);
+}
+
+fn srgb_to_surface(color: vec4<f32>) -> vec4<f32> {
+  if (frame.command_region_padding0 < 0.5) { return color; }
+  return vec4<f32>(
+    srgb_channel_to_linear(color.r),
+    srgb_channel_to_linear(color.g),
+    srgb_channel_to_linear(color.b),
+    color.a
+  );
+}
+
 fn unpack_rgba(value: u32) -> vec4<f32> {
   let r = f32((value >> 16u) & 255u) / 255.0;
   let g = f32((value >> 8u) & 255u) / 255.0;
   let b = f32(value & 255u) / 255.0;
   let a = f32((value >> 24u) & 255u) / 255.0;
-  return vec4<f32>(r, g, b, a);
+  return srgb_to_surface(vec4<f32>(r, g, b, a));
 }
 
 fn quad_corner(vertex_index: u32) -> vec2<f32> {
@@ -124,13 +139,13 @@ fn background_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_ind
 fn background_fs(input: RasterOut) -> @location(0) vec4<f32> {
   var color = input.bg;
   if ((input.flags & 2u) != 0u) {
-    color = vec4<f32>(mix(color.rgb, vec3<f32>(0.45, 0.72, 0.86), 0.24), color.a);
+    color = vec4<f32>(mix(color.rgb, srgb_to_surface(vec4<f32>(0.45, 0.72, 0.86, 1.0)).rgb, 0.24), color.a);
   }
   if (frame.show_dirty > 0.5 && (input.flags & 4u) != 0u) {
-    color = vec4<f32>(mix(color.rgb, vec3<f32>(1.0, 0.75, 0.20), 0.42), color.a);
+    color = vec4<f32>(mix(color.rgb, srgb_to_surface(vec4<f32>(1.0, 0.75, 0.20, 1.0)).rgb, 0.42), color.a);
   }
   if (frame.show_boundaries > 0.5 && (input.local_position.x < 0.025 || input.local_position.y < 0.035)) {
-    color = vec4<f32>(0.18, 0.52, 0.61, color.a);
+    color = vec4<f32>(srgb_to_surface(vec4<f32>(0.18, 0.52, 0.61, 1.0)).rgb, color.a);
   }
   return color;
 }
@@ -148,7 +163,7 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
   let hyperlink_underline = (input.flags & 512u) != 0u && frame.hyperlink_alpha > 0.0 && input.local_position.y > 0.91;
   let decoration = ((input.flags & 32u) != 0u && input.local_position.y > 0.88)
     || ((input.flags & 256u) != 0u && input.local_position.y > 0.46 && input.local_position.y < 0.54);
-  if (hyperlink_underline) { return vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha); }
+  if (hyperlink_underline) { return srgb_to_surface(vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha)); }
   var color = input.fg;
   if ((input.flags & 1u) != 0u) { color = vec4<f32>(min(vec3<f32>(1.0), color.rgb * 1.16), color.a); }
   if ((input.flags & 8u) != 0u) { color = vec4<f32>(color.rgb * 0.65, color.a); }
@@ -192,7 +207,7 @@ fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_inde
 @fragment
 fn selection_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (!selection_contains(input.cell_position.x, input.cell_position.y)) { discard; }
-  return vec4<f32>(frame.selection_red, frame.selection_green, frame.selection_blue, frame.selection_alpha);
+  return srgb_to_surface(vec4<f32>(frame.selection_red, frame.selection_green, frame.selection_blue, frame.selection_alpha));
 }
 
 @vertex
@@ -205,7 +220,7 @@ fn search_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) 
 @fragment
 fn search_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (!search_contains(input.cell_position.x, input.cell_position.y)) { discard; }
-  return vec4<f32>(frame.search_red, frame.search_green, frame.search_blue, frame.search_alpha);
+  return srgb_to_surface(vec4<f32>(frame.search_red, frame.search_green, frame.search_blue, frame.search_alpha));
 }
 
 @vertex
@@ -218,7 +233,7 @@ fn command_regions_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instanc
 @fragment
 fn command_regions_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (frame.command_region_alpha <= 0.0 || input.local_position.y > 0.04 || !command_region_separator_row(input.cell_position.y)) { discard; }
-  return vec4<f32>(frame.command_region_red, frame.command_region_green, frame.command_region_blue, frame.command_region_alpha);
+  return srgb_to_surface(vec4<f32>(frame.command_region_red, frame.command_region_green, frame.command_region_blue, frame.command_region_alpha));
 }
 
 @vertex
@@ -231,7 +246,7 @@ fn cursor_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
   result.position = vec4<f32>(normalized_position.x * 2.0 - 1.0, 1.0 - normalized_position.y * 2.0, 0.0, 1.0);
   result.local_position = local_position;
   result.uv = vec2<f32>(0.0);
-  result.fg = vec4<f32>(frame.cursor_red, frame.cursor_green, frame.cursor_blue, frame.cursor_alpha);
+  result.fg = srgb_to_surface(vec4<f32>(frame.cursor_red, frame.cursor_green, frame.cursor_blue, frame.cursor_alpha));
   result.bg = result.fg;
   result.flags = 0u;
   result.glyph = 0u;

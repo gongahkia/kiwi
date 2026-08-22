@@ -155,6 +155,25 @@ local function report_framebuffer_capture(context)
       sample.red_dominant_pixels,
       sample.blue_dominant_pixels
     ))
+    if capture.expected_rgb then
+      io.stdout:write(string.format(
+        "Kiwi framebuffer expected RGB: frame=%d rgb=%d,%d,%d tolerance=%d pixels=%d\n",
+        sample.frame,
+        capture.expected_rgb.red,
+        capture.expected_rgb.green,
+        capture.expected_rgb.blue,
+        capture.expected_rgb.tolerance,
+        sample.expected_rgb_pixels
+      ))
+    end
+    io.stdout:write(string.format(
+      "Kiwi framebuffer modal RGB: frame=%d rgb=%d,%d,%d pixels=%d\n",
+      sample.frame,
+      math.floor(sample.modal_rgb / 65536) % 256,
+      math.floor(sample.modal_rgb / 256) % 256,
+      sample.modal_rgb % 256,
+      sample.modal_rgb_pixels
+    ))
   end
 end
 
@@ -186,6 +205,7 @@ function Controller.run(window, host, options)
   local ok, result = xpcall(function()
     local context_options = {
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
+      framebuffer_expected_rgb = os.getenv("KIWI_FRAMEBUFFER_EXPECT_RGB"),
       gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1",
     }
     context = Context.new(host, window, context_options)
