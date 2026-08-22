@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+# Fill the retained viewport with a non-palette RGB background. A host-side
+# framebuffer readback then checks the actual presented pixel values.
+print -rn -- $'\e[?25l\e[2J\e[H\e[48;2;18;171;52m'
+printf '%*s' 12000 ''
+sleep 1

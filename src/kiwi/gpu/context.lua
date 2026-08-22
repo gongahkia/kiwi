@@ -18,16 +18,41 @@ local function assert_handle(handle, label)
   return handle
 end
 
+function Context.parse_framebuffer_expected_rgb(value)
+  if value == nil or value == "" then return nil end
+  assert(type(value) == "string", "expected framebuffer RGB must be a string")
+  local red, green, blue = value:match("^(%d+),(%d+),(%d+)$")
+  red, green, blue = tonumber(red), tonumber(green), tonumber(blue)
+  for _, channel in ipairs({ red or -1, green or -1, blue or -1 }) do
+    assert(channel ~= nil and channel >= 0 and channel <= 255 and channel % 1 == 0,
+      "expected framebuffer RGB must be R,G,B with byte channels")
+  end
+  return { red = red, green = green, blue = blue }
+end
+
+function Context.select_surface_format(formats, count, constants)
+  assert(formats ~= nil and type(count) == "number" and count >= 1, "surface needs at least one format")
+  constants = constants or wgpu.constants
+  for _, preferred in ipairs({ constants.texture_format_bgra8_unorm_srgb, constants.texture_format_rgba8_unorm_srgb }) do
+    for index = 0, count - 1 do
+      if tonumber(formats[index]) == preferred then return preferred, true end
+    end
+  end
+  return tonumber(formats[0]), false
+end
+
 function Context.new(host, window, options)
   options = options or {}
   assert(type(host) == "table" and type(host.create_surface) == "function" and type(host.set_drawable_size) == "function", "GPU context needs a host surface provider")
   assert(options.gpu_timestamps == nil or type(options.gpu_timestamps) == "boolean", "GPU timestamp option must be a boolean")
   assert(options.framebuffer_capture == nil or type(options.framebuffer_capture) == "boolean", "framebuffer capture option must be a boolean")
+  assert(options.framebuffer_expected_rgb == nil or type(options.framebuffer_expected_rgb) == "string", "expected framebuffer RGB must be a string")
   local self = setmetatable({
     host = host,
     window = window,
     native = wgpu,
     framebuffer_capture_requested = options.framebuffer_capture == true,
+    framebuffer_expected_rgb = Context.parse_framebuffer_expected_rgb(options.framebuffer_expected_rgb),
     framebuffer_samples = {},
   }, Context)
   local ok, result = xpcall(function()
@@ -114,7 +139,7 @@ function Context:configure_surface()
     self.native.lib.wgpuSurfaceCapabilitiesFreeMembers(capabilities)
     error("surface does not expose copy-src usage required for framebuffer capture")
   end
-  self.surface_format = capabilities.formats[0]
+  self.surface_format, self.surface_is_srgb = Context.select_surface_format(capabilities.formats, tonumber(capabilities.formatCount), self.native.constants)
   local config = ffi.new("WGPUSurfaceConfiguration")
   config.device = self.device
   config.format = self.surface_format
@@ -135,6 +160,11 @@ function Context:configure_surface()
     self.framebuffer_capture = self.native.surface.kiwi_framebuffer_capture_new(self.instance, self.device, width, height, self.surface_format)
     if self.framebuffer_capture == nil then
       error("Unable to create framebuffer capture: " .. ffi.string(self.native.surface.kiwi_surface_last_error()))
+    end
+    if self.framebuffer_expected_rgb then
+      local expected = self.framebuffer_expected_rgb
+      assert(self.native.surface.kiwi_framebuffer_capture_set_expected_rgb(self.framebuffer_capture,
+        expected.red, expected.green, expected.blue, 4) ~= 0, "could not configure framebuffer RGB expectation")
     end
     self.framebuffer_samples = {}
   end
@@ -172,6 +202,9 @@ function Context:poll_framebuffer_capture()
       blue_dominant_pixels = tonumber(sample[0].blue_dominant_pixels),
       checksum = tostring(sample[0].checksum),
       frame = tonumber(sample[0].frame),
+      expected_rgb_pixels = tonumber(sample[0].expected_rgb_pixels),
+      modal_rgb = tonumber(sample[0].modal_rgb),
+      modal_rgb_pixels = tonumber(sample[0].modal_rgb_pixels),
       opaque_pixels = tonumber(sample[0].opaque_pixels),
       red_dominant_pixels = tonumber(sample[0].red_dominant_pixels),
     }
@@ -189,12 +222,21 @@ function Context:framebuffer_capture_snapshot()
       blue_dominant_pixels = sample.blue_dominant_pixels,
       checksum = sample.checksum,
       frame = sample.frame,
+      expected_rgb_pixels = sample.expected_rgb_pixels,
+      modal_rgb = sample.modal_rgb,
+      modal_rgb_pixels = sample.modal_rgb_pixels,
       opaque_pixels = sample.opaque_pixels,
       red_dominant_pixels = sample.red_dominant_pixels,
     }
   end
   return {
     dropped = self.framebuffer_capture and tonumber(self.native.surface.kiwi_framebuffer_capture_dropped(self.framebuffer_capture)) or 0,
+    expected_rgb = self.framebuffer_expected_rgb and {
+      blue = self.framebuffer_expected_rgb.blue,
+      green = self.framebuffer_expected_rgb.green,
+      red = self.framebuffer_expected_rgb.red,
+      tolerance = 4,
+    } or nil,
     pending = self.framebuffer_capture and tonumber(self.native.surface.kiwi_framebuffer_capture_pending(self.framebuffer_capture)) or 0,
     samples = samples,
   }

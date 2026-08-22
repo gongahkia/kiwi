@@ -17,6 +17,6 @@ return {
   end,
   cursor_shader_uses_the_terminal_cursor_colour_uniform = function()
     local shader = source()
-    Assert.truthy(shader:find("result.fg = vec4<f32>(frame.cursor_red, frame.cursor_green, frame.cursor_blue, frame.cursor_alpha);", 1, true) ~= nil)
+    Assert.truthy(shader:find("result.fg = srgb_to_surface(vec4<f32>(frame.cursor_red, frame.cursor_green, frame.cursor_blue, frame.cursor_alpha));", 1, true) ~= nil)
   end,
 }

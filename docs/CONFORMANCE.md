@@ -70,7 +70,7 @@ claiming formal verification or allocator-independent memory totals.
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
 | replies | DSR 5/6, conservative primary/secondary DA subsets, and read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`) | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes | not advertised |
+| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes; default-denied OSC 9 notification/progress requests | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; DCS DECRQSS replies for SGR, DECSTBM, DECSLRM, DECSCUSR, DECSCA, and current page height (DECSLPP) only | all other DCS families, including Sixel, remain discarded and unadvertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
@@ -84,6 +84,28 @@ The entry intentionally declares `colors#16`; it declares DEC Special Graphics l
 ## Clipboard and OSC 52 policy
 
 OSC 52 is default-denied. Setting `osc52-write = true` (or `KIWI_OSC52_WRITE=1`) explicitly permits only a bounded `c`, `p`, or `s` base64 write after UTF-8 and NUL validation; it cannot read, clear, or query the system clipboard and never receives an OSC reply. The terminal core emits a typed request and the GLFW host revalidates it before its one atomic clipboard call. The parser still bounds every OSC string to 4,096 bytes and neither diagnostics nor effects retain raw OSC payloads beyond that synchronous handoff. Local clipboard behavior is defined in [ADR 0020](adr/0020-clipboard-and-osc52-security-policy.md).
+
+## OSC 9 host-effect policy
+
+OSC 9 is an advisory host-effect request, never a terminal-state command. Kiwi
+parses a notification body or a progress update into a typed effect, then a
+host-owned policy decides whether it may reach the desktop. Both
+`osc9-notifications` and `osc9-progress` default to `off`; their only other
+value is `system`. Notification bodies are bounded to 1,024 bytes and reject
+NUL, CR, and LF. Progress is accepted only as an integer percentage from 0
+through 100 with a state from 0 through 4. The policy keeps bounded
+kind/status diagnostics only, so rejected terminal payloads are not retained
+or printed.
+
+At present, `system` can submit a valid notification through the GTK host's
+`GApplication` notification path, using the fixed local identifier
+`kiwi-terminal-osc9`. Successful submission is not a guarantee that a desktop
+will display it. GLFW/Cocoa has no notification bridge yet, and neither host
+currently implements a progress indicator; those cases are explicitly
+reported as unavailable rather than silently accepted. The deterministic policy
+tests cover default denial, payload validation, submission, unavailability, and
+payload-free diagnostics. Native notification delivery and presentation still
+need desktop qualification.
 
 ## OSC 8 hyperlinks
 
@@ -231,7 +253,7 @@ The result state is separate from selection. It records its search generation, s
 
 Kiwi retains the 16-colour terminfo contract. Its parser, state, and renderer retain RGB SGR values, but that implementation fact does not advertise a truecolour capability. `COLORTERM` is deliberately absent from live children even when the launching environment exports it, and `terminfo/kiwi.ti` has no `RGB`, `Tc`, `setrgbf`, or `setrgbb` extension.
 
-Promotion requires all of the following recorded against the candidate build: a native physical RGB comparison using known distinct pixels, a real RGB TUI under that same child contract, a nested tmux session configured for and verified to preserve RGB, and a controlled SSH host with the matching terminfo installed. Any terminfo change must then pass `tic`, `infocmp`, `tput colors`, and the affected TUI probes. This audit has only structural local evidence; the tmux probe exposes `tmux-256color` with 256 colours, and SSH has no controlled authenticated host. The fallback therefore remains intentional rather than an unverified claim.
+Promotion requires all of the following recorded against the candidate build: a native physical RGB comparison using known distinct pixels, a real RGB TUI under that same child contract, a nested tmux session configured for and verified to preserve RGB, and a controlled SSH host with the matching terminfo installed. Any terminfo change must then pass `tic`, `infocmp`, `tput colors`, and the affected TUI probes. A bounded macOS Metal framebuffer comparison now observes a non-palette terminal RGB background after the sRGB surface conversion path, but that one compositor-level check is not display calibration or completion of the remaining gates. The tmux probe still exposes `tmux-256color` with 256 colours, and SSH has no controlled authenticated host. The fallback therefore remains intentional rather than an unverified claim.
 
 ## Cursor style and synchronized output
 
@@ -378,10 +400,11 @@ update the matrix below with the exact command, version/configuration, result,
 and caveat. A passing record/replay proves parser/state handling, not visual
 fidelity or general application compatibility.
 
-| Surface | Evidence as of 2026-08-10 | Result and limit |
+| Surface | Evidence | Result and limit |
 | --- | --- | --- |
 | Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
 | Native truecolour contract | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/truecolour.jsonl -- ./script/truecolour-contract-child'`; `make replay REPLAY=<temporary>/truecolour.jsonl` | Passed structurally: the actual child received `TERM=kiwi`, `COLORTERM=unset`, and `tput colors=16`; a known RGB SGR value replayed with zero parser errors, ignored actions, or unknown controls. This is not a physical pixel comparison. |
+| Native physical RGB | `make truecolour-framebuffer-smoke` | Passed on macOS arm64 on 2026-08-22: a controlled child filled the terminal with non-palette RGB `18,171,52`; bounded compositor readback found 5,125,680 matching/tolerance pixels and the same modal RGB. This validates Kiwi's terminal background/sRGB surface path, not colour-managed display output, image colour management, a real RGB TUI under a candidate terminfo contract, tmux, or SSH. |
 | Native shell metadata | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/shell.jsonl -- ./script/shell-integration-child'`; `make replay REPLAY=<temporary>/shell.jsonl` | Passed structurally on 2026-08-10: the 115-byte OSC 7/133 sample replayed as `cwd`, `prompt`, `command_start`, `command_executed`, and `command_finished` with zero parser errors, ignored actions, or unknown controls. The noninteractive child verifies Kiwi's native parser/state path without changing or certifying a user's shell integration configuration. |
 | Native shell history | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/history.jsonl -- ./script/shell-integration-history-child'`; `make replay REPLAY=<temporary>/history.jsonl` | Passed structurally on 2026-08-10: the 773-byte 12-command OSC 7/133 stream replayed with 382 actions and zero parser errors, ignored actions, or unknown controls; the derived model retained 12 completed regions. The noninteractive child verifies Kiwi's native retention/replay path without changing or certifying a user's shell integration configuration. |
 | Native RGB TUI | `KIWI_MAX_FRAMES=180 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; replay the capture | Btop 1.4.7 capture replayed 489,890 bytes / 127,434 actions with zero parser errors, ignored actions, or unknown CSI/ESC/OSC/string controls while `COLORTERM` was absent. It is evidence that RGB input reaches the renderer path, not a physical truecolour or general-TUI compatibility certification. |

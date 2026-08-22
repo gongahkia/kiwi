@@ -153,6 +153,11 @@ typedef struct KiwiFramebufferCapture {
   uint32_t format;
   uint32_t bytes_per_row;
   uint64_t byte_size;
+  uint8_t expected_red;
+  uint8_t expected_green;
+  uint8_t expected_blue;
+  uint8_t expected_tolerance;
+  int expected_rgb_enabled;
   int active_slot;
   uint32_t dropped_frames;
   KiwiFramebufferSlot slots[KIWI_FRAMEBUFFER_SLOT_COUNT];
@@ -164,6 +169,9 @@ typedef struct KiwiFramebufferSample {
   uint64_t opaque_pixels;
   uint64_t red_dominant_pixels;
   uint64_t blue_dominant_pixels;
+  uint64_t expected_rgb_pixels;
+  uint32_t modal_rgb;
+  uint64_t modal_rgb_pixels;
 } KiwiFramebufferSample;
 
 void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture *capture);
@@ -763,6 +771,17 @@ KiwiFramebufferCapture *kiwi_framebuffer_capture_new(WGPUInstance instance, WGPU
   return capture;
 }
 
+int kiwi_framebuffer_capture_set_expected_rgb(KiwiFramebufferCapture *capture, uint8_t red,
+                                              uint8_t green, uint8_t blue, uint8_t tolerance) {
+  if (capture == NULL) return 0;
+  capture->expected_red = red;
+  capture->expected_green = green;
+  capture->expected_blue = blue;
+  capture->expected_tolerance = tolerance;
+  capture->expected_rgb_enabled = 1;
+  return 1;
+}
+
 void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture *capture) {
   if (capture == NULL) return;
   for (uint32_t index = 0; index < KIWI_FRAMEBUFFER_SLOT_COUNT; ++index) {
@@ -874,12 +893,23 @@ int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture *capture, KiwiFramebuff
       return -1;
     }
     KiwiFramebufferSample result = {.frame = slot->frame, .checksum = UINT64_C(1469598103934665603)};
+    uint32_t modal_candidate = 0;
+    uint64_t modal_candidate_weight = 0;
     for (uint32_t row = 0; row < capture->height; ++row) {
       const uint8_t *line = pixels + (uint64_t)row * capture->bytes_per_row;
       for (uint32_t column = 0; column < capture->width; ++column) {
         const uint8_t *pixel = line + (uint64_t)column * 4;
         uint8_t red, green, blue, alpha;
         kiwi_framebuffer_pixel(capture, pixel, &red, &green, &blue, &alpha);
+        uint32_t rgb = ((uint32_t)red << 16) | ((uint32_t)green << 8) | (uint32_t)blue;
+        if (modal_candidate_weight == 0) {
+          modal_candidate = rgb;
+          modal_candidate_weight = 1;
+        } else if (modal_candidate == rgb) {
+          modal_candidate_weight += 1;
+        } else {
+          modal_candidate_weight -= 1;
+        }
         result.checksum ^= red;
         result.checksum *= UINT64_C(1099511628211);
         result.checksum ^= green;
@@ -891,6 +921,24 @@ int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture *capture, KiwiFramebuff
         if (alpha > 0) result.opaque_pixels += 1;
         if (red >= 160 && (int)red >= (int)green + 48 && (int)red >= (int)blue + 48) result.red_dominant_pixels += 1;
         if (blue >= 160 && (int)blue >= (int)red + 48 && (int)blue >= (int)green + 48) result.blue_dominant_pixels += 1;
+        if (capture->expected_rgb_enabled
+            && abs((int)red - (int)capture->expected_red) <= (int)capture->expected_tolerance
+            && abs((int)green - (int)capture->expected_green) <= (int)capture->expected_tolerance
+            && abs((int)blue - (int)capture->expected_blue) <= (int)capture->expected_tolerance) {
+          result.expected_rgb_pixels += 1;
+        }
+      }
+    }
+    result.modal_rgb = modal_candidate;
+    for (uint32_t row = 0; row < capture->height; ++row) {
+      const uint8_t *line = pixels + (uint64_t)row * capture->bytes_per_row;
+      for (uint32_t column = 0; column < capture->width; ++column) {
+        uint8_t red, green, blue, alpha;
+        kiwi_framebuffer_pixel(capture, line + (uint64_t)column * 4, &red, &green, &blue, &alpha);
+        (void)alpha;
+        if ((((uint32_t)red << 16) | ((uint32_t)green << 8) | (uint32_t)blue) == modal_candidate) {
+          result.modal_rgb_pixels += 1;
+        }
       }
     }
     *sample = result;

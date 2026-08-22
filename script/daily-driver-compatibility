@@ -222,6 +222,12 @@ if [[ "$native_session" == true ]]; then
     record_result clipboard manual "Linux public clipboard testing needs --allow-public-clipboard in an isolated desktop session"
   fi
 
+  if KIWI_HOST="$host" "$ROOT/script/truecolour-framebuffer-smoke" >/dev/null 2>&1; then
+    record_result rgb-physical passed "compositor readback observed a bounded non-palette RGB terminal background"
+  else
+    record_result rgb-physical failed "compositor readback could not confirm the RGB terminal background"
+  fi
+
   if (( $+commands[nvim] )); then
     if run_native_recording neovim nvim -u NONE -n -c 'sleep 200m' -c 'qa!'; then
       keyboard_bytes=$(recorded_output "$RECORDING_PATH" | tr '\033' '@')
@@ -262,7 +268,7 @@ if [[ "$native_session" == true ]]; then
     record_result top skipped "top is not installed"
   fi
 else
-  for name in native-shell-integration hyperlinks clipboard neovim vim top; do
+  for name in native-shell-integration hyperlinks clipboard rgb-physical neovim vim top; do
     record_result "$name" skipped "a native graphical session is unavailable"
   done
 fi

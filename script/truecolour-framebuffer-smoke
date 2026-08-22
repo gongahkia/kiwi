@@ -1,0 +1,35 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly EXPECTED_RGB='18,171,52'
+readonly MAX_FRAMES=${KIWI_MAX_FRAMES:-120}
+readonly MINIMUM_EXPECTED_PIXELS=${KIWI_TRUECOLOUR_MINIMUM_PIXELS:-512}
+
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print 'SKIP truecolour framebuffer smoke: no graphical session is available.'
+  exit 0
+fi
+
+set +e
+output=$(KIWI_FRAMEBUFFER_CAPTURE=1 KIWI_FRAMEBUFFER_CAPTURE_REPORT=1 KIWI_FRAMEBUFFER_EXPECT_RGB="$EXPECTED_RGB" \
+  KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES="$MAX_FRAMES" \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- "$ROOT/script/truecolour-framebuffer-child" 2>&1)
+exit_status=$?
+set -e
+print -r -- "$output"
+(( exit_status == 0 )) || exit "$exit_status"
+
+maximum_pixels=0
+while read -r frame rgb tolerance pixels; do
+  [[ -n "$frame" ]] || continue
+  [[ "$rgb" == "$EXPECTED_RGB" ]] || { print -u2 'Truecolour framebuffer smoke reported the wrong expected colour.'; exit 1; }
+  (( tolerance == 4 )) || { print -u2 'Truecolour framebuffer smoke reported the wrong pixel tolerance.'; exit 1; }
+  (( pixels > maximum_pixels )) && maximum_pixels=$pixels
+done < <(print -r -- "$output" | sed -nE 's/^Kiwi framebuffer expected RGB: frame=([0-9]+) rgb=([0-9]+,[0-9]+,[0-9]+) tolerance=([0-9]+) pixels=([0-9]+)$/\1 \2 \3 \4/p')
+
+(( maximum_pixels >= MINIMUM_EXPECTED_PIXELS )) || {
+  print -u2 "Truecolour framebuffer smoke failed: no sampled frame contained $MINIMUM_EXPECTED_PIXELS pixels near RGB $EXPECTED_RGB."
+  exit 1
+}
+print "Truecolour framebuffer smoke passed: compositor readback observed $maximum_pixels pixels near RGB $EXPECTED_RGB."
