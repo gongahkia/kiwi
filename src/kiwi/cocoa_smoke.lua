@@ -23,6 +23,14 @@ local ok, message = xpcall(function()
   require_result(accessibility_ok, "Cocoa accessibility smoke failed: " .. tostring(accessibility_message))
   local text_input_ok, text_input_message = window:cocoa_text_input_round_trip()
   require_result(text_input_ok, "Cocoa text-input smoke failed: " .. tostring(text_input_message))
+  local menu_actions = {}
+  local menu_enabled, menu_message = window:enable_cocoa_menu(function(action)
+    menu_actions[#menu_actions + 1] = action
+  end)
+  require_result(menu_enabled, "Cocoa menu callback bridge could not be enabled: " .. tostring(menu_message))
+  local menu_smoke, menu_smoke_message = window:cocoa_menu_invoke_smoke("new-tab")
+  require_result(menu_smoke, "Cocoa menu callback bridge failed: " .. tostring(menu_smoke_message))
+  require_result(#menu_actions == 1 and menu_actions[1] == "new-tab", "Cocoa menu callback bridge did not route the logical action")
   local marked = {}
   local committed = {}
   local enabled, enabled_message = window:enable_cocoa_text_input(function(text, selection_start, selection_end)
