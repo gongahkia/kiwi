@@ -22,6 +22,7 @@ int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_progress_set(void* window, uint32_t progress, uint32_t state);
 int kiwi_cocoa_progress_round_trip(void* window);
 void kiwi_cocoa_progress_remove_bridge(void* window);
+int kiwi_cocoa_key_variants(int scancode, uint32_t* layout_key, uint32_t* shifted_key);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -58,6 +59,11 @@ local function glfw_error()
     return string.format("GLFW error %d", code[0])
   end
   return string.format("GLFW error %d: %s", code[0], ffi.string(message))
+end
+
+local function pc101_base_key(key)
+  if key >= string.byte("A") and key <= string.byte("Z") then return key + 0x20 end
+  if key >= 0x20 and key <= 0x7e then return key end
 end
 
 function Window.new(width, height, title, options)
@@ -101,9 +107,10 @@ function Window.new(width, height, title, options)
   self.callbacks.key = ffi.cast("GLFWkeyfun", function(_, key, scancode, action, modifiers)
     self.input_correlation:flush()
     self.modifiers = modifiers
-    local input = self.on_key and self.on_key(key, action, modifiers)
+    local variants = self:cocoa_key_variants(scancode, key)
+    local input = self.on_key and self.on_key(key, action, modifiers, variants)
     if input and input.defer_text then
-      self.input_correlation:defer({ key = key, scancode = scancode, action = action, modifiers = modifiers })
+      self.input_correlation:defer({ key = key, scancode = scancode, action = action, modifiers = modifiers, variants = variants })
       return
     end
     if input and input.suppress_text then self.suppress_text = true end
@@ -273,6 +280,20 @@ function Window:system_appearance()
   if value == 1 then return "dark" end
   if value == 0 then return "light" end
   return nil
+end
+
+function Window:cocoa_key_variants(scancode, key)
+  if ffi.os ~= "OSX" or scancode < 0 then return nil end
+  local base_key = pc101_base_key(key)
+  if base_key == nil then return nil end
+  local layout_key = ffi.new("uint32_t[1]")
+  local shifted_key = ffi.new("uint32_t[1]")
+  if native.kiwi_cocoa_key_variants(scancode, layout_key, shifted_key) == 0 then return nil end
+  return {
+    layout_key = tonumber(layout_key[0]),
+    shifted_key = tonumber(shifted_key[0]),
+    base_key = base_key,
+  }
 end
 
 function Window:enable_cocoa_menu(handler)

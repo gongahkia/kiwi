@@ -1,5 +1,6 @@
 #define GLFW_EXPOSE_NATIVE_COCOA
 #import <AppKit/AppKit.h>
+#import <Carbon/Carbon.h>
 #import <QuartzCore/CAMetalLayer.h>
 
 #include <GLFW/glfw3.h>
@@ -55,6 +56,46 @@ static NSMutableDictionary *kiwi_cocoa_menu_registrations;
 static KiwiCocoaMenuDispatcher *kiwi_cocoa_menu_dispatcher;
 static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
+
+static int kiwi_cocoa_key_scalar(const UniChar *characters, UniCharCount length, uint32_t *output) {
+  if (characters == NULL || output == NULL || length == 0 || length > 2) return 0;
+  uint32_t scalar = characters[0];
+  if (length == 2) {
+    if (characters[0] < 0xd800 || characters[0] > 0xdbff || characters[1] < 0xdc00 || characters[1] > 0xdfff) return 0;
+    scalar = 0x10000u + (((uint32_t)characters[0] - 0xd800u) << 10) + ((uint32_t)characters[1] - 0xdc00u);
+  } else if (scalar >= 0xd800u && scalar <= 0xdfffu) {
+    return 0;
+  }
+  if (scalar < 0x20u || scalar > 0x10ffffu || (scalar >= 0x7fu && scalar <= 0x9fu)) return 0;
+  *output = scalar;
+  return 1;
+}
+
+static int kiwi_cocoa_key_translate(const UCKeyboardLayout *layout, UInt16 keycode, UInt32 modifiers, uint32_t *output) {
+  UInt32 dead_key_state = 0;
+  UniChar characters[2] = { 0 };
+  UniCharCount length = 0;
+  OSStatus status = UCKeyTranslate(layout, keycode, kUCKeyActionDown, modifiers, LMGetKbdType(), kUCKeyTranslateNoDeadKeysBit, &dead_key_state, 2, &length, characters);
+  return status == noErr && kiwi_cocoa_key_scalar(characters, length, output);
+}
+
+int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifted_key) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || layout_key == NULL || shifted_key == NULL || scancode < 0 || scancode > UINT16_MAX) return 0;
+    TISInputSourceRef input_source = TISCopyCurrentKeyboardLayoutInputSource();
+    if (input_source == NULL) return 0;
+    CFDataRef layout_data = (CFDataRef)TISGetInputSourceProperty(input_source, kTISPropertyUnicodeKeyLayoutData);
+    const UCKeyboardLayout *layout = layout_data == NULL ? NULL : (const UCKeyboardLayout *)CFDataGetBytePtr(layout_data);
+    uint32_t unshifted = 0;
+    uint32_t shifted = 0;
+    int translated = layout != NULL && kiwi_cocoa_key_translate(layout, (UInt16)scancode, 0, &unshifted) && kiwi_cocoa_key_translate(layout, (UInt16)scancode, shiftKey >> 8, &shifted);
+    CFRelease(input_source);
+    if (!translated) return 0;
+    *layout_key = unshifted;
+    *shifted_key = shifted;
+    return 1;
+  }
+}
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
   return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW;

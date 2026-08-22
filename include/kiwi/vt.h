@@ -41,6 +41,10 @@ typedef struct kiwi_vt_options {
   uint32_t columns;
   uint32_t rows;
   uint32_t scrollback_limit;
+  /* Zero preserves the portable 1/2/8/16 Kitty subset. A host that can
+   * supply layout, shifted-layout, and PC-101 key variants may opt in to a
+   * mask through bit 4; values must be from 0 through 31. */
+  uint32_t keyboard_supported_flags;
 } kiwi_vt_options;
 
 /* A copied, renderer-neutral terminal summary. `struct_size` must be set by
@@ -85,6 +89,14 @@ typedef struct kiwi_vt_key_event {
    * struct_size to that prefix size. */
   const uint32_t *associated_text;
   uint32_t associated_text_count;
+  /* Optional non-control Unicode scalar key variants for Kitty flag 4.
+   * `layout_key` is the unshifted current-layout key, `shifted_key` is the
+   * current-layout Shift result, and `base_key` is the unshifted US PC-101
+   * physical-position key. Set unavailable values to zero. A host must not
+   * advertise flag 4 unless it can provide all three meanings. */
+  uint32_t layout_key;
+  uint32_t shifted_key;
+  uint32_t base_key;
 } kiwi_vt_key_event;
 
 typedef struct kiwi_vt_input_result {
@@ -208,6 +220,14 @@ enum {
 };
 
 enum {
+  KIWI_VT_KEYBOARD_FLAG_DISAMBIGUATE = 0x0001u,
+  KIWI_VT_KEYBOARD_FLAG_EVENT_TYPES = 0x0002u,
+  KIWI_VT_KEYBOARD_FLAG_ALTERNATE_KEYS = 0x0004u,
+  KIWI_VT_KEYBOARD_FLAG_ALL_KEYS = 0x0008u,
+  KIWI_VT_KEYBOARD_FLAG_ASSOCIATED_TEXT = 0x0010u,
+};
+
+enum {
   KIWI_VT_KEY_ESCAPE = 256,
   KIWI_VT_KEY_ENTER = 257,
   KIWI_VT_KEY_TAB = 258,
@@ -319,9 +339,11 @@ KIWI_VT_API kiwi_vt_status kiwi_vt_terminal_take_effect(kiwi_vt_terminal *termin
 /* Encode host input from the terminal's current negotiated modes. Key-event
  * and input-result structs are size-tagged. `associated_text` is a bounded
  * non-control Unicode scalar sequence for Kitty associated-text reporting and
- * is otherwise ignored. Text/key/paste use the same two-call byte buffer
- * convention as kiwi_vt_terminal_text. A key with no terminal bytes and no
- * local action returns KIWI_VT_NOT_FOUND. */
+ * is otherwise ignored. The three optional key-variant fields encode Kitty
+ * flag 4 only for terminals whose construction mask opted into that flag.
+ * Text/key/paste use the same two-call byte buffer convention as
+ * kiwi_vt_terminal_text. A key with no terminal bytes and no local action
+ * returns KIWI_VT_NOT_FOUND. */
 KIWI_VT_API kiwi_vt_status kiwi_vt_terminal_encode_text(kiwi_vt_terminal *terminal, uint32_t codepoint, char *buffer, size_t buffer_size, size_t *required);
 KIWI_VT_API kiwi_vt_status kiwi_vt_terminal_encode_key(kiwi_vt_terminal *terminal, const kiwi_vt_key_event *event, kiwi_vt_input_result *result, char *buffer, size_t buffer_size, size_t *required);
 KIWI_VT_API kiwi_vt_status kiwi_vt_terminal_encode_paste(kiwi_vt_terminal *terminal, const void *bytes, size_t byte_count, char *buffer, size_t buffer_size, size_t *required);
