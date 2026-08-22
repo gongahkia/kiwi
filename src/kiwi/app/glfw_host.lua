@@ -7,6 +7,7 @@ local glfw = require("kiwi.ffi.glfw").constants
 
 local Host = {
   keymap = glfw,
+  keyboard_supported_flags = ffi.os == "OSX" and 0x1f or 0x1b,
   platform = ffi.os,
 }
 

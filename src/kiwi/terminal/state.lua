@@ -97,6 +97,7 @@ function State.new(columns, rows, options)
   assert(options.effect_sink == nil or type(options.effect_sink) == "function", "terminal effect sink must be a function")
   assert(options.queue_responses == nil or type(options.queue_responses) == "boolean", "terminal response queue selection must be a boolean")
   assert(options.reflow_on_resize == nil or type(options.reflow_on_resize) == "boolean", "terminal reflow policy must be a boolean")
+  assert(options.keyboard_supported_flags == nil or (type(options.keyboard_supported_flags) == "number" and options.keyboard_supported_flags % 1 == 0 and options.keyboard_supported_flags >= 0 and options.keyboard_supported_flags <= 31), "terminal keyboard supported flags must be an integer from 0 through 31")
   assert((options.cell_width == nil) == (options.cell_height == nil), "terminal cell metrics must provide both width and height")
   assert(options.cell_width == nil or valid_cell_metric(options.cell_width), "terminal cell width must be a positive integer no greater than 65535")
   assert(options.cell_height == nil or valid_cell_metric(options.cell_height), "terminal cell height must be a positive integer no greater than 65535")
@@ -154,6 +155,7 @@ function State.new(columns, rows, options)
     command_regions = CommandRegions.new(options.command_regions),
     command_region_navigation = nil,
     effect_sink = options.effect_sink,
+    keyboard_supported_flags = options.keyboard_supported_flags or State.keyboard_supported_flags,
     osc52_write = options.osc52_write == true,
     osc52_maximum_bytes = options.osc52_maximum_bytes or 64 * 1024,
     history_offset = 0,
@@ -2359,7 +2361,7 @@ function State:apply_keyboard_flags(flags, mode)
     self:record_unknown("csi", { private = "=", parameters = { flags, mode }, intermediates = "", final = "u" })
     return
   end
-  flags = bit.band(flags, State.keyboard_supported_flags)
+  flags = bit.band(flags, self.keyboard_supported_flags)
   local next_flags
   if mode == 1 then
     next_flags = flags

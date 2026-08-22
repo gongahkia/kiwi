@@ -98,6 +98,12 @@ local function key_code(value)
   return named_keys[value]
 end
 
+local function key_variant(value, name)
+  if value == nil then return nil end
+  assert(type(value) == "number" and value % 1 == 0 and value >= 0x20 and value <= 0x10ffff and not (value >= 0xd800 and value <= 0xdfff) and not (value >= 0x7f and value <= 0x9f), name .. " must be a non-control Unicode scalar")
+  return value
+end
+
 function Input.text(codepoint, modes)
   assert(type(codepoint) == "number" and codepoint % 1 == 0 and codepoint >= 0 and codepoint <= 0x10ffff, "input text needs a Unicode scalar")
   return Keyboard.text(codepoint, modes or {})
@@ -112,7 +118,12 @@ function Input.key(event, modes)
   local modifiers = event.modifiers or 0
   assert(type(modifiers) == "number" and modifiers % 1 == 0 and modifiers >= 0, "input key modifiers must be a non-negative integer")
   if event.associated_text ~= nil then assert(type(event.associated_text) == "table", "input associated key text must be a table") end
-  return Keyboard.key(key, action, modifiers, modes or {}, keyboard, { associated_text = event.associated_text })
+  return Keyboard.key(key, action, modifiers, modes or {}, keyboard, {
+    associated_text = event.associated_text,
+    layout_key = key_variant(event.layout_key, "input layout key"),
+    shifted_key = key_variant(event.shifted_key, "input shifted key"),
+    base_key = key_variant(event.base_key, "input base key"),
+  })
 end
 
 function Input.new_mouse()

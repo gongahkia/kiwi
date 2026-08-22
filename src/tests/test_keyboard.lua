@@ -98,4 +98,12 @@ return {
     Assert.equal(Keyboard.text_sequence({ 0x00e5 }, modes), "\27[0;;229u")
     Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, { keyboard_flags = 16 }, glfw, { associated_text = { string.byte("A") } }), nil)
   end,
+  keyboard_reports_kitty_alternate_key_variants_only_when_negotiated = function()
+    local variants = { layout_key = string.byte("q"), shifted_key = string.byte("Q"), base_key = string.byte("a") }
+    local modes = { keyboard_flags = 5 }
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_control, modes, glfw, variants).bytes, "\27[113::97;5u")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_control + glfw.mod_shift, modes, glfw, variants).bytes, "\27[113:81:97;6u")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, { keyboard_flags = 12 }, glfw, variants).bytes, "\27[113:81:97;2u")
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_control, { keyboard_flags = 1 }, glfw, variants).bytes, "\27[113;5u")
+  end,
 }

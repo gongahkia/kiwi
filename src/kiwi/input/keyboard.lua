@@ -71,13 +71,31 @@ local function associated_text(value)
   return #copy == 0 and nil or copy
 end
 
-local function kitty_sequence(codepoint, modifiers, action, modes, glfw, text)
+local function key_variant(value)
+  if type(value) ~= "number" or value % 1 ~= 0 or value < 0x20 or value > 0x10ffff then return nil end
+  if (value >= 0x7f and value <= 0x9f) or (value >= 0xd800 and value <= 0xdfff) then return nil end
+  return value
+end
+
+local function kitty_key_code(codepoint, modifiers, modes, glfw, options)
+  local layout = key_variant(options and options.layout_key) or codepoint
+  if not kitty_flag(modes, 4) then return tostring(layout) end
+  local shifted = bit.band(modifiers, glfw.mod_shift) ~= 0 and key_variant(options and options.shifted_key) or nil
+  local base = key_variant(options and options.base_key)
+  if shifted ~= nil and base ~= nil then return string.format("%d:%d:%d", layout, shifted, base) end
+  if shifted ~= nil then return string.format("%d:%d", layout, shifted) end
+  if base ~= nil then return string.format("%d::%d", layout, base) end
+  return tostring(layout)
+end
+
+local function kitty_sequence(codepoint, modifiers, action, modes, glfw, text, options)
+  local key_code = kitty_key_code(codepoint, modifiers, modes, glfw, options)
   local parameter = kitty_parameter(modifiers, action, modes, glfw)
   if text and kitty_flag(modes, 8) and kitty_flag(modes, 16) then
-    return string.format("\27[%d;%s;%su", codepoint, parameter or "", table.concat(text, ":"))
+    return string.format("\27[%s;%s;%su", key_code, parameter or "", table.concat(text, ":"))
   end
-  if parameter == nil then return string.format("\27[%du", codepoint) end
-  return string.format("\27[%d;%su", codepoint, parameter)
+  if parameter == nil then return string.format("\27[%su", key_code) end
+  return string.format("\27[%s;%su", key_code, parameter)
 end
 
 local function modified_sequence(parameter, final, modifiers, action, modes, glfw)
@@ -162,7 +180,7 @@ local function kitty_key(key, action, modifiers, modes, glfw, options)
   if all_keys then
     local codepoint = all_keys_codepoint(key, glfw)
     if codepoint then
-      return { bytes = kitty_sequence(codepoint, modifiers, action, modes, glfw, text), suppress_text = action ~= glfw.release }
+      return { bytes = kitty_sequence(codepoint, modifiers, action, modes, glfw, text, options), suppress_text = action ~= glfw.release }
     end
     local functional = enhanced_functional_key(key, modifiers, action, modes, glfw)
     if functional then return { bytes = functional } end
@@ -170,10 +188,10 @@ local function kitty_key(key, action, modifiers, modes, glfw, options)
   end
   local printable = printable_key_code(key)
   if printable and bit.band(modifiers, glfw.mod_alt + glfw.mod_control + glfw.mod_super) ~= 0 then
-    return { bytes = kitty_sequence(printable, modifiers, action, modes, glfw), suppress_text = true }
+    return { bytes = kitty_sequence(printable, modifiers, action, modes, glfw, nil, options), suppress_text = true }
   end
   if key == glfw.key_escape then
-    return { bytes = kitty_sequence(27, modifiers, action, modes, glfw) }
+    return { bytes = kitty_sequence(27, modifiers, action, modes, glfw, nil, options) }
   end
   if arrows[key] then return { bytes = cursor_sequence(arrows[key], modifiers, modes and modes.application_cursor, action, modes, glfw) } end
   if key == glfw.key_home then return { bytes = cursor_sequence("H", modifiers, modes and modes.application_cursor, action, modes, glfw) } end

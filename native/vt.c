@@ -45,6 +45,7 @@ typedef struct kiwi_lua_api {
   void (*lua_rawgeti)(lua_State *state, int index, int reference);
   void (*lua_createtable)(lua_State *state, int array_count, int record_count);
   void (*lua_rawseti)(lua_State *state, int index, int array_index);
+  void (*lua_pushnil)(lua_State *state);
   void (*lua_pushinteger)(lua_State *state, ptrdiff_t value);
   void (*lua_pushboolean)(lua_State *state, int value);
   void (*lua_pushnumber)(lua_State *state, double value);
@@ -130,7 +131,11 @@ static const char kiwi_vt_bootstrap[] =
     "  return unpack(results, 2)\n"
     "end\n"
     "kiwi_vt_capi = {\n"
-    "  new = function(columns, rows, scrollback) return VT.new({ columns = columns, rows = rows, state_options = { scrollback_limit = scrollback } }) end,\n"
+    "  new = function(columns, rows, scrollback, keyboard_supported_flags)\n"
+    "    local state_options = { scrollback_limit = scrollback }\n"
+    "    if keyboard_supported_flags ~= 0 then state_options.keyboard_supported_flags = keyboard_supported_flags end\n"
+    "    return VT.new({ columns = columns, rows = rows, state_options = state_options })\n"
+    "  end,\n"
     "  write = function(terminal, bytes) return terminal:write(bytes) end,\n"
     "  finish = function(terminal) terminal:finish() end,\n"
     "  resize = function(terminal, columns, rows) terminal:resize(columns, rows) end,\n"
@@ -144,10 +149,13 @@ static const char kiwi_vt_bootstrap[] =
     "    return modes.application_cursor and 1 or 0, modes.bracketed_paste and 1 or 0, modes.focus_reporting and 1 or 0, modes.keyboard_flags or 0, protocol, tracking, modes.alternate_screen and 1 or 0, modes.alternate_scroll and 1 or 0, modes.application_keypad and 1 or 0, modes.backarrow and 1 or 0\n"
     "  end) end,\n"
     "  input_text = function(terminal, codepoint) return with_input_modes(terminal, function(modes) return VT.Input.text(codepoint, modes) end) end,\n"
-    "  input_key = function(terminal, key, action, modifiers, associated_text)\n"
+    "  input_key = function(terminal, key, action, modifiers, associated_text, layout_key, shifted_key, base_key)\n"
     "    return with_input_modes(terminal, function(modes)\n"
     "      local event = { key = key, action = action, modifiers = modifiers }\n"
     "      if associated_text ~= nil then event.associated_text = associated_text end\n"
+    "      if layout_key ~= nil then event.layout_key = layout_key end\n"
+    "      if shifted_key ~= nil then event.shifted_key = shifted_key end\n"
+    "      if base_key ~= nil then event.base_key = base_key end\n"
     "      local result = VT.Input.key(event, modes)\n"
     "      if result == nil then return '', 0, nil end\n"
     "      return result.local_action or '', result.suppress_text and 1 or 0, result.bytes\n"
@@ -246,6 +254,7 @@ static bool kiwi_vt_load_lua(kiwi_vt_terminal *terminal) {
   KIWI_LOAD_LUA_SYMBOL(lua_rawgeti, "lua_rawgeti");
   KIWI_LOAD_LUA_SYMBOL(lua_createtable, "lua_createtable");
   KIWI_LOAD_LUA_SYMBOL(lua_rawseti, "lua_rawseti");
+  KIWI_LOAD_LUA_SYMBOL(lua_pushnil, "lua_pushnil");
   KIWI_LOAD_LUA_SYMBOL(lua_pushinteger, "lua_pushinteger");
   KIWI_LOAD_LUA_SYMBOL(lua_pushboolean, "lua_pushboolean");
   KIWI_LOAD_LUA_SYMBOL(lua_pushnumber, "lua_pushnumber");
@@ -548,7 +557,7 @@ kiwi_vt_status kiwi_vt_terminal_new(const kiwi_vt_options *options, kiwi_vt_term
     kiwi_vt_set_error(NULL, "unsupported libkiwi-vt API version %u", options->api_version);
     return KIWI_VT_UNSUPPORTED_VERSION;
   }
-  if (options->columns == 0 || options->columns > KIWI_VT_MAX_COLUMNS || options->rows == 0 || options->rows > KIWI_VT_MAX_ROWS || options->scrollback_limit > KIWI_VT_MAX_SCROLLBACK) {
+  if (options->columns == 0 || options->columns > KIWI_VT_MAX_COLUMNS || options->rows == 0 || options->rows > KIWI_VT_MAX_ROWS || options->scrollback_limit > KIWI_VT_MAX_SCROLLBACK || options->keyboard_supported_flags > 31u) {
     kiwi_vt_set_error(NULL, "terminal dimensions or scrollback limit exceed the C API bounds");
     return KIWI_VT_INVALID_ARGUMENT;
   }
@@ -588,7 +597,8 @@ kiwi_vt_status kiwi_vt_terminal_new(const kiwi_vt_options *options, kiwi_vt_term
     terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)options->columns);
     terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)options->rows);
     terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)(options->scrollback_limit == 0 ? KIWI_VT_DEFAULT_SCROLLBACK : options->scrollback_limit));
-    status = kiwi_vt_pcall(terminal, 3, 1);
+    terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)options->keyboard_supported_flags);
+    status = kiwi_vt_pcall(terminal, 4, 1);
   }
   if (status != KIWI_VT_OK || terminal->lua.lua_type(terminal->state, -1) != KIWI_LUA_TTABLE) {
     if (status == KIWI_VT_OK) kiwi_vt_set_error(terminal, "libkiwi-vt constructor returned an invalid terminal");
@@ -824,6 +834,14 @@ static const char *kiwi_vt_key_action_name(uint32_t action) {
   }
 }
 
+static bool kiwi_vt_key_variant_is_valid(uint32_t codepoint) {
+  return codepoint == 0 || (codepoint >= 0x20u && codepoint <= 0x10ffffu && (codepoint < 0x7fu || codepoint > 0x9fu) && (codepoint < 0xd800u || codepoint > 0xdfffu));
+}
+
+static bool kiwi_vt_key_event_has(const kiwi_vt_key_event *event, size_t offset, size_t field_size) {
+  return event->struct_size >= offset + field_size;
+}
+
 kiwi_vt_status kiwi_vt_terminal_encode_key(kiwi_vt_terminal *terminal, const kiwi_vt_key_event *event, kiwi_vt_input_result *result, char *buffer, size_t buffer_size, size_t *required) {
   if (required != NULL) *required = 0;
   kiwi_vt_status status = kiwi_vt_require_idle(terminal);
@@ -841,7 +859,7 @@ kiwi_vt_status kiwi_vt_terminal_encode_key(kiwi_vt_terminal *terminal, const kiw
   result->suppress_text = 0;
   const uint32_t *associated_text = NULL;
   uint32_t associated_text_count = 0;
-  if (event->struct_size >= sizeof(*event)) {
+  if (kiwi_vt_key_event_has(event, offsetof(kiwi_vt_key_event, associated_text_count), sizeof(event->associated_text_count))) {
     associated_text = event->associated_text;
     associated_text_count = event->associated_text_count;
   }
@@ -856,6 +874,18 @@ kiwi_vt_status kiwi_vt_terminal_encode_key(kiwi_vt_terminal *terminal, const kiw
       return KIWI_VT_INVALID_ARGUMENT;
     }
   }
+  uint32_t layout_key = 0;
+  uint32_t shifted_key = 0;
+  uint32_t base_key = 0;
+  if (kiwi_vt_key_event_has(event, offsetof(kiwi_vt_key_event, base_key), sizeof(event->base_key))) {
+    layout_key = event->layout_key;
+    shifted_key = event->shifted_key;
+    base_key = event->base_key;
+  }
+  if (!kiwi_vt_key_variant_is_valid(layout_key) || !kiwi_vt_key_variant_is_valid(shifted_key) || !kiwi_vt_key_variant_is_valid(base_key)) {
+    kiwi_vt_set_error(terminal, "key variants must be non-control Unicode scalars or zero");
+    return KIWI_VT_INVALID_ARGUMENT;
+  }
   status = kiwi_vt_push_terminal_method(terminal, "input_key");
   if (status != KIWI_VT_OK) return status;
   terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)event->key);
@@ -867,10 +897,13 @@ kiwi_vt_status kiwi_vt_terminal_encode_key(kiwi_vt_terminal *terminal, const kiw
       terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)associated_text[index]);
       terminal->lua.lua_rawseti(terminal->state, -2, (int)index + 1);
     }
-    status = kiwi_vt_pcall(terminal, 5, 3);
   } else {
-    status = kiwi_vt_pcall(terminal, 4, 3);
+    terminal->lua.lua_pushnil(terminal->state);
   }
+  if (layout_key == 0) terminal->lua.lua_pushnil(terminal->state); else terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)layout_key);
+  if (shifted_key == 0) terminal->lua.lua_pushnil(terminal->state); else terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)shifted_key);
+  if (base_key == 0) terminal->lua.lua_pushnil(terminal->state); else terminal->lua.lua_pushinteger(terminal->state, (ptrdiff_t)base_key);
+  status = kiwi_vt_pcall(terminal, 8, 3);
   if (status != KIWI_VT_OK) return status;
   if (terminal->lua.lua_type(terminal->state, -3) != KIWI_LUA_TSTRING || terminal->lua.lua_type(terminal->state, -2) != KIWI_LUA_TNUMBER) {
     kiwi_vt_set_error(terminal, "libkiwi-vt key encoder returned an invalid result");

@@ -576,6 +576,12 @@ return {
     Assert.equal(state.modes.keyboard_flags, 0)
     state:apply(Actions.csi({ 24 }, "=", "", "u"))
     Assert.equal(state.modes.keyboard_flags, 24)
+
+    local alternate_keys = State.new(4, 2, { keyboard_supported_flags = 31 })
+    alternate_keys:apply(Actions.csi({ 31 }, "=", "", "u"))
+    Assert.equal(alternate_keys.modes.keyboard_flags, 31)
+    alternate_keys:apply(Actions.csi({}, "?", "", "u"))
+    Assert.equal(alternate_keys:pop_responses()[1], "\27[?31u")
   end,
   terminal_state_handles_xterm_alignment_keypad_soft_reset_tabs_and_repeat = function()
     local state = State.new(12, 2)

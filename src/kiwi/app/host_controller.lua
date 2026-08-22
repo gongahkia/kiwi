@@ -227,6 +227,7 @@ function Controller.run(window, host, options)
           scrollback_limit = configuration.scrollback_limit,
           ambiguous_width = configuration.ambiguous_width,
           osc52_write = configuration.osc52_write,
+          keyboard_supported_flags = host.keyboard_supported_flags,
           cell_width = font.cell_width,
           cell_height = font.cell_height,
           colors = {
@@ -927,13 +928,18 @@ function Controller.run(window, host, options)
     window:set_input_handlers(function(codepoints, key_event)
       if key_event then
         apply_commit("")
-        local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, { associated_text = codepoints })
+        local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, {
+          associated_text = codepoints,
+          layout_key = key_event.variants and key_event.variants.layout_key,
+          shifted_key = key_event.variants and key_event.variants.shifted_key,
+          base_key = key_event.variants and key_event.variants.base_key,
+        })
         if encoded and encoded.bytes then enqueue_input(encoded.bytes) end
         return
       end
       local text = Keyboard.text_sequence(codepoints, state.modes)
       handle_committed_text(text)
-    end, function(key, action, modifiers)
+    end, function(key, action, modifiers, variants)
       if handle_workspace_key(key, action, modifiers) then
         options.application:mark_layout_dirty()
         return { handled = true, suppress_text = true }
@@ -945,7 +951,7 @@ function Controller.run(window, host, options)
       if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw) then
         return { handled = true, defer_text = true }
       end
-      local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw)
+      local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw, variants)
       if not encoded then
         return nil
       end

@@ -17,6 +17,7 @@ int main(void) {
       .columns = 8,
       .rows = 1,
       .scrollback_limit = 32,
+      .keyboard_supported_flags = 31,
   };
   kiwi_vt_terminal *terminal = NULL;
   kiwi_vt_options incompatible = options;
@@ -109,6 +110,20 @@ int main(void) {
   if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, associated_key_bytes, sizeof(associated_key_bytes), &required), KIWI_VT_OK, terminal, "associated key input") || strcmp(associated_key_bytes, "\033[97;2;65u") != 0 || input.suppress_text != 1) return 1;
   key.associated_text = NULL;
   key.associated_text_count = 0;
+  static const char alternate_key_mode[] = "\033[=5u";
+  if (check(kiwi_vt_terminal_write(terminal, alternate_key_mode, sizeof(alternate_key_mode) - 1, &consumed), KIWI_VT_OK, terminal, "enable alternate key variants")) return 1;
+  key.key = 'A';
+  key.modifiers = KIWI_VT_MODIFIER_CONTROL | KIWI_VT_MODIFIER_SHIFT;
+  key.layout_key = 'q';
+  key.shifted_key = 'Q';
+  key.base_key = 'a';
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "alternate key input size") || required != 15) return 1;
+  char alternate_key_bytes[15];
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, alternate_key_bytes, sizeof(alternate_key_bytes), &required), KIWI_VT_OK, terminal, "alternate key input") || strcmp(alternate_key_bytes, "\033[113:81:97;6u") != 0 || input.suppress_text != 1) return 1;
+  if (check(kiwi_vt_terminal_write(terminal, "\033[=24u", 7, &consumed), KIWI_VT_OK, terminal, "restore associated key text")) return 1;
+  key.layout_key = 0;
+  key.shifted_key = 0;
+  key.base_key = 0;
   if (check(kiwi_vt_terminal_write(terminal, "\033[?2004h", 8, &consumed), KIWI_VT_OK, terminal, "enable bracketed paste")) return 1;
   if (check(kiwi_vt_terminal_encode_paste(terminal, "x", 1, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "paste input size") || required != 14) return 1;
   char paste_bytes[14];
