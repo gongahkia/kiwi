@@ -8,6 +8,7 @@ typedef void (*KiwiGtkPreeditCallback)(void* userdata, const char* text, size_t 
 typedef void (*KiwiGtkPointerCallback)(void* userdata, int kind, double x, double y, double dx, double dy, uint32_t button, int action, uint32_t modifiers);
 typedef void (*KiwiGtkFocusCallback)(void* userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void* userdata, int width, int height, double scale);
+typedef void (*KiwiGtkProductActionCallback)(void* userdata, uint32_t action);
 typedef struct KiwiGtkCallbacks {
   KiwiGtkFocusCallback focus;
   KiwiGtkKeyCallback key;
@@ -19,6 +20,8 @@ typedef struct KiwiGtkCallbacks {
 } KiwiGtkCallbacks;
 KiwiGtkHost* kiwi_gtk_host_new(const char* application_id, int width, int height, const char* title, const KiwiGtkCallbacks* callbacks);
 void kiwi_gtk_host_destroy(KiwiGtkHost* host);
+int kiwi_gtk_host_set_product_action_handler(KiwiGtkHost* host, KiwiGtkProductActionCallback callback, void* userdata);
+int kiwi_gtk_host_product_action_invoke_smoke(KiwiGtkHost* host, uint32_t action);
 void kiwi_gtk_host_pump(KiwiGtkHost* host, uint32_t timeout_milliseconds);
 int kiwi_gtk_host_should_close(const KiwiGtkHost* host);
 double kiwi_gtk_host_time(void);
@@ -52,6 +55,22 @@ local Window = {}
 Window.__index = Window
 Window.bridge = native
 local live_windows = 0
+
+local product_actions = {
+  [1] = "new-tab",
+  [2] = "new-window",
+  [3] = "next-tab",
+  [4] = "close-pane",
+  [5] = "split-right",
+  [6] = "split-down",
+  [7] = "reload-config",
+  [8] = "move-session-new-window",
+  [9] = "move-session-next-window",
+  [10] = "duplicate-session-new-window",
+  [11] = "duplicate-session-next-window",
+}
+local product_action_ids = {}
+for identifier, name in pairs(product_actions) do product_action_ids[name] = identifier end
 
 local special_keys = {
   [0xff08] = glfw.key_backspace,
@@ -184,6 +203,28 @@ function Window:enable_text_input(on_preedit, on_commit)
   assert(type(on_preedit) == "function" and type(on_commit) == "function", "GTK text input needs preedit and commit callbacks")
   self.on_preedit, self.on_commit = on_preedit, on_commit
   return true
+end
+
+function Window:enable_product_action_handler(handler)
+  assert(type(handler) == "function", "GTK product actions need an action handler")
+  if self.callbacks.product_action ~= nil then return true end
+  self.callbacks.product_action = ffi.cast("KiwiGtkProductActionCallback", function(_, action)
+    local name = product_actions[tonumber(action)]
+    if name == nil then return end
+    local ok, message = pcall(handler, name)
+    if not ok then io.stderr:write("Kiwi GTK product action failed: ", tostring(message), "\n") end
+  end)
+  if native.kiwi_gtk_host_set_product_action_handler(self.handle, self.callbacks.product_action, nil) ~= 0 then return true end
+  self.callbacks.product_action:free()
+  self.callbacks.product_action = nil
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:product_action_invoke_smoke(action)
+  local identifier = product_action_ids[action]
+  if identifier == nil then return nil, "GTK product-menu smoke names an unknown action" end
+  if native.kiwi_gtk_host_product_action_invoke_smoke(self.handle, identifier) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
 end
 
 function Window:set_text_input_caret(x, y, width, height)

@@ -26,7 +26,7 @@ only after a second real consumer requires a documented, testable capability.
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the window, event loop, custom tab/split workspace, and Metal surface. AppKit supplies the global main menu, `NSTextInputClient`, pasteboard, and `NSAccessibility` bridges. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, Cocoa/Metal surface, and release launcher. Native menu interaction, window lifecycle, VoiceOver, IME, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 | application/window integration, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME callback, and accessible-text bridge runs pass. Interactive IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
+| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. Interactive menu behavior, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -46,9 +46,14 @@ native text widget or a replacement renderer.
 3. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
-   reads/writes,
-   URI opening, and the existing GPU-rendered terminal content. `make
-   gtk-host-check` validates its independent bridge ABI without a display.
+   reads/writes, URI opening, and the existing GPU-rendered terminal content.
+   It installs window-scoped `win.*` actions and a shared `GMenu`; the active
+   `GtkApplicationWindow` dispatches the same product action handler as the
+   keyboard and Cocoa menu paths. GTK receives no hard-coded accelerators, so
+   the bounded configured key map remains the shortcut policy. `make
+   gtk-host-check` validates its independent bridge ABI without a display;
+   `make gtk-menu-smoke` needs a graphical Linux session to dispatch New Tab
+   through that handler.
 4. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical
@@ -58,8 +63,9 @@ native text widget or a replacement renderer.
    second AT-SPI application tree. Bounded single-window, same-process
    multi-window, input-callback, and accessible-text runs pass on the
    Fedora/KWin session. Run `make gtk-wayland-smoke`, `make
-   gtk-wayland-multi-window-smoke`, `make gtk-input-smoke`, and `make
-   gtk-accessibility-smoke` to repeat those checks. Real IME, public
+   gtk-wayland-multi-window-smoke`, `make gtk-input-smoke`, `make
+   gtk-accessibility-smoke`, and `make gtk-menu-smoke` to repeat those checks.
+   Real IME, public
    clipboard, scaled-monitor, and Orca qualification remains required before
    adding a full AppKit host. Each later adapter owns its event loop and drawing
    surface; neither calls terminal-state internals.

@@ -246,6 +246,8 @@ These local actions are configurable with bounded `keybind` directives in the
 configuration file; `F6` is the default reload action. `theme = system`,
 bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
 settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
+The macOS Cocoa and GTK4 host menus route those same actions without adding
+menu keyboard equivalents; native product-chrome qualification remains partial.
 
 Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
 GLFW character callbacks otherwise provide committed Unicode text. The default

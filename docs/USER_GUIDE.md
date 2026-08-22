@@ -182,6 +182,14 @@ and `split-right`. Set a chord to `none` to remove its default binding, or use
 map. Product actions are not consumed while the terminal has negotiated Kitty
 keyboard flag 8, so disambiguated application input retains priority.
 
+On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
+and `Window` menus. On Linux, `KIWI_HOST=gtk` exposes the same actions through
+the GTK application menu, resolving each `win.*` action against the active
+window. These menus deliberately define no keyboard equivalents: the configured
+key map remains the only local accelerator policy. Selecting a menu item is an
+explicit host command and is therefore available even while Kitty keyboard flag
+8 reserves physical keyboard input for the terminal.
+
 Kiwi attempts to persist bounded window geometry plus tab/split topology and
 the active tab/pane on normal live-session changes, reporting an I/O failure to
 stderr. Successful updates use a temporary file and same-directory rename. It

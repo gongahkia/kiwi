@@ -7,5 +7,7 @@ assert(type(GtkWindow.bridge.kiwi_gtk_host_set_text_input_caret) == "cdata", "GT
 assert(type(GtkWindow.bridge.kiwi_gtk_host_notify) == "cdata", "GTK notification ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_text_input_inject_smoke) == "cdata", "GTK text-input smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_key_text_inject_smoke) == "cdata", "GTK key/text smoke ABI is unavailable")
+assert(type(GtkWindow.bridge.kiwi_gtk_host_set_product_action_handler) == "cdata", "GTK product-action ABI is unavailable")
+assert(type(GtkWindow.bridge.kiwi_gtk_host_product_action_invoke_smoke) == "cdata", "GTK product-menu smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_accessibility_update) == "cdata", "GTK accessibility ABI is unavailable")
 print("GTK host ABI check passed.")
