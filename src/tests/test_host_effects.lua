@@ -44,6 +44,29 @@ return {
     Assert.equal(progress[1].value, 73)
     Assert.equal(progress[1].state, 1)
     Assert.equal(progress[1].window, window)
+    handled, status = effects:consume({ kind = "progress_changed", value = { state = 3 } })
+    Assert.truthy(handled)
+    Assert.equal(status, "submitted")
+    Assert.equal(progress[2].value, 73)
+    Assert.equal(progress[2].state, 3)
+  end,
+  host_effects_retains_only_submitted_progress_for_omitted_updates = function()
+    local submitted = {}
+    local effects = Effects.new(configuration("system", "system"), {
+      set_progress = function(_, value, state)
+        submitted[#submitted + 1] = { value = value, state = state }
+        return state ~= 1
+      end,
+    }, {})
+    local handled, status = effects:consume({ kind = "progress_changed", value = { progress = 73, state = 1 } })
+    Assert.truthy(handled)
+    Assert.equal(status, "rejected")
+    handled, status = effects:consume({ kind = "progress_changed", value = { state = 3 } })
+    Assert.truthy(handled)
+    Assert.equal(status, "submitted")
+    Assert.equal(submitted[1].value, 73)
+    Assert.equal(submitted[2].value, 0)
+    Assert.equal(submitted[2].state, 3)
   end,
   host_effects_reject_invalid_or_unavailable_submission_without_repeating_reports = function()
     local effects = Effects.new(configuration("system", "system"), {}, {})
@@ -56,6 +79,9 @@ return {
     Assert.equal(status, "invalid")
     Assert.equal(first, false)
     handled, status = effects:consume({ kind = "progress_changed", value = { progress = 101, state = 1 } })
+    Assert.truthy(handled)
+    Assert.equal(status, "invalid")
+    handled, status = effects:consume({ kind = "progress_changed", value = { state = 1 } })
     Assert.truthy(handled)
     Assert.equal(status, "invalid")
     handled, status = effects:consume({ kind = "progress_changed", value = { progress = 50, state = 1 } })

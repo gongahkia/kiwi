@@ -1,8 +1,8 @@
 # Kiwi shell integration v1 for Zsh.
 # Source this only from an interactive shell configuration; it activates only
-# when TERM=kiwi and KIWI_SHELL_INTEGRATION=1.
+# when TERM=xterm-kiwi and KIWI_SHELL_INTEGRATION=1.
 
-[[ -o interactive && ${TERM-} == kiwi && ${KIWI_SHELL_INTEGRATION-} == 1 ]] || return 0
+[[ -o interactive && ${TERM-} == xterm-kiwi && ${KIWI_SHELL_INTEGRATION-} == 1 ]] || return 0
 (( ! $+functions[__kiwi_zsh_precmd] )) || return 0
 
 autoload -Uz add-zsh-hook

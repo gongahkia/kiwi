@@ -1,0 +1,60 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  print -u2 "usage: script/check-longrun-budget BASELINE CANDIDATE"
+  exit 2
+fi
+
+if ! command -v jq >/dev/null; then
+  print -u2 "jq is required to check long-run budgets."
+  exit 2
+fi
+
+function percent_from_environment() {
+  local name=$1
+  local fallback=$2
+  local value=$(printenv "$name" 2>/dev/null || true)
+  if [[ -z "$value" ]]; then value=$fallback; fi
+  if [[ "$value" != <-> || "$value" -le 0 ]]; then
+    print -u2 "$name must be a positive integer percent."
+    exit 2
+  fi
+  print -r -- "$value"
+}
+
+readonly cpu_percent=$(percent_from_environment KIWI_LONGRUN_MAX_CPU_P95_REGRESSION_PERCENT 25)
+readonly memory_percent=$(percent_from_environment KIWI_LONGRUN_MAX_MEMORY_REGRESSION_PERCENT 15)
+
+# The comparison command also validates schema, workload, host, runtime, and
+# methodology before a relative threshold is allowed to make a release claim.
+./script/compare-longrun "$1" "$2" >/dev/null
+
+readonly report=$(jq -n \
+  --argjson cpu_percent "$cpu_percent" \
+  --argjson memory_percent "$memory_percent" \
+  --slurpfile baseline "$1" \
+  --slurpfile candidate "$2" '
+    def metric($name; $before; $after; $percent): {
+      name: $name,
+      baseline: $before,
+      candidate: $after,
+      max_percent: $percent,
+      limit: ($before * (1 + $percent / 100)),
+      status: (if $after <= ($before * (1 + $percent / 100)) then "within-budget" else "over-budget" end)
+    };
+    [
+      metric("history_batch_p95_ms"; $baseline[0].result.history.batch_cpu_ms.p95; $candidate[0].result.history.batch_cpu_ms.p95; $cpu_percent),
+      metric("history_navigation_p95_ms"; $baseline[0].result.history.history_navigation_cpu_ms.p95; $candidate[0].result.history.history_navigation_cpu_ms.p95; $cpu_percent),
+      metric("history_retained_heap_kib"; $baseline[0].result.history.memory.retained_heap_kib_delta; $candidate[0].result.history.memory.retained_heap_kib_delta; $memory_percent),
+      metric("text_cache_cpu_ms"; $baseline[0].result.text_cache_pressure.elapsed_cpu_ms; $candidate[0].result.text_cache_pressure.elapsed_cpu_ms; $cpu_percent)
+    ] as $metrics |
+    { pass: all($metrics[]; .status == "within-budget"), metrics: $metrics }
+  ')
+
+print -r -- "$report" | jq -r '
+  "long-run budget pass=\(.pass) cpu-p95-regression=\(.metrics[0].max_percent)% memory-regression=\(.metrics[2].max_percent)%",
+  (.metrics[] | "\(.name) baseline=\(.baseline) candidate=\(.candidate) limit=\(.limit) status=\(.status)")
+'
+
+if [[ "$(print -r -- "$report" | jq -r '.pass')" != true ]]; then exit 1; fi

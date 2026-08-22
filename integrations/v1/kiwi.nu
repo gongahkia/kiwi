@@ -1,6 +1,6 @@
 # Kiwi shell integration v1 for Nushell.
 # Source this only from an interactive shell configuration; it activates only
-# when TERM=kiwi and KIWI_SHELL_INTEGRATION=1.
+# when TERM=xterm-kiwi and KIWI_SHELL_INTEGRATION=1.
 
 def __kiwi_nu_marker [value: string] {
   print -n $"\e]133;($value)\a"
@@ -41,7 +41,7 @@ def --env kiwi_shell_integration_uninstall [] {
 
 def --env __kiwi_nu_enable [] {
   if not $nu.is-interactive { return }
-  if (($env.TERM? | default '') != 'kiwi') { return }
+  if (($env.TERM? | default '') != 'xterm-kiwi') { return }
   if (($env.KIWI_SHELL_INTEGRATION? | default '') != '1') { return }
   if ($env.__kiwi_nu_active? | default false) { return }
 

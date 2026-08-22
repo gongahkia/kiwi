@@ -481,7 +481,7 @@ function Renderer:cursor_descriptor(model)
     visible = model.cursor.visible ~= false,
     style = style,
     shape = details.shape,
-    blink = details.blink,
+    blink = details.blink and modes.cursor_blink ~= false,
     color = color,
   }
 end

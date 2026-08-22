@@ -59,6 +59,10 @@ function Host.system_appearance(window)
 end
 
 if ffi.os == "OSX" then
+  function Host.set_progress(window, progress, state)
+    return window:cocoa_set_progress(progress, state)
+  end
+
   function Host.set_product_action_handler(window, handler)
     return window:enable_cocoa_menu(handler)
   end

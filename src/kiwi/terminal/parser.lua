@@ -51,6 +51,7 @@ end
 
 function Parser:reset_csi()
   self.parameters = {}
+  self.parameter_groups = { {} }
   self.current_parameter = nil
   self.seen_parameter = false
   self.private = ""
@@ -159,11 +160,7 @@ end
 
 function Parser:finish_csi(final)
   if self.current_parameter ~= nil or self.seen_parameter then
-    if #self.parameters >= self.max_parameters then
-      self.parameter_overflow = true
-    else
-      self.parameters[#self.parameters + 1] = self.current_parameter or 0
-    end
+    self:push_parameter()
   end
   self.mode = "ground"
   if self.parameter_overflow then
@@ -171,15 +168,20 @@ function Parser:finish_csi(final)
     self:emit_action(Actions.ignore("csi", "parameter limit"))
     return
   end
-  self:emit_action(Actions.csi(self.parameters, self.private, table.concat(self.intermediates), string.char(final), self.colon))
+  self:emit_action(Actions.csi(self.parameters, self.private, table.concat(self.intermediates), string.char(final), self.colon,
+    self.colon and self.parameter_groups or nil))
 end
 
-function Parser:push_parameter()
+function Parser:push_parameter(separator)
   if #self.parameters >= self.max_parameters then
     self.parameter_overflow = true
     return
   end
-  self.parameters[#self.parameters + 1] = self.current_parameter or 0
+  local value = self.current_parameter or 0
+  self.parameters[#self.parameters + 1] = value
+  local group = self.parameter_groups[#self.parameter_groups]
+  group[#group + 1] = value
+  if separator == ";" then self.parameter_groups[#self.parameter_groups + 1] = {} end
   self.current_parameter = nil
   self.seen_parameter = true
 end
@@ -294,12 +296,12 @@ function Parser:handle_csi(byte)
     return
   end
   if byte == 0x3b then
-    self:push_parameter()
+    self:push_parameter(";")
     return
   end
   if byte == 0x3a then
     self.colon = true
-    self:push_parameter()
+    self:push_parameter(":")
     return
   end
   if byte >= 0x3c and byte <= 0x3f and #self.parameters == 0 and self.current_parameter == nil and self.private == "" then

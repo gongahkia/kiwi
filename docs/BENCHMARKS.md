@@ -99,13 +99,16 @@ same baseline.
 
 ## M9 long-running history and cache profile
 
-`make bench-longrun` writes an ignored schema-version-1
+`make bench-longrun` writes an ignored schema-version-2
 `bench/results/<UTC timestamp>-longrun.json` report. Its deterministic first
 phase feeds 8,192 short Unicode lines through the production parser/state into
 a 4,096-row primary scrollback ring. Every 64 lines it applies sparse ANSI
 cursor writes, alternates 80- and 79-column resize paths, shapes the visible
-viewport, and records CPU, damage, layout/cache, heap, and RSS metrics. It then
-shapes the oldest and newest history view. The second phase runs the existing
+viewport, and records CPU, damage, layout/cache, heap, and RSS metrics. Each
+batch separately attributes input/parser, fragmented-update, resize,
+visible-layout, and damage-clear CPU time, while history navigation separately
+attributes scroll and layout CPU time. It then shapes the oldest and newest
+history view. The second phase runs the existing
 bounded native text stress workload, which exercises unique glyph pressure,
 combining/CJK/emoji/fallback, CSI edits, repeated font-system lifetime, and
 atlas/fallback caps. The report carries the exact workload configuration and
@@ -127,14 +130,38 @@ Compare only reports with identical `result.configuration` using:
 
 ```sh
 ./script/compare-longrun bench/results/baseline-longrun.json bench/results/candidate-longrun.json
+make bench-longrun-budget BASELINE=bench/results/baseline-longrun.json CANDIDATE=bench/results/candidate-longrun.json
 ```
 
-The comparator rejects a mismatched schema or workload configuration, then
-reports deltas for history batch/navigation p95, heap/RSS deltas, and text-cache
-CPU/failure counts. It does not establish a cross-host regression. Treat each
-output as measured CPU/resource data only; changes in driver, governor,
-thermals, font inventory, allocator, or kernel require a separately qualified
-comparison.
+The comparator rejects a mismatched schema, workload configuration, system,
+runtime, or methodology. It then reports deltas for history batch and phase
+p95s, navigation phase p95s, heap/RSS deltas, and text-cache CPU/failure
+counts. This makes a same-environment regression comparison, not a cross-host
+claim. Treat each output as measured CPU/resource data only; changes in driver,
+governor, thermals, font inventory, allocator, or kernel require a separately
+qualified new baseline.
+
+`make bench-longrun-budget` adds a same-environment release gate on top of that
+comparison. Its defaults allow at most 25% p95 regression for history batch,
+history navigation, and text-cache CPU time, and 15% retained-history-heap
+growth. Override only for a separately qualified environment with
+`KIWI_LONGRUN_MAX_CPU_P95_REGRESSION_PERCENT` and
+`KIWI_LONGRUN_MAX_MEMORY_REGRESSION_PERCENT`. These are relative regression
+budgets, not portable latency or memory SLOs.
+
+### macOS reflow investigation
+
+On 2026-08-22, the default profile on an Apple M3 (Darwin 25.5.0, arm64,
+LuaJIT 2.1.1785763465) attributed a 321.766 ms history-batch p95 almost
+entirely to resize/reflow (269.656 ms p95). The current no-op-reflow fast path
+reduced that same-machine run to 67.613 ms batch p95 and 2.872 ms resize p95;
+input/parser remained the leading phase at 57.221 ms p95. Retained Lua heap was
+104,228 KiB and RSS is unavailable on this macOS harness. The path applies only
+when every retained primary row is unwrapped and already fits, with no primary
+selection, shell/command metadata, kitty placement, or pending-wrap cursor to
+remap. Row-count changes and all other column changes use the established full reflow. This is local
+same-machine CPU evidence, not a comparison with the Fedora baseline or an
+end-to-end terminal latency claim.
 
 ### Baseline finding and narrow repros
 

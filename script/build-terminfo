@@ -11,10 +11,24 @@ if ! command -v tic >/dev/null || ! command -v infocmp >/dev/null; then
 fi
 
 mkdir -p "$OUTPUT"
+rm -f "$OUTPUT/k/kiwi" "$OUTPUT/6b/kiwi" "$OUTPUT/x/xterm-kiwi" "$OUTPUT/78/xterm-kiwi"
 tic -x -o "$OUTPUT" "$SOURCE"
-TERMINFO="$OUTPUT" infocmp kiwi >/dev/null
-[[ "$(TERM=kiwi TERMINFO="$OUTPUT" tput smacs)" == $'\e(0' && "$(TERM=kiwi TERMINFO="$OUTPUT" tput rmacs)" == $'\e(B' ]] || {
+TERMINFO="$OUTPUT" infocmp xterm-kiwi >/dev/null
+if TERMINFO="$OUTPUT" infocmp kiwi >/dev/null 2>&1; then
+  print -u2 "Kiwi's retired TERM=kiwi alias must not remain in the project-local terminfo database."
+  exit 1
+fi
+[[ "$(TERM=xterm-kiwi TERMINFO="$OUTPUT" tput smacs)" == $'\e(0' && "$(TERM=xterm-kiwi TERMINFO="$OUTPUT" tput rmacs)" == $'\e(B' ]] || {
   print -u2 "Kiwi terminfo must expose the implemented DEC Special Graphics enter/exit sequences."
   exit 1
 }
+[[ "$(TERM=xterm-kiwi TERMINFO="$OUTPUT" tput colors)" == "256" ]] || {
+  print -u2 "Kiwi terminfo must advertise its implemented 256-colour palette."
+  exit 1
+}
+TERMINFO="$OUTPUT" infocmp -x xterm-kiwi | grep -Eq '(^|[[:space:]])(RGB|Tc)(,|$)' || {
+  print -u2 "Kiwi terminfo must advertise direct RGB support for modern ncurses and tmux clients."
+  exit 1
+}
+"$ROOT/script/check-terminfo-contract" "$OUTPUT"
 print "Built project-local Kiwi terminfo at $OUTPUT"

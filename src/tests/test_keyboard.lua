@@ -10,6 +10,21 @@ return {
     Assert.equal(Keyboard.key(glfw.key_backspace, glfw.press, 0, { backarrow = true }, glfw).bytes, "\b")
     Assert.equal(Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control, {}, glfw).bytes, "\003")
   end,
+  keyboard_encodes_xterm_modify_other_keys_without_duplicate_text = function()
+    local level_one = { modify_other_keys = 1 }
+    local level_two = { modify_other_keys = 2 }
+    local level_three = { modify_other_keys = 3 }
+    local alt = Keyboard.key(string.byte("A"), glfw.press, glfw.mod_alt, level_one, glfw)
+    Assert.equal(alt.bytes, "\27[27;3;97~")
+    Assert.truthy(alt.suppress_text)
+    Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, level_one, glfw), nil)
+    local control = Keyboard.key(string.byte("C"), glfw.press, glfw.mod_control, level_two, glfw)
+    Assert.equal(control.bytes, "\27[27;5;99~")
+    Assert.truthy(control.suppress_text)
+    local plain = Keyboard.key(string.byte("A"), glfw.press, 0, level_three, glfw)
+    Assert.equal(plain.bytes, "\27[27;1;97~")
+    Assert.truthy(plain.suppress_text)
+  end,
   keyboard_tracks_normal_and_application_cursor_modes = function()
     Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, { application_cursor = false }, glfw).bytes, "\27[A")
     Assert.equal(Keyboard.key(glfw.key_up, glfw.press, 0, { application_cursor = true }, glfw).bytes, "\27OA")

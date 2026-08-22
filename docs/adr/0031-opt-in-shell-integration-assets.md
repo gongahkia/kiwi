@@ -14,7 +14,7 @@ control and make removal unclear.
 
 Kiwi ships `integrations/v1/kiwi.bash`, `kiwi.zsh`, `kiwi.fish`, and `kiwi.nu`. They are
 sourceable assets, not installed executables and not part of `make run`.
-Activation requires all of an interactive shell, `TERM=kiwi`, and
+Activation requires all of an interactive shell, `TERM=xterm-kiwi`, and
 `KIWI_SHELL_INTEGRATION=1`; every other case returns silently. The release
 guide provides explicit configuration and removal snippets, and Kiwi never
 writes configuration files or contacts a network endpoint.

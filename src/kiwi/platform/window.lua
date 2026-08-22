@@ -19,6 +19,9 @@ int kiwi_cocoa_system_appearance(void* window);
 int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_progress_set(void* window, uint32_t progress, uint32_t state);
+int kiwi_cocoa_progress_round_trip(void* window);
+void kiwi_cocoa_progress_remove_bridge(void* window);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -295,6 +298,20 @@ function Window:cocoa_menu_invoke_smoke(action)
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:cocoa_set_progress(progress, state)
+  if ffi.os ~= "OSX" then return nil, "Cocoa progress is unavailable on this platform" end
+  assert(type(progress) == "number" and progress % 1 == 0 and progress >= 0 and progress <= 100, "Cocoa progress must be an integer from 0 through 100")
+  assert(type(state) == "number" and state % 1 == 0 and state >= 0 and state <= 4, "Cocoa progress state must be an integer from 0 through 4")
+  if native.kiwi_cocoa_progress_set(self.handle, progress, state) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_progress_round_trip()
+  if ffi.os ~= "OSX" then return nil, "Cocoa progress is unavailable on this platform" end
+  if native.kiwi_cocoa_progress_round_trip(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:open_uri(uri)
   assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
   if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
@@ -403,6 +420,7 @@ function Window:destroy()
     self.callbacks.cocoa_commit = nil
   end
   if self.handle ~= nil then
+    if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil

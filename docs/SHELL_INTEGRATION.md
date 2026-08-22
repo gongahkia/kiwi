@@ -13,7 +13,7 @@ from inside the terminal are not injected.
 The injection is enabled by default as `shell-integration = auto`. Disable it
 for every default shell with `shell-integration = none` in Kiwi's configuration
 file, or `KIWI_SHELL_INJECTION=none` for one launch. The scripts themselves
-still require an interactive `TERM=kiwi` shell and
+still require an interactive `TERM=xterm-kiwi` shell and
 `KIWI_SHELL_INTEGRATION=1`; a direct/manual shell launch must set that variable
 before sourcing an asset. Neither path edits shell configuration, accesses a
 path, or performs a network request.
@@ -27,7 +27,7 @@ source the matching asset from that shell's interactive configuration. Replace
 
 ```sh
 # ~/.bashrc
-if [[ $TERM == kiwi ]]; then
+if [[ $TERM == xterm-kiwi ]]; then
   export KIWI_SHELL_INTEGRATION=1
   source /absolute/path/to/kiwi/integrations/v1/kiwi.bash
 fi
@@ -35,7 +35,7 @@ fi
 
 ```sh
 # ~/.zshrc
-if [[ $TERM == kiwi ]]; then
+if [[ $TERM == xterm-kiwi ]]; then
   export KIWI_SHELL_INTEGRATION=1
   source /absolute/path/to/kiwi/integrations/v1/kiwi.zsh
 fi
@@ -43,7 +43,7 @@ fi
 
 ```fish
 # ~/.config/fish/config.fish
-if status is-interactive; and test "$TERM" = kiwi
+if status is-interactive; and test "$TERM" = xterm-kiwi
     set -gx KIWI_SHELL_INTEGRATION 1
     source /absolute/path/to/kiwi/integrations/v1/kiwi.fish
 end
@@ -53,13 +53,13 @@ end
 # ~/.config/nushell/config.nu
 # `source` requires a parse-time literal path; the asset itself stays inert
 # outside an interactive Kiwi session.
-if (($env.TERM? | default '') == 'kiwi') {
+if (($env.TERM? | default '') == 'xterm-kiwi') {
   $env.KIWI_SHELL_INTEGRATION = '1'
 }
 source "/absolute/path/to/kiwi/integrations/v1/kiwi.nu"
 ```
 
-Every script independently requires an interactive shell, `TERM=kiwi`, and
+Every script independently requires an interactive shell, `TERM=xterm-kiwi`, and
 `KIWI_SHELL_INTEGRATION=1`; otherwise it returns without output or prompt
 changes. The Bash script declines to activate when `PROMPT_COMMAND` is an
 array, because v1 only preserves the scalar form. The Nushell script retains
@@ -105,11 +105,14 @@ hooks added after activation must be re-added after uninstalling.
 
 `./script/kiwi-ssh -- user@host` (or `make kiwi-ssh SSH_ARGS='-- user@host'`)
 is an explicit interactive-login helper. It copies Kiwi's already compiled
-terminfo entry to `~/.cache/kiwi/terminfo/k/kiwi` on that remote account, then
-opens an SSH PTY with `TERM=kiwi` and a remote `TERMINFO` pointing at that
-private cache. It does not alter `/etc`, the remote login profile, or local
-SSH configuration; each invocation re-uploads the small compiled entry rather
-than retaining a local destination cache.
+terminfo entry below `~/.cache/kiwi/terminfo/` on that remote account, then
+opens an SSH PTY with `TERM=xterm-kiwi`, `COLORTERM=truecolor`, and a remote
+`TERMINFO` pointing at that private cache. The exact first-level directory is
+the local `tic` output (`78/xterm-kiwi` on the current macOS ncurses build;
+some systems use `x/xterm-kiwi`), and the launcher preserves it during upload.
+It does not alter `/etc`, the remote login profile, or local SSH configuration;
+each invocation re-uploads the small compiled entry rather than retaining a
+local destination cache.
 
 The command intentionally accepts exactly one destination after `--` and no
 remote command. It is not a general replacement for `ssh`. Repeat

@@ -10,6 +10,7 @@ return {
   require("tests.fixtures.vt.dcs_status"),
   require("tests.fixtures.vt.alternate_and_modes"),
   require("tests.fixtures.vt.cursor_style_and_sync"),
+  require("tests.fixtures.vt.vim_xterm_modes"),
   require("tests.fixtures.vt.kitty_keyboard"),
   require("tests.fixtures.vt.kitty_graphics"),
   require("tests.fixtures.vt.kitty_graphics_actions"),

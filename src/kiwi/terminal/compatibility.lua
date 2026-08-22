@@ -19,7 +19,7 @@ local Compatibility = {
   },
   partial = {
     "xterm-private-mode-surface",
-    "terminfo-16-colour-contract",
+    "terminfo-256-colour-and-direct-rgb-contract",
     "macos-nsaccessibility-active-pane-projection",
   },
   deferred = {

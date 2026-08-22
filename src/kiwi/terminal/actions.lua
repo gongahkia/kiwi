@@ -12,7 +12,7 @@ function Actions.esc(final, intermediates)
   return { kind = "esc", final = final, intermediates = intermediates or "" }
 end
 
-function Actions.csi(parameters, private, intermediates, final, colon)
+function Actions.csi(parameters, private, intermediates, final, colon, parameter_groups)
   return {
     kind = "csi",
     parameters = parameters,
@@ -20,6 +20,7 @@ function Actions.csi(parameters, private, intermediates, final, colon)
     intermediates = intermediates or "",
     final = final,
     colon = colon or false,
+    parameter_groups = parameter_groups,
   }
 end
 

@@ -1,0 +1,25 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly TERMINFO_DIR=${1:?usage: check-terminfo-contract TERMINFO_DIR}
+readonly LUAJIT_BIN=${LUAJIT:-luajit}
+
+[[ -d "$TERMINFO_DIR" ]] || {
+  print -u2 -- "Kiwi terminfo contract needs a compiled terminfo directory: $TERMINFO_DIR"
+  exit 2
+}
+
+{
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput sgr0
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setaf 196
+  print -n -- F
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setab 21
+  print -n -- B
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setrgbf 17 34 51
+  print -n -- R
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setrgbb 68 85 102
+  print -n -- b
+} | LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;" "$LUAJIT_BIN" "$ROOT/src/kiwi/terminfo_contract.lua"
+
+print "Kiwi terminfo contract passed: 256 indexed and direct RGB sequences reach terminal state."

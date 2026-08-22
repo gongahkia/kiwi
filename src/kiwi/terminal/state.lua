@@ -23,6 +23,7 @@ State.__index = State
 
 State.flags = Attributes.flags
 State.keyboard_supported_flags = 0x1b
+State.title_stack_limit = 10
 State.reflow = Reflow
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
@@ -120,6 +121,7 @@ function State.new(columns, rows, options)
       newline = false,
       cursor_visible = true,
       cursor_style = 1,
+      cursor_blink = true,
       application_cursor = false,
       application_keypad = false,
       backarrow = false,
@@ -140,6 +142,7 @@ function State.new(columns, rows, options)
       focus_reporting = false,
       mouse_generation = 0,
       keyboard_flags = 0,
+      modify_other_keys = 0,
     },
     saved_private_modes = {},
     tab_stops = {},
@@ -157,6 +160,8 @@ function State.new(columns, rows, options)
     queue_responses = options.queue_responses ~= false,
     reflow_on_resize = options.reflow_on_resize ~= false,
     title = nil,
+    icon_title = nil,
+    title_stacks = { icon = {}, window = {} },
     responses = {},
     grapheme_context_storage = {},
     text_counters = options.text_counters,
@@ -1644,6 +1649,7 @@ function State:reset()
   self.modes.newline = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
+  self.modes.cursor_blink = true
   self.modes.application_cursor = false
   self.modes.application_keypad = false
   self.modes.backarrow = false
@@ -1664,6 +1670,7 @@ function State:reset()
   self.modes.focus_reporting = false
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self.modes.keyboard_flags = 0
+  self.modes.modify_other_keys = 0
   self.saved_private_modes = {}
   self:reset_tab_stops()
   self.scrollback:clear()
@@ -1673,6 +1680,9 @@ function State:reset()
   self.hyperlinks = {}
   self.hyperlink_ids = {}
   self.next_hyperlink_id = 0
+  self.title = nil
+  self.icon_title = nil
+  self.title_stacks = { icon = {}, window = {} }
   self.last_print = nil
   self:clear_selection()
   self:clear_search()
@@ -1699,6 +1709,7 @@ function State:soft_reset()
   self.modes.newline = false
   self.modes.cursor_visible = true
   self.modes.cursor_style = 1
+  self.modes.cursor_blink = true
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
   self.modes.mouse_tracking = "none"
@@ -1713,6 +1724,7 @@ function State:soft_reset()
   self.modes.mouse_protocol = "x10"
   self.modes.alternate_scroll = false
   self.modes.focus_reporting = false
+  self.modes.modify_other_keys = 0
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self.saved_private_modes = {}
   self.active_screen.top_margin = 0
@@ -1779,6 +1791,41 @@ function State:merge_reflow_row_metadata(target, source)
         target.command_regions_truncated = true
         self.command_regions:mark_row_reference_overflow(id)
       end
+    end
+  end
+end
+
+function State:can_keep_primary_rows_on_resize(columns, rows)
+  if rows ~= self.rows then return false end
+  local primary = self.primary
+  if primary.cursor.pending_wrap or primary.cursor.column >= columns or primary.saved_cursor.column >= columns then return false end
+  if self.selection.scope == "primary" or #self.command_regions.regions > 0 or #self.shell.events > 0 or #self.kitty_placements.placements > 0 then return false end
+  local function fits(row)
+    if row.wrapped then return false end
+    if columns < self.columns then
+      for column = columns, self.columns - 1 do
+        if not self:is_reflow_blank(row.cells[column]) then return false end
+      end
+    end
+    return true
+  end
+  for index = 1, self.scrollback:size() do
+    if not fits(self.scrollback:get(index)) then return false end
+  end
+  for row = 0, self.rows - 1 do
+    if not fits(primary.rows[row]) then return false end
+  end
+  return true
+end
+
+function State:resize_primary_without_reflow(columns, rows, blank)
+  local previous_columns = self.columns
+  self.primary = self.primary:resize(columns, rows, blank)
+  if columns <= previous_columns then return end
+  for index = 1, self.scrollback:size() do
+    local row = self.scrollback:get(index)
+    for column = previous_columns, columns - 1 do
+      if row.cells[column] == nil then row.cells[column] = blank() end
     end
   end
 end
@@ -1920,7 +1967,11 @@ function State:resize(columns, rows, options)
     return self:blank_cell()
   end
   if reflow_primary then
-    self:reflow_primary(columns, rows)
+    if self:can_keep_primary_rows_on_resize(columns, rows) then
+      self:resize_primary_without_reflow(columns, rows, blank)
+    else
+      self:reflow_primary(columns, rows)
+    end
   else
     self.primary = self.primary:resize(columns, rows, blank)
   end
@@ -1989,16 +2040,49 @@ local function csi_detail(action)
 end
 
 local function apply_colon_sgr(state, action)
-  local parameters = action.parameters
-  if action.private ~= "" or action.intermediates ~= "" or action.final ~= "m" or #parameters ~= 2 or parameters[1] ~= 4 then
-    return false
+  if action.private ~= "" or action.intermediates ~= "" or action.final ~= "m" then return false end
+  local groups = action.parameter_groups
+  if groups == nil then groups = { action.parameters } end
+  local operations = {}
+  for _, group in ipairs(groups) do
+    local first = group[1]
+    if #group == 1 and first ~= 38 and first ~= 48 then
+      operations[#operations + 1] = { kind = "sgr", value = first }
+    elseif first == 4 and #group == 2 and group[2] >= 0 and group[2] <= 5 then
+      operations[#operations + 1] = { kind = "underline", value = group[2] ~= 0 }
+    elseif (first == 38 or first == 48) and group[2] == 5 and #group == 3 and group[3] >= 0 and group[3] <= 255 then
+      operations[#operations + 1] = { channel = first == 38 and "fg" or "bg", kind = "indexed", value = group[3] }
+    elseif (first == 38 or first == 48) and group[2] == 2 then
+      local offset = #group == 6 and group[3] == 0 and 4 or 3
+      if #group ~= offset + 2 or group[offset] < 0 or group[offset] > 255 or group[offset + 1] < 0 or group[offset + 1] > 255 or group[offset + 2] < 0 or group[offset + 2] > 255 then
+        return false
+      end
+      operations[#operations + 1] = {
+        blue = group[offset + 2],
+        channel = first == 38 and "fg" or "bg",
+        green = group[offset + 1],
+        kind = "rgb",
+        red = group[offset],
+      }
+    else
+      return false
+    end
   end
-  local style = parameters[2]
-  if style == nil or style < 0 or style > 5 then return false end
-  -- Kiwi has one underline rendering mode. Retain the semantic underline for
-  -- every standardized colon-form underline style without pretending to draw
-  -- curl, dots, or dashes differently.
-  state.active_screen.attributes.underline = style ~= 0
+  local attributes = state.active_screen.attributes
+  for _, operation in ipairs(operations) do
+    if operation.kind == "sgr" then
+      attributes = Attributes.apply_sgr(attributes, { operation.value })
+    elseif operation.kind == "underline" then
+      -- Kiwi has one underline rendering mode. Retain the semantic underline
+      -- without pretending to draw curl, dots, or dashes differently.
+      attributes.underline = operation.value
+    elseif operation.kind == "indexed" then
+      attributes[operation.channel] = { kind = "indexed", index = operation.value }
+    else
+      attributes[operation.channel] = { kind = "rgb", red = operation.red, green = operation.green, blue = operation.blue }
+    end
+  end
+  state.active_screen.attributes = attributes
   return true
 end
 
@@ -2105,6 +2189,8 @@ function State:apply_private_mode(parameters, enabled)
     elseif mode == 7 then
       self.modes.autowrap = enabled
       self.active_screen.cursor.pending_wrap = false
+    elseif mode == 12 then
+      self.modes.cursor_blink = enabled
     elseif mode == 45 then
       self.modes.reverse_wrap = enabled
     elseif mode == 67 then
@@ -2165,6 +2251,7 @@ function State:restorable_private_mode_value(mode)
   if mode == 1 then return modes.application_cursor
   elseif mode == 6 then return modes.origin
   elseif mode == 7 then return modes.autowrap
+  elseif mode == 12 then return modes.cursor_blink
   elseif mode == 25 then return modes.cursor_visible
   elseif mode == 45 then return modes.reverse_wrap
   elseif mode == 67 then return modes.backarrow
@@ -2252,6 +2339,7 @@ function State:input_modes()
     bracketed_paste = modes.bracketed_paste == true,
     focus_reporting = modes.focus_reporting == true,
     keyboard_flags = modes.keyboard_flags,
+    modify_other_keys = modes.modify_other_keys,
     mouse_protocol = modes.mouse_protocol,
     mouse_tracking = modes.mouse_tracking,
   }
@@ -2334,6 +2422,15 @@ function State:apply_keyboard_protocol(action)
   end
 end
 
+function State:set_modify_other_keys(action)
+  local parameters = action.parameters
+  if #parameters ~= 2 or parameters[1] ~= 4 or parameters[2] < 0 or parameters[2] > 3 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  self.modes.modify_other_keys = parameters[2]
+end
+
 function State:set_cursor_style(action)
   if #action.parameters > 1 then
     self:record_unknown("csi", csi_detail(action))
@@ -2378,6 +2475,8 @@ function State:mode_status(private, mode)
       enabled = modes.origin
     elseif mode == 7 then
       enabled = modes.autowrap
+    elseif mode == 12 then
+      enabled = modes.cursor_blink
     elseif mode == 45 then
       enabled = modes.reverse_wrap
     elseif mode == 67 then
@@ -2431,7 +2530,45 @@ function State:report_mode(private, parameters, action)
   self:respond(string.format("\27[%s%d;%d$y", private, mode, status))
 end
 
+function State:set_title(kind, value)
+  if kind == "icon" then
+    self.icon_title = value
+    return
+  end
+  if self.title == value then return end
+  self.title = value
+  self:emit_effect("title_changed", { title = value })
+end
+
+function State:push_title(kind)
+  local stack = self.title_stacks[kind]
+  if #stack == State.title_stack_limit then table.remove(stack, 1) end
+  stack[#stack + 1] = { value = kind == "icon" and self.icon_title or self.title }
+end
+
+function State:pop_title(kind)
+  local stack = self.title_stacks[kind]
+  local saved = table.remove(stack)
+  if saved ~= nil then self:set_title(kind, saved.value) end
+end
+
+function State:apply_title_stack_operation(parameters, action)
+  if parameters[1] ~= 22 and parameters[1] ~= 23 then return false end
+  if #parameters ~= 2 or parameters[2] < 0 or parameters[2] > 2 then
+    self:record_unknown("csi", csi_detail(action))
+    return true
+  end
+  local kinds = parameters[2] == 0 and { "icon", "window" }
+    or parameters[2] == 1 and { "icon" }
+    or { "window" }
+  for _, kind in ipairs(kinds) do
+    if parameters[1] == 22 then self:push_title(kind) else self:pop_title(kind) end
+  end
+  return true
+end
+
 function State:report_window_operation(parameters, action)
+  if self:apply_title_stack_operation(parameters, action) then return end
   if #parameters ~= 1 then
     self:record_unknown("csi", csi_detail(action))
     return
@@ -2486,6 +2623,10 @@ function State:apply_csi(action)
   end
   if action.private == "?" and (final == "h" or final == "l") then
     self:apply_private_mode(parameters, final == "h")
+    return
+  end
+  if action.private == ">" and action.intermediates == "" and final == "m" then
+    self:set_modify_other_keys(action)
     return
   end
   if final == "u" and action.intermediates == "" and (action.private == "?" or action.private == "=" or action.private == ">" or action.private == "<") then
@@ -2682,7 +2823,9 @@ function State:apply_xtgettcap(action)
     self:respond("\27P0+r\27\\")
     return
   end
-  local capabilities = { Co = "16", TN = "kiwi" }
+  -- RGB reports the number of significant bits in each direct-colour channel,
+  -- matching xterm and Ghostty's XTGETTCAP convention.
+  local capabilities = { Co = "256", TN = "xterm-kiwi", RGB = "8" }
   local response = {}
   for _, encoded_name in ipairs(names) do
     local name = decode_xtgettcap_name(encoded_name)
@@ -2870,11 +3013,18 @@ end
 
 function State:apply_osc9(payload)
   if #payload > 1024 then return false end
-  local state, progress = payload:match("^4;([0-4]);(%d?%d?%d)$")
+  local state, progress = payload:match("^4;([0-4]);(%d%d?%d?)$")
   if state then
     progress = tonumber(progress)
     if progress > 100 then return false end
     self:emit_effect("progress_changed", { progress = progress, state = tonumber(state) })
+    return true
+  end
+  state = payload:match("^4;([0-4])$")
+  if state then
+    state = tonumber(state)
+    if state == 1 then return false end
+    self:emit_effect("progress_changed", { progress = nil, state = state })
     return true
   end
   if payload:find("\0", 1, true) or payload:find("\r", 1, true) or payload:find("\n", 1, true) then return false end
@@ -2883,9 +3033,13 @@ function State:apply_osc9(payload)
 end
 
 function State:apply_osc(action)
-  if action.command == 0 or action.command == 2 then
-    self.title = action.payload
-    self:emit_effect("title_changed", { title = action.payload })
+  if action.command == 0 then
+    self:set_title("icon", action.payload)
+    self:set_title("window", action.payload)
+  elseif action.command == 1 then
+    self:set_title("icon", action.payload)
+  elseif action.command == 2 then
+    self:set_title("window", action.payload)
   elseif action.command == 7 then
     local event = self.shell:apply_cwd(action.payload, self:shell_position())
     if event then

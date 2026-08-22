@@ -228,9 +228,11 @@ clears, or automatic synchronization. `osc9-notifications` and
 `osc9-progress` are also `off` by default. Setting either to `system` allows a
 validated typed request to reach a host that implements it. GTK currently
 submits notifications through the desktop notification service; the desktop may
-decline to show them. Neither progress nor GLFW/Cocoa notification delivery is
-implemented yet, so those requests report unavailable rather than succeeding
-silently. Kiwi never logs the terminal-supplied notification text.
+decline to show them. On macOS, `osc9-progress = system` shows a per-window
+native titlebar progress indicator: states `0`/`1`/`2`/`3`/`4` mean
+clear/normal/error/indeterminate/paused. Cocoa notification delivery and GTK progress are unavailable,
+so those requests report unavailable rather than succeeding silently. Kiwi
+never logs the terminal-supplied notification text.
 
 For example, a source checkout can still use environment-only configuration:
 
@@ -352,13 +354,13 @@ the complete API v1 capability boundary.
 
 ## Current limits
 
-Kiwi advertises a 16-colour terminfo contract and deliberately does not claim
-truecolour terminfo extensions or `COLORTERM`. Its supported targets are Linux
-x86_64 and a verified macOS arm64 source path. It has a bounded Linux AT-SPI
-provider and macOS NSAccessibility element, but no validated end-to-end
-screen-reader result, primary selection, OSC 52 reads/queries,
-regular-expression search, full text indexing, command execution UI, or full
-xterm/VT certification. The current, precise limits are maintained in the
-[conformance matrix](CONFORMANCE.md), [text contract](TEXT.md),
-[accessibility contract](ACCESSIBILITY.md), and the repository
-[README](../README.md#deliberate-limits).
+Kiwi advertises 256 indexed colours and direct RGB SGR through its
+`xterm-kiwi` terminfo entry and `COLORTERM=truecolor`; this is not full xterm
+or VT certification. Its supported targets are Linux x86_64 and a verified
+macOS arm64 source path. It has a bounded Linux AT-SPI provider and macOS
+NSAccessibility element, but no validated end-to-end screen-reader result,
+primary selection, OSC 52 reads/queries, regular-expression search, full text
+indexing, command execution UI, or controlled-remote SSH qualification. The
+current, precise limits are maintained in the [conformance matrix](CONFORMANCE.md),
+[text contract](TEXT.md), [accessibility contract](ACCESSIBILITY.md), and the
+repository [README](../README.md#deliberate-limits).

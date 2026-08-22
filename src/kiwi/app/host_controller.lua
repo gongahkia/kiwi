@@ -242,9 +242,9 @@ function Controller.run(window, host, options)
     local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
     local function spawn_child(command, child_columns, child_rows)
       local environment = {
-        TERM = "kiwi",
+        TERM = "xterm-kiwi",
         TERMINFO = terminfo_directory,
-        COLORTERM = false,
+        COLORTERM = "truecolor",
       }
       if command == nil and configuration.shell_integration == "auto" then
         local integration_environment
@@ -1064,7 +1064,7 @@ function Controller.run(window, host, options)
     end
 
     local child_label = options.moved_session and "moved-session" or options.command and options.command[1] or Pty.default_command()[1]
-    io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", child_label, columns, rows, font.font_path))
+    io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=%s grid=%dx%d primary=%s\n", child_label, columns, rows, font.font_path))
     if options.session_move_smoke and options.application.session_move_smoke_reported then
       io.stdout:write("Kiwi session-move smoke passed: one live PTY moved between native windows in this application process.\n")
     end

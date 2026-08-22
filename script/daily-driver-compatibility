@@ -149,17 +149,17 @@ else
   if [[ "$require_desktop" == true ]]; then overall_failed=true; fi
 fi
 
-if TERMINFO="$TERMINFO_DIR" infocmp -1 kiwi >/dev/null && [[ "$(TERM=kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == 16 ]]; then
-  record_result terminfo passed "Kiwi advertises the documented 16-colour terminal contract"
+if TERMINFO="$TERMINFO_DIR" infocmp -x xterm-kiwi >/dev/null && [[ "$(TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == 256 ]] && TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setrgbf 1 2 3 >/dev/null; then
+  record_result terminfo passed "Kiwi advertises the documented 256-colour and direct-RGB terminal contract"
 else
   record_result terminfo failed "the compiled Kiwi terminfo entry is unavailable or advertises the wrong colour count"
 fi
 
 if (( $+commands[tmux] )); then
-  if env -u COLORTERM TERM=kiwi TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-compatibility '/bin/sh -c '\''printf "term=%s colors=" "$TERM"; tput colors; sleep 2'\''' && sleep 1; then
+  if env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-compatibility '/bin/sh -c '\''printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; if tput setrgbf 1 2 3 >/dev/null 2>&1; then printf " rgb=true"; else printf " rgb=false"; fi; sleep 2'\''' && sleep 1; then
     tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-compatibility -S -20)
-    if [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=kiwi"* && "$tmux_output" == *"colors=256"* ]]; then
-      record_result tmux passed "tmux supplied its nested 256-colour TERM contract"
+    if [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* && "$tmux_output" == *"rgb=true"* ]]; then
+      record_result tmux passed "tmux preserved the nested direct-RGB terminal contract"
     else
       record_result tmux failed "tmux did not provide the expected nested TERM and colour contract"
     fi
@@ -171,28 +171,28 @@ else
 fi
 
 if (( $+commands[bash] )); then
-  bash_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.bash" HOSTNAME=kiwi.example bash --noprofile --norc -ic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_bash_prompt' 2>/dev/null) || bash_output=""
+  bash_output=$(TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.bash" HOSTNAME=kiwi.example bash --noprofile --norc -ic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_bash_prompt' 2>/dev/null) || bash_output=""
   shell_probe bash "$bash_output"
 else
   record_result shell-bash skipped "Bash is not installed"
 fi
 
 if (( $+commands[zsh] )); then
-  zsh_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.zsh" HOSTNAME=kiwi.example zsh -dfic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_zsh_precmd' 2>/dev/null) || zsh_output=""
+  zsh_output=$(TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.zsh" HOSTNAME=kiwi.example zsh -dfic 'source "$KIWI_COMPAT_SHELL_SCRIPT"; PWD=/tmp; __kiwi_zsh_precmd' 2>/dev/null) || zsh_output=""
   shell_probe zsh "$zsh_output"
 else
   record_result shell-zsh skipped "Zsh is not installed"
 fi
 
 if (( $+commands[fish] )); then
-  fish_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.fish" HOSTNAME=kiwi.example fish --no-config -ic 'source $KIWI_COMPAT_SHELL_SCRIPT; cd /tmp; emit fish_prompt' 2>/dev/null) || fish_output=""
+  fish_output=$(TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_COMPAT_SHELL_SCRIPT="$ROOT/integrations/v1/kiwi.fish" HOSTNAME=kiwi.example fish --no-config -ic 'source $KIWI_COMPAT_SHELL_SCRIPT; cd /tmp; emit fish_prompt' 2>/dev/null) || fish_output=""
   shell_probe fish "$fish_output"
 else
   record_result shell-fish skipped "fish is not installed"
 fi
 
 if (( $+commands[nu] )); then
-  nu_output=$(TERM=kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=kiwi.example nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; cd /tmp; __kiwi_nu_prompt' 2>/dev/null) || nu_output=""
+  nu_output=$(TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=kiwi.example nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; cd /tmp; __kiwi_nu_prompt' 2>/dev/null) || nu_output=""
   shell_probe nu "$nu_output"
 else
   record_result shell-nu skipped "Nushell is not installed"
@@ -279,7 +279,7 @@ if [[ -n "$ssh_host" ]]; then
   ssh_command=("$ROOT/script/kiwi-ssh" --probe)
   for ssh_option in "${ssh_options[@]}"; do ssh_command+=(--ssh-option "$ssh_option"); done
   ssh_command+=(-- "$ssh_host")
-  if ssh_output=$(KIWI_TERMINFO="$TERMINFO_DIR" "${ssh_command[@]}" 2>&1) && [[ "$ssh_output" == *"kiwi-ssh probe: terminfo=kiwi colors=16"* ]]; then
+  if ssh_output=$(KIWI_TERMINFO="$TERMINFO_DIR" "${ssh_command[@]}" 2>&1) && [[ "$ssh_output" == *"kiwi-ssh probe: terminfo=xterm-kiwi colors=256 truecolor=true"* ]]; then
     record_result ssh passed "the controlled remote accepted the private Kiwi terminfo entry"
   else
     record_result ssh failed "the controlled remote terminfo probe did not complete"

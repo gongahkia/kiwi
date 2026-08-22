@@ -1,8 +1,8 @@
 # Kiwi shell integration v1 for Bash.
 # Source this only from an interactive shell configuration; it activates only
-# when TERM=kiwi and KIWI_SHELL_INTEGRATION=1.
+# when TERM=xterm-kiwi and KIWI_SHELL_INTEGRATION=1.
 
-[[ $- == *i* && ${TERM-} == kiwi && ${KIWI_SHELL_INTEGRATION-} == 1 ]] || return 0
+[[ $- == *i* && ${TERM-} == xterm-kiwi && ${KIWI_SHELL_INTEGRATION-} == 1 ]] || return 0
 [[ -z ${__kiwi_bash_active-} ]] || return 0
 [[ $(declare -p PROMPT_COMMAND 2>/dev/null) != "declare -a"* ]] || return 0
 
