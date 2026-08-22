@@ -1,6 +1,7 @@
 -- Internal terminal/session/renderer controller shared by native hosts.
 local Context = require("kiwi.gpu.context")
 local AtspiProjection = require("kiwi.accessibility.atspi")
+local ProductActions = require("kiwi.app.actions")
 local bit = require("bit")
 local Recovery = require("kiwi.gpu.recovery")
 local DeviceSoak = require("kiwi.bench.device_soak")
@@ -159,8 +160,13 @@ end
 
 function Controller.run(window, host, options)
   local default_title = "Kiwi M2 terminal"
-  local configuration, configuration_path = Config.load(options.config)
   local glfw = host.keymap
+  local system_appearance = host.system_appearance and host.system_appearance(window) or nil
+  local function load_configuration()
+    return Config.load(options.config, nil, { appearance = system_appearance })
+  end
+  local configuration, configuration_path = load_configuration()
+  local product_actions = ProductActions.new(configuration.keybindings, glfw)
   local started_at = window:time()
   if geometry then window:set_position(geometry.x, geometry.y) end
   local context
@@ -604,6 +610,7 @@ function Controller.run(window, host, options)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
+      local candidate_actions = ProductActions.new(reloaded.keybindings, glfw)
       local previous_font = font
       local font_changed = reloaded.font_size ~= configuration.font_size
         or reloaded.font_path ~= configuration.font_path
@@ -613,6 +620,7 @@ function Controller.run(window, host, options)
       local candidate_font = font_changed and new_font(window, reloaded) or font
       configuration = reloaded
       configuration_path = path
+      product_actions = candidate_actions
       render_options = renderer_options(options, configuration)
       for _, pane in pairs(workspace.panes) do
         VTInternal.state(pane.session.terminal):configure_palette({
@@ -784,25 +792,26 @@ function Controller.run(window, host, options)
 
     local function handle_workspace_key(key, action, modifiers)
       if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then return false end
-      if bit.band(modifiers, glfw.mod_control) ~= 0 and key == glfw.key_tab then
+      local product_action = product_actions:lookup(key, modifiers)
+      if product_action == nil then return false end
+      if product_action == "next-tab" then
         focus_next_tab()
         return true
       end
-      if bit.band(modifiers, glfw.mod_control + glfw.mod_shift) ~= glfw.mod_control + glfw.mod_shift then return false end
-      if key == string.byte("T") then
+      if product_action == "new-tab" then
         local created, reason = create_tab()
         if not created then io.stderr:write("Kiwi tab creation rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("N") then
+      if product_action == "new-window" then
         local opened, reason = options.application:request_window(configuration_path)
         if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("M") then
+      if product_action == "move-session-new-window" or product_action == "move-session-next-window" then
         if options.session_move_smoke_requester then active_session.session_move_smoke_source_id = options.controller_id end
         local moved, reason
-        if bit.band(modifiers, glfw.mod_alt) ~= 0 then
+        if product_action == "move-session-next-window" then
           moved, reason = options.application:move_active_to_next_window(options.controller_id)
         else
           moved, reason = options.application:move_active_to_new_window(options.controller_id)
@@ -810,9 +819,9 @@ function Controller.run(window, host, options)
         if not moved then io.stderr:write("Kiwi session move rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("D") then
+      if product_action == "duplicate-session-new-window" or product_action == "duplicate-session-next-window" then
         local duplicated, reason
-        if bit.band(modifiers, glfw.mod_alt) ~= 0 then
+        if product_action == "duplicate-session-next-window" then
           duplicated, reason = options.application:duplicate_active_to_next_window(options.controller_id)
         else
           duplicated, reason = options.application:request_window(configuration_path)
@@ -820,19 +829,23 @@ function Controller.run(window, host, options)
         if not duplicated then io.stderr:write("Kiwi session duplication rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("W") then
+      if product_action == "close-pane" then
         local closed, reason = close_active_pane()
         if not closed then io.stderr:write("Kiwi pane closure rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == glfw.key_enter then
+      if product_action == "split-right" then
         local created, reason = create_split("vertical")
         if not created then io.stderr:write("Kiwi vertical split rejected: ", reason or "unavailable", "\n") end
         return true
       end
-      if key == string.byte("J") then
+      if product_action == "split-down" then
         local created, reason = create_split("horizontal")
         if not created then io.stderr:write("Kiwi horizontal split rejected: ", reason or "unavailable", "\n") end
+        return true
+      end
+      if product_action == "reload-config" then
+        configuration_reload_requested = true
         return true
       end
       return false
@@ -881,10 +894,6 @@ function Controller.run(window, host, options)
     end, function(key, action, modifiers)
       if handle_workspace_key(key, action, modifiers) then
         options.application:mark_layout_dirty()
-        return { handled = true, suppress_text = true }
-      end
-      if key == glfw.key_f6 and action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
-        configuration_reload_requested = true
         return { handled = true, suppress_text = true }
       end
       if handle_search_key(key, action) then
@@ -1041,9 +1050,14 @@ function Controller.run(window, host, options)
         io.stdout:write("Kiwi same-process multi-window smoke passed: two native window controllers share this application process.\n")
       end
       now = window:time()
+      local observed_appearance = host.system_appearance and host.system_appearance(window) or nil
+      if configuration.theme_mode == "system" and observed_appearance ~= nil and observed_appearance ~= system_appearance then
+        system_appearance = observed_appearance
+        configuration_reload_requested = true
+      end
       if configuration_reload_requested then
         configuration_reload_requested = false
-        local loaded, reloaded_or_error, path = pcall(Config.load, options.config)
+        local loaded, reloaded_or_error, path = pcall(load_configuration)
         if not loaded then
           io.stderr:write("Kiwi configuration reload rejected: ", tostring(reloaded_or_error), "\n")
         else

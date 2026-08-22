@@ -33,6 +33,7 @@ int kiwi_gtk_host_open_uri(KiwiGtkHost* host, const char* uri);
 void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
 int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
+int kiwi_gtk_host_system_appearance(const KiwiGtkHost* host);
 int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_accessibility_update(KiwiGtkHost* host, const char* text, size_t text_bytes, uint32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char* title);
@@ -189,6 +190,13 @@ function Window:set_text_input_caret(x, y, width, height)
     math.floor(x), math.floor(y), math.max(1, math.floor(width)), math.max(1, math.floor(height)))
   if result ~= 0 then return true end
   return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:system_appearance()
+  local value = native.kiwi_gtk_host_system_appearance(self.handle)
+  if value == 1 then return "dark" end
+  if value == 0 then return "light" end
+  return nil
 end
 
 function Window:text_input_inject_smoke()

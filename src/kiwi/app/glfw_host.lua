@@ -54,6 +54,10 @@ function Host.live_count()
   return Window.live_count()
 end
 
+function Host.system_appearance(window)
+  return window:system_appearance()
+end
+
 function Host.run(options, title, controller)
   assert(type(controller) == "function", "GLFW host needs a controller")
   local window = Host.new(options.geometry, title, options)

@@ -14,6 +14,7 @@ void kiwi_cocoa_text_input_destroy(KiwiCocoaTextInput* adapter);
 void kiwi_cocoa_text_input_set_caret(KiwiCocoaTextInput* adapter, double x, double y, double width, double height);
 int kiwi_cocoa_text_input_round_trip(void* window);
 int kiwi_cocoa_text_input_inject_smoke(KiwiCocoaTextInput* adapter);
+int kiwi_cocoa_system_appearance(void* window);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -242,6 +243,14 @@ function Window:cocoa_text_input_inject_smoke()
     return false, ffi.string(native.kiwi_surface_last_error())
   end
   return true
+end
+
+function Window:system_appearance()
+  if ffi.os ~= "OSX" then return nil end
+  local value = native.kiwi_cocoa_system_appearance(self.handle)
+  if value == 1 then return "dark" end
+  if value == 0 then return "light" end
+  return nil
 end
 
 function Window:open_uri(uri)
