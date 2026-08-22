@@ -238,6 +238,7 @@ function Controller.run(window, host, options)
     end
     local render_options = renderer_options(options, configuration)
     local clipboard = Clipboard.new(window)
+    configuration.host_effects = require("kiwi.app.host_effects").new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
     local active_session
     local state
@@ -611,6 +612,7 @@ function Controller.run(window, host, options)
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
       local candidate_actions = ProductActions.new(reloaded.keybindings, glfw)
+      reloaded.host_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
       local previous_font = font
       local font_changed = reloaded.font_size ~= configuration.font_size
         or reloaded.font_path ~= configuration.font_path
@@ -1131,6 +1133,11 @@ function Controller.run(window, host, options)
           if effect.kind == "clipboard_write_requested" then
             local written, status = clipboard:write_osc52(effect.value.text)
             if not written then io.stderr:write("Kiwi OSC 52 clipboard write rejected: ", status, "\n") end
+          else
+            local consumed, status, first_report = configuration.host_effects:consume(effect)
+            if consumed and status ~= "submitted" and first_report then
+              io.stderr:write("Kiwi OSC 9 ", effect.kind == "notification_requested" and "notification" or "progress", " ignored: ", status, "\n")
+            end
           end
         end
         session.pty:flush()

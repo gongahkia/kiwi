@@ -29,6 +29,7 @@ double kiwi_gtk_host_content_scale(const KiwiGtkHost* host);
 void kiwi_gtk_host_set_size(KiwiGtkHost* host, int width, int height);
 int kiwi_gtk_host_clipboard_write(KiwiGtkHost* host, const char* text);
 int kiwi_gtk_host_clipboard_read(KiwiGtkHost* host, char* destination, size_t capacity, size_t* text_bytes);
+int kiwi_gtk_host_notify(KiwiGtkHost* host, const char* title, const char* body);
 int kiwi_gtk_host_open_uri(KiwiGtkHost* host, const char* uri);
 void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
@@ -235,6 +236,12 @@ end
 
 function Window:clipboard_write(text)
   return native.kiwi_gtk_host_clipboard_write(self.handle, text) ~= 0 and true or false, "platform-error"
+end
+
+function Window:notify(title, body)
+  assert(type(title) == "string" and type(body) == "string", "GTK notification needs strings")
+  if native.kiwi_gtk_host_notify(self.handle, title, body) ~= 0 then return true end
+  return false, "platform-error"
 end
 
 function Window:open_uri(uri)

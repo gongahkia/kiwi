@@ -60,4 +60,8 @@ function Host.system_appearance(window)
   return window:system_appearance()
 end
 
+function Host.notify(window, title, body)
+  return window:notify(title, body)
+end
+
 return Host

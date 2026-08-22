@@ -72,6 +72,8 @@ static GtkApplication *kiwi_gtk_application;
 
 enum {
   KIWI_GTK_ACCESSIBILITY_MAXIMUM_BYTES = 64 * 1024,
+  KIWI_GTK_NOTIFICATION_BODY_MAXIMUM_BYTES = 1024,
+  KIWI_GTK_NOTIFICATION_TITLE_MAXIMUM_BYTES = 128,
   KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES = 1024,
 };
 
@@ -668,6 +670,26 @@ void kiwi_gtk_host_set_size(KiwiGtkHost *host, int width, int height) { if (host
 int kiwi_gtk_host_clipboard_write(KiwiGtkHost *host, const char *text) {
   if (host == NULL || host->surface == NULL || text == NULL) return 0;
   gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_surface_get_display(host->surface)), text);
+  return 1;
+}
+
+int kiwi_gtk_host_notify(KiwiGtkHost *host, const char *title, const char *body) {
+  if (host == NULL || host->application == NULL || title == NULL || body == NULL ||
+      title[0] == '\0' || strlen(title) > KIWI_GTK_NOTIFICATION_TITLE_MAXIMUM_BYTES ||
+      strlen(body) > KIWI_GTK_NOTIFICATION_BODY_MAXIMUM_BYTES ||
+      !g_utf8_validate(title, -1, NULL) || !g_utf8_validate(body, -1, NULL)) {
+    kiwi_gtk_set_error("GTK notification received invalid bounded UTF-8 text");
+    return 0;
+  }
+  GNotification *notification = g_notification_new(title);
+  if (notification == NULL) {
+    kiwi_gtk_set_error("GTK could not construct a notification");
+    return 0;
+  }
+  g_notification_set_body(notification, body);
+  g_application_send_notification(G_APPLICATION(host->application),
+                                  "kiwi-terminal-osc9", notification);
+  g_object_unref(notification);
   return 1;
 }
 

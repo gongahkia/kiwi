@@ -179,9 +179,12 @@ local function defaults()
     search_color = nil,
     hyperlink_color = nil,
     command_region_color = nil,
+    color_overrides = { palette = {} },
     command_regions = false,
     keybindings = {},
     osc52_write = false,
+    osc9_notifications = "off",
+    osc9_progress = "off",
     shell_integration = "auto",
   }
 end
@@ -203,6 +206,26 @@ function Config.resolve_appearance(preference, system_appearance)
   assert(preference == "system" or preference == "dark" or preference == "light", "appearance preference must be system, dark, or light")
   if preference ~= "system" then return preference end
   return system_appearance == "light" and "light" or "dark"
+end
+
+local function empty_color_overrides()
+  return { palette = {} }
+end
+
+local function apply_color_overrides(config)
+  local overrides = config.color_overrides or empty_color_overrides()
+  for _, field in ipairs({ "foreground", "background", "selection_color", "search_color", "hyperlink_color", "command_region_color" }) do
+    if overrides[field] ~= nil then config[field] = overrides[field] end
+  end
+  for index, colour in pairs(overrides.palette or {}) do config.palette[index] = colour end
+end
+
+local function parse_osc9_policy(value, line)
+  value = parse_string(value, line)
+  if value ~= "off" and value ~= "system" then
+    error("configuration line " .. line .. " OSC 9 policy must be off or system")
+  end
+  return value
 end
 
 local function apply_theme(config, name, line)
@@ -267,6 +290,7 @@ local function apply_external_theme(config, path, theme)
   config.theme = "external"
   config.theme_mode = "external"
   config.theme_file = path
+  config.color_overrides = empty_color_overrides()
   config.foreground = Config.parse_color(theme.foreground, path)
   config.background = Config.parse_color(theme.background, path)
   config.palette = copy_table(theme.palette)
@@ -292,20 +316,26 @@ local function apply_value(config, key, raw, line)
     config.ambiguous_width = parse_integer(raw, line, 1, 2)
   elseif key == "foreground" then
     config.foreground = Config.parse_color(raw, line)
+    config.color_overrides.foreground = config.foreground
   elseif key == "background" then
     config.background = Config.parse_color(raw, line)
+    config.color_overrides.background = config.background
   elseif key == "selection-color" then
     config.selection_color = parse_string(raw, line)
     Config.parse_color(config.selection_color, line)
+    config.color_overrides.selection_color = config.selection_color
   elseif key == "search-color" then
     config.search_color = parse_string(raw, line)
     Config.parse_color(config.search_color, line)
+    config.color_overrides.search_color = config.search_color
   elseif key == "hyperlink-color" then
     config.hyperlink_color = parse_string(raw, line)
     Config.parse_color(config.hyperlink_color, line)
+    config.color_overrides.hyperlink_color = config.hyperlink_color
   elseif key == "command-region-color" then
     config.command_region_color = parse_string(raw, line)
     Config.parse_color(config.command_region_color, line)
+    config.color_overrides.command_region_color = config.command_region_color
   elseif key == "command-regions" then
     config.command_regions = parse_boolean(raw, line)
   elseif key == "keybind" then
@@ -315,6 +345,10 @@ local function apply_value(config, key, raw, line)
     config.keybindings[#config.keybindings + 1] = Actions.parse(parse_string(raw, line), line)
   elseif key == "osc52-write" then
     config.osc52_write = parse_boolean(raw, line)
+  elseif key == "osc9-notifications" then
+    config.osc9_notifications = parse_osc9_policy(raw, line)
+  elseif key == "osc9-progress" then
+    config.osc9_progress = parse_osc9_policy(raw, line)
   elseif key == "shell-integration" then
     local mode = parse_string(raw, line)
     if mode ~= "auto" and mode ~= "none" then error("configuration line " .. line .. " shell-integration must be auto or none") end
@@ -325,6 +359,7 @@ local function apply_value(config, key, raw, line)
     palette_index = tonumber(palette_index)
     if palette_index > 255 then error("configuration line " .. line .. " palette index must be 0 through 255") end
     config.palette[palette_index] = Config.parse_color(raw, line)
+    config.color_overrides.palette[palette_index] = config.palette[palette_index]
   end
 end
 
@@ -380,12 +415,15 @@ function Config.parse(text, source, base, options)
     if loader == nil then error("configuration line " .. requested_theme_file_line .. " theme-file needs a trusted theme loader") end
     apply_external_theme(config, requested_theme_file, loader(requested_theme_file))
   elseif requested_theme ~= nil then
+    config.color_overrides = empty_color_overrides()
     if requested_theme == "system" then
+      config.theme_file = nil
       config.theme_mode = "system"
       config.resolved_appearance = Config.resolve_appearance(config.appearance, options.appearance)
       apply_theme(config, config.resolved_appearance == "light" and config.theme_light or config.theme_dark, requested_theme_line)
       config.theme_mode = "system"
     else
+      config.theme_file = nil
       config.theme_mode = "named"
       apply_theme(config, requested_theme, requested_theme_line)
     end
@@ -394,6 +432,7 @@ function Config.parse(text, source, base, options)
   elseif theme_settings_changed and config.theme_mode == "system" then
     config.resolved_appearance = Config.resolve_appearance(config.appearance, options.appearance)
     apply_theme(config, config.resolved_appearance == "light" and config.theme_light or config.theme_dark, "appearance")
+    apply_color_overrides(config)
     config.theme_mode = "system"
   end
   for _, assignment in ipairs(assignments) do
