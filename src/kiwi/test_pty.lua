@@ -152,6 +152,22 @@ test("pty_interactive_shell_accepts_input_and_exits", function()
   Assert.equal(status.code, 0)
 end)
 
+test("pty_discards_a_terminal_response_after_the_child_closes_its_slave", function()
+  local pty = Pty.spawn({ "/bin/sh", "-c", "stty -echo; printf '\\033[6n'; exit 0" }, 8, 2, { TERM = "kiwi" })
+  local transcript = ""
+  for _ = 1, 400 do
+    transcript = transcript .. pty:read_available()
+    if transcript:find("\27[6n", 1, true) ~= nil then break end
+    ffi.C.usleep(5000)
+  end
+  Assert.truthy(transcript:find("\27[6n", 1, true) ~= nil)
+  ffi.C.usleep(20000)
+  pty:enqueue("\27[1;1R")
+  Assert.equal(pty:flush(), false)
+  Assert.truthy(pty.eof)
+  pty:shutdown()
+end)
+
 test("pty_ctrl_c_reaches_the_foreground_process_group", function()
   local pty = Pty.spawn({ "/bin/sh", "-c", "trap 'printf caught-int; exit 0' INT; while :; do sleep 1; done" }, 20, 4, { TERM = "kiwi" })
   ffi.C.usleep(20000)
