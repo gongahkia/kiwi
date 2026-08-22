@@ -2611,6 +2611,32 @@ function State:report_device_attributes(action)
   end
 end
 
+function State:report_device_status(action)
+  local parameters = action.parameters
+  if #parameters ~= 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+
+  local request = parameters[1]
+  if action.private == "" and request == 5 then
+    self:respond("\27[0n")
+    return
+  end
+  if request ~= 6 or (action.private ~= "" and action.private ~= "?") then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+
+  local row = self.cursor.row + 1
+  local column = self.cursor.column + 1
+  if self.modes.origin then
+    row = row - self.active_screen.top_margin
+    column = column - self.active_screen.left_margin
+  end
+  self:respond(string.format("\27[%s%d;%dR", action.private, row, column))
+end
+
 function State:apply_csi(action)
   if action.colon then
     if apply_colon_sgr(self, action) then return end
@@ -2653,6 +2679,10 @@ function State:apply_csi(action)
   end
   if final == "c" then
     self:report_device_attributes(action)
+    return
+  end
+  if final == "n" and action.intermediates == "" and (action.private == "" or action.private == "?") then
+    self:report_device_status(action)
     return
   end
   if action.private == "?" and action.intermediates == "" and (final == "J" or final == "K") then
@@ -2758,15 +2788,6 @@ function State:apply_csi(action)
     end
   elseif final == "u" then
     self:restore_cursor()
-  elseif final == "n" then
-    local request = parameters[1] or 0
-    if request == 5 then
-      self:respond("\27[0n")
-    elseif request == 6 then
-      self:respond(string.format("\27[%d;%dR", self.cursor.row + 1, self.cursor.column + 1))
-    else
-      self:record_unknown("csi", csi_detail(action))
-    end
   elseif final == "t" then
     self:report_window_operation(parameters, action)
   else
