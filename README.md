@@ -247,9 +247,12 @@ configuration file; `F6` is the default reload action. `theme = system`,
 bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
 settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
 
-Kiwi has a bounded macOS Cocoa preedit/commit adapter. GLFW character callbacks
-continue to provide committed Unicode text; Wayland has no production text-input
-bridge, and its researched lifecycle boundary is documented in
+Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
+GLFW character callbacks otherwise provide committed Unicode text. The default
+GLFW Linux route has no Wayland text-input lifecycle. The separate GTK4 Linux
+host implements bounded `GtkIMMulticontext` preedit and commit handling, but
+its interactive IME qualification remains manual. The two host boundaries and
+their limits are documented in [NATIVE_HOSTS.md](docs/NATIVE_HOSTS.md) and
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
 Kiwi exposes a bounded semantic accessibility model, a Linux AT-SPI bridge, and a macOS NSAccessibility element

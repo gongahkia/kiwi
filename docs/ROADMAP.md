@@ -33,8 +33,10 @@ declared complete.
   callback bridges have bounded smoke coverage. Interactive desktop
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
-- Build AppKit only after that GTK4 desktop qualification, around the same
-  terminal/session/renderer seams.
+- The GLFW Cocoa route already has bounded AppKit menu, text-input,
+  accessibility, and pasteboard bridges. It is not an AppKit host: replacing
+  GLFW-owned windows and custom workspace chrome remains a separate, gated
+  product decision after GTK4 desktop qualification.
 - Keep terminal state, PTY policy, and renderer ownership free of platform UI
   handles. See [NATIVE_HOSTS.md](NATIVE_HOSTS.md).
 
