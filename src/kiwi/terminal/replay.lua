@@ -1,6 +1,8 @@
 local Base64 = require("kiwi.terminal.base64")
 local Json = require("kiwi.bench.json")
 local Parser = require("kiwi.terminal.parser")
+local Snapshot = require("kiwi.terminal.snapshot")
+local State = require("kiwi.terminal.state")
 
 local Replay = {}
 
@@ -98,17 +100,70 @@ function Replay.each(path, callback)
   end
 end
 
-function Replay.apply_file(state, path)
+local function feed(parser, bytes, chunking, seed)
+  if chunking == nil or chunking == "whole" then
+    parser:feed(bytes)
+    return seed
+  end
+  local offset = 1
+  while offset <= #bytes do
+    local count
+    if chunking == "one-byte" then
+      count = 1
+    else
+      seed = (seed * 17 + 11) % 97
+      count = seed % 7 + 1
+    end
+    parser:feed(bytes:sub(offset, offset + count - 1))
+    offset = offset + count
+  end
+  return seed
+end
+
+function Replay.apply_file(state, path, options)
+  options = options or {}
+  local chunking = options.chunking or "whole"
+  assert(chunking == "whole" or chunking == "one-byte" or chunking == "random", "replay chunking is invalid")
+  local seed = options.seed or 1
+  assert(type(seed) == "number" and seed % 1 == 0, "replay seed must be an integer")
   local parser = Parser.new(state)
   Replay.each(path, function(event)
     if event.event == "resize" then
       state:resize(event.cols, event.rows)
     elseif event.event == "output" then
-      parser:feed(event.bytes)
+      seed = feed(parser, event.bytes, chunking, seed)
     end
   end)
   parser:finish()
   return parser.stats
+end
+
+local function signature(state, stats)
+  return Snapshot.encode(state) .. "\n" .. Json.encode({
+    parser = stats,
+    responses = state:pop_responses(),
+    unknown = state.stats.unknown,
+  })
+end
+
+local function replay_variant(path, chunking, seed)
+  local state = State.new(80, 24)
+  local stats = Replay.apply_file(state, path, { chunking = chunking, seed = seed })
+  return { signature = signature(state, stats), state = state, stats = stats }
+end
+
+function Replay.verify_chunk_invariance(path, randomized_seeds)
+  randomized_seeds = randomized_seeds or 8
+  assert(type(randomized_seeds) == "number" and randomized_seeds >= 1 and randomized_seeds <= 32
+    and randomized_seeds % 1 == 0, "replay randomized seed count must be 1 through 32")
+  local baseline = replay_variant(path, "whole", 1)
+  local one_byte = replay_variant(path, "one-byte", 1)
+  assert(one_byte.signature == baseline.signature, "replay is not invariant under one-byte output chunks")
+  for seed = 1, randomized_seeds do
+    local randomized = replay_variant(path, "random", seed)
+    assert(randomized.signature == baseline.signature, "replay is not invariant under randomized output chunks (seed " .. seed .. ")")
+  end
+  return baseline.state, baseline.stats, randomized_seeds
 end
 
 Replay.Recorder = Recorder

@@ -96,7 +96,7 @@ run_native_recording() {
   if ! KIWI_HOST="$host" KIWI_MAX_FRAMES="${KIWI_COMPAT_MAX_FRAMES:-120}" "$LUAJIT_BIN" "$ROOT/src/kiwi/app/main.lua" --no-extensions --record "$recording" -- "$@" >"$output" 2>"$errors"; then
     return 1
   fi
-  REPLAY_SUMMARY=$("$LUAJIT_BIN" "$ROOT/src/kiwi/replay.lua" "$recording" 2>&1 >/dev/null) || return 1
+  REPLAY_SUMMARY=$("$LUAJIT_BIN" "$ROOT/src/kiwi/replay.lua" --chunk-invariant "$recording" 2>&1 >/dev/null) || return 1
   RECORDING_PATH=$recording
   return 0
 }

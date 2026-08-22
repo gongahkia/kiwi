@@ -139,6 +139,7 @@ make timestamp-probe                   # opt-in timestamp-query capability/readb
 make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
+make truecolour-framebuffer-smoke       # bounded native terminal RGB compositor-readback smoke test
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
 make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
@@ -240,6 +241,11 @@ their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes 
 GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
+
+These local actions are configurable with bounded `keybind` directives in the
+configuration file; `F6` is the default reload action. `theme = system`,
+bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
+settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
 
 Kiwi has a bounded macOS Cocoa preedit/commit adapter. GLFW character callbacks
 continue to provide committed Unicode text; Wayland has no production text-input

@@ -145,25 +145,42 @@ hyperlink-color = #88c0d0
 command-regions = true
 command-region-color = #88c0d0
 osc52-write = false
+osc9-notifications = off
+osc9-progress = off
+# keybind = ctrl+alt+t = new-tab
 ```
 
-`F6` explicitly reloads the active configuration file. Kiwi validates the full
-replacement before changing live resources; invalid files leave the current
-configuration active. Theme, renderer colors, and font settings reload in the
-same session. `ambiguous-width` and `scrollback-limit` remain startup-only,
-because changing either would require semantic grid reflow or history
-retention changes; Kiwi reports that limitation instead of partially applying
-the file.
+`F6` is the default binding for `reload-config`; it can be remapped or removed.
+Kiwi validates the full replacement, including its action map and theme, before
+changing live resources; an invalid file leaves the current configuration
+active. Theme, renderer colors, font settings, host-effect policy, and local
+actions reload in the same session. `ambiguous-width` and `scrollback-limit`
+remain startup-only, because changing either would require semantic grid reflow
+or history retention changes; Kiwi reports that limitation instead of partially
+applying the file.
 
-`Ctrl+Shift+N` creates a new default-shell native window in the same Kiwi
-process. `Ctrl+Shift+M` moves the active pane's live PTY, terminal state, and
-scrollback into a newly created window; `Ctrl+Shift+Alt+M` moves it into the
-next open Kiwi window as a tab. These actions do not copy the session or restart
-its child process. `Ctrl+Shift+D` opens a fresh default-shell window, while
-`Ctrl+Shift+Alt+D` adds a fresh default-shell tab to the next open window. A
-move or duplicate to an existing window is rejected when there is no other
-Kiwi window; all of these operations are unavailable while `--record` is
-active.
+The default local actions are `Ctrl+Tab` (next tab), `Ctrl+Shift+T` (new tab),
+`Ctrl+Shift+N` (new window), `Ctrl+Shift+M` (move the active live session to a
+new window), `Ctrl+Shift+Alt+M` (move it to the next window as a tab),
+`Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts),
+`Ctrl+Shift+W` (close pane), `Ctrl+Shift+Enter` (split right), and
+`Ctrl+Shift+J` (split down). Moves preserve the live PTY, terminal state, and
+scrollback; duplicates create a fresh default-shell session. A move or
+duplicate to an existing window is rejected when there is no other Kiwi window,
+and these operations are unavailable while `--record` is active.
+
+Use up to 64 bounded `keybind` directives to replace that map. A directive has
+the form `keybind = chord = action`; `ctrl`/`control`, `cmd`/`super`, `shift`,
+and `alt` are accepted modifiers. Keys are letters, digits, `F1` through
+`F12`, or `backspace`, `delete`, `down`, `end`, `enter`, `escape`, `home`,
+`insert`, `left`, `page-down`, `page-up`, `right`, `space`, `tab`, and `up`.
+The actions are `close-pane`, `new-tab`, `new-window`, `next-tab`,
+`reload-config`, `move-session-new-window`, `move-session-next-window`,
+`duplicate-session-new-window`, `duplicate-session-next-window`, `split-down`,
+and `split-right`. Set a chord to `none` to remove its default binding, or use
+`keybind = clear` before later directives to start from an empty local action
+map. Product actions are not consumed while the terminal has negotiated Kitty
+keyboard flag 8, so disambiguated application input retains priority.
 
 Kiwi attempts to persist bounded window geometry plus tab/split topology and
 the active tab/pane on normal live-session changes, reporting an I/O failure to
@@ -179,16 +196,33 @@ use a different file, `KIWI_LAYOUT_PERSISTENCE=0` or
 `--no-restore-layout` to disable both. Malformed, oversized, or unknown-schema
 files are rejected with a diagnostic and never evaluated as code.
 
-`osc52-write` remains `false` by default. Setting it to `true` permits only
-validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,
-clears, or automatic synchronization.
-
 The built-in themes are `kiwi`, `nord`, `light`, `dracula`, `gruvbox-dark`,
 `solarized-dark`, `solarized-light`, `tokyo-night`, and `catppuccin-mocha`.
-`foreground`, `background`, and `palette-N` remain explicit per-user overrides,
-so a configuration file is also a bounded custom theme. Kiwi does not yet load
-external theme files or follow system dark/light appearance; those are tracked
-as daily-driver compatibility work rather than implied by the named themes.
+Set `theme = system` to select `theme-dark` (default `kiwi`) or `theme-light`
+(default `light`) from the host appearance. `appearance = dark` or `light`
+forces that selection; `appearance = system` follows the GLFW Cocoa or GTK
+adapter when it reports a change. Explicit `foreground`, `background`, and
+`palette-N` values remain in effect across a system-appearance change.
+
+`theme-file = /absolute/path/to/theme.conf` is an alternative to `theme` in
+the same configuration layer. It loads only local, absolute, NUL-free files of
+at most 32 KiB and 256 lines.
+The file may contain `foreground`, `background`, `selection-color`,
+`search-color`, `hyperlink-color`, `command-region-color`, and `palette-0`
+through `palette-255`, all as colours; it cannot include another file, execute
+code, or set general configuration. It must provide foreground and background.
+An external theme replaces inherited colour overrides; values written after it
+in the same configuration layer are explicit overrides.
+
+`osc52-write` remains `false` by default. Setting it to `true` permits only
+validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,
+clears, or automatic synchronization. `osc9-notifications` and
+`osc9-progress` are also `off` by default. Setting either to `system` allows a
+validated typed request to reach a host that implements it. GTK currently
+submits notifications through the desktop notification service; the desktop may
+decline to show them. Neither progress nor GLFW/Cocoa notification delivery is
+implemented yet, so those requests report unavailable rather than succeeding
+silently. Kiwi never logs the terminal-supplied notification text.
 
 For example, a source checkout can still use environment-only configuration:
 

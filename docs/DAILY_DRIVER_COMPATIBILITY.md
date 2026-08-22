@@ -27,6 +27,7 @@ enough to support an interactive terminal behavior.
 | Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and no Intel macOS result. |
 | Resize and clipboard bridge | GLFW and GTK4 adapters | GLFW Cocoa plus private Cocoa pasteboard smoke; GTK bounded clipboard bridge | `make cocoa-smoke`; `make daily-driver-compatibility COMPAT_ARGS='--host gtk'` | **Partial:** Linux public clipboard behavior requires manual user validation. |
 | Image composition | native surface smoke when a display is available | native Metal surface smoke | `make kitty-graphics-smoke`, `make kitty-animation-smoke`, `make kitty-framebuffer-smoke` | **Partial:** framebuffer readback asserts rendered PNG pixels and GIF/APNG red/blue frame changes; real application images still need manual qualification. |
+| Terminal RGB composition | native visual evidence requires a graphical session | Metal framebuffer readback | `make truecolour-framebuffer-smoke` | **Partial:** macOS arm64 readback observed the controlled terminal RGB background on 2026-08-22. It is compositor evidence only; colour-managed display output, real RGB-TUI behavior under a candidate contract, tmux, SSH, and Linux native evidence remain unqualified. |
 
 ## Desktop/session contract
 
@@ -36,7 +37,7 @@ enough to support an interactive terminal behavior.
 | Multiple windows and session movement | `Ctrl+Shift+N` opens a fresh default-shell window. `Ctrl+Shift+M` transfers the active live PTY/session to a new same-process native window; `Ctrl+Shift+Alt+M` transfers it to the next open window as a tab. `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` create fresh default-shell counterparts. Each window owns its GLFW/Cocoa window, WGPU context, compositor, workspace, and PTY set; GLFW events remain process-wide. | `make new-window-smoke` proves same-process window creation; `make session-move-smoke` proves a live PTY handoff across two native windows; deterministic manager tests cover rollback, duplicate-session creation, and bounds. | partial: native menu/window integration and per-target interactive qualification remain. |
 | Restored layout | At live-session changes Kiwi attempts a same-directory temporary-file/rename update of schema-v1 bounded geometry, tab/split topology, and active tab/pane. It restores that topology with fresh default shells; no terminal contents, PTY state, clipboard, command/environment values, or other host data are serialized. | Deterministic JSON/schema/corruption/fresh-session tests plus `make layout-restore-smoke`, which writes a split layout then restores it in a new native session. | partial: no migration exists beyond schema v1, and manual suspend/restore qualification remains. |
 | Native UI behavior | GLFW-hosted custom tabs/splits. | macOS menu/window integration and Linux desktop behavior through platform adapters while terminal state stays host-neutral. | planned |
-| Keybinding model | Terminal input plus a small fixed local workspace shortcut set. | User-visible binding reference, conflict policy with Kitty keyboard mode, and configurable safe application actions. | partial |
+| Keybinding model | A bounded 64-entry configuration map replaces/removes the documented local tab, split, window, session, and reload actions. It accepts only explicit known actions and gives Kitty keyboard flag 8 to the terminal. | Deterministic parser/action precedence tests plus interactive native checks on each claimed platform. | partial |
 
 ## Text input and accessibility contract
 
@@ -51,9 +52,10 @@ enough to support an interactive terminal behavior.
 
 | Capability | Current behavior | Required evidence to become supported | Status |
 | --- | --- | --- | --- |
-| Base configuration | Bounded XDG `key = value` file, environment precedence, explicit `--config`, and F6 reload. | Parser/reload tests and documented platform path precedence. | partial |
-| Theme selection | Built-in `kiwi`, `nord`, and `light` themes plus explicit palette overrides. | Expanded built-in catalogue, named custom theme files, bounded/cycle-safe source loading, and deterministic precedence tests. | planned |
-| System appearance | No automatic dark/light selection. | Platform adapter reporting appearance changes, explicit override precedence, and native smoke/manual validation. | planned |
+| Base configuration | Bounded XDG `key = value` file, environment precedence, explicit `--config`, validated reload, bounded product actions, and host-effect policy. | Parser/configuration/reload tests and documented platform path precedence. | partial |
+| Theme selection | Nine built-in themes, bounded colour-only absolute external theme files, and explicit colour overrides. | Deterministic catalogue, external-theme, bounds, and precedence tests plus native reload/manual checks. | partial |
+| System appearance | `theme = system` selects bounded named dark/light themes; `appearance` can force dark/light or follow the current Cocoa/GTK adapter value. Explicit colour overrides survive a change. | Deterministic precedence tests plus native dark/light transition and display-scale qualification on each claimed target. | partial |
+| OSC 9 host effects | Notifications and progress are default-denied; configured GTK notifications submit bounded valid requests through GApplication. Cocoa/GLFW notifications and host progress are unavailable. | Deterministic policy tests plus GTK desktop delivery and platform-policy qualification. | partial |
 | Command-line settings | A narrow app argument surface; settings are mostly file/environment values. | Named option mapping, conflict/precedence documentation, and parser tests. | planned |
 
 ## VT and application-protocol contract
@@ -71,7 +73,7 @@ solely because it is listed by another terminal or accepted by Kiwi's parser.
 
 | Version | Scope | Current evidence | Gate before advertising |
 | --- | --- | --- | --- |
-| 1.0 | Current documented C0/ESC/CSI/OSC subset; primary/alternate state; Unicode clusters; PTY resize; mouse/focus; selection; OSC 8; bounded OSC 52; selected Kitty keyboard; bounded PNG/APNG/GIF graphics. | Deterministic terminal, parser, PTY, replay, and renderer tests. | Keep terminfo at its documented 16-colour capability boundary. |
+| 1.0 | Current documented C0/ESC/CSI/OSC subset; primary/alternate state; Unicode clusters; PTY resize; mouse/focus; selection; OSC 8; bounded OSC 52/9 policy; selected Kitty keyboard; bounded PNG/APNG/GIF graphics. | Deterministic terminal, parser, PTY, replay, renderer, configuration, and host-effect tests. | Keep terminfo at its documented 16-colour capability boundary. |
 | 1.1 | Complete a prioritized xterm behavior corpus around reset, tab stops, private modes, device/query replies, and mode restoration. | Existing partial behavior and conformance samples. | Corpus-driven parser/state/PTY tests plus terminfo review. |
 | 1.2 | Broaden modern interaction only where applications require it: Kitty keyboard flag 4, remaining mouse policy, clipboard responses, and selected OSC effects. | No blanket compatibility claim. | Platform input/policy tests and explicit security limits. |
 | 1.3 | Evaluate graphics expansion from real application demand. | Current direct-image/cache/placement implementation is bounded. | Protocol matrix, decode/resource limits, and visual/native evidence. |
@@ -88,7 +90,9 @@ command for daily-driver surfaces. It builds the native bridge and local
 terminfo, then checks tmux's nested TERM contract; Bash, Zsh, fish, and
 Nushell OSC 7/133 integration when installed; native shell-metadata and OSC 8
 record/replay; Neovim's Kitty keyboard negotiation; Vim mouse-mode startup;
-and the host `top` TUI. A provided `--ssh-host` (or
+and the host `top` TUI. Where a native graphical session is available it also
+runs bounded compositor readback for a non-palette terminal RGB background. A
+provided `--ssh-host` (or
 `KIWI_COMPAT_SSH_HOST`) enables the fixed `kiwi-ssh --probe` workflow: it
 uploads the local private terminfo entry then confirms `infocmp kiwi` and
 `tput colors` on that controlled remote host.
