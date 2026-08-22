@@ -1,9 +1,12 @@
 local Color = require("kiwi.renderer.color")
+local Actions = require("kiwi.app.actions")
 
 local Config = {}
 
 Config.maximum_bytes = 64 * 1024
 Config.maximum_lines = 512
+Config.maximum_theme_bytes = 32 * 1024
+Config.maximum_theme_lines = 256
 
 local themes = {
   kiwi = {
@@ -156,6 +159,12 @@ end
 local function defaults()
   return {
     theme = "kiwi",
+    theme_mode = "named",
+    theme_dark = "kiwi",
+    theme_light = "light",
+    theme_file = nil,
+    appearance = "system",
+    resolved_appearance = "dark",
     font_family = "monospace",
     font_path = nil,
     font_size = 20,
@@ -171,19 +180,99 @@ local function defaults()
     hyperlink_color = nil,
     command_region_color = nil,
     command_regions = false,
+    keybindings = {},
     osc52_write = false,
     shell_integration = "auto",
   }
 end
 
+local function assert_builtin_theme(name, line)
+  if themes[name] == nil then error("configuration line " .. line .. " names an unknown theme: " .. name) end
+  return name
+end
+
+local function parse_appearance(value, line)
+  value = parse_string(value, line)
+  if value ~= "system" and value ~= "dark" and value ~= "light" then
+    error("configuration line " .. line .. " appearance must be system, dark, or light")
+  end
+  return value
+end
+
+function Config.resolve_appearance(preference, system_appearance)
+  assert(preference == "system" or preference == "dark" or preference == "light", "appearance preference must be system, dark, or light")
+  if preference ~= "system" then return preference end
+  return system_appearance == "light" and "light" or "dark"
+end
+
 local function apply_theme(config, name, line)
-  local theme = themes[name]
-  if theme == nil then error("configuration line " .. line .. " names an unknown theme: " .. name) end
+  local theme = themes[assert_builtin_theme(name, line)]
   config.theme = name
   config.foreground = Config.parse_color(theme.foreground, line)
   config.background = Config.parse_color(theme.background, line)
   config.palette = {}
   for index, value in pairs(theme.palette or {}) do config.palette[index] = Config.parse_color(value, line) end
+end
+
+local external_theme_keys = {
+  ["background"] = true,
+  ["command-region-color"] = true,
+  ["foreground"] = true,
+  ["hyperlink-color"] = true,
+  ["search-color"] = true,
+  ["selection-color"] = true,
+}
+
+function Config.parse_theme(text, source)
+  assert(type(text) == "string", "theme text must be a string")
+  source = source or "theme"
+  if #text > Config.maximum_theme_bytes then error("theme " .. source .. " exceeds " .. Config.maximum_theme_bytes .. " bytes") end
+  local theme = { palette = {} }
+  local count = 0
+  for raw_line in (text .. "\n"):gmatch("(.-)\n") do
+    count = count + 1
+    if count > Config.maximum_theme_lines then error("theme " .. source .. " exceeds " .. Config.maximum_theme_lines .. " lines") end
+    local line = trim(raw_line)
+    if line ~= "" and line:sub(1, 1) ~= "#" then
+      local key, value = line:match("^([a-z][a-z0-9%-]*)%s*=%s*(.-)%s*$")
+      if key == nil then error("theme line " .. count .. " must use key = value") end
+      if external_theme_keys[key] then
+        local colour = parse_string(value, count)
+        Config.parse_color(colour, count)
+        theme[key:gsub("%-", "_")] = colour
+      else
+        local palette_index = key:match("^palette%-(%d+)$")
+        if palette_index == nil then error("theme line " .. count .. " has an unsafe key: " .. key) end
+        palette_index = tonumber(palette_index)
+        if palette_index > 255 then error("theme line " .. count .. " palette index must be 0 through 255") end
+        theme.palette[palette_index] = Config.parse_color(value, count)
+      end
+    end
+  end
+  if theme.foreground == nil or theme.background == nil then error("theme " .. source .. " needs foreground and background colours") end
+  return theme
+end
+
+function Config.load_theme(path)
+  assert(type(path) == "string" and path:sub(1, 1) == "/" and not path:find("\0", 1, true), "theme-file must be an absolute NUL-free path")
+  local handle = io.open(path, "rb")
+  if handle == nil then error("could not open theme file: " .. path) end
+  local text = handle:read(Config.maximum_theme_bytes + 1)
+  handle:close()
+  if text == nil then error("could not read theme file: " .. path) end
+  return Config.parse_theme(text, path)
+end
+
+local function apply_external_theme(config, path, theme)
+  config.theme = "external"
+  config.theme_mode = "external"
+  config.theme_file = path
+  config.foreground = Config.parse_color(theme.foreground, path)
+  config.background = Config.parse_color(theme.background, path)
+  config.palette = copy_table(theme.palette)
+  for _, field in ipairs({ "selection_color", "search_color", "hyperlink_color", "command_region_color" }) do
+    if theme[field] ~= nil then config[field] = theme[field] end
+  end
 end
 
 local function apply_value(config, key, raw, line)
@@ -219,6 +308,11 @@ local function apply_value(config, key, raw, line)
     Config.parse_color(config.command_region_color, line)
   elseif key == "command-regions" then
     config.command_regions = parse_boolean(raw, line)
+  elseif key == "keybind" then
+    if #config.keybindings >= Actions.maximum_bindings then
+      error("configuration line " .. line .. " exceeds " .. Actions.maximum_bindings .. " keybindings")
+    end
+    config.keybindings[#config.keybindings + 1] = Actions.parse(parse_string(raw, line), line)
   elseif key == "osc52-write" then
     config.osc52_write = parse_boolean(raw, line)
   elseif key == "shell-integration" then
@@ -234,7 +328,8 @@ local function apply_value(config, key, raw, line)
   end
 end
 
-function Config.parse(text, source, base)
+function Config.parse(text, source, base, options)
+  options = options or {}
   assert(type(text) == "string", "configuration text must be a string")
   if #text > Config.maximum_bytes then error("configuration " .. (source or "input") .. " exceeds " .. Config.maximum_bytes .. " bytes") end
   local assignments = {}
@@ -250,12 +345,62 @@ function Config.parse(text, source, base)
     end
   end
   local config = base and copy_table(base) or defaults()
+  local requested_theme
+  local requested_theme_line
+  local requested_theme_file
+  local requested_theme_file_line
+  local theme_settings_changed = false
   for _, assignment in ipairs(assignments) do
-    if assignment.key == "theme" then apply_theme(config, parse_string(assignment.value, assignment.line), assignment.line) end
+    if assignment.key == "theme" then
+      local name = parse_string(assignment.value, assignment.line)
+      if name ~= "system" then assert_builtin_theme(name, assignment.line) end
+      requested_theme = name
+      requested_theme_line = assignment.line
+      theme_settings_changed = true
+    elseif assignment.key == "theme-dark" then
+      config.theme_dark = assert_builtin_theme(parse_string(assignment.value, assignment.line), assignment.line)
+      theme_settings_changed = true
+    elseif assignment.key == "theme-light" then
+      config.theme_light = assert_builtin_theme(parse_string(assignment.value, assignment.line), assignment.line)
+      theme_settings_changed = true
+    elseif assignment.key == "appearance" then
+      config.appearance = parse_appearance(assignment.value, assignment.line)
+      theme_settings_changed = true
+    elseif assignment.key == "theme-file" then
+      requested_theme_file = parse_string(assignment.value, assignment.line)
+      requested_theme_file_line = assignment.line
+      theme_settings_changed = true
+    end
   end
-  if config.foreground == nil then apply_theme(config, config.theme, 0) end
+  if requested_theme ~= nil and requested_theme_file ~= nil then
+    error("configuration line " .. requested_theme_file_line .. " cannot combine theme-file with theme")
+  end
+  if requested_theme_file ~= nil then
+    local loader = options.theme_loader
+    if loader == nil then error("configuration line " .. requested_theme_file_line .. " theme-file needs a trusted theme loader") end
+    apply_external_theme(config, requested_theme_file, loader(requested_theme_file))
+  elseif requested_theme ~= nil then
+    if requested_theme == "system" then
+      config.theme_mode = "system"
+      config.resolved_appearance = Config.resolve_appearance(config.appearance, options.appearance)
+      apply_theme(config, config.resolved_appearance == "light" and config.theme_light or config.theme_dark, requested_theme_line)
+      config.theme_mode = "system"
+    else
+      config.theme_mode = "named"
+      apply_theme(config, requested_theme, requested_theme_line)
+    end
+  elseif config.foreground == nil then
+    apply_theme(config, config.theme, 0)
+  elseif theme_settings_changed and config.theme_mode == "system" then
+    config.resolved_appearance = Config.resolve_appearance(config.appearance, options.appearance)
+    apply_theme(config, config.resolved_appearance == "light" and config.theme_light or config.theme_dark, "appearance")
+    config.theme_mode = "system"
+  end
   for _, assignment in ipairs(assignments) do
-    if assignment.key ~= "theme" then apply_value(config, assignment.key, assignment.value, assignment.line) end
+    if assignment.key ~= "theme" and assignment.key ~= "theme-dark" and assignment.key ~= "theme-light"
+      and assignment.key ~= "appearance" and assignment.key ~= "theme-file" then
+      apply_value(config, assignment.key, assignment.value, assignment.line)
+    end
   end
   return config
 end
@@ -305,7 +450,8 @@ function Config.apply_environment(config, environment)
   return config
 end
 
-function Config.load(path, environment)
+function Config.load(path, environment, options)
+  options = options or {}
   local explicit = path ~= nil
   local paths = explicit and { path } or Config.default_paths(environment)
   local config = Config.parse("", "defaults")
@@ -318,7 +464,10 @@ function Config.load(path, environment)
       local text = handle:read(Config.maximum_bytes + 1)
       handle:close()
       if text == nil then error("could not read configuration file: " .. candidate) end
-      config = Config.parse(text, candidate, config)
+      config = Config.parse(text, candidate, config, {
+        appearance = options.appearance,
+        theme_loader = options.theme_loader or Config.load_theme,
+      })
       loaded_path = candidate
     end
   end

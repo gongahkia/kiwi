@@ -56,4 +56,8 @@ function Host.live_count()
   return Window.live_count()
 end
 
+function Host.system_appearance(window)
+  return window:system_appearance()
+end
+
 return Host

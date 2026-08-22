@@ -74,4 +74,43 @@ return {
     Assert.truthy(names:find("solarized%-light") ~= nil)
     Assert.truthy(names:find("tokyo%-night") ~= nil)
   end,
+  configuration_resolves_system_appearance_to_a_named_theme_before_renderer_use = function()
+    local dark = Config.parse("theme = system\ntheme-dark = dracula\ntheme-light = solarized-light\n", "test", nil, { appearance = "dark" })
+    local light = Config.parse("theme = system\ntheme-dark = dracula\ntheme-light = solarized-light\n", "test", nil, { appearance = "light" })
+    Assert.equal(dark.theme_mode, "system")
+    Assert.equal(dark.resolved_appearance, "dark")
+    Assert.equal(light.resolved_appearance, "light")
+    Assert.equal(Color.unpack(dark.background).red, 0x28)
+    Assert.equal(Color.unpack(light.background).red, 0xfd)
+  end,
+  configuration_loads_external_themes_as_bounded_colour_data_only = function()
+    local requested
+    local config = Config.parse([[theme-file = /trusted/theme.conf
+foreground = #010203
+]], "test", nil, {
+      theme_loader = function(path)
+        requested = path
+        return Config.parse_theme([[foreground = #112233
+background = #445566
+palette-1 = #778899
+selection-color = #aabbcc
+]], path)
+      end,
+    })
+    Assert.equal(requested, "/trusted/theme.conf")
+    Assert.equal(config.theme_mode, "external")
+    Assert.equal(config.theme_file, "/trusted/theme.conf")
+    Assert.equal(Color.unpack(config.background).green, 0x55)
+    Assert.equal(Color.unpack(config.palette[1]).blue, 0x99)
+    Assert.equal(Color.unpack(config.foreground).red, 0x01)
+    Assert.truthy(not pcall(Config.parse_theme, "font-size = 20\nforeground = #112233\nbackground = #445566\n", "test"))
+  end,
+  configuration_records_bounded_product_keybinding_overrides = function()
+    local config = Config.parse([[keybind = ctrl+shift+t = none
+keybind = ctrl+alt+t = new-tab
+]], "test")
+    Assert.equal(#config.keybindings, 2)
+    Assert.equal(config.keybindings[1].action, "none")
+    Assert.equal(config.keybindings[2].chord, "alt+control+t")
+  end,
 }

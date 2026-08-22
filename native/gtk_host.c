@@ -781,6 +781,15 @@ int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost *host, int x, int y,
   return 1;
 }
 
+int kiwi_gtk_host_system_appearance(const KiwiGtkHost *host) {
+  if (host == NULL || host->content == NULL) return -1;
+  GtkSettings *settings = gtk_widget_get_settings(host->content);
+  if (settings == NULL) return -1;
+  gboolean dark = FALSE;
+  g_object_get(settings, "gtk-application-prefer-dark-theme", &dark, NULL);
+  return dark ? 1 : 0;
+}
+
 int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost *host) {
   static const char preedit[] = "e\xCC\x81";
   static const char commit[] = "\xE2\x9C\x93";

@@ -64,6 +64,20 @@ int kiwi_surface_set_drawable_size(GLFWwindow *window, uint32_t width, uint32_t 
   }
 }
 
+int kiwi_cocoa_system_appearance(GLFWwindow *window) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || window == NULL) return -1;
+    NSView *view = glfwGetCocoaView(window);
+    if (view == nil) return -1;
+    NSString *name = [view.effectiveAppearance bestMatchFromAppearancesWithNames:@[
+      NSAppearanceNameAqua,
+      NSAppearanceNameDarkAqua,
+    ]];
+    if (name == nil) return -1;
+    return [name isEqualToString:NSAppearanceNameDarkAqua] ? 1 : 0;
+  }
+}
+
 int kiwi_cocoa_private_pasteboard_round_trip(const char *text, size_t text_bytes) {
   @autoreleasepool {
     if (![NSThread isMainThread]) {
