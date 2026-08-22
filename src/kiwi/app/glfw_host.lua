@@ -62,6 +62,10 @@ if ffi.os == "OSX" then
   function Host.set_product_action_handler(window, handler)
     return window:enable_cocoa_menu(handler)
   end
+
+  function Host.invoke_product_action_smoke(window, action)
+    return window:cocoa_menu_invoke_smoke(action)
+  end
 end
 
 function Host.run(options, title, controller)

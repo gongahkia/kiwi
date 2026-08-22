@@ -876,11 +876,21 @@ function Controller.run(window, host, options)
       return product_action ~= nil and handle_product_action(product_action)
     end
 
+    local product_action_handler_enabled = false
     if host.set_product_action_handler then
       local menu_enabled, menu_reason = host.set_product_action_handler(window, function(product_action)
         if handle_product_action(product_action) then options.application:mark_layout_dirty() end
       end)
+      product_action_handler_enabled = menu_enabled == true
       if not menu_enabled then io.stderr:write("Kiwi native menu unavailable: ", menu_reason or "unknown error", "\n") end
+    end
+    if options.menu_smoke then
+      assert(product_action_handler_enabled and host.invoke_product_action_smoke, "--menu-smoke needs the native product-action bridge")
+      local tabs_before = workspace:tab_count()
+      local invoked, reason = host.invoke_product_action_smoke(window, "new-tab")
+      assert(invoked, "Cocoa product-menu smoke could not invoke New Tab: " .. tostring(reason))
+      assert(workspace:tab_count() == tabs_before + 1, "Cocoa product-menu smoke did not create a tab through the host controller")
+      options.application.menu_smoke_reported = true
     end
 
     local pointer_pane_id
@@ -1057,6 +1067,9 @@ function Controller.run(window, host, options)
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=kiwi child=%s grid=%dx%d primary=%s\n", child_label, columns, rows, font.font_path))
     if options.session_move_smoke and options.application.session_move_smoke_reported then
       io.stdout:write("Kiwi session-move smoke passed: one live PTY moved between native windows in this application process.\n")
+    end
+    if options.menu_smoke and options.application.menu_smoke_reported then
+      io.stdout:write("Kiwi Cocoa product-menu smoke passed: New Tab reached the live workspace controller through the native menu bridge.\n")
     end
     while not window:should_close() do
       local now = window:time()
