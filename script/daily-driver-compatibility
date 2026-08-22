@@ -84,7 +84,8 @@ record_result() {
 }
 
 require_clean_replay() {
-  [[ "$REPLAY_SUMMARY" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]]
+  [[ "$REPLAY_SUMMARY" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"*
+    && "$REPLAY_SUMMARY" == *"chunking=whole+one-byte+8-random"* ]]
 }
 
 run_native_recording() {

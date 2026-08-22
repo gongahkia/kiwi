@@ -19,6 +19,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+native_session_available() {
+  [[ "$(uname -s)" == Darwin || -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]
+}
+
 cd "$ROOT"
 
 recorded_output() {
@@ -55,15 +59,21 @@ else
   print "tmux: No access (not installed)"
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-top: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-top: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 elif ! command -v top >/dev/null; then
   print "native-top: No access (top is not installed)"
 else
   top_command=$(command -v top)
-  top_version=$($top_command --version 2>&1 | sed -n '1p')
-  KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $TOP_RECORDING -- $top_command -n 1 -d 0.1"
-  make replay REPLAY="$TOP_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  if [[ "$(uname -s)" == Darwin ]]; then
+    top_arguments="$top_command -l 1 -s 0"
+    top_version=$($top_command -h 2>&1 | sed -n '1p')
+  else
+    top_arguments="$top_command -n 1 -d 0.1"
+    top_version=$($top_command --version 2>&1 | sed -n '1p')
+  fi
+  KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $TOP_RECORDING -- $top_arguments"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$TOP_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   print "native-top: $top_version; ${replay//$'\n'/; }"
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
@@ -72,11 +82,11 @@ else
   }
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-vt-exercise: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-vt-exercise: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 else
   KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $VT_RECORDING -- $ROOT/script/vttest-style-child"
-  make replay REPLAY="$VT_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$VT_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   print "native-vt-exercise: ${replay//$'\n'/; }"
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
@@ -85,11 +95,11 @@ else
   }
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-kitty-graphics: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-kitty-graphics: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 else
   graphics_output=$(KIWI_GPU_TIMESTAMPS=1 KIWI_GPU_TIMESTAMPS_REPORT=1 KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--no-extensions --record $KITTY_GRAPHICS_RECORDING -- $ROOT/script/kitty-image-demo-child" 2>&1)
-  make replay REPLAY="$KITTY_GRAPHICS_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$KITTY_GRAPHICS_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
     print -u2 "native Kitty graphics fixture did not preserve its protocol stream through replay."
@@ -106,11 +116,11 @@ else
   fi
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-truecolour-contract: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-truecolour-contract: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 else
   KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $TRUECOLOUR_RECORDING -- $ROOT/script/truecolour-contract-child"
-  make replay REPLAY="$TRUECOLOUR_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$TRUECOLOUR_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   truecolour_output=$(recorded_output "$TRUECOLOUR_RECORDING")
   print "native-truecolour-contract: ${replay//$'\n'/; }"
@@ -126,15 +136,15 @@ else
   print "native-truecolour-framebuffer: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-nvim-keyboard: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-nvim-keyboard: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 elif ! command -v nvim >/dev/null; then
   print "native-nvim-keyboard: No access (nvim is not installed)"
 else
   nvim_command=$(command -v nvim)
   nvim_version=$($nvim_command --version 2>&1 | sed -n '1p')
   KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $NVIM_RECORDING -- $nvim_command -u NONE -n -c 'sleep 200m' -c 'qa!'"
-  make replay REPLAY="$NVIM_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$NVIM_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   keyboard_bytes=$(rg -o '"data":"[^"]*' "$NVIM_RECORDING" | sed 's/"data":"//' | while IFS= read -r encoded; do print -rn -- "$encoded" | base64 -d; done | tr '\033' '@')
   print "native-nvim-keyboard: $nvim_version; ${replay//$'\n'/; }"
@@ -144,15 +154,15 @@ else
   }
 fi
 
-if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-  print "native-vim-mouse: No access (neither DISPLAY nor WAYLAND_DISPLAY is available)"
+if ! native_session_available; then
+  print "native-vim-mouse: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
 elif ! command -v vim >/dev/null; then
   print "native-vim-mouse: No access (vim is not installed)"
 else
   vim_command=$(command -v vim)
   vim_version=$($vim_command --version 2>&1 | sed -n '1p')
   KIWI_MAX_FRAMES="${KIWI_CONFORMANCE_MAX_FRAMES:-120}" make run ARGS="--record $VIM_RECORDING -- $vim_command -Nu NONE -n -c 'set ttym=sgr' -c 'set mouse=a' -c 'redraw!' -c 'qa!'"
-  make replay REPLAY="$VIM_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+  make replay REPLAY_ARGS=--chunk-invariant REPLAY="$VIM_RECORDING" >/dev/null 2>"$REPLAY_LOG"
   replay=$(<"$REPLAY_LOG")
   print "native-vim-mouse: $vim_version; ${replay//$'\n'/; }"
   [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
