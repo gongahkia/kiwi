@@ -12,7 +12,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | erase-and-edit | ED, ICH, DCH |
 | sgr-colours | 16-, 256-, RGB-colour SGR, bold, reset |
 | wrap-and-scroll | deferred right-margin wrap, IND, bounded history |
-| margins-and-origin | DECSTBM and DECOM |
+| margins-and-origin | DECSTBM/DECOM plus origin-relative CPR and DECXCPR |
 | left-right-margins | DECLRMM/DECSLRM rectangle scrolling and DECRQSS status |
 | dec-special-graphics | G0/G1 ASCII, UK, and DEC Special Graphics designation with SI/SO shifts |
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
@@ -69,7 +69,7 @@ claiming formal verification or allocator-independent memory totals.
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
-| replies | DSR 5/6, conservative primary/secondary DA subsets, read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`), exact bounded `XTGETTCAP` replies for `Co=256`, `TN=xterm-kiwi`, and `RGB=8` bits/channel, plus bounded XTMODKEYS/XTWINOPS state changes | not advertised as a terminfo capability |
+| replies | DSR 5, CPR (`CSI 6 n`) and DECXCPR (`CSI ? 6 n`) with origin-relative coordinates when DECOM is active, conservative primary/secondary DA subsets, read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`), exact bounded `XTGETTCAP` replies for `Co=256`, `TN=xterm-kiwi`, and `RGB=8` bits/channel, plus bounded XTMODKEYS/XTWINOPS state changes | not advertised as a terminfo capability |
 | OSC | OSC 0/1/2 icon/window titles; bounded XTWINOPS 22/23 icon/window title stacks; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes; default-denied OSC 9 notification/progress requests | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; DCS DECRQSS replies for SGR, DECSTBM, DECSLRM, DECSCUSR, DECSCA, and current page height (DECSLPP) only | all other DCS families, including Sixel, remain discarded and unadvertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |

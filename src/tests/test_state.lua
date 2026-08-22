@@ -52,6 +52,10 @@ return {
     Assert.equal(state:get(2, 1).glyph, "X")
     Assert.equal(state.cursor.column, 3)
     Assert.equal(state.cursor.row, 1)
+    Parser.new(state):feed("\27[6n\27[?6n")
+    local responses = state:pop_responses()
+    Assert.equal(responses[1], "\27[1;2R")
+    Assert.equal(responses[2], "\27[?1;2R")
 
     Parser.new(state):feed("\27[?69l")
     Assert.equal(state.modes.left_right_margin, false)
