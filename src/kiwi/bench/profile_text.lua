@@ -79,7 +79,7 @@ local function profile_replay()
 end
 
 local function profile_live_ascii()
-  local pty = Pty.spawn({ "/bin/sh", "-c", "head -c 8388608 /dev/zero | tr '\\000' A" }, 80, 24, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh", "-c", "head -c 8388608 /dev/zero | tr '\\000' A" }, 80, 24, { TERM = "xterm-kiwi", COLORTERM = "truecolor" })
   local state = State.new(80, 24, { scrollback_limit = 256 })
   local parser = Parser.new(state)
   local deadline = os.clock() + 90

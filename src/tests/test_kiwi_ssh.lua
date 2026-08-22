@@ -40,9 +40,30 @@ return {
     assert(execute("rmdir " .. shell_quote(temporary)), "could not remove SSH test directory")
 
     Assert.truthy(ok)
-    Assert.truthy(calls:find("ssh|user@example.test|mkdir -p \"$HOME/.cache/kiwi/terminfo/k\"", 1, true) ~= nil)
-    Assert.truthy(calls:find("scp|" .. root .. "/src/tests/fixtures/terminfo/k/kiwi|user@example.test:.cache/kiwi/terminfo/k/kiwi", 1, true) ~= nil)
-    Assert.truthy(calls:find("ssh|-tt|user@example.test|TERM=kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\" exec \"${SHELL:-/bin/sh}\" -l", 1, true) ~= nil)
+    Assert.truthy(calls:find("ssh|user@example.test|mkdir -p \"$HOME/.cache/kiwi/terminfo/78\"", 1, true) ~= nil)
+    Assert.truthy(calls:find("scp|" .. root .. "/src/tests/fixtures/terminfo/78/xterm-kiwi|user@example.test:.cache/kiwi/terminfo/78/xterm-kiwi", 1, true) ~= nil)
+    Assert.truthy(calls:find("ssh|-tt|user@example.test|TERM=xterm-kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\" COLORTERM=truecolor exec \"${SHELL:-/bin/sh}\" -l", 1, true) ~= nil)
+  end,
+  kiwi_ssh_preserves_an_alphabetic_terminfo_directory_name = function()
+    local temporary = temporary_directory()
+    local log = temporary .. "/calls"
+    local stub = root .. "/src/tests/fixtures/ssh-client-stub.sh"
+    local setup = "ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/ssh") .. " && ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/scp")
+    assert(execute(setup), "could not prepare SSH client stubs")
+
+    local command = "PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo-x") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " -- user@example.test"
+    local ok = execute(command)
+    local handle = assert(io.open(log, "rb"))
+    local calls = handle:read("*a")
+    handle:close()
+    os.remove(temporary .. "/ssh")
+    os.remove(temporary .. "/scp")
+    os.remove(log)
+    assert(execute("rmdir " .. shell_quote(temporary)), "could not remove SSH test directory")
+
+    Assert.truthy(ok)
+    Assert.truthy(calls:find("ssh|user@example.test|mkdir -p \"$HOME/.cache/kiwi/terminfo/x\"", 1, true) ~= nil)
+    Assert.truthy(calls:find("scp|" .. root .. "/src/tests/fixtures/terminfo-x/x/xterm-kiwi|user@example.test:.cache/kiwi/terminfo/x/xterm-kiwi", 1, true) ~= nil)
   end,
   kiwi_ssh_rejects_option_like_destinations_before_spawning_a_client = function()
     Assert.truthy(not execute("./script/kiwi-ssh -- -unsafe >/dev/null 2>&1"))
@@ -65,9 +86,9 @@ return {
     assert(execute("rmdir " .. shell_quote(temporary)), "could not remove SSH test directory")
 
     Assert.truthy(ok)
-    Assert.truthy(calls:find("ssh|-p|2201|user@example.test|mkdir -p \"$HOME/.cache/kiwi/terminfo/k\"", 1, true) ~= nil)
-    Assert.truthy(calls:find("scp|-p|2201|" .. root .. "/src/tests/fixtures/terminfo/k/kiwi|user@example.test:.cache/kiwi/terminfo/k/kiwi", 1, true) ~= nil)
-    Assert.truthy(calls:find("ssh|-p|2201|-tt|user@example.test|TERM=kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\" exec \"${SHELL:-/bin/sh}\" -l", 1, true) ~= nil)
+    Assert.truthy(calls:find("ssh|-p|2201|user@example.test|mkdir -p \"$HOME/.cache/kiwi/terminfo/78\"", 1, true) ~= nil)
+    Assert.truthy(calls:find("scp|-p|2201|" .. root .. "/src/tests/fixtures/terminfo/78/xterm-kiwi|user@example.test:.cache/kiwi/terminfo/78/xterm-kiwi", 1, true) ~= nil)
+    Assert.truthy(calls:find("ssh|-p|2201|-tt|user@example.test|TERM=xterm-kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\" COLORTERM=truecolor exec \"${SHELL:-/bin/sh}\" -l", 1, true) ~= nil)
   end,
   kiwi_ssh_probe_verifies_the_uploaded_private_terminfo_entry = function()
     local temporary = temporary_directory()
@@ -87,7 +108,7 @@ return {
     assert(execute("rmdir " .. shell_quote(temporary)), "could not remove SSH test directory")
 
     Assert.truthy(ok)
-    Assert.truthy(calls:find("ssh|-tt|user@example.test|TERM=kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\"; export TERM TERMINFO; infocmp kiwi >/dev/null && [ \"$(tput colors)\" = 16 ] && printf \"%s\\n\" \"kiwi-ssh probe: terminfo=kiwi colors=16\"", 1, true) ~= nil)
+    Assert.truthy(calls:find("ssh|-tt|user@example.test|TERM=xterm-kiwi TERMINFO=\"$HOME/.cache/kiwi/terminfo\" COLORTERM=truecolor; export TERM TERMINFO COLORTERM; infocmp -x xterm-kiwi >/dev/null && [ \"$(tput colors)\" = 256 ] && tput setrgbf 1 2 3 >/dev/null && printf \"%s\\n\" \"kiwi-ssh probe: terminfo=xterm-kiwi colors=256 truecolor=true\"", 1, true) ~= nil)
   end,
   kiwi_ssh_rejects_a_probe_without_the_private_terminfo_setup = function()
     Assert.truthy(not execute("./script/kiwi-ssh --no-terminfo --probe -- user@example.test >/dev/null 2>&1"))

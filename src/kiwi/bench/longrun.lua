@@ -89,6 +89,13 @@ function Longrun.run(options)
   local layout = Layout.new(system)
   local parser = Parser.new(state)
   local batches = {}
+  local phases = {
+    damage_cpu_ms = {},
+    fragmented_update_cpu_ms = {},
+    input_parser_cpu_ms = {},
+    layout_cpu_ms = {},
+    resize_cpu_ms = {},
+  }
   local layout_total = { cache_hits = 0, cache_misses = 0, glyphs_produced = 0, rows_invalidated = 0, rows_reshaped = 0, runs_reshaped = 0, shaping_cpu_ms = 0 }
   local fragmented_cells = 0
   local dirty_ranges = 0
@@ -103,12 +110,17 @@ function Longrun.run(options)
   while written < history_lines do
     local batch_started = os.clock()
     local batch = #batches + 1
+    local phase_started = os.clock()
     for _ = 1, math.min(batch_lines, history_lines - written) do
       written = written + 1
       parser:feed(line(written))
     end
+    phases.input_parser_cpu_ms[#phases.input_parser_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+    phase_started = os.clock()
     fragmented_cells = fragmented_cells + fragmented_update(parser, state.columns, state.rows, batch)
     parser:feed(string.format("\27[%d;1H", state.rows))
+    phases.fragmented_update_cpu_ms[#phases.fragmented_update_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+    phase_started = os.clock()
     if batch % 5 == 0 then
       state:resize(columns - 1, rows)
       layout:invalidate_all()
@@ -118,10 +130,15 @@ function Longrun.run(options)
       layout:invalidate_all()
       resize_count = resize_count + 1
     end
+    phases.resize_cpu_ms[#phases.resize_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+    phase_started = os.clock()
     layout:update(state)
+    phases.layout_cpu_ms[#phases.layout_cpu_ms + 1] = (os.clock() - phase_started) * 1000
     accumulate_layout(layout_total, layout)
+    phase_started = os.clock()
     dirty_ranges = dirty_ranges + #state.damage:ranges()
     state.damage:clear()
+    phases.damage_cpu_ms[#phases.damage_cpu_ms + 1] = (os.clock() - phase_started) * 1000
     batches[#batches + 1] = (os.clock() - batch_started) * 1000
     peak_heap = math.max(peak_heap, collectgarbage("count"))
   end
@@ -134,10 +151,15 @@ function Longrun.run(options)
     resize_count = resize_count + 1
   end
   local navigation = {}
+  local navigation_phases = { layout_cpu_ms = {}, scroll_cpu_ms = {} }
   for _, lines in ipairs({ state.scrollback:size(), -state.scrollback:size() }) do
     local navigation_started = os.clock()
+    local phase_started = os.clock()
     state:scroll_history(lines)
+    navigation_phases.scroll_cpu_ms[#navigation_phases.scroll_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+    phase_started = os.clock()
     layout:update(state)
+    navigation_phases.layout_cpu_ms[#navigation_phases.layout_cpu_ms + 1] = (os.clock() - phase_started) * 1000
     accumulate_layout(layout_total, layout)
     navigation[#navigation + 1] = (os.clock() - navigation_started) * 1000
   end
@@ -153,6 +175,13 @@ function Longrun.run(options)
     history_navigation_cpu_ms = Stats.summary(navigation),
     lines_written = written,
     layout = layout_total,
+    phases = {
+      damage_cpu_ms = Stats.summary(phases.damage_cpu_ms),
+      fragmented_update_cpu_ms = Stats.summary(phases.fragmented_update_cpu_ms),
+      input_parser_cpu_ms = Stats.summary(phases.input_parser_cpu_ms),
+      layout_cpu_ms = Stats.summary(phases.layout_cpu_ms),
+      resize_cpu_ms = Stats.summary(phases.resize_cpu_ms),
+    },
     memory = {
       peak_heap_kib_delta = peak_heap - heap_before,
       retained_heap_kib_delta = heap_after - heap_before,
@@ -162,6 +191,10 @@ function Longrun.run(options)
     scrollback_limit = history_limit,
     scrollback_lines = state.scrollback:size(),
     shape_cache_rows = row_cache_entries(layout),
+    navigation_phases = {
+      layout_cpu_ms = Stats.summary(navigation_phases.layout_cpu_ms),
+      scroll_cpu_ms = Stats.summary(navigation_phases.scroll_cpu_ms),
+    },
   }
   assert(system.glyph_cache.atlas:glyph_count() <= atlas_entries, "long-run atlas entry limit exceeded")
   assert(system.fallback_cache_count <= system.fallback_cache_limit, "long-run fallback cache limit exceeded")
@@ -208,9 +241,9 @@ function Longrun.main()
     text_rounds = number_from_env("KIWI_LONGRUN_TEXT_ROUNDS", 400),
   })
   io.stdout:write(string.format(
-    "long-run history=%d/%d lines batches=%d batch-p95=%.3fms navigation-p95=%.3fms fragmented=%d resize=%d heap=%.1f KiB rss=%s atlas=%d/%d text-cpu=%.3fms\n",
+    "long-run history=%d/%d lines batches=%d batch-p95=%.3fms input-p95=%.3fms layout-p95=%.3fms navigation-p95=%.3fms fragmented=%d resize=%d heap=%.1f KiB rss=%s atlas=%d/%d text-cpu=%.3fms\n",
     result.history.scrollback_lines, result.history.scrollback_limit, result.history.batches,
-    result.history.batch_cpu_ms.p95, result.history.history_navigation_cpu_ms.p95,
+    result.history.batch_cpu_ms.p95, result.history.phases.input_parser_cpu_ms.p95, result.history.phases.layout_cpu_ms.p95, result.history.history_navigation_cpu_ms.p95,
     result.history.fragmented_cells, result.history.resize_count,
     result.history.memory.retained_heap_kib_delta,
     result.history.memory.rss_kib_delta and string.format("%.1f KiB", result.history.memory.rss_kib_delta) or "unavailable",
@@ -220,7 +253,7 @@ function Longrun.main()
   local timestamp = os.date("!%Y%m%dT%H%M%SZ")
   local output = "bench/results/" .. timestamp .. "-longrun.json"
   local report = {
-    schema_version = 1,
+    schema_version = 2,
     benchmark = "Kiwi M9 long-running terminal and text-cache profile",
     metadata = Environment.collect(timestamp, result.history.batches, 0),
     result = result,

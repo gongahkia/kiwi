@@ -88,7 +88,7 @@ while (( $# > 0 )); do
   esac
 done
 
-[[ "${TERM:-}" == kiwi ]] || fail 'run this command inside Kiwi (TERM=kiwi)'
+[[ "${TERM:-}" == xterm-kiwi ]] || fail 'run this command inside Kiwi (TERM=xterm-kiwi)'
 positive_integer "$image_id" || fail '--id must be a positive 32-bit integer'
 positive_integer "$placement_id" || fail '--placement-id must be a positive 32-bit integer'
 positive_integer "$columns" || fail '--columns must be a positive integer'

@@ -1,6 +1,6 @@
 # Kiwi M2 terminal conformance
 
-Kiwi implements a deliberately scoped xterm/VT-style behavioral subset. It is neither VT100 nor xterm certified, and `TERM=kiwi` advertises only the terminfo capabilities implemented here. Authoritative behavior sources are [XTerm Control Sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), [ECMA-48](https://ecma-international.org/publications-and-standards/standards/ecma-48/), and [ncurses terminfo](https://invisible-island.net/ncurses/man/terminfo.5.html).
+Kiwi implements a deliberately scoped xterm/VT-style behavioral subset. It is neither VT100 nor xterm certified, and `TERM=xterm-kiwi` advertises only the terminfo capabilities implemented here. Authoritative behavior sources are [XTerm Control Sequences](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), [ECMA-48](https://ecma-international.org/publications-and-standards/standards/ecma-48/), and [ncurses terminfo](https://invisible-island.net/ncurses/man/terminfo.5.html).
 
 ## Test corpus
 
@@ -62,24 +62,39 @@ claiming formal verification or allocator-independent memory totals.
 | cursor CSI | CUU/CUD/CUF/CUB, CNL/CPL, CHA, VPA, CUP/HVP | `cuu`, `cud`, `cuf`, `cub`, `hpa`, `vpa`, `cup`, `home` |
 | erase/edit CSI | ED 0/1/2/3, EL 0/1/2, ECH, ICH, DCH, IL, DL; VT220 DECSCA plus visible-screen selective display/line erase (DECSED `?0/1/2J`, DECSEL `?0/1/2K`) for protected cells. Selective saved-line erase (`?3J`) and rectangular selective erase are unsupported. | `ed`, `el`, `ech`, `ich`, `dch`, `il`, `dl` |
 | scrolling | SU, SD, DECSTBM, DECLRMM/DECSLRM rectangular scrolling, IND/RI at margins | `csr`, `ind`, `ri` |
-| SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg; colon-form `4:n` underline styles retained as an underline | basic 16-colour `setaf`/`setab`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
+| SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg; colon-form `4:n` underline styles retained as an underline | indexed `setaf`/`setab` through 256 plus direct RGB `setrgbf`/`setrgbb`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | Dynamic colours | OSC 4, 10, 11, and 12 updates/queries; OSC 104, 110, 111, and 112 reset paths | none; these are private terminal controls, not terminfo capability claims |
-| modes | IRM and LNM; declared RQM/DECRQM queries (IRM, LNM; DECCKM, DECOM, DECAWM, xterm reverse-wrap mode 45, DECBKM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); xterm one-level save/restore for the independent implemented private-mode subset (cursor/origin/wrap/reverse-wrap/visibility/backarrow/margins/focus/alternate-scroll/bracketed-paste/synchronized-output); DECSCUSR cursor styles; DECKPAM/DECKPNM keypad input; DECBKM backspace/DEL negotiation; Kitty keyboard flags 1/2/8/16; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
+| modes | IRM and LNM; declared RQM/DECRQM queries (IRM, LNM; DECCKM, DECOM, DECAWM, xterm reverse-wrap mode 45, DECBKM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); xterm one-level save/restore for the independent implemented private-mode subset (cursor/origin/wrap/reverse-wrap/visibility/backarrow/margins/focus/alternate-scroll/bracketed-paste/synchronized-output); DECTCEM cursor blink; DECSCUSR cursor styles; XTMODKEYS `modifyOtherKeys` levels 0–3; DECKPAM/DECKPNM keypad input; DECBKM backspace/DEL negotiation; Kitty keyboard flags 1/2/8/16; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
 | hyperlinks | bounded OSC 8 cell identity, scrollback/resize/replay retention, safe URI activation, semantic underline affordance | not a terminfo capability |
-| replies | DSR 5/6, conservative primary/secondary DA subsets, and read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`) | not advertised as a terminfo capability |
-| OSC | OSC 0/2 titles; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes; default-denied OSC 9 notification/progress requests | not advertised |
+| replies | DSR 5/6, conservative primary/secondary DA subsets, read-only xterm text-area/cell geometry queries (`CSI 14 t`, `16 t`, `18 t`), exact bounded `XTGETTCAP` replies for `Co=256`, `TN=xterm-kiwi`, and `RGB=8` bits/channel, plus bounded XTMODKEYS/XTWINOPS state changes | not advertised as a terminfo capability |
+| OSC | OSC 0/1/2 icon/window titles; bounded XTWINOPS 22/23 icon/window title stacks; bounded OSC 8 hyperlinks; bounded advisory OSC 7/133 shell metadata and command lifecycle; default-denied, explicitly opt-in OSC 52 UTF-8 clipboard writes; default-denied OSC 9 notification/progress requests | not advertised |
 | DCS/APC/PM/SOS | bounded discard through ST; DCS DECRQSS replies for SGR, DECSTBM, DECSLRM, DECSCUSR, DECSCA, and current page height (DECSLPP) only | all other DCS families, including Sixel, remain discarded and unadvertised |
 | UTF-8 | incremental decoder, split sequence support, deterministic U+FFFD invalid/truncated output | not a width/shaping claim |
 | Unicode text | Unicode 17 UAX #29 EGCs, raw code-point retention, deterministic width, anchor/continuation grid, HarfBuzz LTR shaping, Fontconfig fallback, bounded glyph-ID alpha atlas | not a terminfo capability |
 
 ## TERM contract
 
-The ordinary child environment is `TERM=kiwi`, never `xterm-256color`. `terminfo/kiwi.ti` is the source of truth. `make terminfo` runs `tic -x -o .build/terminfo terminfo/kiwi.ti` and `TERMINFO=.build/terminfo infocmp kiwi`; `make check` runs the same validation. The live app passes the source or installed `TERMINFO` and an absent `COLORTERM` through a child-only environment vector to the native launch helper, which uses `execvpe` on Linux and PATH-aware `execve` on macOS. The explicit `kiwi-ssh` fallback instead uses `TERM=xterm-256color` when it cannot prepare the remote entry.
+The ordinary child environment is `TERM=xterm-kiwi`, never `xterm-256color`.
+`terminfo/kiwi.ti` is the source of truth. `make terminfo` runs
+`tic -x -o .build/terminfo terminfo/kiwi.ti`, validates
+`TERMINFO=.build/terminfo infocmp -x xterm-kiwi`, and feeds its actual indexed
+and direct-RGB `tput` output through Kiwi's parser/state. `make check` runs the
+same validation. The live app passes the source or installed `TERMINFO` and
+`COLORTERM=truecolor` through a child-only environment vector to the native
+launch helper, which uses `execvpe` on Linux and PATH-aware `execve` on macOS.
+The explicit `kiwi-ssh` fallback instead uses `TERM=xterm-256color` with
+`COLORTERM=truecolor` when it cannot prepare the remote entry.
 
-The entry intentionally declares `colors#16`; it declares DEC Special Graphics line drawing through `smacs`, `rmacs`, and `acsc`, but does not declare truecolour, italic SGR, hyperlinks, mouse reporting, or an extended-keyboard terminfo capability. The negotiated Kitty subset is detected through its runtime query, not terminfo. Adding or removing an advertised capability requires updating both the source entry and this matrix.
+The standalone entry intentionally declares `colors#256`, `Tc`, `RGB`,
+`setrgbf`, and `setrgbb`; it declares DEC Special Graphics line drawing through
+`smacs`, `rmacs`, and `acsc`, but does not declare italic SGR, hyperlinks,
+mouse reporting, or an extended-keyboard terminfo capability. The negotiated
+Kitty subset is detected through its runtime query, not terminfo. Adding or
+removing an advertised capability requires updating the source entry, its
+black-box `tput` fixture, and this matrix.
 
 ## Clipboard and OSC 52 policy
 
@@ -92,20 +107,28 @@ parses a notification body or a progress update into a typed effect, then a
 host-owned policy decides whether it may reach the desktop. Both
 `osc9-notifications` and `osc9-progress` default to `off`; their only other
 value is `system`. Notification bodies are bounded to 1,024 bytes and reject
-NUL, CR, and LF. Progress is accepted only as an integer percentage from 0
-through 100 with a state from 0 through 4. The policy keeps bounded
-kind/status diagnostics only, so rejected terminal payloads are not retained
-or printed.
+NUL, CR, and LF. Progress states `0`, `2`, `3`, and `4` may omit their
+percentage; determinate state `1` requires an integer percentage from 0 through
+100. The policy carries forward the last accepted percentage for an omitted
+host update and keeps bounded kind/status diagnostics only, so rejected
+terminal payloads are not retained or printed.
 
 At present, `system` can submit a valid notification through the GTK host's
 `GApplication` notification path, using the fixed local identifier
 `kiwi-terminal-osc9`. Successful submission is not a guarantee that a desktop
-will display it. GLFW/Cocoa has no notification bridge yet, and neither host
-currently implements a progress indicator; those cases are explicitly
-reported as unavailable rather than silently accepted. The deterministic policy
+will display it. On macOS, the GLFW/Cocoa route maps OSC 9 progress to a
+per-window native titlebar progress indicator: state `0` removes it, state `1`
+is normal determinate progress, state `2` is error, state `3` is indeterminate,
+and state `4` is paused. The determinate states show the carried/supplied
+percentage with the corresponding tooltip. It does not use a global Dock badge,
+so independent terminal windows cannot overwrite one another's visible
+progress. Cocoa notification delivery and GTK progress remain unavailable and
+are explicitly reported rather than silently accepted. The deterministic policy
 tests cover default denial, payload validation, submission, unavailability, and
 payload-free diagnostics. Native notification delivery and presentation still
-need desktop qualification.
+need desktop qualification. Kiwi leaves accepted progress visible until a
+state-`0` clear request or window teardown; it does not currently apply a stale
+progress timeout.
 
 ## OSC 8 hyperlinks
 
@@ -251,9 +274,24 @@ The result state is separate from selection. It records its search generation, s
 
 ## Truecolour decision
 
-Kiwi retains the 16-colour terminfo contract. Its parser, state, and renderer retain RGB SGR values, but that implementation fact does not advertise a truecolour capability. `COLORTERM` is deliberately absent from live children even when the launching environment exports it, and `terminfo/kiwi.ti` has no `RGB`, `Tc`, `setrgbf`, or `setrgbb` extension.
+Kiwi advertises direct RGB deliberately: the terminfo entry has `Tc`, `RGB`,
+`setrgbf`, and `setrgbb`, and live children receive `COLORTERM=truecolor`.
+The parser/state has an explicit fixture for colon-form indexed and direct-RGB
+SGR, while `make terminfo` proves the sequences emitted by `tput` reach that
+state without parser errors, ignored actions, or unknown CSI. Its conservative
+`XTGETTCAP` runtime reply reports `RGB=8`, the direct-colour channel precision
+used by xterm and Ghostty, alongside `Co=256` and `TN=xterm-kiwi`; unrecognised
+or mixed queries fail as one bounded `DCS 0 + r` response.
 
-Promotion requires all of the following recorded against the candidate build: a native physical RGB comparison using known distinct pixels, a real RGB TUI under that same child contract, a nested tmux session configured for and verified to preserve RGB, and a controlled SSH host with the matching terminfo installed. Any terminfo change must then pass `tic`, `infocmp`, `tput colors`, and the affected TUI probes. A bounded macOS Metal framebuffer comparison now observes a non-palette terminal RGB background after the sRGB surface conversion path, but that one compositor-level check is not display calibration or completion of the remaining gates. The tmux probe still exposes `tmux-256color` with 256 colours, and SSH has no controlled authenticated host. The fallback therefore remains intentional rather than an unverified claim.
+The promotion does not make a general visual or deployment claim. A bounded
+macOS Metal framebuffer check observes a known non-palette terminal RGB
+background, the native child contract replays cleanly under the promoted
+environment, and tmux 3.7b preserves a nested direct-RGB contract on the
+current macOS qualification host. Btop is not installed here, so its earlier
+application-stream capture has not been requalified under the new TERM value.
+A controlled SSH host with the copied terminfo remains required before making
+a remote deployment claim. The physical check is compositor evidence, not
+display calibration.
 
 ## Cursor style and synchronized output
 
@@ -374,7 +412,7 @@ replay deterministically. None are advertised through terminfo.
 
 `make conformance-evidence` is the repeatable command-line starting point for
 deployment evidence. It rebuilds and audits the project-local
-terminfo entry (`colors#16` and no `RGB`, `Tc`, `setrgbf`, or `setrgbb`), runs
+terminfo entry (`colors#256`, `Tc`, `RGB`, `setrgbf`, and `setrgbb`), runs
 a local tmux nesting probe when tmux is installed, and, where a graphical
 display is available, records/replays a native VT sequence exercise plus
 one-iteration native `top`, Vim mouse, and Neovim keyboard sessions when those
@@ -403,21 +441,21 @@ fidelity or general application compatibility.
 
 | Surface | Evidence | Result and limit |
 | --- | --- | --- |
-| Project-local terminfo | `make terminfo`; `TERM=kiwi TERMINFO=.build/terminfo tput colors`; `infocmp -1 kiwi` | Passed: `tput colors` returned `16`; no unvalidated truecolour capability is advertised. |
-| Native truecolour contract | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/truecolour.jsonl -- ./script/truecolour-contract-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/truecolour.jsonl` | Passed on macOS arm64 on 2026-08-22: the actual child received `TERM=kiwi`, `COLORTERM=unset`, and `tput colors=16`; a known RGB SGR value replayed 91 bytes / 76 actions with zero parser errors, ignored actions, or unknown controls under captured, one-byte, and eight randomized output chunk layouts. This is not a physical pixel comparison. |
-| Native physical RGB | `make truecolour-framebuffer-smoke` | Passed on macOS arm64 on 2026-08-22: a controlled child filled the terminal with non-palette RGB `18,171,52`; bounded compositor readback found 5,125,680 matching/tolerance pixels and the same modal RGB. This validates Kiwi's terminal background/sRGB surface path, not colour-managed display output, image colour management, a real RGB TUI under a candidate terminfo contract, tmux, or SSH. |
+| Project-local terminfo | `make terminfo`; `TERM=xterm-kiwi TERMINFO=.build/terminfo tput colors`; `TERMINFO=.build/terminfo infocmp -x xterm-kiwi` | Passed on 2026-08-22: `tput colors` returned `256`; the entry declares `Tc`, `RGB`, `setrgbf`, and `setrgbb`; the build-time black-box contract confirms its indexed and direct RGB output reaches Kiwi state. This is local parser/state evidence, not a remote-installation claim. |
+| Native truecolour contract | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/truecolour.jsonl -- ./script/truecolour-contract-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/truecolour.jsonl` | Passed on macOS arm64 on 2026-08-22: the child received `TERM=xterm-kiwi`, `COLORTERM=truecolor`, and `tput colors=256`; its colon-form direct-RGB `tput` output replayed 101 bytes / 86 actions with zero parser errors, ignored actions, or unknown controls under captured, one-byte, and eight randomized output chunk layouts. This is not a physical pixel comparison. |
+| Native physical RGB | `make truecolour-framebuffer-smoke` | Passed on macOS arm64 on 2026-08-22: a controlled child filled the terminal with non-palette RGB `18,171,52`; bounded compositor readback found 5,125,680 matching/tolerance pixels and the same modal RGB. This validates Kiwi's terminal background/sRGB surface path, not colour-managed display output, image colour management, a real RGB TUI under `xterm-kiwi`, or SSH. |
 | Native shell metadata | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/shell.jsonl -- ./script/shell-integration-child'`; `make replay REPLAY=<temporary>/shell.jsonl` | Passed structurally on 2026-08-10: the 115-byte OSC 7/133 sample replayed as `cwd`, `prompt`, `command_start`, `command_executed`, and `command_finished` with zero parser errors, ignored actions, or unknown controls. The noninteractive child verifies Kiwi's native parser/state path without changing or certifying a user's shell integration configuration. |
 | Native shell history | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/history.jsonl -- ./script/shell-integration-history-child'`; `make replay REPLAY=<temporary>/history.jsonl` | Passed structurally on 2026-08-10: the 773-byte 12-command OSC 7/133 stream replayed with 382 actions and zero parser errors, ignored actions, or unknown controls; the derived model retained 12 completed regions. The noninteractive child verifies Kiwi's native retention/replay path without changing or certifying a user's shell integration configuration. |
-| Native RGB TUI | `KIWI_MAX_FRAMES=180 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; replay the capture with `REPLAY_ARGS=--chunk-invariant` | Btop 1.4.7 capture replayed 489,890 bytes / 127,434 actions with zero parser errors, ignored actions, or unknown CSI/ESC/OSC/string controls while `COLORTERM` was absent. It is evidence that RGB input reaches the renderer path, not a physical truecolour or general-TUI compatibility certification. |
-| Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -l 1 -s 0'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/top.jsonl` | Passed on macOS arm64 on 2026-08-22: `/usr/bin/top` replayed 124,557 bytes / 124,557 actions with zero errors, ignored actions, or unknown controls under captured, one-byte, and eight randomized output chunk layouts. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. Linux uses its documented `top -b -n 1 -d 0.1` form. |
-| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vt.jsonl` | Passed on macOS arm64 on 2026-08-22: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions replayed 311 bytes / 164 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. It is an automated vttest-style sequence, not the external `vttest` program or a visual certification. |
+| Native RGB TUI | `KIWI_MAX_FRAMES=180 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; replay the capture with `REPLAY_ARGS=--chunk-invariant` | Btop 1.4.7 previously replayed 489,890 bytes / 127,434 actions with zero parser errors, ignored actions, or unknown CSI/ESC/OSC/string controls. Re-run it under `TERM=xterm-kiwi` before treating it as qualification of the promoted contract. It remains application-stream evidence, not a physical truecolour or general-TUI compatibility certification. |
+| Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -l 1 -s 0'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/top.jsonl` | Passed on macOS arm64 on 2026-08-22: the most recent `/usr/bin/top` run replayed 136,165 bytes / 136,165 actions with zero errors, ignored actions, or unknown controls under captured, one-byte, and eight randomized output chunk layouts. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. Linux uses its documented `top -b -n 1 -d 0.1` form. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vt.jsonl` | Passed on macOS arm64 on 2026-08-22: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions replayed 317 bytes / 170 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. It is an automated vttest-style sequence, not the external `vttest` program or a visual certification. |
 | Native Kitty graphics | `make kitty-graphics-smoke`; `make kitty-animation-smoke`; or `make conformance-evidence` | The self-contained direct-PNG client passed on macOS arm64 on 2026-08-22: 163,033 bytes / 218 actions replayed with zero parser errors/ignored/unknown controls under all recorded chunk layouts, and GPU timestamp output contained both `terminal/kitty_images_under` and `terminal/kitty_images_over`. The GIF/APNG playback smoke is a separate bounded native check. These verify selected Kiwi protocol streams and pass dispatch, not broad Kitty-client compatibility or pixel-perfect screenshot comparison. |
-| Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vim.jsonl` | Passed on macOS arm64 with Vim 9.1 on 2026-08-22: it emitted SGR mouse and button-event activation; 5,644 bytes / 4,977 actions replayed with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves its activation sequence, not interactive pointer usability. |
-| Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /opt/homebrew/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/nvim.jsonl` | Passed on macOS arm64 with Neovim 0.12.4 on 2026-08-22: it emitted the Kitty query `CSI ? u`, a valid progressive-enhancement set `CSI > 3 u`, and `CSI < u`; 5,763 bytes / 5,190 actions replayed with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves negotiated mode handling, not physical-key usability. |
+| Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vim.jsonl` | Passed on macOS arm64 with Vim 9.1 on 2026-08-22: its startup emitted XTMODKEYS, DECTCEM, XTWINOPS title-stack, SGR mouse, and button-event controls; 5,425 bytes / 4,921 actions replayed with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves startup-protocol handling, not interactive pointer or modified-key usability. |
+| Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /opt/homebrew/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/nvim.jsonl` | Passed on macOS arm64 with Neovim 0.12.4 on 2026-08-22: it emitted the Kitty query `CSI ? u`, a valid progressive-enhancement set `CSI > 3 u`, and `CSI < u`; the most recent run replayed 5,712 bytes / 5,190 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves negotiated mode handling, not physical-key usability. |
 | Native AT-SPI provider | `make accessibility-provider-smoke` | Passed structurally on 2026-08-17: the live provider completed registry `Socket.Embed`; an external D-Bus client found its Kiwi application root and terminal child, read the child process's OSC 2 title as the terminal accessible name, read the bounded sentinel viewport, observed a positive character count, and received a `TextChanged` event. This is protocol evidence, not a screen-reader usability certification. |
-| Local tmux | `env -u COLORTERM TERM=kiwi TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane | Observed with tmux 3.7b: the inner command received `TERM=tmux-256color`, `COLORTERM=truecolor`, and `tput colors` returned `256`, even though the outer invocation removed `COLORTERM`. tmux owns this nested contract; it does not authorize Kiwi itself to advertise 256 colours or truecolour. |
+| Local tmux | `TERM=xterm-kiwi COLORTERM=truecolor TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane and run `tput setrgbf 1 2 3` | Passed on macOS arm64 on 2026-08-22 with tmux 3.7b: the inner session reported `TERM=tmux-256color`, `COLORTERM=truecolor`, `tput colors=256`, and a successful direct-RGB `tput` command. This is nested protocol evidence, not a pixel comparison. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
-| SSH | `make kiwi-ssh SSH_ARGS='-- <controlled-host>'`, then `infocmp kiwi; tput colors` | The deterministic suite verifies upload and launch ordering against local SSH/SCP stubs. No access to a controlled remote host or credentials; the localhost probe stopped at host-key verification. No SSH deployment compatibility claim is made. |
+| SSH | `make kiwi-ssh SSH_ARGS='--probe -- <controlled-host>'`, then `infocmp -x xterm-kiwi; tput colors; tput setrgbf 1 2 3` | The deterministic suite verifies upload and launch ordering against local SSH/SCP stubs, including preservation of the `tic` directory path. No access to a controlled remote host or credentials; no SSH deployment compatibility claim is made. |
 
 ## Unicode conformance
 
@@ -431,7 +469,7 @@ M2 does not provide bidi/reordering, a Unicode line-break algorithm, color emoji
 
 ## VTTEST workflow
 
-If the system package provides `vttest`, run `make vttest` from an interactive graphical session. The target builds the local terminfo entry, starts `vttest` under `TERM=kiwi`, and leaves interactive case selection to the tester. It is a diagnostic workflow, not a certification claim; the full suite is not required for M1.
+If the system package provides `vttest`, run `make vttest` from an interactive graphical session. The target builds the local terminfo entry, starts `vttest` under `TERM=xterm-kiwi`, and leaves interactive case selection to the tester. It is a diagnostic workflow, not a certification claim; the full suite is not required for M1.
 
 ## Observed native application smoke
 

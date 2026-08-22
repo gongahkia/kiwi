@@ -6,7 +6,7 @@ usage() {
 usage: kiwi-ssh [--no-terminfo] [--strict] [--probe] [--ssh-option ARG]... -- host
 
 Install Kiwi's compiled terminfo entry in ~/.cache/kiwi/terminfo on the named
-remote host, then open an interactive login shell with TERM=kiwi. If setup
+remote host, then open an interactive login shell with TERM=xterm-kiwi. If setup
 fails, the default behavior warns and falls back to TERM=xterm-256color.
 
 --no-terminfo  skip remote setup and use the xterm-256color fallback
@@ -22,13 +22,19 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project_root=${KIWI_ROOT:-$(CDPATH= cd -- "$script_dir/.." && pwd)}
 terminfo_root=${KIWI_TERMINFO:-}
 if [ -z "$terminfo_root" ]; then
-  if [ -f "$project_root/.build/terminfo/k/kiwi" ]; then
+  if find "$project_root/.build/terminfo" -type f -name xterm-kiwi -print -quit 2>/dev/null | grep -q .; then
     terminfo_root="$project_root/.build/terminfo"
   else
     terminfo_root="$project_root/share/terminfo"
   fi
 fi
-terminfo_entry="$terminfo_root/k/kiwi"
+terminfo_entry=$(find "$terminfo_root" -type f -name xterm-kiwi -print 2>/dev/null)
+if [ "$(printf '%s\n' "$terminfo_entry" | sed '/^$/d' | wc -l | tr -d ' ')" -ne 1 ]; then
+  terminfo_entry=''
+else
+  terminfo_entry=$(printf '%s\n' "$terminfo_entry" | sed -n '1p')
+fi
+terminfo_relative=${terminfo_entry#"$terminfo_root"/}
 ssh_bin=${KIWI_SSH_BIN:-ssh}
 scp_bin=${KIWI_SCP_BIN:-scp}
 setup=true
@@ -122,7 +128,7 @@ scp_with_options() {
     set +f
     IFS=$saved_ifs
   fi
-  "$scp_bin" "$@" "$terminfo_entry" "$host:.cache/kiwi/terminfo/k/kiwi"
+  "$scp_bin" "$@" "$terminfo_entry" "$host:.cache/kiwi/terminfo/$terminfo_relative"
 }
 
 fallback() {
@@ -137,7 +143,7 @@ fallback() {
     set +f
     IFS=$saved_ifs
   fi
-  exec env TERM=xterm-256color "$ssh_bin" "$@" -tt "$host"
+  exec env TERM=xterm-256color COLORTERM=truecolor "$ssh_bin" "$@" -tt "$host"
 }
 
 if [ "$setup" = false ]; then
@@ -151,14 +157,14 @@ if [ "$setup" = false ]; then
     set +f
     IFS=$saved_ifs
   fi
-  exec env TERM=xterm-256color "$ssh_bin" "$@" -tt "$host"
+  exec env TERM=xterm-256color COLORTERM=truecolor "$ssh_bin" "$@" -tt "$host"
 fi
-if [ ! -f "$terminfo_entry" ]; then
+if [ -z "$terminfo_entry" ] || [ ! -f "$terminfo_entry" ]; then
   printf '%s\n' "kiwi-ssh: missing compiled terminfo at $terminfo_entry; run make terminfo" >&2
   exit 2
 fi
 
-if ! ssh_with_options 'mkdir -p "$HOME/.cache/kiwi/terminfo/k"'; then
+if ! ssh_with_options "mkdir -p \"\$HOME/.cache/kiwi/terminfo/${terminfo_relative%/*}\""; then
   if [ "$strict" = true ]; then exit 1; fi
   fallback
 fi
@@ -177,6 +183,6 @@ if [ -n "$ssh_options" ]; then
   IFS=$saved_ifs
 fi
 if [ "$probe" = true ]; then
-  exec env TERM=kiwi "$ssh_bin" "$@" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo"; export TERM TERMINFO; infocmp kiwi >/dev/null && [ "$(tput colors)" = 16 ] && printf "%s\n" "kiwi-ssh probe: terminfo=kiwi colors=16"'
+  exec env TERM=xterm-kiwi COLORTERM=truecolor "$ssh_bin" "$@" -tt "$host" 'TERM=xterm-kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" COLORTERM=truecolor; export TERM TERMINFO COLORTERM; infocmp -x xterm-kiwi >/dev/null && [ "$(tput colors)" = 256 ] && tput setrgbf 1 2 3 >/dev/null && printf "%s\n" "kiwi-ssh probe: terminfo=xterm-kiwi colors=256 truecolor=true"'
 fi
-exec env TERM=kiwi "$ssh_bin" "$@" -tt "$host" 'TERM=kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" exec "${SHELL:-/bin/sh}" -l'
+exec env TERM=xterm-kiwi COLORTERM=truecolor "$ssh_bin" "$@" -tt "$host" 'TERM=xterm-kiwi TERMINFO="$HOME/.cache/kiwi/terminfo" COLORTERM=truecolor exec "${SHELL:-/bin/sh}" -l'

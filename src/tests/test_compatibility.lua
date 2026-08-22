@@ -16,7 +16,7 @@ return {
   end,
   terminal_compatibility_manifest_keeps_unadvertised_features_explicit = function()
     local encoded = Compatibility.encode()
-    Assert.truthy(encoded:find("terminfo%-16%-colour%-contract") ~= nil)
+    Assert.truthy(encoded:find("terminfo%-256%-colour%-and%-direct%-rgb%-contract") ~= nil)
     Assert.truthy(encoded:find("kitty%-keyboard%-flag%-4") ~= nil)
     Assert.truthy(encoded:find("sixel%-video%-and%-broader%-kitty%-graphics") ~= nil)
   end,

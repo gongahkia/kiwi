@@ -97,6 +97,25 @@ local function printable_key_code(key)
   if key >= 0x20 and key <= 0x7e then return key end
 end
 
+local function modify_other_keys_level(modes)
+  local level = modes and modes.modify_other_keys or 0
+  return type(level) == "number" and level >= 1 and level <= 3 and level % 1 == 0 and level or 0
+end
+
+local function should_encode_modify_other_key(key, modifiers, modes, glfw)
+  local level = modify_other_keys_level(modes)
+  if level == 0 or printable_key_code(key) == nil then return false end
+  local modifier_bits = glfw.mod_shift + glfw.mod_alt + glfw.mod_control + glfw.mod_super
+  local active_modifiers = bit.band(modifiers, modifier_bits)
+  if level == 3 then return true end
+  if level == 2 then return active_modifiers ~= 0 end
+  return bit.band(active_modifiers, glfw.mod_alt + glfw.mod_super) ~= 0
+end
+
+local function modify_other_keys_sequence(key, modifiers, glfw)
+  return string.format("\27[27;%d;%d~", kitty_modifier(modifiers, glfw), printable_key_code(key))
+end
+
 local function function_key_sequence(key, modifiers, action, modes, glfw)
   local f1_to_f4 = { [glfw.key_f1] = "P", [glfw.key_f2] = "Q", [glfw.key_f3] = "R", [glfw.key_f4] = "S" }
   local f5_to_f12 = {
@@ -222,6 +241,9 @@ function Keyboard.key(key, action, modifiers, modes, glfw, options)
     local encoded = kitty_key(key, action, modifiers, modes, glfw, options)
     if encoded then return encoded end
     if action == glfw.release then return nil end
+  end
+  if should_encode_modify_other_key(key, modifiers, modes, glfw) then
+    return { bytes = modify_other_keys_sequence(key, modifiers, glfw), suppress_text = true }
   end
   local keypad_bytes = keypad_sequence(key, modes)
   if keypad_bytes then return { bytes = keypad_bytes, suppress_text = true } end

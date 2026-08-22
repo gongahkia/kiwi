@@ -31,28 +31,31 @@ recorded_output() {
   done
 }
 
-TERMINFO="$TERMINFO_DIR" infocmp -1 kiwi >/dev/null
-[[ "$(TERM=kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == "16" ]] || {
-  print -u2 "Kiwi terminfo must advertise exactly 16 colours."
+TERMINFO="$TERMINFO_DIR" infocmp -1 xterm-kiwi >/dev/null
+[[ "$(TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput colors)" == "256" ]] || {
+  print -u2 "Kiwi terminfo must advertise exactly 256 colours."
   exit 1
 }
 
-terminfo_output=$(TERMINFO="$TERMINFO_DIR" infocmp -1 kiwi)
-if print -r -- "$terminfo_output" | grep -Eq '(^|[[:space:]])(RGB|Tc|setrgbf|setrgbb)([=,#,]|$)'; then
-  print -u2 "Kiwi terminfo must not advertise an unvalidated truecolour capability."
+terminfo_output=$(TERMINFO="$TERMINFO_DIR" infocmp -x xterm-kiwi)
+if ! print -r -- "$terminfo_output" | grep -Eq '(^|[[:space:]])RGB([,[:space:]]|$)' \
+  || ! print -r -- "$terminfo_output" | grep -Eq '(^|[[:space:]])Tc([,[:space:]]|$)' \
+  || ! print -r -- "$terminfo_output" | grep -Eq 'setrgbf=' \
+  || ! print -r -- "$terminfo_output" | grep -Eq 'setrgbb='; then
+  print -u2 "Kiwi terminfo must advertise its implemented direct RGB capability."
   exit 1
 fi
 
-print "terminfo: colors=16; RGB/Tc/setrgbf/setrgbb absent"
+print "terminfo: name=xterm-kiwi colors=256 RGB/Tc/setrgbf/setrgbb present"
 print "platform: $(uname -srmo)"
 
 if command -v tmux >/dev/null; then
-  env -u COLORTERM TERM=kiwi TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; sleep 2'"'"''
+  env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; if tput setrgbf 1 2 3 >/dev/null 2>&1; then printf " rgb=true"; else printf " rgb=false"; fi; sleep 2'"'"''
   sleep 1
   tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-evidence -S -20)
   print "tmux: ${tmux_output//$'\n'/; }"
-  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=kiwi"* && "$tmux_output" == *"colors=256"* ]] || {
-    print -u2 "tmux did not expose its own 256-colour inner TERM contract."
+  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* && "$tmux_output" == *"rgb=true"* ]] || {
+    print -u2 "tmux did not preserve the Kiwi direct-RGB inner terminal contract."
     exit 1
   }
 else
@@ -124,8 +127,8 @@ else
   replay=$(<"$REPLAY_LOG")
   truecolour_output=$(recorded_output "$TRUECOLOUR_RECORDING")
   print "native-truecolour-contract: ${replay//$'\n'/; }"
-  [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* && "$truecolour_output" == *"TERM=kiwi COLORTERM=unset colors=16"* && "$truecolour_output" == *$'\e[38;2;1;2;3m'* ]] || {
-    print -u2 "native truecolour contract did not retain the documented fallback."
+  [[ "$replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* && "$truecolour_output" == *"TERM=xterm-kiwi COLORTERM=truecolor colors=256"* && "$truecolour_output" == *$'\e[38:2:1:2:3m'* ]] || {
+    print -u2 "native truecolour contract did not retain the advertised terminfo output."
     exit 1
   }
 fi

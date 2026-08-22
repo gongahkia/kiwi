@@ -37,6 +37,16 @@ enum {
 @implementation KiwiCocoaMenuRegistration
 @end
 
+@interface KiwiCocoaProgressRegistration : NSObject {
+ @public
+  NSTitlebarAccessoryViewController *controller;
+  NSProgressIndicator *indicator;
+}
+@end
+
+@implementation KiwiCocoaProgressRegistration
+@end
+
 @interface KiwiCocoaMenuDispatcher : NSObject
 - (void)invokeAction:(id)sender;
 @end
@@ -44,6 +54,7 @@ enum {
 static NSMutableDictionary *kiwi_cocoa_menu_registrations;
 static KiwiCocoaMenuDispatcher *kiwi_cocoa_menu_dispatcher;
 static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
+static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
   return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW;
@@ -52,6 +63,134 @@ static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
   NSWindow *native_window = window == NULL ? nil : glfwGetCocoaWindow(window);
   return native_window == nil ? nil : [NSValue valueWithPointer:native_window];
+}
+
+static NSWindow *kiwi_cocoa_native_window(GLFWwindow *window) {
+  return window == NULL ? nil : glfwGetCocoaWindow(window);
+}
+
+static NSValue *kiwi_cocoa_progress_window_key(GLFWwindow *window) {
+  NSWindow *native_window = kiwi_cocoa_native_window(window);
+  return native_window == nil ? nil : [NSValue valueWithPointer:native_window];
+}
+
+static KiwiCocoaProgressRegistration *kiwi_cocoa_progress_registration(GLFWwindow *window) {
+  NSValue *key = kiwi_cocoa_progress_window_key(window);
+  return key == nil ? nil : [kiwi_cocoa_progress_registrations objectForKey:key];
+}
+
+static const char *kiwi_cocoa_progress_tooltip(uint32_t state) {
+  switch (state) {
+    case 1: return "Terminal task progress";
+    case 2: return "Terminal task failed";
+    case 3: return "Terminal task in progress";
+    case 4: return "Terminal task paused";
+    default: return "";
+  }
+}
+
+static void kiwi_cocoa_progress_remove(GLFWwindow *window) {
+  NSValue *key = kiwi_cocoa_progress_window_key(window);
+  KiwiCocoaProgressRegistration *registration = key == nil ? nil : [kiwi_cocoa_progress_registrations objectForKey:key];
+  NSWindow *native_window = kiwi_cocoa_native_window(window);
+  if (registration != nil && native_window != nil) {
+    NSUInteger index = [native_window.titlebarAccessoryViewControllers indexOfObjectIdenticalTo:registration->controller];
+    if (index != NSNotFound) [native_window removeTitlebarAccessoryViewControllerAtIndex:index];
+  }
+  if (key != nil && kiwi_cocoa_progress_registrations != nil) [kiwi_cocoa_progress_registrations removeObjectForKey:key];
+}
+
+static KiwiCocoaProgressRegistration *kiwi_cocoa_progress_install(GLFWwindow *window) {
+  KiwiCocoaProgressRegistration *existing = kiwi_cocoa_progress_registration(window);
+  if (existing != nil) return existing;
+  NSWindow *native_window = kiwi_cocoa_native_window(window);
+  NSValue *key = kiwi_cocoa_progress_window_key(window);
+  if (native_window == nil || key == nil) {
+    kiwi_surface_set_error("GLFW did not expose a Cocoa window for terminal progress");
+    return nil;
+  }
+  if (kiwi_cocoa_progress_registrations == nil) kiwi_cocoa_progress_registrations = [[NSMutableDictionary alloc] init];
+  NSView *container = [[NSView alloc] initWithFrame:NSMakeRect(0.0, 0.0, 88.0, 16.0)];
+  NSProgressIndicator *indicator = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(0.0, 1.0, 88.0, 14.0)];
+  [indicator setControlSize:NSControlSizeSmall];
+  [indicator setIndeterminate:NO];
+  [indicator setMinValue:0.0];
+  [indicator setMaxValue:100.0];
+  [container addSubview:indicator];
+  NSTitlebarAccessoryViewController *controller = [[NSTitlebarAccessoryViewController alloc] init];
+  controller.view = container;
+  controller.layoutAttribute = NSLayoutAttributeRight;
+  [native_window addTitlebarAccessoryViewController:controller];
+  KiwiCocoaProgressRegistration *registration = [[KiwiCocoaProgressRegistration alloc] init];
+  registration->controller = controller;
+  registration->indicator = indicator;
+  [kiwi_cocoa_progress_registrations setObject:registration forKey:key];
+  [registration release];
+  [controller release];
+  [indicator release];
+  [container release];
+  return kiwi_cocoa_progress_registration(window);
+}
+
+int kiwi_cocoa_progress_set(GLFWwindow *window, uint32_t progress, uint32_t state) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || window == NULL || progress > 100 || state > 4) {
+      kiwi_surface_set_error("Cocoa terminal progress needs a main-thread window, state 0 through 4, and progress 0 through 100");
+      return 0;
+    }
+    if (state == 0) {
+      kiwi_cocoa_progress_remove(window);
+      return 1;
+    }
+    KiwiCocoaProgressRegistration *registration = kiwi_cocoa_progress_install(window);
+    if (registration == nil) return 0;
+    NSProgressIndicator *indicator = registration->indicator;
+    BOOL indeterminate = state == 3;
+    [indicator setIndeterminate:indeterminate];
+    if (indeterminate) {
+      [indicator startAnimation:nil];
+    } else {
+      [indicator stopAnimation:nil];
+      [indicator setDoubleValue:(double)progress];
+    }
+    NSString *tooltip = [NSString stringWithUTF8String:kiwi_cocoa_progress_tooltip(state)];
+    if (!indeterminate) tooltip = [tooltip stringByAppendingFormat:@" (%u%%)", progress];
+    [indicator setToolTip:tooltip];
+    return 1;
+  }
+}
+
+int kiwi_cocoa_progress_round_trip(GLFWwindow *window) {
+  @autoreleasepool {
+    if (!kiwi_cocoa_progress_set(window, 73, 1)) return 0;
+    KiwiCocoaProgressRegistration *registration = kiwi_cocoa_progress_registration(window);
+    if (registration == nil || registration->indicator == nil || registration->indicator.isIndeterminate ||
+        registration->indicator.doubleValue != 73.0) {
+      kiwi_surface_set_error("Cocoa terminal progress did not retain a determinate titlebar value");
+      return 0;
+    }
+    if (!kiwi_cocoa_progress_set(window, 73, 2) || registration->indicator.isIndeterminate ||
+        registration->indicator.doubleValue != 73.0 || ![registration->indicator.toolTip isEqualToString:@"Terminal task failed (73%)"]) {
+      kiwi_surface_set_error("Cocoa terminal progress did not retain an error titlebar state");
+      return 0;
+    }
+    if (!kiwi_cocoa_progress_set(window, 0, 3)) return 0;
+    registration = kiwi_cocoa_progress_registration(window);
+    if (registration == nil || registration->indicator == nil || !registration->indicator.isIndeterminate) {
+      kiwi_surface_set_error("Cocoa terminal progress did not retain an indeterminate titlebar state");
+      return 0;
+    }
+    if (!kiwi_cocoa_progress_set(window, 73, 4) || registration->indicator.isIndeterminate ||
+        registration->indicator.doubleValue != 73.0 || ![registration->indicator.toolTip isEqualToString:@"Terminal task paused (73%)"]) {
+      kiwi_surface_set_error("Cocoa terminal progress did not retain a paused titlebar state");
+      return 0;
+    }
+    if (!kiwi_cocoa_progress_set(window, 0, 0) || kiwi_cocoa_progress_registration(window) != nil) {
+      kiwi_surface_set_error("Cocoa terminal progress did not clear its titlebar accessory");
+      return 0;
+    }
+    return 1;
+  }
 }
 
 static KiwiCocoaMenuRegistration *kiwi_cocoa_menu_registration(GLFWwindow *window) {
@@ -168,6 +307,12 @@ void kiwi_cocoa_menu_remove(GLFWwindow *window) {
     KiwiCocoaMenuRegistration *registration = key == nil ? nil : [kiwi_cocoa_menu_registrations objectForKey:key];
     if (registration == kiwi_cocoa_active_menu_registration) kiwi_cocoa_active_menu_registration = nil;
     if (key != nil && kiwi_cocoa_menu_registrations != nil) [kiwi_cocoa_menu_registrations removeObjectForKey:key];
+  }
+}
+
+void kiwi_cocoa_progress_remove_bridge(GLFWwindow *window) {
+  @autoreleasepool {
+    kiwi_cocoa_progress_remove(window);
   }
 }
 

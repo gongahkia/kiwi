@@ -38,7 +38,8 @@ return {
     Assert.equal(report.gpu.reason, "no display")
     Assert.equal(report.renderer.pass_state.status, "unavailable")
     Assert.equal(report.terminal.feature_state.status, "unavailable")
-    Assert.equal(report.terminal.known_features.truecolour_terminfo.status, "unavailable")
+    Assert.equal(report.terminal.known_features.truecolour_terminfo.status, "available")
+    Assert.equal(report.terminal.known_features.truecolour_terminfo.term, "xterm-kiwi")
     Assert.truthy(Doctor.format(report):match("gpu: status=unavailable") ~= nil)
   end,
 }

@@ -72,7 +72,7 @@ local function configuration(getenv)
     terminal = {
       ambiguous_width = bounded(getenv("KIWI_AMBIGUOUS_WIDTH") or "1", 32),
       scrollback_lines = bounded(getenv("KIWI_SCROLLBACK") or "2000", 32),
-      term = "kiwi",
+      term = "xterm-kiwi",
     },
   }
 end
@@ -162,7 +162,7 @@ function Doctor.collect(options)
         clipboard = { maximum_bytes = 1024 * 1024, status = "available" },
         kitty_graphics = { status = "available" },
         shell_integration = { status = "available" },
-        truecolour_terminfo = unavailable("Kiwi advertises 16 colours and does not set COLORTERM"),
+        truecolour_terminfo = { colorterm = "truecolor", status = "available", term = "xterm-kiwi" },
       },
       terminfo = terminfo_available and { status = "available" } or unavailable("Kiwi terminfo is not built or installed"),
     },

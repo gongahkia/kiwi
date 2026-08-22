@@ -61,6 +61,10 @@ return {
     Assert.equal(Renderer.can_present({ context = { window = { minimized = false } } }, model), true)
     Assert.equal(Renderer.can_present({ context = { window = { minimized = true } } }, model), false)
     Assert.near(Renderer.cursor_blink_delay({ context = { window = { minimized = false } } }, model), 0.5, 0.0001)
+    model.modes.cursor_blink = false
+    Assert.equal(Renderer.cursor_descriptor({}, model).blink, false)
+    Assert.equal(Renderer.cursor_blink_delay({ context = { window = { minimized = false } } }, model), nil)
+    model.modes.cursor_blink = true
     model.modes.cursor_style = 6
     Assert.equal(Renderer.cursor_blink_delay({ context = { window = { minimized = false } } }, model), nil)
   end,

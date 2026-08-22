@@ -16,9 +16,9 @@ local function valid_text(value, maximum)
 end
 
 local function valid_progress(value)
-  return type(value) == "table"
-    and type(value.progress) == "number" and value.progress % 1 == 0 and value.progress >= 0 and value.progress <= 100
-    and type(value.state) == "number" and value.state % 1 == 0 and value.state >= 0 and value.state <= 4
+  if type(value) ~= "table" or type(value.state) ~= "number" or value.state % 1 ~= 0 or value.state < 0 or value.state > 4 then return false end
+  if value.progress == nil then return value.state ~= 1 end
+  return type(value.progress) == "number" and value.progress % 1 == 0 and value.progress >= 0 and value.progress <= 100
 end
 
 function Effects.new(configuration, host, window)
@@ -30,6 +30,7 @@ function Effects.new(configuration, host, window)
     configuration = configuration,
     diagnostics = {},
     host = host,
+    progress = 0,
     reported = {},
     window = window,
   }, Effects)
@@ -78,7 +79,15 @@ function Effects:consume(effect)
     elseif type(self.host.set_progress) ~= "function" then
       status = "unavailable"
     else
-      _, status = submit(self.host.set_progress, self.window, effect.value.progress, effect.value.state)
+      local progress = effect.value.progress == nil and self.progress or effect.value.progress
+      _, status = submit(self.host.set_progress, self.window, progress, effect.value.state)
+      if status == "submitted" then
+        if effect.value.state == 0 then
+          self.progress = 0
+        elseif effect.value.progress ~= nil then
+          self.progress = effect.value.progress
+        end
+      end
     end
     local diagnostic, first_report = self:record("progress", status)
     return true, status, first_report, diagnostic

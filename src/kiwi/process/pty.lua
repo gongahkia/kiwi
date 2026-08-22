@@ -298,29 +298,39 @@ function Pty:poll_exit()
   return self.exit_status
 end
 
+local function signal_child_and_group(pty, signal)
+  -- interactive shells can put themselves in a different foreground process
+  -- group. Signal the group first for its jobs, then the direct child so an
+  -- application shutdown cannot wait indefinitely for a moved shell.
+  ffi.C.kill(-pty.pid, signal)
+  ffi.C.kill(pty.pid, signal)
+end
+
+local function reap_for(pty, attempts, delay_microseconds)
+  for _ = 1, attempts do
+    if pty:poll_exit() then return true end
+    ffi.C.usleep(delay_microseconds)
+  end
+  return false
+end
+
 function Pty:shutdown()
   if self.pid ~= nil and not self.exited then
-    ffi.C.kill(-self.pid, constants.sighup)
-    for _ = 1, 25 do
-      if self:poll_exit() then
-        break
-      end
-      ffi.C.usleep(10000)
+    signal_child_and_group(self, constants.sighup)
+    reap_for(self, 25, 10000)
+    if not self.exited then
+      signal_child_and_group(self, constants.sigterm)
+      reap_for(self, 25, 10000)
     end
     if not self.exited then
-      ffi.C.kill(-self.pid, constants.sigterm)
-      for _ = 1, 25 do
-        if self:poll_exit() then
-          break
-        end
-        ffi.C.usleep(10000)
-      end
+      signal_child_and_group(self, constants.sigkill)
+      reap_for(self, 25, 10000)
     end
     if not self.exited then
-      ffi.C.kill(-self.pid, constants.sigkill)
-      while not self:poll_exit() do
-        ffi.C.usleep(1000)
-      end
+      -- SIGKILL was delivered to the direct child, but a pathological kernel
+      -- reaping delay must not block the terminal's window teardown forever.
+      self.exited = true
+      self.exit_status = { kind = "unknown" }
     end
   end
   if self.fd ~= nil then

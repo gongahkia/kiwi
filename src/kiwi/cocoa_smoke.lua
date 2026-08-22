@@ -1,4 +1,5 @@
 local Context = require("kiwi.gpu.context")
+local HostEffects = require("kiwi.app.host_effects")
 local Window = require("kiwi.platform.window")
 local GLFWHost = require("kiwi.app.glfw_host")
 
@@ -23,6 +24,11 @@ local ok, message = xpcall(function()
   require_result(accessibility_ok, "Cocoa accessibility smoke failed: " .. tostring(accessibility_message))
   local text_input_ok, text_input_message = window:cocoa_text_input_round_trip()
   require_result(text_input_ok, "Cocoa text-input smoke failed: " .. tostring(text_input_message))
+  local host_effects = HostEffects.new({ osc9_notifications = "off", osc9_progress = "system" }, GLFWHost, window)
+  local progress_handled, progress_status = host_effects:consume({ kind = "progress_changed", value = { progress = 73, state = 1 } })
+  require_result(progress_handled and progress_status == "submitted", "Cocoa terminal-progress host policy did not submit the native request")
+  local progress_smoke, progress_smoke_message = window:cocoa_progress_round_trip()
+  require_result(progress_smoke, "Cocoa terminal-progress smoke failed: " .. tostring(progress_smoke_message))
   local menu_actions = {}
   local menu_enabled, menu_message = window:enable_cocoa_menu(function(action)
     menu_actions[#menu_actions + 1] = action

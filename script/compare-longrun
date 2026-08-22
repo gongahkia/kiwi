@@ -14,13 +14,21 @@ for report in "$1" "$2"; do
     print -u2 "long-run report is missing: $report"
     exit 2
   fi
-  if ! jq -e '.schema_version == 1 and .benchmark == "Kiwi M9 long-running terminal and text-cache profile"' "$report" >/dev/null; then
+  if ! jq -e '.schema_version == 2 and .benchmark == "Kiwi M9 long-running terminal and text-cache profile"' "$report" >/dev/null; then
     print -u2 "unsupported long-run report: $report"
     exit 2
   fi
 done
 if ! jq -e -n --slurpfile baseline "$1" --slurpfile candidate "$2" '$baseline[0].result.configuration == $candidate[0].result.configuration' >/dev/null; then
   print -u2 "long-run configuration differs; compare only identical workload limits."
+  exit 2
+fi
+if ! jq -e -n --slurpfile baseline "$1" --slurpfile candidate "$2" '
+  $baseline[0].metadata.system == $candidate[0].metadata.system
+  and $baseline[0].metadata.runtime == $candidate[0].metadata.runtime
+  and $baseline[0].metadata.methodology == $candidate[0].metadata.methodology
+' >/dev/null; then
+  print -u2 "long-run host, runtime, or methodology differs; a regression comparison needs the same qualified environment."
   exit 2
 fi
 
@@ -31,7 +39,14 @@ jq -n --slurpfile baseline "$1" --slurpfile candidate "$2" '
   {
     configuration: $baseline[0].result.configuration,
     history_batch_p95_ms: comparison($baseline[0].result.history.batch_cpu_ms.p95; $candidate[0].result.history.batch_cpu_ms.p95),
+    history_input_parser_p95_ms: comparison($baseline[0].result.history.phases.input_parser_cpu_ms.p95; $candidate[0].result.history.phases.input_parser_cpu_ms.p95),
+    history_fragmented_update_p95_ms: comparison($baseline[0].result.history.phases.fragmented_update_cpu_ms.p95; $candidate[0].result.history.phases.fragmented_update_cpu_ms.p95),
+    history_resize_p95_ms: comparison($baseline[0].result.history.phases.resize_cpu_ms.p95; $candidate[0].result.history.phases.resize_cpu_ms.p95),
+    history_layout_p95_ms: comparison($baseline[0].result.history.phases.layout_cpu_ms.p95; $candidate[0].result.history.phases.layout_cpu_ms.p95),
+    history_damage_p95_ms: comparison($baseline[0].result.history.phases.damage_cpu_ms.p95; $candidate[0].result.history.phases.damage_cpu_ms.p95),
     history_navigation_p95_ms: comparison($baseline[0].result.history.history_navigation_cpu_ms.p95; $candidate[0].result.history.history_navigation_cpu_ms.p95),
+    history_navigation_scroll_p95_ms: comparison($baseline[0].result.history.navigation_phases.scroll_cpu_ms.p95; $candidate[0].result.history.navigation_phases.scroll_cpu_ms.p95),
+    history_navigation_layout_p95_ms: comparison($baseline[0].result.history.navigation_phases.layout_cpu_ms.p95; $candidate[0].result.history.navigation_phases.layout_cpu_ms.p95),
     history_peak_heap_kib: comparison($baseline[0].result.history.memory.peak_heap_kib_delta; $candidate[0].result.history.memory.peak_heap_kib_delta),
     history_rss_kib: comparison($baseline[0].result.history.memory.rss_kib_delta; $candidate[0].result.history.memory.rss_kib_delta),
     text_cache_cpu_ms: comparison($baseline[0].result.text_cache_pressure.elapsed_cpu_ms; $candidate[0].result.text_cache_pressure.elapsed_cpu_ms),

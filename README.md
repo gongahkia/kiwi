@@ -11,14 +11,22 @@ make run
 make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
 ```
 
-The child receives `TERM=kiwi` and `TERMINFO=$PWD/.build/terminfo`; Kiwi also unsets inherited `COLORTERM` so it does not accidentally advertise a capability that the terminfo entry withholds. Kiwi owns the version-controlled [terminfo source](terminfo/kiwi.ti); build and inspect it with:
+The child receives `TERM=xterm-kiwi`, `TERMINFO=$PWD/.build/terminfo`, and
+`COLORTERM=truecolor`. Kiwi owns the version-controlled
+[terminfo source](terminfo/kiwi.ti); build and inspect it with:
 
 ```sh
 make terminfo
-TERMINFO="$PWD/.build/terminfo" infocmp kiwi
+TERMINFO="$PWD/.build/terminfo" infocmp -x xterm-kiwi
 ```
 
-The entry honestly advertises 16 colours, cursor movement, erasing/editing, scrolling margins, alternate screen, DEC Special Graphics line drawing, basic SGR, and application cursor/keypad input. The parser/state can represent 256-colour and RGB SGR values, but Kiwi advertises neither truecolour terminfo extensions nor `COLORTERM`; see the evidence-gated decision in [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
+The standalone entry advertises the implemented 256-colour palette and direct
+RGB SGR through `Tc`, `RGB`, `setrgbf`, and `setrgbb`, alongside cursor
+movement, erasing/editing, scrolling margins, alternate screen, DEC Special
+Graphics line drawing, basic SGR, and application cursor/keypad input. It does
+not inherit an xterm entry or claim unimplemented xterm behavior; see the
+evidence and remaining deployment limits in
+[CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
 M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16, PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
@@ -50,7 +58,7 @@ Kiwi uses GLFW's Cocoa window, a `CAMetalLayer` WebGPU surface, and Metal; it re
 
 `make release` creates `dist/kiwi-<version>-<target>.tar.gz` and its
 adjacent SHA-256 file. The archive contains the Lua sources, native surface
-bridge, pinned wgpu-native runtime, compiled `kiwi` terminfo, a launcher, and
+bridge, pinned wgpu-native runtime, compiled `xterm-kiwi` terminfo, a launcher, and
 `metadata.json` with the version, Git revision, source-date epoch, dependency
 identity, and runtime-library requirements. It neither uploads nor publishes
 anything. `make release` refuses a dirty checkout, so a persistent artifact is
@@ -289,7 +297,7 @@ for its initial default shell; it never edits a dotfile. Set
 `shell-integration = none` in the configuration file, or
 `KIWI_SHELL_INJECTION=none`, to disable injection. Use `make kiwi-ssh
 SSH_ARGS='--ssh-option -p --ssh-option 2222 -- user@host'` for an explicit SSH
-session that installs the compiled `kiwi` terminfo entry under the remote
+session that installs the compiled `xterm-kiwi` terminfo entry under the remote
 user's private cache before starting the remote shell. Its failure fallback
 uses `TERM=xterm-256color`; see
 [SHELL_INTEGRATION.md](docs/SHELL_INTEGRATION.md) for limits and manual paths.

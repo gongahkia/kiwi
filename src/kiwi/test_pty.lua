@@ -5,7 +5,7 @@ local Pty = require("kiwi.process.pty")
 local State = require("kiwi.terminal.state")
 
 local function pump(command, columns, rows, on_responses, environment)
-  local pty = Pty.spawn(command, columns, rows, environment or { TERM = "kiwi" })
+  local pty = Pty.spawn(command, columns, rows, environment or { TERM = "xterm-kiwi", COLORTERM = "truecolor" })
   local state = State.new(columns, rows)
   local parser = Parser.new(function(action)
     state:apply(action)
@@ -55,12 +55,12 @@ test("pty_launches_shell_independent_command_and_parses_output", function()
   Assert.truthy(state:get(1, 1).fg ~= state.default_cell.fg)
 end)
 
-test("pty_applies_child_environment_without_leaking_truecolour_claims", function()
+test("pty_applies_the_advertised_child_terminal_environment", function()
   local transcript, _, status = pump({ "/bin/sh", "-c", "printf 'term=%s colorterm=%s' \"$TERM\" \"${COLORTERM-unset}\"" }, 16, 4, nil, {
-    TERM = "kiwi",
-    COLORTERM = false,
+    TERM = "xterm-kiwi",
+    COLORTERM = "truecolor",
   })
-  Assert.equal(transcript, "term=kiwi colorterm=unset")
+  Assert.equal(transcript, "term=xterm-kiwi colorterm=truecolor")
   Assert.equal(status.kind, "exit")
   Assert.equal(status.code, 0)
 end)
@@ -73,7 +73,7 @@ test("pty_resolves_unqualified_commands_with_the_inherited_path", function()
 end)
 
 test("pty_read_budget_preserves_all_output_across_multiple_polls", function()
-  local pty = Pty.spawn({ "/bin/sh", "-c", "printf 'abcdefghijklmnopqrstuvwxyz'" }, 16, 4, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh", "-c", "printf 'abcdefghijklmnopqrstuvwxyz'" }, 16, 4, { TERM = "xterm-kiwi" })
   local transcript = ""
   local status
   for _ = 1, 400 do
@@ -100,7 +100,7 @@ test("pty_applies_initial_winsize_and_reaps_child", function()
 end)
 
 test("pty_resize_notifies_the_child_process_group", function()
-  local pty = Pty.spawn({ "/bin/sh", "-c", "stty size; IFS= read -r line; stty size" }, 10, 6, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh", "-c", "stty size; IFS= read -r line; stty size" }, 10, 6, { TERM = "xterm-kiwi" })
   local transcript = ""
   local resized = false
   local status
@@ -133,7 +133,7 @@ test("terminal_generated_response_returns_through_pty", function()
 end)
 
 test("pty_interactive_shell_accepts_input_and_exits", function()
-  local pty = Pty.spawn({ "/bin/sh" }, 20, 4, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh" }, 20, 4, { TERM = "xterm-kiwi" })
   pty:enqueue("printf 'typed-from-pty\\n'\nexit\n")
   pty:flush()
   local transcript = ""
@@ -153,7 +153,7 @@ test("pty_interactive_shell_accepts_input_and_exits", function()
 end)
 
 test("pty_discards_a_terminal_response_after_the_child_closes_its_slave", function()
-  local pty = Pty.spawn({ "/bin/sh", "-c", "stty -echo; printf '\\033[6n'; exit 0" }, 8, 2, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh", "-c", "stty -echo; printf '\\033[6n'; exit 0" }, 8, 2, { TERM = "xterm-kiwi" })
   local transcript = ""
   for _ = 1, 400 do
     transcript = transcript .. pty:read_available()
@@ -169,7 +169,7 @@ test("pty_discards_a_terminal_response_after_the_child_closes_its_slave", functi
 end)
 
 test("pty_ctrl_c_reaches_the_foreground_process_group", function()
-  local pty = Pty.spawn({ "/bin/sh", "-c", "trap 'printf caught-int; exit 0' INT; while :; do sleep 1; done" }, 20, 4, { TERM = "kiwi" })
+  local pty = Pty.spawn({ "/bin/sh", "-c", "trap 'printf caught-int; exit 0' INT; while :; do sleep 1; done" }, 20, 4, { TERM = "xterm-kiwi" })
   ffi.C.usleep(20000)
   pty:enqueue("\3")
   pty:flush()
@@ -189,9 +189,19 @@ test("pty_ctrl_c_reaches_the_foreground_process_group", function()
   Assert.equal(status.code, 0)
 end)
 
+test("pty_shutdown_reaps_a_hup_and_term_resistant_child", function()
+  local pty = Pty.spawn({ "/bin/sh", "-c", "trap '' HUP TERM; while :; do sleep 1; done" }, 20, 4, { TERM = "xterm-kiwi" })
+  ffi.C.usleep(20000)
+  pty:shutdown()
+  Assert.truthy(pty.exited)
+  Assert.equal(pty.exit_status.kind, "signal")
+  Assert.equal(pty.exit_status.signal, 9)
+  Assert.equal(pty.fd, nil)
+end)
+
 test("pty_sessions_keep_input_output_and_lifecycle_isolated", function()
-  local first = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'first:%s' \"$value\"" }, 10, 4, { TERM = "kiwi" })
-  local second = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'second:%s' \"$value\"" }, 17, 5, { TERM = "kiwi" })
+  local first = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'first:%s' \"$value\"" }, 10, 4, { TERM = "xterm-kiwi" })
+  local second = Pty.spawn({ "/bin/sh", "-c", "IFS= read -r value; printf 'second:%s' \"$value\"" }, 17, 5, { TERM = "xterm-kiwi" })
   first:enqueue("alpha\n")
   second:enqueue("beta\n")
   first:flush()
