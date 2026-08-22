@@ -9,12 +9,16 @@ int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes
 int kiwi_cocoa_accessibility_round_trip(void* window);
 typedef struct KiwiCocoaTextInput KiwiCocoaTextInput;
 typedef void (*KiwiCocoaTextInputCallback)(void* userdata, const char* text, size_t text_bytes, int32_t selection_start, int32_t selection_end);
+typedef void (*KiwiCocoaMenuCallback)(void* userdata, uint32_t action);
 KiwiCocoaTextInput* kiwi_cocoa_text_input_new(void* window, KiwiCocoaTextInputCallback preedit, KiwiCocoaTextInputCallback commit, void* userdata);
 void kiwi_cocoa_text_input_destroy(KiwiCocoaTextInput* adapter);
 void kiwi_cocoa_text_input_set_caret(KiwiCocoaTextInput* adapter, double x, double y, double width, double height);
 int kiwi_cocoa_text_input_round_trip(void* window);
 int kiwi_cocoa_text_input_inject_smoke(KiwiCocoaTextInput* adapter);
 int kiwi_cocoa_system_appearance(void* window);
+int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
+void kiwi_cocoa_menu_remove(void* window);
+int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
 const char* kiwi_surface_last_error(void);
 ]]
 
@@ -28,6 +32,21 @@ local Window = {}
 Window.__index = Window
 
 local live_windows = 0
+local cocoa_menu_actions = {
+  [1] = "new-tab",
+  [2] = "new-window",
+  [3] = "next-tab",
+  [4] = "close-pane",
+  [5] = "split-right",
+  [6] = "split-down",
+  [7] = "reload-config",
+  [8] = "move-session-new-window",
+  [9] = "move-session-next-window",
+  [10] = "duplicate-session-new-window",
+  [11] = "duplicate-session-next-window",
+}
+local cocoa_menu_action_ids = {}
+for identifier, name in pairs(cocoa_menu_actions) do cocoa_menu_action_ids[name] = identifier end
 
 local function glfw_error()
   local code = ffi.new("int[1]")
@@ -253,6 +272,29 @@ function Window:system_appearance()
   return nil
 end
 
+function Window:enable_cocoa_menu(handler)
+  if ffi.os ~= "OSX" then return nil, "Cocoa menus are unavailable on this platform" end
+  assert(type(handler) == "function", "Cocoa menu needs an action handler")
+  self.callbacks.cocoa_menu = ffi.cast("KiwiCocoaMenuCallback", function(_, action)
+    local name = cocoa_menu_actions[tonumber(action)]
+    if name == nil then return end
+    local ok, message = pcall(handler, name)
+    if not ok then io.stderr:write("Kiwi Cocoa menu action failed: ", tostring(message), "\n") end
+  end)
+  if native.kiwi_cocoa_menu_install(self.handle, self.callbacks.cocoa_menu, nil) ~= 0 then return true end
+  self.callbacks.cocoa_menu:free()
+  self.callbacks.cocoa_menu = nil
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_menu_invoke_smoke(action)
+  if ffi.os ~= "OSX" then return nil, "Cocoa menus are unavailable on this platform" end
+  local identifier = cocoa_menu_action_ids[action]
+  if identifier == nil then return nil, "Cocoa menu smoke names an unknown action" end
+  if native.kiwi_cocoa_menu_invoke_smoke(self.handle, identifier) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:open_uri(uri)
   assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
   if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
@@ -361,6 +403,7 @@ function Window:destroy()
     self.callbacks.cocoa_commit = nil
   end
   if self.handle ~= nil then
+    if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil
     live_windows = live_windows - 1

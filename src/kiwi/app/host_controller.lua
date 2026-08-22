@@ -812,10 +812,7 @@ function Controller.run(window, host, options)
       return false
     end
 
-    local function handle_workspace_key(key, action, modifiers)
-      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then return false end
-      local product_action = product_actions:lookup(key, modifiers)
-      if product_action == nil then return false end
+    local function handle_product_action(product_action)
       if product_action == "next-tab" then
         focus_next_tab()
         return true
@@ -871,6 +868,19 @@ function Controller.run(window, host, options)
         return true
       end
       return false
+    end
+
+    local function handle_workspace_key(key, action, modifiers)
+      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then return false end
+      local product_action = product_actions:lookup(key, modifiers)
+      return product_action ~= nil and handle_product_action(product_action)
+    end
+
+    if host.set_product_action_handler then
+      local menu_enabled, menu_reason = host.set_product_action_handler(window, function(product_action)
+        if handle_product_action(product_action) then options.application:mark_layout_dirty() end
+      end)
+      if not menu_enabled then io.stderr:write("Kiwi native menu unavailable: ", menu_reason or "unknown error", "\n") end
     end
 
     local pointer_pane_id
