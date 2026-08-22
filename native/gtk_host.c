@@ -17,6 +17,7 @@ typedef void (*KiwiGtkPreeditCallback)(void *userdata, const char *text, size_t 
 typedef void (*KiwiGtkPointerCallback)(void *userdata, int kind, double x, double y, double dx, double dy, uint32_t button, int action, uint32_t modifiers);
 typedef void (*KiwiGtkFocusCallback)(void *userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void *userdata, int width, int height, double scale);
+typedef void (*KiwiGtkProductActionCallback)(void *userdata, uint32_t action);
 
 typedef struct KiwiGtkCallbacks {
   KiwiGtkFocusCallback focus;
@@ -53,6 +54,8 @@ struct KiwiGtkHost {
   KiwiGtkCallbacks callbacks;
   GdkSurface *surface;
   GtkIMContext *im_context;
+  KiwiGtkProductActionCallback product_action;
+  void *product_action_userdata;
   struct wl_surface *presentation_surface;
   struct wl_subsurface *presentation_subsurface;
   struct wp_viewport *presentation_viewport;
@@ -71,6 +74,20 @@ static char kiwi_gtk_error[1024];
 static GtkApplication *kiwi_gtk_application;
 
 enum {
+  KIWI_GTK_PRODUCT_ACTION_NEW_TAB = 1,
+  KIWI_GTK_PRODUCT_ACTION_NEW_WINDOW = 2,
+  KIWI_GTK_PRODUCT_ACTION_NEXT_TAB = 3,
+  KIWI_GTK_PRODUCT_ACTION_CLOSE_PANE = 4,
+  KIWI_GTK_PRODUCT_ACTION_SPLIT_RIGHT = 5,
+  KIWI_GTK_PRODUCT_ACTION_SPLIT_DOWN = 6,
+  KIWI_GTK_PRODUCT_ACTION_RELOAD_CONFIGURATION = 7,
+  KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEW_WINDOW = 8,
+  KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW = 9,
+  KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW = 10,
+  KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW = 11,
+};
+
+enum {
   KIWI_GTK_ACCESSIBILITY_MAXIMUM_BYTES = 64 * 1024,
   KIWI_GTK_NOTIFICATION_BODY_MAXIMUM_BYTES = 1024,
   KIWI_GTK_NOTIFICATION_TITLE_MAXIMUM_BYTES = 128,
@@ -79,6 +96,40 @@ enum {
 
 static void kiwi_gtk_set_error(const char *message);
 static void kiwi_gtk_terminal_accessible_text_init(GtkAccessibleTextInterface *interface);
+
+typedef struct KiwiGtkProductAction {
+  uint32_t identifier;
+  const char *name;
+} KiwiGtkProductAction;
+
+static const KiwiGtkProductAction kiwi_gtk_product_actions[] = {
+  { KIWI_GTK_PRODUCT_ACTION_NEW_TAB, "new-tab" },
+  { KIWI_GTK_PRODUCT_ACTION_NEW_WINDOW, "new-window" },
+  { KIWI_GTK_PRODUCT_ACTION_NEXT_TAB, "next-tab" },
+  { KIWI_GTK_PRODUCT_ACTION_CLOSE_PANE, "close-pane" },
+  { KIWI_GTK_PRODUCT_ACTION_SPLIT_RIGHT, "split-right" },
+  { KIWI_GTK_PRODUCT_ACTION_SPLIT_DOWN, "split-down" },
+  { KIWI_GTK_PRODUCT_ACTION_RELOAD_CONFIGURATION, "reload-config" },
+  { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEW_WINDOW, "move-session-new-window" },
+  { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW, "move-session-next-window" },
+  { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW, "duplicate-session-new-window" },
+  { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW, "duplicate-session-next-window" },
+};
+
+static const KiwiGtkProductAction *kiwi_gtk_product_action(uint32_t identifier) {
+  for (size_t index = 0; index < G_N_ELEMENTS(kiwi_gtk_product_actions); index += 1) {
+    if (kiwi_gtk_product_actions[index].identifier == identifier) return &kiwi_gtk_product_actions[index];
+  }
+  return NULL;
+}
+
+static const KiwiGtkProductAction *kiwi_gtk_product_action_named(const char *name) {
+  if (name == NULL) return NULL;
+  for (size_t index = 0; index < G_N_ELEMENTS(kiwi_gtk_product_actions); index += 1) {
+    if (g_strcmp0(kiwi_gtk_product_actions[index].name, name) == 0) return &kiwi_gtk_product_actions[index];
+  }
+  return NULL;
+}
 
 G_DEFINE_TYPE_WITH_CODE(KiwiGtkTerminal, kiwi_gtk_terminal, GTK_TYPE_DRAWING_AREA,
                         G_IMPLEMENT_INTERFACE(GTK_TYPE_ACCESSIBLE_TEXT,
@@ -332,6 +383,60 @@ enum {
 
 static void kiwi_gtk_set_error(const char *message) {
   snprintf(kiwi_gtk_error, sizeof(kiwi_gtk_error), "%s", message == NULL ? "unknown GTK host error" : message);
+}
+
+static void kiwi_gtk_product_action_activate(GSimpleAction *action, GVariant *parameter,
+                                             gpointer userdata) {
+  (void)parameter;
+  KiwiGtkHost *host = userdata;
+  const KiwiGtkProductAction *product_action =
+      kiwi_gtk_product_action_named(g_action_get_name(G_ACTION(action)));
+  if (host != NULL && product_action != NULL && host->product_action != NULL) {
+    host->product_action(host->product_action_userdata, product_action->identifier);
+  }
+}
+
+static void kiwi_gtk_install_product_menu(GtkApplication *application) {
+  if (gtk_application_get_menubar(application) != NULL) return;
+  GMenu *menubar = g_menu_new();
+  GMenu *file = g_menu_new();
+  GMenu *window = g_menu_new();
+  g_menu_append(file, "New Tab", "win.new-tab");
+  g_menu_append(file, "New Window", "win.new-window");
+  g_menu_append(file, "Reload Configuration", "win.reload-config");
+  g_menu_append_submenu(menubar, "File", G_MENU_MODEL(file));
+  g_menu_append(window, "Next Tab", "win.next-tab");
+  g_menu_append(window, "Close Pane", "win.close-pane");
+  g_menu_append(window, "Split Right", "win.split-right");
+  g_menu_append(window, "Split Down", "win.split-down");
+  g_menu_append(window, "Move Session to New Window", "win.move-session-new-window");
+  g_menu_append(window, "Move Session to Next Window", "win.move-session-next-window");
+  g_menu_append(window, "Duplicate Session to New Window", "win.duplicate-session-new-window");
+  g_menu_append(window, "Duplicate Session to Next Window", "win.duplicate-session-next-window");
+  g_menu_append_submenu(menubar, "Window", G_MENU_MODEL(window));
+  gtk_application_set_menubar(application, G_MENU_MODEL(menubar));
+  g_object_unref(window);
+  g_object_unref(file);
+  g_object_unref(menubar);
+}
+
+static int kiwi_gtk_install_product_actions(KiwiGtkHost *host) {
+  if (host == NULL || host->application == NULL || host->window == NULL) {
+    kiwi_gtk_set_error("GTK product actions need a realized application window");
+    return 0;
+  }
+  GActionMap *actions = G_ACTION_MAP(host->window);
+  for (size_t index = 0; index < G_N_ELEMENTS(kiwi_gtk_product_actions); index += 1) {
+    const char *name = kiwi_gtk_product_actions[index].name;
+    if (g_action_map_lookup_action(actions, name) != NULL) continue;
+    GSimpleAction *action = g_simple_action_new(name, NULL);
+    g_signal_connect(action, "activate", G_CALLBACK(kiwi_gtk_product_action_activate), host);
+    g_action_map_add_action(actions, G_ACTION(action));
+    g_object_unref(action);
+  }
+  kiwi_gtk_install_product_menu(host->application);
+  gtk_application_window_set_show_menubar(GTK_APPLICATION_WINDOW(host->window), TRUE);
+  return 1;
 }
 
 static void kiwi_gtk_wayland_registry_global(void *userdata, struct wl_registry *registry,
@@ -633,12 +738,41 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
 
 void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   if (host == NULL) return;
+  host->product_action = NULL;
+  host->product_action_userdata = NULL;
   if (host->presentation_viewport != NULL) wp_viewport_destroy(host->presentation_viewport);
   if (host->presentation_subsurface != NULL) wl_subsurface_destroy(host->presentation_subsurface);
   if (host->presentation_surface != NULL) wl_surface_destroy(host->presentation_surface);
   if (host->window != NULL) gtk_window_destroy(GTK_WINDOW(host->window));
   if (host->application != NULL) g_object_unref(host->application);
   g_free(host);
+}
+
+int kiwi_gtk_host_set_product_action_handler(KiwiGtkHost *host,
+                                             KiwiGtkProductActionCallback callback,
+                                             void *userdata) {
+  if (host == NULL || callback == NULL) {
+    kiwi_gtk_set_error("GTK product actions need a host and callback");
+    return 0;
+  }
+  host->product_action = callback;
+  host->product_action_userdata = userdata;
+  if (kiwi_gtk_install_product_actions(host)) return 1;
+  host->product_action = NULL;
+  host->product_action_userdata = NULL;
+  return 0;
+}
+
+int kiwi_gtk_host_product_action_invoke_smoke(KiwiGtkHost *host, uint32_t identifier) {
+  const KiwiGtkProductAction *product_action = kiwi_gtk_product_action(identifier);
+  if (host == NULL || product_action == NULL || host->window == NULL ||
+      host->product_action == NULL ||
+      g_action_map_lookup_action(G_ACTION_MAP(host->window), product_action->name) == NULL) {
+    kiwi_gtk_set_error("GTK product-menu smoke needs an installed valid action");
+    return 0;
+  }
+  g_action_group_activate_action(G_ACTION_GROUP(host->window), product_action->name, NULL);
+  return 1;
 }
 
 void kiwi_gtk_host_pump(KiwiGtkHost *host, uint32_t timeout_milliseconds) {

@@ -64,4 +64,12 @@ function Host.notify(window, title, body)
   return window:notify(title, body)
 end
 
+function Host.set_product_action_handler(window, handler)
+  return window:enable_product_action_handler(handler)
+end
+
+function Host.invoke_product_action_smoke(window, action)
+  return window:product_action_invoke_smoke(action)
+end
+
 return Host

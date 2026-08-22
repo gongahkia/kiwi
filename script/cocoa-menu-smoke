@@ -16,4 +16,4 @@ KIWI_LAYOUT_PERSISTENCE=0 \
   KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
   KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
   "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --menu-smoke -- /usr/bin/yes | tee "$log"
-rg -q "Kiwi Cocoa product-menu smoke passed" "$log"
+rg -q "Kiwi native product-menu smoke passed" "$log"
