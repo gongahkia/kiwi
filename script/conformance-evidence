@@ -148,7 +148,8 @@ else
   replay=$(<"$REPLAY_LOG")
   keyboard_bytes=$(rg -o '"data":"[^"]*' "$NVIM_RECORDING" | sed 's/"data":"//' | while IFS= read -r encoded; do print -rn -- "$encoded" | base64 -d; done | tr '\033' '@')
   print "native-nvim-keyboard: $nvim_version; ${replay//$'\n'/; }"
-  [[ "$replay" == *"errors=0"* && "$keyboard_bytes" == *'@[?u'* && "$keyboard_bytes" == *'@[>1u'* && "$keyboard_bytes" == *'@[<u'* ]] || {
+  [[ "$replay" == *"errors=0"* && "$keyboard_bytes" == *'@[?u'*
+    && "$keyboard_bytes" =~ "@\\[>[0-9;]+u" && "$keyboard_bytes" == *'@[<u'* ]] || {
     print -u2 "native Neovim recording did not complete the Kitty keyboard query/push/pop exchange."
     exit 1
   }

@@ -226,7 +226,7 @@ end
 
 function Pty:flush()
   if self.fd == nil then
-    return
+    return false
   end
   while self.pending_offset <= #self.pending do
     local pointer = ffi.cast("const char *", self.pending) + self.pending_offset - 1
@@ -239,6 +239,15 @@ function Pty:flush()
       if error_code == constants.eagain then
         break
       end
+      if error_code == constants.eio then
+        -- A PTY master reports EIO when its slave has closed. A terminal
+        -- response cannot be delivered after that boundary, so do not turn a
+        -- normally exiting child into an application failure.
+        self.eof = true
+        self.pending = ""
+        self.pending_offset = 1
+        return false
+      end
       if error_code ~= constants.eintr then
         error(string.format("PTY write failed: errno %d", error_code))
       end
@@ -248,6 +257,7 @@ function Pty:flush()
     self.pending = ""
     self.pending_offset = 1
   end
+  return true
 end
 
 function Pty:resize(columns, rows)

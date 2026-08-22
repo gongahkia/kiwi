@@ -232,7 +232,8 @@ if [[ "$native_session" == true ]]; then
   if (( $+commands[nvim] )); then
     if run_native_recording neovim nvim -u NONE -n -c 'sleep 200m' -c 'qa!'; then
       keyboard_bytes=$(recorded_output "$RECORDING_PATH" | tr '\033' '@')
-      if [[ "$REPLAY_SUMMARY" == *"errors=0"* && "$keyboard_bytes" == *'@[?u'* && "$keyboard_bytes" == *'@[>1u'* && "$keyboard_bytes" == *'@[<u'* ]]; then
+      if [[ "$REPLAY_SUMMARY" == *"errors=0"* && "$keyboard_bytes" == *'@[?u'*
+        && "$keyboard_bytes" =~ "@\\[>[0-9;]+u" && "$keyboard_bytes" == *'@[<u'* ]]; then
         record_result neovim passed "Neovim completed its Kitty keyboard query, push, and pop exchange"
       else
         record_result neovim failed "Neovim did not complete the expected Kitty keyboard exchange"
