@@ -13,7 +13,12 @@ struct timespec { long tv_sec; long tv_nsec; };
 int clock_gettime(int clock_id, struct timespec *tp);
 ]]
 
-local clock_monotonic = 1
+local clock_ids = {
+  Linux = 1,
+  OSX = 6,
+}
+local clock_monotonic = assert(clock_ids[ffi.os], "real-PTY burst benchmark requires a supported monotonic clock")
+local clock_description = "clock_gettime(CLOCK_MONOTONIC) monotonic wall time"
 
 local function monotonic_seconds()
   local value = ffi.new("struct timespec[1]")
@@ -213,11 +218,18 @@ local file, error_message = io.open(output, "wb")
 if not file then
   error("Unable to create " .. output .. ": " .. error_message .. ". Run through make bench-burst so the results directory exists.")
 end
+local metadata = Environment.collect(timestamp, 1, 0)
+metadata.methodology = {
+  clock = clock_description,
+  scope = "real nonblocking PTY reads, terminal parsing/state updates, terminal-response writes, and bounded live-loop service turns; GPU submission and presentation are excluded",
+  memory = "Lua heap retained delta in KiB after an explicit collection; RSS delta is best-effort and unavailable outside Linux /proc",
+}
 file:write(Json.encode({
-  schema_version = 3,
+  schema_version = 4,
   benchmark = "Kiwi M1.5 real PTY burst service benchmark",
-  metadata = Environment.collect(timestamp, 1, 0),
+  metadata = metadata,
   configuration = {
+    monotonic_clock = clock_description,
     max_heap_kib = max_heap_kib,
     max_service_ms = max_service_ms,
     read_budget_bytes = read_budget,

@@ -29,7 +29,7 @@ KIWI_PROFILE_MODE=ascii_full KIWI_PROFILE_ITERATIONS=10000 make profile-text
 make bench-compare BASELINE=bench/results/baseline.json CANDIDATE=bench/results/candidate.json
 ```
 
-`make bench` defaults to 50 measured iterations and 10 warm-up iterations. It writes schema-version-3 JSON to `bench/results/<UTC timestamp>.json`. `make bench-burst` uses the real nonblocking PTY and writes a separate `*-burst.json` result. Generated results are intentionally not source-controlled.
+`make bench` defaults to 50 measured iterations and 10 warm-up iterations. It writes schema-version-3 JSON to `bench/results/<UTC timestamp>.json`. `make bench-burst` uses the real nonblocking PTY and writes a separate schema-version-4 `*-burst.json` result. Generated results are intentionally not source-controlled.
 
 ## Method and scope
 
@@ -429,7 +429,7 @@ The checked limits are exact defaults, overrideable only for deliberately differ
 - `KIWI_BURST_MAX_SERVICE_MS=250`: a service turn above 250 ms fails the run;
 - `KIWI_BURST_MAX_HEAP_KIB=65536`: retained Lua heap growth above 64 MiB fails the run.
 
-The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
+The harness measures elapsed and per-service-turn time with `clock_gettime(CLOCK_MONOTONIC)`, using the platform ABI value for Linux or macOS. Its JSON metadata explicitly identifies this as monotonic wall time; it is not the `os.clock` CPU timer used by the in-memory component suite. The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
 
 On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
 
