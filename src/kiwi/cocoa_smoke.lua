@@ -24,6 +24,8 @@ local ok, message = xpcall(function()
   require_result(accessibility_ok, "Cocoa accessibility smoke failed: " .. tostring(accessibility_message))
   local text_input_ok, text_input_message = window:cocoa_text_input_round_trip()
   require_result(text_input_ok, "Cocoa text-input smoke failed: " .. tostring(text_input_message))
+  local key_variants = window:cocoa_key_variants(0, string.byte("A"))
+  require_result(key_variants and key_variants.layout_key >= 0x20 and key_variants.shifted_key >= 0x20 and key_variants.base_key == string.byte("a"), "Cocoa current-layout key-variant bridge did not produce a Kitty flag-4 tuple")
   local host_effects = HostEffects.new({ osc9_notifications = "off", osc9_progress = "system" }, GLFWHost, window)
   local progress_handled, progress_status = host_effects:consume({ kind = "progress_changed", value = { progress = 73, state = 1 } })
   require_result(progress_handled and progress_status == "submitted", "Cocoa terminal-progress host policy did not submit the native request")
@@ -70,7 +72,7 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end

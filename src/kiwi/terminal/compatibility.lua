@@ -20,11 +20,11 @@ local Compatibility = {
   partial = {
     "xterm-private-mode-surface",
     "terminfo-256-colour-and-direct-rgb-contract",
+    "kitty-keyboard-flag-4-macos",
     "macos-nsaccessibility-active-pane-projection",
   },
   deferred = {
     "bidi-and-unicode-line-breaking",
-    "kitty-keyboard-flag-4",
     "touch-gesture-and-locator-mouse",
     "sixel-video-and-broader-kitty-graphics",
     "exhaustive-dec-private-modes",

@@ -28,7 +28,7 @@ not inherit an xterm entry or claim unimplemented xterm behavior; see the
 evidence and remaining deployment limits in
 [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
-M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16, PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16 (with flag 4 partial on macOS), PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 ## Linux prerequisites
 

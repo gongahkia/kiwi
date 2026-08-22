@@ -25,7 +25,7 @@ only after a second real consumer requires a documented, testable capability.
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
-| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the window, event loop, custom tab/split workspace, and Metal surface. AppKit supplies the global main menu, `NSTextInputClient`, pasteboard, and `NSAccessibility` bridges. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, Cocoa/Metal surface, and release launcher. Native menu interaction, window lifecycle, VoiceOver, IME, and product chrome remain manual or unimplemented. |
+| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the window, event loop, custom tab/split workspace, and Metal surface. AppKit supplies the global main menu, `NSTextInputClient`, pasteboard, `NSAccessibility`, and current-layout key-variant bridges for Kitty flag 4. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, Cocoa/Metal surface, and release launcher. Native menu interaction, window lifecycle, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
 | Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. Interactive menu behavior, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
