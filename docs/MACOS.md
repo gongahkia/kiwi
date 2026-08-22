@@ -43,6 +43,8 @@ macOS evidence remains Apple Silicon.
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
 private AppKit pasteboard, checks the bounded `NSAccessibilityTextArea`
 projection and `NSTextInputClient` marked/commit/candidate-rectangle lifecycle,
+constructs the Cocoa global main menu and dispatches one logical action through
+its C-to-Lua callback bridge,
 creates two independent Cocoa/Metal surfaces, moves one live PTY
 between them, writes and restores a bounded tab/split topology with fresh
 shells, resizes the primary drawable after the second window closes, then

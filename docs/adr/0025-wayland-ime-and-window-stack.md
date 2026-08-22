@@ -1,9 +1,17 @@
 # ADR 0025: Wayland IME and window-stack boundary
 
+> **Scope update (2026-08-22).** This decision applies to Kiwi's default GLFW
+> Linux route. A separate GTK4 host now owns a `GtkIMMulticontext` lifecycle
+> (preedit, commit, focus reset, and cursor rectangle) for its terminal widget.
+> That host does not make GLFW's public Wayland input API richer, and its real
+> IME qualification remains partial. The decision below therefore remains the
+> boundary for a future **GLFW/Wayland** text-input bridge, not a statement that
+> all Linux Kiwi hosts lack IME handling.
+
 ## Context
 
-Kiwi uses GLFW 3.4 as its Linux window and input owner. The current platform
-window installs physical-key and Unicode character callbacks only; its FFI
+Kiwi's default Linux route uses GLFW 3.4 as its window and input owner. That
+platform window installs physical-key and Unicode character callbacks only; its FFI
 declarations expose no preedit, composition, text-input focus, cursor-rectangle,
 or IME callback. GLFW's character stream is appropriate for committed text and
 dead keys, but it cannot represent an in-progress composition.
@@ -29,12 +37,13 @@ public input API.
 
 ## Decision
 
-Retain GLFW as the window, event-loop, clipboard, HiDPI, and surface owner.
-Do not replace it or create a separate Wayland display connection. Add a future
-main-thread `platform.text_input` bridge only when its validation prerequisites
-are met. It must be selected after `glfwGetPlatform()` confirms Wayland and use
-the GLFW-owned `wl_display` and `wl_surface` through a small compiled bridge;
-LuaJIT must not own Wayland listener layouts or dispatch a parallel event loop.
+For the GLFW route, retain GLFW as the window, event-loop, clipboard, HiDPI,
+and surface owner. Do not create a separate Wayland display connection. Add a
+future main-thread `platform.text_input` bridge only when its validation
+prerequisites are met. It must be selected after `glfwGetPlatform()` confirms
+Wayland and use the GLFW-owned `wl_display` and `wl_surface` through a small
+compiled bridge; LuaJIT must not own Wayland listener layouts or dispatch a
+parallel event loop.
 
 The portable internal boundary is an event sink rather than a window rewrite:
 
@@ -73,7 +82,7 @@ mid-code-point ranges, applies no commit before `done`, and clears state on
 leave. It has no window, Wayland, renderer, or PTY wiring and is not a claim of
 IME support.
 
-The production implementation boundary, if approved, is:
+The remaining GLFW production implementation boundary, if approved, is:
 
 - `platform/window.lua`: owns backend construction/destruction and forwards
   focus/resize/content-scale changes.
@@ -102,9 +111,10 @@ The production implementation boundary, if approved, is:
 
 ## Consequences and follow-up decision
 
-This is a research decision, not a production feature. No new window stack,
-Wayland protocol dependency, preedit renderer pass, or user-visible IME option
-is added. Existing GLFW character input remains unchanged.
+This remains a research decision for GLFW, not a production GLFW feature. No
+new GLFW window stack or Wayland protocol dependency is added; existing GLFW
+character input remains unchanged. GTK's separate host implementation is
+outside this ADR's GLFW decision boundary.
 
 An implementation follow-up is explicitly declined for now. The detached spike
 is validated, but live IBus/Fcitx composition delivery, candidate placement at

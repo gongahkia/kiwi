@@ -1,7 +1,10 @@
 # Native host architecture
 
 Kiwi's Ghostty-parity direction is native application chrome on macOS and
-Linux, not a larger custom GLFW workspace. The current GLFW application remains
+Linux, not a larger custom GLFW workspace. That is a direction, not a claim
+that a full native host already exists. The current product route is still a
+GLFW-owned window, event loop, workspace, and renderer. It has targeted Cocoa
+bridges on macOS, while GTK4 is a separate, partial Linux host. GLFW remains
 the reference renderer and development harness until each native host passes
 the same terminal qualification gates.
 
@@ -22,7 +25,7 @@ only after a second real consumer requires a documented, testable capability.
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
-| macOS arm64 | AppKit | NSWindow/menus/tabs, NSTextInputClient, NSAccessibility, lifecycle and recovery | build, launch, IME, VoiceOver contract, tabs/splits, and release-bundle checks |
+| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the window, event loop, custom tab/split workspace, and Metal surface. AppKit supplies the global main menu, `NSTextInputClient`, pasteboard, and `NSAccessibility` bridges. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, Cocoa/Metal surface, and release launcher. Native menu interaction, window lifecycle, VoiceOver, IME, and product chrome remain manual or unimplemented. |
 | Linux x86_64 | GTK4 | application/window integration, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME callback, and accessible-text bridge runs pass. Interactive IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
@@ -32,13 +35,20 @@ native text widget or a replacement renderer.
 
 1. The internal facade and host-owned WGPU-surface contract are implemented.
    GLFW remains the reference consumer.
-2. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
+2. The GLFW Cocoa route adds bounded AppKit bridges without becoming an AppKit
+   host: `NSMenu` items dispatch the same logical actions as the configured
+   local action map; `NSTextInputClient`, private pasteboard, and
+   `NSAccessibility` remain attached to the GLFW Cocoa view. It does **not**
+   own `NSWindow`, native tab/split chrome, a settings surface, automation, or
+   menu keyboard equivalents. `make cocoa-smoke` verifies the bridge structure
+   and C-to-Lua action callback, but not a user choosing every menu item.
+3. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
    reads/writes,
    URI opening, and the existing GPU-rendered terminal content. `make
    gtk-host-check` validates its independent bridge ABI without a display.
-3. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
+4. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical
    content size, keeping GTK responsible for fractional scale. GTK text input
@@ -50,9 +60,9 @@ native text widget or a replacement renderer.
    gtk-wayland-multi-window-smoke`, `make gtk-input-smoke`, and `make
    gtk-accessibility-smoke` to repeat those checks. Real IME, public
    clipboard, scaled-monitor, and Orca qualification remains required before
-   adding AppKit. Each later adapter owns its event loop and drawing surface;
-   neither calls terminal-state internals.
-4. Promote a host only after it passes the daily-driver corpus on its native
+   adding a full AppKit host. Each later adapter owns its event loop and drawing
+   surface; neither calls terminal-state internals.
+5. Promote a host only after it passes the daily-driver corpus on its native
    platform. GLFW is then retained as a test/demo harness, not the product UI.
 
 Windows remains out of scope until its existing ConPTY/DX12 feasibility matrix
