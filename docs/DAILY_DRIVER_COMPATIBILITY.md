@@ -90,9 +90,10 @@ command for daily-driver surfaces. It builds the native bridge and local
 terminfo, then checks tmux's nested TERM contract; Bash, Zsh, fish, and
 Nushell OSC 7/133 integration when installed; native shell-metadata and OSC 8
 record/replay; Neovim's Kitty keyboard negotiation; Vim mouse-mode startup;
-and the host `top` TUI. Where a native graphical session is available it also
-runs bounded compositor readback for a non-palette terminal RGB background. A
-provided `--ssh-host` (or
+and the host `top` TUI. Each native capture is revalidated as captured, one
+byte at a time, and with eight deterministic randomized output chunk layouts.
+Where a native graphical session is available it also runs bounded compositor
+readback for a non-palette terminal RGB background. A provided `--ssh-host` (or
 `KIWI_COMPAT_SSH_HOST`) enables the fixed `kiwi-ssh --probe` workflow: it
 uploads the local private terminfo entry then confirms `infocmp kiwi` and
 `tput colors` on that controlled remote host.

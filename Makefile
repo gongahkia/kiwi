@@ -133,7 +133,7 @@ device-loss-sim: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP device-loss simulation: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_SIMULATE_DEVICE_LOSS_FRAME=$${KIWI_SIMULATE_DEVICE_LOSS_FRAME:-5} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua -- /usr/bin/yes; fi
 
 replay:
-	$(LUAJIT) src/kiwi/replay.lua $(REPLAY)
+	$(LUAJIT) src/kiwi/replay.lua $(REPLAY_ARGS) $(REPLAY)
 
 vttest: native terminfo
 	@command -v vttest >/dev/null || { echo "vttest is not installed; install it, then run make vttest in an interactive graphical session." >&2; exit 2; }

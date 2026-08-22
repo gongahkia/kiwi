@@ -17,8 +17,11 @@ contract; this corpus defines the evidence required to change it.
 
 `script/daily-driver-compatibility` is the automation entry point. Its
 `--host glfw|gtk` option selects the desktop adapter for native workloads.
-A skipped desktop or remote check is evidence of an unavailable prerequisite,
-never a passing qualification.
+A successful native recording is replayed as captured, one output byte at a
+time, and under eight deterministic randomized output chunk layouts; the final
+screen, parser counters, unknown-control counters, and queued responses must
+match. A skipped desktop or remote check is evidence of an unavailable
+prerequisite, never a passing qualification.
 
 ## Change rule
 
