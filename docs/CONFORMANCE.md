@@ -193,9 +193,23 @@ kept outside the terminal grid, rendered as a transient underlined preedit
 overlay, committed through the same PTY input boundary, and anchored to the
 active cursor for the candidate window. The native bridge caps each marked or
 committed UTF-8 payload at 1,024 bytes and cancels preedit on focus/pane
-changes. Linux still has no production Wayland text-input lifecycle. The shared
-bounded composition state machine and the remaining Wayland boundary are
-documented in [ADR 0025](adr/0025-wayland-ime-and-window-stack.md).
+changes.
+
+Linux's default GLFW host has no native Wayland text-input lifecycle. The
+separate GTK4 host does implement one through `GtkIMMulticontext`: it attaches
+the context to the terminal widget, validates bounded 1,024-byte UTF-8 preedit
+and commit callbacks, resets the context on focus loss, and supplies the active
+cursor rectangle for candidate placement. Its Lua host adapter preserves the
+same key/text correlation and routes preedit through the transient composition
+overlay and commits through the PTY input boundary. `make gtk-input-smoke`
+checks that native/Lua callback boundary, but it does not qualify a real Linux
+input source, compositor candidate UI, focus/cancellation behavior, or
+Kitty-keyboard interaction. The Linux status is therefore partial and still
+requires the manual desktop qualification recorded in
+[NATIVE_HOSTS.md](NATIVE_HOSTS.md) and
+[DAILY_DRIVER_COMPATIBILITY.md](DAILY_DRIVER_COMPATIBILITY.md).
+[ADR 0025](adr/0025-wayland-ime-and-window-stack.md) records the shared
+bounded composition model and the remaining GLFW/Wayland boundary.
 
 ## Selection model
 
