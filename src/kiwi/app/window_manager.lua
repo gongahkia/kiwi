@@ -22,6 +22,21 @@ local function clear_one_shot_smokes(options)
   options.toolbar_smoke = false
 end
 
+local function window_request(manager, request)
+  if request == nil then return { kind = "standalone" } end
+  if type(request) ~= "table" then return nil, "invalid-window-request" end
+  if request.kind == "standalone" and request.source_controller_id == nil then
+    return { kind = "standalone" }
+  end
+  if request.kind ~= "host-tab" then return nil, "invalid-window-request" end
+  local source_controller_id = request.source_controller_id
+  if type(source_controller_id) ~= "number" or source_controller_id < 1 or source_controller_id % 1 ~= 0 then
+    return nil, "invalid-source-window"
+  end
+  if manager:controller(source_controller_id) == nil then return nil, "unknown-source-window" end
+  return { kind = "host-tab", source_controller_id = source_controller_id }
+end
+
 function Manager.new(run_window, options, dependencies)
   assert(type(run_window) == "function", "live window manager needs a window controller")
   options = options or {}
@@ -144,6 +159,7 @@ function Manager:move_active_to_new_window(source_id)
   options.geometry = moved_window_geometry(source.adapter)
   options.moved_session = session
   options.host_tab = false
+  options.host_tab_source_id = nil
   options.transfer_source_id = source.id
   options.workspace_smoke = false
   options.multi_window_smoke_requester = false
@@ -215,15 +231,18 @@ function Manager:_restore_failed_transfer(controller)
   end
 end
 
-function Manager:request_window(configuration_path, host_tab)
+function Manager:request_window(configuration_path, request)
   if self.options.record then return nil, "new windows are unavailable while --record is active" end
+  local intent, intent_reason = window_request(self, request)
+  if intent == nil then return nil, intent_reason end
   local options = copy_options(self.options)
   options.application = self
   options.command = nil
   options.multi_window_smoke_requester = false
   options.session_move_smoke_requester = false
   options.workspace_smoke = false
-  options.host_tab = host_tab == true
+  options.host_tab = intent.kind == "host-tab"
+  options.host_tab_source_id = intent.source_controller_id
   clear_one_shot_smokes(options)
   options.config = configuration_path or self.options.config
   local controller, reason = self:_start(options)

@@ -10,7 +10,12 @@ return {
       created = created + 1
       controller_options[created] = options
       local window = { id = created }
-      if created == 1 then assert(options.application:request_window(nil, true)) end
+      if created == 1 then
+        assert(options.application:request_window(nil, {
+          kind = "host-tab",
+          source_controller_id = options.controller_id,
+        }))
+      end
       options.application:await_events(window, 0.001)
     end, { menu_smoke = true, multi_window_smoke = true }, {
       window_api = {
@@ -31,6 +36,7 @@ return {
     assert(controller_options[2].multi_window_smoke_requester == false, "new controllers must not recursively request windows")
     assert(controller_options[2].menu_smoke == false, "new controllers must not repeat one-shot smoke actions")
     assert(controller_options[2].host_tab == true, "native-tab requests must retain their explicit host intent")
+    assert(controller_options[2].host_tab_source_id == controller_options[1].controller_id, "native-tab requests must retain their source controller")
     assert(waits == 2 and polls == 2, "each controller turn should share one platform event wait and poll")
     assert(manager:window_count() == 0, "ended controllers must leave the manager")
   end,
@@ -54,6 +60,18 @@ return {
     local manager = Manager.new(function() end, {})
     assert(manager:request_window())
     assert(manager.controllers[1].options.host_tab == false)
+    assert(manager.controllers[1].options.host_tab_source_id == nil)
+  end,
+  live_window_manager_validates_host_tab_source_identity = function()
+    local manager = Manager.new(function() end, {})
+    local opened, reason = manager:request_window(nil, true)
+    assert(opened == nil and reason == "invalid-window-request")
+    opened, reason = manager:request_window(nil, { kind = "host-tab", source_controller_id = 1 })
+    assert(opened == nil and reason == "unknown-source-window")
+    local source = assert(manager:_start({}))
+    assert(manager:request_window(nil, { kind = "host-tab", source_controller_id = source.id }))
+    assert(manager.controllers[2].options.host_tab == true)
+    assert(manager.controllers[2].options.host_tab_source_id == source.id)
   end,
 
   live_window_manager_transfers_live_sessions_transactionally_and_persists_topology = function()
