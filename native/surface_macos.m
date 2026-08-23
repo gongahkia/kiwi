@@ -67,7 +67,7 @@ enum {
 @implementation KiwiCocoaProgressRegistration
 @end
 
-@interface KiwiCocoaMenuDispatcher : NSObject
+@interface KiwiCocoaMenuDispatcher : NSObject <NSToolbarDelegate>
 - (void)invokeAction:(id)sender;
 @end
 
@@ -102,6 +102,13 @@ static KiwiCocoaAutomationRegistration *kiwi_cocoa_active_automation_registratio
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
 static NSWindow *kiwi_cocoa_tab_group_leader;
+
+static NSString *const KIWI_COCOA_TOOLBAR_IDENTIFIER = @"io.github.gongahkia.kiwi.toolbar";
+static NSString *const KIWI_COCOA_TOOLBAR_NEW_TAB = @"io.github.gongahkia.kiwi.toolbar.new-tab";
+static NSString *const KIWI_COCOA_TOOLBAR_SPLIT_RIGHT = @"io.github.gongahkia.kiwi.toolbar.split-right";
+static NSString *const KIWI_COCOA_TOOLBAR_SPLIT_DOWN = @"io.github.gongahkia.kiwi.toolbar.split-down";
+static NSString *const KIWI_COCOA_TOOLBAR_COMMAND_PALETTE = @"io.github.gongahkia.kiwi.toolbar.command-palette";
+static NSString *const KIWI_COCOA_TOOLBAR_SETTINGS = @"io.github.gongahkia.kiwi.toolbar.settings";
 
 static int kiwi_cocoa_key_scalar(const UniChar *characters, UniCharCount length, uint32_t *output) {
   if (characters == NULL || output == NULL || length == 0 || length > 2) return 0;
@@ -515,6 +522,26 @@ static KiwiCocoaAutomationRegistration *kiwi_cocoa_automation_registration_for_w
   return window == nil ? nil : [kiwi_cocoa_automation_registrations objectForKey:[NSValue valueWithPointer:window]];
 }
 
+static uint32_t kiwi_cocoa_toolbar_action(NSString *identifier) {
+  if ([identifier isEqualToString:KIWI_COCOA_TOOLBAR_NEW_TAB]) return KIWI_COCOA_MENU_NEW_TAB;
+  if ([identifier isEqualToString:KIWI_COCOA_TOOLBAR_SPLIT_RIGHT]) return KIWI_COCOA_MENU_SPLIT_RIGHT;
+  if ([identifier isEqualToString:KIWI_COCOA_TOOLBAR_SPLIT_DOWN]) return KIWI_COCOA_MENU_SPLIT_DOWN;
+  if ([identifier isEqualToString:KIWI_COCOA_TOOLBAR_COMMAND_PALETTE]) return KIWI_COCOA_MENU_COMMAND_PALETTE;
+  if ([identifier isEqualToString:KIWI_COCOA_TOOLBAR_SETTINGS]) return KIWI_COCOA_MENU_OPEN_CONFIGURATION;
+  return 0;
+}
+
+static NSString *kiwi_cocoa_toolbar_label(uint32_t action) {
+  switch (action) {
+    case KIWI_COCOA_MENU_NEW_TAB: return @"New Tab";
+    case KIWI_COCOA_MENU_SPLIT_RIGHT: return @"Split Right";
+    case KIWI_COCOA_MENU_SPLIT_DOWN: return @"Split Down";
+    case KIWI_COCOA_MENU_COMMAND_PALETTE: return @"Commands";
+    case KIWI_COCOA_MENU_OPEN_CONFIGURATION: return @"Settings";
+    default: return nil;
+  }
+}
+
 @implementation KiwiCocoaMenuDispatcher
 - (void)windowDidBecomeKey:(NSNotification *)notification {
   KiwiCocoaMenuRegistration *registration = kiwi_cocoa_menu_registration_for_window(notification.object);
@@ -522,10 +549,10 @@ static KiwiCocoaAutomationRegistration *kiwi_cocoa_automation_registration_for_w
 }
 
 - (void)invokeAction:(id)sender {
-  if (![sender isKindOfClass:[NSMenuItem class]]) return;
-  NSNumber *number = [(NSMenuItem *)sender representedObject];
-  if (![number isKindOfClass:[NSNumber class]]) return;
-  uint32_t action = number.unsignedIntValue;
+  if (sender == nil || ![sender respondsToSelector:@selector(tag)]) return;
+  NSInteger tag = [sender tag];
+  if (tag <= 0 || tag > UINT32_MAX) return;
+  uint32_t action = (uint32_t)tag;
   if (!kiwi_cocoa_menu_action_is_valid(action)) return;
   NSWindow *key_window = NSApp.keyWindow ?: NSApp.mainWindow;
   KiwiCocoaMenuRegistration *registration = kiwi_cocoa_menu_registration_for_window(key_window);
@@ -533,6 +560,48 @@ static KiwiCocoaAutomationRegistration *kiwi_cocoa_automation_registration_for_w
   if (registration != nil && registration->callback != NULL) {
     registration->callback(registration->userdata, action);
   }
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar {
+  (void)toolbar;
+  return @[
+      KIWI_COCOA_TOOLBAR_NEW_TAB,
+      KIWI_COCOA_TOOLBAR_SPLIT_RIGHT,
+      KIWI_COCOA_TOOLBAR_SPLIT_DOWN,
+      KIWI_COCOA_TOOLBAR_COMMAND_PALETTE,
+      KIWI_COCOA_TOOLBAR_SETTINGS,
+      NSToolbarFlexibleSpaceItemIdentifier,
+  ];
+}
+
+- (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
+  (void)toolbar;
+  return @[
+      KIWI_COCOA_TOOLBAR_NEW_TAB,
+      KIWI_COCOA_TOOLBAR_SPLIT_RIGHT,
+      KIWI_COCOA_TOOLBAR_SPLIT_DOWN,
+      NSToolbarFlexibleSpaceItemIdentifier,
+      KIWI_COCOA_TOOLBAR_COMMAND_PALETTE,
+      KIWI_COCOA_TOOLBAR_SETTINGS,
+  ];
+}
+
+- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar
+    itemForItemIdentifier:(NSToolbarItemIdentifier)identifier
+willBeInsertedIntoToolbar:(BOOL)willBeInserted {
+  (void)toolbar;
+  (void)willBeInserted;
+  uint32_t action = kiwi_cocoa_toolbar_action(identifier);
+  NSString *label = kiwi_cocoa_toolbar_label(action);
+  if (label == nil) return nil;
+  NSToolbarItem *item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+  item.label = label;
+  item.paletteLabel = label;
+  item.toolTip = label;
+  item.tag = (NSInteger)action;
+  item.target = self;
+  item.action = @selector(invokeAction:);
+  return item;
 }
 @end
 
@@ -638,8 +707,21 @@ static NSMenuItem *kiwi_cocoa_menu_item(NSString *title, uint32_t action) {
   NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:title action:@selector(invokeAction:)
                                             keyEquivalent:@""] autorelease];
   item.target = kiwi_cocoa_menu_dispatcher;
-  item.representedObject = [NSNumber numberWithUnsignedInt:action];
+  item.tag = (NSInteger)action;
   return item;
+}
+
+static void kiwi_cocoa_install_window_toolbar(NSWindow *window) {
+  if (window == nil || kiwi_cocoa_menu_dispatcher == nil) return;
+  NSToolbar *existing = window.toolbar;
+  if ([existing.identifier isEqualToString:KIWI_COCOA_TOOLBAR_IDENTIFIER]) return;
+  NSToolbar *toolbar = [[NSToolbar alloc] initWithIdentifier:KIWI_COCOA_TOOLBAR_IDENTIFIER];
+  toolbar.delegate = kiwi_cocoa_menu_dispatcher;
+  toolbar.allowsUserCustomization = NO;
+  toolbar.autosavesConfiguration = NO;
+  toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
+  window.toolbar = toolbar;
+  [toolbar release];
 }
 
 static void kiwi_cocoa_install_main_menu(void) {
@@ -706,10 +788,37 @@ int kiwi_cocoa_menu_install(GLFWwindow *window, KiwiCocoaMenuCallback callback, 
     registration->callback = callback;
     registration->userdata = userdata;
     [kiwi_cocoa_menu_registrations setObject:registration forKey:key];
+    kiwi_cocoa_install_window_toolbar(glfwGetCocoaWindow(window));
     if (NSApp.keyWindow == glfwGetCocoaWindow(window) || kiwi_cocoa_active_menu_registration == nil) {
       kiwi_cocoa_active_menu_registration = registration;
     }
     [registration release];
+    return 1;
+  }
+}
+
+int kiwi_cocoa_toolbar_invoke_smoke(GLFWwindow *window, uint32_t action) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || !kiwi_cocoa_menu_action_is_valid(action)) {
+      kiwi_surface_set_error("Cocoa toolbar smoke received an invalid action");
+      return 0;
+    }
+    KiwiCocoaMenuRegistration *registration = kiwi_cocoa_menu_registration(window);
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    NSToolbarItem *item = nil;
+    for (NSToolbarItem *candidate in native_window.toolbar.items) {
+      if ((uint32_t)candidate.tag == action) {
+        item = candidate;
+        break;
+      }
+    }
+    if (registration == nil || registration->callback == NULL || item == nil ||
+        native_window.toolbar.delegate != kiwi_cocoa_menu_dispatcher) {
+      kiwi_surface_set_error("Cocoa toolbar smoke needs an installed native toolbar action");
+      return 0;
+    }
+    kiwi_cocoa_active_menu_registration = registration;
+    [kiwi_cocoa_menu_dispatcher invokeAction:item];
     return 1;
   }
 }

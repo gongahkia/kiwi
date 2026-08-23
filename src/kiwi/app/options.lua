@@ -23,7 +23,7 @@ local function option_value(arguments, index, option)
 end
 
 local function option_summary()
-  return "--version, --demo, --config PATH, --theme NAME, --theme-file PATH, --appearance system|dark|light, --font-family NAME, --font-size POINTS, --scrollback-limit ROWS, --shell-integration auto|none, --no-extensions, --workspace-smoke, --menu-smoke, --palette-smoke, --automation-smoke, --key-sequence-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]"
+  return "--version, --demo, --config PATH, --theme NAME, --theme-file PATH, --appearance system|dark|light, --font-family NAME, --font-size POINTS, --scrollback-limit ROWS, --shell-integration auto|none, --no-extensions, --workspace-smoke, --menu-smoke, --toolbar-smoke, --palette-smoke, --automation-smoke, --key-sequence-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]"
 end
 
 function Options.parse(arguments, environment, release_mode)
@@ -56,6 +56,8 @@ function Options.parse(arguments, environment, release_mode)
       options.workspace_smoke = true
     elseif value == "--menu-smoke" then
       options.menu_smoke = true
+    elseif value == "--toolbar-smoke" then
+      options.toolbar_smoke = true
     elseif value == "--palette-smoke" then
       options.palette_smoke = true
     elseif value == "--automation-smoke" then
@@ -99,8 +101,8 @@ function Options.parse(arguments, environment, release_mode)
     options.layout_persistence = false
     options.layout_restore = false
   end
-  if (options.workspace_smoke or options.menu_smoke or options.palette_smoke or options.automation_smoke or options.key_sequence_smoke) and environment("KIWI_LAYOUT_PERSISTENCE") == nil then options.layout_persistence = false end
-  if (options.workspace_smoke or options.menu_smoke or options.palette_smoke or options.automation_smoke or options.key_sequence_smoke) and environment("KIWI_LAYOUT_RESTORE") == nil then options.layout_restore = false end
+  if (options.workspace_smoke or options.menu_smoke or options.toolbar_smoke or options.palette_smoke or options.automation_smoke or options.key_sequence_smoke) and environment("KIWI_LAYOUT_PERSISTENCE") == nil then options.layout_persistence = false end
+  if (options.workspace_smoke or options.menu_smoke or options.toolbar_smoke or options.palette_smoke or options.automation_smoke or options.key_sequence_smoke) and environment("KIWI_LAYOUT_RESTORE") == nil then options.layout_restore = false end
   return options
 end
 

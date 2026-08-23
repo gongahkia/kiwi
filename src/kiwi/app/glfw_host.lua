@@ -76,6 +76,10 @@ if ffi.os == "OSX" then
     return window:cocoa_menu_invoke_smoke(action)
   end
 
+  function Host.invoke_toolbar_action_smoke(window, action)
+    return window:cocoa_toolbar_invoke_smoke(action)
+  end
+
   function Host.set_automation_action_handler(window, handler)
     return window:enable_cocoa_automation(handler)
   end

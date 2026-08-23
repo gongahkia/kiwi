@@ -22,6 +22,7 @@ int kiwi_cocoa_system_appearance(void* window);
 int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_toolbar_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_automation_install(void* window, KiwiCocoaAutomationCallback callback, void* userdata);
 void kiwi_cocoa_automation_remove(void* window);
 int kiwi_cocoa_automation_invoke_smoke(void* window, uint32_t action);
@@ -329,6 +330,14 @@ function Window:cocoa_menu_invoke_smoke(action)
   local identifier = cocoa_menu_action_ids[action]
   if identifier == nil then return nil, "Cocoa menu smoke names an unknown action" end
   if native.kiwi_cocoa_menu_invoke_smoke(self.handle, identifier) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_toolbar_invoke_smoke(action)
+  if ffi.os ~= "OSX" then return nil, "Cocoa toolbars are unavailable on this platform" end
+  local identifier = cocoa_menu_action_ids[action]
+  if identifier == nil then return nil, "Cocoa toolbar smoke names an unknown action" end
+  if native.kiwi_cocoa_toolbar_invoke_smoke(self.handle, identifier) ~= 0 then return true end
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
