@@ -500,7 +500,10 @@ function Window:destroy()
     assert(live_windows >= 0, "GLFW window lifetime underflow")
     if live_windows == 0 then glfw.lib.glfwTerminate() end
   end
-  for name, callback in pairs(self.callbacks) do
+  local callback_names = {}
+  for name in pairs(self.callbacks) do callback_names[#callback_names + 1] = name end
+  for _, name in ipairs(callback_names) do
+    local callback = self.callbacks[name]
     if callback ~= nil then callback:free(); self.callbacks[name] = nil end
   end
 end

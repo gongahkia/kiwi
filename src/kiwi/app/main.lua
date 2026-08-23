@@ -27,6 +27,8 @@ local function parse_options()
       options.workspace_smoke = true
     elseif value == "--menu-smoke" then
       options.menu_smoke = true
+    elseif value == "--palette-smoke" then
+      options.palette_smoke = true
     elseif value == "--multi-window-smoke" then
       options.multi_window_smoke = true
     elseif value == "--session-move-smoke" then
@@ -56,7 +58,7 @@ local function parse_options()
       end
       break
     else
-      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --menu-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]")
+      error("unknown option: " .. value .. "; use --version, --demo, --config PATH, --no-extensions, --workspace-smoke, --menu-smoke, --palette-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]")
     end
     index = index + 1
   end
@@ -64,8 +66,8 @@ local function parse_options()
     options.layout_persistence = false
     options.layout_restore = false
   end
-  if (options.workspace_smoke or options.menu_smoke) and os.getenv("KIWI_LAYOUT_PERSISTENCE") == nil then options.layout_persistence = false end
-  if (options.workspace_smoke or options.menu_smoke) and os.getenv("KIWI_LAYOUT_RESTORE") == nil then options.layout_restore = false end
+  if (options.workspace_smoke or options.menu_smoke or options.palette_smoke) and os.getenv("KIWI_LAYOUT_PERSISTENCE") == nil then options.layout_persistence = false end
+  if (options.workspace_smoke or options.menu_smoke or options.palette_smoke) and os.getenv("KIWI_LAYOUT_RESTORE") == nil then options.layout_restore = false end
   return options
 end
 
