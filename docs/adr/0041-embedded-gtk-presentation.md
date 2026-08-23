@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted architecture; first renderer boundary implemented. The current GTK
-host remains a single-controller, toplevel-WGPU development host. It must not
-advertise native tabs before this ADR's acceptance gates pass.
+Accepted architecture; an experimental single-terminal GtkGLArea presentation
+route is implemented. The default GTK host remains the toplevel-WGPU
+development host. Neither route advertises GTK-native tabs before this ADR's
+acceptance gates pass.
 
 ## Context
 
@@ -89,19 +90,19 @@ the WGPU acquire/configure/submit/present/release lifecycle; the current
 host-window orchestration from WGPU surface ownership and makes resource
 finalization explicit on both encode and present failures.
 
-The checkpoint deliberately is not a generic renderer API: pass preparation,
-GPU resources, glyph atlas, Kitty-image composition, and pass encoding still
-use WGPU. A future `GtkGLArea` OpenGL adapter must consume a platform-neutral
-prepared terminal/render model and implement its own frame type and encoder; it
-must not emulate the current frame by passing GTK handles through the terminal
-manager. The compositor lifecycle is a prerequisite for that extraction, not
-evidence that an OpenGL GTK renderer or native GTK tabs exist.
+The checkpoint deliberately is not a generic renderer API: WGPU retains its
+own pass preparation, GPU resources, Kitty-image composition, and encoder.
+The experimental `GtkGLArea` OpenGL renderer consumes the extracted packed
+prepared-frame model with its own snapshot, resource, and render callback
+owners; it does not pass GTK handles through the terminal manager. The
+compositor lifecycle remains WGPU-specific and is not evidence of native GTK
+tabs or full renderer parity.
 
 Focused lifecycle tests cover acquire/abort/present ownership, present failure,
 and the WGPU queue command-buffer array ABI. Compositor tests cover opaque
 frame ordering and abort-on-encode-failure. The live Cocoa smoke has exercised
 the WGPU implementation through actual Metal resize and presentation. These
-checks do not qualify the later GTK adapter or a Linux desktop.
+checks do not qualify the current GTK adapter or a Linux desktop.
 
 ### Prepared render-model boundary
 
@@ -165,26 +166,35 @@ of an OpenGL backend or complete backend-neutral image rendering.
 
 ### GTK execution and lifetime rules
 
-The host now supplies an opt-in lifecycle probe with one `GtkGLArea` below its
-accessible terminal root. It has no terminal draw calls: it establishes the
-GTK-owned realize/render/unrealize boundary, records context generations and
-render callbacks, and is qualified only by `make gtk-gl-area-smoke` in a real
-Linux graphical session. It deliberately does not alter the WGPU presenter or
-claim an embedded terminal renderer.
+The host supplies an opt-in lifecycle probe with one `GtkGLArea` below its
+accessible terminal root. It establishes the GTK-owned realize/render/unrealize
+boundary, records context generations and render callbacks, and is qualified
+only by `make gtk-gl-area-smoke` in a real Linux graphical session. The default
+presenter remains WGPU.
 
 The GTK bridge now also builds a private OpenGL renderer against that ABI. Its
 first executable stage accepts a complete bounded snapshot and draws cell
 backgrounds, selection/search ranges, alpha-atlas glyphs, and cursor geometry.
 The probe submits a known RGB cell first in C and then a second complete
 cell/glyph/atlas snapshot through the LuaJIT FFI, requiring the GL renderer to
-acknowledge each revision after a render callback. It deliberately is not wired
-into the application or used to claim Kitty-image, color-management, resize,
-or pacing parity. Command-region and hyperlink decorations have corresponding
-GL pass logic but no graphical-session evidence yet. This gives the later
-adapter an actual GL resource, shader, ordered semantic pass, and deep-copy
-submission owner without making partial output look like a terminal. The next
-integration milestone is a non-WGPU GTK controller path that submits those
-snapshots, then adds Kitty image layers with the same ordering rules.
+acknowledge each revision after a render callback. `KIWI_GTK_PRESENTER=gl`
+selects `gtk_gl_controller`: an experimental, one-terminal application route
+that drives this renderer from the real VT, PTY, shaping, keyboard, IME,
+selection, clipboard, accessibility, and resize paths. It disables workspace
+restore/persistence and rejects tabs, splits, window/session transfer,
+recording, and product-menu/palette smokes before creating a terminal. It is
+therefore an integration boundary, not a partial claim for those features.
+
+Its OpenGL pass currently covers cell backgrounds; selection/search overlays;
+atlas-backed shaped glyphs including the available text decorations; command
+region separators; and the cursor. It does not consume `prepared_images`, so
+Kitty images and animations are unavailable. It has no colour-management or
+sRGB qualification, frame pacing/occlusion policy, device-loss recovery,
+fractional-scale evidence, or graphical Linux result yet. Command-region and
+hyperlink decorations have code paths but no graphical-session evidence. The
+new Linux gates are `make gtk-gl-wayland-smoke` and `make gtk-gl-x11-smoke`;
+they prove a bounded PTY-driven terminal reaches the GtkGLArea render callback,
+not visual quality or interactive desktop behaviour.
 
 The full GL adapter will retain that shape: one terminal root widget per
 controller, with the `GtkGLArea` below that root. GTK's main context alone

@@ -66,19 +66,26 @@ opaque acquire/encode/present-or-abort presentation-frame lifecycle rather than
 acquiring and presenting a WGPU surface itself. Today that lifecycle is still
 implemented solely by the WGPU context and the renderer accepts only WGPU
 frames. It establishes explicit frame ownership and failure cleanup, but it
-does not embed rendering in GTK or make the WGPU pass/resource pipeline
-backend-neutral. Its next core layer, `prepared_frame`, now produces bounded
-WGPU-free cells, shaped glyphs, atlas updates, overlays, and uniform data, and
-only clears terminal damage after the current WGPU backend acknowledges the
-uploads. `prepared_images` also produces renderer-neutral decoded Kitty image
-data and visible placements, but GPU residency and all pass encoding remain
-WGPU-specific. [ADR 0041](adr/0041-embedded-gtk-presentation.md) records the
-remaining `GtkGLArea` work. The host now has an opt-in `GtkGLArea` lifecycle
-probe below its accessible terminal root: `make gtk-gl-area-smoke` checks
-realize, render queueing, a context-generation counter, and C/LuaJIT submission
-of a bounded background/glyph/atlas snapshot in a graphical Linux session. It
-does not replace the WGPU presentation path or claim an application terminal
-renderer.
+does not make the WGPU pass/resource pipeline backend-neutral. Its next core
+layer, `prepared_frame`, produces bounded WGPU-free cells, shaped glyphs,
+atlas updates, overlays, and uniform data, and clears terminal damage only
+after a backend acknowledges the uploads. `prepared_images` also produces
+renderer-neutral decoded Kitty image data and visible placements, but GPU
+residency and all pass encoding remain WGPU-specific.
+
+`KIWI_GTK_PRESENTER=gl` selects an experimental GtkGLArea route for exactly one
+PTY-backed terminal. It uses the same VT, shaping, keyboard, GTK IME,
+selection/clipboard, accessibility, and resize policies as the normal GTK
+controller, then deep-copies complete prepared snapshots into a private native
+OpenGL renderer. Background, selection/search, shaped alpha-atlas text,
+available text decorations, command-region separators, and cursor passes are
+implemented. Workspace restore/persistence, tabs, splits, session/window
+transfer, recording, product-menu/palette actions, and Kitty images are not.
+It is deliberately opt-in; `make gtk-gl-wayland-smoke` and
+`make gtk-gl-x11-smoke` are the pending graphical Linux integration gates.
+They do not qualify colour management, pacing, resize/scale behaviour, device
+recovery, interactive IME, or visual comparison. [ADR
+0041](adr/0041-embedded-gtk-presentation.md) records the remaining work.
 
 Once that renderer boundary exists, the Linux group owner should use
 [libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)
@@ -98,7 +105,7 @@ defines the migration and rejection criteria.
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, per-tab split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit owns the visible tab containers: `New Tab` creates another GLFW/Cocoa controller in Kiwi's explicit `NSWindow` group and `Next Tab` invokes AppKit selection. `New Window`, restored windows, and a move-to-new-window controller are registered outside that group; the verified GLFW/Cocoa default retains `NSWindowTabbingModeDisallowed` for them. AppKit also supplies a unified titlebar toolbar, local-shell `representedURL` proxy icon, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, direct AppKit grouping/next-tab selection and standalone-window configuration, Settings routing, unified toolbar dispatch, local/remote OSC 7 proxy-URL handling, Cocoa/Metal surfaces, and bundle launch. The menu, toolbar, palette, and Apple-event smokes each dispatch `New Tab` into the live host tab controller. Interactive filtering/navigation, Finder disclosure, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
+| Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and either the default toplevel-WGPU surface or opt-in single-terminal `GtkGLArea` surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. The experimental GL route feeds a real one-terminal PTY loop into the widget renderer but lacks a graphical Linux run. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke`, `make gtk-gl-wayland-smoke`, and `make gtk-gl-x11-smoke` are distinct graphical-Linux gates. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, GL colour/pacing/recovery, and desktop qualification remain manual or unverified. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.

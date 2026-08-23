@@ -4,7 +4,7 @@
 -- boundaries. Workspace composition remains owned by the WGPU controller until
 -- the GtkGL renderer can present every pane and image pass with equal evidence.
 local AtspiProjection = require("kiwi.accessibility.atspi")
-local bit = require("bit")
+local HostEffects = require("kiwi.app.host_effects")
 local Clipboard = require("kiwi.input.clipboard")
 local Composition = require("kiwi.input.composition")
 local Config = require("kiwi.config")
@@ -27,6 +27,11 @@ local Controller = {}
 local function number_from_env(name, fallback)
   local value = tonumber(os.getenv(name))
   return value and value >= 0 and value or fallback
+end
+
+local function positive_number_from_env(name, fallback)
+  local value = tonumber(os.getenv(name))
+  return value and value > 0 and value or fallback
 end
 
 local function dimensions(window, font)
@@ -79,13 +84,19 @@ end
 local function requested_unsupported_option(options)
   local names = {
     { "record", "recording" },
+    { "inspect", "text inspection" },
     { "workspace_smoke", "workspace smoke" },
     { "menu_smoke", "native product-menu smoke" },
+    { "toolbar_smoke", "native toolbar smoke" },
+    { "cwd_smoke", "native current-directory smoke" },
     { "palette_smoke", "native command-palette smoke" },
+    { "automation_smoke", "native automation smoke" },
+    { "key_sequence_smoke", "key-sequence smoke" },
     { "multi_window_smoke", "multi-window smoke" },
     { "session_move_smoke", "session-move smoke" },
     { "moved_session", "session transfer" },
     { "restored_workspace", "workspace restore" },
+    { "host_tab", "host tab request" },
   }
   for _, item in ipairs(names) do
     if options[item[1]] then return item[2] end
@@ -172,6 +183,7 @@ function Controller.run(window, host, options)
     local state = VTInternal.state(terminal)
     pty = spawn_child(options.command, columns, rows)
     local clipboard = Clipboard.new(window)
+    configuration.host_effects = HostEffects.new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local mouse = Mouse.new()
@@ -185,6 +197,9 @@ function Controller.run(window, host, options)
     local max_seconds = number_from_env("KIWI_MAX_SECONDS", 0)
     local started_at = window:time()
     local read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+    local render_timeout = positive_number_from_env("KIWI_GTK_GL_RENDER_TIMEOUT", 3)
+    local render_target_deadline
+    local render_target_revision
     local next_revision
 
     consumer = GtkGLConsumer.new(window, font, state, consumer_options(configuration))
@@ -420,6 +435,21 @@ function Controller.run(window, host, options)
       next_revision = nil
     end
 
+    local function await_rendered_target(now)
+      if render_target_revision == nil then return false end
+      local gl_state, state_reason = window:gl_area_state()
+      if gl_state and gl_state.rendered_revision >= render_target_revision then
+        if os.getenv("KIWI_GTK_GL_REPORT") == "1" then
+          io.stdout:write(string.format("Kiwi GTK GL render smoke passed: rendered revision=%d.\n", gl_state.rendered_revision))
+        end
+        return true
+      end
+      if now >= render_target_deadline then
+        error("Kiwi GTK GL presentation did not render revision " .. tostring(render_target_revision) .. ": " .. tostring(state_reason or "render callback timed out"))
+      end
+      return false
+    end
+
     io.stdout:write(string.format("Kiwi GTK GL experimental: TERM=xterm-kiwi child=%s grid=%dx%d primary=%s\n",
       options.command and options.command[1] or Pty.default_command()[1], columns, rows, font.font_path))
     while not window:should_close() do
@@ -433,6 +463,8 @@ function Controller.run(window, host, options)
         window:wait_events(requested_wait)
       end
       if window:should_close() then break end
+
+      if await_rendered_target(window:time()) then break end
 
       local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
       local new_columns, new_rows = dimensions(window, font)
@@ -466,6 +498,11 @@ function Controller.run(window, host, options)
         if effect.kind == "clipboard_write_requested" then
           local written, status = clipboard:write_osc52(effect.value.text)
           if not written then io.stderr:write("Kiwi OSC 52 clipboard write rejected: ", status, "\n") end
+        else
+          local consumed, status, first_report = configuration.host_effects:consume(effect)
+          if consumed and status ~= "submitted" and first_report then
+            io.stderr:write("Kiwi OSC 9 ", effect.kind == "notification_requested" and "notification" or "progress", " ignored: ", status, "\n")
+          end
         end
       end
       pty:flush()
@@ -481,16 +518,22 @@ function Controller.run(window, host, options)
       sync_text_input_caret()
 
       now = window:time()
-      if not window.minimized and consumer:needs_render(now) then
+      if render_target_revision == nil and not window.minimized and consumer:needs_render(now) then
         local rendered, render_reason = consumer:render(state, now, window.debug_dirty, window.debug_boundaries)
         if rendered then
           frames = frames + 1
-          if max_frames > 0 and frames >= max_frames then break end
+          if max_frames > 0 and frames >= max_frames then
+            render_target_revision = consumer.revision - 1
+            render_target_deadline = window:time() + render_timeout
+          end
         elseif render_reason ~= "synchronized-output" then
           error("Kiwi GTK GL presentation rejected a frame: " .. tostring(render_reason))
         end
       end
-      if child_status and pty.eof then window:request_close() end
+      if child_status and pty.eof and render_target_revision == nil then
+        render_target_revision = consumer.revision - 1
+        render_target_deadline = window:time() + render_timeout
+      end
     end
     terminal:finish()
   end, debug.traceback)
