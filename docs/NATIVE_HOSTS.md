@@ -67,8 +67,12 @@ acquiring and presenting a WGPU surface itself. Today that lifecycle is still
 implemented solely by the WGPU context and the renderer accepts only WGPU
 frames. It establishes explicit frame ownership and failure cleanup, but it
 does not embed rendering in GTK or make the WGPU pass/resource pipeline
-backend-neutral. [ADR 0041](adr/0041-embedded-gtk-presentation.md) records
-the remaining prepared-render-model and `GtkGLArea` work.
+backend-neutral. Its next core layer, `prepared_frame`, now produces bounded
+WGPU-free cells, shaped glyphs, atlas updates, overlays, and uniform data, and
+only clears terminal damage after the current WGPU backend acknowledges the
+uploads. Kitty image GPU residency and all pass encoding remain WGPU-specific.
+[ADR 0041](adr/0041-embedded-gtk-presentation.md) records the remaining image
+extraction and `GtkGLArea` work.
 
 Once that renderer boundary exists, the Linux group owner should use
 [libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)
@@ -132,9 +136,11 @@ native text widget or a replacement renderer.
    Automation permission.
 3. The compositor has a tested opaque presentation-frame lifecycle. Its current
    WGPU implementation owns acquire/abort/submit/present/release and has been
-   live-smoked through Cocoa/Metal, while renderer encoding remains WGPU-only.
-   This is the first extraction needed before a GTK widget renderer; it is not
-   an embedded GTK renderer or native-tab implementation.
+   live-smoked through Cocoa/Metal. `prepared_frame` separately emits core
+   terminal/text/overlay buffers and retains damage until WGPU confirms their
+   upload; Kitty image residency and all encoder calls remain WGPU-only. This
+   is a prerequisite for a GTK widget renderer, not an embedded GTK renderer or
+   native-tab implementation.
 4. GTK4 4.14 or newer is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard

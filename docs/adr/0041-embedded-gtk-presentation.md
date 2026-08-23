@@ -103,6 +103,79 @@ frame ordering and abort-on-encode-failure. The live Cocoa smoke has exercised
 the WGPU implementation through actual Metal resize and presentation. These
 checks do not qualify the later GTK adapter or a Linux desktop.
 
+### Prepared render-model boundary
+
+The first producer slice is implemented as `kiwi.renderer.prepared_frame`.
+It turns terminal damage, shaping, palette presentation, cursor/selection/
+search/hyperlink/command-region overlays, glyph-atlas changes, and frame
+uniform data into bounded LuaJIT buffers and descriptors. The WGPU renderer is
+its first consumer: it uploads a plan, then explicitly acknowledges it before
+terminal damage is cleared. If any upload fails, the producer retains terminal
+damage and forces the next plan to be a complete cells/glyphs/atlas snapshot.
+This makes stateful shaping and atlas insertion retryable without assuming a
+specific GPU's partial uploads survived.
+
+This is a versioned, internal render-model boundary, not a `backend` switch
+scattered through `Renderer`. WGPU and OpenGL backends independently own GPU
+allocation, upload, pipeline creation, and encoding. The producer may use
+LuaJIT buffers for zero-copy backend uploads, but its data records contain no
+WGPU, OpenGL, GDK, GTK, window, or controller handles.
+
+At minimum, a prepared frame has to carry:
+
+- grid dimensions; dirty cell ranges and packed cell records; shaped-glyph
+  ranges; glyph-atlas generation plus bounded pixel update data;
+- terminal presentation values: cursor, selection, search, hyperlinks,
+  command-region boundaries, time, and viewport/scissor intent;
+- ordered semantic layers (`background`, images below text, overlays, glyphs,
+  images above text, and cursor) with stable identifiers and blend/load intent;
+- decoded Kitty image generations, pixels, bounded placement instances, and
+  explicit release notifications; and
+- a revision and ownership rule: an incomplete or superseded frame is dropped
+  before a backend starts encoding, while a backend may retain only the newest
+  successfully uploaded generation of each resource.
+
+This is an internal application interface, not a v1 `libkiwi-vt` expansion.
+The public terminal SDK continues to expose terminal-state render updates and
+typed effects; it does not acquire fonts, GPU objects, presentation surfaces,
+or host windows. A second non-Kiwi consumer remains the gate for widening it.
+
+Kitty image GPU upload/composition is intentionally still in the WGPU-specific
+`KittyImages` owner. Its decoded image and placement data are terminal-neutral,
+but its texture residency, texture release, bind groups, and instance-buffer
+uploads are not. Extracting that owner is the next prepared-model slice; an
+OpenGL adapter cannot advertise Kitty-image compatibility until it consumes the
+same bounded decoded generations and release rules. The current producer is
+therefore a real core-renderer boundary, not evidence of an OpenGL backend or
+complete backend-neutral image rendering.
+
+### GTK execution and lifetime rules
+
+The GL adapter will have one terminal root widget per controller, with the
+`GtkGLArea` below that root. GTK's main context alone creates, realizes,
+resizes, renders, unrealizes, and destroys the area. The host event loop may
+prepare or mark a new scene while it handles PTY data, but it must only request
+`gtk_gl_area_queue_render`; it must never issue OpenGL calls outside GTK's
+realize/render/unrealize lifecycle or from another thread.
+
+On realization the adapter makes the context current, checks GTK's context
+error, and creates its GL resources. A render callback consumes at most the
+newest complete prepared frame against GTK's current allocation; resize and
+scale are therefore widget facts, not WGPU-subsurface policy. On unrealize or
+device/context failure, the adapter releases only resources owned by that
+realized GL context and remains recreatable from terminal state plus the next
+prepared frame. Page selection must queue the selected page only; it must not
+advance a hidden terminal's presentation clock merely to keep a stale GL
+surface alive.
+
+The group owner must avoid transiently destroying a page's presentation widget
+to perform an ordinary select/reorder/layout update. Detach/tear-off is the
+only operation allowed to create a new group presentation, and it needs a
+defined rollback path that leaves the source page realized if target creation
+fails. The acceptance gates below deliberately cover realize/unrealize and
+detach failure as lifecycle behavior, rather than treating them as visual UI
+details.
+
 ## Consequences
 
 - `New Tab` remains a renderer-workspace tab on GTK. This is intentionally
@@ -149,6 +222,8 @@ fractional-scale evidence remains a manual desktop qualification requirement.
 - [Kiwi native host boundary](../NATIVE_HOSTS.md)
 - [Ghostty GTK surface source](https://github.com/ghostty-org/ghostty/blob/main/src/apprt/gtk/class/surface.zig)
 - [Ghostty GTK window source](https://github.com/ghostty-org/ghostty/blob/main/src/apprt/gtk/class/window.zig)
+- [GTK `GtkGLArea`](https://docs.gtk.org/gtk4/class.GLArea.html)
+- [GTK `GtkGLArea::render`](https://docs.gtk.org/gtk4/signal.GLArea.render.html)
 - [libadwaita `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)
 - [libadwaita `AdwTabBar`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabBar.html)
 - Pinned `wgpu-native v29.0.1.1` headers: `webgpu/webgpu.h` and `webgpu/wgpu.h`

@@ -1,5 +1,6 @@
 local ffi = require("ffi")
 local Packing = require("kiwi.renderer.packing")
+local PreparedImages = require("kiwi.renderer.prepared_images")
 
 local KittyImages = {}
 KittyImages.__index = KittyImages
@@ -27,38 +28,7 @@ local function release_entry(owner, entry)
   release(owner, entry.texture)
 end
 
-local function append_instances(target, placement)
-  if not integer(placement.image_id, 1) or not integer(placement.placement_id, 1)
-    or not integer(placement.column, 0) or not integer(placement.columns, 1)
-    or not integer(placement.row_count, 1) then
-    return
-  end
-  for _, row in ipairs(placement.rows or {}) do
-    if integer(row.row, 0) and integer(row.source_row, 0) and row.source_row < placement.row_count then
-      target[#target + 1] = {
-        column = placement.column,
-        columns = placement.columns,
-        image_id = placement.image_id,
-        placement_id = placement.placement_id,
-        row = row.row,
-        row_count = placement.row_count,
-        source_row = row.source_row,
-        z = placement.z or 0,
-      }
-    end
-  end
-end
-
-function KittyImages.plan(view)
-  local under = {}
-  local over = {}
-  for _, placement in ipairs(view and view.placements or {}) do
-    if placement.visible then
-      append_instances((placement.z or 0) < 0 and under or over, placement)
-    end
-  end
-  return under, over
-end
+KittyImages.plan = PreparedImages.plan
 
 local function signature(instances)
   local items = {}
@@ -319,22 +289,14 @@ function KittyImages:ensure_texture(owner, graphics, image)
 end
 
 function KittyImages:sync(owner, model)
-  local graphics = model.kitty_graphics
-  if graphics == nil or type(model.kitty_placements_view) ~= "function" then return false end
+  local plan = PreparedImages.prepare(model)
+  if plan == nil then return false end
+  local graphics = plan.graphics
   self.graphics = graphics
-  local placement_view = model:kitty_placements_view()
-  local under, over = KittyImages.plan(placement_view)
-  local wanted = {}
-  local wanted_ids = {}
-  for _, layer in ipairs({ under, over }) do
-    for _, item in ipairs(layer) do
-      if not wanted[item.image_id] then
-        wanted[item.image_id] = true
-        wanted_ids[#wanted_ids + 1] = item.image_id
-      end
-    end
-  end
-  if type(graphics.set_active_images) == "function" then graphics:set_active_images(wanted) end
+  local placement_view = plan.placement_view
+  local under, over = plan.under, plan.over
+  local wanted = plan.wanted
+  local wanted_ids = plan.wanted_ids
   local changed = self:drain_gpu_releases(owner, graphics)
   local resident_ids = {}
   for id in pairs(self.textures) do resident_ids[#resident_ids + 1] = id end
@@ -344,11 +306,7 @@ function KittyImages:sync(owner, model)
     if entry and not wanted[id] then changed = self:remove_texture(owner, graphics, id, entry.generation, true) or changed end
   end
 
-  local descriptors = {}
-  for _, id in ipairs(wanted_ids) do
-    local image = graphics:upload_descriptor(id)
-    if image then descriptors[id] = image end
-  end
+  local descriptors = plan.descriptors
   for _, id in ipairs(wanted_ids) do
     local image = descriptors[id]
     if image then

@@ -39,12 +39,15 @@ declared complete.
 - GTK-native tabs are deliberately deferred until its presentation path can
   render inside a GTK widget on both X11 and Wayland. The first prerequisite,
   an opaque compositor acquire/encode/present-or-abort lifecycle, is
-  implemented and live-smoked through Cocoa/Metal. The current context and
-  renderer remain WGPU-only, however: the pass/resource pipeline cannot yet
-  render inside a GTK widget. The approved follow-on is a prepared render-model
-  extraction and embedded GTK OpenGL adapter, then a libadwaita `AdwTabView`
-  group owner; see [ADR 0041](adr/0041-embedded-gtk-presentation.md). Do not
-  add cosmetic GTK tab chrome before that adapter passes its gates.
+  implemented and live-smoked through Cocoa/Metal. The next core slice,
+  `prepared_frame`, now produces WGPU-free terminal cells, shaped glyphs,
+  glyph-atlas updates, overlays, and frame uniforms with explicit retry/commit
+  ownership. Kitty image GPU residency is still WGPU-specific, and neither the
+  context nor pass encoder can render inside a GTK widget. The approved
+  follow-on is the image-data extraction and embedded GTK OpenGL adapter, then
+  a libadwaita `AdwTabView` group owner; see
+  [ADR 0041](adr/0041-embedded-gtk-presentation.md). Do not add cosmetic GTK
+  tab chrome before that adapter passes its gates.
 - The GLFW Cocoa route already has bounded AppKit-owned `New Tab`/`Next Tab`
   containers, explicitly separate native windows, menu, searchable command
   palette, action-only AppleScript bridge, text-input, accessibility, and
