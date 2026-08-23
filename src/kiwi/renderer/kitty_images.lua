@@ -165,9 +165,9 @@ function KittyImages:initialize(owner)
   self.initialized = true
 end
 
-function KittyImages:drain_gpu_releases(owner, graphics)
+function KittyImages:apply_gpu_releases(owner, releases)
   local changed = false
-  for _, item in ipairs(graphics:take_gpu_releases()) do
+  for _, item in ipairs(releases or {}) do
     local entry = self.textures[item.id]
     if entry and entry.generation == item.generation then
       release_entry(owner, entry)
@@ -177,6 +177,10 @@ function KittyImages:drain_gpu_releases(owner, graphics)
     self.blocked[item.id] = nil
   end
   return changed
+end
+
+function KittyImages:drain_gpu_releases(owner, graphics)
+  return self:apply_gpu_releases(owner, graphics:take_gpu_releases())
 end
 
 function KittyImages:remove_texture(owner, graphics, id, generation, release_gpu)
@@ -288,8 +292,8 @@ function KittyImages:ensure_texture(owner, graphics, image)
   return entry, true
 end
 
-function KittyImages:sync(owner, model)
-  local plan = PreparedImages.prepare(model)
+function KittyImages:sync(owner, model, prepared)
+  local plan = prepared or PreparedImages.prepare(model)
   if plan == nil then return false end
   local graphics = plan.graphics
   self.graphics = graphics
@@ -297,7 +301,7 @@ function KittyImages:sync(owner, model)
   local under, over = plan.under, plan.over
   local wanted = plan.wanted
   local wanted_ids = plan.wanted_ids
-  local changed = self:drain_gpu_releases(owner, graphics)
+  local changed = self:apply_gpu_releases(owner, plan.releases)
   local resident_ids = {}
   for id in pairs(self.textures) do resident_ids[#resident_ids + 1] = id end
   table.sort(resident_ids)
@@ -339,10 +343,10 @@ function KittyImages:sync(owner, model)
     for _, layer in ipairs({ visible_under, visible_over }) do
       for _, item in ipairs(layer) do
         local instance = self.instances[index]
-        instance.x = item.column / model.columns * 2 - 1
-        instance.y = 1 - item.row / model.rows * 2
-        instance.width = item.columns / model.columns * 2
-        instance.height = -2 / model.rows
+        instance.x = item.column / plan.columns * 2 - 1
+        instance.y = 1 - item.row / plan.rows * 2
+        instance.width = item.columns / plan.columns * 2
+        instance.height = -2 / plan.rows
         instance.u0 = 0
         instance.v0 = item.source_row / item.row_count
         instance.u1 = 1

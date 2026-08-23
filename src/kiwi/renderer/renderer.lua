@@ -14,6 +14,7 @@ local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
 local KittyImages = require("kiwi.renderer.kitty_images")
 local PreparedFrame = require("kiwi.renderer.prepared_frame")
+local PreparedImages = require("kiwi.renderer.prepared_images")
 local Resources = require("kiwi.renderer.resources")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
@@ -554,9 +555,11 @@ function Renderer:upload_atlas(update)
 end
 
 function Renderer:update_model(model)
-  if self.kitty_images:sync(self, model) then self:invalidate("kitty_images") end
+  local image_plan = PreparedImages.prepare(model)
+  if self.kitty_images:sync(self, model, image_plan) then self:invalidate("kitty_images") end
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
   local plan = self.prepared_frame:prepare_model(model)
+  plan.images = image_plan
   if #plan.cell_updates > 0 then self:invalidate("terminal") end
   local uploaded, upload_error = xpcall(function()
     for _, update in ipairs(plan.cell_updates) do
