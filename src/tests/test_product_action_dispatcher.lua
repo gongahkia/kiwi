@@ -25,8 +25,9 @@ local function dispatcher(options)
       state.duplicate_next = true
       return options.duplicate_next ~= false, options.duplicate_next_reason
     end,
-    request_window = function(_, path)
+    request_window = function(_, path, request)
       state.requested_path = path
+      state.window_request = request
       return options.request_window ~= false, options.request_window_reason
     end,
   }
@@ -104,6 +105,7 @@ return {
     handled, layout_changed = actions:handle("new-window")
     Assert.truthy(handled and not layout_changed)
     Assert.equal(state.requested_path, nil)
+    Assert.equal(state.window_request.kind, "standalone")
     handled, layout_changed = actions:handle("reload-config")
     Assert.truthy(handled and not layout_changed)
     Assert.truthy(state.reload_requested)
@@ -143,6 +145,9 @@ return {
     handled, layout_changed = actions:handle("duplicate-session-next-window")
     Assert.truthy(handled and not layout_changed)
     Assert.truthy(state.duplicate_next)
+    handled, layout_changed = actions:handle("duplicate-session-new-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.equal(state.window_request.kind, "standalone")
   end,
   product_action_dispatcher_accepts_action_specific_automation_contexts = function()
     local logs = {}

@@ -487,7 +487,10 @@ function Controller.run(window, host, options)
     local function create_tab()
       if recorder then return nil, "tabs are unavailable while --record is active" end
       if host.native_tabs then
-        return options.application:request_window(configuration_path, true)
+        return options.application:request_window(configuration_path, {
+          kind = "host-tab",
+          source_controller_id = options.controller_id,
+        })
       end
       local session = new_session(state.columns, state.rows)
       local pane, reason = workspace:new_tab(session)

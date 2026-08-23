@@ -24,18 +24,22 @@ only after a second real consumer requires a documented, testable capability.
 ### Host-tab contract
 
 The application manager owns controller and session lifetime. Its private
-`request_window(..., host_tab)` intent asks for a *new controller* to join a
+`request_window(..., { kind = "host-tab", source_controller_id = ... })`
+intent asks for a *new controller* to join the requesting controller's
 host-native tab container; it does not move or clone the source terminal,
-workspace, PTY, or renderer. A host advertises `native_tabs` only when it both
+workspace, PTY, or renderer. `source_controller_id` is a manager-validated
+identity, not a platform handle. A `{ kind = "standalone" }` request explicitly
+opts out of host grouping. A host advertises `native_tabs` only when it both
 creates that container and implements host-level tab selection. Hosts without
 that capability continue to create tabs inside the renderer-owned `Workspace`.
 The terminal kernel therefore never observes a native tab handle.
 
-The GLFW/Cocoa host is the first consumer: it interprets `host_tab` as an
+The GLFW/Cocoa host is the first consumer: it interprets `host-tab` as an
 AppKit tab-group request. A normal `New Window`, restored window, and
-move-to-new-window request all pass `host_tab = false`, and are explicitly
-standalone. This distinction is deliberately host-neutral, so a future GTK
-container can use the same manager decision without inheriting Cocoa policy.
+move-to-new-window request are explicitly standalone. Cocoa's present group
+implementation has one application group leader, but retaining the source
+identity now avoids baking that shortcut into the application contract. A GTK
+container must use it to find the group that owns the requested tab.
 
 GTK does **not** advertise `native_tabs` yet. Today each GTK controller creates
 its own `GtkApplicationWindow` and one native content/surface owner. Merely
@@ -48,11 +52,12 @@ current-style page renderers until a group explicitly owns a shared X11
 presentation surface or supplies an equivalent per-page surface strategy on
 both backends.
 
-The GTK native-tab phase must therefore introduce a group owner that defines
-the presentation-surface policy, attaches a controller content surface as a
-notebook page, selects and focuses the active controller, detaches a page into
-a new standalone group, and removes the page before its controller releases the
-surface. [GtkNotebook](https://docs.gtk.org/gtk4/class.Notebook.html) is the
+The GTK native-tab phase must therefore introduce a group owner that resolves
+the request's `source_controller_id`, defines the presentation-surface policy,
+attaches a controller content surface as a notebook page, selects and focuses
+the active controller, detaches a page into a new standalone group, and removes
+the page before its controller releases the surface.
+[GtkNotebook](https://docs.gtk.org/gtk4/class.Notebook.html) is the
 appropriate GTK4 primitive: it owns tabbed child selection, supports page
 reordering/detachment and a `create-window` signal, and supplies tab/list/page
 accessibility roles. This is an implementation prerequisite, not a shipped GTK
