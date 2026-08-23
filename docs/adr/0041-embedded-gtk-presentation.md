@@ -140,14 +140,14 @@ The public terminal SDK continues to expose terminal-state render updates and
 typed effects; it does not acquire fonts, GPU objects, presentation surfaces,
 or host windows. A second non-Kiwi consumer remains the gate for widening it.
 
-Kitty image GPU upload/composition is intentionally still in the WGPU-specific
-`KittyImages` owner. Its decoded image and placement data are terminal-neutral,
-but its texture residency, texture release, bind groups, and instance-buffer
-uploads are not. Extracting that owner is the next prepared-model slice; an
-OpenGL adapter cannot advertise Kitty-image compatibility until it consumes the
-same bounded decoded generations and release rules. The current producer is
-therefore a real core-renderer boundary, not evidence of an OpenGL backend or
-complete backend-neutral image rendering.
+`kiwi.renderer.prepared_images` now selects decoded image generations, bounded
+visible placement rows, active-image state, and release notifications without
+returning a renderer or host handle. The WGPU-specific `KittyImages` owner is
+its first consumer. Texture residency, texture release, bind groups, and
+instance-buffer uploads remain WGPU-specific. An OpenGL adapter cannot
+advertise Kitty-image compatibility until it consumes the same bounded decoded
+generations and release rules. This is a data-boundary extraction, not evidence
+of an OpenGL backend or complete backend-neutral image rendering.
 
 ### GTK execution and lifetime rules
 

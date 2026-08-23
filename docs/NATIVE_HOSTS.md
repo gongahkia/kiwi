@@ -70,9 +70,10 @@ does not embed rendering in GTK or make the WGPU pass/resource pipeline
 backend-neutral. Its next core layer, `prepared_frame`, now produces bounded
 WGPU-free cells, shaped glyphs, atlas updates, overlays, and uniform data, and
 only clears terminal damage after the current WGPU backend acknowledges the
-uploads. Kitty image GPU residency and all pass encoding remain WGPU-specific.
-[ADR 0041](adr/0041-embedded-gtk-presentation.md) records the remaining image
-extraction and `GtkGLArea` work.
+uploads. `prepared_images` also produces renderer-neutral decoded Kitty image
+data and visible placements, but GPU residency and all pass encoding remain
+WGPU-specific. [ADR 0041](adr/0041-embedded-gtk-presentation.md) records the
+remaining `GtkGLArea` work.
 
 Once that renderer boundary exists, the Linux group owner should use
 [libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)

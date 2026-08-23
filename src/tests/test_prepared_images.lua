@@ -38,5 +38,6 @@ return {
     Assert.equal(plan.under[2].source_row, 1)
     Assert.equal(plan.releases[1].id, 7)
     Assert.equal(plan.native, nil)
+    Assert.equal(plan.graphics, nil)
   end,
 }
