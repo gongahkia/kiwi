@@ -296,9 +296,12 @@ background, the native child contract replays cleanly under the promoted
 environment, and tmux 3.7b preserves a nested direct-RGB contract on the
 current macOS qualification host. Btop is not installed here, so its earlier
 application-stream capture has not been requalified under the new TERM value.
-A controlled SSH host with the copied terminfo remains required before making
-a remote deployment claim. The physical check is compositor evidence, not
-display calibration.
+On 2026-08-23 an isolated loopback OpenSSH server accepted a fresh client key;
+`kiwi-ssh` installed the compiled private entry and its actual remote probe
+passed `infocmp`, `tput colors=256`, and `tput setrgbf`. That exercises the
+OpenSSH launcher and private-cache path on the same macOS host. A Linux or
+external remote deployment remains unqualified. The physical check is
+compositor evidence, not display calibration.
 
 ## Cursor style and synchronized output
 

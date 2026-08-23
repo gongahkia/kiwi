@@ -107,7 +107,7 @@ function Context.new(host, window, options)
   end, debug.traceback)
   if not ok then
     self:destroy()
-    error(result)
+    error(result, 0)
   end
   return self
 end
@@ -172,6 +172,105 @@ function Context:configure_surface()
   self.height = height
   self.window.resized = false
   return true
+end
+
+local function presentation_frame_assertion(context, frame)
+  assert(type(frame) == "table" and frame.context == context, "presentation frame belongs to another context")
+  assert(frame.state == "acquired", "presentation frame is no longer acquired")
+end
+
+local function release_presentation_frame(context, frame)
+  local api = context.native.lib
+  if frame.encoder ~= nil then
+    api.wgpuCommandEncoderRelease(frame.encoder)
+    frame.encoder = nil
+  end
+  if frame.view ~= nil then
+    api.wgpuTextureViewRelease(frame.view)
+    frame.view = nil
+  end
+  if frame.texture ~= nil then
+    api.wgpuTextureRelease(frame.texture)
+    frame.texture = nil
+  end
+end
+
+-- A presentation frame is intentionally opaque to the compositor. The current
+-- implementation carries WGPU handles, but a host-owned renderer can provide
+-- another frame type without teaching window/session code about its graphics
+-- API.
+function Context:begin_presentation_frame()
+  if self.window.minimized then return nil, "zero-sized drawable" end
+  if self.window.resized and not self:configure_surface() then return nil, "zero-sized drawable" end
+  local api = self.native.lib
+  local constants = self.native.constants
+  local surface_texture = ffi.new("WGPUSurfaceTexture")
+  api.wgpuSurfaceGetCurrentTexture(self.surface, surface_texture)
+  if surface_texture.status == constants.surface_occluded then
+    if surface_texture.texture ~= nil then api.wgpuTextureRelease(surface_texture.texture) end
+    return nil, "surface occluded"
+  end
+  if surface_texture.status ~= constants.surface_success_optimal and surface_texture.status ~= constants.surface_success_suboptimal then
+    if surface_texture.texture ~= nil then api.wgpuTextureRelease(surface_texture.texture) end
+    return nil, "surface acquire status " .. tonumber(surface_texture.status)
+  end
+  local frame = {
+    backend = "wgpu",
+    context = self,
+    state = "acquired",
+    surface_status = tonumber(surface_texture.status),
+    texture = surface_texture.texture,
+  }
+  local ok, result = xpcall(function()
+    frame.view = assert_handle(api.wgpuTextureCreateView(frame.texture, nil), "surface texture view creation")
+    frame.encoder = assert_handle(api.wgpuDeviceCreateCommandEncoder(self.device, nil), "command encoder creation")
+  end, debug.traceback)
+  if ok then return frame end
+  release_presentation_frame(self, frame)
+  frame.state = "aborted"
+  error(result, 0)
+end
+
+function Context:abort_presentation_frame(frame)
+  presentation_frame_assertion(self, frame)
+  release_presentation_frame(self, frame)
+  frame.state = "aborted"
+  return true
+end
+
+function Context:present_presentation_frame(frame)
+  presentation_frame_assertion(self, frame)
+  local api = self.native.lib
+  local completed = false
+  local ok, presented, present_reason = xpcall(function()
+    local commands = assert_handle(api.wgpuCommandEncoderFinish(frame.encoder, nil), "command-buffer creation")
+    local command_list = ffi.new("WGPUCommandBuffer[1]")
+    command_list[0] = commands
+    api.wgpuQueueSubmit(self.queue, 1, command_list)
+    api.wgpuCommandBufferRelease(commands)
+    api.wgpuCommandEncoderRelease(frame.encoder)
+    frame.encoder = nil
+    api.wgpuTextureViewRelease(frame.view)
+    frame.view = nil
+    local present_status = api.wgpuSurfacePresent(self.surface)
+    api.wgpuTextureRelease(frame.texture)
+    frame.texture = nil
+    frame.state = "presented"
+    completed = true
+    if frame.surface_status == self.native.constants.surface_success_suboptimal then self.window.resized = true end
+    if present_status ~= 1 then return nil, "surface present status " .. tonumber(present_status) end
+    local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
+    if #native_error > 0 then return nil, "native GPU error: " .. native_error end
+    return true
+  end, debug.traceback)
+  if not ok then
+    if not completed then
+      release_presentation_frame(self, frame)
+      frame.state = "aborted"
+    end
+    error(presented, 0)
+  end
+  return presented, present_reason
 end
 
 function Context:begin_framebuffer_capture(frame)
