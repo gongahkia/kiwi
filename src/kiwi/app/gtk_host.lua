@@ -72,4 +72,12 @@ function Host.invoke_product_action_smoke(window, action)
   return window:product_action_invoke_smoke(action)
 end
 
+function Host.show_command_palette(window, entries, handler)
+  return window:show_command_palette(entries, handler)
+end
+
+function Host.invoke_command_palette_smoke(window)
+  return window:command_palette_invoke_smoke()
+end
+
 return Host

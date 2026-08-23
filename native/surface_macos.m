@@ -14,6 +14,12 @@ extern void kiwi_surface_set_error(const char *message);
 
 typedef void (*KiwiCocoaMenuCallback)(void *userdata, uint32_t action);
 
+typedef struct KiwiCocoaCommandPaletteEntry {
+  uint32_t action;
+  const char *title;
+  const char *description;
+} KiwiCocoaCommandPaletteEntry;
+
 enum {
   KIWI_COCOA_MENU_NEW_TAB = 1,
   KIWI_COCOA_MENU_NEW_WINDOW = 2,
@@ -26,6 +32,7 @@ enum {
   KIWI_COCOA_MENU_MOVE_SESSION_NEXT_WINDOW = 9,
   KIWI_COCOA_MENU_DUPLICATE_SESSION_NEW_WINDOW = 10,
   KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW = 11,
+  KIWI_COCOA_MENU_COMMAND_PALETTE = 12,
 };
 
 @interface KiwiCocoaMenuRegistration : NSObject {
@@ -52,10 +59,29 @@ enum {
 - (void)invokeAction:(id)sender;
 @end
 
+@interface KiwiCocoaCommandPalette : NSObject <NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate> {
+ @public
+  KiwiCocoaMenuCallback callback;
+  void *userdata;
+  NSWindow *_parent;
+  NSPanel *_panel;
+  NSSearchField *_search;
+  NSTableView *_table;
+  NSArray *_entries;
+  NSMutableArray *_filtered;
+  BOOL _invoked;
+}
+- (id)initWithWindow:(NSWindow *)window entries:(const KiwiCocoaCommandPaletteEntry *)entries count:(size_t)count;
+- (void)show;
+- (void)close;
+- (void)invokeSelection:(id)sender;
+@end
+
 static NSMutableDictionary *kiwi_cocoa_menu_registrations;
 static KiwiCocoaMenuDispatcher *kiwi_cocoa_menu_dispatcher;
 static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
+static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
 
 static int kiwi_cocoa_key_scalar(const UniChar *characters, UniCharCount length, uint32_t *output) {
   if (characters == NULL || output == NULL || length == 0 || length > 2) return 0;
@@ -98,7 +124,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_COMMAND_PALETTE;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
@@ -109,6 +135,183 @@ static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
 static NSWindow *kiwi_cocoa_native_window(GLFWwindow *window) {
   return window == NULL ? nil : glfwGetCocoaWindow(window);
 }
+
+@implementation KiwiCocoaCommandPalette
+
+- (id)initWithWindow:(NSWindow *)window entries:(const KiwiCocoaCommandPaletteEntry *)entries count:(size_t)count {
+  self = [super init];
+  if (self == nil) return nil;
+  _parent = [window retain];
+  _entries = [[NSMutableArray alloc] initWithCapacity:count];
+  _filtered = [[NSMutableArray alloc] initWithCapacity:count];
+  for (size_t index = 0; index < count; index += 1) {
+    NSString *title = [[NSString alloc] initWithUTF8String:entries[index].title];
+    NSString *description = [[NSString alloc] initWithUTF8String:entries[index].description];
+    if (title == nil || description == nil || title.length == 0) {
+      [title release];
+      [description release];
+      [self release];
+      return nil;
+    }
+    NSDictionary *entry = [[NSDictionary alloc] initWithObjectsAndKeys:
+        [NSNumber numberWithUnsignedInt:entries[index].action], @"action",
+        title, @"title", description, @"description", nil];
+    [(NSMutableArray *)_entries addObject:entry];
+    [entry release];
+    [title release];
+    [description release];
+  }
+  _panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0.0, 0.0, 520.0, 340.0)
+                                        styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskUtilityWindow)
+                                          backing:NSBackingStoreBuffered defer:NO];
+  if (_panel == nil) {
+    [self release];
+    return nil;
+  }
+  _panel.title = @"Command Palette";
+  _panel.hidesOnDeactivate = NO;
+  _panel.releasedWhenClosed = NO;
+  NSView *content = _panel.contentView;
+  _search = [[NSSearchField alloc] initWithFrame:NSMakeRect(16.0, 296.0, 488.0, 28.0)];
+  _search.placeholderString = @"Type to filter actions";
+  _search.delegate = self;
+  _search.target = self;
+  _search.action = @selector(searchChanged:);
+  [_search setSendsSearchStringImmediately:YES];
+  [content addSubview:_search];
+  _table = [[NSTableView alloc] initWithFrame:NSMakeRect(0.0, 0.0, 488.0, 272.0)];
+  NSTableColumn *column = [[NSTableColumn alloc] initWithIdentifier:@"command"];
+  column.width = 488.0;
+  [_table addTableColumn:column];
+  [column release];
+  _table.headerView = nil;
+  _table.rowHeight = 44.0;
+  _table.intercellSpacing = NSMakeSize(0.0, 2.0);
+  _table.dataSource = self;
+  _table.delegate = self;
+  _table.target = self;
+  _table.doubleAction = @selector(invokeSelection:);
+  NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(16.0, 16.0, 488.0, 270.0)];
+  scroll.documentView = _table;
+  scroll.hasVerticalScroller = YES;
+  scroll.autohidesScrollers = YES;
+  [content addSubview:scroll];
+  [scroll release];
+  [self refresh];
+  return self;
+}
+
+- (void)dealloc {
+  [self close];
+  [_search release];
+  [_table release];
+  [_panel release];
+  [_entries release];
+  [_filtered release];
+  [_parent release];
+  [super dealloc];
+}
+
+- (void)refresh {
+  NSString *query = _search == nil ? @"" : _search.stringValue;
+  [_filtered removeAllObjects];
+  for (NSDictionary *entry in _entries) {
+    NSString *title = [entry objectForKey:@"title"];
+    NSString *description = [entry objectForKey:@"description"];
+    if (query.length == 0 || [title rangeOfString:query options:NSCaseInsensitiveSearch].location != NSNotFound ||
+        [description rangeOfString:query options:NSCaseInsensitiveSearch].location != NSNotFound) {
+      [_filtered addObject:entry];
+    }
+  }
+  [_table reloadData];
+  if (_filtered.count > 0) [_table selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];
+}
+
+- (void)show {
+  [self refresh];
+  if (_parent != nil) [_parent addChildWindow:_panel ordered:NSWindowAbove];
+  [_panel center];
+  [_panel makeKeyAndOrderFront:nil];
+  [_panel makeFirstResponder:_search];
+}
+
+- (void)close {
+  if (_parent != nil && _panel != nil && _panel.parentWindow == _parent) [_parent removeChildWindow:_panel];
+  [_panel orderOut:nil];
+}
+
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)tableView {
+  (void)tableView;
+  return (NSInteger)_filtered.count;
+}
+
+- (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)column row:(NSInteger)row {
+  (void)column;
+  NSTableCellView *cell = [tableView makeViewWithIdentifier:@"kiwi-command-palette-cell" owner:self];
+  NSTextField *description = nil;
+  if (cell == nil) {
+    cell = [[[NSTableCellView alloc] initWithFrame:NSMakeRect(0.0, 0.0, 470.0, 42.0)] autorelease];
+    cell.identifier = @"kiwi-command-palette-cell";
+    NSTextField *title = [[NSTextField alloc] initWithFrame:NSMakeRect(8.0, 20.0, 454.0, 18.0)];
+    title.editable = NO;
+    title.bezeled = NO;
+    title.drawsBackground = NO;
+    title.font = [NSFont systemFontOfSize:13.0 weight:NSFontWeightMedium];
+    cell.textField = title;
+    [cell addSubview:title];
+    [title release];
+    description = [[NSTextField alloc] initWithFrame:NSMakeRect(8.0, 3.0, 454.0, 16.0)];
+    description.tag = 9001;
+    description.editable = NO;
+    description.bezeled = NO;
+    description.drawsBackground = NO;
+    description.textColor = NSColor.secondaryLabelColor;
+    description.font = [NSFont systemFontOfSize:11.0];
+    [cell addSubview:description];
+    [description release];
+  } else {
+    for (NSView *view in cell.subviews) {
+      if (view.tag == 9001) {
+        description = (NSTextField *)view;
+        break;
+      }
+    }
+  }
+  NSDictionary *entry = [_filtered objectAtIndex:(NSUInteger)row];
+  cell.textField.stringValue = [entry objectForKey:@"title"];
+  description.stringValue = [entry objectForKey:@"description"];
+  return cell;
+}
+
+- (void)searchChanged:(id)sender {
+  (void)sender;
+  [self refresh];
+}
+
+- (void)invokeSelection:(id)sender {
+  (void)sender;
+  NSInteger row = _table.selectedRow;
+  if (row < 0 || row >= (NSInteger)_filtered.count || _invoked) return;
+  _invoked = YES;
+  NSDictionary *entry = [_filtered objectAtIndex:(NSUInteger)row];
+  if (callback != NULL) callback(userdata, [[entry objectForKey:@"action"] unsignedIntValue]);
+  [self close];
+}
+
+- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)command {
+  (void)control;
+  (void)textView;
+  if (command == @selector(insertNewline:)) {
+    [self invokeSelection:nil];
+    return YES;
+  }
+  if (command == @selector(cancelOperation:)) {
+    [self close];
+    return YES;
+  }
+  return NO;
+}
+@end
 
 static NSValue *kiwi_cocoa_progress_window_key(GLFWwindow *window) {
   NSWindow *native_window = kiwi_cocoa_native_window(window);
@@ -293,6 +496,7 @@ static void kiwi_cocoa_install_main_menu(void) {
   NSMenu *file_menu = [[NSMenu alloc] initWithTitle:@"File"];
   [file_menu addItem:kiwi_cocoa_menu_item(@"New Tab", KIWI_COCOA_MENU_NEW_TAB)];
   [file_menu addItem:kiwi_cocoa_menu_item(@"New Window", KIWI_COCOA_MENU_NEW_WINDOW)];
+  [file_menu addItem:kiwi_cocoa_menu_item(@"Command Palette…", KIWI_COCOA_MENU_COMMAND_PALETTE)];
   [file_menu addItem:[NSMenuItem separatorItem]];
   [file_menu addItem:kiwi_cocoa_menu_item(@"Reload Configuration", KIWI_COCOA_MENU_RELOAD_CONFIGURATION)];
   file_item.submenu = file_menu;
@@ -348,6 +552,78 @@ void kiwi_cocoa_menu_remove(GLFWwindow *window) {
     KiwiCocoaMenuRegistration *registration = key == nil ? nil : [kiwi_cocoa_menu_registrations objectForKey:key];
     if (registration == kiwi_cocoa_active_menu_registration) kiwi_cocoa_active_menu_registration = nil;
     if (key != nil && kiwi_cocoa_menu_registrations != nil) [kiwi_cocoa_menu_registrations removeObjectForKey:key];
+  }
+}
+
+int kiwi_cocoa_command_palette_show(GLFWwindow *window,
+                                    const KiwiCocoaCommandPaletteEntry *entries,
+                                    size_t count, KiwiCocoaMenuCallback callback,
+                                    void *userdata) {
+  @autoreleasepool {
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    NSValue *key = kiwi_cocoa_menu_window_key(window);
+    if (![NSThread isMainThread] || native_window == nil || key == nil || entries == NULL ||
+        callback == NULL || count == 0 || count > 32) {
+      kiwi_surface_set_error("Cocoa command palette needs a main-thread window, callback, and one through 32 entries");
+      return 0;
+    }
+    for (size_t index = 0; index < count; index += 1) {
+      if (!kiwi_cocoa_menu_action_is_valid(entries[index].action) ||
+          entries[index].action == KIWI_COCOA_MENU_COMMAND_PALETTE ||
+          entries[index].title == NULL || entries[index].description == NULL ||
+          entries[index].title[0] == '\0' || strlen(entries[index].title) > 128 ||
+          strlen(entries[index].description) > 256) {
+        kiwi_surface_set_error("Cocoa command palette received an invalid bounded entry");
+        return 0;
+      }
+    }
+    if (kiwi_cocoa_command_palette_registrations == nil) {
+      kiwi_cocoa_command_palette_registrations = [[NSMutableDictionary alloc] init];
+    }
+    KiwiCocoaCommandPalette *existing = [kiwi_cocoa_command_palette_registrations objectForKey:key];
+    if (existing != nil) {
+      [existing close];
+      [kiwi_cocoa_command_palette_registrations removeObjectForKey:key];
+    }
+    KiwiCocoaCommandPalette *palette = [[KiwiCocoaCommandPalette alloc] initWithWindow:native_window entries:entries count:count];
+    if (palette == nil) {
+      kiwi_surface_set_error("Cocoa command palette could not copy valid UTF-8 entries");
+      return 0;
+    }
+    palette->callback = callback;
+    palette->userdata = userdata;
+    [kiwi_cocoa_command_palette_registrations setObject:palette forKey:key];
+    [palette show];
+    [palette release];
+    return 1;
+  }
+}
+
+void kiwi_cocoa_command_palette_remove(GLFWwindow *window) {
+  @autoreleasepool {
+    NSValue *key = kiwi_cocoa_menu_window_key(window);
+    KiwiCocoaCommandPalette *palette = key == nil ? nil : [kiwi_cocoa_command_palette_registrations objectForKey:key];
+    if (palette != nil) [palette close];
+    if (key != nil && kiwi_cocoa_command_palette_registrations != nil) {
+      [kiwi_cocoa_command_palette_registrations removeObjectForKey:key];
+    }
+  }
+}
+
+int kiwi_cocoa_command_palette_invoke_smoke(GLFWwindow *window) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa command palette smoke needs the main thread");
+      return 0;
+    }
+    NSValue *key = kiwi_cocoa_menu_window_key(window);
+    KiwiCocoaCommandPalette *palette = key == nil ? nil : [kiwi_cocoa_command_palette_registrations objectForKey:key];
+    if (palette == nil || !palette->_panel.isVisible || palette->_filtered.count == 0) {
+      kiwi_surface_set_error("Cocoa command palette smoke needs a visible palette with an entry");
+      return 0;
+    }
+    [palette invokeSelection:nil];
+    return 1;
   }
 }
 
