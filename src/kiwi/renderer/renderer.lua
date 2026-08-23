@@ -13,58 +13,12 @@ local Hyperlink = require("kiwi.renderer.hyperlink")
 local Invalidation = require("kiwi.renderer.invalidation")
 local Inspector = require("kiwi.renderer.inspector")
 local KittyImages = require("kiwi.renderer.kitty_images")
+local PreparedFrame = require("kiwi.renderer.prepared_frame")
 local Resources = require("kiwi.renderer.resources")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
-local TextBackend = require("kiwi.text.backend")
-
-ffi.cdef[[
-typedef struct {
-  float columns;
-  float rows;
-  float cursor_column;
-  float cursor_row;
-  float time;
-  float show_dirty;
-  float show_boundaries;
-  float cursor_visible;
-  float cursor_shape;
-  float cursor_blink;
-  float cursor_red;
-  float cursor_green;
-  float cursor_blue;
-  float cursor_alpha;
-  float selection_start_column;
-  float selection_start_row;
-  float selection_finish_column;
-  float selection_finish_row;
-  float selection_red;
-  float selection_green;
-  float selection_blue;
-  float selection_alpha;
-  float search_start_column;
-  float search_start_row;
-  float search_finish_column;
-  float search_finish_row;
-  float search_red;
-  float search_green;
-  float search_blue;
-  float search_alpha;
-  float hyperlink_red;
-  float hyperlink_green;
-  float hyperlink_blue;
-  float hyperlink_alpha;
-  float command_region_count;
-  float command_region_red;
-  float command_region_green;
-  float command_region_blue;
-  float command_region_alpha;
-  float command_region_padding[5];
-  float command_region_boundaries[128];
-} KiwiFrameUniform;
-]]
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -80,37 +34,11 @@ local function string_view(value)
   return ffi.new("WGPUStringView", { data = value, length = #value })
 end
 
-local function color_to_u32(color)
-  return ffi.cast("uint32_t", color)
-end
-
-local function select_glyph(atlas, glyph_text)
-  local glyph = atlas:get(glyph_text)
-  if glyph == nil and glyph_text ~= " " then
-    return atlas:get("?"), "?"
-  end
-  return glyph, glyph_text
-end
-
-local function preedit_signature(model)
-  local preedit = model.ime_preedit
-  if type(preedit) ~= "table" or type(preedit.text) ~= "string" or #preedit.text == 0 then return "" end
-  return table.concat({ preedit.text, preedit.column or -1, preedit.row or -1 }, "\0")
-end
-
-local cursor_styles = {
-  [1] = { shape = "block", blink = true },
-  [2] = { shape = "block", blink = false },
-  [3] = { shape = "underline", blink = true },
-  [4] = { shape = "underline", blink = false },
-  [5] = { shape = "bar", blink = true },
-  [6] = { shape = "bar", blink = false },
-}
-
-local cursor_shape_values = { block = 0, underline = 1, bar = 2 }
 local cursor_blink_interval = 0.5
 
-Renderer.select_glyph = select_glyph
+Renderer.select_glyph = PreparedFrame.select_glyph
+Renderer.pack_cell = PreparedFrame.pack_cell
+Renderer.pack_shaped_glyph = PreparedFrame.pack_shaped_glyph
 
 function Renderer.new(context, font, model, options)
   options = options or {}
@@ -132,7 +60,7 @@ function Renderer.new(context, font, model, options)
   local inspector_enabled = options.inspector_enabled == true
   local placement_limit = model.kitty_placements and model.kitty_placements.limit or 256
   local placement_rows = model.kitty_placements and model.kitty_placements.max_rows or 256
-  local text_backend = TextBackend.create(font, { requested = options.text_backend })
+  local prepared_frame = PreparedFrame.new(font, model, options)
   local extension_manager = Extensions.new({
     enabled = options.extensions_enabled,
     diagnostic_limit = options.extension_diagnostic_limit,
@@ -140,18 +68,18 @@ function Renderer.new(context, font, model, options)
     pass_limit = options.extension_pass_limit,
     animation_hz = options.extension_animation_hz,
   })
-  Packing.assert_layout()
   local self = setmetatable({
     context = context,
     native = context.native,
     font = font,
-    layout = text_backend:layout(),
-    text_backend = text_backend,
-    capacity = model.columns * model.rows,
-    glyph_capacity = model.columns * model.rows * 8,
-    cells = ffi.new("KiwiGlyphInstance[?]", model.columns * model.rows),
-    glyphs = ffi.new("KiwiTextGlyphInstance[?]", model.columns * model.rows * 8),
-    frame = ffi.new("KiwiFrameUniform[1]"),
+    layout = prepared_frame.layout,
+    text_backend = prepared_frame.text_backend,
+    capacity = prepared_frame.capacity,
+    glyph_capacity = prepared_frame.glyph_capacity,
+    cells = prepared_frame.cells,
+    glyphs = prepared_frame.glyphs,
+    frame = prepared_frame.frame,
+    prepared_frame = prepared_frame,
     resource_registry = Resources.new(context:next_renderer_generation()),
     resource_handles = {},
     frame_time = 0,
@@ -164,11 +92,11 @@ function Renderer.new(context, font, model, options)
     invalidation = Invalidation.new(),
     inspector_enabled = inspector_enabled,
     inspector_selected_pass = options.inspector_selected_pass,
-    selection_color = Selection.parse_color(options.selection_color),
-    search_color = Search.parse_color(options.search_color),
-    hyperlink_color = Hyperlink.parse_color(options.hyperlink_color),
-    command_region_visual_enabled = options.command_region_visual_enabled == true,
-    command_region_color = CommandRegions.parse_color(options.command_region_color),
+    selection_color = prepared_frame.selection_color,
+    search_color = prepared_frame.search_color,
+    hyperlink_color = prepared_frame.hyperlink_color,
+    command_region_visual_enabled = prepared_frame.command_region_visual_enabled,
+    command_region_color = prepared_frame.command_region_color,
     kitty_images = KittyImages.new(placement_limit * placement_rows),
     diagnostics = {
       cells_uploaded = 0,
@@ -193,7 +121,7 @@ function Renderer.new(context, font, model, options)
       extensions = extension_manager:snapshot(),
       pass_budgets = { enabled = false, warnings = {}, passes = {} },
       gpu_timing = { enabled = false, status = "not initialized", samples = {}, history = {} },
-      text_backend = text_backend:descriptor(),
+      text_backend = prepared_frame.text_backend:descriptor(),
     },
   }, Renderer)
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
@@ -247,8 +175,6 @@ function Renderer:create_resources(model)
   texture_descriptor.sampleCount = 1
   self.atlas_texture = assert_handle(api.wgpuDeviceCreateTexture(self.context.device, texture_descriptor), "glyph atlas texture creation")
   self.resource_registry:own_native("dynamic-glyph-atlas", self.atlas_texture, api.wgpuTextureRelease, api.wgpuTextureDestroy)
-
-  self:upload_atlas()
 
   self.atlas_view = assert_handle(api.wgpuTextureCreateView(self.atlas_texture, nil), "glyph atlas view creation")
   self.resource_registry:own_native("glyph-atlas-view", self.atlas_view, api.wgpuTextureViewRelease)
@@ -470,20 +396,7 @@ function Renderer:resource_descriptor(kind, access, fields)
 end
 
 function Renderer:cursor_descriptor(model)
-  local modes = model.modes or {}
-  local style = modes.cursor_style or 1
-  local details = cursor_styles[style] or cursor_styles[1]
-  local packed_color = model.cursor_color or Color.pack(0x8c, 0xd9, 0xe0, 0xff)
-  local color = Color.unpack(packed_color)
-  return {
-    column = model.cursor.column,
-    row = model.cursor.row,
-    visible = model.cursor.visible ~= false,
-    style = style,
-    shape = details.shape,
-    blink = details.blink and modes.cursor_blink ~= false,
-    color = color,
-  }
+  return PreparedFrame.cursor_descriptor(model)
 end
 
 function Renderer:can_present(model)
@@ -622,192 +535,66 @@ function Renderer:resolve_pass_resources(pass_info)
   return resolved
 end
 
-function Renderer:upload_atlas()
+function Renderer:upload_atlas(update)
+  assert(type(update) == "table" and update.data ~= nil, "atlas upload needs prepared atlas data")
   local api = self.native.lib
   local c = self.native.constants
-  local cache = self.font.glyph_cache
-  local atlas = cache.atlas
   local texture_destination = ffi.new("WGPUTexelCopyTextureInfo")
   texture_destination.texture = self.atlas_texture
   texture_destination.aspect = c.texture_aspect_all
   local texture_layout = ffi.new("WGPUTexelCopyBufferLayout")
-  texture_layout.bytesPerRow = atlas.width
-  texture_layout.rowsPerImage = atlas.height
+  texture_layout.bytesPerRow = update.width
+  texture_layout.rowsPerImage = update.height
   local texture_extent = ffi.new("WGPUExtent3D")
-  texture_extent.width = atlas.width
-  texture_extent.height = atlas.height
+  texture_extent.width = update.width
+  texture_extent.height = update.height
   texture_extent.depthOrArrayLayers = 1
-  api.wgpuQueueWriteTexture(self.context.queue, texture_destination, cache.pixels, cache.pixel_bytes, texture_layout, texture_extent)
-  self.atlas_generation = cache.generation
+  api.wgpuQueueWriteTexture(self.context.queue, texture_destination, update.data, update.byte_count, texture_layout, texture_extent)
   self.diagnostics.atlas_uploads = self.diagnostics.atlas_uploads + 1
 end
 
-function Renderer:pack_cell(model, index)
-  local column, row = model:position(index)
-  local cell = model.cells[index]
-  local instance = self.cells[index]
-  local foreground, background = cell.fg, cell.bg
-  if model.presentation_colors then foreground, background = model:presentation_colors(cell) end
-  instance.x = column
-  instance.y = row
-  instance.fg = color_to_u32(foreground)
-  instance.bg = color_to_u32(background)
-  instance.flags = cell.flags
-  if self.font.glyph_cache then
-    instance.u0 = 0
-    instance.v0 = 0
-    instance.u1 = 0
-    instance.v1 = 0
-    instance.glyph = 0
-    return
-  end
-  local glyph, glyph_key = select_glyph(self.font.atlas, cell.glyph)
-  if glyph and cell.glyph ~= " " then
-    instance.u0 = glyph.u0
-    instance.v0 = glyph.v0
-    instance.u1 = glyph.u1
-    instance.v1 = glyph.v1
-    instance.glyph = string.byte(glyph_key)
-  else
-    instance.u0 = 0
-    instance.v0 = 0
-    instance.u1 = 0
-    instance.v1 = 0
-    instance.glyph = 0
-  end
-end
-
-function Renderer:pack_shaped_glyph(glyph, index)
-  local instance = self.glyphs[index]
-  instance.x = glyph.x
-  instance.y = glyph.y
-  instance.width = glyph.width
-  instance.height = glyph.height
-  instance.u0 = glyph.u0
-  instance.v0 = glyph.v0
-  instance.u1 = glyph.u1
-  instance.v1 = glyph.v1
-  instance.fg = color_to_u32(glyph.fg)
-  instance.flags = glyph.flags
-  instance.glyph = glyph.glyph_id
-  instance.cluster = glyph.cluster_column
-end
-
 function Renderer:update_model(model)
-  local damage = model.damage
-  local current_preedit_signature = preedit_signature(model)
-  local preedit_changed = self.preedit_signature ~= current_preedit_signature
-  self.preedit_signature = current_preedit_signature
-  local shaped_glyphs = self.text_backend:update(model)
   if self.kitty_images:sync(self, model) then self:invalidate("kitty_images") end
   self.diagnostics.kitty_images = self.kitty_images:descriptor()
+  local plan = self.prepared_frame:prepare_model(model)
+  if #plan.cell_updates > 0 then self:invalidate("terminal") end
+  local uploaded, upload_error = xpcall(function()
+    for _, update in ipairs(plan.cell_updates) do
+      self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.cell_buffer,
+        update.first * Packing.glyph_instance_size, update.data, update.byte_count)
+      plan.diagnostics.cells_uploaded = plan.diagnostics.cells_uploaded + update.cell_count
+      plan.diagnostics.bytes_uploaded = plan.diagnostics.bytes_uploaded + update.byte_count
+    end
+    if plan.glyph_update and plan.glyph_update.byte_count > 0 then
+      self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.glyph_buffer, 0,
+        plan.glyph_update.data, plan.glyph_update.byte_count)
+      plan.diagnostics.glyph_bytes_uploaded = plan.glyph_update.byte_count
+    end
+    if plan.atlas_update then self:upload_atlas(plan.atlas_update) end
+  end, debug.traceback)
+  if not uploaded then
+    self.prepared_frame:discard_model(plan)
+    error(upload_error, 0)
+  end
+  if not CommandRegions.same(self.command_regions, plan.descriptors.command_regions) then self:invalidate("command_regions") end
+  self.prepared_frame:commit_model(plan)
+  self.glyph_count = self.prepared_frame.glyph_count
+  self.atlas_generation = self.prepared_frame.atlas_generation
+  for name, value in pairs(plan.diagnostics) do self.diagnostics[name] = value end
   self.diagnostics.text_backend = self.text_backend:descriptor()
-  local ranges = damage:ranges()
-  if #ranges > 0 then self:invalidate("terminal") end
-  self.diagnostics.dirty_cells = damage.dirty_count
-  self.diagnostics.dirty_ranges = #ranges
-  self.diagnostics.full_update = damage.full
-  self.diagnostics.cells_uploaded = 0
-  self.diagnostics.bytes_uploaded = 0
-  self.diagnostics.rows_reshaped = self.layout.stats.rows_reshaped
-  self.diagnostics.shaping_rows_invalidated = self.layout.stats.rows_invalidated
-  self.diagnostics.runs_reshaped = self.layout.stats.runs_reshaped
-  self.diagnostics.glyphs_produced = self.layout.stats.glyphs_produced
-  self.diagnostics.visible_shaped_runs = self.layout.stats.visible_runs
-  self.diagnostics.visible_shaped_glyphs = self.layout.stats.visible_glyphs
-  self.diagnostics.shaping_cpu_ms = self.layout.stats.shaping_cpu_ms
-  self.diagnostics.shape_cache_hits = self.layout.stats.cache_hits
-  self.diagnostics.shape_cache_misses = self.layout.stats.cache_misses
-  for _, range in ipairs(ranges) do
-    for index = range.first, range.first + range.count - 1 do
-      self:pack_cell(model, index)
-    end
-    local bytes = range.count * Packing.glyph_instance_size
-    self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.cell_buffer, range.first * Packing.glyph_instance_size, self.cells + range.first, bytes)
-    self.diagnostics.cells_uploaded = self.diagnostics.cells_uploaded + range.count
-    self.diagnostics.bytes_uploaded = self.diagnostics.bytes_uploaded + bytes
-  end
-  self.diagnostics.glyph_instances_uploaded = 0
-  self.diagnostics.glyph_bytes_uploaded = 0
-  self.diagnostics.glyph_instances_dropped = 0
-  if self.layout.stats.rows_reshaped > 0 or preedit_changed then
-    local glyph_count = math.min(#shaped_glyphs, self.glyph_capacity)
-    for index = 1, glyph_count do self:pack_shaped_glyph(shaped_glyphs[index], index - 1) end
-    if glyph_count > 0 then
-      local bytes = glyph_count * Packing.text_glyph_instance_size
-      self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.glyph_buffer, 0, self.glyphs, bytes)
-      self.diagnostics.glyph_instances_uploaded = glyph_count
-      self.diagnostics.glyph_bytes_uploaded = bytes
-    end
-    self.diagnostics.glyph_instances_dropped = #shaped_glyphs - glyph_count
-    self.glyph_count = glyph_count
-  end
-  if self.atlas_generation ~= self.font.glyph_cache.generation then self:upload_atlas() end
-  local command_regions = self:update_command_regions(model)
-  self:refresh_semantic_resources(model, self.frame_time, 0, nil, nil, nil, command_regions)
-  damage:clear()
+  self:refresh_semantic_resources(model, self.frame_time, 0,
+    plan.descriptors.selection, plan.descriptors.search, plan.descriptors.hyperlinks,
+    plan.descriptors.command_regions)
 end
 
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
-  local delta = math.max(0, time - self.frame_time)
-  local cursor = self:cursor_descriptor(model)
-  local selection = self:selection_descriptor(model)
-  local search = self:search_descriptor(model)
-  local hyperlinks = self:hyperlink_descriptor(model)
-  local command_regions = self:command_regions_descriptor(model)
-  self.frame_time = time
-  self.frame[0].columns = model.columns
-  self.frame[0].rows = model.rows
-  self.frame[0].cursor_column = cursor.column
-  self.frame[0].cursor_row = cursor.row
-  self.frame[0].time = time
-  self.frame[0].show_dirty = debug_dirty and 1 or 0
-  self.frame[0].show_boundaries = debug_boundaries and 1 or 0
-  self.frame[0].cursor_visible = cursor.visible and 1 or 0
-  self.frame[0].cursor_shape = cursor_shape_values[cursor.shape]
-  self.frame[0].cursor_blink = cursor.blink and 1 or 0
-  self.frame[0].cursor_red = cursor.color.red / 255
-  self.frame[0].cursor_green = cursor.color.green / 255
-  self.frame[0].cursor_blue = cursor.color.blue / 255
-  self.frame[0].cursor_alpha = cursor.color.alpha / 255
-  self.frame[0].selection_start_column = selection.start_column
-  self.frame[0].selection_start_row = selection.start_row
-  self.frame[0].selection_finish_column = selection.finish_column
-  self.frame[0].selection_finish_row = selection.finish_row
-  self.frame[0].selection_red = selection.color.red
-  self.frame[0].selection_green = selection.color.green
-  self.frame[0].selection_blue = selection.color.blue
-  self.frame[0].selection_alpha = selection.color.alpha
-  self.frame[0].search_start_column = search.start_column
-  self.frame[0].search_start_row = search.start_row
-  self.frame[0].search_finish_column = search.finish_column
-  self.frame[0].search_finish_row = search.finish_row
-  self.frame[0].search_red = search.color.red
-  self.frame[0].search_green = search.color.green
-  self.frame[0].search_blue = search.color.blue
-  self.frame[0].search_alpha = search.color.alpha
-  self.frame[0].hyperlink_red = hyperlinks.color.red
-  self.frame[0].hyperlink_green = hyperlinks.color.green
-  self.frame[0].hyperlink_blue = hyperlinks.color.blue
-  self.frame[0].hyperlink_alpha = hyperlinks.color.alpha
-  local command_region_color = CommandRegions.color_descriptor(self.command_region_color)
-  local command_region_count = self.command_region_visual_enabled and command_regions.boundary_count or 0
-  self.frame[0].command_region_count = command_region_count
-  self.frame[0].command_region_red = command_region_color.red
-  self.frame[0].command_region_green = command_region_color.green
-  self.frame[0].command_region_blue = command_region_color.blue
-  self.frame[0].command_region_alpha = command_region_count > 0 and command_region_color.alpha or 0
-  self.frame[0].command_region_padding[0] = self.context.surface_is_srgb and 1 or 0
-  for index = 0, CommandRegions.visible_boundary_limit - 1 do
-    local boundary = command_regions.boundaries["boundary_" .. (index + 1)]
-    local offset = index * 4
-    self.frame[0].command_region_boundaries[offset] = boundary and boundary.column or 0
-    self.frame[0].command_region_boundaries[offset + 1] = boundary and boundary.row or 0
-    self.frame[0].command_region_boundaries[offset + 2] = boundary and CommandRegions.role_value(boundary.role) or 0
-    self.frame[0].command_region_boundaries[offset + 3] = 0
-  end
-  self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, self.frame, ffi.sizeof("KiwiFrameUniform"))
-  self:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions)
+  local frame = self.prepared_frame:prepare_frame(model, time, debug_dirty, debug_boundaries, {
+    surface_is_srgb = self.context.surface_is_srgb,
+  })
+  self.frame_time = frame.time
+  self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, frame.data, frame.byte_count)
+  self:refresh_semantic_resources(model, frame.time, frame.delta,
+    frame.selection, frame.search, frame.hyperlinks, frame.command_regions)
 end
 
 function Renderer:configure_pass_viewport(pass)
@@ -951,7 +738,7 @@ function Renderer:destroy()
     if not ok then pass_error = message end
   end
   local resource_ok, resource_error = pcall(self.resource_registry.destroy, self.resource_registry)
-  if self.text_backend then self.text_backend:destroy() end
+  if self.prepared_frame then self.prepared_frame:destroy() end
   if pass_error then error(pass_error, 2) end
   if not resource_ok then error(resource_error, 2) end
 end
