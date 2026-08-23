@@ -199,10 +199,10 @@ evidence and remaining gaps are in [ADR 0039](adr/0039-macos-native-feasibility.
 The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. Both alpha passes and the hyperlink glyph decoration remain semantic presentation, rather than part of a terminal bitmap.
 
 `native/kiwi_render_model.h` and `renderer/render_model.lua` define the v1
-byte layout for those packed records. WGPU is the current consumer, while a
-later GTK `GtkGLArea` consumer must use the same layout. The header is internal
-and versioned for coordinated source changes; it is not a public `libkiwi-vt`
-ABI or a guarantee of binary compatibility.
+byte layout for those packed records. WGPU and the experimental GTK
+`GtkGLArea` consumer use the same layout. The header is internal and versioned
+for coordinated source changes; it is not a public `libkiwi-vt` ABI or a
+guarantee of binary compatibility.
 
 M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves background, selection, search, glyph, and cursor ordering while adding bounded hyperlink metadata to glyph presentation; it does not expose native wgpu handles to Lua passes.
 

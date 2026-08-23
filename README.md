@@ -137,8 +137,11 @@ make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make run                               # launch the default shell
 make gtk-run                           # launch through the GTK4 development host on Linux x86_64
+make gtk-gl-run                        # experimental GtkGLArea single-terminal route; no tabs/splits/images or workspace restore
 make gtk-gl-renderer-check             # strict native GTK/OpenGL renderer compile check
 make gtk-wayland-smoke                 # bounded GTK Wayland WGPU/PTy smoke (requires a Wayland session)
+make gtk-gl-wayland-smoke              # GTK GL terminal/PTY render smoke (requires a Wayland session)
+make gtk-gl-x11-smoke                  # GTK GL terminal/PTY render smoke (requires an X11 session)
 make gtk-input-smoke                   # GTK preedit/commit callback boundary smoke (requires a graphical session)
 make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
 make gtk-gl-area-smoke                  # GTK GL snapshot/render lifecycle probe; not the application renderer (requires graphical Linux)
