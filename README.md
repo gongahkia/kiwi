@@ -321,7 +321,7 @@ Kiwi automatically injects its reversible Bash, Zsh, fish, or Nushell integratio
 for its initial default shell; it never edits a dotfile. Set
 `shell-integration = none` in the configuration file, or
 `KIWI_SHELL_INJECTION=none`, to disable injection. Use `make kiwi-ssh
-SSH_ARGS='--ssh-option -p --ssh-option 2222 -- user@host'` for an explicit SSH
+SSH_ARGS='--ssh-option Port=2222 -- user@host'` for an explicit SSH
 session that installs the compiled `xterm-kiwi` terminfo entry under the remote
 user's private cache before starting the remote shell. Its failure fallback
 uses `TERM=xterm-256color`; see

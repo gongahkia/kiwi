@@ -110,7 +110,9 @@ instead of skipping when neither `DISPLAY` nor `WAYLAND_DISPLAY` is available.
 On macOS, native window creation is the platform boundary. The command does not
 retain recordings, terminal output, shell output, or clipboard data. Pass
 `--report path.json` to retain only the bounded machine/OS/session/GPU summary
-and check statuses; review that report before sharing it.
+and check statuses; review that report before sharing it. When the SSH check is
+attempted, the report marks network use as `controlled SSH terminfo probe; host
+excluded`; it never serializes the destination or connection options.
 
 Clipboard has an explicit safety boundary. macOS uses a private AppKit
 pasteboard round trip. Linux public clipboard qualification is manual by

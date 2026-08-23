@@ -35,6 +35,19 @@ local function check_copy(check)
   }
 end
 
+local function privacy_copy(privacy, checks)
+  local copied = {}
+  for key, value in pairs(privacy or {}) do copied[key] = value end
+  copied.network = "not used"
+  for _, check in ipairs(checks) do
+    if check.name == "ssh" and check.status ~= "skipped" then
+      copied.network = "controlled SSH terminfo probe; host excluded"
+      break
+    end
+  end
+  return copied
+end
+
 function Qualification.collect(checks, options)
   options = options or {}
   assert(type(checks) == "table" and #checks <= Qualification.maximum_checks, "compatibility qualification check count exceeds the fixed limit")
@@ -46,7 +59,7 @@ function Qualification.collect(checks, options)
     environment = doctor.environment,
     gpu = doctor.gpu,
     kind = "kiwi-daily-driver-compatibility",
-    privacy = doctor.privacy,
+    privacy = privacy_copy(doctor.privacy, copied),
     schema_version = Qualification.schema_version,
   }
 end

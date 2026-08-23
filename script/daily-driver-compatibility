@@ -19,7 +19,7 @@ typeset overall_failed=false
 
 usage() {
   cat <<'EOF'
-usage: daily-driver-compatibility [--host glfw|gtk] [--require-desktop] [--allow-public-clipboard] [--report PATH] [--ssh-host HOST] [--ssh-option ARG]...
+usage: daily-driver-compatibility [--host glfw|gtk] [--require-desktop] [--allow-public-clipboard] [--report PATH] [--ssh-host HOST] [--ssh-option NAME=VALUE]...
 
 Run bounded daily-driver compatibility evidence. The suite never keeps terminal,
 shell, or clipboard content. --require-desktop turns an unavailable Linux
@@ -53,7 +53,7 @@ while (( $# > 0 )); do
       ;;
     --ssh-option)
       shift
-      (( $# > 0 )) || { print -u2 -- "daily-driver-compatibility: --ssh-option needs one argument"; exit 2; }
+      (( $# > 0 )) || { print -u2 -- "daily-driver-compatibility: --ssh-option needs one NAME=VALUE assignment"; exit 2; }
       ssh_options+=("$1")
       ;;
     --help|-h) usage; exit 0 ;;

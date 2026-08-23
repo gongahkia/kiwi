@@ -118,11 +118,12 @@ local destination cache.
 
 The command intentionally accepts exactly one destination after `--` and no
 remote command. It is not a general replacement for `ssh`. Repeat
-`--ssh-option ARG` for each explicit connection argument; Kiwi passes those
-arguments, in order, to the remote mkdir, the `scp` transfer, and the final
-SSH login. For example, use `./script/kiwi-ssh --ssh-option -p --ssh-option
-2222 -- user@host`. This preserves a non-default port or identity/configuration
-option across both stages without parsing a shell string. Use `--no-terminfo`
+`--ssh-option NAME=VALUE` for each OpenSSH configuration assignment; Kiwi
+passes it as `-o NAME=VALUE` to the remote mkdir, `scp` transfer, probe,
+fallback, and final SSH login. For example, use `./script/kiwi-ssh
+--ssh-option Port=2222 -- user@host`. This preserves a non-default port without
+relying on the incompatible meanings of `-p` in `ssh` and `scp`. Use
+`--no-terminfo`
 to open the conservative `xterm-256color` fallback without uploading, or
 `--strict` to fail when setup cannot complete. The normal mode also falls back
 to `xterm-256color` after a failed remote mkdir/upload, and prints that
