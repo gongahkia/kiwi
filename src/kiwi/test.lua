@@ -7,6 +7,7 @@ local tests = {
   require("tests.test_filesystem"),
   require("tests.test_app_options"),
   require("tests.test_actions"),
+  require("tests.test_product_action_dispatcher"),
   require("tests.test_host_effects"),
   require("tests.test_compatibility"),
   require("tests.test_compatibility_qualification"),

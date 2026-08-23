@@ -53,8 +53,8 @@ native text widget or a replacement renderer.
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
    reads/writes, URI opening, and the existing GPU-rendered terminal content.
    It installs window-scoped `win.*` actions and a shared `GMenu`; the active
-   `GtkApplicationWindow` dispatches the same product action handler as the
-   keyboard and Cocoa menu paths. GTK receives no hard-coded accelerators, so
+   `GtkApplicationWindow` dispatches the same host-neutral product-action
+   dispatcher as the keyboard and Cocoa menu paths. GTK receives no hard-coded accelerators, so
    the bounded configured one- through three-chord key map remains the shortcut
    policy. `make
    gtk-host-check` validates its independent bridge ABI without a display;

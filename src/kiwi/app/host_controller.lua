@@ -816,97 +816,30 @@ function Controller.run(window, host, options)
       return false
     end
 
+    local action_dispatcher = require("kiwi.app.product_action_dispatcher").new({
+      active_session = function() return active_session end,
+      application = options.application,
+      close_active_pane = close_active_pane,
+      configuration = function() return configuration end,
+      configuration_path = function() return configuration_path end,
+      controller_id = options.controller_id,
+      create_split = create_split,
+      create_tab = create_tab,
+      explicit_configuration_path = options.config,
+      focus_next_tab = focus_next_tab,
+      host = host,
+      report = function(message) io.stderr:write(message, "\n") end,
+      request_configuration_reload = function() configuration_reload_requested = true end,
+      session_move_smoke_requester = options.session_move_smoke_requester,
+      set_configuration_path = function(path)
+        configuration_path = path
+        configuration.path = path
+      end,
+      window = window,
+    })
+
     local function handle_product_action(product_action)
-      if product_action == "command-palette" then
-        if type(host.show_command_palette) ~= "function" then
-          io.stderr:write("Kiwi command palette unavailable: this host has no native palette bridge\n")
-          return true
-        end
-        local opened, reason = host.show_command_palette(window, ProductActions.palette_entries(configuration.command_palette_entries), function(selected_action)
-          if handle_product_action(selected_action) then options.application:mark_layout_dirty() end
-        end)
-        if not opened then io.stderr:write("Kiwi command palette unavailable: ", reason or "unknown error", "\n") end
-        return true
-      end
-      if product_action == "next-tab" then
-        focus_next_tab()
-        return true
-      end
-      if product_action == "new-tab" then
-        local created, reason = create_tab()
-        if not created then io.stderr:write("Kiwi tab creation rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "new-window" then
-        local opened, reason = options.application:request_window(configuration_path)
-        if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "open-configuration" then
-        if type(host.open_text_file) ~= "function" then
-          io.stderr:write("Kiwi configuration opener unavailable: this host has no text-file opener\n")
-          return true
-        end
-        local configuration_api = require("kiwi.config")
-        local path = configuration_api.edit_path(options.config, configuration_path, nil, host.platform)
-        if path == nil then
-          io.stderr:write("Kiwi configuration opener unavailable: no default configuration path\n")
-          return true
-        end
-        if configuration_path == nil then
-          local initialized, reason = require("kiwi.platform.filesystem").ensure_new_file(path, configuration_api.edit_template)
-          if not initialized then
-            io.stderr:write("Kiwi configuration initialization rejected: ", reason or "unknown error", "\n")
-            return true
-          end
-          configuration_path = path
-          configuration.path = path
-        end
-        local opened, reason = host.open_text_file(window, path)
-        if not opened then io.stderr:write("Kiwi configuration opener rejected: ", reason or "unknown error", "\n") end
-        return true
-      end
-      if product_action == "move-session-new-window" or product_action == "move-session-next-window" then
-        if options.session_move_smoke_requester then active_session.session_move_smoke_source_id = options.controller_id end
-        local moved, reason
-        if product_action == "move-session-next-window" then
-          moved, reason = options.application:move_active_to_next_window(options.controller_id)
-        else
-          moved, reason = options.application:move_active_to_new_window(options.controller_id)
-        end
-        if not moved then io.stderr:write("Kiwi session move rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "duplicate-session-new-window" or product_action == "duplicate-session-next-window" then
-        local duplicated, reason
-        if product_action == "duplicate-session-next-window" then
-          duplicated, reason = options.application:duplicate_active_to_next_window(options.controller_id)
-        else
-          duplicated, reason = options.application:request_window(configuration_path)
-        end
-        if not duplicated then io.stderr:write("Kiwi session duplication rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "close-pane" then
-        local closed, reason = close_active_pane()
-        if not closed then io.stderr:write("Kiwi pane closure rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "split-right" then
-        local created, reason = create_split("vertical")
-        if not created then io.stderr:write("Kiwi vertical split rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "split-down" then
-        local created, reason = create_split("horizontal")
-        if not created then io.stderr:write("Kiwi horizontal split rejected: ", reason or "unavailable", "\n") end
-        return true
-      end
-      if product_action == "reload-config" then
-        configuration_reload_requested = true
-        return true
-      end
-      return false
+      return action_dispatcher:handle(product_action)
     end
 
     local function handle_workspace_key(key, action, modifiers)
@@ -916,14 +849,15 @@ function Controller.run(window, host, options)
       end
       if action ~= glfw.press then return false end
       local product_action, sequence_status = product_actions:lookup(key, modifiers, window:time())
-      return product_action ~= nil and handle_product_action(product_action)
-        or sequence_status == "pending"
+      local handled = product_action ~= nil and handle_product_action(product_action)
+      return handled or sequence_status == "pending"
     end
 
     local product_action_handler_enabled = false
     if host.set_product_action_handler then
       local menu_enabled, menu_reason = host.set_product_action_handler(window, function(product_action)
-        if handle_product_action(product_action) then options.application:mark_layout_dirty() end
+        local handled, layout_changed = handle_product_action(product_action)
+        if handled and layout_changed then options.application:mark_layout_dirty() end
       end)
       product_action_handler_enabled = menu_enabled == true
       if not menu_enabled then io.stderr:write("Kiwi native menu unavailable: ", menu_reason or "unknown error", "\n") end
@@ -939,7 +873,8 @@ function Controller.run(window, host, options)
     if options.palette_smoke then
       assert(host.show_command_palette and host.invoke_command_palette_smoke, "--palette-smoke needs the native command-palette bridge")
       local tabs_before = workspace:tab_count()
-      assert(handle_product_action("command-palette"))
+      local palette_handled = handle_product_action("command-palette")
+      assert(palette_handled)
       local invoked, reason = host.invoke_command_palette_smoke(window)
       assert(invoked, "native command-palette smoke could not select its first action: " .. tostring(reason))
       assert(workspace:tab_count() == tabs_before + 1, "native command-palette smoke did not create a tab through the live controller")

@@ -78,6 +78,17 @@ shared target; all following pane background passes load the existing target,
 so panes cannot erase one another. Pointer presses hit-test this same cell
 layout before selecting a pane and translating coordinates to its local grid.
 
+`app/product_action_dispatcher.lua` owns the application-level product action
+contract. Cocoa and GTK menus, the searchable palette, and the bounded local
+keybinding trie dispatch the same named intent through a host-neutral context
+for workspace mutation, window/session ownership, configuration reload, and
+the text-configuration opener. It returns both whether an action was handled
+and whether it changed persisted workspace topology, so a host cannot mark
+layout state dirty merely because it displayed a palette or opened Settings.
+The dispatcher imports no terminal, renderer, or native-window implementation;
+future automation adapters must use this boundary rather than reach into the
+live controller.
+
 ## Parser and state
 
 Kitty APC-G reaches a bounded terminal transfer model for direct inline PNG,
