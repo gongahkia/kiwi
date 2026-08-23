@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native gtk-host gtk-host-check gtk-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-accessibility-smoke gtk-input-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native gtk-host gtk-host-check gtk-gl-renderer-check gtk-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-accessibility-smoke gtk-input-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -16,6 +16,10 @@ gtk-host: bootstrap
 
 gtk-host-check: gtk-host
 	$(LUAJIT) src/kiwi/gtk_host_check.lua
+
+gtk-gl-renderer-check:
+	@pkg-config --exists gtk4 epoxy || { echo "GTK4 and libepoxy development files are required." >&2; exit 2; }
+	cc -std=c17 -Wall -Wextra -Werror -fsyntax-only -Inative $$(pkg-config --cflags gtk4 epoxy) native/gtk_gl_renderer.c
 
 gtk-run: gtk-host native terminfo
 	KIWI_HOST=gtk $(LUAJIT) src/kiwi/app/main.lua $(ARGS)

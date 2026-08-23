@@ -1,4 +1,5 @@
 local ffi = require("ffi")
+require("kiwi.renderer.render_model")
 
 ffi.cdef[[
 typedef struct KiwiGtkHost KiwiGtkHost;
@@ -10,6 +11,19 @@ typedef void (*KiwiGtkFocusCallback)(void* userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void* userdata, int width, int height, double scale);
 typedef void (*KiwiGtkProductActionCallback)(void* userdata, uint32_t action);
 typedef struct KiwiGtkCommandPaletteEntry { uint32_t action; const char* title; const char* description; } KiwiGtkCommandPaletteEntry;
+typedef struct KiwiGtkGlFrame {
+  uint32_t render_model_version;
+  uint64_t revision;
+  const KiwiGlyphInstance* cells;
+  uint32_t cell_count;
+  const KiwiTextGlyphInstance* glyphs;
+  uint32_t glyph_count;
+  const uint8_t* atlas_pixels;
+  uint32_t atlas_bytes;
+  uint32_t atlas_width;
+  uint32_t atlas_height;
+  const KiwiFrameUniform* frame;
+} KiwiGtkGlFrame;
 typedef struct KiwiGtkCallbacks {
   KiwiGtkFocusCallback focus;
   KiwiGtkKeyCallback key;
@@ -43,9 +57,12 @@ void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
 int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
 int kiwi_gtk_host_system_appearance(const KiwiGtkHost* host);
+uint32_t kiwi_gtk_gl_renderer_abi_version(void);
 int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost* host);
 int kiwi_gtk_host_request_gl_area_render(KiwiGtkHost* host);
 int kiwi_gtk_host_gl_area_state(const KiwiGtkHost* host, uint64_t* context_generation, uint64_t* rendered_frames, int* realized);
+uint64_t kiwi_gtk_host_gl_area_rendered_revision(const KiwiGtkHost* host);
+int kiwi_gtk_host_gl_area_submit_snapshot(KiwiGtkHost* host, const KiwiGtkGlFrame* snapshot);
 int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_accessibility_update(KiwiGtkHost* host, const char* text, size_t text_bytes, uint32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char* title);
@@ -314,8 +331,32 @@ function Window:gl_area_state()
   return {
     context_generation = tonumber(context_generation[0]),
     realized = realized[0] ~= 0,
+    rendered_revision = tonumber(native.kiwi_gtk_host_gl_area_rendered_revision(self.handle)),
     rendered_frames = tonumber(rendered_frames[0]),
   }
+end
+
+function Window:submit_gl_area_snapshot(snapshot)
+  assert(type(snapshot) == "table", "GTK GL snapshot needs a table")
+  assert(type(snapshot.revision) == "number" and snapshot.revision >= 1 and snapshot.revision % 1 == 0,
+    "GTK GL snapshot revision must be a positive integer")
+  assert(type(snapshot.cell_count) == "number" and snapshot.cell_count >= 1 and snapshot.cell_count % 1 == 0,
+    "GTK GL snapshot cell count must be a positive integer")
+  assert(snapshot.cells ~= nil and snapshot.frame ~= nil, "GTK GL snapshot needs cells and a frame uniform")
+  local frame = ffi.new("KiwiGtkGlFrame")
+  frame.render_model_version = 1
+  frame.revision = snapshot.revision
+  frame.cells = snapshot.cells
+  frame.cell_count = snapshot.cell_count
+  frame.glyphs = snapshot.glyphs
+  frame.glyph_count = snapshot.glyph_count or 0
+  frame.atlas_pixels = snapshot.atlas_pixels
+  frame.atlas_bytes = snapshot.atlas_bytes or 0
+  frame.atlas_width = snapshot.atlas_width or 0
+  frame.atlas_height = snapshot.atlas_height or 0
+  frame.frame = snapshot.frame
+  if native.kiwi_gtk_host_gl_area_submit_snapshot(self.handle, frame) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
 end
 
 function Window:text_input_inject_smoke()
