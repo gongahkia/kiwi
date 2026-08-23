@@ -31,6 +31,7 @@ void kiwi_cocoa_automation_remove(void* window);
 int kiwi_cocoa_automation_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_window_set_tab_grouping(void* window, int grouped);
 int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
+int kiwi_cocoa_window_is_standalone(void* window);
 int kiwi_cocoa_window_select_next_tab(void* window);
 void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
@@ -416,6 +417,12 @@ function Window:cocoa_set_window_tab_grouping(grouped)
   if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
   assert(type(grouped) == "boolean", "Cocoa window-tab grouping needs a boolean")
   if native.kiwi_cocoa_window_set_tab_grouping(self.handle, grouped and 1 or 0) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_window_is_standalone()
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  if native.kiwi_cocoa_window_is_standalone(self.handle) ~= 0 then return true end
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 

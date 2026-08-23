@@ -21,12 +21,49 @@ PTY/session service. The first host work is therefore an internal host facade
 over the existing application/session and renderer seams. The C API widens
 only after a second real consumer requires a documented, testable capability.
 
+### Host-tab contract
+
+The application manager owns controller and session lifetime. Its private
+`request_window(..., host_tab)` intent asks for a *new controller* to join a
+host-native tab container; it does not move or clone the source terminal,
+workspace, PTY, or renderer. A host advertises `native_tabs` only when it both
+creates that container and implements host-level tab selection. Hosts without
+that capability continue to create tabs inside the renderer-owned `Workspace`.
+The terminal kernel therefore never observes a native tab handle.
+
+The GLFW/Cocoa host is the first consumer: it interprets `host_tab` as an
+AppKit tab-group request. A normal `New Window`, restored window, and
+move-to-new-window request all pass `host_tab = false`, and are explicitly
+standalone. This distinction is deliberately host-neutral, so a future GTK
+container can use the same manager decision without inheriting Cocoa policy.
+
+GTK does **not** advertise `native_tabs` yet. Today each GTK controller creates
+its own `GtkApplicationWindow` and one native content/surface owner. Merely
+adding a `GtkNotebook` without replacing that per-controller toplevel ownership
+would be cosmetic and would leave focus, close, teardown, session movement,
+and surface ownership ambiguous. The current bridge derives its GDK surface
+from that toplevel; on X11 it binds WGPU to the toplevel XID, while on Wayland
+it creates a per-host `wl_subsurface`. A notebook cannot safely create multiple
+current-style page renderers until a group explicitly owns a shared X11
+presentation surface or supplies an equivalent per-page surface strategy on
+both backends.
+
+The GTK native-tab phase must therefore introduce a group owner that defines
+the presentation-surface policy, attaches a controller content surface as a
+notebook page, selects and focuses the active controller, detaches a page into
+a new standalone group, and removes the page before its controller releases the
+surface. [GtkNotebook](https://docs.gtk.org/gtk4/class.Notebook.html) is the
+appropriate GTK4 primitive: it owns tabbed child selection, supports page
+reordering/detachment and a `create-window` signal, and supplies tab/list/page
+accessibility roles. This is an implementation prerequisite, not a shipped GTK
+feature.
+
 ## Target hosts
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
-| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, custom in-window tab/split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit groups Kiwi's top-level windows into a native tab group and supplies a unified titlebar toolbar, local-shell `representedURL` proxy icon, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, Settings routing, AppKit window-tab grouping, unified toolbar dispatch, local/remote OSC 7 proxy-URL handling, Cocoa/Metal surfaces, bundle launch, and the staged bundle's Apple-event action callback; `make cocoa-palette-smoke` opens the palette and dispatches `New Tab`. Interactive filtering/navigation, Finder disclosure, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
+| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, per-tab split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit owns the visible tab containers: `New Tab` creates another GLFW/Cocoa controller in Kiwi's explicit `NSWindow` group and `Next Tab` invokes AppKit selection. `New Window`, restored windows, and a move-to-new-window controller are registered outside that group; the verified GLFW/Cocoa default retains `NSWindowTabbingModeDisallowed` for them. AppKit also supplies a unified titlebar toolbar, local-shell `representedURL` proxy icon, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, direct AppKit grouping/next-tab selection and standalone-window configuration, Settings routing, unified toolbar dispatch, local/remote OSC 7 proxy-URL handling, Cocoa/Metal surfaces, and bundle launch. The menu, toolbar, palette, and Apple-event smokes each dispatch `New Tab` into the live host tab controller. Interactive filtering/navigation, Finder disclosure, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
+| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -36,8 +73,10 @@ native text widget or a replacement renderer.
 1. The internal facade and host-owned WGPU-surface contract are implemented.
    GLFW remains the reference consumer.
 2. The GLFW Cocoa route adds bounded AppKit bridges without becoming an AppKit
-   host: its top-level GLFW windows join one `NSWindow` tab group while each
-   retains its own WGPU surface, workspace, and PTYs; `NSMenu` items dispatch the same logical actions as the configured
+   host: `New Tab` starts a top-level GLFW/Cocoa controller in one explicit
+   `NSWindow` group while each tab retains its own WGPU surface, split
+   workspace, and PTYs. `New Window`, restored windows, and move-to-new-window
+   controllers explicitly opt out of that group; `NSMenu` items dispatch the same logical actions as the configured
    local action map; a searchable `NSPanel` command palette dispatches the
    default and configuration-augmented bounded action catalogue;
    `NSTextInputClient`, private pasteboard, and
@@ -51,13 +90,13 @@ native text widget or a replacement renderer.
    text input, arbitrary action names, a Ghostty-style window/tab/terminal object
    model, or menu keyboard equivalents. A unified `NSToolbar` exposes fixed
    New Tab, Split Right, Split Down, Commands, and Settings controls through
-   the same dispatcher; it is native titlebar chrome, not native ownership of
-   the in-window workspace. The active session's accepted OSC 7 URI sets
+   the same dispatcher. AppKit owns the tab containers, but not the split
+   content inside one tab. The active session's accepted OSC 7 URI sets
    `NSWindow.representedURL` only for an empty, `localhost`, or current-host
    authority; remote or absent metadata clears it. Kiwi neither stats nor opens
    that URI. `make cocoa-smoke` verifies the bridge structure
    and `make cocoa-menu-smoke` verifies a New Tab callback through the live
-   controller. `make cocoa-palette-smoke` opens the palette and selects New
+   host tab controller. `make cocoa-palette-smoke` opens the palette and selects New
    Tab through the same controller. `make cocoa-automation-smoke` stages the
    bundle, validates the scripting definition, and dispatches `New Tab` through
    the live bundle process. `make cocoa-toolbar-smoke` dispatches the default
@@ -74,13 +113,14 @@ native text widget or a replacement renderer.
    `GtkApplicationWindow` dispatches the same host-neutral product-action
    dispatcher as the keyboard and Cocoa menu paths. GTK receives no hard-coded accelerators, so
    the bounded configured one- through three-chord key map remains the shortcut
-   policy. `make
-   gtk-host-check` validates its independent bridge ABI without a display;
+   policy. `make gtk-host-check` validates its independent bridge ABI without a display;
    `make gtk-menu-smoke` needs a graphical Linux session to dispatch New Tab
    through that handler. Its searchable GTK dialog uses the same default and
    configuration-augmented bounded catalogue; `make gtk-palette-smoke` opens
    it and dispatches the first entry through the live controller on a graphical
-   Linux session.
+   Linux session. It does not advertise host-native tabs: `New Tab` remains a
+   renderer-workspace tab until the GTK group-owner lifecycle described above
+   exists and has its own attach/select/detach/close qualification.
 4. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical
@@ -94,8 +134,8 @@ native text widget or a replacement renderer.
    gtk-accessibility-smoke`, `make gtk-menu-smoke`, and `make
    gtk-palette-smoke` to repeat those checks.
    Real IME, public
-   clipboard, scaled-monitor, and Orca qualification remains required before
-   adding a full AppKit host. Each later adapter owns its event loop and drawing
+   clipboard, scaled-monitor, and Orca qualifications remain required before
+   promoting GTK as a full native host. Each later adapter owns its event loop and drawing
    surface; neither calls terminal-state internals.
 5. Promote a host only after it passes the daily-driver corpus on its native
    platform. GLFW is then retained as a test/demo harness, not the product UI.

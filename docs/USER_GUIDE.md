@@ -201,10 +201,14 @@ scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
 
-On macOS, each top-level Kiwi window joins an AppKit native tab group while it
-keeps its own WGPU surface, workspace, and PTY set. This native tab bar is
-separate from Kiwi's custom in-window terminal tabs; it does not yet provide
-native ownership of the in-window tab/split model or a Linux equivalent.
+On macOS, `Ctrl+Shift+T` / `New Tab` creates a new GLFW/Cocoa controller and
+joins it to Kiwi's AppKit tab group; `Ctrl+Tab` selects the next AppKit tab.
+`Ctrl+Shift+N` / `New Window`, restored windows, and a session moved to a new
+window explicitly stay outside that group. Each native tab has its own WGPU
+surface, custom split workspace, and PTY set. Normal macOS tab creation is
+therefore host-owned, but Kiwi has not implemented native split content or a
+Linux native-tab equivalent. Session movement to an already open target and a
+restored multi-tab workspace still use the existing custom workspace topology.
 
 Use up to 64 bounded `keybind` directives to replace that map. A directive has
 the form `keybind = chord = action`, or a sequence such as
@@ -226,7 +230,7 @@ new configured sequence. Pending input clears on focus loss, a successful
 configuration reload, or Kitty keyboard flag 8. Product actions are not consumed while the
 terminal has negotiated Kitty keyboard flag 8, so disambiguated application
 input retains priority. `make key-sequence-smoke` checks a configured
-press/release prefix and completion against the live workspace controller.
+press/release prefix and completion against the live host tab controller.
 
 On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
 and `Window` menus, a unified titlebar toolbar (New Tab, Split Right, Split
@@ -249,7 +253,8 @@ menus deliberately define no keyboard equivalents: the configured key map
 remains the only local accelerator policy. Selecting a menu item is an explicit
 host command and is therefore available even while Kitty keyboard flag 8
 reserves physical keyboard input for the terminal. `make cocoa-palette-smoke`
-opens the Cocoa palette and selects `New Tab` through the live controller;
+opens the Cocoa palette and selects `New Tab` through the live host tab
+controller;
 `make gtk-palette-smoke` is the corresponding graphical-Linux gate. Neither
 proves interactive filtering, keyboard navigation, or general product-chrome
 behavior.

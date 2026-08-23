@@ -36,11 +36,12 @@ declared complete.
   graphical palette smoke is not yet local qualification evidence. Interactive desktop
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
-- The GLFW Cocoa route already has bounded AppKit top-level window-tab groups,
-  menu, searchable command palette, action-only AppleScript bridge, text-input,
-  accessibility, and pasteboard bridges. It is not an AppKit host: replacing
-  GLFW-owned windows and custom workspace chrome remains a separate, gated
-  product decision after GTK4 desktop qualification.
+- The GLFW Cocoa route already has bounded AppKit-owned `New Tab`/`Next Tab`
+  containers, explicitly separate native windows, menu, searchable command
+  palette, action-only AppleScript bridge, text-input, accessibility, and
+  pasteboard bridges. It is not an AppKit host: GLFW still owns the terminal
+  surface and split content, and replacing that custom split workspace remains
+  a separate, gated product decision after GTK4 desktop qualification.
 - Keep terminal state, PTY policy, and renderer ownership free of platform UI
   handles. See [NATIVE_HOSTS.md](NATIVE_HOSTS.md).
 

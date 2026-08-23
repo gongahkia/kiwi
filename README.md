@@ -159,6 +159,7 @@ make key-sequence-smoke                 # configured multi-key action through th
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
 make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
+make cocoa-menu-smoke                   # macOS global-menu New Tab action through the live host tab controller
 make cocoa-toolbar-smoke                # macOS unified titlebar-toolbar action through the live controller
 make cocoa-cwd-smoke                    # macOS active local/remote OSC 7 titlebar proxy-URL lifecycle
 make cocoa-palette-smoke                # macOS searchable native command-palette callback smoke
@@ -166,7 +167,7 @@ make cocoa-automation-smoke             # macOS staged-bundle bounded Apple-even
 make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
-make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, native-window-tabbed Metal surfaces, and development-app launch smoke
+make cocoa-smoke                        # macOS Cocoa bridges, AppKit tab selection/standalone-window policy, Metal surfaces, and development-app launch smoke
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -300,7 +301,7 @@ researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
-macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling, an `NSAccessibilityTextArea` adapter, and native AppKit tab groups for top-level windows; `make cocoa-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those native seams. The native tab group does not replace Kiwi's custom in-window tab/split workspace. Intel macOS, real input-source and VoiceOver interaction, interactive native tab behavior, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling, an `NSAccessibilityTextArea` adapter, and native AppKit tab containers: on macOS, `New Tab` creates a new GLFW/Cocoa controller that joins the AppKit group, while `New Window` is explicitly separate. Each native tab still renders Kiwi's custom split workspace; this is not native split content. `make cocoa-smoke`, `make cocoa-menu-smoke`, `make cocoa-toolbar-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those seams. Intel macOS, real input-source and VoiceOver interaction, interactive native tab behavior, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
 
 ## License
 
