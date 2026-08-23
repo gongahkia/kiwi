@@ -78,7 +78,7 @@ function Layout:row_is_dirty(state, row)
   return false
 end
 
-function Layout:append_glyph(output, face, shaped, column, row, cell, pen_x)
+function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen_x)
   local cached, reason = self.font_system.glyph_cache:get_or_insert(face, shaped.glyph_id)
   if cached == nil then
     local fallback_id = self.font_system.primary:glyph_index(string.byte("?"))
@@ -100,7 +100,7 @@ function Layout:append_glyph(output, face, shaped, column, row, cell, pen_x)
     v0 = cached.v0,
     u1 = cached.u1,
     v1 = cached.v1,
-    fg = rgba(cell.fg),
+    fg = rgba(state.presentation_colors and select(1, state:presentation_colors(cell)) or cell.fg),
     flags = cell.flags,
     glyph_id = cached.glyph_id,
     face_id = cached.face_id,
@@ -116,7 +116,7 @@ function Layout:append_glyph(output, face, shaped, column, row, cell, pen_x)
   }
 end
 
-function Layout:shape_run(run, row, output)
+function Layout:shape_run(state, run, row, output)
   local started = os.clock()
   local shaped = run.face:shape(run.text, self.font_system.shape_options)
   self.stats.shaping_cpu_ms = self.stats.shaping_cpu_ms + (os.clock() - started) * 1000
@@ -127,7 +127,7 @@ function Layout:shape_run(run, row, output)
   for _, glyph in ipairs(shaped) do
     local column = run.offset_columns[glyph.cluster] or run.column
     local cell = run.cells[column]
-    if cell then self:append_glyph(output, run.face, glyph, column, row, cell, pen_x) end
+    if cell then self:append_glyph(state, output, run.face, glyph, column, row, cell, pen_x) end
     pen_x = pen_x + glyph.x_advance / 64
   end
 end
@@ -178,14 +178,14 @@ function Layout:build_runs(state, row)
   return runs
 end
 
-function Layout:shape_runs(runs, row)
+function Layout:shape_runs(state, runs, row)
   local output = {}
-  for _, run in ipairs(runs) do self:shape_run(run, row, output) end
+  for _, run in ipairs(runs) do self:shape_run(state, run, row, output) end
   return output
 end
 
 function Layout:shape_row(state, row)
-  return self:shape_runs(self:build_runs(state, row), row)
+  return self:shape_runs(state, self:build_runs(state, row), row)
 end
 
 function Layout:append_preedit(state, output)
@@ -204,7 +204,7 @@ function Layout:append_preedit(state, output)
   local column = math.max(0, math.floor(preedit.column))
   local row = math.max(0, math.floor(preedit.row))
   local metrics = self.font_system.metrics
-  local cell = { fg = state.default_cell.fg, flags = 0x20 }
+  local cell = { bg = state.default_cell.bg, fg = state.default_cell.fg, flags = 0x20 }
   for _, cluster in ipairs(Grapheme.segment(codepoints)) do
     if column >= state.columns then
       column = 0
@@ -218,7 +218,7 @@ function Layout:append_preedit(state, output)
       local shaped = face:shape(table.concat(text_parts), self.font_system.shape_options)
       local pen_x = column * metrics.cell_width
       for _, glyph in ipairs(shaped) do
-        self:append_glyph(output, face, glyph, column, row, cell, pen_x)
+        self:append_glyph(state, output, face, glyph, column, row, cell, pen_x)
         pen_x = pen_x + glyph.x_advance / 64
       end
       self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped

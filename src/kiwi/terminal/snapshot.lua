@@ -59,6 +59,7 @@ function Snapshot.value(state)
       mouse_sgr = state.modes.mouse_sgr,
       mouse_tracking = state.modes.mouse_tracking,
       origin = state.modes.origin,
+      reverse_video = state.modes.reverse_video,
       synchronized_output = state.modes.synchronized_output,
     },
     rows = rows,

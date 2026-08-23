@@ -45,6 +45,8 @@ int main(void) {
   if (check(kiwi_vt_render_update_cell(update, 0, 0, &cell, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "cell size") || required != 2 || cell.continuation != 0) return 1;
   char display_text[2];
   if (check(kiwi_vt_render_update_cell(update, 0, 0, &cell, display_text, sizeof(display_text), &required), KIWI_VT_OK, terminal, "cell") || strcmp(display_text, "h") != 0) return 1;
+  uint32_t original_foreground = cell.foreground;
+  uint32_t original_background = cell.background;
   if (check(kiwi_vt_terminal_write(terminal, "x", 1, &consumed), KIWI_VT_INVALID_ARGUMENT, terminal, "write during render update")) return 1;
   if (check(kiwi_vt_render_update_end(update, 1), KIWI_VT_OK, terminal, "end render update")) return 1;
   update = NULL;
@@ -52,6 +54,19 @@ int main(void) {
   state.struct_size = sizeof(state);
   if (check(kiwi_vt_render_update_info(update, &state), KIWI_VT_OK, terminal, "clean render state") || state.damage_cells != 0) return 1;
   if (check(kiwi_vt_render_update_end(update, 0), KIWI_VT_OK, terminal, "end clean render update")) return 1;
+
+  static const char reverse_screen[] = "\033[?5h";
+  if (check(kiwi_vt_terminal_write(terminal, reverse_screen, sizeof(reverse_screen) - 1, &consumed), KIWI_VT_OK, terminal, "enable reverse screen")) return 1;
+  if (check(kiwi_vt_terminal_begin_render_update(terminal, &update), KIWI_VT_OK, terminal, "begin reverse render update")) return 1;
+  cell.struct_size = sizeof(cell);
+  if (check(kiwi_vt_render_update_cell(update, 0, 0, &cell, display_text, sizeof(display_text), &required), KIWI_VT_OK, terminal, "reverse cell") || cell.foreground != original_background || cell.background != original_foreground) return 1;
+  if (check(kiwi_vt_render_update_end(update, 0), KIWI_VT_OK, terminal, "end reverse render update")) return 1;
+  static const char soft_reset[] = "\033[!p";
+  if (check(kiwi_vt_terminal_write(terminal, soft_reset, sizeof(soft_reset) - 1, &consumed), KIWI_VT_OK, terminal, "soft reset")) return 1;
+  if (check(kiwi_vt_terminal_begin_render_update(terminal, &update), KIWI_VT_OK, terminal, "begin reset render update")) return 1;
+  cell.struct_size = sizeof(cell);
+  if (check(kiwi_vt_render_update_cell(update, 0, 0, &cell, display_text, sizeof(display_text), &required), KIWI_VT_OK, terminal, "reset cell") || cell.foreground != original_foreground || cell.background != original_background) return 1;
+  if (check(kiwi_vt_render_update_end(update, 0), KIWI_VT_OK, terminal, "end reset render update")) return 1;
 
   if (check(kiwi_vt_terminal_write(terminal, "\a", 1, &consumed), KIWI_VT_OK, terminal, "bell effect")) return 1;
   kiwi_vt_effect effect = { .struct_size = sizeof(effect) };
