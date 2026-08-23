@@ -7,6 +7,7 @@
 #include <GLFW/glfw3native.h>
 #include <webgpu/webgpu.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -20,6 +21,11 @@ typedef struct KiwiCocoaCommandPaletteEntry {
   const char *title;
   const char *description;
 } KiwiCocoaCommandPaletteEntry;
+
+typedef struct KiwiCocoaStandaloneWindow {
+  NSWindow *window;
+  struct KiwiCocoaStandaloneWindow *next;
+} KiwiCocoaStandaloneWindow;
 
 enum {
   KIWI_COCOA_MENU_NEW_TAB = 1,
@@ -102,6 +108,7 @@ static KiwiCocoaAutomationRegistration *kiwi_cocoa_active_automation_registratio
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
 static NSWindow *kiwi_cocoa_tab_group_leader;
+static KiwiCocoaStandaloneWindow *kiwi_cocoa_standalone_windows;
 
 static NSString *const KIWI_COCOA_TOOLBAR_IDENTIFIER = @"io.github.gongahkia.kiwi.toolbar";
 static NSString *const KIWI_COCOA_TOOLBAR_NEW_TAB = @"io.github.gongahkia.kiwi.toolbar.new-tab";
@@ -161,6 +168,35 @@ static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
 
 static NSWindow *kiwi_cocoa_native_window(GLFWwindow *window) {
   return window == NULL ? nil : glfwGetCocoaWindow(window);
+}
+
+static BOOL kiwi_cocoa_window_is_registered_standalone(NSWindow *window) {
+  for (KiwiCocoaStandaloneWindow *entry = kiwi_cocoa_standalone_windows; entry != NULL; entry = entry->next) {
+    if (entry->window == window) return YES;
+  }
+  return NO;
+}
+
+static BOOL kiwi_cocoa_set_window_standalone(NSWindow *window, BOOL standalone) {
+  KiwiCocoaStandaloneWindow **link = &kiwi_cocoa_standalone_windows;
+  while (*link != NULL) {
+    KiwiCocoaStandaloneWindow *entry = *link;
+    if (entry->window != window) {
+      link = &entry->next;
+      continue;
+    }
+    if (standalone) return YES;
+    *link = entry->next;
+    free(entry);
+    return YES;
+  }
+  if (!standalone) return YES;
+  KiwiCocoaStandaloneWindow *entry = calloc(1, sizeof(*entry));
+  if (entry == NULL) return NO;
+  entry->window = window;
+  entry->next = kiwi_cocoa_standalone_windows;
+  kiwi_cocoa_standalone_windows = entry;
+  return YES;
 }
 
 enum {
@@ -1010,7 +1046,7 @@ int kiwi_cocoa_menu_invoke_smoke(GLFWwindow *window, uint32_t action) {
 
 static void kiwi_cocoa_configure_window_tabs(NSWindow *window) {
   if (window == nil) return;
-  if (window.tabbingMode == NSWindowTabbingModeDisallowed) return;
+  if (kiwi_cocoa_window_is_registered_standalone(window)) return;
   window.tabbingIdentifier = @"io.github.gongahkia.kiwi";
   window.tabbingMode = NSWindowTabbingModePreferred;
   if (kiwi_cocoa_tab_group_leader == nil) {
@@ -1035,11 +1071,14 @@ int kiwi_cocoa_window_set_tab_grouping(GLFWwindow *window, int grouped) {
       return 0;
     }
     if (grouped != 0) {
+      kiwi_cocoa_set_window_standalone(native_window, NO);
       native_window.tabbingMode = NSWindowTabbingModePreferred;
       kiwi_cocoa_configure_window_tabs(native_window);
     } else {
-      native_window.tabbingMode = NSWindowTabbingModeDisallowed;
-      native_window.tabbingIdentifier = @"";
+      if (!kiwi_cocoa_set_window_standalone(native_window, YES)) {
+        kiwi_surface_set_error("Cocoa standalone-window registry allocation failed");
+        return 0;
+      }
     }
     return 1;
   }
@@ -1058,6 +1097,23 @@ int kiwi_cocoa_window_tabs_round_trip(GLFWwindow *first, GLFWwindow *second) {
         ![second_window.tabbingIdentifier isEqualToString:@"io.github.gongahkia.kiwi"] ||
         ![first_window.tabbedWindows containsObject:second_window]) {
       kiwi_surface_set_error("Cocoa native windows did not join Kiwi's tab group");
+      return 0;
+    }
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_is_standalone(GLFWwindow *window) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa standalone-window inspection needs the main thread");
+      return 0;
+    }
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == nil || !kiwi_cocoa_window_is_registered_standalone(native_window) ||
+        native_window.tabbingMode != NSWindowTabbingModeDisallowed ||
+        native_window.tabbedWindows.count > 1) {
+      kiwi_surface_set_error("Cocoa window was not configured as a standalone window");
       return 0;
     }
     return 1;
@@ -1083,6 +1139,7 @@ int kiwi_cocoa_window_select_next_tab(GLFWwindow *window) {
 void kiwi_cocoa_window_tabs_remove_bridge(GLFWwindow *window) {
   @autoreleasepool {
     NSWindow *native_window = kiwi_cocoa_native_window(window);
+    kiwi_cocoa_set_window_standalone(native_window, NO);
     if (native_window == kiwi_cocoa_tab_group_leader) {
       kiwi_cocoa_tab_group_leader = nil;
       for (NSWindow *candidate in native_window.tabbedWindows) {

@@ -143,7 +143,7 @@ function Manager:move_active_to_new_window(source_id)
   options.command = nil
   options.geometry = moved_window_geometry(source.adapter)
   options.moved_session = session
-  options.native_window_tab = false
+  options.host_tab = false
   options.transfer_source_id = source.id
   options.workspace_smoke = false
   options.multi_window_smoke_requester = false
@@ -215,7 +215,7 @@ function Manager:_restore_failed_transfer(controller)
   end
 end
 
-function Manager:request_window(configuration_path, native_window_tab)
+function Manager:request_window(configuration_path, host_tab)
   if self.options.record then return nil, "new windows are unavailable while --record is active" end
   local options = copy_options(self.options)
   options.application = self
@@ -223,7 +223,7 @@ function Manager:request_window(configuration_path, native_window_tab)
   options.multi_window_smoke_requester = false
   options.session_move_smoke_requester = false
   options.workspace_smoke = false
-  options.native_window_tab = native_window_tab == true
+  options.host_tab = host_tab == true
   clear_one_shot_smokes(options)
   options.config = configuration_path or self.options.config
   local controller, reason = self:_start(options)
@@ -329,7 +329,7 @@ function Manager:run()
       options.geometry = item.geometry
       options.restored_workspace = item.workspace
       options.layout_restored = true
-      options.native_window_tab = false
+      options.host_tab = false
       options.workspace_smoke = false
       options.multi_window_smoke_requester = false
       options.session_move_smoke_requester = false

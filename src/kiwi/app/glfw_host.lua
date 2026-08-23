@@ -8,7 +8,7 @@ local glfw = require("kiwi.ffi.glfw").constants
 local Host = {
   keymap = glfw,
   keyboard_supported_flags = ffi.os == "OSX" and 0x1f or 0x1b,
-  native_window_tabs = ffi.os == "OSX",
+  native_tabs = ffi.os == "OSX",
   platform = ffi.os,
 }
 
@@ -20,8 +20,8 @@ function Host.new(geometry, title, options)
     title,
     { release_mode = options.release_mode }
   )
-  if ffi.os == "OSX" and options.native_window_tab ~= nil then
-    local configured, reason = window:cocoa_set_window_tab_grouping(options.native_window_tab)
+  if ffi.os == "OSX" and options.host_tab ~= nil then
+    local configured, reason = window:cocoa_set_window_tab_grouping(options.host_tab)
     if not configured then
       window:destroy()
       error("Unable to configure Cocoa window tabs: " .. tostring(reason))

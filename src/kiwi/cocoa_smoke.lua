@@ -11,6 +11,8 @@ local window
 local context
 local second_window
 local second_context
+local standalone_window
+local standalone_context
 local ok, message = xpcall(function()
   window = Window.new(320, 240, "Kiwi Cocoa smoke")
   context = Context.new(GLFWHost, window)
@@ -21,6 +23,16 @@ local ok, message = xpcall(function()
   require_result(tabs_ok, "Cocoa native window-tab smoke failed: " .. tostring(tabs_message))
   local selected_next, selected_next_message = window:cocoa_select_next_window_tab()
   require_result(selected_next, "Cocoa native window-tab selection smoke failed: " .. tostring(selected_next_message))
+  second_context:destroy()
+  second_context = nil
+  second_window:destroy()
+  second_window = nil
+  require_result(Window.live_count() == 1, "Cocoa native-tab smoke terminated GLFW while the primary window remained live")
+  standalone_window = GLFWHost.new(nil, "Kiwi Cocoa standalone-window smoke", { host_tab = false })
+  standalone_context = Context.new(GLFWHost, standalone_window)
+  require_result(Window.live_count() == 2, "Cocoa standalone-window smoke did not retain both GLFW windows")
+  local standalone_ok, standalone_message = standalone_window:cocoa_window_is_standalone()
+  require_result(standalone_ok, "Cocoa standalone-window smoke failed: " .. tostring(standalone_message))
 
   local clipboard_ok, clipboard_message = window:cocoa_private_clipboard_round_trip("kiwi-cocoa-private-pasteboard-✓")
   require_result(clipboard_ok, "Cocoa private pasteboard smoke failed: " .. tostring(clipboard_message))
@@ -83,19 +95,21 @@ local ok, message = xpcall(function()
   require_result(window.resized and (resized_width ~= initial_width or resized_height ~= initial_height), "Cocoa resize smoke did not receive a changed framebuffer size")
   require_result(context:configure_surface(), "Cocoa resize smoke could not configure the resized Metal surface")
   require_result(context.width == resized_width and context.height == resized_height, "Cocoa resize smoke configured a stale drawable size")
-  require_result(second_context:configure_surface(), "Cocoa multi-window smoke could not configure the second Metal surface")
-  second_context:destroy()
-  second_context = nil
-  second_window:destroy()
-  second_window = nil
-  require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
+  require_result(standalone_context:configure_surface(), "Cocoa standalone-window smoke could not configure the second Metal surface")
+  standalone_context:destroy()
+  standalone_context = nil
+  standalone_window:destroy()
+  standalone_window = nil
+  require_result(Window.live_count() == 1, "Cocoa standalone-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, local proxy URL, configured command-palette callback, resize=%dx%d, and two native AppKit-tabbed Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, local proxy URL, configured command-palette callback, resize=%dx%d, AppKit tab selection, and a standalone Metal window", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end
 if second_window then second_window:destroy() end
+if standalone_context then standalone_context:destroy() end
+if standalone_window then standalone_window:destroy() end
 if context then context:destroy() end
 if window then window:destroy() end
 assert(ok, message)

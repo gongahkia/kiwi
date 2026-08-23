@@ -59,12 +59,16 @@ tab group, moves one live PTY between them, writes and restores a bounded
 tab/split topology with fresh shells, resizes the primary drawable after the
 second window closes, then stages and launches the project-local `Kiwi-dev.app`.
 `make cocoa-menu-smoke` additionally sends the `New Tab` menu action through
-that native bridge and verifies the live workspace controller creates a second
-tab. `make cocoa-toolbar-smoke` dispatches `New Tab` from the actual AppKit
-toolbar item. `make cocoa-palette-smoke` opens the searchable native palette and
-programmatically selects `New Tab` through the same controller. Those checks
-do not qualify interactive filtering, toolbar/menu selection, keyboard navigation,
-tab tearing/off switching, or native in-window workspace chrome.
+that native bridge and verifies the live host tab controller schedules a second
+Cocoa window. On macOS that controller explicitly joins Kiwi's AppKit tab group;
+`New Window` opts out of the group. `make cocoa-toolbar-smoke` dispatches `New
+Tab` from the actual AppKit toolbar item. `make cocoa-palette-smoke` opens the
+searchable native palette and programmatically selects `New Tab` through the
+same controller. `make cocoa-smoke` directly verifies the group, invokes
+AppKit next-tab selection, and verifies an explicitly standalone Cocoa window.
+Those checks do not qualify interactive filtering,
+toolbar/menu selection, keyboard navigation, tab tearing/off switching, or
+native split content.
 
 The OSC 7 bridge does not stat, resolve, or automatically open a path. It is a
 titlebar proxy affordance for the active local shell only; remote and absent

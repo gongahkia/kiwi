@@ -467,7 +467,7 @@ function Controller.run(window, host, options)
     end
 
     local function focus_next_tab()
-      if host.native_window_tabs then
+      if host.native_tabs then
         if type(host.select_next_window_tab) ~= "function" then return false end
         return host.select_next_window_tab(window) == true
       end
@@ -486,7 +486,7 @@ function Controller.run(window, host, options)
 
     local function create_tab()
       if recorder then return nil, "tabs are unavailable while --record is active" end
-      if host.native_window_tabs then
+      if host.native_tabs then
         return options.application:request_window(configuration_path, true)
       end
       local session = new_session(state.columns, state.rows)
@@ -908,36 +908,36 @@ function Controller.run(window, host, options)
 
     if options.menu_smoke then
       assert(product_action_handler_enabled and host.invoke_product_action_smoke, "--menu-smoke needs the native product-action bridge")
-      local tabs_before = host.native_window_tabs and options.application:window_count() or workspace:tab_count()
+      local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
       local invoked, reason = host.invoke_product_action_smoke(window, "new-tab")
       assert(invoked, "native product-menu smoke could not invoke New Tab: " .. tostring(reason))
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native product-menu smoke did not create a tab through the host controller")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native product-menu smoke did not create a tab through the host controller")
       options.application.menu_smoke_reported = true
     end
     if options.toolbar_smoke then
       assert(product_action_handler_enabled and host.invoke_toolbar_action_smoke, "--toolbar-smoke needs the native titlebar toolbar bridge")
-      local tabs_before = host.native_window_tabs and options.application:window_count() or workspace:tab_count()
+      local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
       local invoked, reason = host.invoke_toolbar_action_smoke(window, "new-tab")
       assert(invoked, "native toolbar smoke could not invoke New Tab: " .. tostring(reason))
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native toolbar smoke did not create a tab through the live workspace controller")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native toolbar smoke did not create a tab through the live workspace controller")
       options.application.toolbar_smoke_reported = true
     end
     if options.automation_smoke then
       assert(automation_action_handler_enabled and host.invoke_automation_action_smoke, "--automation-smoke needs the native Apple-event action bridge")
-      local tabs_before = host.native_window_tabs and options.application:window_count() or workspace:tab_count()
+      local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
       local invoked, reason = host.invoke_automation_action_smoke(window, "new-tab")
       assert(invoked, "native Apple-event smoke could not invoke New Tab: " .. tostring(reason))
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native Apple-event smoke did not create a tab through the live controller")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native Apple-event smoke did not create a tab through the live controller")
       options.application.automation_smoke_reported = true
     end
     if options.palette_smoke then
       assert(host.show_command_palette and host.invoke_command_palette_smoke, "--palette-smoke needs the native command-palette bridge")
-      local tabs_before = host.native_window_tabs and options.application:window_count() or workspace:tab_count()
+      local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
       local palette_handled = handle_product_action("command-palette")
       assert(palette_handled)
       local invoked, reason = host.invoke_command_palette_smoke(window)
       assert(invoked, "native command-palette smoke could not select its first action: " .. tostring(reason))
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native command-palette smoke did not create a tab through the live controller")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "native command-palette smoke did not create a tab through the live controller")
       options.application.palette_smoke_reported = true
     end
 
@@ -1124,12 +1124,12 @@ function Controller.run(window, host, options)
       assert(handle_workspace_key(string.byte("M"), glfw.press, glfw.mod_control + glfw.mod_shift))
     end
     if options.key_sequence_smoke then
-      local tabs_before = host.native_window_tabs and options.application:window_count() or workspace:tab_count()
+      local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
       assert(handle_workspace_key(string.byte("A"), glfw.press, glfw.mod_control), "key-sequence smoke did not consume the configured prefix")
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before, "key-sequence smoke ran an action before the sequence completed")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before, "key-sequence smoke ran an action before the sequence completed")
       assert(not handle_workspace_key(string.byte("A"), glfw.release, glfw.mod_control), "key-sequence smoke treated a key release as a workspace action")
       assert(handle_workspace_key(string.byte("N"), glfw.press, 0), "key-sequence smoke did not complete the configured sequence")
-      assert((host.native_window_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "key-sequence smoke did not create a tab through the live controller")
+      assert((host.native_tabs and options.application:window_count() or workspace:tab_count()) == tabs_before + 1, "key-sequence smoke did not create a tab through the live controller")
       options.application.key_sequence_smoke_reported = true
     end
 
@@ -1151,7 +1151,7 @@ function Controller.run(window, host, options)
       io.stdout:write("Kiwi native Apple-event smoke passed: a bounded New Tab command reached the host tab controller.\n")
     end
     if options.key_sequence_smoke and options.application.key_sequence_smoke_reported then
-      io.stdout:write("Kiwi key-sequence smoke passed: a press/release prefix created a tab through the live workspace controller.\n")
+      io.stdout:write("Kiwi key-sequence smoke passed: a press/release prefix created a tab through the host tab controller.\n")
     end
     while not window:should_close() do
       local now = window:time()
