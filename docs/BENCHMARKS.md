@@ -167,14 +167,15 @@ end-to-end terminal latency claim.
 
 ### Baseline finding and narrow repros
 
-Measured on the Fedora 43 primary Linux host on 2026-08-10 with the default
-4,096/8,192 history configuration and the 384 MiB guard: 128 batches had
-7.757 ms mean / 21.724 ms p95 CPU time, the two history-navigation layouts had
-1.383 ms mean / 1.856 ms p95, and the profile retained 90,901 KiB Lua heap and
-249,352 KiB RSS. The text-cache phase reached its 96-entry atlas cap, reported
-two insertion failures, and retained 2,076 KiB heap / 4,024 KiB RSS. The
-3,106-byte local report explicitly marked GPU/renderer and display pacing
-unavailable.
+Measured on the Fedora 43 primary Linux host on 2026-08-10 with the then-
+default 4,096/8,192 history configuration and the 384 MiB guard: 128 batches
+had 7.757 ms mean / 21.724 ms p95 CPU time, and the former two-observation
+history-navigation phase had 1.383 ms mean / 1.856 ms p95. It retained 90,901
+KiB Lua heap and 249,352 KiB RSS. The text-cache phase reached its 96-entry
+atlas cap, reported two insertion failures, and retained 2,076 KiB heap / 4,024
+KiB RSS. The 3,106-byte local report explicitly marked GPU/renderer and display
+pacing unavailable. That historical report is not comparable with the current
+16-observation navigation workload; establish a new same-machine baseline.
 
 [Inference] The history phase is the dominant retained-memory boundary in this
 configuration: it retains full terminal rows while also exercising visible-row
