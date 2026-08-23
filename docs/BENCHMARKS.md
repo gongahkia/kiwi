@@ -106,9 +106,10 @@ a 4,096-row primary scrollback ring. Every 64 lines it applies sparse ANSI
 cursor writes, alternates 80- and 79-column resize paths, shapes the visible
 viewport, and records CPU, damage, layout/cache, heap, and RSS metrics. Each
 batch separately attributes input/parser, fragmented-update, resize,
-visible-layout, and damage-clear CPU time, while history navigation separately
-attributes scroll and layout CPU time. It then shapes the oldest and newest
-history view. The second phase runs the existing
+visible-layout, and damage-clear CPU time. It then makes eight oldest/newest
+history traversals (16 observations by default), separately attributing scroll
+and layout CPU time; `KIWI_LONGRUN_NAVIGATION_ROUNDS` changes that labeled
+workload. The second phase runs the existing
 bounded native text stress workload, which exercises unique glyph pressure,
 combining/CJK/emoji/fallback, CSI edits, repeated font-system lifetime, and
 atlas/fallback caps. The report carries the exact workload configuration and
@@ -120,7 +121,8 @@ The documented limits are a 4,096-row history ring, 96 glyph-atlas entries,
 to establish a separately labeled environment with
 `KIWI_LONGRUN_HISTORY_LIMIT`, `KIWI_LONGRUN_HISTORY_LINES`,
 `KIWI_LONGRUN_BATCH_LINES`, `KIWI_LONGRUN_ATLAS_ENTRIES`,
-`KIWI_LONGRUN_TEXT_ROUNDS`, `KIWI_LONGRUN_LIFECYCLES`, and
+`KIWI_LONGRUN_TEXT_ROUNDS`, `KIWI_LONGRUN_LIFECYCLES`,
+`KIWI_LONGRUN_NAVIGATION_ROUNDS`, and
 `KIWI_LONGRUN_MAX_RSS_KIB`. The profile creates no native window, WGPU
 resource, or presentation target. Its `gpu_renderer` and `display_pacing`
 fields are consequently explicit unavailable states; use `make pacing` for the

@@ -74,8 +74,9 @@ function Longrun.run(options)
   local atlas_entries = options.atlas_entries or 96
   local text_rounds = options.text_rounds or 400
   local lifecycle_iterations = options.lifecycle_iterations or 32
+  local navigation_rounds = options.navigation_rounds or 8
   local rss_limit_kib = options.rss_limit_kib or 384 * 1024
-  for name, value in pairs({ columns = columns, rows = rows, history_limit = history_limit, history_lines = history_lines, batch_lines = batch_lines, atlas_entries = atlas_entries, text_rounds = text_rounds, lifecycle_iterations = lifecycle_iterations, rss_limit_kib = rss_limit_kib }) do
+  for name, value in pairs({ columns = columns, rows = rows, history_limit = history_limit, history_lines = history_lines, batch_lines = batch_lines, atlas_entries = atlas_entries, text_rounds = text_rounds, lifecycle_iterations = lifecycle_iterations, navigation_rounds = navigation_rounds, rss_limit_kib = rss_limit_kib }) do
     assert(type(value) == "number" and value >= 1 and value % 1 == 0, "long-run " .. name .. " must be a positive integer")
   end
   assert(history_lines >= history_limit + rows, "long-run history_lines must fill the configured history limit")
@@ -152,16 +153,18 @@ function Longrun.run(options)
   end
   local navigation = {}
   local navigation_phases = { layout_cpu_ms = {}, scroll_cpu_ms = {} }
-  for _, lines in ipairs({ state.scrollback:size(), -state.scrollback:size() }) do
-    local navigation_started = os.clock()
-    local phase_started = os.clock()
-    state:scroll_history(lines)
-    navigation_phases.scroll_cpu_ms[#navigation_phases.scroll_cpu_ms + 1] = (os.clock() - phase_started) * 1000
-    phase_started = os.clock()
-    layout:update(state)
-    navigation_phases.layout_cpu_ms[#navigation_phases.layout_cpu_ms + 1] = (os.clock() - phase_started) * 1000
-    accumulate_layout(layout_total, layout)
-    navigation[#navigation + 1] = (os.clock() - navigation_started) * 1000
+  for _ = 1, navigation_rounds do
+    for _, lines in ipairs({ state.scrollback:size(), -state.scrollback:size() }) do
+      local navigation_started = os.clock()
+      local phase_started = os.clock()
+      state:scroll_history(lines)
+      navigation_phases.scroll_cpu_ms[#navigation_phases.scroll_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+      phase_started = os.clock()
+      layout:update(state)
+      navigation_phases.layout_cpu_ms[#navigation_phases.layout_cpu_ms + 1] = (os.clock() - phase_started) * 1000
+      accumulate_layout(layout_total, layout)
+      navigation[#navigation + 1] = (os.clock() - navigation_started) * 1000
+    end
   end
   peak_heap = math.max(peak_heap, collectgarbage("count"))
   collectgarbage("collect")
@@ -188,6 +191,7 @@ function Longrun.run(options)
       rss_kib_delta = rss_before and rss_after and rss_after - rss_before or nil,
     },
     resize_count = resize_count,
+    navigation_rounds = navigation_rounds,
     scrollback_limit = history_limit,
     scrollback_lines = state.scrollback:size(),
     shape_cache_rows = row_cache_entries(layout),
@@ -217,6 +221,7 @@ function Longrun.run(options)
       history_limit = history_limit,
       history_lines = history_lines,
       lifecycle_iterations = lifecycle_iterations,
+      navigation_rounds = navigation_rounds,
       rows = rows,
       rss_limit_kib = rss_limit_kib,
       text_rounds = text_rounds,
@@ -237,13 +242,14 @@ function Longrun.main()
     history_limit = number_from_env("KIWI_LONGRUN_HISTORY_LIMIT", 4096),
     history_lines = number_from_env("KIWI_LONGRUN_HISTORY_LINES", 8192),
     lifecycle_iterations = number_from_env("KIWI_LONGRUN_LIFECYCLES", 32),
+    navigation_rounds = number_from_env("KIWI_LONGRUN_NAVIGATION_ROUNDS", 8),
     rss_limit_kib = number_from_env("KIWI_LONGRUN_MAX_RSS_KIB", 384 * 1024),
     text_rounds = number_from_env("KIWI_LONGRUN_TEXT_ROUNDS", 400),
   })
   io.stdout:write(string.format(
-    "long-run history=%d/%d lines batches=%d batch-p95=%.3fms input-p95=%.3fms layout-p95=%.3fms navigation-p95=%.3fms fragmented=%d resize=%d heap=%.1f KiB rss=%s atlas=%d/%d text-cpu=%.3fms\n",
+    "long-run history=%d/%d lines batches=%d batch-p95=%.3fms input-p95=%.3fms layout-p95=%.3fms navigation-p95=%.3fms navigation-samples=%d fragmented=%d resize=%d heap=%.1f KiB rss=%s atlas=%d/%d text-cpu=%.3fms\n",
     result.history.scrollback_lines, result.history.scrollback_limit, result.history.batches,
-    result.history.batch_cpu_ms.p95, result.history.phases.input_parser_cpu_ms.p95, result.history.phases.layout_cpu_ms.p95, result.history.history_navigation_cpu_ms.p95,
+    result.history.batch_cpu_ms.p95, result.history.phases.input_parser_cpu_ms.p95, result.history.phases.layout_cpu_ms.p95, result.history.history_navigation_cpu_ms.p95, result.history.history_navigation_cpu_ms.count,
     result.history.fragmented_cells, result.history.resize_count,
     result.history.memory.retained_heap_kib_delta,
     result.history.memory.rss_kib_delta and string.format("%.1f KiB", result.history.memory.rss_kib_delta) or "unavailable",
