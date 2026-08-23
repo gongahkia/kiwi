@@ -826,6 +826,82 @@ int kiwi_cocoa_toolbar_invoke_smoke(GLFWwindow *window, uint32_t action) {
   }
 }
 
+static BOOL kiwi_cocoa_is_local_file_url(NSURL *url) {
+  if (url == nil || !url.isFileURL || ![url.path hasPrefix:@"/"]) return NO;
+  NSString *host = url.host;
+  if (host == nil || host.length == 0 || [host caseInsensitiveCompare:@"localhost"] == NSOrderedSame) return YES;
+  NSString *local_host = NSProcessInfo.processInfo.hostName;
+  if ([host caseInsensitiveCompare:local_host] == NSOrderedSame) return YES;
+  NSString *local_short_host = [local_host componentsSeparatedByString:@"."].firstObject;
+  return local_short_host.length > 0 && [host caseInsensitiveCompare:local_short_host] == NSOrderedSame;
+}
+
+int kiwi_cocoa_window_set_represented_directory(GLFWwindow *window, const char *uri) {
+  @autoreleasepool {
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (![NSThread isMainThread] || native_window == nil) {
+      kiwi_surface_set_error("Cocoa proxy URL needs a main-thread window");
+      return 0;
+    }
+    if (uri == NULL || uri[0] == '\0') {
+      native_window.representedURL = nil;
+      return 1;
+    }
+    if (strlen(uri) > 2048) {
+      kiwi_surface_set_error("Cocoa proxy URL exceeds the bounded OSC 7 directory length");
+      return 0;
+    }
+    NSString *value = [NSString stringWithUTF8String:uri];
+    NSURL *url = value == nil ? nil : [NSURL URLWithString:value];
+    if (url == nil || !url.isFileURL || ![url.path hasPrefix:@"/"]) {
+      kiwi_surface_set_error("Cocoa proxy URL needs an absolute file URI");
+      return 0;
+    }
+    // An OSC 7 remote host is metadata, not a path available to Finder.
+    native_window.representedURL = kiwi_cocoa_is_local_file_url(url) ? url : nil;
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_directory_round_trip(GLFWwindow *window) {
+  @autoreleasepool {
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (!kiwi_cocoa_window_set_represented_directory(window, "file://localhost/private/tmp/kiwi-cocoa-smoke") ||
+        native_window == nil || native_window.representedURL == nil ||
+        ![native_window.representedURL.path isEqualToString:@"/private/tmp/kiwi-cocoa-smoke"]) {
+      if (native_window != nil && native_window.representedURL != nil) {
+        kiwi_surface_set_error("Cocoa proxy URL smoke did not retain the local directory path");
+      }
+      return 0;
+    }
+    if (!kiwi_cocoa_window_set_represented_directory(window, "file://remote.example/private/tmp/kiwi-cocoa-smoke") ||
+        native_window.representedURL != nil) {
+      if (native_window.representedURL != nil) {
+        kiwi_surface_set_error("Cocoa proxy URL smoke exposed a remote directory as local");
+      }
+      return 0;
+    }
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_represented_directory_matches(GLFWwindow *window, const char *path) {
+  @autoreleasepool {
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (![NSThread isMainThread] || native_window == nil) {
+      kiwi_surface_set_error("Cocoa proxy URL inspection needs a main-thread window");
+      return 0;
+    }
+    if (path == NULL) return native_window.representedURL == nil;
+    NSString *expected_path = [NSString stringWithUTF8String:path];
+    if (expected_path == nil || ![expected_path hasPrefix:@"/"]) {
+      kiwi_surface_set_error("Cocoa proxy URL inspection needs an absolute path");
+      return 0;
+    }
+    return native_window.representedURL != nil && [native_window.representedURL.path isEqualToString:expected_path];
+  }
+}
+
 void kiwi_cocoa_menu_remove(GLFWwindow *window) {
   @autoreleasepool {
     NSValue *key = kiwi_cocoa_menu_window_key(window);
@@ -934,6 +1010,7 @@ int kiwi_cocoa_menu_invoke_smoke(GLFWwindow *window, uint32_t action) {
 
 static void kiwi_cocoa_configure_window_tabs(NSWindow *window) {
   if (window == nil) return;
+  if (window.tabbingMode == NSWindowTabbingModeDisallowed) return;
   window.tabbingIdentifier = @"io.github.gongahkia.kiwi";
   window.tabbingMode = NSWindowTabbingModePreferred;
   if (kiwi_cocoa_tab_group_leader == nil) {
@@ -943,6 +1020,28 @@ static void kiwi_cocoa_configure_window_tabs(NSWindow *window) {
   if (kiwi_cocoa_tab_group_leader == window) return;
   if (![kiwi_cocoa_tab_group_leader.tabbedWindows containsObject:window]) {
     [kiwi_cocoa_tab_group_leader addTabbedWindow:window ordered:NSWindowAbove];
+  }
+}
+
+int kiwi_cocoa_window_set_tab_grouping(GLFWwindow *window, int grouped) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa window-tab configuration needs the main thread");
+      return 0;
+    }
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == nil) {
+      kiwi_surface_set_error("Cocoa window-tab configuration needs a native window");
+      return 0;
+    }
+    if (grouped != 0) {
+      native_window.tabbingMode = NSWindowTabbingModePreferred;
+      kiwi_cocoa_configure_window_tabs(native_window);
+    } else {
+      native_window.tabbingMode = NSWindowTabbingModeDisallowed;
+      native_window.tabbingIdentifier = @"";
+    }
+    return 1;
   }
 }
 
@@ -961,6 +1060,22 @@ int kiwi_cocoa_window_tabs_round_trip(GLFWwindow *first, GLFWwindow *second) {
       kiwi_surface_set_error("Cocoa native windows did not join Kiwi's tab group");
       return 0;
     }
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_select_next_tab(GLFWwindow *window) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa native-tab selection needs the main thread");
+      return 0;
+    }
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == nil || native_window.tabbedWindows.count < 2) {
+      kiwi_surface_set_error("Cocoa native-tab selection needs at least two Kiwi windows");
+      return 0;
+    }
+    [native_window selectNextTab:nil];
     return 1;
   }
 }

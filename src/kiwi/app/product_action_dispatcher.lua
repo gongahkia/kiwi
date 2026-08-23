@@ -66,7 +66,7 @@ function Dispatcher:handle(action)
     local application, request_window = application_capability(context, "new-window", "request_window")
     local configuration_path = function_capability(context, "new-window", "configuration_path")
     if application == nil or configuration_path == nil then return true, false end
-    local opened, reason = request_window(application, configuration_path())
+    local opened, reason = request_window(application, configuration_path(), false)
     if not opened then rejected(context, "new-window request", reason) end
     return true, false
   end
@@ -124,7 +124,7 @@ function Dispatcher:handle(action)
       local application, request_window = application_capability(context, "session duplication", "request_window")
       local configuration_path = function_capability(context, "session duplication", "configuration_path")
       if application == nil or configuration_path == nil then return true, false end
-      duplicated, reason = request_window(application, configuration_path())
+      duplicated, reason = request_window(application, configuration_path(), false)
     end
     if not duplicated then rejected(context, "session duplication", reason) end
     return true, false

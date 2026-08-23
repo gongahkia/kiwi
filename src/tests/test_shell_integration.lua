@@ -14,6 +14,35 @@ local function with_recording(callback)
 end
 
 return {
+  shell_metadata_emits_a_bounded_cwd_effect = function()
+    local effects = {}
+    local state = State.new(4, 1, {
+      effect_sink = function(kind, value)
+        effects[#effects + 1] = { kind = kind, value = value }
+      end,
+    })
+    state:apply(Actions.osc(7, "file://localhost/private/tmp/kiwi%20work"))
+    Assert.equal(#effects, 1)
+    Assert.equal(effects[1].kind, "pwd_changed")
+    Assert.equal(effects[1].value.host, "localhost")
+    Assert.equal(effects[1].value.path, "/private/tmp/kiwi%20work")
+    Assert.equal(effects[1].value.uri, "file://localhost/private/tmp/kiwi%20work")
+  end,
+
+  shell_metadata_emits_a_cwd_clear_effect_on_terminal_reset = function()
+    local effects = {}
+    local state = State.new(4, 1, {
+      effect_sink = function(kind, value)
+        effects[#effects + 1] = { kind = kind, value = value }
+      end,
+    })
+    state:apply(Actions.osc(7, "file://localhost/private/tmp/kiwi"))
+    state:reset()
+    Assert.equal(#effects, 2)
+    Assert.equal(effects[2].kind, "pwd_changed")
+    Assert.equal(effects[2].value.cleared, true)
+  end,
+
   shell_metadata_records_bounded_cwd_and_marker_positions_without_terminal_text = function()
     local state = State.new(20, 2)
     local parser = Parser.new(state)

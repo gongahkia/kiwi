@@ -80,8 +80,10 @@ The current directory is URI-percent-encoded and emitted only when it is an
 absolute path at most 2,048 bytes. A hostname is included only when it is
 ASCII `A-Z`, `a-z`, `0-9`, `.`, `_`, or `-`, and no longer than 255 bytes.
 Otherwise the script omits the OSC 7 record; the OSC 133 lifecycle markers
-continue. These bounds match Kiwi's accepting parser but do not make the URI a
-trusted local path. See [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
+continue. These bounds match Kiwi's accepting parser but do not establish that
+the URI exists. On macOS, only the active session's empty, `localhost`, or
+current-host URI may become the titlebar proxy URL; remote metadata clears that
+affordance, and Kiwi does not stat, resolve, or automatically open it. See [ADR 0027](adr/0027-bounded-shell-integration-metadata.md)
 and [the conformance contract](CONFORMANCE.md#osc-7-and-osc-133-shell-metadata).
 
 ## Disable or remove it

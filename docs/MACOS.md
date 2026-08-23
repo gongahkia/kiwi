@@ -51,6 +51,9 @@ constructs the Cocoa global main menu and dispatches one logical action through
 its C-to-Lua callback bridge,
 installs a unified native titlebar toolbar with New Tab, Split Right, Split
 Down, Commands, and Settings actions,
+routes active-session OSC 7 metadata to `NSWindow.representedURL` only for an
+empty, `localhost`, or current-host authority and clears it for a remote
+authority,
 groups two independently rendered Cocoa/Metal top-level windows into an AppKit
 tab group, moves one live PTY between them, writes and restores a bounded
 tab/split topology with fresh shells, resizes the primary drawable after the
@@ -62,6 +65,12 @@ toolbar item. `make cocoa-palette-smoke` opens the searchable native palette and
 programmatically selects `New Tab` through the same controller. Those checks
 do not qualify interactive filtering, toolbar/menu selection, keyboard navigation,
 tab tearing/off switching, or native in-window workspace chrome.
+
+The OSC 7 bridge does not stat, resolve, or automatically open a path. It is a
+titlebar proxy affordance for the active local shell only; remote and absent
+metadata clear it rather than presenting a remote path as a Finder URL. The
+smokes check local assignment and remote clearing, not interactive Finder
+disclosure or a user's actual shell/SSH hostname behavior.
 
 ## Bounded AppleScript actions
 

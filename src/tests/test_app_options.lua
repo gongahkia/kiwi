@@ -26,8 +26,9 @@ return {
     Assert.truthy(not pcall(Options.parse, { "--unknown" }, function() return nil end, false))
   end,
   application_options_preserve_the_existing_smoke_layout_policy = function()
-    local options = Options.parse({ "--toolbar-smoke", "--automation-smoke" }, function() return nil end, true)
+    local options = Options.parse({ "--toolbar-smoke", "--cwd-smoke", "--automation-smoke" }, function() return nil end, true)
     Assert.equal(options.toolbar_smoke, true)
+    Assert.equal(options.cwd_smoke, true)
     Assert.equal(options.automation_smoke, true)
     Assert.equal(options.layout_persistence, false)
     Assert.equal(options.layout_restore, false)
