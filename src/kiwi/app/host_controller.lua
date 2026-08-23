@@ -819,7 +819,7 @@ function Controller.run(window, host, options)
           io.stderr:write("Kiwi command palette unavailable: this host has no native palette bridge\n")
           return true
         end
-        local opened, reason = host.show_command_palette(window, ProductActions.palette_entries(), function(selected_action)
+        local opened, reason = host.show_command_palette(window, ProductActions.palette_entries(configuration.command_palette_entries), function(selected_action)
           if handle_product_action(selected_action) then options.application:mark_layout_dirty() end
         end)
         if not opened then io.stderr:write("Kiwi command palette unavailable: ", reason or "unknown error", "\n") end
@@ -883,9 +883,13 @@ function Controller.run(window, host, options)
     end
 
     local function handle_workspace_key(key, action, modifiers)
-      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then return false end
-      local product_action = product_actions:lookup(key, modifiers)
+      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then
+        product_actions:reset_sequence()
+        return false
+      end
+      local product_action, sequence_status = product_actions:lookup(key, modifiers, window:time())
       return product_action ~= nil and handle_product_action(product_action)
+        or sequence_status == "pending"
     end
 
     local product_action_handler_enabled = false

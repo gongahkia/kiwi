@@ -31,7 +31,8 @@ declared complete.
   presenter owns a child surface beneath the GTK toplevel and uses
   `wp_viewporter` for logical-size presentation. GTK IME and accessible-text
   callback bridges have bounded smoke coverage. Its `GMenu` opens a searchable
-  dialog over the same fixed bounded product-action catalogue as Cocoa; its
+  dialog over the same configuration-augmented bounded product-action catalogue
+  as Cocoa; its
   graphical palette smoke is not yet local qualification evidence. Interactive desktop
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
