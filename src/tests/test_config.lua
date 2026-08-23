@@ -13,6 +13,7 @@ return {
       ligatures = true
       osc52-write = true
       shell-integration = none
+      macos-applescript = false
       palette-1 = #010203
       foreground = #112233
     ]], "test")
@@ -22,6 +23,7 @@ return {
     Assert.equal(config.ligatures, true)
     Assert.equal(config.osc52_write, true)
     Assert.equal(config.shell_integration, "none")
+    Assert.equal(config.macos_applescript, false)
     Assert.equal(Color.unpack(config.palette[1]).green, 2)
     Assert.equal(Color.unpack(config.foreground).red, 0x11)
   end,
@@ -31,6 +33,10 @@ return {
     Assert.truthy(not pcall(Config.parse, "background = teal", "test"))
     Assert.truthy(not pcall(Config.parse, "theme = unknown", "test"))
     Assert.truthy(not pcall(Config.parse, "shell-integration = always", "test"))
+    Assert.truthy(not pcall(Config.parse, "macos-applescript = enabled", "test"))
+  end,
+  configuration_defaults_to_bounded_macos_applescript_actions = function()
+    Assert.equal(Config.parse("", "test").macos_applescript, true)
   end,
   configuration_environment_overrides_file_values_without_mutating_other_values = function()
     local config = Config.parse("font-size = 14\nligatures = false\n", "test")

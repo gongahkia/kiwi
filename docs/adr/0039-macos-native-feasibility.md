@@ -2,9 +2,9 @@
 
 ## Status
 
-Implemented and verified on one Apple Silicon macOS host on 2026-08-17. This
-is source-build evidence, not a general macOS compatibility or distribution
-claim.
+Implemented and repeatedly verified on one Apple Silicon macOS host, most
+recently on 2026-08-23. This is source-build evidence, not a general macOS
+compatibility or distribution claim.
 
 ## Decision
 
@@ -32,8 +32,11 @@ introducing Cocoa/Metal APIs into terminal state.
   accessibility implementation.
 - Release and C-SDK packaging use `.dylib` on macOS, include a convenience
   `Kiwi.app` in macOS release archives, and use portable checksum/archive
-  commands. The bundle launcher is deterministically ad-hoc signed for
-  LaunchServices; it has no Developer ID signature or notarization.
+  commands. `native/macos_app_host.c` loads the terminal application into the
+  executable LaunchServices starts, and the bundle carries an action-only SDEF
+  plus `NSAppleEventManager` bridge. The bundle launcher is deterministically
+  ad-hoc signed for LaunchServices; it has no Developer ID signature or
+  notarization.
 
 ## Verification
 
@@ -42,11 +45,11 @@ On the verified Apple Silicon host:
 | Area | Evidence | Result and limit |
 | --- | --- | --- |
 | Native bridge | `make native` | Passed: compiled the common C bridge plus Cocoa/Metal and NSAccessibility Objective-C sources into `libkiwi_surface.dylib`. |
-| Regression suite | `make check` | Passed: 337 deterministic LuaJIT tests, parser fuzz, all 10 PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
+| Regression suite | `make check` | Passed: deterministic LuaJIT tests, parser fuzz, PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
 | Live window/GPU | `KIWI_MAX_FRAMES=30 make run ARGS='-- /bin/sh -c "printf kiwi-macos-smoke; sleep 2"'` | Passed: a native GLFW/Cocoa/Metal session initialized and printed the child sentinel. This is not a Retina, minimize/restore, or multi-display usability result. |
 | C SDK | `make libkiwi-vt-check` | Passed: reproducible macOS archive plus Lua and C consumer checks. The C consumer used the Homebrew LuaJIT library path supplied by the package launcher. |
 | Release artifact | `make release-check` | Passed: two macOS archives were byte-identical; checksum, metadata, terminfo, `Kiwi.app` layout, deterministic ad-hoc launcher signature, release-mode launcher, and extracted-app LaunchServices checks passed. |
-| App launch scaffold | `KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify` | Passed: the project-local app bundle staged, launched, and cleaned its tracked child PID. It does not inspect pixels or accessibility clients. |
+| App launch and bounded automation | `KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify`; `make cocoa-automation-smoke` | Passed: the project-local app bundle staged, launched, and cleaned its tracked bundle-process PID. The dedicated smoke validates `Kiwi.sdef` and routes a bounded `New Tab` event into the live bundle controller. It does not inspect pixels, accessibility clients, or an external automation sender's consent. |
 
 ## Remaining validation and support boundaries
 

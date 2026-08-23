@@ -253,6 +253,19 @@ opens the Cocoa palette and selects `New Tab` through the live controller;
 proves interactive filtering, keyboard navigation, or general product-chrome
 behavior.
 
+The macOS `Kiwi.app` bundle additionally exposes a deliberately small
+AppleScript command set: `new terminal window`, `new terminal tab`, `next
+terminal tab`, `close terminal pane`, `split terminal right`, `split terminal
+down`, `reload Kiwi configuration`, and `open Kiwi configuration`. It routes
+each request through the same product-action dispatcher as the menus, palette,
+and local key map. Set `macos-applescript = false` to unregister that bridge on
+configuration reload; its default is `true`. The feature does not expose
+terminal input, arbitrary actions, session inspection, or a general
+window/tab/terminal object model. macOS must authorize the external client
+that sends an automation request. `make cocoa-automation-smoke` validates the
+bundle definition and its bounded in-process dispatch, but does not request or
+qualify that permission.
+
 Kiwi attempts to persist bounded window geometry plus tab/split topology and
 the active tab/pane on normal live-session changes, reporting an I/O failure to
 stderr. Successful updates use a temporary file and same-directory rename. It

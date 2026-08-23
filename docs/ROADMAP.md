@@ -37,7 +37,7 @@ declared complete.
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
 - The GLFW Cocoa route already has bounded AppKit top-level window-tab groups,
-  menu, searchable command palette, text-input,
+  menu, searchable command palette, action-only AppleScript bridge, text-input,
   accessibility, and pasteboard bridges. It is not an AppKit host: replacing
   GLFW-owned windows and custom workspace chrome remains a separate, gated
   product decision after GTK4 desktop qualification.

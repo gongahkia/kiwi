@@ -21,6 +21,7 @@ Config.edit_template = [[# Kiwi configuration
 # contextual-alternates = false
 # scrollback-limit = 2000
 # shell-integration = auto
+# macos-applescript = true
 # keybind = ctrl+shift+t = new-tab
 ]]
 
@@ -213,6 +214,7 @@ local function defaults()
     osc9_notifications = "off",
     osc9_progress = "off",
     shell_integration = "auto",
+    macos_applescript = true,
   }
 end
 
@@ -385,6 +387,8 @@ local function apply_value(config, key, raw, line)
     local mode = parse_string(raw, line)
     if mode ~= "auto" and mode ~= "none" then error("configuration line " .. line .. " shell-integration must be auto or none") end
     config.shell_integration = mode
+  elseif key == "macos-applescript" then
+    config.macos_applescript = parse_boolean(raw, line)
   else
     local palette_index = key:match("^palette%-(%d+)$")
     if palette_index == nil then error("configuration line " .. line .. " has an unknown key: " .. key) end

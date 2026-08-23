@@ -11,6 +11,7 @@ int kiwi_cocoa_accessibility_round_trip(void* window);
 typedef struct KiwiCocoaTextInput KiwiCocoaTextInput;
 typedef void (*KiwiCocoaTextInputCallback)(void* userdata, const char* text, size_t text_bytes, int32_t selection_start, int32_t selection_end);
 typedef void (*KiwiCocoaMenuCallback)(void* userdata, uint32_t action);
+typedef int (*KiwiCocoaAutomationCallback)(void* userdata, uint32_t action);
 typedef struct KiwiCocoaCommandPaletteEntry { uint32_t action; const char* title; const char* description; } KiwiCocoaCommandPaletteEntry;
 KiwiCocoaTextInput* kiwi_cocoa_text_input_new(void* window, KiwiCocoaTextInputCallback preedit, KiwiCocoaTextInputCallback commit, void* userdata);
 void kiwi_cocoa_text_input_destroy(KiwiCocoaTextInput* adapter);
@@ -21,6 +22,9 @@ int kiwi_cocoa_system_appearance(void* window);
 int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_automation_install(void* window, KiwiCocoaAutomationCallback callback, void* userdata);
+void kiwi_cocoa_automation_remove(void* window);
+int kiwi_cocoa_automation_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
 void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
@@ -328,6 +332,45 @@ function Window:cocoa_menu_invoke_smoke(action)
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:enable_cocoa_automation(handler)
+  if ffi.os ~= "OSX" then return nil, "Cocoa automation is unavailable on this platform" end
+  assert(type(handler) == "function", "Cocoa automation needs an action handler")
+  self:disable_cocoa_automation()
+  local callback = ffi.cast("KiwiCocoaAutomationCallback", function(_, action)
+    local name = cocoa_menu_actions[tonumber(action)]
+    if name == nil then return 0 end
+    local ok, handled = pcall(handler, name)
+    if not ok then
+      io.stderr:write("Kiwi Cocoa automation action failed: ", tostring(handled), "\n")
+      return 0
+    end
+    return handled == true and 1 or 0
+  end)
+  if native.kiwi_cocoa_automation_install(self.handle, callback, nil) ~= 0 then
+    self.callbacks.cocoa_automation = callback
+    return true
+  end
+  callback:free()
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:disable_cocoa_automation()
+  if ffi.os ~= "OSX" then return end
+  if self.handle ~= nil then native.kiwi_cocoa_automation_remove(self.handle) end
+  if self.callbacks.cocoa_automation ~= nil then
+    self.callbacks.cocoa_automation:free()
+    self.callbacks.cocoa_automation = nil
+  end
+end
+
+function Window:cocoa_automation_invoke_smoke(action)
+  if ffi.os ~= "OSX" then return nil, "Cocoa automation is unavailable on this platform" end
+  local identifier = cocoa_menu_action_ids[action]
+  if identifier == nil then return nil, "Cocoa automation smoke names an unknown action" end
+  if native.kiwi_cocoa_automation_invoke_smoke(self.handle, identifier) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:cocoa_window_tabs_round_trip(peer)
   if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
   if type(peer) ~= "table" or peer.handle == nil then return nil, "Cocoa window-tab smoke needs a live peer window" end
@@ -512,6 +555,7 @@ function Window:destroy()
     if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_command_palette_remove(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end
+    if ffi.os == "OSX" then self:disable_cocoa_automation() end
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil
     live_windows = live_windows - 1

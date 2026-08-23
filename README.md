@@ -272,6 +272,11 @@ settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
 The macOS Cocoa and GTK4 host menus route those same actions, including
 Settings/Open Configuration and the command palette, without adding menu
 keyboard equivalents; native product-chrome qualification remains partial.
+`Kiwi.app` also exposes eight fixed AppleScript window/layout/configuration
+actions through the same dispatcher. It has no terminal-input command or
+Ghostty-style scripting object model; external Automation consent and
+interactive AppleScript use remain manual qualification. See
+[MACOS.md](docs/MACOS.md#bounded-applescript-actions).
 
 Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
 GLFW character callbacks otherwise provide committed Unicode text. The default

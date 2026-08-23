@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<dictionary title="Kiwi Automation">
+  <suite name="Kiwi Automation" code="Kiwi" description="Bounded Kiwi window and workspace actions.">
+    <command name="new terminal window" code="KiwiNWdw" description="Open a new Kiwi terminal window.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="new terminal tab" code="KiwiNTab" description="Create a tab in the front Kiwi window.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="next terminal tab" code="KiwiNTxt" description="Focus the next tab in the front Kiwi window.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="close terminal pane" code="KiwiCPne" description="Close the active pane in the front Kiwi window.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="split terminal right" code="KiwiSRgt" description="Split the active pane to the right.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="split terminal down" code="KiwiSDwn" description="Split the active pane below.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="reload Kiwi configuration" code="KiwiRcfg" description="Reload the active Kiwi configuration.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+    <command name="open Kiwi configuration" code="KiwiOcfg" description="Open the active Kiwi text configuration.">
+      <result type="boolean" description="Whether Kiwi accepted the action."/>
+    </command>
+  </suite>
+</dictionary>
