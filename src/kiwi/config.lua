@@ -182,6 +182,7 @@ local function defaults()
     color_overrides = { palette = {} },
     command_regions = false,
     keybindings = {},
+    command_palette_entries = {},
     osc52_write = false,
     osc9_notifications = "off",
     osc9_progress = "off",
@@ -343,6 +344,11 @@ local function apply_value(config, key, raw, line)
       error("configuration line " .. line .. " exceeds " .. Actions.maximum_bindings .. " keybindings")
     end
     config.keybindings[#config.keybindings + 1] = Actions.parse(parse_string(raw, line), line)
+  elseif key == "command-palette-entry" then
+    if #config.command_palette_entries >= Actions.maximum_palette_directives then
+      error("configuration line " .. line .. " exceeds " .. Actions.maximum_palette_directives .. " command-palette directives")
+    end
+    config.command_palette_entries[#config.command_palette_entries + 1] = Actions.parse_palette_entry(raw, line)
   elseif key == "osc52-write" then
     config.osc52_write = parse_boolean(raw, line)
   elseif key == "osc9-notifications" then
@@ -441,6 +447,7 @@ function Config.parse(text, source, base, options)
       apply_value(config, assignment.key, assignment.value, assignment.line)
     end
   end
+  Actions.palette_entries(config.command_palette_entries)
   return config
 end
 

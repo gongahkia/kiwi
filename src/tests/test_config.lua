@@ -126,6 +126,29 @@ keybind = ctrl+alt+t = new-tab
     Assert.equal(config.keybindings[1].action, "none")
     Assert.equal(config.keybindings[2].chord, "alt+control+t")
   end,
+  configuration_records_bounded_custom_command_palette_entries = function()
+    local config = Config.parse([[command-palette-entry = title:"Open a tab", description:"Create a fresh terminal tab.", action:new-tab
+command-palette-entry =
+command-palette-entry = title:Reload, action:reload-config
+]], "test")
+    Assert.equal(#config.command_palette_entries, 3)
+    local entries = require("kiwi.app.actions").palette_entries(config.command_palette_entries)
+    Assert.equal(#entries, 1)
+    Assert.equal(entries[1].title, "Reload")
+    Assert.truthy(not pcall(Config.parse, "command-palette-entry = title:Unsafe, action:command-palette", "test"))
+  end,
+  configuration_allows_a_cleared_full_command_palette_and_bounds_directives = function()
+    local Actions = require("kiwi.app.actions")
+    local entries = { "command-palette-entry =" }
+    for index = 1, Actions.maximum_palette_entries do
+      entries[#entries + 1] = "command-palette-entry = title:New " .. index .. ", action:new-tab"
+    end
+    local config = Config.parse(table.concat(entries, "\n"), "test")
+    Assert.equal(#Actions.palette_entries(config.command_palette_entries), Actions.maximum_palette_entries)
+    local too_many = {}
+    for _ = 1, Actions.maximum_palette_directives + 1 do too_many[#too_many + 1] = "command-palette-entry =" end
+    Assert.truthy(not pcall(Config.parse, table.concat(too_many, "\n"), "test"))
+  end,
   configuration_parses_explicit_osc9_host_effect_policies = function()
     local config = Config.parse("osc9-notifications = system\nosc9-progress = system\n", "test")
     Assert.equal(config.osc9_notifications, "system")

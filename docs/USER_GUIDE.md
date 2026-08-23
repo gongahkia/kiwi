@@ -148,6 +148,7 @@ osc52-write = false
 osc9-notifications = off
 osc9-progress = off
 # keybind = ctrl+alt+t = new-tab
+# command-palette-entry = title:"Reload, safely", description:"Reload the trusted \"theme\".", action:reload-config
 ```
 
 `F6` is the default binding for `reload-config`; it can be remapped or removed.
@@ -164,7 +165,8 @@ The default local actions are `Ctrl+Tab` (next tab), `Ctrl+Shift+T` (new tab),
 new window), `Ctrl+Shift+Alt+M` (move it to the next window as a tab),
 `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts),
 `Ctrl+Shift+W` (close pane), `Ctrl+Shift+Enter` (split right), and
-`Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette. Moves preserve the live PTY, terminal state, and
+`Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette. Moves
+preserve the live PTY, terminal state, and
 scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
@@ -186,13 +188,22 @@ On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
 and `Window` menus and opens the palette in a searchable AppKit panel. On Linux,
 `KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
 resolving each `win.*` action against the active window, and opens the palette
-in a searchable GTK dialog. The palette has eleven fixed built-in entries and
-matches title and description text case-insensitively. It is deliberately not a
-command runner and does not support Ghostty-style configuration-defined palette
-entries. These menus deliberately define no keyboard equivalents: the configured
-key map remains the only local accelerator policy. Selecting a menu item is an
-explicit host command and is therefore available even while Kitty keyboard flag
-8 reserves physical keyboard input for the terminal. `make cocoa-palette-smoke`
+in a searchable GTK dialog. The palette has eleven default built-in entries,
+matches title and description text case-insensitively, and accepts up to 32
+total entries after configuration. Add an entry with
+`command-palette-entry = title:<title>, action:<action>` and optionally
+`description:<description>` in any field order. Commas, quotes, and backslashes
+inside a field require a quoted value using `\"` and `\\`; title/description
+are bounded NUL-free UTF-8 (128/256 bytes), and a directive is bounded to 512
+bytes. Up to 64 directives are retained while the final catalogue is capped at
+32 entries. An empty `command-palette-entry =` clears the accumulated default
+and custom entries before later entries are applied. An entry may invoke only the
+documented workspace actions except `command-palette` itself, so it cannot
+recurse, execute a command, send text, or emit terminal control bytes. These
+menus deliberately define no keyboard equivalents: the configured key map
+remains the only local accelerator policy. Selecting a menu item is an explicit
+host command and is therefore available even while Kitty keyboard flag 8
+reserves physical keyboard input for the terminal. `make cocoa-palette-smoke`
 opens the Cocoa palette and selects `New Tab` through the live controller;
 `make gtk-palette-smoke` is the corresponding graphical-Linux gate. Neither
 proves interactive filtering, keyboard navigation, or general product-chrome

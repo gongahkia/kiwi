@@ -38,7 +38,8 @@ native text widget or a replacement renderer.
 2. The GLFW Cocoa route adds bounded AppKit bridges without becoming an AppKit
    host: `NSMenu` items dispatch the same logical actions as the configured
    local action map; a searchable `NSPanel` command palette dispatches the
-   same bounded action catalogue; `NSTextInputClient`, private pasteboard, and
+   default and configuration-augmented bounded action catalogue;
+   `NSTextInputClient`, private pasteboard, and
    `NSAccessibility` remain attached to the GLFW Cocoa view. It does **not**
    own `NSWindow`, native tab/split chrome, a settings surface, automation, or
    menu keyboard equivalents. `make cocoa-smoke` verifies the bridge structure
@@ -56,9 +57,10 @@ native text widget or a replacement renderer.
    the bounded configured key map remains the shortcut policy. `make
    gtk-host-check` validates its independent bridge ABI without a display;
    `make gtk-menu-smoke` needs a graphical Linux session to dispatch New Tab
-   through that handler. Its searchable GTK dialog uses the same bounded
-   catalogue; `make gtk-palette-smoke` opens it and dispatches the first entry
-   through the live controller on a graphical Linux session.
+   through that handler. Its searchable GTK dialog uses the same default and
+   configuration-augmented bounded catalogue; `make gtk-palette-smoke` opens
+   it and dispatches the first entry through the live controller on a graphical
+   Linux session.
 4. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical

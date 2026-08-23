@@ -39,6 +39,16 @@ local ok, message = xpcall(function()
   local menu_smoke, menu_smoke_message = window:cocoa_menu_invoke_smoke("new-tab")
   require_result(menu_smoke, "Cocoa menu callback bridge failed: " .. tostring(menu_smoke_message))
   require_result(#menu_actions == 1 and menu_actions[1] == "new-tab", "Cocoa menu callback bridge did not route the logical action")
+  local palette_actions = {}
+  local palette_enabled, palette_message = window:show_cocoa_command_palette({
+    { action = "reload-config", title = "Reload, safely", description = "Reload the trusted \"theme\"." },
+  }, function(action)
+    palette_actions[#palette_actions + 1] = action
+  end)
+  require_result(palette_enabled, "Cocoa command-palette callback bridge could not be enabled: " .. tostring(palette_message))
+  local palette_smoke, palette_smoke_message = window:cocoa_command_palette_invoke_smoke()
+  require_result(palette_smoke, "Cocoa command-palette callback bridge failed: " .. tostring(palette_smoke_message))
+  require_result(#palette_actions == 1 and palette_actions[1] == "reload-config", "Cocoa command palette did not route the configured logical action")
   local marked = {}
   local committed = {}
   local enabled, enabled_message = window:enable_cocoa_text_input(function(text, selection_start, selection_end)
@@ -72,7 +82,7 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, configured command-palette callback, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end
