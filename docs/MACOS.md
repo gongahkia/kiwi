@@ -53,7 +53,10 @@ shells, resizes the primary drawable after the second window closes, then
 stages and launches the project-local `Kiwi-dev.app`.
 `make cocoa-menu-smoke` additionally sends the `New Tab` menu action through
 that native bridge and verifies the live workspace controller creates a second
-tab. It does not qualify interactive menu selection or native product chrome.
+tab. `make cocoa-palette-smoke` opens the searchable native palette and
+programmatically selects `New Tab` through the same controller. Those checks
+do not qualify interactive filtering, menu selection, keyboard navigation, or
+native product chrome.
 `make release-check` additionally launches an extracted release `Kiwi.app`
 through LaunchServices after checking archive reproducibility. It
 does not read or replace the user's general clipboard, so it is not a test of
