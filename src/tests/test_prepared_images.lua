@@ -6,6 +6,7 @@ return {
     local active
     local graphics = {
       set_active_images = function(_, ids) active = ids end,
+      take_gpu_releases = function() return { { generation = 2, id = 7, reason = "deleted" } } end,
       upload_descriptor = function(_, id)
         return { bytes = 16, generation = id + 10, id = id, pixels = "pixels", height = 2, width = 2 }
       end,
@@ -35,6 +36,7 @@ return {
     Assert.truthy(active[4])
     Assert.equal(plan.descriptors[4].generation, 14)
     Assert.equal(plan.under[2].source_row, 1)
+    Assert.equal(plan.releases[1].id, 7)
     Assert.equal(plan.native, nil)
   end,
 }

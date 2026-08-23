@@ -61,10 +61,13 @@ function PreparedImages.prepare(model)
     if image then descriptors[id] = image end
   end
   return {
+    columns = model.columns,
     descriptors = descriptors,
     graphics = graphics,
     over = over,
     placement_view = placement_view,
+    releases = type(graphics.take_gpu_releases) == "function" and graphics:take_gpu_releases() or {},
+    rows = model.rows,
     under = under,
     wanted = wanted,
     wanted_ids = wanted_ids,
