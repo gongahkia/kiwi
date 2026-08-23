@@ -279,6 +279,7 @@ static void kiwi_gtk_terminal_default_attributes(GtkAccessibleText *accessible,
   if (attribute_values != NULL) *attribute_values = NULL;
 }
 
+#if GTK_CHECK_VERSION(4, 16, 0)
 static gboolean kiwi_gtk_terminal_extents(GtkAccessibleText *accessible,
                                           unsigned int start, unsigned int end,
                                           graphene_rect_t *extents) {
@@ -297,6 +298,7 @@ static gboolean kiwi_gtk_terminal_offset(GtkAccessibleText *accessible,
   (void)offset;
   return FALSE;
 }
+#endif
 
 static void kiwi_gtk_terminal_accessible_text_init(GtkAccessibleTextInterface *interface) {
   interface->get_contents = kiwi_gtk_terminal_contents;
@@ -305,8 +307,10 @@ static void kiwi_gtk_terminal_accessible_text_init(GtkAccessibleTextInterface *i
   interface->get_selection = kiwi_gtk_terminal_selection;
   interface->get_attributes = kiwi_gtk_terminal_attributes;
   interface->get_default_attributes = kiwi_gtk_terminal_default_attributes;
+#if GTK_CHECK_VERSION(4, 16, 0)
   interface->get_extents = kiwi_gtk_terminal_extents;
   interface->get_offset = kiwi_gtk_terminal_offset;
+#endif
 }
 
 static void kiwi_gtk_terminal_finalize(GObject *object) {
@@ -485,17 +489,38 @@ static void kiwi_gtk_command_palette_row_activated(GtkListBox *list, GtkListBoxR
   kiwi_gtk_command_palette_invoke(userdata, row);
 }
 
-static void kiwi_gtk_command_palette_response(GtkDialog *dialog, int response,
-                                              gpointer userdata) {
-  (void)dialog;
+static void kiwi_gtk_command_palette_run(GtkButton *button, gpointer userdata) {
+  (void)button;
   KiwiGtkCommandPalette *palette = userdata;
-  if (response == GTK_RESPONSE_ACCEPT) {
-    GtkListBoxRow *row = gtk_list_box_get_selected_row(palette->list);
-    if (row == NULL) row = kiwi_gtk_command_palette_first_visible(palette);
-    kiwi_gtk_command_palette_invoke(palette, row);
-  } else {
-    kiwi_gtk_host_command_palette_remove(palette->host);
-  }
+  GtkListBoxRow *row = gtk_list_box_get_selected_row(palette->list);
+  if (row == NULL) row = kiwi_gtk_command_palette_first_visible(palette);
+  kiwi_gtk_command_palette_invoke(palette, row);
+}
+
+static void kiwi_gtk_command_palette_cancel(GtkButton *button, gpointer userdata) {
+  (void)button;
+  KiwiGtkCommandPalette *palette = userdata;
+  kiwi_gtk_host_command_palette_remove(palette->host);
+}
+
+static gboolean kiwi_gtk_command_palette_close(GtkWindow *window, gpointer userdata) {
+  (void)window;
+  KiwiGtkCommandPalette *palette = userdata;
+  kiwi_gtk_host_command_palette_remove(palette->host);
+  return TRUE;
+}
+
+static gboolean kiwi_gtk_command_palette_key_pressed(GtkEventControllerKey *controller,
+                                                      guint keyval, guint keycode,
+                                                      GdkModifierType state,
+                                                      gpointer userdata) {
+  (void)controller;
+  (void)keycode;
+  (void)state;
+  if (keyval != GDK_KEY_Escape) return FALSE;
+  KiwiGtkCommandPalette *palette = userdata;
+  kiwi_gtk_host_command_palette_remove(palette->host);
+  return TRUE;
 }
 
 int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
@@ -524,12 +549,12 @@ int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
   palette->host = host;
   palette->callback = callback;
   palette->userdata = userdata;
-  palette->dialog = gtk_dialog_new();
+  palette->dialog = gtk_window_new();
   gtk_window_set_title(GTK_WINDOW(palette->dialog), "Command Palette");
   gtk_window_set_modal(GTK_WINDOW(palette->dialog), TRUE);
   gtk_window_set_transient_for(GTK_WINDOW(palette->dialog), GTK_WINDOW(host->window));
   gtk_window_set_default_size(GTK_WINDOW(palette->dialog), 520, 340);
-  GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(palette->dialog));
+  GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
   gtk_widget_set_margin_top(content, 12);
   gtk_widget_set_margin_bottom(content, 12);
   gtk_widget_set_margin_start(content, 12);
@@ -570,12 +595,26 @@ int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
                            g_strdup(entries[index].description), g_free);
     gtk_list_box_append(palette->list, row);
   }
-  gtk_dialog_add_button(GTK_DIALOG(palette->dialog), "Cancel", GTK_RESPONSE_CANCEL);
-  gtk_dialog_add_button(GTK_DIALOG(palette->dialog), "Run", GTK_RESPONSE_ACCEPT);
+  GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_widget_set_halign(actions, GTK_ALIGN_END);
+  gtk_widget_set_margin_top(actions, 12);
+  GtkWidget *cancel = gtk_button_new_with_label("Cancel");
+  GtkWidget *run = gtk_button_new_with_label("Run");
+  gtk_widget_add_css_class(run, "suggested-action");
+  gtk_box_append(GTK_BOX(actions), cancel);
+  gtk_box_append(GTK_BOX(actions), run);
+  gtk_box_append(GTK_BOX(content), actions);
+  gtk_window_set_child(GTK_WINDOW(palette->dialog), content);
+  gtk_window_set_default_widget(GTK_WINDOW(palette->dialog), run);
+  GtkEventController *key = gtk_event_controller_key_new();
+  g_signal_connect(key, "key-pressed", G_CALLBACK(kiwi_gtk_command_palette_key_pressed), palette);
+  gtk_widget_add_controller(palette->dialog, key);
   g_signal_connect(palette->search, "changed", G_CALLBACK(kiwi_gtk_command_palette_query_changed), palette);
   g_signal_connect(palette->search, "activate", G_CALLBACK(kiwi_gtk_command_palette_activate), palette);
   g_signal_connect(palette->list, "row-activated", G_CALLBACK(kiwi_gtk_command_palette_row_activated), palette);
-  g_signal_connect(palette->dialog, "response", G_CALLBACK(kiwi_gtk_command_palette_response), palette);
+  g_signal_connect(cancel, "clicked", G_CALLBACK(kiwi_gtk_command_palette_cancel), palette);
+  g_signal_connect(run, "clicked", G_CALLBACK(kiwi_gtk_command_palette_run), palette);
+  g_signal_connect(palette->dialog, "close-request", G_CALLBACK(kiwi_gtk_command_palette_close), palette);
   g_signal_connect(palette->dialog, "destroy", G_CALLBACK(kiwi_gtk_command_palette_destroyed), palette);
   host->command_palette = palette;
   kiwi_gtk_command_palette_refresh(palette);
@@ -837,8 +876,6 @@ static void kiwi_gtk_im_preedit_changed(GtkIMContext *context, gpointer userdata
 static void kiwi_gtk_focus_enter(GtkEventControllerFocus *controller, gpointer userdata) {
   (void)controller;
   KiwiGtkHost *host = userdata;
-  gtk_accessible_update_platform_state(GTK_ACCESSIBLE(host->content),
-                                       GTK_ACCESSIBLE_PLATFORM_STATE_FOCUSED);
   if (host->callbacks.focus != NULL) host->callbacks.focus(host->callbacks.userdata, 1);
 }
 
@@ -846,8 +883,6 @@ static void kiwi_gtk_focus_leave(GtkEventControllerFocus *controller, gpointer u
   (void)controller;
   KiwiGtkHost *host = userdata;
   if (host->im_context != NULL) gtk_im_context_reset(host->im_context);
-  gtk_accessible_update_platform_state(GTK_ACCESSIBLE(host->content),
-                                       GTK_ACCESSIBLE_PLATFORM_STATE_FOCUSED);
   if (host->callbacks.focus != NULL) host->callbacks.focus(host->callbacks.userdata, 0);
 }
 

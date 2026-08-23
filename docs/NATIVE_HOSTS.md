@@ -68,7 +68,7 @@ feature.
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, per-tab split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit owns the visible tab containers: `New Tab` creates another GLFW/Cocoa controller in Kiwi's explicit `NSWindow` group and `Next Tab` invokes AppKit selection. `New Window`, restored windows, and a move-to-new-window controller are registered outside that group; the verified GLFW/Cocoa default retains `NSWindowTabbingModeDisallowed` for them. AppKit also supplies a unified titlebar toolbar, local-shell `representedURL` proxy icon, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, direct AppKit grouping/next-tab selection and standalone-window configuration, Settings routing, unified toolbar dispatch, local/remote OSC 7 proxy-URL handling, Cocoa/Metal surfaces, and bundle launch. The menu, toolbar, palette, and Apple-event smokes each dispatch `New Tab` into the live host tab controller. Interactive filtering/navigation, Finder disclosure, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
+| Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -110,7 +110,7 @@ native text widget or a replacement renderer.
    verifies the native property assignment then clearing. Those checks do not prove interactive filtering,
    every menu item, or an external automation client that has received macOS
    Automation permission.
-3. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
+3. GTK4 4.14 or newer is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
    reads/writes, URI opening, and the existing GPU-rendered terminal content.
@@ -132,7 +132,9 @@ native text widget or a replacement renderer.
    content size, keeping GTK responsible for fractional scale. GTK text input
    uses `GtkIMMulticontext` and preserves Kiwi's key/text correlation; its
    terminal widget implements `GtkAccessibleText` rather than starting a
-   second AT-SPI application tree. Bounded single-window, same-process
+   second AT-SPI application tree. Optional text extents and hit testing are
+   supplied on GTK 4.16 or newer; widget focus state is managed by GTK rather
+   than calling the non-widget-only 4.18 platform-state API. Bounded single-window, same-process
    multi-window, input-callback, and accessible-text runs pass on the
    Fedora/KWin session. Run `make gtk-wayland-smoke`, `make
    gtk-wayland-multi-window-smoke`, `make gtk-input-smoke`, `make
