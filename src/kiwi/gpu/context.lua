@@ -279,6 +279,10 @@ function Context:begin_framebuffer_capture(frame)
   return self.native.surface.kiwi_framebuffer_capture_begin(self.framebuffer_capture, frame) ~= 0
 end
 
+function Context:abort_framebuffer_capture()
+  if self.framebuffer_capture ~= nil then self.native.surface.kiwi_framebuffer_capture_abort(self.framebuffer_capture) end
+end
+
 function Context:encode_framebuffer_capture(encoder, texture)
   if self.framebuffer_capture ~= nil then
     self.native.surface.kiwi_framebuffer_capture_encode(self.framebuffer_capture, encoder, texture)

@@ -159,6 +159,7 @@ KiwiFramebufferCapture* kiwi_framebuffer_capture_new(WGPUInstance instance, WGPU
 int kiwi_framebuffer_capture_set_expected_rgb(KiwiFramebufferCapture* capture, uint8_t red, uint8_t green, uint8_t blue, uint8_t tolerance);
 void kiwi_framebuffer_capture_destroy(KiwiFramebufferCapture* capture);
 int kiwi_framebuffer_capture_begin(KiwiFramebufferCapture* capture, uint64_t frame);
+void kiwi_framebuffer_capture_abort(KiwiFramebufferCapture* capture);
 void kiwi_framebuffer_capture_encode(KiwiFramebufferCapture* capture, WGPUCommandEncoder encoder, WGPUTexture texture);
 void kiwi_framebuffer_capture_submit(KiwiFramebufferCapture* capture);
 int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture* capture, KiwiFramebufferSample* sample);
