@@ -128,6 +128,13 @@ images, and frame uniforms. A future GL consumer must use this contract rather
 than reproduce LuaJIT struct declarations locally. It is internal and may make
 a coordinated breaking change while no stable native renderer ABI exists.
 
+`kiwi.renderer.gtk_gl_consumer` is the matching Lua-side consumer. It creates
+the prepared plan, submits one complete bounded snapshot, and clears terminal
+damage only after the native bridge accepts its deep copy. A native rejection
+leaves damage intact and forces the next plan to restore every cell, glyph, and
+atlas resource. The module is tested with a fake native window but is not yet
+selected by the application controller.
+
 At minimum, a prepared frame has to carry:
 
 - grid dimensions; dirty cell ranges and packed cell records; shaped-glyph
@@ -171,12 +178,13 @@ backgrounds, selection/search ranges, alpha-atlas glyphs, and cursor geometry.
 The probe submits a known RGB cell first in C and then a second complete
 cell/glyph/atlas snapshot through the LuaJIT FFI, requiring the GL renderer to
 acknowledge each revision after a render callback. It deliberately is not wired
-into the application or used to claim command-region, Kitty-image,
-color-management, resize, or pacing parity. This gives the later adapter an
-actual GL resource, shader, ordered semantic pass, and deep-copy submission
-owner without making partial output look like a terminal. The next integration
-milestone is a non-WGPU GTK controller path that submits those snapshots, then
-adds command-region and image layers with the same ordering rules.
+into the application or used to claim Kitty-image, color-management, resize,
+or pacing parity. Command-region and hyperlink decorations have corresponding
+GL pass logic but no graphical-session evidence yet. This gives the later
+adapter an actual GL resource, shader, ordered semantic pass, and deep-copy
+submission owner without making partial output look like a terminal. The next
+integration milestone is a non-WGPU GTK controller path that submits those
+snapshots, then adds Kitty image layers with the same ordering rules.
 
 The full GL adapter will retain that shape: one terminal root widget per
 controller, with the `GtkGLArea` below that root. GTK's main context alone
