@@ -164,7 +164,7 @@ The default local actions are `Ctrl+Tab` (next tab), `Ctrl+Shift+T` (new tab),
 new window), `Ctrl+Shift+Alt+M` (move it to the next window as a tab),
 `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts),
 `Ctrl+Shift+W` (close pane), `Ctrl+Shift+Enter` (split right), and
-`Ctrl+Shift+J` (split down). Moves preserve the live PTY, terminal state, and
+`Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette. Moves preserve the live PTY, terminal state, and
 scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
@@ -174,7 +174,7 @@ the form `keybind = chord = action`; `ctrl`/`control`, `cmd`/`super`, `shift`,
 and `alt` are accepted modifiers. Keys are letters, digits, `F1` through
 `F12`, or `backspace`, `delete`, `down`, `end`, `enter`, `escape`, `home`,
 `insert`, `left`, `page-down`, `page-up`, `right`, `space`, `tab`, and `up`.
-The actions are `close-pane`, `new-tab`, `new-window`, `next-tab`,
+The actions are `close-pane`, `command-palette`, `new-tab`, `new-window`, `next-tab`,
 `reload-config`, `move-session-new-window`, `move-session-next-window`,
 `duplicate-session-new-window`, `duplicate-session-next-window`, `split-down`,
 and `split-right`. Set a chord to `none` to remove its default binding, or use
@@ -183,12 +183,20 @@ map. Product actions are not consumed while the terminal has negotiated Kitty
 keyboard flag 8, so disambiguated application input retains priority.
 
 On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
-and `Window` menus. On Linux, `KIWI_HOST=gtk` exposes the same actions through
-the GTK application menu, resolving each `win.*` action against the active
-window. These menus deliberately define no keyboard equivalents: the configured
+and `Window` menus and opens the palette in a searchable AppKit panel. On Linux,
+`KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
+resolving each `win.*` action against the active window, and opens the palette
+in a searchable GTK dialog. The palette has eleven fixed built-in entries and
+matches title and description text case-insensitively. It is deliberately not a
+command runner and does not support Ghostty-style configuration-defined palette
+entries. These menus deliberately define no keyboard equivalents: the configured
 key map remains the only local accelerator policy. Selecting a menu item is an
 explicit host command and is therefore available even while Kitty keyboard flag
-8 reserves physical keyboard input for the terminal.
+8 reserves physical keyboard input for the terminal. `make cocoa-palette-smoke`
+opens the Cocoa palette and selects `New Tab` through the live controller;
+`make gtk-palette-smoke` is the corresponding graphical-Linux gate. Neither
+proves interactive filtering, keyboard navigation, or general product-chrome
+behavior.
 
 Kiwi attempts to persist bounded window geometry plus tab/split topology and
 the active tab/pane on normal live-session changes, reporting an I/O failure to

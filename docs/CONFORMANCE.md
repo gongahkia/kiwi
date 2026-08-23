@@ -226,8 +226,9 @@ results. An editing search gates navigation; a submitted search remains intact.
 `partial` and `truncated` records are eligible only if their exact requested
 role position still resolves to a retained primary row. Evicted, missing,
 alternate-screen, and incomplete positions are skipped rather than guessed.
-There is no wrapping, command palette, keybinding rewrite, renderer resource,
-or accessibility export in this milestone. [ADR 0030](adr/0030-command-region-navigation.md)
+There is no wrapping, keybinding rewrite, renderer resource, or accessibility
+export in this milestone. The host command palette is a bounded product action,
+not a command-region navigation or terminal-core capability. [ADR 0030](adr/0030-command-region-navigation.md)
 defines the full contract.
 
 ## Input method status

@@ -30,10 +30,13 @@ declared complete.
 - GTK4's bounded Wayland/X11 rendering and PTY runs pass. Its Wayland WGPU
   presenter owns a child surface beneath the GTK toplevel and uses
   `wp_viewporter` for logical-size presentation. GTK IME and accessible-text
-  callback bridges have bounded smoke coverage. Interactive desktop
+  callback bridges have bounded smoke coverage. Its `GMenu` opens a searchable
+  dialog over the same fixed bounded product-action catalogue as Cocoa; its
+  graphical palette smoke is not yet local qualification evidence. Interactive desktop
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
-- The GLFW Cocoa route already has bounded AppKit menu, text-input,
+- The GLFW Cocoa route already has bounded AppKit menu, searchable command
+  palette, text-input,
   accessibility, and pasteboard bridges. It is not an AppKit host: replacing
   GLFW-owned windows and custom workspace chrome remains a separate, gated
   product decision after GTK4 desktop qualification.

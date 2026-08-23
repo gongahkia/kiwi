@@ -151,6 +151,8 @@ make truecolour-framebuffer-smoke       # bounded native terminal RGB compositor
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
 make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
+make cocoa-palette-smoke                # macOS searchable native command-palette callback smoke
+make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
 make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, two Metal surfaces, and development-app launch smoke
@@ -250,12 +252,17 @@ GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
 
-These local actions are configurable with bounded `keybind` directives in the
-configuration file; `F6` is the default reload action. `theme = system`,
+`Ctrl+Shift+P` opens a searchable native command palette on the Cocoa and GTK4
+hosts. Its fixed, bounded catalogue contains the same workspace actions, and
+filters their title and description; it does not yet support configuration-
+defined palette entries. These local actions are configurable with bounded
+`keybind` directives in the configuration file; `F6` is the default reload
+action. `theme = system`,
 bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
 settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
-The macOS Cocoa and GTK4 host menus route those same actions without adding
-menu keyboard equivalents; native product-chrome qualification remains partial.
+The macOS Cocoa and GTK4 host menus route those same actions, including opening
+the command palette, without adding menu keyboard equivalents; native
+product-chrome qualification remains partial.
 
 Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
 GLFW character callbacks otherwise provide committed Unicode text. The default
@@ -341,6 +348,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds GLFW clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, a command palette, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset semantics and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds GLFW clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, configuration-defined command-palette entries, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset semantics and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
