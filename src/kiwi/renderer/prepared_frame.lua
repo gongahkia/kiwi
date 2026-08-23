@@ -340,6 +340,24 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
   }
 end
 
+function PreparedFrame:complete_snapshot(plan, frame)
+  assert(plan == self.pending_model, "prepared frame snapshot does not match the pending model plan")
+  assert(type(frame) == "table" and frame.data == self.frame,
+    "prepared frame snapshot needs this producer's frame uniform")
+  local atlas = self.font.glyph_cache.atlas
+  return {
+    atlas_bytes = self.font.glyph_cache.pixel_bytes,
+    atlas_height = atlas.height,
+    atlas_pixels = self.font.glyph_cache.pixels,
+    atlas_width = atlas.width,
+    cell_count = self.capacity,
+    cells = self.cells,
+    frame = frame.data,
+    glyph_count = plan.glyph_count,
+    glyphs = self.glyphs,
+  }
+end
+
 function PreparedFrame:atlas_descriptor()
   local atlas = self.font.glyph_cache.atlas
   return {
