@@ -75,4 +75,19 @@ return {
     consumer:destroy()
     font:destroy()
   end,
+  gtk_gl_consumer_resumes_with_a_monotonic_revision_after_a_resize_rebuild = function()
+    local snapshot
+    local window = {
+      enable_gl_area_probe = function() return true end,
+      submit_gl_area_snapshot = function(_, value) snapshot = value; return true end,
+    }
+    local font = font_system()
+    local state = State.new(8, 2)
+    local consumer = Consumer.new(window, font, state, { next_revision = 17 })
+    Assert.truthy(consumer:render(state, 1, false, false))
+    Assert.equal(snapshot.revision, 17)
+    Assert.equal(consumer.revision, 18)
+    consumer:destroy()
+    font:destroy()
+  end,
 }

@@ -178,6 +178,9 @@ local function report_framebuffer_capture(context)
 end
 
 function Controller.run(window, host, options)
+  if host.presentation_backend == "gtk-gl" then
+    return require("kiwi.app.gtk_gl_controller").run(window, host, options)
+  end
   local default_title = "Kiwi M2 terminal"
   local glfw = host.keymap
   local system_appearance = host.system_appearance and host.system_appearance(window) or nil

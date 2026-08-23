@@ -4,6 +4,7 @@ local Window = require("kiwi.platform.gtk_window")
 local Host = {
   keymap = require("kiwi.ffi.glfw").constants,
   platform = "GTK",
+  presentation_backend = os.getenv("KIWI_GTK_PRESENTER") == "gl" and "gtk-gl" or "wgpu",
   window_api = Window,
 }
 
