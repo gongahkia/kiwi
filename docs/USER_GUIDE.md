@@ -122,10 +122,22 @@ Kiwi reads `$XDG_CONFIG_HOME/kiwi/config`, or
 `$HOME/.config/kiwi/config` when XDG is unset. On macOS it then reads
 `$HOME/Library/Application Support/io.github.gongahkia.kiwi/config`; values in
 that platform-specific file override XDG values. Kiwi never creates either
-path. Use `--config PATH` to select one explicit file; an explicit missing file
-is an error. Each file is bounded to 64 KiB and 512 lines, has `key = value`
-syntax, and rejects unknown keys. Environment variables remain supported and
-override file values for compatibility with existing wrappers.
+path during startup. Use `--config PATH` to select one explicit file; an
+explicit missing file is an error. Each file is bounded to 64 KiB and 512
+lines, has `key = value` syntax, and rejects unknown keys. Environment
+variables remain supported and override file values for compatibility with
+existing wrappers.
+
+The native `Settings…` menu item on macOS, `Settings` menu item on GTK, and
+`Open Configuration` palette action open the effective configuration as text.
+If no default source was loaded, that explicit action creates only the
+highest-precedence default path (the macOS Application Support path on macOS;
+the XDG path elsewhere), with a comment-only template. It creates missing
+parents with user-only permissions and creates the file exclusively with
+user-only permissions; it never overwrites an existing file. macOS asks the
+system text editor to open the path and GTK delegates to the desktop's default
+file handler. This is a text-file configuration workflow, not a graphical
+preferences editor. The normal launch path remains non-mutating.
 
 ```ini
 # ~/.config/kiwi/config; see the named themes below
@@ -148,6 +160,7 @@ osc52-write = false
 osc9-notifications = off
 osc9-progress = off
 # keybind = ctrl+alt+t = new-tab
+# keybind = ctrl+a > n = new-window
 # command-palette-entry = title:"Reload, safely", description:"Reload the trusted \"theme\".", action:reload-config
 ```
 
@@ -160,6 +173,23 @@ remain startup-only, because changing either would require semantic grid reflow
 or history retention changes; Kiwi reports that limitation instead of partially
 applying the file.
 
+At launch, these documented command-line settings use the same validation as
+the file and take precedence over file and `KIWI_*` environment values:
+
+```sh
+kiwi --theme dracula --appearance dark --font-family "Noto Sans Mono" --font-size 18
+kiwi --theme-file /absolute/path/to/colours.conf --scrollback-limit 4000 --shell-integration none
+```
+
+The accepted flags are `--theme`, `--theme-file`, `--appearance`,
+`--font-family`, `--font-size`, `--scrollback-limit`, and
+`--shell-integration`; each needs one non-empty, NUL-free, control-free value.
+Later occurrences win, except that `--theme` and `--theme-file` cannot be
+combined. The configuration file and environment are read first, then these
+flags are reapplied after every successful reload. `--theme-file` remains an
+absolute, colour-only trusted input: it cannot set arbitrary Kiwi options or
+execute content.
+
 The default local actions are `Ctrl+Tab` (next tab), `Ctrl+Shift+T` (new tab),
 `Ctrl+Shift+N` (new window), `Ctrl+Shift+M` (move the active live session to a
 new window), `Ctrl+Shift+Alt+M` (move it to the next window as a tab),
@@ -171,24 +201,38 @@ scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
 
+On macOS, each top-level Kiwi window joins an AppKit native tab group while it
+keeps its own WGPU surface, workspace, and PTY set. This native tab bar is
+separate from Kiwi's custom in-window terminal tabs; it does not yet provide
+native ownership of the in-window tab/split model or a Linux equivalent.
+
 Use up to 64 bounded `keybind` directives to replace that map. A directive has
-the form `keybind = chord = action`; `ctrl`/`control`, `cmd`/`super`, `shift`,
-and `alt` are accepted modifiers. Keys are letters, digits, `F1` through
-`F12`, or `backspace`, `delete`, `down`, `end`, `enter`, `escape`, `home`,
-`insert`, `left`, `page-down`, `page-up`, `right`, `space`, `tab`, and `up`.
-The actions are `close-pane`, `command-palette`, `new-tab`, `new-window`, `next-tab`,
-`reload-config`, `move-session-new-window`, `move-session-next-window`,
+the form `keybind = chord = action`, or a sequence such as
+`keybind = ctrl+a > n = new-window`. A sequence has two or three chords;
+`ctrl`/`control`, `cmd`/`super`, `shift`, and `alt` are accepted modifiers.
+Keys are letters, digits, `F1` through `F12`, or `backspace`, `delete`, `down`,
+`end`, `enter`, `escape`, `home`, `insert`, `left`, `page-down`, `page-up`,
+`right`, `space`, `tab`, and `up`. The actions are `close-pane`,
+`command-palette`, `new-tab`, `new-window`, `next-tab`, `reload-config`,
+`open-configuration`,
+`move-session-new-window`, `move-session-next-window`,
 `duplicate-session-new-window`, `duplicate-session-next-window`, `split-down`,
-and `split-right`. Set a chord to `none` to remove its default binding, or use
+and `split-right`. Set a binding or sequence to `none` to remove it, or use
 `keybind = clear` before later directives to start from an empty local action
-map. Product actions are not consumed while the terminal has negotiated Kitty
-keyboard flag 8, so disambiguated application input retains priority.
+map. Kiwi rejects bindings where one sequence is a prefix of another, rather
+than delay an action ambiguously. A prefix is consumed locally and must be
+completed within one second; an unmatched later chord clears it and can begin a
+new configured sequence. Pending input clears on focus loss, a successful
+configuration reload, or Kitty keyboard flag 8. Product actions are not consumed while the
+terminal has negotiated Kitty keyboard flag 8, so disambiguated application
+input retains priority. `make key-sequence-smoke` checks a configured
+press/release prefix and completion against the live workspace controller.
 
 On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
 and `Window` menus and opens the palette in a searchable AppKit panel. On Linux,
 `KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
 resolving each `win.*` action against the active window, and opens the palette
-in a searchable GTK dialog. The palette has eleven default built-in entries,
+in a searchable GTK dialog. The palette has twelve default built-in entries,
 matches title and description text case-insensitively, and accepts up to 32
 total entries after configuration. Add an entry with
 `command-palette-entry = title:<title>, action:<action>` and optionally

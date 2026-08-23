@@ -1046,8 +1046,8 @@ int kiwi_execvpe(const char *file, char *const argv[], char *const envp[]) {
 #endif
 }
 
-int kiwi_open_uri(const char *uri) {
-  if (uri == NULL || uri[0] == '\0') {
+static int kiwi_open_detached(const char *application, const char *option, const char *argument) {
+  if (application == NULL || application[0] == '\0' || argument == NULL || argument[0] == '\0') {
     errno = EINVAL;
     return -1;
   }
@@ -1065,9 +1065,11 @@ int kiwi_open_uri(const char *uri) {
       if (null_fd > STDERR_FILENO) (void)close(null_fd);
     }
 #if defined(__APPLE__)
-    execlp("open", "open", uri, (char *)NULL);
+    if (option == NULL) execlp(application, application, argument, (char *)NULL);
+    else execlp(application, application, option, argument, (char *)NULL);
 #else
-    execlp("xdg-open", "xdg-open", uri, (char *)NULL);
+    if (option == NULL) execlp(application, application, argument, (char *)NULL);
+    else execlp(application, application, option, argument, (char *)NULL);
 #endif
     _exit(127);
   }
@@ -1080,4 +1082,28 @@ int kiwi_open_uri(const char *uri) {
     }
   } while (errno == EINTR);
   return -1;
+}
+
+int kiwi_open_uri(const char *uri) {
+  if (uri == NULL || uri[0] == '\0') {
+    errno = EINVAL;
+    return -1;
+  }
+#if defined(__APPLE__)
+  return kiwi_open_detached("open", NULL, uri);
+#else
+  return kiwi_open_detached("xdg-open", NULL, uri);
+#endif
+}
+
+int kiwi_open_text_file(const char *path) {
+  if (path == NULL || path[0] == '\0') {
+    errno = EINVAL;
+    return -1;
+  }
+#if defined(__APPLE__)
+  return kiwi_open_detached("open", "-t", path);
+#else
+  return kiwi_open_detached("xdg-open", NULL, path);
+#endif
 }

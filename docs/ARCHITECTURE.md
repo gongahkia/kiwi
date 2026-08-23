@@ -109,7 +109,7 @@ This supersedes the M0 synthetic scrolling object's per-cell reconstruction with
 
 ## Resize and presentation
 
-On framebuffer resize, the live app calculates `floor(drawable pixels / font cell pixels)`, rejects zero-sized drawables, then maps the active workspace tree into that whole-window grid. For each visible pane it applies its rectangle's dimensions in this order:
+On framebuffer resize, the live app calculates `floor(drawable pixels / font cell pixels)`, rejects zero-sized drawables, then maps the active workspace tree into that whole-window grid. Before rendering it also compares the actual drawable dimensions with the configured surface, because AppKit tab changes can resize a Cocoa window without delivering a GLFW resize callback. For each visible pane it applies its rectangle's dimensions in this order:
 
 ```text
 terminal state resize -> PTY TIOCSWINSZ -> pane renderer buffer recreation -> one shared-frame present

@@ -5,6 +5,7 @@ local Correlation = require("kiwi.input.correlation")
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
 int kiwi_open_uri(const char* uri);
+int kiwi_open_text_file(const char* path);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
 int kiwi_cocoa_accessibility_round_trip(void* window);
 typedef struct KiwiCocoaTextInput KiwiCocoaTextInput;
@@ -20,6 +21,8 @@ int kiwi_cocoa_system_appearance(void* window);
 int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
+void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_command_palette_remove(void* window);
 int kiwi_cocoa_command_palette_invoke_smoke(void* window);
@@ -53,6 +56,7 @@ local cocoa_menu_actions = {
   [10] = "duplicate-session-new-window",
   [11] = "duplicate-session-next-window",
   [12] = "command-palette",
+  [13] = "open-configuration",
 }
 local cocoa_menu_action_ids = {}
 for identifier, name in pairs(cocoa_menu_actions) do cocoa_menu_action_ids[name] = identifier end
@@ -324,6 +328,13 @@ function Window:cocoa_menu_invoke_smoke(action)
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:cocoa_window_tabs_round_trip(peer)
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  if type(peer) ~= "table" or peer.handle == nil then return nil, "Cocoa window-tab smoke needs a live peer window" end
+  if native.kiwi_cocoa_window_tabs_round_trip(self.handle, peer.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 local function command_palette_entries(entries)
   assert(type(entries) == "table" and #entries > 0 and #entries <= 32, "Cocoa command palette needs one through 32 entries")
   local values = ffi.new("KiwiCocoaCommandPaletteEntry[?]", #entries)
@@ -386,6 +397,12 @@ end
 function Window:open_uri(uri)
   assert(type(uri) == "string" and #uri > 0 and not uri:find("\0", 1, true), "URI opener needs a non-empty NUL-free URI")
   if native.kiwi_open_uri(uri) ~= 0 then return false, "platform-error" end
+  return true
+end
+
+function Window:open_text_file(path)
+  assert(type(path) == "string" and #path > 0 and not path:find("\0", 1, true), "text-file opener needs a non-empty NUL-free path")
+  if native.kiwi_open_text_file(path) ~= 0 then return false, "platform-error" end
   return true
 end
 
@@ -491,6 +508,7 @@ function Window:destroy()
     if self.callbacks.cocoa_commit ~= nil then self.callbacks.cocoa_commit:free(); self.callbacks.cocoa_commit = nil end
   end
   if self.handle ~= nil then
+    if ffi.os == "OSX" then native.kiwi_cocoa_window_tabs_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_command_palette_remove(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end

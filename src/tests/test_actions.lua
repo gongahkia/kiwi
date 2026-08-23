@@ -62,20 +62,25 @@ return {
   end,
   product_action_palette_is_bounded_detached_and_excludes_the_palette_opener = function()
     local entries = Actions.palette_entries()
-    Assert.equal(#entries, 11)
+    Assert.equal(#entries, 12)
     Assert.equal(entries[1].action, "new-tab")
     Assert.truthy(entries[1].title ~= "")
     Assert.truthy(entries[1].description ~= "")
     entries[1].title = "mutated"
     Assert.equal(Actions.palette_entries()[1].title, "New Tab")
-    for _, entry in ipairs(entries) do Assert.truthy(entry.action ~= "command-palette") end
+    local configuration_entry = false
+    for _, entry in ipairs(entries) do
+      Assert.truthy(entry.action ~= "command-palette")
+      if entry.action == "open-configuration" then configuration_entry = true end
+    end
+    Assert.truthy(configuration_entry)
   end,
   product_action_palette_accepts_bounded_custom_entries_and_clear = function()
     local custom = Actions.parse_palette_entry([[title:"Reload, safely", description:"Reload the trusted \"theme\".", action:reload-config]], "test")
     local entries = Actions.palette_entries({ custom })
-    Assert.equal(#entries, 12)
-    Assert.equal(entries[12].title, "Reload, safely")
-    Assert.equal(entries[12].description, [[Reload the trusted "theme".]])
+    Assert.equal(#entries, 13)
+    Assert.equal(entries[13].title, "Reload, safely")
+    Assert.equal(entries[13].description, [[Reload the trusted "theme".]])
     entries = Actions.palette_entries({ Actions.parse_palette_entry("", "test"), custom })
     Assert.equal(#entries, 1)
     Assert.equal(entries[1].action, "reload-config")

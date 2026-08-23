@@ -33,6 +33,7 @@ enum {
   KIWI_COCOA_MENU_DUPLICATE_SESSION_NEW_WINDOW = 10,
   KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW = 11,
   KIWI_COCOA_MENU_COMMAND_PALETTE = 12,
+  KIWI_COCOA_MENU_OPEN_CONFIGURATION = 13,
 };
 
 @interface KiwiCocoaMenuRegistration : NSObject {
@@ -82,6 +83,7 @@ static KiwiCocoaMenuDispatcher *kiwi_cocoa_menu_dispatcher;
 static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
+static NSWindow *kiwi_cocoa_tab_group_leader;
 
 static int kiwi_cocoa_key_scalar(const UniChar *characters, UniCharCount length, uint32_t *output) {
   if (characters == NULL || output == NULL || length == 0 || length > 2) return 0;
@@ -124,7 +126,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_COMMAND_PALETTE;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_OPEN_CONFIGURATION;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
@@ -498,6 +500,7 @@ static void kiwi_cocoa_install_main_menu(void) {
   [file_menu addItem:kiwi_cocoa_menu_item(@"New Window", KIWI_COCOA_MENU_NEW_WINDOW)];
   [file_menu addItem:kiwi_cocoa_menu_item(@"Command Palette…", KIWI_COCOA_MENU_COMMAND_PALETTE)];
   [file_menu addItem:[NSMenuItem separatorItem]];
+  [file_menu addItem:kiwi_cocoa_menu_item(@"Settings…", KIWI_COCOA_MENU_OPEN_CONFIGURATION)];
   [file_menu addItem:kiwi_cocoa_menu_item(@"Reload Configuration", KIWI_COCOA_MENU_RELOAD_CONFIGURATION)];
   file_item.submenu = file_menu;
   [file_menu release];
@@ -652,6 +655,54 @@ int kiwi_cocoa_menu_invoke_smoke(GLFWwindow *window, uint32_t action) {
   }
 }
 
+static void kiwi_cocoa_configure_window_tabs(NSWindow *window) {
+  if (window == nil) return;
+  window.tabbingIdentifier = @"io.github.gongahkia.kiwi";
+  window.tabbingMode = NSWindowTabbingModePreferred;
+  if (kiwi_cocoa_tab_group_leader == nil) {
+    kiwi_cocoa_tab_group_leader = window;
+    return;
+  }
+  if (kiwi_cocoa_tab_group_leader == window) return;
+  if (![kiwi_cocoa_tab_group_leader.tabbedWindows containsObject:window]) {
+    [kiwi_cocoa_tab_group_leader addTabbedWindow:window ordered:NSWindowAbove];
+  }
+}
+
+int kiwi_cocoa_window_tabs_round_trip(GLFWwindow *first, GLFWwindow *second) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa window-tab smoke needs the main thread");
+      return 0;
+    }
+    NSWindow *first_window = kiwi_cocoa_native_window(first);
+    NSWindow *second_window = kiwi_cocoa_native_window(second);
+    if (first_window == nil || second_window == nil || first_window == second_window ||
+        ![first_window.tabbingIdentifier isEqualToString:@"io.github.gongahkia.kiwi"] ||
+        ![second_window.tabbingIdentifier isEqualToString:@"io.github.gongahkia.kiwi"] ||
+        ![first_window.tabbedWindows containsObject:second_window]) {
+      kiwi_surface_set_error("Cocoa native windows did not join Kiwi's tab group");
+      return 0;
+    }
+    return 1;
+  }
+}
+
+void kiwi_cocoa_window_tabs_remove_bridge(GLFWwindow *window) {
+  @autoreleasepool {
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == kiwi_cocoa_tab_group_leader) {
+      kiwi_cocoa_tab_group_leader = nil;
+      for (NSWindow *candidate in native_window.tabbedWindows) {
+        if (candidate != native_window) {
+          kiwi_cocoa_tab_group_leader = candidate;
+          break;
+        }
+      }
+    }
+  }
+}
+
 WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
   @autoreleasepool {
     if (![NSThread isMainThread]) {
@@ -664,6 +715,7 @@ WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
       kiwi_surface_set_error("GLFW did not expose a Cocoa content view");
       return NULL;
     }
+    kiwi_cocoa_configure_window_tabs(view.window);
 
     CAMetalLayer *layer = nil;
     if ([view.layer isKindOfClass:[CAMetalLayer class]]) {

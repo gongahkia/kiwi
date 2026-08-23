@@ -8,6 +8,32 @@ Config.maximum_lines = 512
 Config.maximum_theme_bytes = 32 * 1024
 Config.maximum_theme_lines = 256
 
+Config.edit_template = [[# Kiwi configuration
+#
+# This file is read on launch and by Reload Configuration (F6). Uncomment and
+# adjust only the settings you want to override. See docs/USER_GUIDE.md for the
+# complete, bounded configuration surface.
+#
+# theme = kiwi
+# font-family = "monospace"
+# font-size = 20
+# ligatures = false
+# contextual-alternates = false
+# scrollback-limit = 2000
+# shell-integration = auto
+# keybind = ctrl+shift+t = new-tab
+]]
+
+local command_line_keys = {
+  ["appearance"] = true,
+  ["font-family"] = true,
+  ["font-size"] = true,
+  ["scrollback-limit"] = true,
+  ["shell-integration"] = true,
+  ["theme"] = true,
+  ["theme-file"] = true,
+}
+
 local themes = {
   kiwi = {
     foreground = "#d8dee9",
@@ -472,6 +498,19 @@ function Config.default_path(environment, platform)
   return Config.default_paths(environment, platform)[1]
 end
 
+function Config.edit_path(explicit_path, loaded_path, environment, platform)
+  if loaded_path ~= nil then
+    assert(type(loaded_path) == "string" and #loaded_path > 0 and not loaded_path:find("\0", 1, true), "loaded configuration path must be non-empty and NUL-free")
+    return loaded_path
+  end
+  if explicit_path ~= nil then
+    assert(type(explicit_path) == "string" and #explicit_path > 0 and not explicit_path:find("\0", 1, true), "explicit configuration path must be non-empty and NUL-free")
+    return explicit_path
+  end
+  local paths = Config.default_paths(environment, platform)
+  return paths[#paths]
+end
+
 function Config.apply_environment(config, environment)
   environment = environment or os.getenv
   local values = {
@@ -496,6 +535,33 @@ function Config.apply_environment(config, environment)
   return config
 end
 
+local function quoted_command_line_value(value)
+  if type(value) ~= "string" or value == "" or value:find("\0", 1, true) then
+    error("command-line configuration values must be non-empty NUL-free strings")
+  end
+  for index = 1, #value do
+    local byte = value:byte(index)
+    if byte < 0x20 or byte == 0x7f then
+      error("command-line configuration values cannot contain control bytes")
+    end
+  end
+  return '"' .. value:gsub("\\", "\\\\"):gsub('"', '\\"') .. '"'
+end
+
+function Config.apply_command_line(config, overrides, options)
+  assert(type(config) == "table", "command-line configuration needs a configuration table")
+  assert(type(overrides) == "table", "command-line configuration overrides must be a table")
+  if #overrides == 0 then return config end
+  local lines = {}
+  for index, override in ipairs(overrides) do
+    if type(override) ~= "table" or command_line_keys[override.key] ~= true then
+      error("command-line configuration override " .. index .. " has an unsupported key")
+    end
+    lines[index] = override.key .. " = " .. quoted_command_line_value(override.value)
+  end
+  return Config.parse(table.concat(lines, "\n"), "command line", config, options)
+end
+
 function Config.load(path, environment, options)
   options = options or {}
   local explicit = path ~= nil
@@ -518,6 +584,10 @@ function Config.load(path, environment, options)
     end
   end
   config = Config.apply_environment(config, environment)
+  config = Config.apply_command_line(config, options.command_line_overrides or {}, {
+    appearance = options.appearance,
+    theme_loader = options.theme_loader or Config.load_theme,
+  })
   config.path = loaded_path
   return config, loaded_path
 end

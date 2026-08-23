@@ -19,6 +19,7 @@ local known_actions = {
   ["new-tab"] = true,
   ["new-window"] = true,
   ["next-tab"] = true,
+  ["open-configuration"] = true,
   ["reload-config"] = true,
   ["move-session-new-window"] = true,
   ["move-session-next-window"] = true,
@@ -39,6 +40,7 @@ local palette_catalog = {
   { action = "move-session-next-window", title = "Move Session to Next Window", description = "Move the active live terminal session into the next Kiwi window." },
   { action = "duplicate-session-new-window", title = "Duplicate Session to New Window", description = "Open a fresh terminal session in a new window." },
   { action = "duplicate-session-next-window", title = "Duplicate Session to Next Window", description = "Open a fresh terminal session in the next Kiwi window." },
+  { action = "open-configuration", title = "Open Configuration", description = "Open the active Kiwi configuration as text." },
   { action = "reload-config", title = "Reload Configuration", description = "Reload Kiwi's configuration and trusted theme data." },
 }
 

@@ -25,8 +25,8 @@ only after a second real consumer requires a documented, testable capability.
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
-| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the window, event loop, custom tab/split workspace, and Metal surface. AppKit supplies the global main menu, searchable command-palette panel, `NSTextInputClient`, pasteboard, `NSAccessibility`, and current-layout key-variant bridges for Kitty flag 4. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, Cocoa/Metal surface, and release launcher; `make cocoa-palette-smoke` opens the palette and dispatches `New Tab`. Interactive filtering/navigation, window lifecycle, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
+| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, custom in-window tab/split workspace, and Metal surface. AppKit groups Kiwi's top-level windows into a native tab group and supplies the global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, and current-layout key-variant bridges for Kitty flag 4. | **Partial:** `make cocoa-smoke` covers the bridge callbacks, including Settings routing, AppKit window-tab grouping, Cocoa/Metal surfaces, and release launcher; `make cocoa-palette-smoke` opens the palette and dispatches `New Tab`. Interactive filtering/navigation, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
+| Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -36,12 +36,13 @@ native text widget or a replacement renderer.
 1. The internal facade and host-owned WGPU-surface contract are implemented.
    GLFW remains the reference consumer.
 2. The GLFW Cocoa route adds bounded AppKit bridges without becoming an AppKit
-   host: `NSMenu` items dispatch the same logical actions as the configured
+   host: its top-level GLFW windows join one `NSWindow` tab group while each
+   retains its own WGPU surface, workspace, and PTYs; `NSMenu` items dispatch the same logical actions as the configured
    local action map; a searchable `NSPanel` command palette dispatches the
    default and configuration-augmented bounded action catalogue;
    `NSTextInputClient`, private pasteboard, and
    `NSAccessibility` remain attached to the GLFW Cocoa view. It does **not**
-   own `NSWindow`, native tab/split chrome, a settings surface, automation, or
+   replace the custom in-window workspace tab/split chrome, or own a graphical settings surface, automation, or
    menu keyboard equivalents. `make cocoa-smoke` verifies the bridge structure
    and `make cocoa-menu-smoke` verifies a New Tab callback through the live
    controller. `make cocoa-palette-smoke` opens the palette and selects New
@@ -54,7 +55,8 @@ native text widget or a replacement renderer.
    It installs window-scoped `win.*` actions and a shared `GMenu`; the active
    `GtkApplicationWindow` dispatches the same product action handler as the
    keyboard and Cocoa menu paths. GTK receives no hard-coded accelerators, so
-   the bounded configured key map remains the shortcut policy. `make
+   the bounded configured one- through three-chord key map remains the shortcut
+   policy. `make
    gtk-host-check` validates its independent bridge ABI without a display;
    `make gtk-menu-smoke` needs a graphical Linux session to dispatch New Tab
    through that handler. Its searchable GTK dialog uses the same default and

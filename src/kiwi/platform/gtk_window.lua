@@ -38,6 +38,7 @@ int kiwi_gtk_host_clipboard_write(KiwiGtkHost* host, const char* text);
 int kiwi_gtk_host_clipboard_read(KiwiGtkHost* host, char* destination, size_t capacity, size_t* text_bytes);
 int kiwi_gtk_host_notify(KiwiGtkHost* host, const char* title, const char* body);
 int kiwi_gtk_host_open_uri(KiwiGtkHost* host, const char* uri);
+int kiwi_gtk_host_open_text_file(KiwiGtkHost* host, const char* path);
 void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
 int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
@@ -73,6 +74,7 @@ local product_actions = {
   [10] = "duplicate-session-new-window",
   [11] = "duplicate-session-next-window",
   [12] = "command-palette",
+  [13] = "open-configuration",
 }
 local product_action_ids = {}
 for identifier, name in pairs(product_actions) do product_action_ids[name] = identifier end
@@ -335,6 +337,11 @@ end
 
 function Window:open_uri(uri)
   return native.kiwi_gtk_host_open_uri(self.handle, uri) ~= 0 and true or false, "platform-error"
+end
+
+function Window:open_text_file(path)
+  assert(type(path) == "string" and #path > 0 and not path:find("\0", 1, true), "GTK text-file opener needs a non-empty NUL-free path")
+  return native.kiwi_gtk_host_open_text_file(self.handle, path) ~= 0 and true or false, "platform-error"
 end
 
 function Window:set_title(title) native.kiwi_gtk_host_set_title(self.handle, title) end

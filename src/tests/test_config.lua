@@ -1,6 +1,7 @@
 local Assert = require("tests.assert")
 local Color = require("kiwi.renderer.color")
 local Config = require("kiwi.config")
+local Filesystem = require("kiwi.platform.filesystem")
 
 return {
   configuration_parses_a_bounded_theme_and_explicit_overrides = function()
@@ -46,6 +47,24 @@ return {
     Assert.equal(config.font_family, "monospace")
     Assert.equal(config.shell_integration, "none")
   end,
+  configuration_command_line_overrides_are_bounded_and_take_precedence = function()
+    local config = Config.load(nil, function(name)
+      return ({ KIWI_FONT_PX = "16" })[name]
+    end, {
+      appearance = "dark",
+      command_line_overrides = {
+        { key = "theme", value = "dracula" },
+        { key = "font-size", value = "18" },
+        { key = "shell-integration", value = "none" },
+      },
+    })
+    Assert.equal(config.theme, "dracula")
+    Assert.equal(config.font_size, 18)
+    Assert.equal(config.shell_integration, "none")
+    Assert.equal(Color.unpack(config.background).red, 0x28)
+    Assert.truthy(not pcall(Config.apply_command_line, config, { { key = "keybind", value = "ctrl+a = new-tab" } }))
+    Assert.truthy(not pcall(Config.apply_command_line, config, { { key = "theme", value = "bad\nvalue" } }))
+  end,
   configuration_default_path_prefers_xdg = function()
     Assert.equal(Config.default_path(function(name)
       return ({ XDG_CONFIG_HOME = "/tmp/xdg", HOME = "/tmp/home" })[name]
@@ -57,6 +76,50 @@ return {
     end, "OSX")
     Assert.equal(paths[1], "/tmp/xdg/kiwi/config")
     Assert.equal(paths[2], "/tmp/home/Library/Application Support/io.github.gongahkia.kiwi/config")
+  end,
+  configuration_selects_the_effective_or_highest_precedence_edit_path = function()
+    local environment = function(name)
+      return ({ XDG_CONFIG_HOME = "/tmp/xdg", HOME = "/tmp/home" })[name]
+    end
+    Assert.equal(Config.edit_path(nil, "/tmp/loaded", environment, "OSX"), "/tmp/loaded")
+    Assert.equal(Config.edit_path("relative-config", nil, environment, "OSX"), "relative-config")
+    Assert.equal(Config.edit_path(nil, nil, environment, "Linux"), "/tmp/xdg/kiwi/config")
+    Assert.equal(Config.edit_path(nil, nil, environment, "OSX"), "/tmp/home/Library/Application Support/io.github.gongahkia.kiwi/config")
+    Assert.equal(Config.edit_path(nil, nil, function() return nil end, "Linux"), nil)
+  end,
+  configuration_edit_template_is_parseable_and_comment_only = function()
+    Assert.equal(Config.edit_template:sub(1, 1), "#")
+    local config = Config.parse(Config.edit_template, "template")
+    Assert.equal(config.theme, "kiwi")
+    Assert.equal(config.font_size, 20)
+  end,
+  configuration_initialization_creates_parent_directories_and_never_replaces_a_file = function()
+    local directories = {}
+    local created_path
+    local created_contents
+    local initialized, status = Filesystem.ensure_new_file("/tmp/kiwi/config", "# template\n", {
+      mkdir = function(path)
+        directories[#directories + 1] = path
+        return true, "exists"
+      end,
+      create = function(path, contents)
+        created_path = path
+        created_contents = contents
+        return true, "created"
+      end,
+    })
+    Assert.truthy(initialized)
+    Assert.equal(status, "created")
+    Assert.equal(table.concat(directories, ","), "/tmp,/tmp/kiwi")
+    Assert.equal(created_path, "/tmp/kiwi/config")
+    Assert.equal(created_contents, "# template\n")
+    local retained, retained_status = Filesystem.ensure_new_file("/tmp/kiwi/config", "# replacement\n", {
+      mkdir = function() return true, "exists" end,
+      create = function() return true, "exists" end,
+    })
+    Assert.truthy(retained)
+    Assert.equal(retained_status, "exists")
+    Assert.truthy(not pcall(Filesystem.ensure_new_file, "relative/config", "# template\n"))
   end,
   configuration_later_sources_preserve_prior_values_without_resetting_them = function()
     local base = Config.parse("theme = dracula\nfont-size = 15\n", "base")
@@ -121,10 +184,12 @@ selection-color = #aabbcc
   configuration_records_bounded_product_keybinding_overrides = function()
     local config = Config.parse([[keybind = ctrl+shift+t = none
 keybind = ctrl+alt+t = new-tab
+keybind = ctrl+a > n = new-window
 ]], "test")
-    Assert.equal(#config.keybindings, 2)
+    Assert.equal(#config.keybindings, 3)
     Assert.equal(config.keybindings[1].action, "none")
     Assert.equal(config.keybindings[2].chord, "alt+control+t")
+    Assert.equal(config.keybindings[3].chord, "control+a>n")
   end,
   configuration_records_bounded_custom_command_palette_entries = function()
     local config = Config.parse([[command-palette-entry = title:"Open a tab", description:"Create a fresh terminal tab.", action:new-tab
