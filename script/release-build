@@ -115,13 +115,20 @@ print 'exec "${LUAJIT:-luajit}" "$KIWI_INSTALL_ROOT/share/kiwi/lua/kiwi/app/main
 chmod 755 "$STAGE/bin/kiwi"
 
 if [[ "$TARGET" == macos-* ]]; then
-  mkdir -p "$STAGE/Kiwi.app/Contents/MacOS"
-  print '<?xml version="1.0" encoding="UTF-8"?>' > "$STAGE/Kiwi.app/Contents/Info.plist"
-  print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$STAGE/Kiwi.app/Contents/Info.plist"
-  print '<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Kiwi</string><key>CFBundleIdentifier</key><string>io.github.gongahkia.kiwi</string><key>CFBundleName</key><string>Kiwi</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>' >> "$STAGE/Kiwi.app/Contents/Info.plist"
+  mkdir -p "$STAGE/Kiwi.app/Contents/MacOS" "$STAGE/Kiwi.app/Contents/Resources"
+  cp "$ROOT/packaging/macos/Info.plist" "$STAGE/Kiwi.app/Contents/Info.plist"
+  cp "$ROOT/packaging/macos/Kiwi.sdef" "$STAGE/Kiwi.app/Contents/Resources/Kiwi.sdef"
   cc -std=c17 -Wall -Wextra -Werror "$ROOT/native/macos_macho_uuid.c" -o "$ROOT/.build/macos-macho-uuid"
   cc -std=c17 -Wall -Wextra -Werror -Wl,-no_adhoc_codesign \
-    "$ROOT/native/macos_bundle_launcher.c" -o "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
+    -DKIWI_APP_LUA_ROOT_RELATIVE='"share/kiwi/lua"' \
+    -DKIWI_APP_TERMINFO_RELATIVE='"share/terminfo"' \
+    -DKIWI_APP_WGPU_LIBRARY_RELATIVE='"lib/libwgpu_native.dylib"' \
+    -DKIWI_APP_SURFACE_LIBRARY_RELATIVE='"lib/libkiwi_surface.dylib"' \
+    -DKIWI_APP_INTEGRATION_RELATIVE='"share/kiwi/integrations/v1"' \
+    -DKIWI_APP_RELEASE=1 \
+    -DKIWI_APP_PID_FILE_RELATIVE='""' \
+    -DKIWI_APP_ROOT_PARENT_COMPONENTS=1 \
+    "$ROOT/native/macos_app_host.c" -o "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"
   launcher_uuid=$(print -rn -- "$revision" | shasum -a 256 | awk '{print substr($1, 1, 32)}')
   "$ROOT/.build/macos-macho-uuid" "$STAGE/Kiwi.app/Contents/MacOS/Kiwi" "$launcher_uuid"
   codesign --force --sign - --identifier io.github.gongahkia.kiwi "$STAGE/Kiwi.app/Contents/MacOS/Kiwi"

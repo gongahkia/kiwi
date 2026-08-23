@@ -7,9 +7,9 @@ readonly APP_NAME=Kiwi
 readonly BUNDLE_ID=io.github.gongahkia.kiwi
 readonly APP="$ROOT/dist/$APP_NAME-dev.app"
 readonly MACOS="$APP/Contents/MacOS"
+readonly RESOURCES="$APP/Contents/Resources"
 readonly LAUNCHER="$MACOS/$APP_NAME"
 readonly PID_FILE="$ROOT/.build/kiwi-dev.pid"
-readonly LUAJIT_BIN=${LUAJIT:-$(command -v luajit)}
 
 if [[ "$(uname -s)" != Darwin ]]; then
   print -u2 "build_and_run.sh is the macOS app launcher; use make run on $(uname -s)."
@@ -21,7 +21,7 @@ stop_previous() {
   local pid=$(<"$PID_FILE")
   if [[ "$pid" == <-> ]] && kill -0 "$pid" 2>/dev/null; then
     local command=$(ps -p "$pid" -o command= 2>/dev/null || true)
-    if [[ "$command" == *"$ROOT/src/kiwi/app/main.lua"* ]]; then
+    if [[ "$command" == *"$LAUNCHER"* ]]; then
       kill "$pid" 2>/dev/null || true
     fi
   fi
@@ -31,20 +31,27 @@ stop_previous() {
 stage_app() {
   make -C "$ROOT" native terminfo
   rm -rf "$APP"
-  mkdir -p "$MACOS"
-  print '<?xml version="1.0" encoding="UTF-8"?>' > "$APP/Contents/Info.plist"
-  print '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> "$APP/Contents/Info.plist"
-  print "<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>$APP_NAME</string><key>CFBundleIdentifier</key><string>$BUNDLE_ID</string><key>CFBundleName</key><string>$APP_NAME</string><key>CFBundlePackageType</key><string>APPL</string><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>" >> "$APP/Contents/Info.plist"
+  mkdir -p "$MACOS" "$RESOURCES"
+  cp "$ROOT/packaging/macos/Info.plist" "$APP/Contents/Info.plist"
+  cp "$ROOT/packaging/macos/Kiwi.sdef" "$RESOURCES/Kiwi.sdef"
   cc -std=c17 -Wall -Wextra -Werror \
-    "-DKIWI_SOURCE_ROOT=\"$ROOT\"" \
-    "-DKIWI_SOURCE_LUAJIT=\"$LUAJIT_BIN\"" \
-    "$ROOT/native/macos_launcher.c" -o "$LAUNCHER"
+    -DKIWI_APP_LUA_ROOT_RELATIVE='"src"' \
+    -DKIWI_APP_TERMINFO_RELATIVE='".build/terminfo"' \
+    -DKIWI_APP_WGPU_LIBRARY_RELATIVE='".deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.dylib"' \
+    -DKIWI_APP_SURFACE_LIBRARY_RELATIVE='".build/native/libkiwi_surface.dylib"' \
+    -DKIWI_APP_INTEGRATION_RELATIVE='"integrations/v1"' \
+    -DKIWI_APP_RELEASE=0 \
+    -DKIWI_APP_PID_FILE_RELATIVE='".build/kiwi-dev.pid"' \
+    -DKIWI_APP_ROOT_PARENT_COMPONENTS=2 \
+    "$ROOT/native/macos_app_host.c" -o "$LAUNCHER"
 }
 
 stop_previous
 stage_app
 
 case "$MODE" in
+  --stage|stage)
+    ;;
   run)
     /usr/bin/open -n "$APP"
     ;;
@@ -68,7 +75,7 @@ case "$MODE" in
     [[ -s "$PID_FILE" ]]
     ;;
   *)
-    print -u2 "usage: $0 [run|--debug|--logs|--telemetry|--verify]"
+    print -u2 "usage: $0 [run|--stage|--debug|--logs|--telemetry|--verify]"
     exit 2
     ;;
 esac

@@ -23,7 +23,9 @@ path, or the Codex Run action configured in `.codex/environments/`.
 The packaged and source launchers require the Homebrew LuaJIT, GLFW, FreeType,
 HarfBuzz, Fontconfig, giflib, and libpng runtimes. The C SDK uses
 `libkiwi_vt.dylib`; a nonstandard LuaJIT library location can be supplied with
-`KIWI_VT_LUAJIT_LIB=/absolute/path/to/libluajit-5.1.2.dylib`.
+`KIWI_VT_LUAJIT_LIB=/absolute/path/to/libluajit-5.1.2.dylib`. The app bundle's
+in-process LuaJIT host also accepts `KIWI_LUAJIT_LIB` (and retains
+`KIWI_VT_LUAJIT_LIB` as a compatibility fallback).
 
 ## Boundaries and verification
 
@@ -57,6 +59,31 @@ tab. `make cocoa-palette-smoke` opens the searchable native palette and
 programmatically selects `New Tab` through the same controller. Those checks
 do not qualify interactive filtering, menu selection, keyboard navigation,
 tab tearing/off switching, or native in-window workspace chrome.
+
+## Bounded AppleScript actions
+
+`Kiwi.app` is a real application process: `native/macos_app_host.c` loads the
+LuaJIT application in the executable LaunchServices starts, rather than
+forking a second terminal process. The bundle includes `Kiwi.sdef` and
+registers raw handlers with `NSAppleEventManager`. This makes a narrow
+AppleScript surface usable without exposing terminal contents or a general
+control plane.
+
+The commands are `new terminal window`, `new terminal tab`, `next terminal
+tab`, `close terminal pane`, `split terminal right`, `split terminal down`,
+`reload Kiwi configuration`, and `open Kiwi configuration`. Each is an
+accepted/rejected request to the existing product-action dispatcher; it is not
+a promise that a later asynchronous configuration reload will succeed. No
+command can inject text, execute a shell command, name an arbitrary action, or
+inspect a terminal/session object. Kiwi therefore does not yet claim Ghostty's
+hierarchical scripting model.
+
+`macos-applescript = true` is the default configuration. Set it to `false` and
+reload configuration to remove the bridge from the live app. External clients
+must still be allowed to automate Kiwi by macOS; `make cocoa-automation-smoke`
+does not initiate that user-consent flow. It validates the staged bundle's
+scripting definition and invokes a bounded `New Tab` event in the live bundle
+process.
 `make release-check` additionally launches an extracted release `Kiwi.app`
 through LaunchServices after checking archive reproducibility. It
 does not read or replace the user's general clipboard, so it is not a test of

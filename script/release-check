@@ -33,12 +33,17 @@ if [[ "$TARGET" == linux-x86_64 ]]; then
 else
   [[ -x "$WORK/$NAME/Kiwi.app/Contents/MacOS/Kiwi" ]]
   plutil -lint "$WORK/$NAME/Kiwi.app/Contents/Info.plist" >/dev/null
+  [[ "$(plutil -extract NSAppleScriptEnabled raw "$WORK/$NAME/Kiwi.app/Contents/Info.plist")" == "true" ]]
+  [[ "$(plutil -extract OSAScriptingDefinition raw "$WORK/$NAME/Kiwi.app/Contents/Info.plist")" == "Kiwi.sdef" ]]
+  [[ -f "$WORK/$NAME/Kiwi.app/Contents/Resources/Kiwi.sdef" ]]
+  sdp -fh -o "$WORK/Kiwi.h" "$WORK/$NAME/Kiwi.app/Contents/Resources/Kiwi.sdef"
+  rg -q 'newTerminalWindow' "$WORK/Kiwi.h"
   otool -l "$WORK/$NAME/Kiwi.app/Contents/MacOS/Kiwi" | rg -q 'LC_UUID'
-  app_script="$WORK/$NAME/share/kiwi/lua/kiwi/app/main.lua"
+  app_executable="$WORK/$NAME/Kiwi.app/Contents/MacOS/Kiwi"
   KIWI_MAX_FRAMES=0 /usr/bin/open -n "$WORK/$NAME/Kiwi.app"
   app_pid=''
   for _ in {1..50}; do
-    app_pid=$(pgrep -f "$app_script" || true)
+    app_pid=$(pgrep -f "$app_executable" || true)
     [[ "$app_pid" == <-> ]] && break
     sleep 0.1
   done
@@ -46,10 +51,10 @@ else
   kill -0 "$app_pid"
   kill "$app_pid"
   for _ in {1..50}; do
-    pgrep -f "$app_script" >/dev/null || break
+    pgrep -f "$app_executable" >/dev/null || break
     sleep 0.1
   done
-  ! pgrep -f "$app_script" >/dev/null
+  ! pgrep -f "$app_executable" >/dev/null
 fi
 [[ -f "$WORK/$NAME/share/doc/kiwi/README.md" ]]
 [[ -x "$WORK/$NAME/bin/kiwi-image" ]]

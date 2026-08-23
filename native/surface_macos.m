@@ -13,6 +13,7 @@
 extern void kiwi_surface_set_error(const char *message);
 
 typedef void (*KiwiCocoaMenuCallback)(void *userdata, uint32_t action);
+typedef int (*KiwiCocoaAutomationCallback)(void *userdata, uint32_t action);
 
 typedef struct KiwiCocoaCommandPaletteEntry {
   uint32_t action;
@@ -46,6 +47,16 @@ enum {
 @implementation KiwiCocoaMenuRegistration
 @end
 
+@interface KiwiCocoaAutomationRegistration : NSObject {
+ @public
+  KiwiCocoaAutomationCallback callback;
+  void *userdata;
+}
+@end
+
+@implementation KiwiCocoaAutomationRegistration
+@end
+
 @interface KiwiCocoaProgressRegistration : NSObject {
  @public
   NSTitlebarAccessoryViewController *controller;
@@ -58,6 +69,10 @@ enum {
 
 @interface KiwiCocoaMenuDispatcher : NSObject
 - (void)invokeAction:(id)sender;
+@end
+
+@interface KiwiCocoaAutomationDispatcher : NSObject
+- (void)handleAppleEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply;
 @end
 
 @interface KiwiCocoaCommandPalette : NSObject <NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate> {
@@ -81,6 +96,9 @@ enum {
 static NSMutableDictionary *kiwi_cocoa_menu_registrations;
 static KiwiCocoaMenuDispatcher *kiwi_cocoa_menu_dispatcher;
 static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
+static NSMutableDictionary *kiwi_cocoa_automation_registrations;
+static KiwiCocoaAutomationDispatcher *kiwi_cocoa_automation_dispatcher;
+static KiwiCocoaAutomationRegistration *kiwi_cocoa_active_automation_registration;
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
 static NSWindow *kiwi_cocoa_tab_group_leader;
@@ -136,6 +154,46 @@ static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
 
 static NSWindow *kiwi_cocoa_native_window(GLFWwindow *window) {
   return window == NULL ? nil : glfwGetCocoaWindow(window);
+}
+
+enum {
+  KIWI_COCOA_AUTOMATION_CLASS = UINT32_C(0x4b697769), /* Kiwi */
+  KIWI_COCOA_AUTOMATION_NEW_WINDOW = UINT32_C(0x4e576477), /* NWdw */
+  KIWI_COCOA_AUTOMATION_NEW_TAB = UINT32_C(0x4e546162), /* NTab */
+  KIWI_COCOA_AUTOMATION_NEXT_TAB = UINT32_C(0x4e547874), /* NTxt */
+  KIWI_COCOA_AUTOMATION_CLOSE_PANE = UINT32_C(0x43506e65), /* CPne */
+  KIWI_COCOA_AUTOMATION_SPLIT_RIGHT = UINT32_C(0x53526774), /* SRgt */
+  KIWI_COCOA_AUTOMATION_SPLIT_DOWN = UINT32_C(0x5344776e), /* SDwn */
+  KIWI_COCOA_AUTOMATION_RELOAD_CONFIGURATION = UINT32_C(0x52636667), /* Rcfg */
+  KIWI_COCOA_AUTOMATION_OPEN_CONFIGURATION = UINT32_C(0x4f636667), /* Ocfg */
+};
+
+static uint32_t kiwi_cocoa_automation_action_for_event(uint32_t event) {
+  switch (event) {
+    case KIWI_COCOA_AUTOMATION_NEW_WINDOW: return KIWI_COCOA_MENU_NEW_WINDOW;
+    case KIWI_COCOA_AUTOMATION_NEW_TAB: return KIWI_COCOA_MENU_NEW_TAB;
+    case KIWI_COCOA_AUTOMATION_NEXT_TAB: return KIWI_COCOA_MENU_NEXT_TAB;
+    case KIWI_COCOA_AUTOMATION_CLOSE_PANE: return KIWI_COCOA_MENU_CLOSE_PANE;
+    case KIWI_COCOA_AUTOMATION_SPLIT_RIGHT: return KIWI_COCOA_MENU_SPLIT_RIGHT;
+    case KIWI_COCOA_AUTOMATION_SPLIT_DOWN: return KIWI_COCOA_MENU_SPLIT_DOWN;
+    case KIWI_COCOA_AUTOMATION_RELOAD_CONFIGURATION: return KIWI_COCOA_MENU_RELOAD_CONFIGURATION;
+    case KIWI_COCOA_AUTOMATION_OPEN_CONFIGURATION: return KIWI_COCOA_MENU_OPEN_CONFIGURATION;
+    default: return 0;
+  }
+}
+
+static uint32_t kiwi_cocoa_automation_event_for_action(uint32_t action) {
+  switch (action) {
+    case KIWI_COCOA_MENU_NEW_WINDOW: return KIWI_COCOA_AUTOMATION_NEW_WINDOW;
+    case KIWI_COCOA_MENU_NEW_TAB: return KIWI_COCOA_AUTOMATION_NEW_TAB;
+    case KIWI_COCOA_MENU_NEXT_TAB: return KIWI_COCOA_AUTOMATION_NEXT_TAB;
+    case KIWI_COCOA_MENU_CLOSE_PANE: return KIWI_COCOA_AUTOMATION_CLOSE_PANE;
+    case KIWI_COCOA_MENU_SPLIT_RIGHT: return KIWI_COCOA_AUTOMATION_SPLIT_RIGHT;
+    case KIWI_COCOA_MENU_SPLIT_DOWN: return KIWI_COCOA_AUTOMATION_SPLIT_DOWN;
+    case KIWI_COCOA_MENU_RELOAD_CONFIGURATION: return KIWI_COCOA_AUTOMATION_RELOAD_CONFIGURATION;
+    case KIWI_COCOA_MENU_OPEN_CONFIGURATION: return KIWI_COCOA_AUTOMATION_OPEN_CONFIGURATION;
+    default: return 0;
+  }
 }
 
 @implementation KiwiCocoaCommandPalette
@@ -448,6 +506,15 @@ static KiwiCocoaMenuRegistration *kiwi_cocoa_menu_registration_for_window(NSWind
   return window == nil ? nil : [kiwi_cocoa_menu_registrations objectForKey:[NSValue valueWithPointer:window]];
 }
 
+static KiwiCocoaAutomationRegistration *kiwi_cocoa_automation_registration(GLFWwindow *window) {
+  NSValue *key = kiwi_cocoa_menu_window_key(window);
+  return key == nil ? nil : [kiwi_cocoa_automation_registrations objectForKey:key];
+}
+
+static KiwiCocoaAutomationRegistration *kiwi_cocoa_automation_registration_for_window(NSWindow *window) {
+  return window == nil ? nil : [kiwi_cocoa_automation_registrations objectForKey:[NSValue valueWithPointer:window]];
+}
+
 @implementation KiwiCocoaMenuDispatcher
 - (void)windowDidBecomeKey:(NSNotification *)notification {
   KiwiCocoaMenuRegistration *registration = kiwi_cocoa_menu_registration_for_window(notification.object);
@@ -468,6 +535,104 @@ static KiwiCocoaMenuRegistration *kiwi_cocoa_menu_registration_for_window(NSWind
   }
 }
 @end
+
+@implementation KiwiCocoaAutomationDispatcher
+- (void)handleAppleEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
+  if (event == nil || reply == nil || event.eventClass != KIWI_COCOA_AUTOMATION_CLASS) return;
+  uint32_t action = kiwi_cocoa_automation_action_for_event(event.eventID);
+  NSWindow *key_window = NSApp.keyWindow ?: NSApp.mainWindow;
+  KiwiCocoaAutomationRegistration *registration = kiwi_cocoa_automation_registration_for_window(key_window);
+  if (registration == nil) registration = kiwi_cocoa_active_automation_registration;
+  BOOL accepted = action != 0 && registration != nil && registration->callback != NULL && registration->callback(registration->userdata, action) != 0;
+  [reply setParamDescriptor:[NSAppleEventDescriptor descriptorWithBoolean:accepted] forKeyword:keyDirectObject];
+  if (!accepted) {
+    [reply setParamDescriptor:[NSAppleEventDescriptor descriptorWithInt32:errAEEventFailed] forKeyword:keyErrorNumber];
+    [reply setParamDescriptor:[NSAppleEventDescriptor descriptorWithString:@"Kiwi could not perform the requested automation action."] forKeyword:keyErrorString];
+  }
+}
+@end
+
+static void kiwi_cocoa_install_automation(void) {
+  if (kiwi_cocoa_automation_dispatcher != nil) return;
+  static const uint32_t event_identifiers[] = {
+      KIWI_COCOA_AUTOMATION_NEW_WINDOW,
+      KIWI_COCOA_AUTOMATION_NEW_TAB,
+      KIWI_COCOA_AUTOMATION_NEXT_TAB,
+      KIWI_COCOA_AUTOMATION_CLOSE_PANE,
+      KIWI_COCOA_AUTOMATION_SPLIT_RIGHT,
+      KIWI_COCOA_AUTOMATION_SPLIT_DOWN,
+      KIWI_COCOA_AUTOMATION_RELOAD_CONFIGURATION,
+      KIWI_COCOA_AUTOMATION_OPEN_CONFIGURATION,
+  };
+  kiwi_cocoa_automation_registrations = [[NSMutableDictionary alloc] init];
+  kiwi_cocoa_automation_dispatcher = [[KiwiCocoaAutomationDispatcher alloc] init];
+  NSAppleEventManager *manager = [NSAppleEventManager sharedAppleEventManager];
+  for (size_t index = 0; index < sizeof(event_identifiers) / sizeof(event_identifiers[0]); index += 1) {
+    [manager setEventHandler:kiwi_cocoa_automation_dispatcher
+                 andSelector:@selector(handleAppleEvent:withReplyEvent:)
+               forEventClass:KIWI_COCOA_AUTOMATION_CLASS andEventID:event_identifiers[index]];
+  }
+}
+
+int kiwi_cocoa_automation_install(GLFWwindow *window, KiwiCocoaAutomationCallback callback, void *userdata) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || window == NULL || callback == NULL) {
+      kiwi_surface_set_error("Cocoa automation installation needs a main-thread window and callback");
+      return 0;
+    }
+    NSValue *key = kiwi_cocoa_menu_window_key(window);
+    if (key == nil) {
+      kiwi_surface_set_error("GLFW did not expose a Cocoa window for automation");
+      return 0;
+    }
+    kiwi_cocoa_install_automation();
+    KiwiCocoaAutomationRegistration *registration = [[KiwiCocoaAutomationRegistration alloc] init];
+    registration->callback = callback;
+    registration->userdata = userdata;
+    [kiwi_cocoa_automation_registrations setObject:registration forKey:key];
+    if (NSApp.keyWindow == glfwGetCocoaWindow(window) || kiwi_cocoa_active_automation_registration == nil) {
+      kiwi_cocoa_active_automation_registration = registration;
+    }
+    [registration release];
+    return 1;
+  }
+}
+
+void kiwi_cocoa_automation_remove(GLFWwindow *window) {
+  @autoreleasepool {
+    NSValue *key = kiwi_cocoa_menu_window_key(window);
+    KiwiCocoaAutomationRegistration *registration = key == nil ? nil : [kiwi_cocoa_automation_registrations objectForKey:key];
+    if (registration == kiwi_cocoa_active_automation_registration) kiwi_cocoa_active_automation_registration = nil;
+    if (key != nil && kiwi_cocoa_automation_registrations != nil) [kiwi_cocoa_automation_registrations removeObjectForKey:key];
+  }
+}
+
+int kiwi_cocoa_automation_invoke_smoke(GLFWwindow *window, uint32_t action) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa automation smoke needs the main thread");
+      return 0;
+    }
+    uint32_t event_identifier = kiwi_cocoa_automation_event_for_action(action);
+    KiwiCocoaAutomationRegistration *registration = kiwi_cocoa_automation_registration(window);
+    if (event_identifier == 0 || registration == nil || registration->callback == NULL || kiwi_cocoa_automation_dispatcher == nil) {
+      kiwi_surface_set_error("Cocoa automation smoke needs an installed bounded action callback");
+      return 0;
+    }
+    kiwi_cocoa_active_automation_registration = registration;
+    NSAppleEventDescriptor *event = [NSAppleEventDescriptor appleEventWithEventClass:KIWI_COCOA_AUTOMATION_CLASS
+                                                                              eventID:event_identifier
+                                                                     targetDescriptor:nil
+                                                                             returnID:kAutoGenerateReturnID
+                                                                        transactionID:kAnyTransactionID];
+    NSAppleEventDescriptor *reply = [NSAppleEventDescriptor recordDescriptor];
+    [kiwi_cocoa_automation_dispatcher handleAppleEvent:event withReplyEvent:reply];
+    NSAppleEventDescriptor *result = [reply paramDescriptorForKeyword:keyDirectObject];
+    if (result != nil && result.booleanValue) return 1;
+    kiwi_surface_set_error("Cocoa automation smoke action was rejected by the live controller");
+    return 0;
+  }
+}
 
 static NSMenuItem *kiwi_cocoa_menu_item(NSString *title, uint32_t action) {
   NSMenuItem *item = [[[NSMenuItem alloc] initWithTitle:title action:@selector(invokeAction:)

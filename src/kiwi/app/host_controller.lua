@@ -631,6 +631,8 @@ function Controller.run(window, host, options)
       end
     end
 
+    local update_automation_action_handler
+
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
@@ -671,6 +673,7 @@ function Controller.run(window, host, options)
       local refreshed, reason = refresh_workspace_layout()
       if not refreshed then return nil, reason end
       if font_changed then previous_font:destroy() end
+      if update_automation_action_handler then update_automation_action_handler() end
       return true
     end
 
@@ -853,15 +856,34 @@ function Controller.run(window, host, options)
       return handled or sequence_status == "pending"
     end
 
+    local function handle_native_product_action(product_action)
+      local handled, layout_changed = handle_product_action(product_action)
+      if handled and layout_changed then options.application:mark_layout_dirty() end
+      return handled
+    end
+
     local product_action_handler_enabled = false
     if host.set_product_action_handler then
-      local menu_enabled, menu_reason = host.set_product_action_handler(window, function(product_action)
-        local handled, layout_changed = handle_product_action(product_action)
-        if handled and layout_changed then options.application:mark_layout_dirty() end
-      end)
+      local menu_enabled, menu_reason = host.set_product_action_handler(window, handle_native_product_action)
       product_action_handler_enabled = menu_enabled == true
       if not menu_enabled then io.stderr:write("Kiwi native menu unavailable: ", menu_reason or "unknown error", "\n") end
     end
+
+    local automation_action_handler_enabled = false
+    update_automation_action_handler = function()
+      if not host.set_automation_action_handler then return false end
+      if configuration.macos_applescript and not automation_action_handler_enabled then
+        local enabled, reason = host.set_automation_action_handler(window, handle_native_product_action)
+        automation_action_handler_enabled = enabled == true
+        if not enabled then io.stderr:write("Kiwi native automation unavailable: ", reason or "unknown error", "\n") end
+      elseif not configuration.macos_applescript and automation_action_handler_enabled then
+        host.remove_automation_action_handler(window)
+        automation_action_handler_enabled = false
+      end
+      return automation_action_handler_enabled
+    end
+    update_automation_action_handler()
+
     if options.menu_smoke then
       assert(product_action_handler_enabled and host.invoke_product_action_smoke, "--menu-smoke needs the native product-action bridge")
       local tabs_before = workspace:tab_count()
@@ -869,6 +891,14 @@ function Controller.run(window, host, options)
       assert(invoked, "native product-menu smoke could not invoke New Tab: " .. tostring(reason))
       assert(workspace:tab_count() == tabs_before + 1, "native product-menu smoke did not create a tab through the host controller")
       options.application.menu_smoke_reported = true
+    end
+    if options.automation_smoke then
+      assert(automation_action_handler_enabled and host.invoke_automation_action_smoke, "--automation-smoke needs the native Apple-event action bridge")
+      local tabs_before = workspace:tab_count()
+      local invoked, reason = host.invoke_automation_action_smoke(window, "new-tab")
+      assert(invoked, "native Apple-event smoke could not invoke New Tab: " .. tostring(reason))
+      assert(workspace:tab_count() == tabs_before + 1, "native Apple-event smoke did not create a tab through the live controller")
+      options.application.automation_smoke_reported = true
     end
     if options.palette_smoke then
       assert(host.show_command_palette and host.invoke_command_palette_smoke, "--palette-smoke needs the native command-palette bridge")
@@ -1076,6 +1106,9 @@ function Controller.run(window, host, options)
     end
     if options.palette_smoke and options.application.palette_smoke_reported then
       io.stdout:write("Kiwi native command-palette smoke passed: a searchable palette selected New Tab through the live workspace controller.\n")
+    end
+    if options.automation_smoke and options.application.automation_smoke_reported then
+      io.stdout:write("Kiwi native Apple-event smoke passed: a bounded New Tab command reached the live workspace controller.\n")
     end
     if options.key_sequence_smoke and options.application.key_sequence_smoke_reported then
       io.stdout:write("Kiwi key-sequence smoke passed: a press/release prefix created a tab through the live workspace controller.\n")

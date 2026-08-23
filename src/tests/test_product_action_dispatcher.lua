@@ -144,4 +144,30 @@ return {
     Assert.truthy(handled and not layout_changed)
     Assert.truthy(state.duplicate_next)
   end,
+  product_action_dispatcher_accepts_action_specific_automation_contexts = function()
+    local logs = {}
+    local created = 0
+    local actions = Dispatcher.new({
+      create_tab = function()
+        created = created + 1
+        return true
+      end,
+      report = function(message) logs[#logs + 1] = message end,
+    })
+    local handled, layout_changed = actions:handle("new-tab")
+    Assert.truthy(handled and layout_changed)
+    Assert.equal(created, 1)
+    handled, layout_changed = actions:handle("new-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.truthy(logs[1]:find("new-window rejected: missing application.request_window", 1, true) ~= nil)
+
+    actions = Dispatcher.new({
+      active_session = function() return nil end,
+      application = { move_active_to_new_window = function() error("must not move a missing session") end },
+      report = function(message) logs[#logs + 1] = message end,
+    })
+    handled, layout_changed = actions:handle("move-session-new-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.truthy(logs[#logs]:find("session move rejected: no active terminal session", 1, true) ~= nil)
+  end,
 }

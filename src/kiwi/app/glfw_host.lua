@@ -76,6 +76,18 @@ if ffi.os == "OSX" then
     return window:cocoa_menu_invoke_smoke(action)
   end
 
+  function Host.set_automation_action_handler(window, handler)
+    return window:enable_cocoa_automation(handler)
+  end
+
+  function Host.remove_automation_action_handler(window)
+    return window:disable_cocoa_automation()
+  end
+
+  function Host.invoke_automation_action_smoke(window, action)
+    return window:cocoa_automation_invoke_smoke(action)
+  end
+
   function Host.show_command_palette(window, entries, handler)
     return window:show_cocoa_command_palette(entries, handler)
   end

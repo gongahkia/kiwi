@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+readonly APP="$ROOT/dist/Kiwi-dev.app"
+readonly EXECUTABLE="$APP/Contents/MacOS/Kiwi"
+readonly PID_FILE="$ROOT/.build/kiwi-dev.pid"
+
+if [[ "$(uname -s)" != Darwin ]]; then
+  print "SKIP Cocoa Apple-event smoke: macOS is required."
+  exit 0
+fi
+
+"$ROOT/script/build_and_run.sh" --stage
+[[ -x "$EXECUTABLE" ]]
+plutil -lint "$APP/Contents/Info.plist" >/dev/null
+[[ "$(plutil -extract NSAppleScriptEnabled raw "$APP/Contents/Info.plist")" == true ]]
+[[ "$(plutil -extract OSAScriptingDefinition raw "$APP/Contents/Info.plist")" == Kiwi.sdef ]]
+[[ -f "$APP/Contents/Resources/Kiwi.sdef" ]]
+sdp -fh -o /dev/null "$APP/Contents/Resources/Kiwi.sdef"
+
+log=$(mktemp "${TMPDIR:-/tmp}/kiwi-cocoa-automation.XXXXXX")
+trap 'rm -f "$log" "$PID_FILE"' EXIT
+KIWI_LAYOUT_PERSISTENCE=0 \
+  KIWI_LAYOUT_RESTORE=0 \
+  KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
+  KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
+  "$EXECUTABLE" --no-extensions --automation-smoke -- /usr/bin/yes | tee "$log"
+rg -q "Kiwi native Apple-event smoke passed" "$log"
+
+print "Cocoa Apple-event smoke passed: the staged app registered and dispatched a bounded scripting action in the bundle process."
