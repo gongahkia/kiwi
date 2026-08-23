@@ -721,6 +721,9 @@ static void kiwi_cocoa_install_window_toolbar(NSWindow *window) {
   toolbar.autosavesConfiguration = NO;
   toolbar.displayMode = NSToolbarDisplayModeIconAndLabel;
   window.toolbar = toolbar;
+  if ([window respondsToSelector:@selector(setToolbarStyle:)]) {
+    window.toolbarStyle = NSWindowToolbarStyleUnified;
+  }
   [toolbar release];
 }
 

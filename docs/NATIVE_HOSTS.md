@@ -25,7 +25,7 @@ only after a second real consumer requires a documented, testable capability.
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
-| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, custom in-window tab/split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit groups Kiwi's top-level windows into a native tab group and supplies the global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, Settings routing, AppKit window-tab grouping, Cocoa/Metal surfaces, bundle launch, and the staged bundle's Apple-event action callback; `make cocoa-palette-smoke` opens the palette and dispatches `New Tab`. Interactive filtering/navigation, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
+| macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, custom in-window tab/split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit groups Kiwi's top-level windows into a native tab group and supplies a unified titlebar toolbar, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, Settings routing, AppKit window-tab grouping, unified toolbar dispatch, Cocoa/Metal surfaces, bundle launch, and the staged bundle's Apple-event action callback; `make cocoa-palette-smoke` opens the palette and dispatches `New Tab`. Interactive filtering/navigation, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
 | Linux x86_64 | GTK4 | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette dialog, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and drawing surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. `make gtk-palette-smoke` is the graphical-Linux palette gate. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, and desktop qualification remain manual. |
 
 The terminal content may remain GPU-rendered. Native UI does not require a
@@ -49,12 +49,16 @@ native text widget or a replacement renderer.
    and open configuration. They route through the same product-action dispatcher
    as menus, palette, and local keys. The bridge does **not** expose terminal
    text input, arbitrary action names, a Ghostty-style window/tab/terminal object
-   model, or menu keyboard equivalents. `make cocoa-smoke` verifies the bridge structure
+   model, or menu keyboard equivalents. A unified `NSToolbar` exposes fixed
+   New Tab, Split Right, Split Down, Commands, and Settings controls through
+   the same dispatcher; it is native titlebar chrome, not native ownership of
+   the in-window workspace. `make cocoa-smoke` verifies the bridge structure
    and `make cocoa-menu-smoke` verifies a New Tab callback through the live
    controller. `make cocoa-palette-smoke` opens the palette and selects New
    Tab through the same controller. `make cocoa-automation-smoke` stages the
    bundle, validates the scripting definition, and dispatches `New Tab` through
-   the live bundle process. Those checks do not prove interactive filtering,
+   the live bundle process. `make cocoa-toolbar-smoke` dispatches the default
+   toolbar New Tab item through the live controller. Those checks do not prove interactive filtering,
    every menu item, or an external automation client that has received macOS
    Automation permission.
 3. GTK4 is an explicit development host selected with `KIWI_HOST=gtk` or
