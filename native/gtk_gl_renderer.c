@@ -38,6 +38,7 @@ struct KiwiGtkGlRenderer {
   GLuint overlay_vertex_array;
   GLuint cursor_program;
   GLuint cursor_vertex_array;
+  GLuint command_region_program;
   GLuint program;
   GLuint vertex_array;
   uint64_t rendered_revision;
@@ -112,12 +113,14 @@ static const char kiwi_gtk_gl_glyph_fragment_source[] =
     "flat in uint glyph_flags;\n"
     "flat in uint glyph_id;\n"
     "uniform sampler2D alpha_atlas;\n"
+    "uniform vec4 hyperlink_color;\n"
     "out vec4 color;\n"
     "void main() {\n"
     "  if (glyph_id == 0u) discard;\n"
     "  vec4 value = foreground_color;\n"
     "  if ((glyph_flags & 1u) != 0u) value.rgb = min(vec3(1.0), value.rgb * 1.16);\n"
     "  if ((glyph_flags & 8u) != 0u) value.rgb *= 0.65;\n"
+    "  if ((glyph_flags & 512u) != 0u && hyperlink_color.a > 0.0 && local_position.y > 0.91) { color = hyperlink_color; return; }\n"
     "  bool decoration = ((glyph_flags & 32u) != 0u && local_position.y > 0.88) || ((glyph_flags & 256u) != 0u && local_position.y > 0.46 && local_position.y < 0.54);\n"
     "  if (decoration) { color = value; return; }\n"
     "  float coverage = texture(alpha_atlas, atlas_uv).r;\n"
@@ -129,6 +132,7 @@ static const char kiwi_gtk_gl_overlay_vertex_source[] =
     "#version 330 core\n"
     "uniform vec2 grid;\n"
     "out vec2 cell_position;\n"
+    "out vec2 local_position;\n"
     "vec2 corner(uint index) {\n"
     "  const vec2 corners[6] = vec2[6](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));\n"
     "  return corners[index];\n"
@@ -140,6 +144,7 @@ static const char kiwi_gtk_gl_overlay_vertex_source[] =
     "  vec2 point = (vec2(column, row) + local) / grid;\n"
     "  gl_Position = vec4(point.x * 2.0 - 1.0, 1.0 - point.y * 2.0, 0.0, 1.0);\n"
     "  cell_position = vec2(column, row);\n"
+    "  local_position = local;\n"
     "}\n";
 
 static const char kiwi_gtk_gl_overlay_fragment_source[] =
@@ -153,6 +158,26 @@ static const char kiwi_gtk_gl_overlay_fragment_source[] =
     "  bool before_finish = cell_position.y < range.w || (cell_position.y == range.w && cell_position.x < range.z);\n"
     "  if (!after_start || !before_finish) discard;\n"
     "  color = overlay_color;\n"
+    "}\n";
+
+static const char kiwi_gtk_gl_command_region_fragment_source[] =
+    "#version 330 core\n"
+    "in vec2 cell_position;\n"
+    "in vec2 local_position;\n"
+    "uniform int boundary_count;\n"
+    "uniform vec4 boundaries[32];\n"
+    "uniform vec4 command_region_color;\n"
+    "out vec4 color;\n"
+    "void main() {\n"
+    "  if (local_position.y > 0.04 || command_region_color.a <= 0.0) discard;\n"
+    "  bool separator = false;\n"
+    "  for (int index = 0; index < 32; index += 1) {\n"
+    "    if (index >= boundary_count) break;\n"
+    "    vec4 boundary = boundaries[index];\n"
+    "    if (boundary.y == cell_position.y && (boundary.z == 2.0 || boundary.z == 3.0)) { separator = true; break; }\n"
+    "  }\n"
+    "  if (!separator) discard;\n"
+    "  color = command_region_color;\n"
     "}\n";
 
 static const char kiwi_gtk_gl_cursor_vertex_source[] =
@@ -283,6 +308,20 @@ static int kiwi_gtk_gl_create_resources(KiwiGtkGlRenderer *renderer) {
     renderer->overlay_program = 0;
     return 0;
   }
+  renderer->command_region_program = kiwi_gtk_gl_link_program(renderer,
+                                                               kiwi_gtk_gl_overlay_vertex_source,
+                                                               kiwi_gtk_gl_command_region_fragment_source);
+  if (renderer->command_region_program == 0) {
+    glDeleteProgram(renderer->program);
+    glDeleteProgram(renderer->glyph_program);
+    glDeleteProgram(renderer->overlay_program);
+    glDeleteProgram(renderer->cursor_program);
+    renderer->program = 0;
+    renderer->glyph_program = 0;
+    renderer->overlay_program = 0;
+    renderer->cursor_program = 0;
+    return 0;
+  }
   glGenVertexArrays(1, &renderer->vertex_array);
   glBindVertexArray(renderer->vertex_array);
   glGenBuffers(1, &renderer->cell_buffer);
@@ -355,6 +394,7 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   if (renderer->glyph_program != 0) glDeleteProgram(renderer->glyph_program);
   if (renderer->overlay_program != 0) glDeleteProgram(renderer->overlay_program);
   if (renderer->cursor_program != 0) glDeleteProgram(renderer->cursor_program);
+  if (renderer->command_region_program != 0) glDeleteProgram(renderer->command_region_program);
   renderer->cell_buffer = 0;
   renderer->glyph_buffer = 0;
   renderer->atlas_texture = 0;
@@ -366,6 +406,7 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   renderer->glyph_program = 0;
   renderer->overlay_program = 0;
   renderer->cursor_program = 0;
+  renderer->command_region_program = 0;
   renderer->rendered_revision = 0;
 }
 
@@ -421,6 +462,30 @@ static void kiwi_gtk_gl_draw_cursor(KiwiGtkGlRenderer *renderer,
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBindVertexArray(renderer->cursor_vertex_array);
   glDrawArrays(GL_TRIANGLES, 0, 6);
+  glBindVertexArray(0);
+  glDisable(GL_BLEND);
+  glUseProgram(0);
+}
+
+static void kiwi_gtk_gl_draw_command_regions(KiwiGtkGlRenderer *renderer,
+                                             const KiwiGtkGlSnapshot *snapshot) {
+  const KiwiFrameUniform *frame = &snapshot->frame;
+  int boundary_count = (int)frame->command_region_count;
+  if (boundary_count < 1 || boundary_count > KIWI_RENDER_MODEL_COMMAND_REGION_LIMIT ||
+      frame->command_region_alpha <= 0) return;
+  glUseProgram(renderer->command_region_program);
+  glUniform2f(glGetUniformLocation(renderer->command_region_program, "grid"),
+              frame->columns, frame->rows);
+  glUniform1i(glGetUniformLocation(renderer->command_region_program, "boundary_count"), boundary_count);
+  glUniform4fv(glGetUniformLocation(renderer->command_region_program, "boundaries"),
+               KIWI_RENDER_MODEL_COMMAND_REGION_LIMIT, frame->command_region_boundaries);
+  glUniform4f(glGetUniformLocation(renderer->command_region_program, "command_region_color"),
+              frame->command_region_red, frame->command_region_green,
+              frame->command_region_blue, frame->command_region_alpha);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBindVertexArray(renderer->overlay_vertex_array);
+  glDrawArraysInstanced(GL_TRIANGLES, 0, 6, snapshot->cell_count);
   glBindVertexArray(0);
   glDisable(GL_BLEND);
   glUseProgram(0);
@@ -493,6 +558,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
                          snapshot->frame.search_green,
                          snapshot->frame.search_blue,
                          snapshot->frame.search_alpha);
+  kiwi_gtk_gl_draw_command_regions(renderer, snapshot);
   if (snapshot->glyph_count > 0 && snapshot->atlas_bytes > 0) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, renderer->atlas_texture);
@@ -507,6 +573,9 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
     grid = glGetUniformLocation(renderer->glyph_program, "grid");
     glUniform2f(grid, snapshot->frame.columns, snapshot->frame.rows);
     glUniform1i(glGetUniformLocation(renderer->glyph_program, "alpha_atlas"), 0);
+    glUniform4f(glGetUniformLocation(renderer->glyph_program, "hyperlink_color"),
+                snapshot->frame.hyperlink_red, snapshot->frame.hyperlink_green,
+                snapshot->frame.hyperlink_blue, snapshot->frame.hyperlink_alpha);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBindVertexArray(renderer->glyph_vertex_array);

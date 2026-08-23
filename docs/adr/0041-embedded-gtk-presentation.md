@@ -167,15 +167,16 @@ claim an embedded terminal renderer.
 
 The GTK bridge now also builds a private OpenGL renderer against that ABI. Its
 first executable stage accepts a complete bounded snapshot and draws cell
-backgrounds plus alpha-atlas glyphs. The probe submits a known RGB cell first
-in C and then a second complete cell/glyph/atlas snapshot through the LuaJIT
-FFI, requiring the GL renderer to acknowledge each revision after a render
-callback. It deliberately is not wired into the application or used to claim
-selection/search/cursor/image/color-management parity. This gives the later
-adapter an actual GL resource, shader, and deep-copy submission owner without
-making partial output look like a terminal. The next integration milestone is
-a non-WGPU GTK controller path that submits those snapshots and then adds the
-remaining semantic layers in pass order.
+backgrounds, selection/search ranges, alpha-atlas glyphs, and cursor geometry.
+The probe submits a known RGB cell first in C and then a second complete
+cell/glyph/atlas snapshot through the LuaJIT FFI, requiring the GL renderer to
+acknowledge each revision after a render callback. It deliberately is not wired
+into the application or used to claim command-region, Kitty-image,
+color-management, resize, or pacing parity. This gives the later adapter an
+actual GL resource, shader, ordered semantic pass, and deep-copy submission
+owner without making partial output look like a terminal. The next integration
+milestone is a non-WGPU GTK controller path that submits those snapshots, then
+adds command-region and image layers with the same ordering rules.
 
 The full GL adapter will retain that shape: one terminal root widget per
 controller, with the `GtkGLArea` below that root. GTK's main context alone
