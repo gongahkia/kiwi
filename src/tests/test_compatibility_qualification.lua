@@ -34,6 +34,13 @@ return {
     local encoded = Qualification.encode(report)
     Assert.truthy(encoded:find("terminal_content", 1, true) ~= nil)
     Assert.equal(report.privacy.terminal_content, "excluded")
+    Assert.equal(report.privacy.network, "not used")
+  end,
+  compatibility_qualification_marks_a_host_redacted_ssh_probe_as_network_use = function()
+    local report = Qualification.collect({
+      { name = "ssh", status = "failed", detail = "the controlled remote terminfo probe did not complete" },
+    }, { doctor = doctor() })
+    Assert.equal(report.privacy.network, "controlled SSH terminfo probe; host excluded")
   end,
   compatibility_qualification_rejects_invalid_check_shapes = function()
     Assert.truthy(not pcall(Qualification.collect, {

@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-usage: kiwi-ssh [--no-terminfo] [--strict] [--probe] [--ssh-option ARG]... -- host
+usage: kiwi-ssh [--no-terminfo] [--strict] [--probe] [--ssh-option NAME=VALUE]... -- host
 
 Install Kiwi's compiled terminfo entry in ~/.cache/kiwi/terminfo on the named
 remote host, then open an interactive login shell with TERM=xterm-kiwi. If setup
@@ -12,9 +12,9 @@ fails, the default behavior warns and falls back to TERM=xterm-256color.
 --no-terminfo  skip remote setup and use the xterm-256color fallback
 --strict       fail instead of falling back when remote setup fails
 --probe        after setup, verify the remote private entry and print a fixed result
---ssh-option   pass one connection option or its value to both ssh and scp;
-               repeat for every argument, for example:
-               --ssh-option -p --ssh-option 2222
+--ssh-option   pass one OpenSSH configuration assignment to setup, transfer,
+               and login. Repeat as needed, for example:
+               --ssh-option Port=2222 --ssh-option IdentityFile=/path/to/key
 EOF
 }
 
@@ -43,16 +43,24 @@ probe=false
 ssh_options=''
 
 append_ssh_option() {
+  option_name=${1%%=*}
   case "$1" in
-    ''|*"
+    ''|*=|*"
 "*)
-      printf '%s\n' "kiwi-ssh: SSH option arguments must be non-empty single lines" >&2
+      printf '%s\n' "kiwi-ssh: --ssh-option must be a non-empty NAME=VALUE assignment" >&2
+      exit 2
+      ;;
+  esac
+  case "$option_name" in
+    ''|*[!A-Za-z0-9]*)
+      printf '%s\n' "kiwi-ssh: --ssh-option name must use ASCII letters and digits only" >&2
       exit 2
       ;;
   esac
   if [ -n "$ssh_options" ]; then ssh_options="$ssh_options
 "; fi
-  ssh_options="$ssh_options$1"
+  ssh_options="$ssh_options-o
+$1"
 }
 
 while [ "$#" -gt 0 ]; do
