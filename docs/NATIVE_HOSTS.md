@@ -128,10 +128,15 @@ rejection criteria.
 | Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and either the default toplevel-WGPU surface or opt-in `GtkGLArea` surface. `KIWI_GTK_NATIVE_TABS=1` additionally selects an experimental libadwaita multi-PTY page owner. | **Partial:** the desktop workflow gates bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths with distinct normal-presenter and widget-presenter commands. `make gtk-wayland-smoke` / `make gtk-x11-smoke` exercise the default WGPU route; their `*-multi-window-smoke` companions cover bounded same-process lifecycle; `make gtk-gl-wayland-smoke` / `make gtk-gl-x11-smoke` cover the one-terminal GL route. `make gtk-gl-native-tabs-wayland-smoke` / `make gtk-gl-native-tabs-x11-smoke` dispatch `New Tab` through the GTK product-action bridge and require separate page/PTY owners; their `*-close-*` companions dispatch `Close Pane` and require exactly one retained page/session. Per backend it also runs `gtk-input-*`, `gtk-menu-smoke`, `gtk-palette-smoke`, and `gtk-accessibility-smoke`. The default GTK route retains renderer-workspace tabs; the opt-in GL prototype has real `AdwTabView` pages, distinct per-page lifecycle, selection, and non-final-page close, but no manager `host-tab` lifecycle, splits, transfer, detach, persistence, or graphical Linux result. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, GL colour/pacing/recovery, and desktop qualification remain manual or unverified. |
 
 A primary-screen wheel scrolls local history when application mouse tracking
-is inactive on each current route. Kiwi still exposes no visible or native
-scrollbar. A scrollbar must remain a host-presentation feature with a bounded
-terminal viewport descriptor, pane-local pointer ownership, and native
-accessibility semantics; it must not mutate the terminal protocol contract.
+is inactive on each current route. The WGPU and experimental GtkGLArea
+presenters consume a bounded, renderer-neutral primary-history descriptor to
+draw a slim overlay and route its pane-local track clicks and thumb drags. It
+is absent for empty history, the alternate screen, and `scrollbar = never`; it
+never changes terminal protocol state. The descriptor and GTK GL consumer have
+deterministic geometry/input/ABI coverage, but graphical Linux validation is
+still required. The overlay is not a Cocoa or GTK platform scrollbar widget
+and has no accessibility range/value projection. Those remain distinct
+native-host qualification work.
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.

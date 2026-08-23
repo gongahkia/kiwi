@@ -2,6 +2,7 @@
 
 #include <epoxy/gl.h>
 
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,6 +45,8 @@ struct KiwiGtkGlRenderer {
   GLuint overlay_vertex_array;
   GLuint cursor_program;
   GLuint cursor_vertex_array;
+  GLuint scrollbar_program;
+  GLuint scrollbar_vertex_array;
   GLuint command_region_program;
   GLuint program;
   GLuint vertex_array;
@@ -228,6 +231,25 @@ static const char kiwi_gtk_gl_cursor_fragment_source[] =
     "  color = cursor_color;\n"
     "}\n";
 
+static const char kiwi_gtk_gl_scrollbar_vertex_source[] =
+    "#version 330 core\n"
+    "uniform vec2 grid;\n"
+    "uniform vec4 rectangle;\n"
+    "vec2 corner(uint index) {\n"
+    "  const vec2 corners[6] = vec2[6](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));\n"
+    "  return corners[index];\n"
+    "}\n"
+    "void main() {\n"
+    "  vec2 point = (rectangle.xy + corner(uint(gl_VertexID)) * rectangle.zw) / grid;\n"
+    "  gl_Position = vec4(point.x * 2.0 - 1.0, 1.0 - point.y * 2.0, 0.0, 1.0);\n"
+    "}\n";
+
+static const char kiwi_gtk_gl_scrollbar_fragment_source[] =
+    "#version 330 core\n"
+    "uniform vec4 scrollbar_color;\n"
+    "out vec4 color;\n"
+    "void main() { color = scrollbar_color; }\n";
+
 static void kiwi_gtk_gl_set_error(KiwiGtkGlRenderer *renderer, const char *format, ...) {
   va_list arguments;
   va_start(arguments, format);
@@ -340,6 +362,22 @@ static int kiwi_gtk_gl_create_resources(KiwiGtkGlRenderer *renderer) {
     renderer->cursor_program = 0;
     return 0;
   }
+  renderer->scrollbar_program = kiwi_gtk_gl_link_program(renderer,
+                                                          kiwi_gtk_gl_scrollbar_vertex_source,
+                                                          kiwi_gtk_gl_scrollbar_fragment_source);
+  if (renderer->scrollbar_program == 0) {
+    glDeleteProgram(renderer->program);
+    glDeleteProgram(renderer->glyph_program);
+    glDeleteProgram(renderer->overlay_program);
+    glDeleteProgram(renderer->cursor_program);
+    glDeleteProgram(renderer->command_region_program);
+    renderer->program = 0;
+    renderer->glyph_program = 0;
+    renderer->overlay_program = 0;
+    renderer->cursor_program = 0;
+    renderer->command_region_program = 0;
+    return 0;
+  }
   glGenVertexArrays(1, &renderer->vertex_array);
   glBindVertexArray(renderer->vertex_array);
   glGenBuffers(1, &renderer->cell_buffer);
@@ -397,6 +435,7 @@ static int kiwi_gtk_gl_create_resources(KiwiGtkGlRenderer *renderer) {
   glBindTexture(GL_TEXTURE_2D, 0);
   glGenVertexArrays(1, &renderer->overlay_vertex_array);
   glGenVertexArrays(1, &renderer->cursor_vertex_array);
+  glGenVertexArrays(1, &renderer->scrollbar_vertex_array);
   return 1;
 }
 
@@ -408,11 +447,13 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   if (renderer->glyph_vertex_array != 0) glDeleteVertexArrays(1, &renderer->glyph_vertex_array);
   if (renderer->overlay_vertex_array != 0) glDeleteVertexArrays(1, &renderer->overlay_vertex_array);
   if (renderer->cursor_vertex_array != 0) glDeleteVertexArrays(1, &renderer->cursor_vertex_array);
+  if (renderer->scrollbar_vertex_array != 0) glDeleteVertexArrays(1, &renderer->scrollbar_vertex_array);
   if (renderer->program != 0) glDeleteProgram(renderer->program);
   if (renderer->glyph_program != 0) glDeleteProgram(renderer->glyph_program);
   if (renderer->overlay_program != 0) glDeleteProgram(renderer->overlay_program);
   if (renderer->cursor_program != 0) glDeleteProgram(renderer->cursor_program);
   if (renderer->command_region_program != 0) glDeleteProgram(renderer->command_region_program);
+  if (renderer->scrollbar_program != 0) glDeleteProgram(renderer->scrollbar_program);
   renderer->cell_buffer = 0;
   renderer->glyph_buffer = 0;
   renderer->atlas_texture = 0;
@@ -420,11 +461,13 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   renderer->glyph_vertex_array = 0;
   renderer->overlay_vertex_array = 0;
   renderer->cursor_vertex_array = 0;
+  renderer->scrollbar_vertex_array = 0;
   renderer->program = 0;
   renderer->glyph_program = 0;
   renderer->overlay_program = 0;
   renderer->cursor_program = 0;
   renderer->command_region_program = 0;
+  renderer->scrollbar_program = 0;
   renderer->cell_buffer_count = 0;
   renderer->glyph_buffer_count = 0;
   renderer->uploaded_atlas_generation = 0;
@@ -498,6 +541,23 @@ static int kiwi_gtk_gl_range_active(float start_column, float start_row,
          (finish_row == start_row && finish_column > start_column);
 }
 
+static int kiwi_gtk_gl_scrollbar_valid(const KiwiFrameUniform *frame) {
+  if (!isfinite(frame->scrollbar_visible) || !isfinite(frame->scrollbar_left) ||
+      !isfinite(frame->scrollbar_right) || !isfinite(frame->scrollbar_top) ||
+      !isfinite(frame->scrollbar_bottom) || !isfinite(frame->scrollbar_red) ||
+      !isfinite(frame->scrollbar_green) || !isfinite(frame->scrollbar_blue) ||
+      !isfinite(frame->scrollbar_alpha)) return 0;
+  if (frame->scrollbar_visible != 0.0f && frame->scrollbar_visible != 1.0f) return 0;
+  if (frame->scrollbar_red < 0.0f || frame->scrollbar_red > 1.0f ||
+      frame->scrollbar_green < 0.0f || frame->scrollbar_green > 1.0f ||
+      frame->scrollbar_blue < 0.0f || frame->scrollbar_blue > 1.0f ||
+      frame->scrollbar_alpha < 0.0f || frame->scrollbar_alpha > 1.0f) return 0;
+  if (frame->scrollbar_visible == 0.0f) return 1;
+  return frame->scrollbar_left >= 0.0f && frame->scrollbar_left < frame->scrollbar_right &&
+      frame->scrollbar_right <= frame->columns && frame->scrollbar_top >= 0.0f &&
+      frame->scrollbar_top < frame->scrollbar_bottom && frame->scrollbar_bottom <= 1.0f;
+}
+
 static void kiwi_gtk_gl_draw_range(KiwiGtkGlRenderer *renderer,
                                    const KiwiGtkGlSnapshot *snapshot,
                                    float start_column, float start_row,
@@ -541,6 +601,29 @@ static void kiwi_gtk_gl_draw_cursor(KiwiGtkGlRenderer *renderer,
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glBindVertexArray(renderer->cursor_vertex_array);
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+  glBindVertexArray(0);
+  glDisable(GL_BLEND);
+  glUseProgram(0);
+}
+
+static void kiwi_gtk_gl_draw_scrollbar(KiwiGtkGlRenderer *renderer,
+                                       const KiwiGtkGlSnapshot *snapshot) {
+  const KiwiFrameUniform *frame = &snapshot->frame;
+  if (frame->scrollbar_visible < 0.5f || frame->scrollbar_alpha <= 0.0f) return;
+  glUseProgram(renderer->scrollbar_program);
+  glUniform2f(glGetUniformLocation(renderer->scrollbar_program, "grid"),
+              frame->columns, frame->rows);
+  glUniform4f(glGetUniformLocation(renderer->scrollbar_program, "rectangle"),
+              frame->scrollbar_left, frame->scrollbar_top * frame->rows,
+              frame->scrollbar_right - frame->scrollbar_left,
+              (frame->scrollbar_bottom - frame->scrollbar_top) * frame->rows);
+  glUniform4f(glGetUniformLocation(renderer->scrollbar_program, "scrollbar_color"),
+              frame->scrollbar_red, frame->scrollbar_green, frame->scrollbar_blue,
+              frame->scrollbar_alpha);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glBindVertexArray(renderer->scrollbar_vertex_array);
   glDrawArrays(GL_TRIANGLES, 0, 6);
   glBindVertexArray(0);
   glDisable(GL_BLEND);
@@ -668,6 +751,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
     glBindTexture(GL_TEXTURE_2D, 0);
   }
   kiwi_gtk_gl_draw_cursor(renderer, snapshot);
+  kiwi_gtk_gl_draw_scrollbar(renderer, snapshot);
   renderer->rendered_revision = snapshot->revision;
   return TRUE;
 }
@@ -746,6 +830,10 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
       frame->frame->columns > KIWI_GTK_GL_MAX_CELLS ||
       frame->frame->rows > KIWI_GTK_GL_MAX_CELLS) {
     kiwi_gtk_gl_set_error(renderer, "GTK GL frame grid exceeds a fixed resource bound");
+    return 0;
+  }
+  if (!kiwi_gtk_gl_scrollbar_valid(frame->frame)) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL scrollbar frame is invalid");
     return 0;
   }
   uint32_t columns = (uint32_t)frame->frame->columns;

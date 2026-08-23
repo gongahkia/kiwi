@@ -7,6 +7,16 @@ local function font_system()
   return System.new({ pixel_height = 18, atlas = { width = 512, height = 512, max_entries = 1024 } })
 end
 
+local function state_with_scrollback()
+  local state = State.new(8, 4, { scrollback_limit = 16 })
+  for _ = 1, 12 do
+    state:carriage_return()
+    state:line_feed()
+  end
+  Assert.truthy(state.scrollback:size() > 0)
+  return state
+end
+
 return {
   gtk_gl_consumer_commits_terminal_damage_only_after_native_snapshot_acceptance = function()
     local snapshots = {}
@@ -114,6 +124,36 @@ return {
     Assert.equal(#snapshots, 2)
     Assert.truthy(snapshots[2].cell_updates[1].cell_count < snapshots[2].cell_count)
     Assert.equal(snapshots[2].resource_flags % 2, 0)
+    consumer:destroy()
+    font:destroy()
+  end,
+  gtk_gl_consumer_carries_the_renderer_neutral_scrollbar_descriptor = function()
+    local snapshot
+    local window = {
+      enable_gl_area_probe = function() return true end,
+      submit_gl_area_snapshot = function(_, value) snapshot = value; return true end,
+    }
+    local font = font_system()
+    local state = state_with_scrollback()
+    local consumer = Consumer.new(window, font, state, { scrollbar_policy = "always" })
+    Assert.truthy(consumer:render(state, 1, false, false))
+    Assert.equal(snapshot.frame[0].scrollbar_visible, 1)
+    Assert.truthy(snapshot.frame[0].scrollbar_left < snapshot.frame[0].scrollbar_right)
+    Assert.near(snapshot.frame[0].scrollbar_bottom, 1, 0.000001)
+    consumer:destroy()
+    font:destroy()
+  end,
+  gtk_gl_consumer_can_disable_the_scrollbar_descriptor = function()
+    local snapshot
+    local window = {
+      enable_gl_area_probe = function() return true end,
+      submit_gl_area_snapshot = function(_, value) snapshot = value; return true end,
+    }
+    local font = font_system()
+    local state = state_with_scrollback()
+    local consumer = Consumer.new(window, font, state, { scrollbar_policy = "never" })
+    Assert.truthy(consumer:render(state, 1, false, false))
+    Assert.equal(snapshot.frame[0].scrollbar_visible, 0)
     consumer:destroy()
     font:destroy()
   end,

@@ -25,9 +25,12 @@ activates that pane so the event cannot scroll a different session. An
 application that has enabled mouse tracking retains all wheel reports; the
 alternate screen retains its existing DECSET 1007 behavior.
 
-The feature does not introduce a visible or native scrollbar. That remains a
-separate presentation-level decision requiring pane geometry, hit testing,
-accessibility, and macOS/GTK qualification.
+This decision originally did not introduce a scrollbar. The follow-on
+renderer overlay consumes a renderer-neutral viewport descriptor and owns
+track/thumb pointer interactions in both WGPU and experimental GtkGLArea
+presenters; it remains separate from terminal protocol state. It is not a
+native control or accessibility range/value projection. Those are separate
+Cocoa/GTK qualification work.
 
 ## Evidence
 

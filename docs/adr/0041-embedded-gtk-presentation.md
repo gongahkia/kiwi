@@ -206,15 +206,17 @@ integration boundary, not a partial claim for the remaining features.
 
 Its OpenGL pass currently covers cell backgrounds; selection/search overlays;
 atlas-backed shaped glyphs including the available text decorations; command
-region separators; and the cursor. It does not consume `prepared_images`, so
-Kitty images and animations are unavailable. It has no colour-management or
-sRGB qualification, frame pacing/occlusion policy, device-loss recovery,
-fractional-scale evidence, or graphical Linux result yet. Command-region and
-hyperlink decorations have code paths but no graphical-session evidence. The
-new Linux gates are `make gtk-gl-wayland-smoke` and `make gtk-gl-x11-smoke`;
-they prove a bounded PTY-driven terminal reaches the GtkGLArea render callback
-and that a one-cell update uses a bounded OpenGL subrange upload, not visual
-quality or interactive desktop behaviour.
+region separators; cursor; and the renderer-neutral primary-history scrollbar
+overlay. GTK pointer handling gives that overlay track and thumb-drag ownership
+before hyperlink, selection, or terminal mouse reporting. It does not consume
+`prepared_images`, so Kitty images and animations are unavailable. It has no
+colour-management or sRGB qualification, frame pacing/occlusion policy,
+device-loss recovery, fractional-scale evidence, or graphical Linux result
+yet. Command-region and hyperlink decorations have code paths but no
+graphical-session evidence. The new Linux gates are `make gtk-gl-wayland-smoke`
+and `make gtk-gl-x11-smoke`; they prove a bounded PTY-driven terminal reaches
+the GtkGLArea render callback and that a one-cell update uses a bounded OpenGL
+subrange upload, not visual quality or interactive desktop behaviour.
 
 Each accepted native submission owns deep copies of its changed records. The
 first submission for a grid, every grid-size change, and every retry is exactly
