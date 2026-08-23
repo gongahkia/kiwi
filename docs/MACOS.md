@@ -49,15 +49,18 @@ checks that the current Carbon keyboard layout resolves the layout, Shift, and
 PC-101 values used for Kitty keyboard flag 4,
 constructs the Cocoa global main menu and dispatches one logical action through
 its C-to-Lua callback bridge,
+installs a unified native titlebar toolbar with New Tab, Split Right, Split
+Down, Commands, and Settings actions,
 groups two independently rendered Cocoa/Metal top-level windows into an AppKit
 tab group, moves one live PTY between them, writes and restores a bounded
 tab/split topology with fresh shells, resizes the primary drawable after the
 second window closes, then stages and launches the project-local `Kiwi-dev.app`.
 `make cocoa-menu-smoke` additionally sends the `New Tab` menu action through
 that native bridge and verifies the live workspace controller creates a second
-tab. `make cocoa-palette-smoke` opens the searchable native palette and
+tab. `make cocoa-toolbar-smoke` dispatches `New Tab` from the actual AppKit
+toolbar item. `make cocoa-palette-smoke` opens the searchable native palette and
 programmatically selects `New Tab` through the same controller. Those checks
-do not qualify interactive filtering, menu selection, keyboard navigation,
+do not qualify interactive filtering, toolbar/menu selection, keyboard navigation,
 tab tearing/off switching, or native in-window workspace chrome.
 
 ## Bounded AppleScript actions

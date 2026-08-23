@@ -229,7 +229,8 @@ input retains priority. `make key-sequence-smoke` checks a configured
 press/release prefix and completion against the live workspace controller.
 
 On macOS, the default GLFW/Cocoa route exposes these actions through its `File`
-and `Window` menus and opens the palette in a searchable AppKit panel. On Linux,
+and `Window` menus, a unified titlebar toolbar (New Tab, Split Right, Split
+Down, Commands, and Settings), and a searchable AppKit palette. On Linux,
 `KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
 resolving each `win.*` action against the active window, and opens the palette
 in a searchable GTK dialog. The palette has twelve default built-in entries,
