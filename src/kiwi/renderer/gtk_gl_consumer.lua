@@ -14,12 +14,15 @@ function Consumer.new(window, font, model, options)
     type(window.submit_gl_area_snapshot) == "function", "GTK GL consumer needs a GL snapshot window")
   local enabled, reason = window:enable_gl_area_probe()
   assert(enabled, "GTK GL renderer could not be enabled: " .. tostring(reason))
+  local revision = options.next_revision or 2
+  assert(type(revision) == "number" and revision >= 2 and revision % 1 == 0,
+    "GTK GL consumer next revision must be an integer of at least two")
   local prepared_frame = PreparedFrame.new(font, model, options)
   model:mark_all_dirty()
   local self = setmetatable({
     invalidation = Invalidation.new(),
     prepared_frame = prepared_frame,
-    revision = 2,
+    revision = revision,
     window = window,
   }, Consumer)
   self.invalidation:request("terminal")

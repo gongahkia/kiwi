@@ -81,6 +81,7 @@ local tests = {
   require("tests.test_render_model"),
   require("tests.test_prepared_frame"),
   require("tests.test_gtk_gl_consumer"),
+  require("tests.test_gtk_gl_controller"),
   require("tests.test_pass_registry"),
   require("tests.test_pass_api"),
   require("tests.test_extensions"),

@@ -34,6 +34,12 @@ else
   else
     error("KIWI_HOST must be glfw or gtk")
   end
+  if Host.presentation_backend == "gtk-gl" then
+    -- The experimental GtkGLArea path is one terminal surface. It must not
+    -- restore or overwrite the multi-pane WGPU workspace snapshot.
+    options.layout_persistence = false
+    options.layout_restore = false
+  end
   LiveWindowManager.new(function(controller_options)
     return Host.run(controller_options, "Kiwi M2 terminal", HostController.run)
   end, options, {
