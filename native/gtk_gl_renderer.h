@@ -7,6 +7,8 @@
 
 typedef struct KiwiGtkGlRenderer KiwiGtkGlRenderer;
 
+#define KIWI_GTK_GL_RENDERER_ABI_VERSION 2u
+
 typedef struct KiwiGtkGlFrame {
   uint32_t render_model_version;
   uint64_t revision;
@@ -18,6 +20,7 @@ typedef struct KiwiGtkGlFrame {
   uint32_t atlas_bytes;
   uint32_t atlas_width;
   uint32_t atlas_height;
+  uint64_t atlas_generation;
   const KiwiFrameUniform *frame;
 } KiwiGtkGlFrame;
 

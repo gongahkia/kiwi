@@ -8,6 +8,8 @@ local PreparedFrame = require("kiwi.renderer.prepared_frame")
 local Consumer = {}
 Consumer.__index = Consumer
 
+local cursor_blink_interval = 0.5
+
 function Consumer.new(window, font, model, options)
   options = options or {}
   assert(type(window) == "table" and type(window.enable_gl_area_probe) == "function" and
@@ -72,6 +74,9 @@ function Consumer:render(model, time, debug_dirty, debug_boundaries)
   self.prepared_frame:commit_model(plan)
   self.revision = self.revision + 1
   self.invalidation:consume_success(time)
+  if frame.cursor.visible and frame.cursor.blink then
+    self.invalidation:schedule("cursor", time, cursor_blink_interval)
+  end
   return true
 end
 

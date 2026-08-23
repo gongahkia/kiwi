@@ -21,6 +21,7 @@ typedef struct KiwiGtkGlSnapshot {
   uint32_t atlas_bytes;
   uint32_t atlas_width;
   uint32_t atlas_height;
+  uint64_t atlas_generation;
   KiwiFrameUniform frame;
   uint64_t revision;
 } KiwiGtkGlSnapshot;
@@ -41,6 +42,10 @@ struct KiwiGtkGlRenderer {
   GLuint command_region_program;
   GLuint program;
   GLuint vertex_array;
+  uint64_t uploaded_atlas_generation;
+  uint32_t uploaded_atlas_width;
+  uint32_t uploaded_atlas_height;
+  int atlas_uploaded;
   uint64_t rendered_revision;
   gulong realize_handler;
   gulong render_handler;
@@ -407,6 +412,10 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   renderer->overlay_program = 0;
   renderer->cursor_program = 0;
   renderer->command_region_program = 0;
+  renderer->uploaded_atlas_generation = 0;
+  renderer->uploaded_atlas_width = 0;
+  renderer->uploaded_atlas_height = 0;
+  renderer->atlas_uploaded = 0;
   renderer->rendered_revision = 0;
 }
 
@@ -562,9 +571,18 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
   if (snapshot->glyph_count > 0 && snapshot->atlas_bytes > 0) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, renderer->atlas_texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, snapshot->atlas_width, snapshot->atlas_height,
-                 0, GL_RED, GL_UNSIGNED_BYTE, snapshot->atlas_pixels);
+    if (!renderer->atlas_uploaded ||
+        renderer->uploaded_atlas_generation != snapshot->atlas_generation ||
+        renderer->uploaded_atlas_width != snapshot->atlas_width ||
+        renderer->uploaded_atlas_height != snapshot->atlas_height) {
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, snapshot->atlas_width, snapshot->atlas_height,
+                   0, GL_RED, GL_UNSIGNED_BYTE, snapshot->atlas_pixels);
+      renderer->uploaded_atlas_generation = snapshot->atlas_generation;
+      renderer->uploaded_atlas_width = snapshot->atlas_width;
+      renderer->uploaded_atlas_height = snapshot->atlas_height;
+      renderer->atlas_uploaded = 1;
+    }
     glBindBuffer(GL_ARRAY_BUFFER, renderer->glyph_buffer);
     glBufferData(GL_ARRAY_BUFFER,
                  (GLsizeiptr)snapshot->glyph_count * sizeof(KiwiTextGlyphInstance),
@@ -591,7 +609,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
   return TRUE;
 }
 
-uint32_t kiwi_gtk_gl_renderer_abi_version(void) { return KIWI_RENDER_MODEL_VERSION; }
+uint32_t kiwi_gtk_gl_renderer_abi_version(void) { return KIWI_GTK_GL_RENDERER_ABI_VERSION; }
 
 KiwiGtkGlRenderer *kiwi_gtk_gl_renderer_new(GtkGLArea *area) {
   if (area == NULL) return NULL;
@@ -662,24 +680,39 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
     kiwi_gtk_gl_set_error(renderer, "GTK GL frame revision is older than the pending snapshot");
     return 0;
   }
+  int retain_atlas = frame->atlas_bytes > 0 && renderer->pending.atlas_pixels != NULL &&
+      renderer->pending.atlas_generation == frame->atlas_generation &&
+      renderer->pending.atlas_bytes == frame->atlas_bytes &&
+      renderer->pending.atlas_width == frame->atlas_width &&
+      renderer->pending.atlas_height == frame->atlas_height;
   KiwiGtkGlSnapshot next = {
       .cells = kiwi_gtk_gl_copy(frame->cells, (size_t)frame->cell_count * sizeof(*frame->cells)),
       .cell_count = frame->cell_count,
       .glyphs = kiwi_gtk_gl_copy(frame->glyphs, (size_t)frame->glyph_count * sizeof(*frame->glyphs)),
       .glyph_count = frame->glyph_count,
-      .atlas_pixels = kiwi_gtk_gl_copy(frame->atlas_pixels, frame->atlas_bytes),
       .atlas_bytes = frame->atlas_bytes,
       .atlas_width = frame->atlas_width,
       .atlas_height = frame->atlas_height,
+      .atlas_generation = frame->atlas_generation,
       .frame = *frame->frame,
       .revision = frame->revision,
   };
   if ((frame->cell_count > 0 && next.cells == NULL) ||
-      (frame->glyph_count > 0 && next.glyphs == NULL) ||
-      (frame->atlas_bytes > 0 && next.atlas_pixels == NULL)) {
+      (frame->glyph_count > 0 && next.glyphs == NULL)) {
     kiwi_gtk_gl_snapshot_clear(&next);
     kiwi_gtk_gl_set_error(renderer, "GTK GL frame allocation failed");
     return 0;
+  }
+  if (retain_atlas) {
+    next.atlas_pixels = renderer->pending.atlas_pixels;
+    renderer->pending.atlas_pixels = NULL;
+  } else {
+    next.atlas_pixels = kiwi_gtk_gl_copy(frame->atlas_pixels, frame->atlas_bytes);
+    if (frame->atlas_bytes > 0 && next.atlas_pixels == NULL) {
+      kiwi_gtk_gl_snapshot_clear(&next);
+      kiwi_gtk_gl_set_error(renderer, "GTK GL atlas allocation failed");
+      return 0;
+    }
   }
   kiwi_gtk_gl_snapshot_clear(&renderer->pending);
   renderer->pending = next;

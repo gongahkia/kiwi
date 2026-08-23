@@ -144,7 +144,7 @@ make gtk-gl-wayland-smoke              # GTK GL terminal/PTY render smoke (requi
 make gtk-gl-x11-smoke                  # GTK GL terminal/PTY render smoke (requires an X11 session)
 make gtk-input-smoke                   # GTK preedit/commit callback boundary smoke (requires a graphical session)
 make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
-make gtk-gl-area-smoke                  # GTK GL snapshot/render lifecycle probe; not the application renderer (requires graphical Linux)
+make gtk-gl-area-smoke                  # GTK GL native snapshot/render lifecycle probe; separate from the PTY application smokes (requires graphical Linux)
 make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
