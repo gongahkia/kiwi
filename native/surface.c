@@ -9,6 +9,7 @@
 #include <GLFW/glfw3native.h>
 #endif
 #include <webgpu/webgpu.h>
+#include "kiwi_render_model.h"
 
 #include <stdbool.h>
 #include <stdint.h>

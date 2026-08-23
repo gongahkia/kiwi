@@ -12,52 +12,6 @@ local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
 local TextBackend = require("kiwi.text.backend")
 
-ffi.cdef[[
-typedef struct {
-  float columns;
-  float rows;
-  float cursor_column;
-  float cursor_row;
-  float time;
-  float show_dirty;
-  float show_boundaries;
-  float cursor_visible;
-  float cursor_shape;
-  float cursor_blink;
-  float cursor_red;
-  float cursor_green;
-  float cursor_blue;
-  float cursor_alpha;
-  float selection_start_column;
-  float selection_start_row;
-  float selection_finish_column;
-  float selection_finish_row;
-  float selection_red;
-  float selection_green;
-  float selection_blue;
-  float selection_alpha;
-  float search_start_column;
-  float search_start_row;
-  float search_finish_column;
-  float search_finish_row;
-  float search_red;
-  float search_green;
-  float search_blue;
-  float search_alpha;
-  float hyperlink_red;
-  float hyperlink_green;
-  float hyperlink_blue;
-  float hyperlink_alpha;
-  float command_region_count;
-  float command_region_red;
-  float command_region_green;
-  float command_region_blue;
-  float command_region_alpha;
-  float command_region_padding[5];
-  float command_region_boundaries[128];
-} KiwiFrameUniform;
-]]
-
 local PreparedFrame = {}
 PreparedFrame.__index = PreparedFrame
 

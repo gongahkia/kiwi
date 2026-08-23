@@ -121,6 +121,13 @@ allocation, upload, pipeline creation, and encoding. The producer may use
 LuaJIT buffers for zero-copy backend uploads, but its data records contain no
 WGPU, OpenGL, GDK, GTK, window, or controller handles.
 
+The packed v1 part of that boundary is explicit in
+`native/kiwi_render_model.h` and `kiwi.renderer.render_model`: native C and
+LuaJIT assert the byte size and key field offsets for cells, shaped glyphs,
+images, and frame uniforms. A future GL consumer must use this contract rather
+than reproduce LuaJIT struct declarations locally. It is internal and may make
+a coordinated breaking change while no stable native renderer ABI exists.
+
 At minimum, a prepared frame has to carry:
 
 - grid dimensions; dirty cell ranges and packed cell records; shaped-glyph

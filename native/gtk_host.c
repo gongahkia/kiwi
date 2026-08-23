@@ -3,6 +3,7 @@
 #include <gdk/x11/gdkx.h>
 #include <webgpu/webgpu.h>
 #include <viewporter-client-protocol.h>
+#include "kiwi_render_model.h"
 
 #include <stdint.h>
 #include <stdio.h>

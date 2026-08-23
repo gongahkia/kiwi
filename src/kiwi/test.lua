@@ -78,6 +78,7 @@ local tests = {
   require("tests.test_freetype"),
   require("tests.test_glyph_shader"),
   require("tests.test_packing"),
+  require("tests.test_render_model"),
   require("tests.test_prepared_frame"),
   require("tests.test_pass_registry"),
   require("tests.test_pass_api"),
