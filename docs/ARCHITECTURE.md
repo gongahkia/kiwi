@@ -196,15 +196,15 @@ APIs into terminal state. The scoped seam and unverified native test matrix are
 in [ADR 0038](adr/0038-windows-native-feasibility.md). macOS implementation
 evidence and remaining gaps are in [ADR 0039](adr/0039-macos-native-feasibility.md).
 
-The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. Both alpha passes and the hyperlink glyph decoration remain semantic presentation, rather than part of a terminal bitmap.
+The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M1.5 code. M2 adds a separate 48-byte `KiwiTextGlyphInstance` for glyph geometry/UVs/color/glyph ID/cluster column. GPU bindings keep background cells, shaped glyphs, alpha atlas texture, sampler, and frame data distinct. Selection and the current search result use fixed-size viewport-relative ranges in the frame uniform; neither allocates text or a per-cell buffer. `terminal.search` also exposes all bounded visible match descriptors as plain data for semantic consumers, without query text. `terminal.hyperlinks` exposes only active state, RGBA underline color, and bounded visible-cell count: never targets, IDs, text, or native opener state. `terminal.scrollbar` is a similarly plain primary-screen history descriptor: active state, normalized thumb geometry, viewport/history counts, and RGBA presentation colour only. It contains no retained rows, terminal text, host handles, or input state. All of these passes remain semantic presentation, rather than part of a terminal bitmap.
 
-`native/kiwi_render_model.h` and `renderer/render_model.lua` define the v1
+`native/kiwi_render_model.h` and `renderer/render_model.lua` define the v2
 byte layout for those packed records. WGPU and the experimental GTK
 `GtkGLArea` consumer use the same layout. The header is internal and versioned
 for coordinated source changes; it is not a public `libkiwi-vt` ABI or a
 guarantee of binary compatibility.
 
-M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). It preserves background, selection, search, glyph, and cursor ordering while adding bounded hyperlink metadata to glyph presentation; it does not expose native wgpu handles to Lua passes.
+M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). The built-in order is background, optional images, selection, search, optional command regions, glyphs, optional images, cursor, then the alpha-blended scrollbar overlay. The overlay reads only `terminal.scrollbar`, `frame.viewport`, and `frame.timing`; it does not expose native WGPU handles to Lua passes.
 
 The initial trusted-local registration surface is [Renderer pass API v1](RENDERER_API.md). It validates declaration version, semantic resources, and lifecycle callbacks before pass activation, gives callbacks only cloned resource descriptors, and reuses the deterministic pass graph for initialization, encoding, resize, and shutdown.
 

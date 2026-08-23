@@ -16,6 +16,7 @@ local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
 local Mouse = require("kiwi.input.mouse")
+local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
 local Pty = require("kiwi.process.pty")
 local GtkGLConsumer = require("kiwi.renderer.gtk_gl_consumer")
@@ -83,6 +84,7 @@ local function consumer_options(configuration)
     hyperlink_color = configuration.hyperlink_color,
     search_color = configuration.search_color,
     selection_color = configuration.selection_color,
+    scrollbar_policy = configuration.scrollbar,
     text_backend = TextLab.requested_backend(),
   }
 end
@@ -385,6 +387,7 @@ function Controller.run(window, host, options)
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local mouse = Mouse.new()
     local scrollback_wheel = ScrollbackWheel.new()
+    local scrollbar_pointer = ScrollbarPointer.new()
     local selection_pointer = SelectionPointer.new()
     local composition = Composition.new()
     composition:enter()
@@ -557,14 +560,20 @@ function Controller.run(window, host, options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
-      event.pixel_x = math.max(1, math.min(math.floor(state.columns * font.cell_width), math.floor(event.x * scale) + 1))
-      event.pixel_y = math.max(1, math.min(math.floor(state.rows * font.cell_height), math.floor(event.y * scale) + 1))
-      local hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes)
+      event.pixel_width = math.max(1, math.floor(state.columns * font.cell_width))
+      event.pixel_height = math.max(1, math.floor(state.rows * font.cell_height))
+      event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
+      event.pixel_y = math.max(1, math.min(event.pixel_height, math.floor(event.y * scale) + 1))
+      local scrollbar_handled, scrollbar_changed = scrollbar_pointer:handle(event, state,
+        ScrollbarPointer.descriptor(state, configuration.scrollbar))
+      if scrollbar_changed then invalidate("scrollbar") end
+      local hyperlink_handled, hyperlink_opened, hyperlink_status = false, false, nil
+      if not scrollbar_handled then hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes) end
       if hyperlink_handled and not hyperlink_opened then report_hyperlink_failure(hyperlink_status) end
       local selection_handled, selection_changed = false, false
-      if not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
+      if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
       if selection_changed then invalidate("selection") end
-      if not hyperlink_handled and not selection_handled then
+      if not scrollbar_handled and not hyperlink_handled and not selection_handled then
         local encoded
         if event.kind == "button" then encoded = mouse:button(event, state:input_modes())
         elseif event.kind == "motion" then encoded = mouse:motion(event, state:input_modes())
@@ -585,6 +594,7 @@ function Controller.run(window, host, options)
         composition:enter()
       else
         selection_pointer:reset()
+        scrollbar_pointer:reset()
         state.ime_preedit = nil
         composition:leave()
         invalidate("terminal")
@@ -637,6 +647,7 @@ function Controller.run(window, host, options)
         next_revision = next_revision,
         search_color = configuration.search_color,
         selection_color = configuration.selection_color,
+        scrollbar_policy = configuration.scrollbar,
         text_backend = TextLab.requested_backend(),
       })
       next_revision = nil

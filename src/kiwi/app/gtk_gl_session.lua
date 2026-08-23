@@ -10,6 +10,7 @@ local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
 local Mouse = require("kiwi.input.mouse")
+local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
 local Pty = require("kiwi.process.pty")
 local GtkGLConsumer = require("kiwi.renderer.gtk_gl_consumer")
@@ -77,6 +78,7 @@ local function consumer_options(configuration, next_revision)
     next_revision = next_revision,
     search_color = configuration.search_color,
     selection_color = configuration.selection_color,
+    scrollbar_policy = configuration.scrollbar,
     text_backend = TextLab.requested_backend(),
   }
 end
@@ -147,6 +149,7 @@ function Session.new(window, host, configuration, options)
   self.hyperlink_pointer = HyperlinkPointer.new(self.hyperlink, self.glfw)
   self.mouse = Mouse.new()
   self.scrollback_wheel = ScrollbackWheel.new()
+  self.scrollbar_pointer = ScrollbarPointer.new()
   self.selection_pointer = SelectionPointer.new()
   self.composition = Composition.new()
   self.composition:enter()
@@ -309,14 +312,20 @@ function Session:_install_input_handlers()
     event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale,
       self.font.cell_width, self.font.cell_height, self.state.columns, self.state.rows)
     event.column, event.row = event.selection_column + 1, event.selection_row + 1
-    event.pixel_x = math.max(1, math.min(math.floor(self.state.columns * self.font.cell_width), math.floor(event.x * scale) + 1))
-    event.pixel_y = math.max(1, math.min(math.floor(self.state.rows * self.font.cell_height), math.floor(event.y * scale) + 1))
-    local hyperlink_handled, hyperlink_opened, hyperlink_status = self.hyperlink_pointer:handle(event, self.state, self.state.modes)
+    event.pixel_width = math.max(1, math.floor(self.state.columns * self.font.cell_width))
+    event.pixel_height = math.max(1, math.floor(self.state.rows * self.font.cell_height))
+    event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
+    event.pixel_y = math.max(1, math.min(event.pixel_height, math.floor(event.y * scale) + 1))
+    local scrollbar_handled, scrollbar_changed = self.scrollbar_pointer:handle(event, self.state,
+      ScrollbarPointer.descriptor(self.state, self.configuration.scrollbar))
+    if scrollbar_changed then self:_invalidate("scrollbar") end
+    local hyperlink_handled, hyperlink_opened, hyperlink_status = false, false, nil
+    if not scrollbar_handled then hyperlink_handled, hyperlink_opened, hyperlink_status = self.hyperlink_pointer:handle(event, self.state, self.state.modes) end
     if hyperlink_handled and not hyperlink_opened then report_hyperlink_failure(hyperlink_status) end
     local selection_handled, selection_changed = false, false
-    if not hyperlink_handled then selection_handled, selection_changed = self.selection_pointer:handle(event, self.state, self.state.modes, self.configuration.mouse_shift_capture) end
+    if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = self.selection_pointer:handle(event, self.state, self.state.modes, self.configuration.mouse_shift_capture) end
     if selection_changed then self:_invalidate("selection") end
-    if not hyperlink_handled and not selection_handled then
+    if not scrollbar_handled and not hyperlink_handled and not selection_handled then
       local encoded
       if event.kind == "button" then encoded = self.mouse:button(event, self.state:input_modes())
       elseif event.kind == "motion" then encoded = self.mouse:motion(event, self.state:input_modes())
@@ -337,7 +346,7 @@ function Session:_install_input_handlers()
     if focused then
       self.composition:enter()
     else
-      self.selection_pointer:reset(); self.state.ime_preedit = nil
+      self.selection_pointer:reset(); self.scrollbar_pointer:reset(); self.state.ime_preedit = nil
       self.composition:leave(); self:_invalidate("terminal")
     end
     local encoded = self.mouse:focus(focused, self.state:input_modes())

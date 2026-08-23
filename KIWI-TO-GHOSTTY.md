@@ -158,12 +158,14 @@ to Ghostty's broader notification, bell, focus, or native-UI behavior.
 Kiwi now supplies the baseline scrollback interaction that a shell user
 expects: primary-screen vertical wheel input moves local history unless an
 application owns mouse reporting, and an inactive custom-workspace pane is
-focused before it moves. It still has **no visible or native scrollbar**.
-Ghostty 1.3 added native scrollbars, so this remains a material product-UX
-gap. The next scrollbar implementation should be a host presentation feature,
-not another terminal-state protocol: it needs a renderer-neutral viewport
-descriptor, pane-local hit testing/drag ownership, accessibility value/range
-projection, and separate Cocoa/GTK qualification.
+focused before it moves. WGPU and experimental GTK GL presenters draw a slim
+overlay for retained primary history and route its pane-local track clicks and
+thumb drags through a renderer-neutral viewport descriptor. This is a
+meaningful usability step, but it is **not a native scrollbar**. Ghostty 1.3
+added native, system-aware scrollbars; Kiwi still lacks Cocoa/GTK controls,
+accessibility value/range projection, graphical/manual validation, and
+separate Cocoa/GTK qualification. Those remain material product-UX gaps and
+must stay presentation-owned rather than entering terminal protocol state.
 
 On macOS, Kiwi’s Cocoa bridge is real and verified for a private pasteboard,
 drawable resize, Metal surface configuration, and development app-bundle

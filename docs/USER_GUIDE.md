@@ -173,7 +173,7 @@ notify-on-command-finish-after = 5
 Kiwi validates the full replacement, including its action map and theme, before
 changing live resources; an invalid file leaves the current configuration
 active. Theme, renderer colors, font settings, host-effect policy, local
-actions, and the WGPU `scrollbar` policy reload in the same session.
+actions, and the `scrollbar` policy reload in the same session.
 `ambiguous-width` and `scrollback-limit`
 remain startup-only, because changing either would require semantic grid reflow
 or history retention changes; Kiwi reports that limitation instead of partially
@@ -198,9 +198,9 @@ history displays a disabled track. The overlay's track click and thumb drag
 move only the local history viewport, including when an application has mouse
 tracking enabled; normal pointer events outside it retain the application's
 mouse-mode ownership. It is hidden on the alternate screen. This is presently
-implemented by WGPU presenters, not as a Cocoa/GTK platform scrollbar widget;
-the experimental `KIWI_GTK_PRESENTER=gl` presenter does not draw or receive
-the overlay. `KIWI_SCROLLBAR` accepts the same two values.
+implemented by the WGPU and experimental `KIWI_GTK_PRESENTER=gl` presenters,
+not as a Cocoa/GTK platform scrollbar widget or accessibility range/value
+control. `KIWI_SCROLLBAR` accepts the same two values.
 
 At launch, these documented command-line settings use the same validation as
 the file and take precedence over file and `KIWI_*` environment values:
