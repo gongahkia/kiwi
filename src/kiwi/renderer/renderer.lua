@@ -646,10 +646,12 @@ function Renderer:pack_cell(model, index)
   local column, row = model:position(index)
   local cell = model.cells[index]
   local instance = self.cells[index]
+  local foreground, background = cell.fg, cell.bg
+  if model.presentation_colors then foreground, background = model:presentation_colors(cell) end
   instance.x = column
   instance.y = row
-  instance.fg = color_to_u32(cell.fg)
-  instance.bg = color_to_u32(cell.bg)
+  instance.fg = color_to_u32(foreground)
+  instance.bg = color_to_u32(background)
   instance.flags = cell.flags
   if self.font.glyph_cache then
     instance.u0 = 0

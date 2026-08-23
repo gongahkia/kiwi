@@ -126,6 +126,7 @@ function State.new(columns, rows, options)
       application_cursor = false,
       application_keypad = false,
       backarrow = false,
+      reverse_video = false,
       reverse_wrap = false,
       bracketed_paste = false,
       synchronized_output = false,
@@ -730,6 +731,14 @@ function State:cell_at_index(index)
   local column, row = self:position(index)
   local visible = self:visible_row(row)
   return visible and visible.cells[column] or self.default_cell
+end
+
+-- DEC mode 5 is a presentation transform. Keep stored cells semantic so
+-- selection, accessibility, snapshots, and palette updates retain their
+-- original rendition; render consumers request the effective colour pair.
+function State:presentation_colors(cell)
+  if self.modes.reverse_video then return cell.bg, cell.fg end
+  return cell.fg, cell.bg
 end
 
 function State:get(column, row)
@@ -1655,6 +1664,7 @@ function State:reset()
   self.modes.application_cursor = false
   self.modes.application_keypad = false
   self.modes.backarrow = false
+  self.modes.reverse_video = false
   self.modes.reverse_wrap = false
   self.modes.bracketed_paste = false
   self.modes.synchronized_output = false
@@ -1703,6 +1713,7 @@ function State:soft_reset()
   self.modes.application_cursor = false
   self.modes.application_keypad = false
   self.modes.backarrow = false
+  self.modes.reverse_video = false
   self.modes.reverse_wrap = false
   self.modes.autowrap = true
   self.modes.origin = false
@@ -2184,6 +2195,12 @@ function State:apply_private_mode(parameters, enabled)
   for _, mode in ipairs(parameters) do
     if mode == 1 then
       self.modes.application_cursor = enabled
+    elseif mode == 5 then
+      if self.modes.reverse_video ~= enabled then
+        self.modes.reverse_video = enabled
+        self.damage:mark_all()
+        self.text_damage:mark_all()
+      end
     elseif mode == 6 then
       self.modes.origin = enabled
       local left = self:horizontal_margins()
@@ -2251,6 +2268,7 @@ end
 function State:restorable_private_mode_value(mode)
   local modes = self.modes
   if mode == 1 then return modes.application_cursor
+  elseif mode == 5 then return modes.reverse_video
   elseif mode == 6 then return modes.origin
   elseif mode == 7 then return modes.autowrap
   elseif mode == 12 then return modes.cursor_blink
@@ -2473,6 +2491,8 @@ function State:mode_status(private, mode)
     local modes = self.modes
     if mode == 1 then
       enabled = modes.application_cursor
+    elseif mode == 5 then
+      enabled = modes.reverse_video
     elseif mode == 6 then
       enabled = modes.origin
     elseif mode == 7 then
@@ -2669,7 +2689,7 @@ function State:apply_csi(action)
     self:set_character_protection(action)
     return
   end
-  if action.private == "!" and action.intermediates == "" and final == "p" then
+  if action.private == "" and action.intermediates == "!" and final == "p" then
     if #parameters == 0 then
       self:soft_reset()
     else

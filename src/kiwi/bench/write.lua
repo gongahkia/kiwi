@@ -197,7 +197,7 @@ local function harfbuzz_stage(item, iterations, warmup, glyph_records)
   end, function(context)
     context.glyphs = {}
     for row = 0, context.state.rows - 1 do
-      local glyphs = context.layout:shape_runs(context.runs[row], row)
+      local glyphs = context.layout:shape_runs(context.state, context.runs[row], row)
       if glyph_records then
         for _, glyph in ipairs(glyphs) do context.glyphs[#context.glyphs + 1] = glyph end
       end

@@ -64,8 +64,10 @@ typedef struct kiwi_vt_render_state {
 } kiwi_vt_render_state;
 
 /* A copied logical-cell descriptor. `struct_size` must be set by the caller
- * before kiwi_vt_render_update_cell. `display_text` is returned through that
- * function's two-call buffer parameters. */
+ * before kiwi_vt_render_update_cell. Foreground/background colors are the
+ * effective presentation pair, including active DECSCNM reverse-screen video.
+ * `display_text` is returned through that function's two-call buffer
+ * parameters. */
 typedef struct kiwi_vt_render_cell {
   uint32_t struct_size;
   uint32_t column;

@@ -6,13 +6,15 @@ local function copy_range(range)
   return { count = range.count, first = range.first }
 end
 
-local function copy_cell(cell)
+local function copy_cell(state, cell)
+  local foreground, background = cell.fg, cell.bg
+  if state.presentation_colors then foreground, background = state:presentation_colors(cell) end
   local copy = {
     anchor_column = cell.anchor_column,
-    bg = cell.bg,
+    bg = background,
     continuation = cell.continuation == true,
     display_text = cell.display_text,
-    fg = cell.fg,
+    fg = foreground,
     flags = cell.flags,
     glyph = cell.glyph,
     hyperlink_id = cell.hyperlink_id,
@@ -79,13 +81,13 @@ local function new_view(owner, state)
   function view:cell(column, row)
     assert(type(column) == "number" and column % 1 == 0 and column >= 0 and column < self.columns, "render-state column is out of bounds")
     assert(type(row) == "number" and row % 1 == 0 and row >= 0 and row < self.rows, "render-state row is out of bounds")
-    return copy_cell(state:get(column, row))
+    return copy_cell(state, state:get(column, row))
   end
 
   function view:row(row)
     assert(type(row) == "number" and row % 1 == 0 and row >= 0 and row < self.rows, "render-state row is out of bounds")
     local cells = {}
-    for column = 0, self.columns - 1 do cells[column + 1] = copy_cell(state:get(column, row)) end
+    for column = 0, self.columns - 1 do cells[column + 1] = copy_cell(state, state:get(column, row)) end
     return cells
   end
 
