@@ -877,7 +877,8 @@ function Renderer:encode_kitty_image_pass(pass_info, encoder, view, model, resou
   self.native.lib.wgpuRenderPassEncoderRelease(pass)
 end
 
-function Renderer:encode_into(encoder, view, model, time, debug_dirty, debug_boundaries, options)
+function Renderer:encode_into(presentation, model, time, debug_dirty, debug_boundaries, options)
+  assert(type(presentation) == "table" and presentation.backend == "wgpu" and presentation.encoder ~= nil and presentation.view ~= nil, "WGPU renderer needs an acquired WGPU presentation frame")
   options = options or {}
   assert(options.clear == nil or type(options.clear) == "boolean", "renderer frame clear option must be a boolean")
   local viewport = options.viewport
@@ -894,9 +895,9 @@ function Renderer:encode_into(encoder, view, model, time, debug_dirty, debug_bou
   if self.gpu_timing then self.gpu_timing:begin_frame() end
   self.pass_registry:begin_frame()
   self.pass_registry:prepare(self, model)
-  self.pass_registry:encode(self, encoder, view, model)
+  self.pass_registry:encode(self, presentation.encoder, presentation.view, model)
   self.pass_registry:end_frame()
-  if self.gpu_timing then self.gpu_timing:resolve(encoder) end
+  if self.gpu_timing then self.gpu_timing:resolve(presentation.encoder) end
   if self.pass_metrics.enabled then self.diagnostics.pass_cpu = self.pass_metrics:snapshot() end
   self.frame_clear = nil
   self.frame_viewport = nil
@@ -926,41 +927,18 @@ function Renderer:finish_frame(model, time)
 end
 
 function Renderer:render(model, time, debug_dirty, debug_boundaries)
-  if self.context.window.minimized then
-    return false, "zero-sized drawable"
+  local presentation, reason = self.context:begin_presentation_frame()
+  if presentation == nil then return false, reason end
+  local ok, result = xpcall(function()
+    self:encode_into(presentation, model, time, debug_dirty, debug_boundaries, { clear = true })
+  end, debug.traceback)
+  if not ok then
+    self.context:abort_presentation_frame(presentation)
+    error(result, 0)
   end
-  if self.context.window.resized and not self.context:configure_surface() then
-    return false, "zero-sized drawable"
-  end
-  local surface_texture = ffi.new("WGPUSurfaceTexture")
-  self.native.lib.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
-  local c = self.native.constants
-  if surface_texture.status == c.surface_occluded then return false, "surface occluded" end
-  if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
-    return false, "surface acquire status " .. tonumber(surface_texture.status)
-  end
-  local view = assert_handle(self.native.lib.wgpuTextureCreateView(surface_texture.texture, nil), "surface texture view creation")
-  local encoder = assert_handle(self.native.lib.wgpuDeviceCreateCommandEncoder(self.context.device, nil), "command encoder creation")
-  self:encode_into(encoder, view, model, time, debug_dirty, debug_boundaries, { clear = true })
   self.diagnostics.extensions = self.extension_manager:snapshot()
-  local commands = ffi.new("WGPUCommandBuffer[1]")
-  commands[0] = assert_handle(self.native.lib.wgpuCommandEncoderFinish(encoder, nil), "command-buffer creation")
-  self.native.lib.wgpuQueueSubmit(self.context.queue, 1, commands)
-  self.native.lib.wgpuCommandBufferRelease(commands[0])
-  self.native.lib.wgpuCommandEncoderRelease(encoder)
-  self.native.lib.wgpuTextureViewRelease(view)
-  local present_status = self.native.lib.wgpuSurfacePresent(self.context.surface)
-  self.native.lib.wgpuTextureRelease(surface_texture.texture)
-  if surface_texture.status == c.surface_success_suboptimal then
-    self.context.window.resized = true
-  end
-  if present_status ~= 1 then
-    return false, "surface present status " .. tonumber(present_status)
-  end
-  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
-  if #native_error > 0 then
-    return false, "native GPU error: " .. native_error
-  end
+  local presented, present_reason = self.context:present_presentation_frame(presentation)
+  if not presented then return false, present_reason end
   self:finish_frame(model, time)
   return true
 end

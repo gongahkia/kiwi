@@ -1,5 +1,3 @@
-local ffi = require("ffi")
-
 local Compositor = {}
 Compositor.__index = Compositor
 
@@ -29,8 +27,9 @@ function Compositor.viewport(layout, cell_width, cell_height)
 end
 
 function Compositor.new(context)
-  assert(type(context) == "table" and context.native and context.window, "compositor needs a GPU context")
-  return setmetatable({ context = context, native = context.native, frame = 0 }, Compositor)
+  assert(type(context) == "table" and context.window, "compositor needs a presentation context")
+  assert(type(context.begin_presentation_frame) == "function" and type(context.present_presentation_frame) == "function" and type(context.abort_presentation_frame) == "function", "compositor needs a presentation-frame lifecycle")
+  return setmetatable({ context = context, frame = 0 }, Compositor)
 end
 
 function Compositor:validate(entries)
@@ -73,56 +72,29 @@ end
 
 function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   if self.context.window.minimized then return false, "zero-sized drawable" end
-  if self.context.window.resized and not self.context:configure_surface() then return false, "zero-sized drawable" end
   self:validate(entries)
-  local api = self.native.lib
-  local c = self.native.constants
-  local surface_texture = ffi.new("WGPUSurfaceTexture")
-  api.wgpuSurfaceGetCurrentTexture(self.context.surface, surface_texture)
-  if surface_texture.status == c.surface_occluded then return false, "surface occluded" end
-  if surface_texture.status ~= c.surface_success_optimal and surface_texture.status ~= c.surface_success_suboptimal then
-    return false, "surface acquire status " .. tonumber(surface_texture.status)
-  end
-  local view = api.wgpuTextureCreateView(surface_texture.texture, nil)
-  if view == nil then
-    api.wgpuTextureRelease(surface_texture.texture)
-    error("surface texture view creation returned a null handle")
-  end
-  local encoder = api.wgpuDeviceCreateCommandEncoder(self.context.device, nil)
-  if encoder == nil then
-    api.wgpuTextureViewRelease(view)
-    api.wgpuTextureRelease(surface_texture.texture)
-    error("command encoder creation returned a null handle")
-  end
+  local presentation, presentation_reason = self.context:begin_presentation_frame()
+  if presentation == nil then return false, presentation_reason end
   local ok, result = xpcall(function()
     for index, entry in ipairs(entries) do
-      entry.renderer:encode_into(encoder, view, entry.model, time, debug_dirty, debug_boundaries, {
+      entry.renderer:encode_into(presentation, entry.model, time, debug_dirty, debug_boundaries, {
         clear = index == 1,
         viewport = entry.viewport,
       })
     end
     self.frame = self.frame + 1
-    self.context:begin_framebuffer_capture(self.frame)
-    self.context:encode_framebuffer_capture(encoder, surface_texture.texture)
-    local commands = ffi.new("WGPUCommandBuffer[1]")
-    commands[0] = api.wgpuCommandEncoderFinish(encoder, nil)
-    if commands[0] == nil then error("command-buffer creation returned a null handle") end
-    api.wgpuQueueSubmit(self.context.queue, 1, commands)
-    api.wgpuCommandBufferRelease(commands[0])
-    self.context:submit_framebuffer_capture()
+    if self.context.begin_framebuffer_capture then self.context:begin_framebuffer_capture(self.frame) end
+    if self.context.encode_framebuffer_capture then self.context:encode_framebuffer_capture(presentation.encoder, presentation.texture) end
+    if self.context.submit_framebuffer_capture then self.context:submit_framebuffer_capture() end
   end, debug.traceback)
-  api.wgpuCommandEncoderRelease(encoder)
-  api.wgpuTextureViewRelease(view)
-  local present_status
-  if ok then present_status = api.wgpuSurfacePresent(self.context.surface) end
-  api.wgpuTextureRelease(surface_texture.texture)
-  if not ok then error(result, 0) end
-  if surface_texture.status == c.surface_success_suboptimal then self.context.window.resized = true end
-  if present_status ~= 1 then return false, "surface present status " .. tonumber(present_status) end
-  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
-  if #native_error > 0 then return false, "native GPU error: " .. native_error end
+  if not ok then
+    self.context:abort_presentation_frame(presentation)
+    error(result, 0)
+  end
+  local presented, present_reason = self.context:present_presentation_frame(presentation)
+  if not presented then return false, present_reason end
   for _, entry in ipairs(entries) do entry.renderer:finish_frame(entry.model, time) end
-  self.context:poll_framebuffer_capture()
+  if self.context.poll_framebuffer_capture then self.context:poll_framebuffer_capture() end
   return true
 end
 

@@ -249,8 +249,10 @@ pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
 alpha highlight; `KIWI_SEARCH_COLOR` has the same format. Neither input
 capability is advertised through terminfo.
 
-`Ctrl+Shift+T` opens a local tab and `Ctrl+Tab` cycles tabs. `Ctrl+Shift+Enter`
-creates a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
+`Ctrl+Shift+T` opens a tab and `Ctrl+Tab` cycles tabs. On the regular GLFW and
+current GTK host, that is a renderer-workspace tab; on the Cocoa host it is a
+new GLFW/Metal controller in the AppKit tab group. `Ctrl+Shift+Enter` creates
+a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
 `Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
 `Ctrl+Shift+N` creates a same-process default-shell window; `Ctrl+Shift+M`
 moves the active live session to a new window, and `Ctrl+Shift+Alt+M` moves it

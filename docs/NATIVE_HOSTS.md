@@ -52,16 +52,36 @@ current-style page renderers until a group explicitly owns a shared X11
 presentation surface or supplies an equivalent per-page surface strategy on
 both backends.
 
-The GTK native-tab phase must therefore introduce a group owner that resolves
-the request's `source_controller_id`, defines the presentation-surface policy,
-attaches a controller content surface as a notebook page, selects and focuses
-the active controller, detaches a page into a new standalone group, and removes
-the page before its controller releases the surface.
-[GtkNotebook](https://docs.gtk.org/gtk4/class.Notebook.html) is the
-appropriate GTK4 primitive: it owns tabbed child selection, supports page
-reordering/detachment and a `create-window` signal, and supplies tab/list/page
-accessibility roles. This is an implementation prerequisite, not a shipped GTK
-feature.
+The GTK native-tab phase has one further prerequisite: an embedded GTK
+presentation adapter. The current WGPU surface is bound to the entire
+toplevel: an X11 `Window` surface uses the toplevel XID, while the Wayland
+route creates one `wl_subsurface` below that toplevel. GTK4 widgets do not
+provide ordinary child-native surfaces, so putting the current renderer inside
+a `GtkNotebook` would paint the wrong native region rather than create a page
+surface. The group owner must therefore wait for a renderer that can present
+inside a GTK widget on both X11 and Wayland.
+
+The first renderer-side prerequisite is implemented: the compositor uses an
+opaque acquire/encode/present-or-abort presentation-frame lifecycle rather than
+acquiring and presenting a WGPU surface itself. Today that lifecycle is still
+implemented solely by the WGPU context and the renderer accepts only WGPU
+frames. It establishes explicit frame ownership and failure cleanup, but it
+does not embed rendering in GTK or make the WGPU pass/resource pipeline
+backend-neutral. [ADR 0041](adr/0041-embedded-gtk-presentation.md) records
+the remaining prepared-render-model and `GtkGLArea` work.
+
+Once that renderer boundary exists, the Linux group owner should use
+[libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)
+and `AdwTabBar`, not `GtkNotebook`. `AdwTabView` is specifically designed for
+dynamic multi-window document and terminal tabs, including reorder, detach,
+transfer, and accessible tab panels. The owner will resolve the request's
+`source_controller_id`, attach/select/focus a controller page, transfer a
+detached page to a standalone group, and remove a page before its controller
+releases the embedded presentation resource. It must explicitly disable
+libadwaita's built-in shortcut policy where it conflicts with Kiwi's configured
+shortcut map. This is an architectural decision and acceptance prerequisite,
+not a shipped GTK feature; [ADR 0041](adr/0041-embedded-gtk-presentation.md)
+defines the migration and rejection criteria.
 
 ## Target hosts
 
@@ -110,7 +130,12 @@ native text widget or a replacement renderer.
    verifies the native property assignment then clearing. Those checks do not prove interactive filtering,
    every menu item, or an external automation client that has received macOS
    Automation permission.
-3. GTK4 4.14 or newer is an explicit development host selected with `KIWI_HOST=gtk` or
+3. The compositor has a tested opaque presentation-frame lifecycle. Its current
+   WGPU implementation owns acquire/abort/submit/present/release and has been
+   live-smoked through Cocoa/Metal, while renderer encoding remains WGPU-only.
+   This is the first extraction needed before a GTK widget renderer; it is not
+   an embedded GTK renderer or native-tab implementation.
+4. GTK4 4.14 or newer is an explicit development host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
    reads/writes, URI opening, and the existing GPU-rendered terminal content.
@@ -126,7 +151,7 @@ native text widget or a replacement renderer.
    Linux session. It does not advertise host-native tabs: `New Tab` remains a
    renderer-workspace tab until the GTK group-owner lifecycle described above
    exists and has its own attach/select/detach/close qualification.
-4. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
+5. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical
    content size, keeping GTK responsible for fractional scale. GTK text input
@@ -144,7 +169,7 @@ native text widget or a replacement renderer.
    clipboard, scaled-monitor, and Orca qualifications remain required before
    promoting GTK as a full native host. Each later adapter owns its event loop and drawing
    surface; neither calls terminal-state internals.
-5. Promote a host only after it passes the daily-driver corpus on its native
+6. Promote a host only after it passes the daily-driver corpus on its native
    platform. GLFW is then retained as a test/demo harness, not the product UI.
 
 Windows remains out of scope until its existing ConPTY/DX12 feasibility matrix
