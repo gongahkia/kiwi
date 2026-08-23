@@ -18,7 +18,7 @@ behavior that meets the same user need with an explicit, tested contract.
 ## Audit boundary
 
 **Kiwi baseline.** This audit was updated from the local worktree on
-2026-08-17. The strongest evidence is the [README](README.md),
+2026-08-23. The strongest evidence is the [README](README.md),
 [conformance contract](docs/CONFORMANCE.md), [macOS support note](docs/MACOS.md),
 `src/kiwi/app/main.lua`, the platform bridge, and deterministic tests. The
 current worktree has a GLFW/WGPU terminal on Linux and macOS, custom-rendered
@@ -26,7 +26,7 @@ tabs and splits, per-pane PTYs, HarfBuzz/Fontconfig text, bounded Kitty
 PNG/APNG/GIF composition, and a locally reproducible macOS arm64 archive.
 
 **Ghostty baseline.** Ghostty’s official feature, configuration, VT-reference,
-and architecture documentation was consulted on 2026-08-17. Its VT reference
+terminfo, and architecture documentation was consulted on 2026-08-23. Its VT reference
 is explicitly work in progress, so a Ghostty row means “documented product
 capability,” not an assertion that every sequence has been independently
 reproduced here.
@@ -55,11 +55,11 @@ broad configuration and VT compatibility remain incomplete.
 | Area | Kiwi now | Daily-driver target | Status |
 | --- | --- | --- | --- |
 | Linux and macOS runtime | Linux x86_64 Vulkan and macOS arm64 Cocoa/Metal are built locally; macOS has deterministic core/PTY/Cocoa/release-bundle checks. | Maintain the same executable, PTY, renderer, clipboard, resize, packaging, and smoke behavior on both targets. | **Partial** — Linux and Intel macOS require their own evidence. |
-| Window/workspace model | One process-wide scheduler owns independent GLFW/Cocoa windows, WGPU contexts, compositors, workspaces, and PTY sets. `Ctrl+Shift+M` moves a live pane session to a new window, `Ctrl+Shift+Alt+M` moves it to the next window as a tab, and the corresponding `D` bindings create fresh default-shell sessions. Schema-v1 persistence restores only geometry and tab/split topology with fresh shells. | Native menu/window integration, user-selectable move targets, schema migration, and interactive Linux/macOS lifecycle qualification. | **Partial** |
-| Native desktop UX | Cocoa window, bounded `NSTextInputClient` preedit/candidate bridge, and read-only `NSAccessibilityTextArea` adapter on macOS; AT-SPI active-pane adapter on Linux. | Platform-appropriate menu/shortcut/accessibility behavior, native validation, and no loss of core terminal semantics. | **Partial** |
+| Window/workspace model | One process-wide scheduler owns independent GLFW/Cocoa windows, WGPU contexts, compositors, workspaces, and PTY sets. On macOS, those top-level windows join a native AppKit tab group. `Ctrl+Shift+M` moves a live pane session to a new window, `Ctrl+Shift+Alt+M` moves it to the next window as a workspace tab, and the corresponding `D` bindings create fresh default-shell sessions. Schema-v1 persistence restores only geometry and tab/split topology with fresh shells. | Native in-window tab/split ownership, user-selectable move targets, Linux native tabs, schema migration, and interactive Linux/macOS lifecycle qualification. | **Partial** |
+| Native desktop UX | Cocoa global menu and searchable AppKit palette on macOS; GTK `GMenu` and searchable dialog on Linux; bounded Cocoa/GTK text-input and accessibility adapters. Both native action surfaces share the product action catalogue and configurable one- through three-chord local bindings. | Platform-appropriate native tab/split/settings/automation behavior, interactive menu and palette validation, and no loss of core terminal semantics. | **Partial** |
 | Text and media | Unicode 17 clusters, HarfBuzz shaping, Fontconfig fallback, bounded atlas, and PNG/APNG/GIF Kitty subset. | Stable behavior in daily applications; visual media tests supplement pass-level GPU checks. | **Partial** |
-| Configuration | Strict bounded XDG file, environment overrides, reload, and `kiwi`, `nord`, and `light` themes. | Broader documented settings, multiple theme sources, system appearance behavior, and platform path precedence. | **Partial** |
-| Terminal contract | Tested C0/ESC/CSI/OSC subset, primary/alternate screens, reflow, selected Kitty keyboard/mouse modes, OSC 8/52 policy, and local terminfo. | A versioned xterm-oriented compatibility ledger, regression corpus, honest terminfo, and documented policy for every advertised sequence. | **Partial** |
+| Configuration | Strict bounded XDG file, environment overrides, validated reload, nine built-in themes, colour-only absolute theme files, system appearance selection, bounded command-palette entries, and bounded one- through three-chord product actions. | Broader user-visible settings and CLI mapping, additional safely-scoped appearance/font controls, and per-target interactive reload validation. | **Partial** |
+| Terminal contract | Tested C0/ESC/CSI/OSC subset, primary/alternate screens, reflow, selected Kitty keyboard/mouse modes, OSC 8/52 policy, and an `xterm-kiwi` terminfo contract that advertises 256 indexed colours and direct RGB. | A versioned xterm-oriented compatibility ledger, regression corpus, honest terminfo, and documented policy for every advertised sequence. | **Partial** |
 | Core reuse | Experimental renderer-free `libkiwi-vt` Lua/C surface with copied render updates, input encoders, and effects. | Keep the core platform-neutral while desktop capabilities remain host-owned and versioned. | **Partial** |
 
 ## Daily-driver compatibility gate
@@ -104,9 +104,9 @@ a copy of Ghostty’s evolving VT reference.
 | P0 | Release application behavior | A graphical macOS release bundle must be launchable by Finder/LaunchServices, not only from a shell. | **Implemented:** deterministic signed Mach-O bundle launcher plus extracted-bundle `open` smoke in `release-check`. |
 | P1 | Multi-window/session layer | A daily terminal needs independent windows and safe state restoration, not only one workspace tree. | **Implemented baseline:** transactional live-PTY handoff, fresh-session duplication, and bounded topology restoration; next add native menu integration, user-selectable targets, migrations, and interactive qualification. |
 | P1 | Accessibility and IME | Basic projected text is not evidence of a usable screen-reader or composed-text experience. | Add repeatable macOS accessibility inspection and IME composition hooks; run manual VoiceOver validation. |
-| P1 | Configuration and themes | Three hard-coded themes and a small key set do not meet common desktop configuration needs. | Add documented theme sources, macOS config-path precedence, and system-appearance selection without unbounded includes. |
-| P1 | VT compatibility | Terminal programs depend on behavioral details beyond parser recognition. | Publish v1 of the sequence ledger and implement high-value gaps with corpus tests before widening terminfo. |
-| P2 | Native chrome/integration | Ghostty uses native components and platform integrations; Kiwi’s workspace is custom-rendered. | Add native menu/window integration behind a platform adapter without coupling `kiwi.vt` to UI objects. |
+| P1 | Configuration and themes | The bounded theme/action surface and launch-time theme, appearance, font, scrollback, and shell settings are viable, but Kiwi still lacks a settings UI, broad Ghostty command-line parity, and per-target interactive qualification. | Add platform settings ownership and only further documented, bounded mappings without executable theme content. |
+| P1 | VT compatibility | Terminal programs depend on behavioral details beyond parser recognition. | Triage application-stream failures and implement high-value xterm behavior with corpus, PTY, and native evidence; keep terminfo synchronized with the verified subset. |
+| P2 | Native chrome/integration | Ghostty uses native components and platform integrations; Kiwi’s workspace is custom-rendered despite its Cocoa/GTK action bridges. | Promote native tab/split/settings/automation ownership behind a platform adapter without coupling `kiwi.vt` to UI objects. |
 | P2 | Distribution qualification | A build is not support evidence. | Validate Linux x86_64 and macOS arm64 on clean target hosts; add Intel macOS only after native validation. |
 
 ## Detailed gap map
@@ -118,9 +118,9 @@ compatibility policy, including many controls, ESC, CSI, and OSC forms. Kiwi
 has a consciously narrower contract. It already implements a substantial
 subset—RIS, DECKPAM/DECKPNM, DECALN, left/right margins, selected mode reports,
 palette/default/cursor color operations, OSC 8, a default-denied bounded OSC
-52 write path, mouse modes, focus, and selected Kitty keyboard flags—but its
-terminfo advertises only 16 colours and its documented unsupported list remains
-large.
+52 write path, mouse modes, focus, selected Kitty keyboard flags, and an
+`xterm-kiwi` entry that advertises 256 indexed colours plus direct RGB. Its
+documented unsupported list nevertheless remains large.
 
 The main gap is therefore **contract breadth and evidence**, not the absence of
 a terminal parser. The next sequence work must be selected from application
@@ -135,7 +135,9 @@ Ghostty documents multiple native windows with tabs and splits, macOS-native
 components, Quick Terminal, AppleScript, Quick Look, secure keyboard entry,
 and state recovery. Kiwi now has a process-wide live-window scheduler: each
 custom-rendered GLFW workspace has its own WGPU context and PTY set, while GLFW
-events are polled once for all controllers. It transactionally detaches an
+events are polled once for all controllers. On macOS, its top-level windows
+join one AppKit tab group without sharing a WGPU surface, workspace, or PTY
+set. It transactionally detaches an
 active pane into a pending handoff, carries its live PTY and terminal state into
 the destination, restores it to the source if destination creation fails, and
 destroys only its old renderer before rebinding it to the new context. It also
@@ -160,11 +162,14 @@ real third-party input-source workflow, which remain daily-driver gates.
 Ghostty documents hundreds of text configuration options, CLI equivalents,
 optional included files, platform-specific path precedence, runtime reload,
 custom themes, and system dark/light theme selection. Kiwi’s strict parser is
-deliberately smaller: it bounds file size and line count, rejects unknown keys,
-supports a small set of terminal/rendering controls, and reloads with F6. This
-is safer to extend than an unbounded ad hoc parser, but does not meet the
-desired product surface yet. Kiwi will keep its bounded parser and add only
-explicit, cycle-safe sources and documented precedence.
+deliberately smaller, but it now provides nine built-in themes, bounded
+colour-only absolute theme files, system appearance selection, validated reload,
+bounded command-palette entries, a native text-configuration opener, and a one-
+through three-chord local action map. It still lacks a graphical settings
+surface, broad command-line mapping, font-feature/fallback configuration, and
+Ghostty's theme catalogue. Kiwi will
+keep the bounded parser and add only explicit, cycle-safe sources and
+documented precedence.
 
 ### Rendering, text, and images
 
@@ -207,5 +212,7 @@ colour management, and display behavior remains part of qualification.
 
 - [features and compatibility principles](https://ghostty.org/docs/features)
 - [configuration model](https://ghostty.org/docs/config)
+- [configuration reference](https://ghostty.org/docs/config/reference)
+- [terminfo installation and remote fallback](https://ghostty.org/docs/help/terminfo)
 - [VT sequence reference](https://ghostty.org/docs/vt/reference)
 - [native application architecture](https://ghostty.org/docs/about)

@@ -60,6 +60,10 @@ function Host.system_appearance(window)
   return window:system_appearance()
 end
 
+function Host.open_text_file(window, path)
+  return window:open_text_file(path)
+end
+
 function Host.notify(window, title, body)
   return window:notify(title, body)
 end

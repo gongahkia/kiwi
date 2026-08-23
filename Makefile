@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native gtk-host gtk-host-check gtk-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-accessibility-smoke gtk-input-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-palette-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native gtk-host gtk-host-check gtk-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-accessibility-smoke gtk-input-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-palette-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-text-stress bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -105,6 +105,9 @@ truecolour-framebuffer-smoke: native terminfo
 
 workspace-smoke: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP workspace smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --workspace-smoke -- /usr/bin/yes; fi
+
+key-sequence-smoke: native terminfo
+	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP key-sequence smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-2} KIWI_MAX_SECONDS=$${KIWI_MAX_SECONDS:-3} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --config src/tests/fixtures/key-sequence.conf --key-sequence-smoke -- /usr/bin/yes; fi
 
 same-process-window-smoke: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP same-process window smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-2} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --multi-window-smoke -- /usr/bin/yes; fi

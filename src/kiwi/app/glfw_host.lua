@@ -59,6 +59,10 @@ function Host.system_appearance(window)
   return window:system_appearance()
 end
 
+function Host.open_text_file(window, path)
+  return window:open_text_file(path)
+end
+
 if ffi.os == "OSX" then
   function Host.set_progress(window, progress, state)
     return window:cocoa_set_progress(progress, state)

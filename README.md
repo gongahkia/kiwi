@@ -9,6 +9,7 @@ Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extende
 ```sh
 make run
 make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
+make run ARGS='--theme dracula --font-size 18 -- /bin/zsh -l'
 ```
 
 The child receives `TERM=xterm-kiwi`, `TERMINFO=$PWD/.build/terminfo`, and
@@ -29,6 +30,12 @@ evidence and remaining deployment limits in
 [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
 M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16 (with flag 4 partial on macOS), PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+
+The validated launch settings `--theme`, `--theme-file`, `--appearance`,
+`--font-family`, `--font-size`, `--scrollback-limit`, and
+`--shell-integration` override file and environment values for that process.
+See the [user guide](docs/USER_GUIDE.md#configuration) for their precedence,
+reload behavior, and the colour-only external-theme trust boundary.
 
 ## Linux prerequisites
 
@@ -148,6 +155,7 @@ make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/re
 make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
 make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
 make truecolour-framebuffer-smoke       # bounded native terminal RGB compositor-readback smoke test
+make key-sequence-smoke                 # configured multi-key action through the live controller
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
 make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
@@ -155,7 +163,7 @@ make cocoa-palette-smoke                # macOS searchable native command-palett
 make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
-make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, two Metal surfaces, and development-app launch smoke
+make cocoa-smoke                        # macOS private-pasteboard, NSAccessibility, native-window-tabbed Metal surfaces, and development-app launch smoke
 make budget-smoke                       # live advisory-budget warning smoke test
 make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
 make power-smoke                        # bounded redraw scheduler observation; skips without display
@@ -194,7 +202,7 @@ places the next prompt below the selected rectangle by default;
 `--no-cursor-advance` is reserved for deliberate layered composition. Release
 and Nix installs provide the same command as `kiwi-image`.
 
-During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `F6` validates and reloads the active [configuration file](docs/USER_GUIDE.md#configuration); theme, renderer-color, and font changes take effect in the running session, while width-policy and scrollback-limit changes require a new session. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `--config PATH` selects a configuration file; otherwise Kiwi reads the documented XDG path and preserves environment overrides such as `KIWI_FONT_PX`. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
+During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `F6` validates and reloads the active [configuration file](docs/USER_GUIDE.md#configuration); theme, renderer-color, and font changes take effect in the running session, while width-policy and scrollback-limit changes require a new session. macOS `Settings…`, GTK `Settings`, and the palette's `Open Configuration` action open the effective text configuration; if no default file exists, that explicit action creates a comment-only, user-only default without overwriting an existing file. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `--config PATH` selects a configuration file; otherwise Kiwi reads the documented XDG path and preserves environment overrides such as `KIWI_FONT_PX`. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
 
 WGSL hot reload is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an explicit `KIWI_DEV_SHADER_PATH=/absolute/or/relative/terminal.wgsl`. Kiwi polls only that file at a 250 ms cadence; `F5` forces an immediate reload. It builds replacement modules and pipelines for every affected pass before swapping any active pipeline. Rejected source remains on disk for correction, while the last known-good pipelines stay active and the reason is reported to stderr. Without both settings, `F5` performs no shader compilation and production continues to use the bundled WGSL.
 
@@ -253,17 +261,17 @@ paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-pas
 when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
 
 `Ctrl+Shift+P` opens a searchable native command palette on the Cocoa and GTK4
-hosts. Its eleven default workspace actions and up to 32 total configured
+hosts. Its twelve default workspace actions and up to 32 total configured
 entries filter by title and description. A configured entry can only invoke an
 existing non-recursive workspace action; it cannot execute text, a shell
 command, or terminal control bytes. These local actions are configurable with
-bounded `keybind` directives in the configuration file; `F6` is the default
-reload action. `theme = system`,
+bounded one- through three-chord `keybind` directives in the configuration
+file; `F6` is the default reload action. `theme = system`,
 bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
 settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
-The macOS Cocoa and GTK4 host menus route those same actions, including opening
-the command palette, without adding menu keyboard equivalents; native
-product-chrome qualification remains partial.
+The macOS Cocoa and GTK4 host menus route those same actions, including
+Settings/Open Configuration and the command palette, without adding menu
+keyboard equivalents; native product-chrome qualification remains partial.
 
 Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
 GLFW character callbacks otherwise provide committed Unicode text. The default
@@ -284,7 +292,7 @@ researched from a Linux cross-build environment but not run on a Windows host;
 no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
-macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling and an `NSAccessibilityTextArea` adapter; `make cocoa-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those native seams. Intel macOS, real input-source and VoiceOver interaction, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling, an `NSAccessibilityTextArea` adapter, and native AppKit tab groups for top-level windows; `make cocoa-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those native seams. The native tab group does not replace Kiwi's custom in-window tab/split workspace. Intel macOS, real input-source and VoiceOver interaction, interactive native tab behavior, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
 
 ## License
 

@@ -9,6 +9,7 @@ assert(type(GtkWindow.bridge.kiwi_gtk_host_text_input_inject_smoke) == "cdata", 
 assert(type(GtkWindow.bridge.kiwi_gtk_host_key_text_inject_smoke) == "cdata", "GTK key/text smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_set_product_action_handler) == "cdata", "GTK product-action ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_product_action_invoke_smoke) == "cdata", "GTK product-menu smoke ABI is unavailable")
+assert(type(GtkWindow.bridge.kiwi_gtk_host_open_text_file) == "cdata", "GTK text-file opener ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_command_palette_show) == "cdata", "GTK command-palette ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_command_palette_invoke_smoke) == "cdata", "GTK command-palette smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_accessibility_update) == "cdata", "GTK accessibility ABI is unavailable")

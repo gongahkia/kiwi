@@ -47,16 +47,16 @@ checks that the current Carbon keyboard layout resolves the layout, Shift, and
 PC-101 values used for Kitty keyboard flag 4,
 constructs the Cocoa global main menu and dispatches one logical action through
 its C-to-Lua callback bridge,
-creates two independent Cocoa/Metal surfaces, moves one live PTY
-between them, writes and restores a bounded tab/split topology with fresh
-shells, resizes the primary drawable after the second window closes, then
-stages and launches the project-local `Kiwi-dev.app`.
+groups two independently rendered Cocoa/Metal top-level windows into an AppKit
+tab group, moves one live PTY between them, writes and restores a bounded
+tab/split topology with fresh shells, resizes the primary drawable after the
+second window closes, then stages and launches the project-local `Kiwi-dev.app`.
 `make cocoa-menu-smoke` additionally sends the `New Tab` menu action through
 that native bridge and verifies the live workspace controller creates a second
 tab. `make cocoa-palette-smoke` opens the searchable native palette and
 programmatically selects `New Tab` through the same controller. Those checks
-do not qualify interactive filtering, menu selection, keyboard navigation, or
-native product chrome.
+do not qualify interactive filtering, menu selection, keyboard navigation,
+tab tearing/off switching, or native in-window workspace chrome.
 `make release-check` additionally launches an extracted release `Kiwi.app`
 through LaunchServices after checking archive reproducibility. It
 does not read or replace the user's general clipboard, so it is not a test of

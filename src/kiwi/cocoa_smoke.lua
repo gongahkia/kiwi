@@ -17,6 +17,8 @@ local ok, message = xpcall(function()
   second_window = Window.new(240, 180, "Kiwi Cocoa second-window smoke")
   second_context = Context.new(GLFWHost, second_window)
   require_result(Window.live_count() == 2, "Cocoa multi-window smoke did not retain both GLFW windows")
+  local tabs_ok, tabs_message = window:cocoa_window_tabs_round_trip(second_window)
+  require_result(tabs_ok, "Cocoa native window-tab smoke failed: " .. tostring(tabs_message))
 
   local clipboard_ok, clipboard_message = window:cocoa_private_clipboard_round_trip("kiwi-cocoa-private-pasteboard-✓")
   require_result(clipboard_ok, "Cocoa private pasteboard smoke failed: " .. tostring(clipboard_message))
@@ -39,6 +41,9 @@ local ok, message = xpcall(function()
   local menu_smoke, menu_smoke_message = window:cocoa_menu_invoke_smoke("new-tab")
   require_result(menu_smoke, "Cocoa menu callback bridge failed: " .. tostring(menu_smoke_message))
   require_result(#menu_actions == 1 and menu_actions[1] == "new-tab", "Cocoa menu callback bridge did not route the logical action")
+  local configuration_menu_smoke, configuration_menu_smoke_message = window:cocoa_menu_invoke_smoke("open-configuration")
+  require_result(configuration_menu_smoke, "Cocoa Settings menu callback bridge failed: " .. tostring(configuration_menu_smoke_message))
+  require_result(#menu_actions == 2 and menu_actions[2] == "open-configuration", "Cocoa Settings menu did not route the configuration action")
   local palette_actions = {}
   local palette_enabled, palette_message = window:show_cocoa_command_palette({
     { action = "reload-config", title = "Reload, safely", description = "Reload the trusted \"theme\"." },
@@ -82,7 +87,7 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, configured command-palette callback, resize=%dx%d, and two independent Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, configured command-palette callback, resize=%dx%d, and two native AppKit-tabbed Metal windows", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end

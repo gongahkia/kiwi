@@ -132,6 +132,15 @@ test("terminal_generated_response_returns_through_pty", function()
   Assert.equal(status.kind, "exit")
 end)
 
+test("terminal_private_mode_response_returns_through_pty", function()
+  local transcript, state, status = pump({ "/bin/sh", "-c", "stty -echo; printf '\\033[?1h\\033[?1$p'; IFS= read -r reply; stty echo; printf 'reply:%s' \"$reply\"" }, 8, 2, function(responses)
+    return table.concat(responses) .. "\n"
+  end)
+  Assert.truthy(transcript:find("reply:\27[?1;1$y", 1, true) ~= nil)
+  Assert.equal(state.modes.application_cursor, true)
+  Assert.equal(status.kind, "exit")
+end)
+
 test("pty_interactive_shell_accepts_input_and_exits", function()
   local pty = Pty.spawn({ "/bin/sh" }, 20, 4, { TERM = "xterm-kiwi" })
   pty:enqueue("printf 'typed-from-pty\\n'\nexit\n")

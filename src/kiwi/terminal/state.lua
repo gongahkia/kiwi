@@ -1560,10 +1560,10 @@ function State:set_tab_stop()
 end
 
 function State:clear_tab_stops(mode)
-  if mode == 3 then
-    self.tab_stops = {}
-  else
+  if mode == 0 then
     self.tab_stops[self.active_screen.cursor.column] = nil
+  elseif mode == 3 then
+    self.tab_stops = {}
   end
 end
 
@@ -2266,40 +2266,34 @@ function State:apply_private_mode(parameters, enabled)
 end
 
 function State:restorable_private_mode_value(mode)
-  local modes = self.modes
-  if mode == 1 then return modes.application_cursor
-  elseif mode == 5 then return modes.reverse_video
-  elseif mode == 6 then return modes.origin
-  elseif mode == 7 then return modes.autowrap
-  elseif mode == 12 then return modes.cursor_blink
-  elseif mode == 25 then return modes.cursor_visible
-  elseif mode == 45 then return modes.reverse_wrap
-  elseif mode == 67 then return modes.backarrow
-  elseif mode == 69 then return modes.left_right_margin
-  elseif mode == 1004 then return modes.focus_reporting
-  elseif mode == 1007 then return modes.alternate_scroll
-  elseif mode == 2004 then return modes.bracketed_paste
-  elseif mode == 2026 then return modes.synchronized_output
-  end
+  local status = self:mode_status("?", mode)
+  if status == 1 then return true end
+  if status == 2 then return false end
 end
 
 function State:save_private_modes(parameters, action)
+  local saved = {}
   for _, mode in ipairs(parameters) do
     local value = self:restorable_private_mode_value(mode)
     if value == nil then
       self:record_unknown("csi", csi_detail(action))
       return
     end
-    self.saved_private_modes[mode] = value
+    saved[mode] = value
   end
+  for mode, value in pairs(saved) do self.saved_private_modes[mode] = value end
 end
 
 function State:restore_private_modes(parameters, action)
+  local modes = {}
   for _, mode in ipairs(parameters) do
     if self:restorable_private_mode_value(mode) == nil then
       self:record_unknown("csi", csi_detail(action))
       return
     end
+    modes[#modes + 1] = mode
+  end
+  for _, mode in ipairs(modes) do
     local saved = self.saved_private_modes[mode]
     if saved ~= nil then self:apply_private_mode({ mode }, saved) end
   end
@@ -2722,6 +2716,14 @@ function State:apply_csi(action)
       self:save_private_modes(parameters, action)
     else
       self:restore_private_modes(parameters, action)
+    end
+    return
+  end
+  if action.private == "?" and action.intermediates == "" and final == "W" then
+    if #parameters == 1 and parameters[1] == 5 then
+      self:reset_tab_stops()
+    else
+      self:record_unknown("csi", csi_detail(action))
     end
     return
   end

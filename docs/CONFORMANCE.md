@@ -18,6 +18,7 @@ The deterministic corpus is under `src/tests/fixtures/vt/`. Each structured Lua 
 | alternate-and-modes | 1049 screen, cursor visibility, bracketed-paste state, DSR |
 | reverse-screen | DECSET 5 (`DECSCNM`) presentation-only reverse video and `CSI ! p` (`DECSTR`) soft reset |
 | cursor-style-and-sync | DECSCUSR, synchronized output, alternate-screen persistence |
+| xterm-reset-tab-modes | TBC/DECST8C tab lifecycle plus XTSAVE/XTRESTORE and DECRQM for the implemented private modes |
 | kitty-keyboard | Kitty keyboard query, baseline flags 1/2/8/16 plus macOS alternate-key flag 4, mode stack, alternate-screen isolation, malformed negotiation |
 | kitty-graphics | bounded direct-image APC-G transfer and chunk-boundary invariance |
 | kitty-graphics-actions | transfer, query, placement, clear, soft delete, and hard delete lifecycle |
@@ -65,7 +66,7 @@ claiming formal verification or allocator-independent memory totals.
 | scrolling | SU, SD, DECSTBM, DECLRMM/DECSLRM rectangular scrolling, IND/RI at margins | `csr`, `ind`, `ri` |
 | SGR | reset, bold/faint/italic/underline/inverse/conceal/strike, standard/bright, 256, RGB, default fg/bg; colon-form `4:n` underline styles retained as an underline | indexed `setaf`/`setab` through 256 plus direct RGB `setrgbf`/`setrgbb`, `sgr0`, `bold`, `dim`, `smul`, `rmul`, `rev`, `invis` |
 | Dynamic colours | OSC 4, 10, 11, and 12 updates/queries; OSC 104, 110, 111, and 112 reset paths | none; these are private terminal controls, not terminfo capability claims |
-| modes | IRM and LNM; DECSCNM reverse-screen video (DECSET 5) at the presentation boundary; `CSI ! p` (`DECSTR`) resets the implemented soft-reset subset; declared RQM/DECRQM queries (IRM, LNM; DECCKM, DECSCNM, DECOM, DECAWM, xterm reverse-wrap mode 45, DECBKM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); xterm one-level save/restore for the independent implemented private-mode subset (cursor/reverse-video/origin/wrap/reverse-wrap/visibility/backarrow/margins/focus/alternate-scroll/bracketed-paste/synchronized-output); DECTCEM cursor blink; DECSCUSR cursor styles; XTMODKEYS `modifyOtherKeys` levels 0–3; DECKPAM/DECKPNM keypad input; DECBKM backspace/DEL negotiation; Kitty keyboard flags 1/2/8/16 on every host and flag 4 on the macOS Cocoa route; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
+| modes | IRM and LNM; DECSCNM reverse-screen video (DECSET 5) at the presentation boundary; `CSI ! p` (`DECSTR`) resets the implemented soft-reset subset; declared RQM/DECRQM queries (IRM, LNM; DECCKM, DECSCNM, DECOM, DECAWM, xterm reverse-wrap mode 45, DECBKM, DECLRMM, DECTCEM, alternate-screen, mouse/focus, bracketed-paste, synchronized-output); transactional xterm one-level XTSAVE/XTRESTORE for every queryable implemented private mode; DECTCEM cursor blink; DECSCUSR cursor styles; XTMODKEYS `modifyOtherKeys` levels 0–3; DECKPAM/DECKPNM keypad input; DECBKM backspace/DEL negotiation; Kitty keyboard flags 1/2/8/16 on every host and flag 4 on the macOS Cocoa route; classic/UTF-8/URXVT/SGR mouse and focus reporting | `smkx`/`rmkx`, `civis`/`cnorm`; no cursor-style, bracketed-paste, synchronized-output, extended-keyboard, mouse, or focus terminfo claim |
 | screen | primary plus 47/1047/1048/1049 alternate behavior; bounded primary history | `smcup`, `rmcup` |
 | selection model | directional row-ID/cell-gap endpoints, wide-cell snapping, scrollback/resize reconciliation, local primary-button pointer gestures, alpha-highlight pass, local copy/paste, detached normalized view | not a terminfo capability |
 | scrollback search | bounded exact UTF-8 query, stable row-ID/cell ranges, current-match navigation, stale-result state, semantic current-match alpha pass | not a terminfo capability |
@@ -315,6 +316,27 @@ an unbounded damage store. The mode is global across primary/alternate screen
 switches, is replayed deterministically, suppresses cursor-blink scheduling,
 and has no terminfo advertisement.
 
+## Tab stops and private-mode persistence
+
+Kiwi implements horizontal tabulation (`HT`, `CSI Ps I`, and `CSI Ps Z`),
+`ESC H` tab-stop set, and xterm's `CSI ? 5 W` (`DECST8C`) default-stop reset.
+Default stops are every eight columns beginning at column nine in one-origin
+notation. `CSI g`/`CSI 0 g` clears the current stop and `CSI 3 g` clears all
+stops; the other TBC parameter values are ignored as xterm does. Kiwi resets
+the default stop set during construction, RIS/full state reset, and terminal
+resize. These controls are terminal state, not a separate terminfo promise.
+
+`CSI ? Pm s` (`XTSAVE`) and `CSI ? Pm r` (`XTRESTORE`) retain one value per
+queryable implemented DEC private mode. Saving validates the complete request
+before replacing any retained value; restoring validates the complete request,
+then applies retained modes in parameter order. This prevents a malformed
+multi-mode request from partially changing Kiwi's saved-mode cache or current
+state. The supported values are exactly the private modes that Kiwi reports
+through `DECRQM`; `1048` cursor saving is intentionally excluded because it is
+a cursor operation rather than a boolean mode. RIS clears the saved-mode cache.
+This does not imply support for unimplemented DEC modes or a general xterm
+private-mode surface.
+
 ## Read-only geometry queries
 
 Kiwi answers xterm window-operation queries `CSI 14 t`, `CSI 16 t`, and
@@ -459,7 +481,7 @@ fidelity or general application compatibility.
 | Native shell history | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/history.jsonl -- ./script/shell-integration-history-child'`; `make replay REPLAY=<temporary>/history.jsonl` | Passed structurally on 2026-08-10: the 773-byte 12-command OSC 7/133 stream replayed with 382 actions and zero parser errors, ignored actions, or unknown controls; the derived model retained 12 completed regions. The noninteractive child verifies Kiwi's native retention/replay path without changing or certifying a user's shell integration configuration. |
 | Native RGB TUI | `KIWI_MAX_FRAMES=180 make run ARGS='--record <temporary>/btop.jsonl -- /usr/bin/btop'`; replay the capture with `REPLAY_ARGS=--chunk-invariant` | Btop 1.4.7 previously replayed 489,890 bytes / 127,434 actions with zero parser errors, ignored actions, or unknown CSI/ESC/OSC/string controls. Re-run it under `TERM=xterm-kiwi` before treating it as qualification of the promoted contract. It remains application-stream evidence, not a physical truecolour or general-TUI compatibility certification. |
 | Native real TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/top.jsonl -- /usr/bin/top -l 1 -s 0'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/top.jsonl` | Passed on macOS arm64 on 2026-08-22: the most recent `/usr/bin/top` run replayed 136,235 bytes / 136,235 actions with zero errors, ignored actions, or unknown controls under captured, one-byte, and eight randomized output chunk layouts. Byte/action totals vary with the host process table. This is not a visual-fidelity or full-TUI certification. Linux uses its documented `top -b -n 1 -d 0.1` form. |
-| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vt.jsonl` | Passed on macOS arm64 on 2026-08-22: clear/home, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions replayed 317 bytes / 170 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. It is an automated vttest-style sequence, not the external `vttest` program or a visual certification. |
+| Native VT exercise | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vt.jsonl -- ./script/vttest-style-child'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vt.jsonl` | Passed on macOS arm64 on 2026-08-23: clear/home, tab clear/reset, XTSAVE/XTRESTORE plus DECRQM replies, standard/indexed/RGB SGR, scrolling margins, alternate screen, cursor visibility/style, synchronized output, Kitty keyboard negotiation, and mouse/focus mode transitions replayed 479 bytes / 185 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. It is an automated vttest-style sequence, not the external `vttest` program or a visual certification. |
 | Native Kitty graphics | `make kitty-graphics-smoke`; `make kitty-animation-smoke`; or `make conformance-evidence` | The self-contained direct-PNG client passed on macOS arm64 on 2026-08-22: 163,033 bytes / 218 actions replayed with zero parser errors/ignored/unknown controls under all recorded chunk layouts, and GPU timestamp output contained both `terminal/kitty_images_under` and `terminal/kitty_images_over`. The GIF/APNG playback smoke is a separate bounded native check. These verify selected Kiwi protocol streams and pass dispatch, not broad Kitty-client compatibility or pixel-perfect screenshot comparison. |
 | Native mouse TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/vim.jsonl -- /usr/bin/vim -Nu NONE -n -c "set ttym=sgr" -c "set mouse=a" -c "redraw!" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/vim.jsonl` | Passed on macOS arm64 with Vim 9.1 on 2026-08-22: its startup emitted XTMODKEYS, DECTCEM, XTWINOPS title-stack, SGR mouse, and button-event controls; 5,420 bytes / 4,916 actions replayed with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves startup-protocol handling, not interactive pointer or modified-key usability. |
 | Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /opt/homebrew/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/nvim.jsonl` | Passed on macOS arm64 with Neovim 0.12.4 on 2026-08-22: it emitted the Kitty query `CSI ? u`, a valid progressive-enhancement set `CSI > 3 u`, and `CSI < u`; the most recent run replayed 5,231 bytes / 4,886 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves negotiated mode handling, not physical-key usability. |

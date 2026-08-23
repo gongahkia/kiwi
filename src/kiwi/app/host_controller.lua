@@ -182,7 +182,10 @@ function Controller.run(window, host, options)
   local glfw = host.keymap
   local system_appearance = host.system_appearance and host.system_appearance(window) or nil
   local function load_configuration()
-    return Config.load(options.config, nil, { appearance = system_appearance })
+    return Config.load(options.config, nil, {
+      appearance = system_appearance,
+      command_line_overrides = options.configuration_overrides,
+    })
   end
   local configuration, configuration_path = load_configuration()
   local product_actions = ProductActions.new(configuration.keybindings, glfw)
@@ -839,6 +842,30 @@ function Controller.run(window, host, options)
         if not opened then io.stderr:write("Kiwi new-window request rejected: ", reason or "unavailable", "\n") end
         return true
       end
+      if product_action == "open-configuration" then
+        if type(host.open_text_file) ~= "function" then
+          io.stderr:write("Kiwi configuration opener unavailable: this host has no text-file opener\n")
+          return true
+        end
+        local configuration_api = require("kiwi.config")
+        local path = configuration_api.edit_path(options.config, configuration_path, nil, host.platform)
+        if path == nil then
+          io.stderr:write("Kiwi configuration opener unavailable: no default configuration path\n")
+          return true
+        end
+        if configuration_path == nil then
+          local initialized, reason = require("kiwi.platform.filesystem").ensure_new_file(path, configuration_api.edit_template)
+          if not initialized then
+            io.stderr:write("Kiwi configuration initialization rejected: ", reason or "unknown error", "\n")
+            return true
+          end
+          configuration_path = path
+          configuration.path = path
+        end
+        local opened, reason = host.open_text_file(window, path)
+        if not opened then io.stderr:write("Kiwi configuration opener rejected: ", reason or "unknown error", "\n") end
+        return true
+      end
       if product_action == "move-session-new-window" or product_action == "move-session-next-window" then
         if options.session_move_smoke_requester then active_session.session_move_smoke_source_id = options.controller_id end
         local moved, reason
@@ -883,10 +910,11 @@ function Controller.run(window, host, options)
     end
 
     local function handle_workspace_key(key, action, modifiers)
-      if action ~= glfw.press or bit.band(state.modes.keyboard_flags, 8) ~= 0 then
+      if bit.band(state.modes.keyboard_flags, 8) ~= 0 then
         product_actions:reset_sequence()
         return false
       end
+      if action ~= glfw.press then return false end
       local product_action, sequence_status = product_actions:lookup(key, modifiers, window:time())
       return product_action ~= nil and handle_product_action(product_action)
         or sequence_status == "pending"
@@ -1045,6 +1073,7 @@ function Controller.run(window, host, options)
     end, function(focused)
       window_focused = focused
       if not focused then
+        product_actions:reset_sequence()
         selection_pointer:reset()
         state.ime_preedit = nil
         composition:leave()
@@ -1092,6 +1121,15 @@ function Controller.run(window, host, options)
     if options.session_move_smoke_requester then
       assert(handle_workspace_key(string.byte("M"), glfw.press, glfw.mod_control + glfw.mod_shift))
     end
+    if options.key_sequence_smoke then
+      local tabs_before = workspace:tab_count()
+      assert(handle_workspace_key(string.byte("A"), glfw.press, glfw.mod_control), "key-sequence smoke did not consume the configured prefix")
+      assert(workspace:tab_count() == tabs_before, "key-sequence smoke ran an action before the sequence completed")
+      assert(not handle_workspace_key(string.byte("A"), glfw.release, glfw.mod_control), "key-sequence smoke treated a key release as a workspace action")
+      assert(handle_workspace_key(string.byte("N"), glfw.press, 0), "key-sequence smoke did not complete the configured sequence")
+      assert(workspace:tab_count() == tabs_before + 1, "key-sequence smoke did not create a tab through the live controller")
+      options.application.key_sequence_smoke_reported = true
+    end
 
     local child_label = options.moved_session and "moved-session" or options.command and options.command[1] or Pty.default_command()[1]
     io.stdout:write(string.format("Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=%s grid=%dx%d primary=%s\n", child_label, columns, rows, font.font_path))
@@ -1103,6 +1141,9 @@ function Controller.run(window, host, options)
     end
     if options.palette_smoke and options.application.palette_smoke_reported then
       io.stdout:write("Kiwi native command-palette smoke passed: a searchable palette selected New Tab through the live workspace controller.\n")
+    end
+    if options.key_sequence_smoke and options.application.key_sequence_smoke_reported then
+      io.stdout:write("Kiwi key-sequence smoke passed: a press/release prefix created a tab through the live workspace controller.\n")
     end
     while not window:should_close() do
       local now = window:time()
@@ -1230,6 +1271,9 @@ function Controller.run(window, host, options)
 
       do
         local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
+        local drawable_width, drawable_height = window:drawable_size()
+        local surface_size_changed = drawable_width > 0 and drawable_height > 0
+          and (drawable_width ~= context.width or drawable_height ~= context.height)
         local previous_font
         if scale_changed then
           previous_font = font
@@ -1245,7 +1289,7 @@ function Controller.run(window, host, options)
           end
         end
         local new_columns, new_rows = dimensions(window, font)
-        if window.resized and not context:configure_surface() then
+        if (window.resized or surface_size_changed) and not context:configure_surface() then
           if previous_font then
             previous_font:destroy()
             previous_font = nil

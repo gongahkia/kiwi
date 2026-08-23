@@ -95,6 +95,7 @@ enum {
   KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW = 10,
   KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW = 11,
   KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE = 12,
+  KIWI_GTK_PRODUCT_ACTION_OPEN_CONFIGURATION = 13,
 };
 
 enum {
@@ -125,6 +126,7 @@ static const KiwiGtkProductAction kiwi_gtk_product_actions[] = {
   { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW, "duplicate-session-new-window" },
   { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW, "duplicate-session-next-window" },
   { KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE, "command-palette" },
+  { KIWI_GTK_PRODUCT_ACTION_OPEN_CONFIGURATION, "open-configuration" },
 };
 
 static const KiwiGtkProductAction *kiwi_gtk_product_action(uint32_t identifier) {
@@ -616,6 +618,7 @@ static void kiwi_gtk_install_product_menu(GtkApplication *application) {
   g_menu_append(file, "New Tab", "win.new-tab");
   g_menu_append(file, "New Window", "win.new-window");
   g_menu_append(file, "Command Palette", "win.command-palette");
+  g_menu_append(file, "Settings", "win.open-configuration");
   g_menu_append(file, "Reload Configuration", "win.reload-config");
   g_menu_append_submenu(menubar, "File", G_MENU_MODEL(file));
   g_menu_append(window, "Next Tab", "win.next-tab");
@@ -1093,6 +1096,21 @@ int kiwi_gtk_host_open_uri(KiwiGtkHost *host, const char *uri) {
   gboolean opened = g_app_info_launch_default_for_uri(uri, NULL, &error);
   if (!opened) {
     kiwi_gtk_set_error(error == NULL ? "could not open URI" : error->message);
+    if (error != NULL) g_error_free(error);
+  }
+  return opened ? 1 : 0;
+}
+
+int kiwi_gtk_host_open_text_file(KiwiGtkHost *host, const char *path) {
+  if (host == NULL || path == NULL || path[0] == '\0') return 0;
+  GFile *file = g_file_new_for_path(path);
+  char *uri = g_file_get_uri(file);
+  GError *error = NULL;
+  gboolean opened = g_app_info_launch_default_for_uri(uri, NULL, &error);
+  g_free(uri);
+  g_object_unref(file);
+  if (!opened) {
+    kiwi_gtk_set_error(error == NULL ? "could not open text file" : error->message);
     if (error != NULL) g_error_free(error);
   }
   return opened ? 1 : 0;
