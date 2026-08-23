@@ -10,9 +10,9 @@ return {
       created = created + 1
       controller_options[created] = options
       local window = { id = created }
-      if created == 1 then assert(options.application:request_window()) end
+      if created == 1 then assert(options.application:request_window(nil, true)) end
       options.application:await_events(window, 0.001)
-    end, { multi_window_smoke = true }, {
+    end, { menu_smoke = true, multi_window_smoke = true }, {
       window_api = {
         poll_events_for = function(windows)
           polls = polls + 1
@@ -29,6 +29,8 @@ return {
     assert(created == 2, "new window did not receive a manager-owned controller")
     assert(controller_options[1].multi_window_smoke_requester == true, "the initial controller should own the smoke request")
     assert(controller_options[2].multi_window_smoke_requester == false, "new controllers must not recursively request windows")
+    assert(controller_options[2].menu_smoke == false, "new controllers must not repeat one-shot smoke actions")
+    assert(controller_options[2].native_window_tab == true, "native-tab requests must retain their explicit host intent")
     assert(waits == 2 and polls == 2, "each controller turn should share one platform event wait and poll")
     assert(manager:window_count() == 0, "ended controllers must leave the manager")
   end,
@@ -46,6 +48,12 @@ return {
     assert(limited_manager:request_window())
     local limited, limited_reason = limited_manager:request_window()
     assert(limited == nil and limited_reason == "window-limit")
+  end,
+
+  live_window_manager_marks_explicit_new_windows_as_separate_native_windows = function()
+    local manager = Manager.new(function() end, {})
+    assert(manager:request_window())
+    assert(manager.controllers[1].options.native_window_tab == false)
   end,
 
   live_window_manager_transfers_live_sessions_transactionally_and_persists_topology = function()

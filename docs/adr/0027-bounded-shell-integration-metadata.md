@@ -15,13 +15,18 @@ behavior.
 passes OSC 7 and OSC 133 payloads to `terminal/state.lua`, which owns one
 bounded `terminal/shell_integration.lua` model. The model is present whether
 or not a shell emits integration sequences; absent metadata has no effect on
-text, cursor, input, process handling, or presentation.
+text, cursor, input, or process handling. The macOS host has one explicitly
+bounded presentation use described below.
 
 - OSC 7 accepts only an ASCII, valid-UTF-8, control/space/NUL-free `file://`
   URI of at most 2,048 bytes, with an optional host and an absolute path. It preserves
   the accepted URI as advisory current-directory metadata; it does not
-  percent-decode, normalize, resolve, open, stat, display, or otherwise trust
-  the host or path. Query and fragment components are rejected.
+  percent-decode, normalize, resolve, open, or stat the host or path. Query
+  and fragment components are rejected. The macOS Cocoa host may pass an
+  active-session URI to `NSWindow.representedURL` only when its authority is
+  empty, `localhost`, the current hostname, or that hostname's first label;
+  remote and absent metadata clear the property. Kiwi itself does not open the
+  URL or establish that it exists.
 - OSC 133 accepts `A`, `B`, `C`, `D`, and `D;<0..255>`, terminated by BEL or
   ST. They become `prompt`, `command_start`, `command_executed`, and
   `command_finished` records; only the latter may carry an exit status. Each
@@ -40,15 +45,17 @@ text, cursor, input, process handling, or presentation.
   to an evicted directory ID rather than keeping a second unbounded path copy.
 - Canonical snapshots contain only current-directory ID and opaque event data,
   never the directory URI, host, or path. No renderer resource, diagnostics,
-  native bridge, input binding, shell setup script, or user interface exposes
-  this metadata in this milestone.
+  input binding, or shell setup script exposes this metadata. The narrowly
+  scoped macOS titlebar proxy is the sole native presentation bridge.
 
 ## Consequences
 
 The model gives later lifecycle work stable terminal anchors without parsing
 arbitrary prompt text or imposing a shell integration requirement on ordinary
-terminal sessions. A remote or malformed URI cannot cause local file access or
-an external action because it remains terminal-state data only.
+terminal sessions. A remote or malformed URI cannot become a local titlebar
+proxy URL. A local-looking URI can provide the native proxy affordance but
+cannot cause Kiwi to access or automatically open the path; Finder disclosure,
+if offered by AppKit, remains a user action and manual qualification item.
 
 The deterministic fixture uses OSC 7 and the OSC 133 A/B/C/D sequence emitted
 by common bash, zsh, fish, and Nushell integrations, with both BEL and ST termination.

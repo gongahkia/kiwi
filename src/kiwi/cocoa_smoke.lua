@@ -19,6 +19,8 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 2, "Cocoa multi-window smoke did not retain both GLFW windows")
   local tabs_ok, tabs_message = window:cocoa_window_tabs_round_trip(second_window)
   require_result(tabs_ok, "Cocoa native window-tab smoke failed: " .. tostring(tabs_message))
+  local selected_next, selected_next_message = window:cocoa_select_next_window_tab()
+  require_result(selected_next, "Cocoa native window-tab selection smoke failed: " .. tostring(selected_next_message))
 
   local clipboard_ok, clipboard_message = window:cocoa_private_clipboard_round_trip("kiwi-cocoa-private-pasteboard-✓")
   require_result(clipboard_ok, "Cocoa private pasteboard smoke failed: " .. tostring(clipboard_message))
@@ -33,6 +35,8 @@ local ok, message = xpcall(function()
   require_result(progress_handled and progress_status == "submitted", "Cocoa terminal-progress host policy did not submit the native request")
   local progress_smoke, progress_smoke_message = window:cocoa_progress_round_trip()
   require_result(progress_smoke, "Cocoa terminal-progress smoke failed: " .. tostring(progress_smoke_message))
+  local directory_smoke, directory_smoke_message = window:cocoa_directory_round_trip()
+  require_result(directory_smoke, "Cocoa proxy URL smoke failed: " .. tostring(directory_smoke_message))
   local menu_actions = {}
   local menu_enabled, menu_message = window:enable_cocoa_menu(function(action)
     menu_actions[#menu_actions + 1] = action
@@ -87,7 +91,7 @@ local ok, message = xpcall(function()
   require_result(Window.live_count() == 1, "Cocoa multi-window smoke terminated GLFW while the primary window remained live")
   require_result(context:configure_surface(), "Cocoa primary surface stopped working after the second window closed")
 
-  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, configured command-palette callback, resize=%dx%d, and two native AppKit-tabbed Metal windows", resized_width, resized_height))
+  print(string.format("Cocoa native smoke passed: private-pasteboard, NSAccessibility projection, NSTextInputClient marked/commit/candidate geometry, current-layout Kitty key variants, local proxy URL, configured command-palette callback, resize=%dx%d, and two native AppKit-tabbed Metal windows", resized_width, resized_height))
 end, debug.traceback)
 
 if second_context then second_context:destroy() end

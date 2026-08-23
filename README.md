@@ -159,7 +159,10 @@ make key-sequence-smoke                 # configured multi-key action through th
 make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
 make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
 make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
+make cocoa-toolbar-smoke                # macOS unified titlebar-toolbar action through the live controller
+make cocoa-cwd-smoke                    # macOS active local/remote OSC 7 titlebar proxy-URL lifecycle
 make cocoa-palette-smoke                # macOS searchable native command-palette callback smoke
+make cocoa-automation-smoke             # macOS staged-bundle bounded Apple-event action smoke
 make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
 make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
@@ -325,13 +328,16 @@ uses `TERM=xterm-256color`; see
 
 OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
 parsed into bounded replayable facts and an opaque prompt/command/output
-lifecycle when a cooperative shell emits them. The initial default Bash, Zsh,
-fish, or Nushell shell receives Kiwi's reversible versioned asset automatically; manual
-source blocks remain available for switched shells and explicit-command
-launches, where they require `KIWI_SHELL_INTEGRATION=1`. Neither route enables
-path access, command execution, durable cross-session persistence, a renderer
-resource, diagnostics output, or a UI. Opaque row associations move through
-bounded scrollback and degrade explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
+lifecycle when a cooperative shell emits them. On macOS, the active session's
+empty, `localhost`, or current-host OSC 7 authority also supplies the titlebar
+proxy URL; remote or absent metadata clears it. Kiwi does not stat, resolve, or
+automatically open that URL. The initial default Bash, Zsh, fish, or Nushell
+shell receives Kiwi's reversible versioned asset automatically; manual source
+blocks remain available for switched shells and explicit-command launches,
+where they require `KIWI_SHELL_INTEGRATION=1`. Neither route enables command
+execution, durable cross-session persistence, a renderer resource, or
+diagnostics output. Opaque row associations move through bounded scrollback and
+degrade explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
 [ADR 0027](docs/adr/0027-bounded-shell-integration-metadata.md),
 [ADR 0028](docs/adr/0028-stable-command-region-lifecycle.md), and
 [ADR 0029](docs/adr/0029-command-region-retention-and-snapshot-boundary.md).

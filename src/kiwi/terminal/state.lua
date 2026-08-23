@@ -1686,7 +1686,9 @@ function State:reset()
   self.saved_private_modes = {}
   self:reset_tab_stops()
   self.scrollback:clear()
+  local had_current_directory = self.shell.current_directory ~= nil
   self.shell:clear()
+  if had_current_directory then self:emit_effect("pwd_changed", { cleared = true }) end
   self.command_regions:clear()
   self.command_region_navigation = nil
   self.hyperlinks = {}

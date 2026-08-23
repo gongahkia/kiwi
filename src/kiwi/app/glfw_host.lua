@@ -8,17 +8,26 @@ local glfw = require("kiwi.ffi.glfw").constants
 local Host = {
   keymap = glfw,
   keyboard_supported_flags = ffi.os == "OSX" and 0x1f or 0x1b,
+  native_window_tabs = ffi.os == "OSX",
   platform = ffi.os,
 }
 
 function Host.new(geometry, title, options)
   options = options or {}
-  return Window.new(
+  local window = Window.new(
     geometry and geometry.width or 1600,
     geometry and geometry.height or 960,
     title,
     { release_mode = options.release_mode }
   )
+  if ffi.os == "OSX" and options.native_window_tab ~= nil then
+    local configured, reason = window:cocoa_set_window_tab_grouping(options.native_window_tab)
+    if not configured then
+      window:destroy()
+      error("Unable to configure Cocoa window tabs: " .. tostring(reason))
+    end
+  end
+  return window
 end
 
 function Host.await_events(application, window, timeout)
@@ -66,6 +75,18 @@ end
 if ffi.os == "OSX" then
   function Host.set_progress(window, progress, state)
     return window:cocoa_set_progress(progress, state)
+  end
+
+  function Host.set_represented_directory(window, uri)
+    return window:cocoa_set_represented_directory(uri)
+  end
+
+  function Host.represented_directory_matches(window, path)
+    return window:cocoa_represented_directory_matches(path)
+  end
+
+  function Host.select_next_window_tab(window)
+    return window:cocoa_select_next_window_tab()
   end
 
   function Host.set_product_action_handler(window, handler)

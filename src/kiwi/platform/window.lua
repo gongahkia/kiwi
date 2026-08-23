@@ -23,10 +23,15 @@ int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* 
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_toolbar_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_window_set_represented_directory(void* window, const char* uri);
+int kiwi_cocoa_window_directory_round_trip(void* window);
+int kiwi_cocoa_window_represented_directory_matches(void* window, const char* path);
 int kiwi_cocoa_automation_install(void* window, KiwiCocoaAutomationCallback callback, void* userdata);
 void kiwi_cocoa_automation_remove(void* window);
 int kiwi_cocoa_automation_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_window_set_tab_grouping(void* window, int grouped);
 int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
+int kiwi_cocoa_window_select_next_tab(void* window);
 void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_command_palette_remove(void* window);
@@ -341,6 +346,26 @@ function Window:cocoa_toolbar_invoke_smoke(action)
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:cocoa_set_represented_directory(uri)
+  if ffi.os ~= "OSX" then return nil, "Cocoa proxy URLs are unavailable on this platform" end
+  assert(uri == nil or (type(uri) == "string" and #uri <= 2048), "Cocoa proxy URL needs a bounded URI")
+  if native.kiwi_cocoa_window_set_represented_directory(self.handle, uri) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_directory_round_trip()
+  if ffi.os ~= "OSX" then return nil, "Cocoa proxy URLs are unavailable on this platform" end
+  if native.kiwi_cocoa_window_directory_round_trip(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_represented_directory_matches(path)
+  if ffi.os ~= "OSX" then return nil, "Cocoa proxy URLs are unavailable on this platform" end
+  assert(path == nil or (type(path) == "string" and path:sub(1, 1) == "/"), "Cocoa proxy URL matching needs an absolute path")
+  if native.kiwi_cocoa_window_represented_directory_matches(self.handle, path) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:enable_cocoa_automation(handler)
   if ffi.os ~= "OSX" then return nil, "Cocoa automation is unavailable on this platform" end
   assert(type(handler) == "function", "Cocoa automation needs an action handler")
@@ -384,6 +409,19 @@ function Window:cocoa_window_tabs_round_trip(peer)
   if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
   if type(peer) ~= "table" or peer.handle == nil then return nil, "Cocoa window-tab smoke needs a live peer window" end
   if native.kiwi_cocoa_window_tabs_round_trip(self.handle, peer.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_set_window_tab_grouping(grouped)
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  assert(type(grouped) == "boolean", "Cocoa window-tab grouping needs a boolean")
+  if native.kiwi_cocoa_window_set_tab_grouping(self.handle, grouped and 1 or 0) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_select_next_window_tab()
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  if native.kiwi_cocoa_window_select_next_tab(self.handle) ~= 0 then return true end
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
