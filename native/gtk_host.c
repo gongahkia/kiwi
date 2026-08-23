@@ -38,7 +38,7 @@ typedef struct KiwiGtkCallbacks {
 } KiwiGtkCallbacks;
 
 typedef struct _KiwiGtkTerminal {
-  GtkDrawingArea parent_instance;
+  GtkOverlay parent_instance;
   char *text;
   guint character_count;
   guint caret_offset;
@@ -47,7 +47,7 @@ typedef struct _KiwiGtkTerminal {
 } KiwiGtkTerminal;
 
 typedef struct _KiwiGtkTerminalClass {
-  GtkDrawingAreaClass parent_class;
+  GtkOverlayClass parent_class;
 } KiwiGtkTerminalClass;
 
 #define KIWI_TYPE_GTK_TERMINAL (kiwi_gtk_terminal_get_type())
@@ -62,6 +62,10 @@ struct KiwiGtkHost {
   KiwiGtkCallbacks callbacks;
   GdkSurface *surface;
   GtkIMContext *im_context;
+  GtkGLArea *gl_area;
+  uint64_t gl_area_context_generation;
+  uint64_t gl_area_rendered_frames;
+  int gl_area_realized;
   KiwiGtkProductActionCallback product_action;
   void *product_action_userdata;
   KiwiGtkCommandPalette *command_palette;
@@ -144,7 +148,7 @@ static const KiwiGtkProductAction *kiwi_gtk_product_action_named(const char *nam
   return NULL;
 }
 
-G_DEFINE_TYPE_WITH_CODE(KiwiGtkTerminal, kiwi_gtk_terminal, GTK_TYPE_DRAWING_AREA,
+G_DEFINE_TYPE_WITH_CODE(KiwiGtkTerminal, kiwi_gtk_terminal, GTK_TYPE_OVERLAY,
                         G_IMPLEMENT_INTERFACE(GTK_TYPE_ACCESSIBLE_TEXT,
                                               kiwi_gtk_terminal_accessible_text_init))
 
@@ -909,6 +913,83 @@ static gboolean kiwi_gtk_scroll(GtkEventControllerScroll *controller, double dx,
   KiwiGtkHost *host = userdata;
   if (host->callbacks.pointer != NULL) host->callbacks.pointer(host->callbacks.userdata, KIWI_GTK_POINTER_SCROLL, 0.0, 0.0, dx, dy, 0, 0, 0);
   return TRUE;
+}
+
+static void kiwi_gtk_gl_area_realize(GtkGLArea *area, gpointer userdata) {
+  KiwiGtkHost *host = userdata;
+  gtk_gl_area_make_current(area);
+  if (gtk_gl_area_get_error(area) != NULL) {
+    host->gl_area_realized = 0;
+    kiwi_gtk_set_error(gtk_gl_area_get_error(area)->message);
+    return;
+  }
+  host->gl_area_context_generation += 1;
+  host->gl_area_realized = 1;
+}
+
+static void kiwi_gtk_gl_area_unrealize(GtkGLArea *area, gpointer userdata) {
+  (void)area;
+  KiwiGtkHost *host = userdata;
+  host->gl_area_realized = 0;
+}
+
+static gboolean kiwi_gtk_gl_area_render(GtkGLArea *area, GdkGLContext *context,
+                                        gpointer userdata) {
+  (void)context;
+  KiwiGtkHost *host = userdata;
+  gtk_gl_area_make_current(area);
+  if (gtk_gl_area_get_error(area) != NULL) {
+    host->gl_area_realized = 0;
+    kiwi_gtk_set_error(gtk_gl_area_get_error(area)->message);
+    return FALSE;
+  }
+  host->gl_area_rendered_frames += 1;
+  return TRUE;
+}
+
+int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost *host) {
+  if (host == NULL || host->content == NULL) {
+    kiwi_gtk_set_error("GTK GL area probe needs a live terminal root");
+    return 0;
+  }
+  if (host->gl_area != NULL) return 1;
+  GtkWidget *area = gtk_gl_area_new();
+  gtk_gl_area_set_auto_render(GTK_GL_AREA(area), FALSE);
+  gtk_gl_area_set_has_depth_buffer(GTK_GL_AREA(area), FALSE);
+  gtk_gl_area_set_has_stencil_buffer(GTK_GL_AREA(area), FALSE);
+  gtk_widget_set_hexpand(area, TRUE);
+  gtk_widget_set_vexpand(area, TRUE);
+  g_signal_connect(area, "realize", G_CALLBACK(kiwi_gtk_gl_area_realize), host);
+  g_signal_connect(area, "unrealize", G_CALLBACK(kiwi_gtk_gl_area_unrealize), host);
+  g_signal_connect(area, "render", G_CALLBACK(kiwi_gtk_gl_area_render), host);
+  host->gl_area = GTK_GL_AREA(area);
+  gtk_overlay_add_overlay(GTK_OVERLAY(host->content), area);
+  gtk_gl_area_queue_render(host->gl_area);
+  return 1;
+}
+
+int kiwi_gtk_host_request_gl_area_render(KiwiGtkHost *host) {
+  if (host == NULL || host->gl_area == NULL) {
+    kiwi_gtk_set_error("GTK GL area render needs an enabled probe");
+    return 0;
+  }
+  gtk_gl_area_queue_render(host->gl_area);
+  return 1;
+}
+
+int kiwi_gtk_host_gl_area_state(const KiwiGtkHost *host,
+                                uint64_t *context_generation,
+                                uint64_t *rendered_frames,
+                                int *realized) {
+  if (host == NULL || host->gl_area == NULL || context_generation == NULL ||
+      rendered_frames == NULL || realized == NULL) {
+    kiwi_gtk_set_error("GTK GL area state needs an enabled probe and destinations");
+    return 0;
+  }
+  *context_generation = host->gl_area_context_generation;
+  *rendered_frames = host->gl_area_rendered_frames;
+  *realized = host->gl_area_realized;
+  return 1;
 }
 
 KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height, const char *title, const KiwiGtkCallbacks *callbacks) {

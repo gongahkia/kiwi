@@ -43,6 +43,9 @@ void* kiwi_gtk_host_create_surface(void* instance, KiwiGtkHost* host);
 int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t height);
 int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
 int kiwi_gtk_host_system_appearance(const KiwiGtkHost* host);
+int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost* host);
+int kiwi_gtk_host_request_gl_area_render(KiwiGtkHost* host);
+int kiwi_gtk_host_gl_area_state(const KiwiGtkHost* host, uint64_t* context_generation, uint64_t* rendered_frames, int* realized);
 int kiwi_gtk_host_text_input_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost* host);
 int kiwi_gtk_host_accessibility_update(KiwiGtkHost* host, const char* text, size_t text_bytes, uint32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char* title);
@@ -289,6 +292,30 @@ function Window:system_appearance()
   if value == 1 then return "dark" end
   if value == 0 then return "light" end
   return nil
+end
+
+function Window:enable_gl_area_probe()
+  if native.kiwi_gtk_host_enable_gl_area_probe(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:request_gl_area_render()
+  if native.kiwi_gtk_host_request_gl_area_render(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:gl_area_state()
+  local context_generation = ffi.new("uint64_t[1]")
+  local rendered_frames = ffi.new("uint64_t[1]")
+  local realized = ffi.new("int[1]")
+  if native.kiwi_gtk_host_gl_area_state(self.handle, context_generation, rendered_frames, realized) == 0 then
+    return nil, ffi.string(native.kiwi_gtk_host_last_error())
+  end
+  return {
+    context_generation = tonumber(context_generation[0]),
+    realized = realized[0] ~= 0,
+    rendered_frames = tonumber(rendered_frames[0]),
+  }
 end
 
 function Window:text_input_inject_smoke()
