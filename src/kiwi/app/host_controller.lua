@@ -892,6 +892,14 @@ function Controller.run(window, host, options)
       assert(workspace:tab_count() == tabs_before + 1, "native product-menu smoke did not create a tab through the host controller")
       options.application.menu_smoke_reported = true
     end
+    if options.toolbar_smoke then
+      assert(product_action_handler_enabled and host.invoke_toolbar_action_smoke, "--toolbar-smoke needs the native titlebar toolbar bridge")
+      local tabs_before = workspace:tab_count()
+      local invoked, reason = host.invoke_toolbar_action_smoke(window, "new-tab")
+      assert(invoked, "native toolbar smoke could not invoke New Tab: " .. tostring(reason))
+      assert(workspace:tab_count() == tabs_before + 1, "native toolbar smoke did not create a tab through the live workspace controller")
+      options.application.toolbar_smoke_reported = true
+    end
     if options.automation_smoke then
       assert(automation_action_handler_enabled and host.invoke_automation_action_smoke, "--automation-smoke needs the native Apple-event action bridge")
       local tabs_before = workspace:tab_count()
@@ -1103,6 +1111,9 @@ function Controller.run(window, host, options)
     end
     if options.menu_smoke and options.application.menu_smoke_reported then
       io.stdout:write("Kiwi native product-menu smoke passed: New Tab reached the live workspace controller through the native menu bridge.\n")
+    end
+    if options.toolbar_smoke and options.application.toolbar_smoke_reported then
+      io.stdout:write("Kiwi native titlebar-toolbar smoke passed: New Tab reached the live workspace controller through an AppKit toolbar item.\n")
     end
     if options.palette_smoke and options.application.palette_smoke_reported then
       io.stdout:write("Kiwi native command-palette smoke passed: a searchable palette selected New Tab through the live workspace controller.\n")
