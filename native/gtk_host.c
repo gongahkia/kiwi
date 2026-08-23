@@ -3,6 +3,7 @@
 #include <gdk/x11/gdkx.h>
 #include <webgpu/webgpu.h>
 #include <viewporter-client-protocol.h>
+#include "gtk_gl_renderer.h"
 #include "kiwi_render_model.h"
 
 #include <stdint.h>
@@ -64,6 +65,7 @@ struct KiwiGtkHost {
   GdkSurface *surface;
   GtkIMContext *im_context;
   GtkGLArea *gl_area;
+  KiwiGtkGlRenderer *gl_renderer;
   uint64_t gl_area_context_generation;
   uint64_t gl_area_rendered_frames;
   int gl_area_realized;
@@ -955,9 +957,6 @@ int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost *host) {
   }
   if (host->gl_area != NULL) return 1;
   GtkWidget *area = gtk_gl_area_new();
-  gtk_gl_area_set_auto_render(GTK_GL_AREA(area), FALSE);
-  gtk_gl_area_set_has_depth_buffer(GTK_GL_AREA(area), FALSE);
-  gtk_gl_area_set_has_stencil_buffer(GTK_GL_AREA(area), FALSE);
   gtk_widget_set_hexpand(area, TRUE);
   gtk_widget_set_vexpand(area, TRUE);
   g_signal_connect(area, "realize", G_CALLBACK(kiwi_gtk_gl_area_realize), host);
@@ -965,7 +964,33 @@ int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost *host) {
   g_signal_connect(area, "render", G_CALLBACK(kiwi_gtk_gl_area_render), host);
   host->gl_area = GTK_GL_AREA(area);
   gtk_overlay_add_overlay(GTK_OVERLAY(host->content), area);
-  gtk_gl_area_queue_render(host->gl_area);
+  host->gl_renderer = kiwi_gtk_gl_renderer_new(host->gl_area);
+  if (host->gl_renderer == NULL) {
+    kiwi_gtk_set_error("GTK GL renderer could not be constructed");
+    gtk_widget_unparent(area);
+    host->gl_area = NULL;
+    return 0;
+  }
+  KiwiGlyphInstance cell = {0};
+  cell.bg = UINT32_C(0xff12ab34);
+  KiwiFrameUniform frame = {0};
+  frame.columns = 1;
+  frame.rows = 1;
+  KiwiGtkGlFrame snapshot = {
+      .render_model_version = KIWI_RENDER_MODEL_VERSION,
+      .revision = 1,
+      .cells = &cell,
+      .cell_count = 1,
+      .frame = &frame,
+  };
+  if (!kiwi_gtk_gl_renderer_submit(host->gl_renderer, &snapshot)) {
+    kiwi_gtk_set_error(kiwi_gtk_gl_renderer_last_error(host->gl_renderer));
+    kiwi_gtk_gl_renderer_destroy(host->gl_renderer);
+    host->gl_renderer = NULL;
+    gtk_widget_unparent(area);
+    host->gl_area = NULL;
+    return 0;
+  }
   return 1;
 }
 
@@ -991,6 +1016,21 @@ int kiwi_gtk_host_gl_area_state(const KiwiGtkHost *host,
   *rendered_frames = host->gl_area_rendered_frames;
   *realized = host->gl_area_realized;
   return 1;
+}
+
+uint64_t kiwi_gtk_host_gl_area_rendered_revision(const KiwiGtkHost *host) {
+  return host == NULL ? 0 : kiwi_gtk_gl_renderer_rendered_revision(host->gl_renderer);
+}
+
+int kiwi_gtk_host_gl_area_submit_snapshot(KiwiGtkHost *host,
+                                           const KiwiGtkGlFrame *snapshot) {
+  if (host == NULL || host->gl_renderer == NULL) {
+    kiwi_gtk_set_error("GTK GL snapshot needs an enabled renderer");
+    return 0;
+  }
+  if (kiwi_gtk_gl_renderer_submit(host->gl_renderer, snapshot)) return 1;
+  kiwi_gtk_set_error(kiwi_gtk_gl_renderer_last_error(host->gl_renderer));
+  return 0;
 }
 
 KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height, const char *title, const KiwiGtkCallbacks *callbacks) {
@@ -1074,6 +1114,10 @@ void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   kiwi_gtk_host_command_palette_remove(host);
   host->product_action = NULL;
   host->product_action_userdata = NULL;
+  if (host->gl_renderer != NULL) {
+    kiwi_gtk_gl_renderer_destroy(host->gl_renderer);
+    host->gl_renderer = NULL;
+  }
   if (host->presentation_viewport != NULL) wp_viewport_destroy(host->presentation_viewport);
   if (host->presentation_subsurface != NULL) wl_subsurface_destroy(host->presentation_subsurface);
   if (host->presentation_surface != NULL) wl_surface_destroy(host->presentation_surface);

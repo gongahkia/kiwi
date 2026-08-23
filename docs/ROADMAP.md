@@ -44,10 +44,10 @@ declared complete.
   glyph-atlas updates, overlays, and frame uniforms with explicit retry/commit
   ownership. `prepared_images` now also produces renderer-neutral decoded
   Kitty image data and visible placements; GPU residency remains WGPU-specific.
-  The GTK host has a graphical-session `GtkGLArea` lifecycle probe, but neither
-  the context nor pass encoder can yet render a terminal frame inside that
-  widget. The approved follow-on is the embedded GTK OpenGL adapter, then a
-  libadwaita `AdwTabView` group owner; see
+  The GTK host has a graphical-session `GtkGLArea` background/glyph snapshot
+  probe, but neither the context nor pass encoder can yet render an application
+  terminal frame inside that widget. The approved follow-on is the embedded GTK
+  OpenGL adapter, then a libadwaita `AdwTabView` group owner; see
   [ADR 0041](adr/0041-embedded-gtk-presentation.md). Do not add cosmetic GTK
   tab chrome before that adapter passes its gates.
 - The GLFW Cocoa route already has bounded AppKit-owned `New Tab`/`Next Tab`

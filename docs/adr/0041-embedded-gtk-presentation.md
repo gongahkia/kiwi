@@ -165,6 +165,18 @@ render callbacks, and is qualified only by `make gtk-gl-area-smoke` in a real
 Linux graphical session. It deliberately does not alter the WGPU presenter or
 claim an embedded terminal renderer.
 
+The GTK bridge now also builds a private OpenGL renderer against that ABI. Its
+first executable stage accepts a complete bounded snapshot and draws cell
+backgrounds plus alpha-atlas glyphs. The probe submits a known RGB cell first
+in C and then a second complete cell/glyph/atlas snapshot through the LuaJIT
+FFI, requiring the GL renderer to acknowledge each revision after a render
+callback. It deliberately is not wired into the application or used to claim
+selection/search/cursor/image/color-management parity. This gives the later
+adapter an actual GL resource, shader, and deep-copy submission owner without
+making partial output look like a terminal. The next integration milestone is
+a non-WGPU GTK controller path that submits those snapshots and then adds the
+remaining semantic layers in pass order.
+
 The full GL adapter will retain that shape: one terminal root widget per
 controller, with the `GtkGLArea` below that root. GTK's main context alone
 creates, realizes, resizes, renders, unrealizes, and destroys the area. The
