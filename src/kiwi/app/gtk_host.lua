@@ -3,6 +3,7 @@ local Window = require("kiwi.platform.gtk_window")
 
 local Host = {
   keymap = require("kiwi.ffi.glfw").constants,
+  keyboard_supported_flags = 0x1f,
   platform = "GTK",
   presentation_backend = os.getenv("KIWI_GTK_PRESENTER") == "gl" and "gtk-gl" or "wgpu",
   window_api = Window,
@@ -10,6 +11,10 @@ local Host = {
 
 function Host.new(geometry, title)
   return Window.new(geometry and geometry.width or 1600, geometry and geometry.height or 960, title)
+end
+
+function Host.keyboard_supported_flags_for(window)
+  return window.keyboard_supported_flags
 end
 
 function Host.run(options, title, controller)
@@ -43,6 +48,10 @@ end
 
 function Host.set_text_input_caret(window, x, y, width, height)
   return window:set_text_input_caret(x, y, width, height)
+end
+
+function Host.set_pointer_shape(window, shape)
+  return window:set_pointer_shape(shape)
 end
 
 function Host.accessibility_new(window)

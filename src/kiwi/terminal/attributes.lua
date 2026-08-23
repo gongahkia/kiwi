@@ -49,21 +49,37 @@ end
 local Palette = {}
 Palette.__index = Palette
 
+local function validate_index(index)
+  assert(type(index) == "number" and index >= 0 and index <= 255 and index % 1 == 0, "terminal palette index must be an integer from 0 through 255")
+end
+
+local function copy_configured_indexed(values)
+  local copy = {}
+  for index, value in pairs(values or {}) do
+    validate_index(index)
+    assert(type(value) == "number", "terminal palette colour must be a packed RGBA value")
+    copy[index] = value
+  end
+  return copy
+end
+
 function Palette.new(options)
   options = options or {}
   local self = setmetatable({
-    foreground = options.foreground or Attributes.default_foreground,
-    background = options.background or Attributes.default_background,
+    configured_foreground = options.foreground or Attributes.default_foreground,
+    configured_background = options.background or Attributes.default_background,
+    configured_indexed = copy_configured_indexed(options.palette),
     indexed_overrides = {},
   }, Palette)
-  assert(type(self.foreground) == "number" and type(self.background) == "number", "terminal default colours must be packed RGBA values")
-  for index, value in pairs(options.palette or {}) do self:set_indexed(index, value) end
+  assert(type(self.configured_foreground) == "number" and type(self.configured_background) == "number", "terminal default colours must be packed RGBA values")
+  self.foreground = self.configured_foreground
+  self.background = self.configured_background
   return self
 end
 
 function Palette:indexed(index)
-  assert(type(index) == "number" and index >= 0 and index <= 255 and index % 1 == 0, "terminal palette index must be an integer from 0 through 255")
-  return self.indexed_overrides[index] or indexed_color(index)
+  validate_index(index)
+  return self.indexed_overrides[index] or self.configured_indexed[index] or indexed_color(index)
 end
 
 function Palette:set_indexed(index, value)
@@ -81,6 +97,19 @@ function Palette:reset_indexed(index)
   self.indexed_overrides[index] = nil
 end
 
+function Palette:configure(options)
+  assert(type(options) == "table", "terminal palette configuration must be a table")
+  local foreground = assert(options.foreground, "terminal palette configuration needs a foreground colour")
+  local background = assert(options.background, "terminal palette configuration needs a background colour")
+  assert(type(foreground) == "number" and type(background) == "number", "terminal palette configuration colours must be packed RGBA values")
+  self.configured_foreground = foreground
+  self.configured_background = background
+  self.configured_indexed = copy_configured_indexed(options.palette)
+  self.foreground = foreground
+  self.background = background
+  self.indexed_overrides = {}
+end
+
 function Palette:set_default(channel, value)
   assert(channel == "foreground" or channel == "background", "terminal palette default channel is invalid")
   assert(type(value) == "number", "terminal default colour must be a packed RGBA value")
@@ -89,7 +118,7 @@ end
 
 function Palette:reset_default(channel)
   assert(channel == "foreground" or channel == "background", "terminal palette default channel is invalid")
-  self[channel] = channel == "foreground" and Attributes.default_foreground or Attributes.default_background
+  self[channel] = channel == "foreground" and self.configured_foreground or self.configured_background
 end
 
 function Palette:resolve_color(color, channel)

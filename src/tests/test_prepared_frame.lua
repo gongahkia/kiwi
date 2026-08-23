@@ -33,7 +33,7 @@ return {
     local state = State.new(8, 2)
     local prepared = PreparedFrame.new(font, state, { command_region_visual_enabled = true })
     local frame = prepared:prepare_frame(state, 12.5, true, false, { surface_is_srgb = true })
-    Assert.equal(frame.byte_count, 688)
+    Assert.equal(frame.byte_count, 736)
     Assert.equal(frame.time, 12.5)
     Assert.equal(frame.delta, 12.5)
     Assert.equal(frame.data[0].columns, 8)
@@ -41,6 +41,7 @@ return {
     Assert.equal(frame.data[0].show_dirty, 1)
     Assert.equal(frame.data[0].show_boundaries, 0)
     Assert.equal(frame.data[0].command_region_padding[0], 1)
+    Assert.equal(frame.data[0].scrollbar_visible, 0)
     prepared:destroy()
     font:destroy()
   end,

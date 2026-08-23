@@ -1,6 +1,8 @@
 local SelectionPointer = {}
 SelectionPointer.__index = SelectionPointer
 
+local bit = require("bit")
+
 local double_click_seconds = 0.4
 local click_distance = 4
 
@@ -14,6 +16,19 @@ end
 
 local function application_mouse_enabled(modes)
   return modes and (modes.mouse_tracking == "x10" or modes.mouse_tracking == "normal" or modes.mouse_tracking == "button" or modes.mouse_tracking == "any")
+end
+
+local function mouse_captures_shift(modes, policy)
+  if policy == "always" then return true end
+  if policy == "never" then return false end
+  local application_request = modes and modes.mouse_shift_escape
+  if policy == true then return application_request ~= false end
+  return application_request == true
+end
+
+local function shift_override(event, modes, policy)
+  return event.button == 0 and bit.band(event.modifiers or 0, 0x0001) ~= 0
+    and not mouse_captures_shift(modes, policy)
 end
 
 function SelectionPointer.new()
@@ -55,8 +70,16 @@ function SelectionPointer:update_drag(state, row, column)
   return true
 end
 
-function SelectionPointer:handle(event, state, modes)
-  if application_mouse_enabled(modes) then
+function SelectionPointer:handle(event, state, modes, mouse_shift_capture)
+  if self.drag ~= nil then
+    if event.kind == "motion" then return true, self:update_drag(state, event.selection_row, event.selection_column) end
+    if event.kind == "button" and event.button == 0 and event.action == "release" then
+      local changed = self:update_drag(state, event.selection_row, event.selection_column)
+      self.drag = nil
+      return true, changed
+    end
+  end
+  if application_mouse_enabled(modes) and not shift_override(event, modes, mouse_shift_capture) then
     self.drag = nil
     return false, false
   end
@@ -65,12 +88,7 @@ function SelectionPointer:handle(event, state, modes)
     return true, self:update_drag(state, event.selection_row, event.selection_column)
   end
   if event.kind ~= "button" or event.button ~= 0 then return false, false end
-  if event.action == "release" then
-    if self.drag == nil then return false, false end
-    local changed = self:update_drag(state, event.selection_row, event.selection_column)
-    self.drag = nil
-    return true, changed
-  end
+  if event.action == "release" then return false, false end
   if event.action ~= "press" then return false, false end
   local clicks = self:next_click(event)
   if clicks == 3 then

@@ -9,6 +9,7 @@ local resource_specs = {
   ["terminal.search"] = { access = "read" },
   ["terminal.hyperlinks"] = { access = "read" },
   ["terminal.command_regions"] = { access = "read" },
+  ["terminal.scrollbar"] = { access = "read" },
   ["terminal.kitty_images"] = { access = "read" },
   ["terminal.damage"] = { access = "read" },
   ["frame.viewport"] = { access = "read" },

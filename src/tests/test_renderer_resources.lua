@@ -102,6 +102,7 @@ return {
       "terminal.search",
       "terminal.hyperlinks",
       "terminal.command_regions",
+      "terminal.scrollbar",
       "terminal.damage",
       "frame.viewport",
       "frame.timing",
@@ -137,12 +138,12 @@ return {
     }
     local passes = Passes.build(renderer)
     PassRegistry.validate(passes)
-    Assert.equal(ffi.sizeof("KiwiFrameUniform"), 688)
+    Assert.equal(ffi.sizeof("KiwiFrameUniform"), 736)
     Assert.equal(table.concat((function()
       local names = {}
       for index, pass in ipairs(passes) do names[index] = pass.name end
       return names
-    end)(), ","), "terminal/background,terminal/selection,terminal/search,terminal/command_regions,terminal/glyph,terminal/cursor")
+    end)(), ","), "terminal/background,terminal/selection,terminal/search,terminal/command_regions,terminal/glyph,terminal/cursor,terminal/scrollbar")
   end,
   background_pass_owns_pipeline_through_its_lifecycle = function()
     local events = {}
@@ -232,7 +233,7 @@ return {
     }
     local passes = Passes.build(renderer)
     for _, pass in ipairs(passes) do pass:initialize(renderer) end
-    Assert.equal(table.concat(modules, ","), "terminal/background:terminal/background,terminal/selection:terminal/selection,terminal/search:terminal/search,terminal/glyph:terminal/glyph,terminal/cursor:terminal/cursor")
+    Assert.equal(table.concat(modules, ","), "terminal/background:terminal/background,terminal/selection:terminal/selection,terminal/search:terminal/search,terminal/glyph:terminal/glyph,terminal/cursor:terminal/cursor,terminal/scrollbar:terminal/scrollbar")
     for index = #passes, 1, -1 do passes[index]:shutdown(renderer) end
   end,
 }

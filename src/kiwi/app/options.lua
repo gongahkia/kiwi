@@ -5,6 +5,7 @@ local configuration_options = {
   ["--font-family"] = "font-family",
   ["--font-size"] = "font-size",
   ["--scrollback-limit"] = "scrollback-limit",
+  ["--scrollbar"] = "scrollbar",
   ["--shell-integration"] = "shell-integration",
   ["--theme"] = "theme",
   ["--theme-file"] = "theme-file",
@@ -23,7 +24,7 @@ local function option_value(arguments, index, option)
 end
 
 local function option_summary()
-  return "--version, --demo, --config PATH, --theme NAME, --theme-file PATH, --appearance system|dark|light, --font-family NAME, --font-size POINTS, --scrollback-limit ROWS, --shell-integration auto|none, --no-extensions, --workspace-smoke, --menu-smoke, --toolbar-smoke, --cwd-smoke, --palette-smoke, --automation-smoke, --key-sequence-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]"
+  return "--version, --demo, --config PATH, --theme NAME, --theme-file PATH, --appearance system|dark|light, --font-family NAME, --font-size POINTS, --scrollback-limit ROWS, --scrollbar always|never, --shell-integration auto|none, --no-extensions, --workspace-smoke, --menu-smoke, --toolbar-smoke, --cwd-smoke, --palette-smoke, --automation-smoke, --key-sequence-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]"
 end
 
 function Options.parse(arguments, environment, release_mode)

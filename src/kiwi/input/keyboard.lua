@@ -110,9 +110,16 @@ local function cursor_sequence(final, modifiers, application_cursor, action, mod
   return string.format("\27[1;%s%s", modifier, final)
 end
 
-local function printable_key_code(key)
+local function printable_key_code(key, glfw, options)
+  local unicode_key = key_variant(options and options.unicode_key)
+  if unicode_key ~= nil then return unicode_key end
   if key >= string.byte("A") and key <= string.byte("Z") then return key + 0x20 end
-  if key >= 0x20 and key <= 0x7e then return key end
+  if key >= glfw.key_escape and key <= glfw.key_kp_equal then return nil end
+  if key >= 0x20 and key <= 0x10ffff and
+    not (key >= 0x7f and key <= 0x9f) and
+    not (key >= 0xd800 and key <= 0xdfff) then
+    return key
+  end
 end
 
 local function modify_other_keys_level(modes)
@@ -120,9 +127,9 @@ local function modify_other_keys_level(modes)
   return type(level) == "number" and level >= 1 and level <= 3 and level % 1 == 0 and level or 0
 end
 
-local function should_encode_modify_other_key(key, modifiers, modes, glfw)
+local function should_encode_modify_other_key(key, modifiers, modes, glfw, options)
   local level = modify_other_keys_level(modes)
-  if level == 0 or printable_key_code(key) == nil then return false end
+  if level == 0 or printable_key_code(key, glfw, options) == nil then return false end
   local modifier_bits = glfw.mod_shift + glfw.mod_alt + glfw.mod_control + glfw.mod_super
   local active_modifiers = bit.band(modifiers, modifier_bits)
   if level == 3 then return true end
@@ -130,8 +137,8 @@ local function should_encode_modify_other_key(key, modifiers, modes, glfw)
   return bit.band(active_modifiers, glfw.mod_alt + glfw.mod_super) ~= 0
 end
 
-local function modify_other_keys_sequence(key, modifiers, glfw)
-  return string.format("\27[27;%d;%d~", kitty_modifier(modifiers, glfw), printable_key_code(key))
+local function modify_other_keys_sequence(key, modifiers, glfw, options)
+  return string.format("\27[27;%d;%d~", kitty_modifier(modifiers, glfw), printable_key_code(key, glfw, options))
 end
 
 local function function_key_sequence(key, modifiers, action, modes, glfw)
@@ -163,8 +170,8 @@ local function enhanced_functional_key(key, modifiers, action, modes, glfw)
   return function_key_sequence(key, modifiers, action, modes, glfw)
 end
 
-local function all_keys_codepoint(key, glfw)
-  local printable = printable_key_code(key)
+local function all_keys_codepoint(key, glfw, options)
+  local printable = printable_key_code(key, glfw, options)
   if printable then return printable end
   if key == glfw.key_escape then return 27 end
   if key == glfw.key_enter then return 13 end
@@ -178,7 +185,7 @@ local function kitty_key(key, action, modifiers, modes, glfw, options)
   local text = options and associated_text(options.associated_text) or nil
   if action == glfw.release and not event_types then return nil end
   if all_keys then
-    local codepoint = all_keys_codepoint(key, glfw)
+    local codepoint = all_keys_codepoint(key, glfw, options)
     if codepoint then
       return { bytes = kitty_sequence(codepoint, modifiers, action, modes, glfw, text, options), suppress_text = action ~= glfw.release }
     end
@@ -186,7 +193,7 @@ local function kitty_key(key, action, modifiers, modes, glfw, options)
     if functional then return { bytes = functional } end
     return nil
   end
-  local printable = printable_key_code(key)
+  local printable = printable_key_code(key, glfw, options)
   if printable and bit.band(modifiers, glfw.mod_alt + glfw.mod_control + glfw.mod_super) ~= 0 then
     return { bytes = kitty_sequence(printable, modifiers, action, modes, glfw, nil, options), suppress_text = true }
   end
@@ -227,10 +234,10 @@ function Keyboard.text(codepoint, modes)
   return Keyboard.text_sequence({ codepoint }, modes)
 end
 
-function Keyboard.should_defer_text(key, action, modifiers, modes, glfw)
+function Keyboard.should_defer_text(key, action, modifiers, modes, glfw, options)
   return kitty_flag(modes, 8) and kitty_flag(modes, 16)
     and (action == glfw.press or action == glfw.repeat_action)
-    and printable_key_code(key) ~= nil
+    and printable_key_code(key, glfw, options) ~= nil
     and bit.band(modifiers, glfw.mod_control + glfw.mod_super) == 0
 end
 
@@ -260,8 +267,8 @@ function Keyboard.key(key, action, modifiers, modes, glfw, options)
     if encoded then return encoded end
     if action == glfw.release then return nil end
   end
-  if should_encode_modify_other_key(key, modifiers, modes, glfw) then
-    return { bytes = modify_other_keys_sequence(key, modifiers, glfw), suppress_text = true }
+  if should_encode_modify_other_key(key, modifiers, modes, glfw, options) then
+    return { bytes = modify_other_keys_sequence(key, modifiers, glfw, options), suppress_text = true }
   end
   local keypad_bytes = keypad_sequence(key, modes)
   if keypad_bytes then return { bytes = keypad_bytes, suppress_text = true } end

@@ -29,10 +29,58 @@ jobs:
         run: |
           mkdir -p artifacts
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/linux-desktop-compatibility.json'
-      - name: upload compatibility report
+          if test -n "${WAYLAND_DISPLAY:-}"; then
+            GDK_BACKEND=wayland make daily-driver-compatibility COMPAT_ARGS='--host gtk --require-desktop --allow-public-clipboard --report artifacts/linux-desktop-gtk-wayland-compatibility.json'
+          elif test -n "${DISPLAY:-}"; then
+            GDK_BACKEND=x11 make daily-driver-compatibility COMPAT_ARGS='--host gtk --require-desktop --allow-public-clipboard --report artifacts/linux-desktop-gtk-x11-compatibility.json'
+          else
+            echo "no GTK desktop backend is available" >&2
+            exit 1
+          fi
+      - name: exercise every available GTK widget backend
+        run: |
+          ran=0
+          if test -n "${WAYLAND_DISPLAY:-}"; then
+            make gtk-wayland-smoke
+            make gtk-wayland-multi-window-smoke
+            make gtk-gl-wayland-smoke
+            make gtk-gl-native-tabs-wayland-smoke
+            make gtk-gl-native-tabs-close-wayland-smoke
+            make gtk-input-wayland-smoke
+            GDK_BACKEND=wayland make gtk-menu-smoke gtk-palette-smoke gtk-accessibility-smoke
+            ran=1
+          fi
+          if test -n "${DISPLAY:-}"; then
+            make gtk-x11-smoke
+            make gtk-x11-multi-window-smoke
+            make gtk-gl-x11-smoke
+            make gtk-gl-native-tabs-x11-smoke
+            make gtk-gl-native-tabs-close-x11-smoke
+            make gtk-input-x11-smoke
+            GDK_BACKEND=x11 make gtk-menu-smoke gtk-palette-smoke gtk-accessibility-smoke
+            ran=1
+          fi
+          test "$ran" = 1
+      - name: collect bounded native pacing and redraw evidence
+        env:
+          KIWI_PACING_BASELINE: ${{ vars.KIWI_PACING_BASELINE }}
+          KIWI_PACING_BASELINE_SHA256: ${{ vars.KIWI_PACING_BASELINE_SHA256 }}
+        run: |
+          make pacing
+          test -n "${KIWI_PACING_BASELINE:-}" || { echo "KIWI_PACING_BASELINE must name the fixed runner's approved pacing report" >&2; exit 1; }
+          test -f "$KIWI_PACING_BASELINE" || { echo "KIWI_PACING_BASELINE is not a readable report: $KIWI_PACING_BASELINE" >&2; exit 1; }
+          test -n "${KIWI_PACING_BASELINE_SHA256:-}" || { echo "KIWI_PACING_BASELINE_SHA256 must pin the approved pacing report" >&2; exit 1; }
+          test "$(sha256sum "$KIWI_PACING_BASELINE" | cut -d ' ' -f 1)" = "$KIWI_PACING_BASELINE_SHA256" || { echo "KIWI_PACING_BASELINE does not match its approved SHA-256" >&2; exit 1; }
+          candidate=$(ls -1t bench/results/*-pacing.json | head -n 1)
+          make pacing-budget BASELINE="$KIWI_PACING_BASELINE" CANDIDATE="$candidate"
+          make power-smoke
+      - name: upload compatibility and performance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kiwi-linux-desktop-compatibility
-          path: artifacts/linux-desktop-compatibility.json
+          path: |
+            artifacts/*.json
+            bench/results/*-pacing.json
+            bench/results/*-power.json
           if-no-files-found: warn

@@ -23,6 +23,9 @@ State.__index = State
 
 State.flags = Attributes.flags
 State.keyboard_supported_flags = 0x1b
+State.osc21_maximum_bytes = 4096
+State.osc21_maximum_fields = 260
+State.osc52_maximum_bytes = 64 * 1024
 State.title_stack_limit = 10
 State.reflow = Reflow
 local GCB = Properties.grapheme_break
@@ -39,6 +42,33 @@ local dec_special_graphics = {
 
 local uk_character_set = { ["#"] = "£" }
 local default_cursor_color = Color.pack(0x8c, 0xd9, 0xe0, 0xff)
+local pointer_shapes = {
+  ["auto"] = true,
+  ["cell"] = true,
+  ["col-resize"] = true,
+  ["crosshair"] = true,
+  ["default"] = true,
+  ["e-resize"] = true,
+  ["ew-resize"] = true,
+  ["move"] = true,
+  ["n-resize"] = true,
+  ["ne-resize"] = true,
+  ["nesw-resize"] = true,
+  ["no-drop"] = true,
+  ["not-allowed"] = true,
+  ["ns-resize"] = true,
+  ["nw-resize"] = true,
+  ["nwse-resize"] = true,
+  ["pointer"] = true,
+  ["row-resize"] = true,
+  ["s-resize"] = true,
+  ["se-resize"] = true,
+  ["sw-resize"] = true,
+  ["text"] = true,
+  ["vertical-text"] = true,
+  ["w-resize"] = true,
+}
+State.pointer_shapes = pointer_shapes
 
 local function copy_character_sets(character_sets)
   return { g0 = character_sets.g0, g1 = character_sets.g1, gl = character_sets.gl }
@@ -111,6 +141,7 @@ function State.new(columns, rows, options)
     colors = colors,
     cursor_color = default_cursor_color,
     cursor_default_color = default_cursor_color,
+    pointer_shape = "default",
     default_cell = { glyph = " ", fg = colors.foreground, bg = colors.background, fg_slot = 0, bg_slot = 0, flags = 0, width = 1 },
     damage = Damage.new(columns * rows),
     text_damage = Damage.new(columns * rows),
@@ -143,6 +174,7 @@ function State.new(columns, rows, options)
       alternate_scroll = false,
       focus_reporting = false,
       mouse_generation = 0,
+      mouse_shift_escape = nil,
       keyboard_flags = 0,
       modify_other_keys = 0,
     },
@@ -157,8 +189,9 @@ function State.new(columns, rows, options)
     command_region_navigation = nil,
     effect_sink = options.effect_sink,
     keyboard_supported_flags = options.keyboard_supported_flags or State.keyboard_supported_flags,
+    osc52_read = options.osc52_read == true,
     osc52_write = options.osc52_write == true,
-    osc52_maximum_bytes = options.osc52_maximum_bytes or 64 * 1024,
+    osc52_maximum_bytes = options.osc52_maximum_bytes or State.osc52_maximum_bytes,
     history_offset = 0,
     queue_responses = options.queue_responses ~= false,
     reflow_on_resize = options.reflow_on_resize ~= false,
@@ -196,7 +229,7 @@ function State.new(columns, rows, options)
   assert(self.hyperlink_limit >= 1 and self.hyperlink_limit % 1 == 0, "terminal hyperlink limit must be a positive integer")
   assert(self.hyperlink_uri_maximum_bytes >= 1 and self.hyperlink_uri_maximum_bytes % 1 == 0, "terminal hyperlink URI limit must be a positive integer")
   assert(self.max_repeat >= 1 and self.max_repeat % 1 == 0, "terminal repeat limit must be a positive integer")
-  assert(type(self.osc52_maximum_bytes) == "number" and self.osc52_maximum_bytes >= 1 and self.osc52_maximum_bytes % 1 == 0, "terminal OSC 52 byte limit must be a positive integer")
+  assert(type(self.osc52_maximum_bytes) == "number" and self.osc52_maximum_bytes >= 1 and self.osc52_maximum_bytes <= State.osc52_maximum_bytes and self.osc52_maximum_bytes % 1 == 0, "terminal OSC 52 byte limit must be a positive integer no larger than 65536")
   self.kitty_graphics.on_image_release = function(id)
     self:detach_kitty_placement_records(self.kitty_placements:remove_image(id))
   end
@@ -1680,6 +1713,7 @@ function State:reset()
   self.modes.mouse_protocol = "x10"
   self.modes.alternate_scroll = false
   self.modes.focus_reporting = false
+  self.modes.mouse_shift_escape = nil
   self.modes.mouse_generation = self.modes.mouse_generation + 1
   self.modes.keyboard_flags = 0
   self.modes.modify_other_keys = 0
@@ -1697,6 +1731,7 @@ function State:reset()
   self.title = nil
   self.icon_title = nil
   self.title_stacks = { icon = {}, window = {} }
+  self:set_pointer_shape("default")
   self.last_print = nil
   self:clear_selection()
   self:clear_search()
@@ -2344,6 +2379,23 @@ function State:set_focus_reporting(enabled)
   self.modes.focus_reporting = enabled
 end
 
+function State:set_mouse_shift_escape(action)
+  local parameters = action.parameters
+  if #parameters > 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local value = parameters[1] or 0
+  if value ~= 0 and value ~= 1 then
+    self:record_unknown("csi", csi_detail(action))
+    return
+  end
+  local enabled = value == 1
+  if self.modes.mouse_shift_escape == enabled then return end
+  self.modes.mouse_shift_escape = enabled
+  self.modes.mouse_generation = self.modes.mouse_generation + 1
+end
+
 function State:input_modes()
   local modes = self.modes
   return {
@@ -2357,6 +2409,7 @@ function State:input_modes()
     keyboard_flags = modes.keyboard_flags,
     modify_other_keys = modes.modify_other_keys,
     mouse_protocol = modes.mouse_protocol,
+    mouse_shift_escape = modes.mouse_shift_escape,
     mouse_tracking = modes.mouse_tracking,
   }
 end
@@ -2673,6 +2726,10 @@ function State:apply_csi(action)
     self:set_modify_other_keys(action)
     return
   end
+  if action.private == ">" and action.intermediates == "" and final == "s" then
+    self:set_mouse_shift_escape(action)
+    return
+  end
   if final == "u" and action.intermediates == "" and (action.private == "?" or action.private == "=" or action.private == ">" or action.private == "<") then
     self:apply_keyboard_protocol(action)
     return
@@ -2913,25 +2970,33 @@ local function osc_fields(payload)
 end
 
 function State:refresh_palette_slots(change)
+  local changed_indexes = change.indexes
+  if change.index ~= nil then changed_indexes = { [change.index] = true } end
+  local refresh_foreground = change.channel == "foreground" or change.channels and change.channels.foreground == true
+  local refresh_background = change.channel == "background" or change.channels and change.channels.background == true
   local function refresh(cell)
     local changed = false
-    if change.index ~= nil then
-      local slot = change.index + 1
-      if cell.fg_slot == slot then
-        cell.fg = self.colors:indexed(change.index)
+    if changed_indexes ~= nil then
+      local foreground_index = cell.fg_slot and cell.fg_slot - 1
+      local background_index = cell.bg_slot and cell.bg_slot - 1
+      if foreground_index ~= nil and changed_indexes[foreground_index] then
+        cell.fg = self.colors:indexed(foreground_index)
         changed = true
       end
-      if cell.bg_slot == slot then
-        cell.bg = self.colors:indexed(change.index)
+      if background_index ~= nil and changed_indexes[background_index] then
+        cell.bg = self.colors:indexed(background_index)
         changed = true
       end
-    elseif change.channel == "foreground" and cell.fg_slot == 0 then
+    end
+    if refresh_foreground and cell.fg_slot == 0 then
       cell.fg = self.colors.foreground
       changed = true
-    elseif change.channel == "background" and cell.bg_slot == 0 then
+    end
+    if refresh_background and cell.bg_slot == 0 then
       cell.bg = self.colors.background
       changed = true
-    elseif change.all_indexed then
+    end
+    if change.all_indexed then
       if cell.fg_slot and cell.fg_slot > 0 then
         cell.fg = self.colors:indexed(cell.fg_slot - 1)
         changed = true
@@ -2954,9 +3019,9 @@ function State:refresh_palette_slots(change)
     local row = self.scrollback:get(index)
     for column = 0, self.columns - 1 do refresh(row.cells[column]) end
   end
-  if change.channel == "foreground" then self.default_cell.fg = self.colors.foreground end
-  if change.channel == "background" then self.default_cell.bg = self.colors.background end
-  if change.all_indexed or change.index ~= nil or change.channel ~= nil then
+  if refresh_foreground then self.default_cell.fg = self.colors.foreground end
+  if refresh_background then self.default_cell.bg = self.colors.background end
+  if change.all_indexed or changed_indexes ~= nil or refresh_foreground or refresh_background then
     self.damage:mark_all()
     self.text_damage:mark_all()
     self:invalidate_search()
@@ -2965,19 +3030,20 @@ end
 
 function State:configure_palette(configuration)
   assert(type(configuration) == "table", "terminal palette configuration must be a table")
-  self.colors:set_default("foreground", assert(configuration.foreground, "terminal palette configuration needs a foreground colour"))
-  self.colors:set_default("background", assert(configuration.background, "terminal palette configuration needs a background colour"))
-  self.colors:reset_indexed()
-  for index, colour in pairs(configuration.palette or {}) do self.colors:set_indexed(index, colour) end
+  self.colors:configure(configuration)
   self:refresh_palette_slots({ all_indexed = true })
-  self:refresh_palette_slots({ channel = "foreground" })
-  self:refresh_palette_slots({ channel = "background" })
+  self:refresh_palette_slots({ channels = { foreground = true, background = true } })
   self:emit_effect("palette_changed", { configuration = true })
 end
 
 function State:configure_osc52_write(enabled)
   assert(type(enabled) == "boolean", "terminal OSC 52 enablement must be a boolean")
   self.osc52_write = enabled
+end
+
+function State:configure_osc52_read(enabled)
+  assert(type(enabled) == "boolean", "terminal OSC 52 read enablement must be a boolean")
+  self.osc52_read = enabled
 end
 
 function State:apply_osc_palette(payload)
@@ -3038,9 +3104,138 @@ function State:apply_osc_cursor_colour(command, payload)
   return true
 end
 
+local osc21_special_colours = {
+  background = "background",
+  cursor = "cursor",
+  foreground = "foreground",
+}
+
+local function osc21_key(value)
+  if type(value) ~= "string" or value == "" or not value:match("^[A-Za-z_0-9]+$") then return nil end
+  if value:match("^%d+$") then
+    local index = tonumber(value)
+    if index == nil or index < 0 or index > 255 or index % 1 ~= 0 then return nil end
+    return { index = index }
+  end
+  local special = osc21_special_colours[value]
+  if special == nil then return nil end
+  return { special = special }
+end
+
+function State:osc21_colour(key)
+  if key.index ~= nil then return self.colors:indexed(key.index) end
+  if key.special == "foreground" then return self.colors.foreground end
+  if key.special == "background" then return self.colors.background end
+  if key.special == "cursor" then return self.cursor_color end
+  error("OSC 21 colour key is unsupported")
+end
+
+function State:apply_osc21(payload)
+  if type(payload) ~= "string" or #payload == 0 or #payload > self.osc21_maximum_bytes then return false end
+  local fields = osc_fields(payload)
+  if #fields == 0 or #fields > self.osc21_maximum_fields then return false end
+  local updates, queries = {}, {}
+  for _, field in ipairs(fields) do
+    if field == "" then return false end
+    local separator = field:find("=", 1, true)
+    local raw_key, value
+    if separator then
+      raw_key = field:sub(1, separator - 1)
+      value = field:sub(separator + 1)
+    else
+      raw_key = field
+    end
+    local key = osc21_key(raw_key)
+    if key == nil then
+      if value == "?" and raw_key:match("^[A-Za-z_0-9]+$") then
+        queries[#queries + 1] = { raw_key = raw_key }
+      else
+        return false
+      end
+    elseif value == "?" then
+      queries[#queries + 1] = { key = key, raw_key = raw_key }
+    elseif value == nil then
+      updates[#updates + 1] = { key = key, reset = true }
+    elseif value ~= "" then
+      local colour = parse_osc_colour(value)
+      if colour == nil then return false end
+      updates[#updates + 1] = { colour = colour, key = key, reset = false }
+    else
+      -- Kitty uses an empty value for dynamic colours. Kiwi does not model the
+      -- dynamic selection/cursor policy needed to render that honestly.
+      return false
+    end
+  end
+
+  local indexed, channels = {}, {}
+  local palette_changes, cursor_changed, cursor_reset = 0, false, false
+  for _, update in ipairs(updates) do
+    local key = update.key
+    if key.index ~= nil then
+      if update.reset then self.colors:reset_indexed(key.index) else self.colors:set_indexed(key.index, update.colour) end
+      indexed[key.index] = true
+      palette_changes = palette_changes + 1
+    elseif key.special == "foreground" or key.special == "background" then
+      if update.reset then self.colors:reset_default(key.special) else self.colors:set_default(key.special, update.colour) end
+      channels[key.special] = true
+      palette_changes = palette_changes + 1
+    elseif key.special == "cursor" then
+      self.cursor_color = update.reset and self.cursor_default_color or update.colour
+      cursor_changed = true
+      cursor_reset = update.reset
+    else
+      return false
+    end
+  end
+  if next(indexed) ~= nil or next(channels) ~= nil then
+    self:refresh_palette_slots({ indexes = indexed, channels = channels })
+    self:emit_effect("palette_changed", { count = palette_changes, kitty_osc21 = true })
+  end
+  if cursor_changed then
+    self.damage:mark(self:index(self.cursor.column, self.cursor.row))
+    self:emit_effect("cursor_color_changed", { kitty_osc21 = true, reset = cursor_reset })
+  end
+  if #queries > 0 then
+    local response = {}
+    for _, query in ipairs(queries) do
+      local value = query.key and encode_osc_colour(self:osc21_colour(query.key)) or "?"
+      response[#response + 1] = query.raw_key .. "=" .. value
+    end
+    self:respond("\27]21;" .. table.concat(response, ";") .. "\27\\")
+  end
+  return true
+end
+
+function State:set_pointer_shape(shape)
+  assert(pointer_shapes[shape] == true, "terminal pointer shape is not supported")
+  if self.pointer_shape == shape then return false end
+  self.pointer_shape = shape
+  self:emit_effect("pointer_shape_changed", { shape = shape })
+  return true
+end
+
+function State:apply_osc_pointer_shape(payload)
+  local shape = payload == "" and "default" or payload
+  if pointer_shapes[shape] ~= true then return false end
+  self:set_pointer_shape(shape)
+  return true
+end
+
 function State:apply_osc52(payload)
   local selection, encoded = payload:match("^([^;]*);(.*)$")
-  if selection == nil or selection == "" or selection:find("[^cps]", 1) then return false end
+  if selection == nil or #selection ~= 1 or selection:find("[^cps]", 1) then return false end
+  if encoded == "?" then
+    if not self.osc52_read then
+      self:emit_effect("clipboard_read_denied", { reason = "disabled", selection = selection })
+      return true
+    end
+    self:emit_effect("clipboard_read_requested", { maximum_bytes = self.osc52_maximum_bytes, selection = selection })
+    return true
+  end
+  if encoded == "" then
+    self:emit_effect("clipboard_write_denied", { reason = "clear-disabled", selection = selection })
+    return true
+  end
   if #encoded > math.floor((self.osc52_maximum_bytes + 2) / 3) * 4 then
     self:emit_effect("clipboard_write_denied", { reason = "over-limit", selection = selection })
     return true
@@ -3134,6 +3329,10 @@ function State:apply_osc(action)
     if not self:apply_osc_default_colour("background", 11, action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 12 or action.command == 112 then
     if not self:apply_osc_cursor_colour(action.command, action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 21 then
+    if not self:apply_osc21(action.payload) then self:record_unknown("osc", { command = action.command }) end
+  elseif action.command == 22 then
+    if not self:apply_osc_pointer_shape(action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 52 then
     if not self:apply_osc52(action.payload) then self:record_unknown("osc", { command = action.command }) end
   elseif action.command == 9 then

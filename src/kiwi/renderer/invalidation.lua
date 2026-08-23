@@ -8,6 +8,7 @@ Invalidation.reasons = {
   selection = true,
   search = true,
   command_regions = true,
+  scrollbar = true,
   kitty_images = true,
   configuration = true,
   extension = true,

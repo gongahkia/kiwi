@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly ROOT=${0:A:h:h}
 readonly VERSION=$(<"$ROOT/VERSION")
-readonly API_VERSION=1
+readonly API_VERSION=$(awk '/^#define KIWI_VT_API_VERSION / { sub(/u$/, "", $3); print $3; exit }' "$ROOT/include/kiwi/vt.h")
 readonly DIST=${KIWI_LIBKIWI_DIST:-"$ROOT/dist"}
 
 sha256_file() {
@@ -26,6 +26,10 @@ esac
 
 if [[ ! "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
   print -u2 "VERSION must be a numeric semantic version; found $VERSION"
+  exit 1
+fi
+if [[ ! "$API_VERSION" =~ '^[1-9][0-9]*$' ]]; then
+  print -u2 "invalid libkiwi-vt API version: $API_VERSION"
   exit 1
 fi
 if [[ "$DIST" != /* ]]; then

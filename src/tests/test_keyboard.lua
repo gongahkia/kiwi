@@ -106,4 +106,19 @@ return {
     Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_shift, { keyboard_flags = 12 }, glfw, variants).bytes, "\27[113:81:97;2u")
     Assert.equal(Keyboard.key(string.byte("A"), glfw.press, glfw.mod_control, { keyboard_flags = 1 }, glfw, variants).bytes, "\27[113;5u")
   end,
+  keyboard_reports_unicode_layout_and_pc101_variants = function()
+    local variants = { layout_key = 0x0430, shifted_key = 0x0410, base_key = string.byte("a") }
+    local modes = { keyboard_flags = 5 }
+    Assert.equal(Keyboard.key(0x0430, glfw.press, glfw.mod_control, modes, glfw, variants).bytes, "\27[1072::97;5u")
+    Assert.equal(Keyboard.key(0x0410, glfw.press, glfw.mod_control + glfw.mod_shift, modes, glfw, variants).bytes, "\27[1072:1040:97;6u")
+    local all_keys = Keyboard.key(0x0430, glfw.press, 0, { keyboard_flags = 24 }, glfw, {
+      associated_text = { 0x0430 }, layout_key = 0x0430,
+    })
+    Assert.equal(all_keys.bytes, "\27[1072;;1072u")
+    Assert.truthy(all_keys.suppress_text)
+    local colliding_scalar = Keyboard.key(glfw.key_f6, glfw.press, glfw.mod_control, modes, glfw, {
+      unicode_key = 0x0127, layout_key = 0x0127, shifted_key = 0x0126, base_key = string.byte("h"),
+    })
+    Assert.equal(colliding_scalar.bytes, "\27[295::104;5u")
+  end,
 }

@@ -86,6 +86,35 @@ local function pc101_base_key(key)
   if key >= 0x20 and key <= 0x7e then return key end
 end
 
+-- GLFW exposes a deliberately small portable cursor set. OSC 22 uses CSS
+-- names; diagonal and move names therefore project to the nearest GLFW shape.
+local glfw_pointer_shapes = {
+  ["auto"] = 0,
+  ["cell"] = glfw.constants.crosshair_cursor,
+  ["col-resize"] = glfw.constants.resize_ew_cursor,
+  ["crosshair"] = glfw.constants.crosshair_cursor,
+  ["default"] = 0,
+  ["e-resize"] = glfw.constants.resize_ew_cursor,
+  ["ew-resize"] = glfw.constants.resize_ew_cursor,
+  ["move"] = glfw.constants.arrow_cursor,
+  ["n-resize"] = glfw.constants.resize_ns_cursor,
+  ["ne-resize"] = glfw.constants.resize_ns_cursor,
+  ["nesw-resize"] = glfw.constants.resize_ns_cursor,
+  ["no-drop"] = glfw.constants.not_allowed_cursor,
+  ["not-allowed"] = glfw.constants.not_allowed_cursor,
+  ["ns-resize"] = glfw.constants.resize_ns_cursor,
+  ["nw-resize"] = glfw.constants.resize_ns_cursor,
+  ["nwse-resize"] = glfw.constants.resize_ns_cursor,
+  ["pointer"] = glfw.constants.pointing_hand_cursor,
+  ["row-resize"] = glfw.constants.resize_ns_cursor,
+  ["s-resize"] = glfw.constants.resize_ns_cursor,
+  ["se-resize"] = glfw.constants.resize_ns_cursor,
+  ["sw-resize"] = glfw.constants.resize_ns_cursor,
+  ["text"] = glfw.constants.ibeam_cursor,
+  ["vertical-text"] = glfw.constants.ibeam_cursor,
+  ["w-resize"] = glfw.constants.resize_ew_cursor,
+}
+
 function Window.new(width, height, title, options)
   options = options or {}
   assert(options.visible == nil or type(options.visible) == "boolean", "window visibility must be a boolean")
@@ -116,6 +145,7 @@ function Window.new(width, height, title, options)
     suppress_text = false,
     release_mode = options.release_mode == true,
     callbacks = {},
+    cursors = {},
   }, Window)
   self.input_correlation = Correlation.new(function(codepoints, event)
     if self.on_text then self.on_text(codepoints, event) end
@@ -199,6 +229,24 @@ function Window:set_input_handlers(on_text, on_key, on_pointer, on_focus)
   self.on_key = on_key
   self.on_pointer = on_pointer
   self.on_focus = on_focus
+end
+
+function Window:set_pointer_shape(shape)
+  local cursor_shape = glfw_pointer_shapes[shape]
+  if cursor_shape == nil then return false, "unsupported-pointer-shape" end
+  if self.handle == nil then return false, "window-closed" end
+  if cursor_shape == 0 then
+    glfw.lib.glfwSetCursor(self.handle, nil)
+    return true
+  end
+  local cursor = self.cursors[cursor_shape]
+  if cursor == nil then
+    cursor = glfw.lib.glfwCreateStandardCursor(cursor_shape)
+    if cursor == nil then return false, glfw_error() end
+    self.cursors[cursor_shape] = cursor
+  end
+  glfw.lib.glfwSetCursor(self.handle, cursor)
+  return true
 end
 
 function Window:cursor_position()
@@ -605,6 +653,11 @@ function Window:destroy()
     if self.callbacks.cocoa_commit ~= nil then self.callbacks.cocoa_commit:free(); self.callbacks.cocoa_commit = nil end
   end
   if self.handle ~= nil then
+    glfw.lib.glfwSetCursor(self.handle, nil)
+    for shape, cursor in pairs(self.cursors) do
+      glfw.lib.glfwDestroyCursor(cursor)
+      self.cursors[shape] = nil
+    end
     if ffi.os == "OSX" then native.kiwi_cocoa_window_tabs_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_command_palette_remove(self.handle) end

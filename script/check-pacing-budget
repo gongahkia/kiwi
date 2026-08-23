@@ -1,0 +1,78 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  print -u2 "usage: script/check-pacing-budget BASELINE CANDIDATE"
+  exit 2
+fi
+if ! command -v jq >/dev/null; then
+  print -u2 "jq is required to check pacing budgets."
+  exit 2
+fi
+
+function percent_from_environment() {
+  local name=$1
+  local fallback=$2
+  local value=$(printenv "$name" 2>/dev/null || true)
+  if [[ -z "$value" ]]; then value=$fallback; fi
+  if [[ "$value" != <-> || "$value" -le 0 ]]; then
+    print -u2 "$name must be a positive integer percent."
+    exit 2
+  fi
+  print -r -- "$value"
+}
+
+readonly p95_percent=$(percent_from_environment KIWI_PACING_MAX_P95_REGRESSION_PERCENT 25)
+
+./script/compare-pacing "$1" "$2" >/dev/null
+
+readonly report=$(jq -n \
+  --argjson p95_percent "$p95_percent" \
+  --slurpfile baseline "$1" \
+  --slurpfile candidate "$2" '
+    def metric($name; $before; $after):
+      if ($before.status == "measured" and $after.status == "measured"
+          and ($before.p95 | type) == "number" and ($after.p95 | type) == "number"
+          and $before.p95 > 0)
+      then {
+        name: $name,
+        baseline: $before.p95,
+        candidate: $after.p95,
+        max_percent: $p95_percent,
+        limit: ($before.p95 * (1 + $p95_percent / 100)),
+        status: (if $after.p95 <= ($before.p95 * (1 + $p95_percent / 100)) then "within-budget" else "over-budget" end)
+      }
+      elif ($before.status == "unavailable" and $after.status == "unavailable") then {
+        name: $name,
+        baseline_status: ($before.status // "missing"),
+        candidate_status: ($after.status // "missing"),
+        status: "unavailable"
+      }
+      else {
+        name: $name,
+        baseline_status: ($before.status // "missing"),
+        candidate_status: ($after.status // "missing"),
+        status: "incompatible"
+      }
+      end;
+    [
+      metric("frame_cpu_p95_ms"; $baseline[0].measurement.frame_cpu_ms; $candidate[0].measurement.frame_cpu_ms),
+      metric("frame_interval_p95_ms"; $baseline[0].measurement.frame_interval_ms; $candidate[0].measurement.frame_interval_ms),
+      metric("output_to_present_p95_ms"; $baseline[0].measurement.output_to_present_ms; $candidate[0].measurement.output_to_present_ms)
+    ] as $metrics |
+    {
+      pass: (any($metrics[]; .status == "within-budget" or .status == "over-budget")
+        and all($metrics[]; .status == "within-budget" or .status == "unavailable")),
+      metrics: $metrics
+    }
+  ')
+
+print -r -- "$report" | jq -r '
+  "pacing budget pass=\(.pass)",
+  (.metrics[] | if .status == "within-budget" or .status == "over-budget"
+    then "\(.name) baseline=\(.baseline) candidate=\(.candidate) limit=\(.limit) status=\(.status)"
+    else "\(.name) \(.status) baseline-status=\(.baseline_status) candidate-status=\(.candidate_status)"
+  end)
+'
+
+if [[ "$(print -r -- "$report" | jq -r '.pass')" != true ]]; then exit 1; fi

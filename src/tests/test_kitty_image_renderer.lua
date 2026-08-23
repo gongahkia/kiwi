@@ -186,12 +186,13 @@ return {
     for index, pass in ipairs(passes) do names[index] = pass.name end
     Assert.equal(
       table.concat(names, ","),
-      "terminal/background,terminal/kitty_images_under,terminal/selection,terminal/search,terminal/glyph,terminal/kitty_images_over,terminal/cursor"
+      "terminal/background,terminal/kitty_images_under,terminal/selection,terminal/search,terminal/glyph,terminal/kitty_images_over,terminal/cursor,terminal/scrollbar"
     )
     Assert.equal(passes[2].after[1], "terminal/background")
     Assert.equal(passes[3].after[1], "terminal/kitty_images_under")
     Assert.equal(passes[6].after[1], "terminal/glyph")
     Assert.equal(passes[7].after[1], "terminal/kitty_images_over")
+    Assert.equal(passes[8].after[1], "terminal/cursor")
     registry:destroy()
   end,
   kitty_image_pass_resolves_its_typed_resource_before_encoding = function()

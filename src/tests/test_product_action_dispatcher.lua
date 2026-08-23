@@ -75,6 +75,7 @@ local function dispatcher(options)
       return options.focus ~= false
     end,
     host = host,
+    initial_working_directory = function() return options.initial_working_directory end,
     report = function(message) state.logs[#state.logs + 1] = message end,
     request_configuration_reload = function() state.reload_requested = true end,
     session_move_smoke_requester = options.session_move_smoke_requester,
@@ -89,7 +90,7 @@ end
 
 return {
   product_action_dispatcher_routes_workspace_and_window_intents = function()
-    local actions, state = dispatcher()
+    local actions, state = dispatcher({ initial_working_directory = "/tmp/kiwi work" })
     local handled, layout_changed = actions:handle("new-tab")
     Assert.truthy(handled and layout_changed)
     Assert.equal(state.created_tabs, 1)
@@ -106,6 +107,7 @@ return {
     Assert.truthy(handled and not layout_changed)
     Assert.equal(state.requested_path, nil)
     Assert.equal(state.window_request.kind, "standalone")
+    Assert.equal(state.window_request.initial_cwd, "/tmp/kiwi work")
     handled, layout_changed = actions:handle("reload-config")
     Assert.truthy(handled and not layout_changed)
     Assert.truthy(state.reload_requested)

@@ -8,15 +8,20 @@
 
 enum {
   KIWI_GTK_GL_MAX_CELLS = 256 * 1024,
+  KIWI_GTK_GL_MAX_CELL_UPDATES = 4096,
   KIWI_GTK_GL_MAX_GLYPHS = 512 * 1024,
   KIWI_GTK_GL_MAX_ATLAS_BYTES = 4 * 1024 * 1024,
 };
 
 typedef struct KiwiGtkGlSnapshot {
   KiwiGlyphInstance *cells;
+  uint8_t *cell_dirty;
   uint32_t cell_count;
+  int cells_dirty;
+  int cells_full_upload;
   KiwiTextGlyphInstance *glyphs;
   uint32_t glyph_count;
+  int glyphs_dirty;
   uint8_t *atlas_pixels;
   uint32_t atlas_bytes;
   uint32_t atlas_width;
@@ -42,6 +47,13 @@ struct KiwiGtkGlRenderer {
   GLuint command_region_program;
   GLuint program;
   GLuint vertex_array;
+  uint32_t cell_buffer_count;
+  uint32_t glyph_buffer_count;
+  uint64_t cell_full_uploads;
+  uint64_t cell_subrange_uploads;
+  uint64_t cell_subrange_bytes;
+  uint64_t glyph_uploads;
+  uint64_t glyph_upload_bytes;
   uint64_t uploaded_atlas_generation;
   uint32_t uploaded_atlas_width;
   uint32_t uploaded_atlas_height;
@@ -225,6 +237,7 @@ static void kiwi_gtk_gl_set_error(KiwiGtkGlRenderer *renderer, const char *forma
 
 static void kiwi_gtk_gl_snapshot_clear(KiwiGtkGlSnapshot *snapshot) {
   g_free(snapshot->cells);
+  g_free(snapshot->cell_dirty);
   g_free(snapshot->glyphs);
   g_free(snapshot->atlas_pixels);
   memset(snapshot, 0, sizeof(*snapshot));
@@ -412,11 +425,69 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   renderer->overlay_program = 0;
   renderer->cursor_program = 0;
   renderer->command_region_program = 0;
+  renderer->cell_buffer_count = 0;
+  renderer->glyph_buffer_count = 0;
   renderer->uploaded_atlas_generation = 0;
   renderer->uploaded_atlas_width = 0;
   renderer->uploaded_atlas_height = 0;
   renderer->atlas_uploaded = 0;
   renderer->rendered_revision = 0;
+  if (renderer->pending.cells != NULL) renderer->pending.cells_full_upload = 1;
+  if (renderer->pending.glyphs != NULL || renderer->pending.glyph_count == 0)
+    renderer->pending.glyphs_dirty = 1;
+}
+
+static void kiwi_gtk_gl_upload_cells(KiwiGtkGlRenderer *renderer,
+                                     KiwiGtkGlSnapshot *snapshot) {
+  glBindBuffer(GL_ARRAY_BUFFER, renderer->cell_buffer);
+  if (renderer->cell_buffer_count != snapshot->cell_count ||
+      snapshot->cells_full_upload) {
+    glBufferData(GL_ARRAY_BUFFER,
+                 (GLsizeiptr)snapshot->cell_count * sizeof(KiwiGlyphInstance),
+                 snapshot->cells, GL_DYNAMIC_DRAW);
+    renderer->cell_full_uploads += 1;
+    renderer->cell_buffer_count = snapshot->cell_count;
+    memset(snapshot->cell_dirty, 0, snapshot->cell_count);
+    snapshot->cells_full_upload = 0;
+    snapshot->cells_dirty = 0;
+  } else if (snapshot->cells_dirty) {
+    uint32_t first = 0;
+    while (first < snapshot->cell_count) {
+      while (first < snapshot->cell_count && snapshot->cell_dirty[first] == 0) first += 1;
+      uint32_t finish = first;
+      while (finish < snapshot->cell_count && snapshot->cell_dirty[finish] != 0) finish += 1;
+      if (finish > first) {
+        glBufferSubData(GL_ARRAY_BUFFER,
+                        (GLintptr)first * sizeof(KiwiGlyphInstance),
+                        (GLsizeiptr)(finish - first) * sizeof(KiwiGlyphInstance),
+                        snapshot->cells + first);
+        renderer->cell_subrange_uploads += 1;
+        renderer->cell_subrange_bytes +=
+            (uint64_t)(finish - first) * sizeof(KiwiGlyphInstance);
+        memset(snapshot->cell_dirty + first, 0, finish - first);
+      }
+      first = finish;
+    }
+    snapshot->cells_dirty = 0;
+  }
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+static void kiwi_gtk_gl_upload_glyphs(KiwiGtkGlRenderer *renderer,
+                                      KiwiGtkGlSnapshot *snapshot) {
+  if (!snapshot->glyphs_dirty) return;
+  glBindBuffer(GL_ARRAY_BUFFER, renderer->glyph_buffer);
+  if (snapshot->glyph_count > 0) {
+    glBufferData(GL_ARRAY_BUFFER,
+                 (GLsizeiptr)snapshot->glyph_count * sizeof(KiwiTextGlyphInstance),
+                 snapshot->glyphs, GL_DYNAMIC_DRAW);
+    renderer->glyph_uploads += 1;
+    renderer->glyph_upload_bytes +=
+        (uint64_t)snapshot->glyph_count * sizeof(KiwiTextGlyphInstance);
+  }
+  renderer->glyph_buffer_count = snapshot->glyph_count;
+  snapshot->glyphs_dirty = 0;
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 static int kiwi_gtk_gl_range_active(float start_column, float start_row,
@@ -537,10 +608,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
   glClear(GL_COLOR_BUFFER_BIT);
   KiwiGtkGlSnapshot *snapshot = &renderer->pending;
   if (snapshot->cell_count == 0 || snapshot->frame.columns < 1 || snapshot->frame.rows < 1) return TRUE;
-  glBindBuffer(GL_ARRAY_BUFFER, renderer->cell_buffer);
-  glBufferData(GL_ARRAY_BUFFER,
-               (GLsizeiptr)snapshot->cell_count * sizeof(KiwiGlyphInstance),
-               snapshot->cells, GL_DYNAMIC_DRAW);
+  kiwi_gtk_gl_upload_cells(renderer, snapshot);
   glUseProgram(renderer->program);
   GLint grid = glGetUniformLocation(renderer->program, "grid");
   glUniform2f(grid, snapshot->frame.columns, snapshot->frame.rows);
@@ -548,7 +616,6 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
   glDrawArraysInstanced(GL_TRIANGLES, 0, 6, snapshot->cell_count);
   glBindVertexArray(0);
   glUseProgram(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
   kiwi_gtk_gl_draw_range(renderer, snapshot,
                          snapshot->frame.selection_start_column,
                          snapshot->frame.selection_start_row,
@@ -583,10 +650,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
       renderer->uploaded_atlas_height = snapshot->atlas_height;
       renderer->atlas_uploaded = 1;
     }
-    glBindBuffer(GL_ARRAY_BUFFER, renderer->glyph_buffer);
-    glBufferData(GL_ARRAY_BUFFER,
-                 (GLsizeiptr)snapshot->glyph_count * sizeof(KiwiTextGlyphInstance),
-                 snapshot->glyphs, GL_DYNAMIC_DRAW);
+    kiwi_gtk_gl_upload_glyphs(renderer, snapshot);
     glUseProgram(renderer->glyph_program);
     grid = glGetUniformLocation(renderer->glyph_program, "grid");
     glUniform2f(grid, snapshot->frame.columns, snapshot->frame.rows);
@@ -601,7 +665,6 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
     glBindVertexArray(0);
     glDisable(GL_BLEND);
     glUseProgram(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
   }
   kiwi_gtk_gl_draw_cursor(renderer, snapshot);
@@ -611,10 +674,8 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
 
 uint32_t kiwi_gtk_gl_renderer_abi_version(void) { return KIWI_GTK_GL_RENDERER_ABI_VERSION; }
 
-KiwiGtkGlRenderer *kiwi_gtk_gl_renderer_new(GtkGLArea *area) {
-  if (area == NULL) return NULL;
-  KiwiGtkGlRenderer *renderer = g_new0(KiwiGtkGlRenderer, 1);
-  renderer->area = area;
+int kiwi_gtk_gl_renderer_configure_area(GtkGLArea *area) {
+  if (area == NULL || gtk_widget_get_realized(GTK_WIDGET(area))) return 0;
   gtk_gl_area_set_auto_render(area, FALSE);
   gtk_gl_area_set_has_depth_buffer(area, FALSE);
   gtk_gl_area_set_has_stencil_buffer(area, FALSE);
@@ -624,6 +685,13 @@ KiwiGtkGlRenderer *kiwi_gtk_gl_renderer_new(GtkGLArea *area) {
   gtk_gl_area_set_use_es(area, FALSE);
 #endif
   gtk_gl_area_set_required_version(area, 3, 3);
+  return 1;
+}
+
+KiwiGtkGlRenderer *kiwi_gtk_gl_renderer_new(GtkGLArea *area) {
+  if (area == NULL) return NULL;
+  KiwiGtkGlRenderer *renderer = g_new0(KiwiGtkGlRenderer, 1);
+  renderer->area = area;
   renderer->realize_handler = g_signal_connect(area, "realize",
                                                 G_CALLBACK(kiwi_gtk_gl_realize), renderer);
   renderer->render_handler = g_signal_connect(area, "render",
@@ -650,14 +718,26 @@ void kiwi_gtk_gl_renderer_destroy(KiwiGtkGlRenderer *renderer) {
 
 int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
                                 const KiwiGtkGlFrame *frame) {
+  const uint32_t known_flags = KIWI_GTK_GL_FRAME_CELLS_FULL |
+      KIWI_GTK_GL_FRAME_GLYPHS_UPDATED | KIWI_GTK_GL_FRAME_ATLAS_UPDATED;
   if (renderer == NULL || frame == NULL || frame->frame == NULL ||
       frame->render_model_version != KIWI_RENDER_MODEL_VERSION || frame->revision == 0 ||
+      (frame->resource_flags & ~known_flags) != 0 ||
       frame->cell_count > KIWI_GTK_GL_MAX_CELLS ||
+      frame->cell_update_count > KIWI_GTK_GL_MAX_CELL_UPDATES ||
       frame->glyph_count > KIWI_GTK_GL_MAX_GLYPHS ||
       frame->atlas_bytes > KIWI_GTK_GL_MAX_ATLAS_BYTES ||
-      (frame->cell_count > 0 && frame->cells == NULL) ||
-      (frame->glyph_count > 0 && frame->glyphs == NULL) ||
-      (frame->atlas_bytes > 0 && frame->atlas_pixels == NULL) ||
+      (frame->cell_update_count > 0 && frame->cell_updates == NULL) ||
+      ((frame->resource_flags & KIWI_GTK_GL_FRAME_GLYPHS_UPDATED) != 0 &&
+       frame->glyph_count > 0 && frame->glyphs == NULL) ||
+      ((frame->resource_flags & KIWI_GTK_GL_FRAME_GLYPHS_UPDATED) == 0 &&
+       frame->glyphs != NULL) ||
+      ((frame->resource_flags & KIWI_GTK_GL_FRAME_ATLAS_UPDATED) != 0 &&
+       frame->atlas_bytes > 0 && frame->atlas_pixels == NULL) ||
+      ((frame->resource_flags & KIWI_GTK_GL_FRAME_ATLAS_UPDATED) == 0 &&
+       (frame->atlas_pixels != NULL || frame->atlas_bytes != 0 ||
+        frame->atlas_width != 0 || frame->atlas_height != 0 ||
+        frame->atlas_generation != 0)) ||
       (frame->atlas_bytes > 0 && (frame->atlas_width == 0 || frame->atlas_height == 0))) {
     if (renderer != NULL) kiwi_gtk_gl_set_error(renderer, "GTK GL frame is invalid or exceeds a fixed resource bound");
     return 0;
@@ -680,45 +760,114 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
     kiwi_gtk_gl_set_error(renderer, "GTK GL frame revision is older than the pending snapshot");
     return 0;
   }
-  int retain_atlas = frame->atlas_bytes > 0 && renderer->pending.atlas_pixels != NULL &&
-      renderer->pending.atlas_generation == frame->atlas_generation &&
-      renderer->pending.atlas_bytes == frame->atlas_bytes &&
-      renderer->pending.atlas_width == frame->atlas_width &&
-      renderer->pending.atlas_height == frame->atlas_height;
-  KiwiGtkGlSnapshot next = {
-      .cells = kiwi_gtk_gl_copy(frame->cells, (size_t)frame->cell_count * sizeof(*frame->cells)),
-      .cell_count = frame->cell_count,
-      .glyphs = kiwi_gtk_gl_copy(frame->glyphs, (size_t)frame->glyph_count * sizeof(*frame->glyphs)),
-      .glyph_count = frame->glyph_count,
-      .atlas_bytes = frame->atlas_bytes,
-      .atlas_width = frame->atlas_width,
-      .atlas_height = frame->atlas_height,
-      .atlas_generation = frame->atlas_generation,
-      .frame = *frame->frame,
-      .revision = frame->revision,
-  };
-  if ((frame->cell_count > 0 && next.cells == NULL) ||
-      (frame->glyph_count > 0 && next.glyphs == NULL)) {
-    kiwi_gtk_gl_snapshot_clear(&next);
-    kiwi_gtk_gl_set_error(renderer, "GTK GL frame allocation failed");
+  int cells_full = (frame->resource_flags & KIWI_GTK_GL_FRAME_CELLS_FULL) != 0;
+  int glyphs_updated = (frame->resource_flags & KIWI_GTK_GL_FRAME_GLYPHS_UPDATED) != 0;
+  int atlas_updated = (frame->resource_flags & KIWI_GTK_GL_FRAME_ATLAS_UPDATED) != 0;
+  int replace_cells = renderer->pending.cells == NULL ||
+      renderer->pending.cell_count != frame->cell_count;
+  if ((replace_cells || cells_full) &&
+      (frame->cell_update_count != 1 || frame->cell_updates[0].cells == NULL ||
+       frame->cell_updates[0].first_cell != 0 ||
+       frame->cell_updates[0].cell_count != frame->cell_count)) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL grid initialization needs exactly one complete cell update");
     return 0;
   }
-  if (retain_atlas) {
-    next.atlas_pixels = renderer->pending.atlas_pixels;
-    renderer->pending.atlas_pixels = NULL;
-  } else {
-    next.atlas_pixels = kiwi_gtk_gl_copy(frame->atlas_pixels, frame->atlas_bytes);
-    if (frame->atlas_bytes > 0 && next.atlas_pixels == NULL) {
-      kiwi_gtk_gl_snapshot_clear(&next);
-      kiwi_gtk_gl_set_error(renderer, "GTK GL atlas allocation failed");
+  if (replace_cells && !cells_full) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL grid resize needs a complete cell update");
+    return 0;
+  }
+  if (!glyphs_updated && frame->glyph_count != renderer->pending.glyph_count) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL frame changed glyph resources without an update flag");
+    return 0;
+  }
+  if (replace_cells && frame->glyph_count > 0 && !glyphs_updated) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL grid initialization needs glyph resources");
+    return 0;
+  }
+  if (glyphs_updated && frame->glyph_count > 0 && !atlas_updated &&
+      renderer->pending.atlas_pixels == NULL) {
+    kiwi_gtk_gl_set_error(renderer, "GTK GL glyph initialization needs atlas resources");
+    return 0;
+  }
+  for (uint32_t index = 0; index < frame->cell_update_count; index += 1) {
+    const KiwiGtkGlCellUpdate *update = &frame->cell_updates[index];
+    if (update->cells == NULL || update->cell_count == 0 ||
+        update->first_cell >= frame->cell_count ||
+        (uint64_t)update->first_cell + update->cell_count > frame->cell_count) {
+      kiwi_gtk_gl_set_error(renderer, "GTK GL cell update is outside the bounded grid");
       return 0;
     }
   }
-  kiwi_gtk_gl_snapshot_clear(&renderer->pending);
-  renderer->pending = next;
+  KiwiGlyphInstance *replacement_cells = NULL;
+  uint8_t *replacement_dirty = NULL;
+  KiwiTextGlyphInstance *replacement_glyphs = NULL;
+  uint8_t *replacement_atlas = NULL;
+  if (replace_cells) {
+    replacement_cells = g_malloc((size_t)frame->cell_count * sizeof(*replacement_cells));
+    replacement_dirty = g_malloc0(frame->cell_count);
+    if (replacement_cells == NULL || replacement_dirty == NULL) goto allocation_failed;
+  }
+  if (glyphs_updated && frame->glyph_count > 0) {
+    replacement_glyphs = kiwi_gtk_gl_copy(frame->glyphs,
+                                          (size_t)frame->glyph_count * sizeof(*frame->glyphs));
+    if (replacement_glyphs == NULL) goto allocation_failed;
+  }
+  if (atlas_updated && frame->atlas_bytes > 0) {
+    replacement_atlas = kiwi_gtk_gl_copy(frame->atlas_pixels, frame->atlas_bytes);
+    if (replacement_atlas == NULL) goto allocation_failed;
+  }
+  KiwiGtkGlSnapshot *snapshot = &renderer->pending;
+  if (replace_cells) {
+    g_free(snapshot->cells);
+    g_free(snapshot->cell_dirty);
+    snapshot->cells = replacement_cells;
+    snapshot->cell_dirty = replacement_dirty;
+    snapshot->cell_count = frame->cell_count;
+    replacement_cells = NULL;
+    replacement_dirty = NULL;
+  }
+  for (uint32_t index = 0; index < frame->cell_update_count; index += 1) {
+    const KiwiGtkGlCellUpdate *update = &frame->cell_updates[index];
+    memcpy(snapshot->cells + update->first_cell, update->cells,
+           (size_t)update->cell_count * sizeof(*snapshot->cells));
+    if (!cells_full) memset(snapshot->cell_dirty + update->first_cell, 1, update->cell_count);
+  }
+  if (cells_full) {
+    memset(snapshot->cell_dirty, 0, snapshot->cell_count);
+    snapshot->cells_full_upload = 1;
+    snapshot->cells_dirty = 0;
+  } else if (frame->cell_update_count > 0) {
+    snapshot->cells_dirty = 1;
+  }
+  if (glyphs_updated) {
+    g_free(snapshot->glyphs);
+    snapshot->glyphs = replacement_glyphs;
+    snapshot->glyph_count = frame->glyph_count;
+    snapshot->glyphs_dirty = 1;
+    replacement_glyphs = NULL;
+  }
+  if (atlas_updated) {
+    g_free(snapshot->atlas_pixels);
+    snapshot->atlas_pixels = replacement_atlas;
+    snapshot->atlas_bytes = frame->atlas_bytes;
+    snapshot->atlas_width = frame->atlas_width;
+    snapshot->atlas_height = frame->atlas_height;
+    snapshot->atlas_generation = frame->atlas_generation;
+    replacement_atlas = NULL;
+  }
+  snapshot->frame = *frame->frame;
+  snapshot->revision = frame->revision;
   renderer->error[0] = '\0';
   gtk_gl_area_queue_render(renderer->area);
   return 1;
+
+allocation_failed:
+  g_free(replacement_cells);
+  g_free(replacement_dirty);
+  g_free(replacement_glyphs);
+  g_free(replacement_atlas);
+  kiwi_gtk_gl_set_error(renderer, "GTK GL frame allocation failed");
+  return 0;
 }
 
 const char *kiwi_gtk_gl_renderer_last_error(const KiwiGtkGlRenderer *renderer) {
@@ -727,4 +876,22 @@ const char *kiwi_gtk_gl_renderer_last_error(const KiwiGtkGlRenderer *renderer) {
 
 uint64_t kiwi_gtk_gl_renderer_rendered_revision(const KiwiGtkGlRenderer *renderer) {
   return renderer == NULL ? 0 : renderer->rendered_revision;
+}
+
+void kiwi_gtk_gl_renderer_upload_metrics(const KiwiGtkGlRenderer *renderer,
+                                         uint64_t *cell_full_uploads,
+                                         uint64_t *cell_subrange_uploads,
+                                         uint64_t *cell_subrange_bytes,
+                                         uint64_t *glyph_uploads,
+                                         uint64_t *glyph_upload_bytes) {
+  if (cell_full_uploads != NULL)
+    *cell_full_uploads = renderer == NULL ? 0 : renderer->cell_full_uploads;
+  if (cell_subrange_uploads != NULL)
+    *cell_subrange_uploads = renderer == NULL ? 0 : renderer->cell_subrange_uploads;
+  if (cell_subrange_bytes != NULL)
+    *cell_subrange_bytes = renderer == NULL ? 0 : renderer->cell_subrange_bytes;
+  if (glyph_uploads != NULL)
+    *glyph_uploads = renderer == NULL ? 0 : renderer->glyph_uploads;
+  if (glyph_upload_bytes != NULL)
+    *glyph_upload_bytes = renderer == NULL ? 0 : renderer->glyph_upload_bytes;
 }

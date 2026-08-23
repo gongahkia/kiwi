@@ -102,6 +102,13 @@ run_native_recording() {
   return 0
 }
 
+run_tmux_native_recording() {
+  local session="kiwi-native-$RANDOM-$$"
+  local command='printf "\\033[?25l\\033[38;2;12;34;56mkiwi-tmux\\033[0m\\033[?25h\\n"; sleep 0.2'
+  tmux -L "$TMUX_SOCKET" new-session -d -s "$session" "$command" || return 1
+  run_native_recording tmux tmux -L "$TMUX_SOCKET" attach-session -t "$session"
+}
+
 recorded_output() {
   rg -o '"data":"[^"]*' "$1" | sed 's/"data":"//' | while IFS= read -r encoded; do
     if base64 -d </dev/null >/dev/null 2>&1; then
@@ -199,6 +206,16 @@ else
 fi
 
 if [[ "$native_session" == true ]]; then
+  if (( $+commands[tmux] )); then
+    if run_tmux_native_recording && require_clean_replay; then
+      record_result tmux-native passed "tmux rendered a bounded truecolour session through native recording and clean replay"
+    else
+      record_result tmux-native failed "tmux did not complete a bounded native recording with clean replay"
+    fi
+  else
+    record_result tmux-native skipped "tmux is not installed"
+  fi
+
   if run_native_recording shell-integration "$ROOT/script/shell-integration-child" && require_clean_replay; then
     record_result native-shell-integration passed "native recording and replay accepted the shell metadata fixture"
   else
@@ -270,7 +287,7 @@ if [[ "$native_session" == true ]]; then
     record_result top skipped "top is not installed"
   fi
 else
-  for name in native-shell-integration hyperlinks clipboard rgb-physical neovim vim top; do
+  for name in tmux-native native-shell-integration hyperlinks clipboard rgb-physical neovim vim top; do
     record_result "$name" skipped "a native graphical session is unavailable"
   done
 fi

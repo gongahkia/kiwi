@@ -9,14 +9,16 @@ return {
       "--font-family", "Noto Sans Mono",
       "--font-size", "18",
       "--scrollback-limit", "4000",
+      "--scrollbar", "never",
       "--shell-integration", "none",
       "--theme-file", "/trusted/theme.conf",
       "--", "/bin/sh", "-l",
     }, function() return nil end, false)
-    Assert.equal(#options.configuration_overrides, 7)
+    Assert.equal(#options.configuration_overrides, 8)
     Assert.equal(options.configuration_overrides[1].key, "theme")
     Assert.equal(options.configuration_overrides[1].value, "dracula")
-    Assert.equal(options.configuration_overrides[7].key, "theme-file")
+    Assert.equal(options.configuration_overrides[6].key, "scrollbar")
+    Assert.equal(options.configuration_overrides[8].key, "theme-file")
     Assert.equal(options.command[1], "/bin/sh")
     Assert.equal(options.command[2], "-l")
   end,

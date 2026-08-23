@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 enum {
-  KIWI_RENDER_MODEL_VERSION = 1,
+  KIWI_RENDER_MODEL_VERSION = 2,
   KIWI_RENDER_MODEL_COMMAND_REGION_LIMIT = 32,
 };
 
@@ -90,6 +90,16 @@ typedef struct KiwiFrameUniform {
   float command_region_alpha;
   float command_region_padding[5];
   float command_region_boundaries[KIWI_RENDER_MODEL_COMMAND_REGION_LIMIT * 4];
+  float scrollbar_visible;
+  float scrollbar_left;
+  float scrollbar_right;
+  float scrollbar_top;
+  float scrollbar_bottom;
+  float scrollbar_red;
+  float scrollbar_green;
+  float scrollbar_blue;
+  float scrollbar_alpha;
+  float scrollbar_padding[3];
 } KiwiFrameUniform;
 
 _Static_assert(sizeof(KiwiGlyphInstance) == 40, "KiwiGlyphInstance ABI changed");
@@ -97,7 +107,7 @@ _Static_assert(offsetof(KiwiGlyphInstance, fg) == 24, "KiwiGlyphInstance field A
 _Static_assert(sizeof(KiwiTextGlyphInstance) == 48, "KiwiTextGlyphInstance ABI changed");
 _Static_assert(offsetof(KiwiTextGlyphInstance, fg) == 32, "KiwiTextGlyphInstance field ABI changed");
 _Static_assert(sizeof(KiwiImageInstance) == 32, "KiwiImageInstance ABI changed");
-_Static_assert(sizeof(KiwiFrameUniform) == 688, "KiwiFrameUniform ABI changed");
+_Static_assert(sizeof(KiwiFrameUniform) == 736, "KiwiFrameUniform ABI changed");
 _Static_assert(offsetof(KiwiFrameUniform, command_region_boundaries) == 176,
                "KiwiFrameUniform boundary ABI changed");
 

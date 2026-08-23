@@ -25,13 +25,14 @@ and debug shortcuts remain disabled by default.
 SDK. Its public header and `lib/libkiwi_vt.so` are paired with the exact Lua
 core under `result/lua`; the library's loader search path is set to the pinned
 LuaJIT runtime. The example C consumer and API contract are installed under
-`result/share/doc/libkiwi-vt`. This is still experimental API v1, not a
+`result/share/doc/libkiwi-vt`. This is still experimental API v2, not a
 system-wide ABI compatibility promise. `nix flake check` compiles and runs the
 Lua and C consumers from the derivation; the source-checkout command
 `make libkiwi-vt-check` additionally proves the tarball is byte reproducible.
 
 The dev shell includes the LuaJIT, compiler, `pkg-config`, terminfo, GLFW,
-FreeType, HarfBuzz, Fontconfig, giflib, libpng, Vulkan-loader, and archive tools used by
+GTK4, libadwaita, libepoxy, FreeType, HarfBuzz, Fontconfig, giflib, libpng,
+Vulkan-loader, and archive tools used by
 the repository commands. It does not provide a running compositor, a Vulkan
 driver, a binary cache, or cross-platform builds. A native window still needs a
 working Linux Wayland/X11 session and compatible Vulkan driver.

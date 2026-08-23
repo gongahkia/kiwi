@@ -11,6 +11,8 @@ make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
 make pacing
 KIWI_PACING_SAMPLES=120 KIWI_PACING_WARMUP_FRAMES=20 make pacing
+make pacing-compare BASELINE=/stable/runner/pacing.json CANDIDATE=bench/results/<timestamp>-pacing.json
+make pacing-budget BASELINE=/stable/runner/pacing.json CANDIDATE=bench/results/<timestamp>-pacing.json
 make bench-longrun
 KIWI_LONGRUN_HISTORY_LIMIT=2048 KIWI_LONGRUN_HISTORY_LINES=4096 make bench-longrun
 make device-soak
@@ -56,14 +58,17 @@ The schema retains `legacy_m0_synthetic_results` separately. M0's synthetic scro
 
 ## M9 frame pacing methodology
 
-`make pacing` is an opt-in native Linux measurement. It drives a fixed child
+`make pacing` is an opt-in native graphical measurement on macOS or Linux. It drives a fixed child
 that emits 150 short output records at 40 ms intervals, warms up 30 successful
 frames by default, and writes the ignored, schema-version-1 aggregate report
 `bench/results/<UTC timestamp>-pacing.json`. `KIWI_PACING_SAMPLES` bounds each
 retained distribution (default 240) and `KIWI_PACING_WARMUP_FRAMES` changes the
-excluded frame count. The target exits successfully with an explicit skip when
-neither X11 nor Wayland is available, which is the intended headless-CI result;
-it does not manufacture a presentation metric. The encoded aggregate is capped
+excluded frame count. The fixture always disables workspace layout restore and
+persistence so the selected child is the only terminal workload. Linux exits
+successfully with an explicit skip when neither X11 nor Wayland is available,
+which is the intended headless-CI result; macOS relies on its native graphical
+session instead. The report does not manufacture a presentation metric. The
+encoded aggregate is capped
 at 64 KiB and contains no raw sample or event-payload arrays.
 
 The report uses GLFW's monotonic clock at four markers: accepted PTY input,
@@ -96,6 +101,30 @@ an interactive command, run Kiwi with `KIWI_PACING_REPORT=1`, send a command
 that visibly responds, and retain the separate local artifact; do not compare
 hosts, drivers, power modes, or measurement scopes as though they were the
 same baseline.
+
+The manually dispatched self-hosted Linux desktop workflow runs `make pacing`
+and `make power-smoke` after its functional qualification, then uploads their
+bounded JSON artifacts with the GLFW and GTK compatibility reports. The
+protected `desktop-compatibility` environment must provide
+`KIWI_PACING_BASELINE`, a readable approved report produced on that exact
+runner, and its lowercase SHA-256 in `KIWI_PACING_BASELINE_SHA256`. The
+workflow verifies the digest before it runs `make pacing-budget`, so replacing
+the file at the approved path is not silently treated as a new baseline. This
+is a controlled same-runner regression gate, not a portable performance
+threshold, GPU execution measurement, or a substitute for the manual release
+checklist below.
+
+`make pacing-compare` rejects any difference in report schema, measurement
+configuration, system, runtime, or methodology. It compares measured p95
+`frame_cpu_ms`, `frame_interval_ms`, and `output_to_present_ms`; a metric that
+is unavailable in both reports is explicitly excluded, while a measured versus
+unavailable pair is incompatible. `make pacing-budget` requires at least one
+comparable metric and defaults to a 25% p95 regression limit, overridable only
+for a separately qualified runner with
+`KIWI_PACING_MAX_P95_REGRESSION_PERCENT`. It does not budget input-to-present
+when the automated workload does not cause a reply, display scan-out, GPU time,
+or power/energy: those remain unavailable measurements rather than favorable
+zeros.
 
 ## M9 long-running history and cache profile
 

@@ -4,6 +4,9 @@
 -- boundaries. Workspace composition remains owned by the WGPU controller until
 -- the GtkGL renderer can present every pane and image pass with equal evidence.
 local AtspiProjection = require("kiwi.accessibility.atspi")
+local bit = require("bit")
+local ProductActions = require("kiwi.app.actions")
+local ProductActionDispatcher = require("kiwi.app.product_action_dispatcher")
 local HostEffects = require("kiwi.app.host_effects")
 local Clipboard = require("kiwi.input.clipboard")
 local Composition = require("kiwi.input.composition")
@@ -13,8 +16,11 @@ local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
 local Mouse = require("kiwi.input.mouse")
+local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
 local Pty = require("kiwi.process.pty")
 local GtkGLConsumer = require("kiwi.renderer.gtk_gl_consumer")
+local GtkGLSession = require("kiwi.app.gtk_gl_session")
+local GtkNativeTabGroup = require("kiwi.app.gtk_native_tab_group")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local ShellIntegration = require("kiwi.process.shell_integration")
 local TextLab = require("kiwi.text.lab")
@@ -122,7 +128,196 @@ local function report_region_status(status)
   if status ~= "navigated" then io.stderr:write("Kiwi regions: ", status:gsub("-", " "), "\n") end
 end
 
+-- This route is deliberately opt-in while its Linux graphical qualification is
+-- incomplete. Unlike the single-page route below, every native tab owns a
+-- distinct VT, PTY, input correlation state, IM context, accessibility
+-- projection, font, and GtkGL renderer through GtkGLSession.
+function Controller.run_native_tabs(window, host, options)
+  local supported, reason = Controller.validate_options(options)
+  assert(supported, reason)
+  assert(host.platform == "GTK", "GtkGLArea native tabs need the GTK host")
+  local system_appearance = host.system_appearance and host.system_appearance(window) or nil
+  local configuration, configuration_path = Config.load(options.config, nil, {
+    appearance = system_appearance,
+    command_line_overrides = options.configuration_overrides,
+  })
+  local enabled, enable_reason = window:enable_native_tabs()
+  assert(enabled, "GTK native tabs could not be enabled: " .. tostring(enable_reason))
+  local tab_group = GtkNativeTabGroup.new(window)
+  local sessions = tab_group.sessions
+  local product_actions = ProductActions.new(configuration.keybindings, host.keymap)
+  local action_dispatcher
+  local started_at = window:time()
+  local max_seconds = number_from_env("KIWI_MAX_SECONDS", 0)
+
+  local function close_session(session)
+    return tab_group:close(session)
+  end
+
+  local function handle_product_key(session, key, action, modifiers)
+    if bit.band(session.state.modes.keyboard_flags, 8) ~= 0 then
+      product_actions:reset_sequence()
+      return false
+    end
+    if action ~= host.keymap.press then return false end
+    local product_action, status = product_actions:lookup(key, modifiers, session.window:time())
+    if product_action ~= nil then
+      action_dispatcher.current_session = session
+      local handled = action_dispatcher and action_dispatcher:handle(product_action)
+      return handled == true
+    end
+    return status == "pending"
+  end
+
+  local function create_session(page, command, initial_cwd)
+    local session = GtkGLSession.new(page, host, configuration, {
+      command = command,
+      default_title = "Kiwi GTK GL terminal",
+      initial_cwd = initial_cwd,
+      is_selected = function(page) return window:selected_native_tab() == page end,
+      on_product_key = handle_product_key,
+    })
+    return tab_group:add(session)
+  end
+
+  local function active_working_directory()
+    local session = action_dispatcher and action_dispatcher.current_session or sessions[1]
+    return Pty.local_working_directory(session and session.state.shell.current_directory or nil)
+  end
+
+  local function create_tab()
+    local page = window:new_native_tab("Kiwi GTK GL terminal")
+    create_session(page, options.command, active_working_directory())
+    return true
+  end
+
+  local function focus_next_tab()
+    local selected, selected_reason = window:select_next_native_tab()
+    return selected == true, selected_reason
+  end
+
+  action_dispatcher = ProductActionDispatcher.new({
+    active_session = function() return action_dispatcher and action_dispatcher.current_session or sessions[1] end,
+    application = options.application,
+    close_active_pane = function()
+      -- GTK delivers key input to the selected page, so the product callback
+      -- below replaces this with that page before dispatching close.
+      return nil, "native-tab-selection-required"
+    end,
+    configuration = function() return configuration end,
+    configuration_path = function() return configuration_path end,
+    create_split = function() return nil, "splits are unavailable with KIWI_GTK_PRESENTER=gl" end,
+    create_tab = create_tab,
+    explicit_configuration_path = options.config,
+    focus_next_tab = function() return focus_next_tab() end,
+    host = host,
+    initial_working_directory = active_working_directory,
+    report = function(message) io.stderr:write(message, "\n") end,
+    request_configuration_reload = function()
+      io.stderr:write("Kiwi configuration reload is unavailable with GTK native tabs; restart the terminal.\n")
+    end,
+    set_configuration_path = function(path) configuration_path = path; configuration.path = path end,
+    window = window,
+  })
+
+  -- ProductActionDispatcher is host-neutral, but close needs the page that
+  -- generated the current event. Keep that state in a narrow wrapper rather
+  -- than passing GTK pointers into terminal state.
+  local dispatch_product = action_dispatcher.handle
+  function action_dispatcher:handle(action)
+    if action == "close-pane" then
+      local target = self.current_session
+      if target == nil then return true, false end
+      local closed, close_reason = close_session(target)
+      if not closed then io.stderr:write("Kiwi pane closure rejected: ", tostring(close_reason), "\n") end
+      return true, closed == true
+    end
+    return dispatch_product(self, action)
+  end
+
+  local root_session = create_session(window, options.command, options.initial_cwd)
+  action_dispatcher.current_session = root_session
+  local close_handler_enabled, close_handler_reason = window:set_native_tab_close_handler(function(page)
+    for _, session in ipairs(sessions) do
+      if session.window == page then
+        local closed = close_session(session)
+        return closed == true
+      end
+    end
+    return false
+  end)
+  assert(close_handler_enabled, "GTK native tab close handler could not be installed: " .. tostring(close_handler_reason))
+  if host.set_product_action_handler then
+    local menu_enabled, menu_reason = host.set_product_action_handler(window, function(action)
+      local selected = window:selected_native_tab()
+      for _, session in ipairs(sessions) do
+        if session.window == selected then action_dispatcher.current_session = session; break end
+      end
+      action_dispatcher:handle(action)
+    end)
+    if not menu_enabled then io.stderr:write("Kiwi native menu unavailable: ", tostring(menu_reason), "\n") end
+  end
+  if os.getenv("KIWI_GTK_NATIVE_TABS_SMOKE") == "1" then
+    assert(host.invoke_product_action_smoke, "GTK native-tab smoke needs the product-action bridge")
+    local invoked, invoke_reason = host.invoke_product_action_smoke(window, "new-tab")
+    assert(invoked, "GTK native-tab smoke could not invoke New Tab: " .. tostring(invoke_reason))
+    assert(#sessions == 2, "GTK native-tab smoke did not create a distinct terminal session")
+    assert(sessions[1].window ~= sessions[2].window and sessions[1].pty ~= sessions[2].pty,
+      "GTK native-tab smoke did not retain independent page and PTY ownership")
+    if os.getenv("KIWI_GTK_NATIVE_TABS_CLOSE_SMOKE") == "1" then
+      local close_invoked, close_reason = host.invoke_product_action_smoke(window, "close-pane")
+      assert(close_invoked, "GTK native-tab close smoke could not invoke Close Pane: " .. tostring(close_reason))
+      assert(#sessions == 1 and window:native_tab_count() == 1,
+        "GTK native-tab close smoke did not release exactly one page and session")
+      assert(not sessions[1].closed,
+        "GTK native-tab close smoke released the session that remained visible")
+    end
+  end
+
+  io.stdout:write(string.format("Kiwi GTK GL native-tabs experimental: TERM=xterm-kiwi child=%s tabs=%d\n",
+    options.command and options.command[1] or Pty.default_command()[1], #sessions))
+  local ok, result = xpcall(function()
+    while not window:should_close() and #sessions > 0 do
+      local now = window:time()
+      if max_seconds > 0 and now - started_at >= max_seconds then break end
+      local timeout = 0.050
+      for _, session in ipairs(sessions) do
+        local deadline = session:next_deadline()
+        if deadline and deadline > now then timeout = math.min(timeout, deadline - now) else timeout = 0 end
+      end
+      if host.await_events and options.application then
+        host.await_events(options.application, window, math.max(0, timeout))
+      else
+        window:wait_events(math.max(0, timeout))
+      end
+      if window:should_close() then break end
+      local all_complete = true
+      for index = #sessions, 1, -1 do
+        local session = sessions[index]
+        action_dispatcher.current_session = session
+        if not session.complete then session.complete = session:tick(window:time()) == "complete" end
+        if not session.complete then all_complete = false end
+      end
+      if os.getenv("KIWI_GTK_NATIVE_TABS_SMOKE") == "1" and not all_complete then
+        for _, session in ipairs(sessions) do
+          if not session.complete then
+            assert(session.window:select_native_tab())
+            break
+          end
+        end
+      end
+      if all_complete then window:request_close() end
+    end
+  end, debug.traceback)
+  tab_group:shutdown()
+  window:destroy()
+  if not ok then error(result) end
+end
+
 function Controller.run(window, host, options)
+  if os.getenv("KIWI_GTK_NATIVE_TABS") == "1" then
+    return Controller.run_native_tabs(window, host, options)
+  end
   local supported, reason = Controller.validate_options(options)
   assert(supported, reason)
   assert(host.platform == "GTK", "GtkGLArea presentation needs the GTK host")
@@ -149,8 +344,10 @@ function Controller.run(window, host, options)
         state_options = {
           scrollback_limit = configuration.scrollback_limit,
           ambiguous_width = configuration.ambiguous_width,
+          osc52_read = configuration.osc52_read == "allow",
           osc52_write = configuration.osc52_write,
-          keyboard_supported_flags = host.keyboard_supported_flags,
+          keyboard_supported_flags = host.keyboard_supported_flags_for and
+            host.keyboard_supported_flags_for(window) or host.keyboard_supported_flags,
           cell_width = font.cell_width,
           cell_height = font.cell_height,
           colors = {
@@ -187,6 +384,7 @@ function Controller.run(window, host, options)
     local hyperlink = Hyperlink.new(window)
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local mouse = Mouse.new()
+    local scrollback_wheel = ScrollbackWheel.new()
     local selection_pointer = SelectionPointer.new()
     local composition = Composition.new()
     composition:enter()
@@ -332,6 +530,7 @@ function Controller.run(window, host, options)
         apply_commit("")
         local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, {
           associated_text = codepoints,
+          unicode_key = key_event.variants and key_event.variants.unicode_key,
           layout_key = key_event.variants and key_event.variants.layout_key,
           shifted_key = key_event.variants and key_event.variants.shifted_key,
           base_key = key_event.variants and key_event.variants.base_key,
@@ -345,7 +544,7 @@ function Controller.run(window, host, options)
         invalidate("search")
         return { handled = true, suppress_text = true }
       end
-      if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw) then
+      if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
         return { handled = true, defer_text = true }
       end
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw, variants)
@@ -363,13 +562,21 @@ function Controller.run(window, host, options)
       local hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes)
       if hyperlink_handled and not hyperlink_opened then report_hyperlink_failure(hyperlink_status) end
       local selection_handled, selection_changed = false, false
-      if not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes) end
+      if not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
       if selection_changed then invalidate("selection") end
       if not hyperlink_handled and not selection_handled then
         local encoded
         if event.kind == "button" then encoded = mouse:button(event, state:input_modes())
         elseif event.kind == "motion" then encoded = mouse:motion(event, state:input_modes())
-        elseif event.kind == "wheel" then encoded = mouse:wheel(event, state:input_modes()) end
+        elseif event.kind == "wheel" then
+          local history_lines = scrollback_wheel:consume(event, state:input_modes())
+          if history_lines ~= nil then
+            state:scroll_history(history_lines)
+            invalidate("terminal")
+          else
+            encoded = mouse:wheel(event, state:input_modes())
+          end
+        end
         if encoded then enqueue_input(encoded) end
       end
     end, function(focused)
@@ -498,10 +705,21 @@ function Controller.run(window, host, options)
         if effect.kind == "clipboard_write_requested" then
           local written, status = clipboard:write_osc52(effect.value.text)
           if not written then io.stderr:write("Kiwi OSC 52 clipboard write rejected: ", status, "\n") end
+        elseif effect.kind == "clipboard_read_requested" then
+          local reply, status = clipboard:read_osc52_reply(effect.value.selection, effect.value.maximum_bytes)
+          if reply then pty:enqueue(reply) else io.stderr:write("Kiwi OSC 52 clipboard read rejected: ", status, "\n") end
+        elseif effect.kind == "pointer_shape_changed" and host.set_pointer_shape then
+          host.set_pointer_shape(window, effect.value.shape)
         else
-          local consumed, status, first_report = configuration.host_effects:consume(effect)
-          if consumed and status ~= "submitted" and first_report then
-            io.stderr:write("Kiwi OSC 9 ", effect.kind == "notification_requested" and "notification" or "progress", " ignored: ", status, "\n")
+          local consumed, status, first_report = configuration.host_effects:consume(effect, {
+            focused = window_focused,
+            now = now,
+            source = terminal,
+          })
+          if consumed and first_report and (status == "invalid" or status == "unavailable" or status == "rejected") then
+            local subject = effect.kind == "shell_marker" and "command-finish notification"
+              or effect.kind == "notification_requested" and "OSC 9 notification" or "OSC 9 progress"
+            io.stderr:write("Kiwi ", subject, " ignored: ", status, "\n")
           end
         end
       end

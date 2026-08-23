@@ -2,8 +2,8 @@ local Json = require("kiwi.bench.json")
 
 local Compatibility = {
   schema_version = 1,
-  version = "1.0",
-  next_version = "1.1",
+  version = "1.4",
+  next_version = "1.5",
   supported = {
     "c0-controls",
     "esc-controls-and-character-sets",
@@ -11,16 +11,20 @@ local Compatibility = {
     "primary-alternate-screens-and-primary-reflow",
     "sgr-16-256-rgb-state",
     "osc-title-hyperlink-palette-shell-metadata",
+    "bounded-kitty-osc21-palette-default-cursor-colours",
+    "bounded-osc22-css-pointer-shape",
     "default-denied-bounded-osc52-write",
     "device-status-attributes-and-read-only-geometry",
     "mouse-focus-and-bracketed-paste",
+    "xtshiftescape-host-selection-policy",
     "kitty-keyboard-flags-1-2-8-16",
     "bounded-kitty-png-apng-gif",
   },
   partial = {
     "xterm-private-mode-surface",
     "terminfo-256-colour-and-direct-rgb-contract",
-    "kitty-keyboard-flag-4-macos",
+    "kitty-keyboard-flag-4-macos-and-gtk",
+    "osc52-read-query-host-policy",
     "macos-nsaccessibility-active-pane-projection",
   },
   deferred = {
@@ -28,11 +32,11 @@ local Compatibility = {
     "touch-gesture-and-locator-mouse",
     "sixel-video-and-broader-kitty-graphics",
     "exhaustive-dec-private-modes",
-    "osc52-read-query-clear-and-synchronization",
+    "osc52-clear-and-automatic-clipboard-synchronization",
   },
   next = {
-    "corpus-driven-xterm-reset-tab-private-mode-and-query-behavior",
-    "modern-input-and-osc-extensions-only-with-host-policy-tests",
+    "application-derived-pointer-and-graphics-behavior",
+    "remote-and-native-desktop-policy-qualification",
   },
 }
 

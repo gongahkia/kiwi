@@ -91,4 +91,33 @@ return {
     Assert.truthy(not handled)
     Assert.truthy(not state:selection_view().active)
   end,
+  selection_pointer_applies_shift_override_and_program_capture_policy = function()
+    local state = State.new(3, 1)
+    write_row(state, 0, { 0x61, 0x62, 0x63 })
+    local modes = { mouse_sgr = true, mouse_tracking = "button" }
+    local shifted = button("press", 0, 1, 1)
+    shifted.modifiers = 0x0001
+    local pointer = SelectionPointer.new()
+    Assert.truthy(pointer:handle(shifted, state, modes))
+    Assert.truthy(state:selection_view().active)
+
+    state:clear_selection()
+    modes.mouse_shift_escape = true
+    pointer = SelectionPointer.new()
+    Assert.truthy(not pointer:handle(shifted, state, modes))
+    Assert.truthy(not state:selection_view().active)
+
+    modes.mouse_shift_escape = nil
+    pointer = SelectionPointer.new()
+    Assert.truthy(not pointer:handle(shifted, state, modes, true))
+    modes.mouse_shift_escape = false
+    pointer = SelectionPointer.new()
+    Assert.truthy(pointer:handle(shifted, state, modes, true))
+    modes.mouse_shift_escape = true
+    pointer = SelectionPointer.new()
+    Assert.truthy(pointer:handle(shifted, state, modes, "never"))
+    modes.mouse_shift_escape = false
+    pointer = SelectionPointer.new()
+    Assert.truthy(not pointer:handle(shifted, state, modes, "always"))
+  end,
 }

@@ -18,6 +18,7 @@ local PreparedImages = require("kiwi.renderer.prepared_images")
 local Resources = require("kiwi.renderer.resources")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
+local Scrollbar = require("kiwi.renderer.scrollbar")
 local ShaderLoader = require("kiwi.renderer.shader_loader")
 local ShaderReloader = require("kiwi.renderer.shader_reloader")
 
@@ -57,6 +58,7 @@ function Renderer.new(context, font, model, options)
   local pass_budgets_enabled = options.pass_budgets_enabled == true
   assert(options.pass_budgets_enabled == nil or type(options.pass_budgets_enabled) == "boolean", "pass budget enablement must be a boolean")
   assert(options.command_region_visual_enabled == nil or type(options.command_region_visual_enabled) == "boolean", "command region visual enablement must be a boolean")
+  Scrollbar.validate_policy(options.scrollbar_policy)
   assert(options.text_backend == nil or type(options.text_backend) == "string", "text backend selection must be a string")
   local inspector_enabled = options.inspector_enabled == true
   local placement_limit = model.kitty_placements and model.kitty_placements.limit or 256
@@ -98,6 +100,7 @@ function Renderer.new(context, font, model, options)
     hyperlink_color = prepared_frame.hyperlink_color,
     command_region_visual_enabled = prepared_frame.command_region_visual_enabled,
     command_region_color = prepared_frame.command_region_color,
+    scrollbar_policy = prepared_frame.scrollbar_policy,
     kitty_images = KittyImages.new(placement_limit * placement_rows),
     diagnostics = {
       cells_uploaded = 0,
@@ -426,6 +429,10 @@ function Renderer:command_regions_descriptor(model)
   return CommandRegions.descriptor(model)
 end
 
+function Renderer:scrollbar_descriptor(model)
+  return Scrollbar.descriptor(model, self.scrollbar_policy)
+end
+
 function Renderer:update_command_regions(model)
   local descriptor = self:command_regions_descriptor(model)
   if not CommandRegions.same(self.command_regions, descriptor) then self:invalidate("command_regions") end
@@ -459,6 +466,8 @@ function Renderer:register_semantic_resources(model)
   register("terminal.hyperlinks", "read", self.hyperlinks)
   self.command_regions = self:command_regions_descriptor(model)
   register("terminal.command_regions", "read", self.command_regions)
+  self.scrollbar = self:scrollbar_descriptor(model)
+  register("terminal.scrollbar", "read", self.scrollbar)
   register("terminal.kitty_images", "read", self.kitty_images:descriptor())
   register("terminal.damage", "read", { cells = 0, ranges = 0, full = false })
   register("frame.viewport", "read", {
@@ -478,7 +487,7 @@ function Renderer:register_semantic_resources(model)
   register("surface.color", "write", { format = self.context.surface_format })
 end
 
-function Renderer:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions)
+function Renderer:refresh_semantic_resources(model, time, delta, selection, search, hyperlinks, command_regions, scrollbar)
   local registry = self.resource_registry
   local handles = self.resource_handles
   local atlas = self.font.glyph_cache.atlas
@@ -502,6 +511,8 @@ function Renderer:refresh_semantic_resources(model, time, delta, selection, sear
   registry:update(handles["terminal.hyperlinks"], self:resource_descriptor("terminal.hyperlinks", "read", self.hyperlinks))
   self.command_regions = command_regions or self:command_regions_descriptor(model)
   registry:update(handles["terminal.command_regions"], self:resource_descriptor("terminal.command_regions", "read", self.command_regions))
+  self.scrollbar = scrollbar or self:scrollbar_descriptor(model)
+  registry:update(handles["terminal.scrollbar"], self:resource_descriptor("terminal.scrollbar", "read", self.scrollbar))
   registry:update(handles["terminal.kitty_images"], self:resource_descriptor("terminal.kitty_images", "read", self.kitty_images:descriptor()))
   registry:update(handles["terminal.damage"], self:resource_descriptor("terminal.damage", "read", {
     cells = self.diagnostics.dirty_cells,
@@ -587,7 +598,7 @@ function Renderer:update_model(model)
   self.diagnostics.text_backend = self.text_backend:descriptor()
   self:refresh_semantic_resources(model, self.frame_time, 0,
     plan.descriptors.selection, plan.descriptors.search, plan.descriptors.hyperlinks,
-    plan.descriptors.command_regions)
+    plan.descriptors.command_regions, plan.descriptors.scrollbar)
 end
 
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
@@ -597,7 +608,7 @@ function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   self.frame_time = frame.time
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, frame.data, frame.byte_count)
   self:refresh_semantic_resources(model, frame.time, frame.delta,
-    frame.selection, frame.search, frame.hyperlinks, frame.command_regions)
+    frame.selection, frame.search, frame.hyperlinks, frame.command_regions, frame.scrollbar)
 end
 
 function Renderer:configure_pass_viewport(pass)

@@ -11,6 +11,9 @@ return {
     Assert.equal(Input.key({ key = "escape", action = "press" }, { keyboard_flags = 1 }).bytes, "\27[27u")
     Assert.equal(Input.key({ key = "A", action = "press", modifiers = Input.modifiers.shift, associated_text = { string.byte("A") } }, { keyboard_flags = 24 }).bytes, "\27[97;2;65u")
     Assert.equal(Input.key({ key = "A", action = "press", modifiers = Input.modifiers.control + Input.modifiers.shift, layout_key = string.byte("q"), shifted_key = string.byte("Q"), base_key = string.byte("a") }, { keyboard_flags = 5 }).bytes, "\27[113:81:97;6u")
+    Assert.equal(Input.key({ key = 295, unicode_key = 0x0127, action = "press", modifiers = Input.modifiers.control }, { keyboard_flags = 5 }).bytes, "\27[295;5u")
+    Assert.equal(Input.key({ key = 295, action = "press", modifiers = Input.modifiers.control }, { keyboard_flags = 5 }).bytes, "\27[17;5~")
+    Assert.equal(Input.key({ unicode_key = 0x0430, action = "press", modifiers = Input.modifiers.control, layout_key = 0x0430, base_key = string.byte("a") }, { keyboard_flags = 5 }).bytes, "\27[1072::97;5u")
     Assert.equal(Input.key({ key = "kp_1", action = "press" }, { application_keypad = true }).bytes, "\27Oq")
     Assert.equal(Input.key({ key = "backspace", action = "press" }, { backarrow = true }).bytes, "\b")
   end,

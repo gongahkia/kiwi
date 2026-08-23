@@ -14,7 +14,10 @@
         pkgs.giflib
         pkgs.glib
         pkgs.glfw
+        pkgs.gtk4
         pkgs.harfbuzz
+        pkgs.libadwaita
+        pkgs.libepoxy
         pkgs.libpng
         pkgs.vulkan-loader
         pkgs.wayland
@@ -67,6 +70,7 @@
           buildPhase = ''
             runHook preBuild
             ./script/build-native
+            ./script/build-gtk-host
             ./script/build-terminfo
             runHook postBuild
           '';
@@ -82,6 +86,7 @@
           installPhase = ''
             runHook preInstall
             install -Dm755 .build/native/libkiwi_surface.so "$out/lib/libkiwi_surface.so"
+            install -Dm755 .build/native/libkiwi_gtk_host.so "$out/lib/libkiwi_gtk_host.so"
             install -Dm755 .deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so "$out/lib/libwgpu_native.so"
             install -Dm644 VERSION "$out/VERSION"
             install -Dm644 README.md "$out/share/doc/kiwi/README.md"
@@ -112,6 +117,7 @@
             export KIWI_LUA_ROOT="$out/share/kiwi/lua"
             export KIWI_WGPU_LIB="$out/lib/libwgpu_native.so"
             export KIWI_SURFACE_LIB="$out/lib/libkiwi_surface.so"
+            export KIWI_GTK_HOST_LIB="$out/lib/libkiwi_gtk_host.so"
             export KIWI_RELEASE=1
             export TERMINFO="$out/share/terminfo"
             export KIWI_TERMINFO="$out/share/terminfo"

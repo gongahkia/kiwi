@@ -58,9 +58,12 @@ return {
 
   live_window_manager_marks_explicit_new_windows_as_separate_native_windows = function()
     local manager = Manager.new(function() end, {})
-    assert(manager:request_window())
+    assert(manager:request_window(nil, { initial_cwd = "/tmp/kiwi work", kind = "standalone" }))
     assert(manager.controllers[1].options.host_tab == false)
     assert(manager.controllers[1].options.host_tab_source_id == nil)
+    assert(manager.controllers[1].options.initial_cwd == "/tmp/kiwi work")
+    local opened, reason = manager:request_window(nil, { initial_cwd = "relative", kind = "standalone" })
+    assert(opened == nil and reason == "invalid-working-directory")
   end,
   live_window_manager_validates_host_tab_source_identity = function()
     local manager = Manager.new(function() end, {})

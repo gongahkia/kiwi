@@ -42,7 +42,12 @@ local ok, message = xpcall(function()
   require_result(text_input_ok, "Cocoa text-input smoke failed: " .. tostring(text_input_message))
   local key_variants = window:cocoa_key_variants(0, string.byte("A"))
   require_result(key_variants and key_variants.layout_key >= 0x20 and key_variants.shifted_key >= 0x20 and key_variants.base_key == string.byte("a"), "Cocoa current-layout key-variant bridge did not produce a Kitty flag-4 tuple")
-  local host_effects = HostEffects.new({ osc9_notifications = "off", osc9_progress = "system" }, GLFWHost, window)
+local host_effects = HostEffects.new({
+  notify_on_command_finish = "never",
+  notify_on_command_finish_after = 5,
+  osc9_notifications = "off",
+  osc9_progress = "system",
+}, GLFWHost, window)
   local progress_handled, progress_status = host_effects:consume({ kind = "progress_changed", value = { progress = 73, state = 1 } })
   require_result(progress_handled and progress_status == "submitted", "Cocoa terminal-progress host policy did not submit the native request")
   local progress_smoke, progress_smoke_message = window:cocoa_progress_round_trip()

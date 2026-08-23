@@ -4,8 +4,8 @@ local Parser = require("kiwi.terminal.parser")
 local Pty = require("kiwi.process.pty")
 local State = require("kiwi.terminal.state")
 
-local function pump(command, columns, rows, on_responses, environment)
-  local pty = Pty.spawn(command, columns, rows, environment or { TERM = "xterm-kiwi", COLORTERM = "truecolor" })
+local function pump(command, columns, rows, on_responses, environment, options)
+  local pty = Pty.spawn(command, columns, rows, environment or { TERM = "xterm-kiwi", COLORTERM = "truecolor" }, options)
   local state = State.new(columns, rows)
   local parser = Parser.new(function(action)
     state:apply(action)
@@ -70,6 +70,15 @@ test("pty_resolves_unqualified_commands_with_the_inherited_path", function()
   Assert.equal(transcript, "path-search")
   Assert.equal(status.kind, "exit")
   Assert.equal(status.code, 0)
+end)
+
+test("pty_starts_a_child_in_a_validated_local_working_directory", function()
+  local _, _, status = pump({ "/bin/sh", "-c", "test \"$(pwd -P)\" = \"$(cd /tmp && pwd -P)\"" }, 16, 4, nil, {
+    TERM = "xterm-kiwi",
+  }, { cwd = "/tmp" })
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+  Assert.truthy(not pcall(Pty.spawn, { "/bin/sh" }, 16, 4, { TERM = "xterm-kiwi" }, { cwd = "relative" }))
 end)
 
 test("pty_read_budget_preserves_all_output_across_multiple_polls", function()

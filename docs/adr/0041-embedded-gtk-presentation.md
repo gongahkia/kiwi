@@ -2,10 +2,17 @@
 
 ## Status
 
-Accepted architecture; an experimental single-terminal GtkGLArea presentation
-route is implemented. The default GTK host remains the toplevel-WGPU
-development host. Neither route advertises GTK-native tabs before this ADR's
-acceptance gates pass.
+Accepted architecture; an experimental GtkGLArea presentation route is
+implemented. Its `KIWI_GTK_NATIVE_TABS=1` prototype has a libadwaita
+multi-page group: every page owns a distinct VT, PTY, Lua input state, GTK
+terminal presentation, `GtkGLArea`, input/IME controller set, accessibility
+node, font, and renderer state. The native menu/key dispatcher can create and
+select those pages. It closes a non-final page by detaching its presentation
+before releasing the session, and closes the final page by closing the group.
+It deliberately rejects splits, session movement, detach/tear-off,
+persistence, and the application manager's `host-tab` intent. The default GTK
+host remains the toplevel-WGPU development host. Neither route advertises
+GTK-native tabs before this ADR's acceptance gates pass.
 
 ## Context
 
@@ -45,7 +52,8 @@ Keep the existing top-level WGPU GTK host as the bounded development and
 qualification host. Do not add `GtkNotebook` pages, fake native-tab capability,
 or a GTK-specific terminal-state handle to it.
 
-Before enabling GTK native tabs, introduce a presentation adapter with these
+To promote the experimental GTK native-tab route, retain a presentation adapter
+with these
 properties:
 
 - GTK owns an embedded terminal widget per controller and its realized/unrealized
@@ -62,11 +70,13 @@ properties:
   interchange; reassess that alternative only after a pinned upstream API
   exposes documented texture sharing with lifetime and synchronization rules
   on both backends. A partial Wayland-only `wl_subsurface` solution is not.
-- Only after that adapter passes its own rendering, resize, scale,
-  realization/unrealization, suspend/resume, and device-loss gates may GTK
-  add libadwaita as an explicit Linux-host dependency. The native container
-  will be an `AdwTabView` plus `AdwTabBar`, with libadwaita's conflicting global
-  page-switching shortcuts disabled in favour of Kiwi's configured action map.
+- libadwaita is an explicit GTK-host build, CI, and Linux release dependency
+  for the experimental page owner. Product enablement still waits for the
+  adapter's rendering, resize,
+  scale, realization/unrealization, suspend/resume, and device-loss gates. The
+  native container is an `AdwTabView` plus `AdwTabBar`, with libadwaita's
+  conflicting global page-switching shortcuts disabled in favour of Kiwi's
+  configured action map.
 - The group owner resolves `source_controller_id`; owns page attachment,
   selection/focus, reordering, close, and `create-window` detach; and destroys
   the embedded presentation resource before the controller or its renderer.
@@ -129,12 +139,13 @@ images, and frame uniforms. A future GL consumer must use this contract rather
 than reproduce LuaJIT struct declarations locally. It is internal and may make
 a coordinated breaking change while no stable native renderer ABI exists.
 
-`kiwi.renderer.gtk_gl_consumer` is the matching Lua-side consumer. It creates
-the prepared plan, submits one complete bounded snapshot, and clears terminal
-damage only after the native bridge accepts its deep copy. A native rejection
-leaves damage intact and forces the next plan to restore every cell, glyph, and
-atlas resource. The module is tested with a fake native window but is not yet
-selected by the application controller.
+`kiwi.renderer.gtk_gl_consumer` is the matching Lua-side consumer. It submits
+the prepared plan's bounded cell ranges plus changed glyph and atlas resources,
+and clears terminal damage only after the native bridge accepts its deep copy.
+The native side retains a bounded CPU mirror for the current grid and resource
+generations. A native rejection leaves damage intact and forces the next plan
+to restore every cell, glyph, and atlas resource. The module is tested with a
+fake native window but is not yet selected by the application controller.
 
 At minimum, a prepared frame has to carry:
 
@@ -166,24 +177,32 @@ of an OpenGL backend or complete backend-neutral image rendering.
 
 ### GTK execution and lifetime rules
 
-The host supplies an opt-in lifecycle probe with one `GtkGLArea` below its
+The host supplies an opt-in lifecycle boundary with one `GtkGLArea` below each
 accessible terminal root. It establishes the GTK-owned realize/render/unrealize
-boundary, records context generations and render callbacks, and is qualified
-only by `make gtk-gl-area-smoke` in a real Linux graphical session. The default
-presenter remains WGPU.
+boundary, records context generations and render callbacks, and is structurally
+checked by `make gtk-gl-area-smoke` in a real Linux graphical session. The
+default presenter remains WGPU.
 
 The GTK bridge now also builds a private OpenGL renderer against that ABI. Its
-first executable stage accepts a complete bounded snapshot and draws cell
+first executable stage accepts bounded resource updates and draws cell
 backgrounds, selection/search ranges, alpha-atlas glyphs, and cursor geometry.
 The probe submits a known RGB cell first in C and then a second complete
-cell/glyph/atlas snapshot through the LuaJIT FFI, requiring the GL renderer to
-acknowledge each revision after a render callback. `KIWI_GTK_PRESENTER=gl`
-selects `gtk_gl_controller`: an experimental, one-terminal application route
+cell/glyph/atlas initialization through the LuaJIT FFI, requiring the GL
+renderer to acknowledge each revision after a render callback.
+`KIWI_GTK_PRESENTER=gl` selects `gtk_gl_controller`: without
+`KIWI_GTK_NATIVE_TABS=1`, it is an experimental one-terminal application route
 that drives this renderer from the real VT, PTY, shaping, keyboard, IME,
-selection, clipboard, accessibility, and resize paths. It disables workspace
-restore/persistence and rejects tabs, splits, window/session transfer,
-recording, and product-menu/palette smokes before creating a terminal. It is
-therefore an integration boundary, not a partial claim for those features.
+selection, clipboard, accessibility, and resize paths. With both variables,
+an `AdwTabView` owns one complete terminal session per page. The GTK product
+action bridge can create a second page through `New Tab` and select it through
+`Next Tab`; each page has separate VT, PTY, input correlation, IME/accessibility
+widget, font, prepared-frame consumer, and GL renderer state. Hidden sessions
+continue to drain PTYs but do not advance a hidden GL presentation clock. The
+prototype disables workspace restore/persistence and rejects splits,
+session/window transfer, detach/tear-off, recording, and manager `host-tab`
+requests. Its non-final close transaction detaches the page before it releases
+the owning session; final-page close tears down the group. It is therefore an
+integration boundary, not a partial claim for the remaining features.
 
 Its OpenGL pass currently covers cell backgrounds; selection/search overlays;
 atlas-backed shaped glyphs including the available text decorations; command
@@ -193,20 +212,24 @@ sRGB qualification, frame pacing/occlusion policy, device-loss recovery,
 fractional-scale evidence, or graphical Linux result yet. Command-region and
 hyperlink decorations have code paths but no graphical-session evidence. The
 new Linux gates are `make gtk-gl-wayland-smoke` and `make gtk-gl-x11-smoke`;
-they prove a bounded PTY-driven terminal reaches the GtkGLArea render callback,
-not visual quality or interactive desktop behaviour.
+they prove a bounded PTY-driven terminal reaches the GtkGLArea render callback
+and that a one-cell update uses a bounded OpenGL subrange upload, not visual
+quality or interactive desktop behaviour.
 
-Each accepted native snapshot owns a deep copy of its data. The atlas has an
-explicit cache generation: unchanged generations retain the native copy and
-skip the OpenGL texture upload, including cursor-blink redraws. Cells and
-shaped glyphs still use complete bounded snapshot copies and buffer uploads on
-each submitted frame. That is a correctness-first baseline, not an established
-performance result; a dirty-range/resource-generation upload protocol and
-measured Linux frame-time evidence remain required before it becomes the
-default GTK presenter.
+Each accepted native submission owns deep copies of its changed records. The
+first submission for a grid, every grid-size change, and every retry is exactly
+one complete cell update; later submissions may contain only dirty cell ranges.
+The native adapter merges those ranges into its bounded CPU mirror and uploads
+them with OpenGL subrange writes. Shaped glyph data is replaced only when its
+producer marks it updated, while an unchanged atlas generation retains both the
+native copy and OpenGL texture, including cursor-blink redraws. The renderer
+still redraws the visible grid per GTK render callback. This removes the known
+per-submission full-buffer upload, but is not a performance result: measured
+Linux frame-time, pacing, colour, occlusion, and recovery evidence remain
+required before it becomes the default GTK presenter.
 
-The full GL adapter will retain that shape: one terminal root widget per
-controller, with the `GtkGLArea` below that root. GTK's main context alone
+The GL adapter uses that shape: one terminal root widget per controller, with
+the `GtkGLArea` below that root. GTK's main context alone
 creates, realizes, resizes, renders, unrealizes, and destroys the area. The
 host event loop may prepare or mark a new scene while it handles PTY data, but
 it must only request `gtk_gl_area_queue_render`; it must never issue OpenGL
@@ -214,13 +237,12 @@ calls outside GTK's realize/render/unrealize lifecycle or from another thread.
 
 On realization the adapter makes the context current, checks GTK's context
 error, and creates its GL resources. A render callback consumes at most the
-newest complete prepared frame against GTK's current allocation; resize and
-scale are therefore widget facts, not WGPU-subsurface policy. On unrealize or
+newest accepted update set against GTK's current allocation; resize and scale
+are therefore widget facts, not WGPU-subsurface policy. On unrealize or
 device/context failure, the adapter releases only resources owned by that
-realized GL context and remains recreatable from terminal state plus the next
-prepared frame. Page selection must queue the selected page only; it must not
-advance a hidden terminal's presentation clock merely to keep a stale GL
-surface alive.
+realized GL context and reuploads its retained CPU mirror when it is recreated.
+Page selection must queue the selected page only; it must not advance a hidden
+terminal's presentation clock merely to keep a stale GL surface alive.
 
 The group owner must avoid transiently destroying a page's presentation widget
 to perform an ordinary select/reorder/layout update. Detach/tear-off is the
@@ -232,20 +254,22 @@ details.
 
 ## Consequences
 
-- `New Tab` remains a renderer-workspace tab on GTK. This is intentionally
-  different from the Cocoa host-tab implementation and is not a regression
-  claim.
+- On GTK's default WGPU route, `New Tab` remains a renderer-workspace tab. On
+  the separately gated GL route, it creates an experimental independent
+  libadwaita page. Neither behavior advertises the GTK `native_tabs` host
+  capability yet.
 - The current GTK bridge can continue to qualify window actions, IME,
   accessibility projection, clipboard, Wayland presentation, and PTY behavior
   independently of native tabs.
-- Native GTK tabs remain a renderer project with a clear cost: completion and
-  qualification of the OpenGL pass/resource pipeline, then a native page
-  owner. This is not a small C host change. A future documented WGPU/GDK
-  interchange can be evaluated as a replacement only after it clears the same
-  lifetime, backend, and benchmark gates.
-- libadwaita is not added to current builds merely to display unavailable tab
-  chrome. When the adapter is ready, the build contract must pin a supported
-  libadwaita version and add it to CI and release dependencies.
+- Native GTK tabs remain a renderer and lifecycle project with a clear cost:
+  full OpenGL pass/resource qualification plus a manager-owned page lifecycle.
+  This is not a small C host change. A future documented WGPU/GDK interchange
+  can be evaluated as a replacement only after it clears the same lifetime,
+  backend, and benchmark gates.
+- libadwaita is pinned as a current GTK build dependency (4.14+ GTK and 1.4+
+  libadwaita) and appears in CI, Nix, and Linux release dependencies because
+  the experimental native-tab path instantiates it; it is not merely unavailable
+  decorative chrome.
 
 ## Acceptance gates
 
@@ -267,9 +291,14 @@ passed on actual Linux x86_64 graphical sessions, on both Wayland and X11:
 6. Bounded rendering/pacing benchmarks are compared with the present GTK host;
    there is no mandatory per-frame CPU image round trip.
 
-The automated portion needs dedicated attach/select/detach/close and
-realization tests. Interactive GNOME/Wayland, X11, IME, Orca, clipboard, and
-fractional-scale evidence remains a manual desktop qualification requirement.
+`make gtk-gl-native-tabs-wayland-smoke` and
+`make gtk-gl-native-tabs-x11-smoke` automate the first gate's New Tab path:
+they dispatch the live GTK product action and require two distinct page/PTY
+owners. Their `*-close-*` companions then dispatch Close Pane and require one
+retained page/session. They do not exercise transfer, detach, or a Linux
+desktop result in this checkout. Interactive GNOME/Wayland, X11, IME, Orca,
+clipboard, and fractional-scale evidence remains a manual desktop qualification
+requirement.
 
 ## References
 

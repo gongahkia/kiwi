@@ -1,11 +1,14 @@
 local bit = require("bit")
 local ffi = require("ffi")
+local ShellMetadata = require("kiwi.terminal.shell_integration")
 
 ffi.cdef[[
 typedef struct { unsigned short ws_row; unsigned short ws_col; unsigned short ws_xpixel; unsigned short ws_ypixel; } KiwiWinsize;
 int forkpty(int* amaster, char* name, const void* termp, const KiwiWinsize* winp);
 void _exit(int status);
 int close(int fd);
+int chdir(const char* path);
+int gethostname(char* name, unsigned long length);
 long read(int fd, void* buffer, unsigned long count);
 long write(int fd, const void* buffer, unsigned long count);
 int waitpid(int pid, int* status, int options);
@@ -38,6 +41,7 @@ end
 
 local Pty = {}
 Pty.__index = Pty
+Pty.maximum_working_directory_bytes = 2048
 
 local constants = {
   eagain = ffi.os == "OSX" and 35 or 11,
@@ -58,6 +62,15 @@ local function validate_command(command)
   for index, argument in ipairs(command) do
     assert(type(argument) == "string" and not argument:find("\0", 1, true), "PTY argument " .. index .. " must be a NUL-free string")
   end
+end
+
+local function validate_working_directory(options)
+  if options == nil then return nil end
+  assert(type(options) == "table", "PTY options must be a table")
+  local cwd = options.cwd
+  if cwd == nil then return nil end
+  assert(type(cwd) == "string" and #cwd <= Pty.maximum_working_directory_bytes and cwd:sub(1, 1) == "/" and not cwd:find("\0", 1, true), "PTY working directory must be an absolute NUL-free path no longer than 2048 bytes")
+  return cwd
 end
 
 local function build_environment(overrides)
@@ -117,10 +130,11 @@ function Pty.default_command()
   return { "/bin/sh" }
 end
 
-function Pty.spawn(command, columns, rows, environment)
+function Pty.spawn(command, columns, rows, environment, options)
   validate_command(command)
   assert(columns > 0 and rows > 0 and columns <= 65535 and rows <= 65535, "PTY dimensions must fit winsize")
   environment = environment or {}
+  local cwd = validate_working_directory(options)
   for name, value in pairs(environment) do
     assert(name:match("^[A-Za-z_][A-Za-z0-9_]*$") and (value == false or (type(value) == "string" and not value:find("\0", 1, true))), "invalid PTY environment entry")
   end
@@ -137,6 +151,7 @@ function Pty.spawn(command, columns, rows, environment)
     error(errno_message("forkpty"))
   end
   if pid == 0 then
+    if cwd ~= nil then ffi.C.chdir(cwd) end
     native.kiwi_execvpe(argv[0], argv, child_environment)
     ffi.C._exit(127)
   end
@@ -161,6 +176,20 @@ function Pty.spawn(command, columns, rows, environment)
     last_read_bytes = 0,
     last_read_calls = 0,
   }, Pty)
+end
+
+function Pty.local_hostname()
+  local buffer = ffi.new("char[256]")
+  if ffi.C.gethostname(buffer, 256) ~= 0 then return nil end
+  local raw = ffi.string(buffer, 256)
+  local terminator = raw:find("\0", 1, true)
+  if terminator == nil or terminator == 1 then return nil end
+  local hostname = raw:sub(1, terminator - 1)
+  return hostname
+end
+
+function Pty.local_working_directory(directory)
+  return ShellMetadata.local_path(directory, Pty.local_hostname())
 end
 
 function Pty:read_available(max_bytes)

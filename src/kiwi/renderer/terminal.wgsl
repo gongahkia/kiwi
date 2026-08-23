@@ -62,6 +62,18 @@ struct FrameData {
   command_region_padding0: f32,
   command_region_padding1: vec2<f32>,
   command_region_boundaries: array<vec4<f32>, 32>,
+  scrollbar_visible: f32,
+  scrollbar_left: f32,
+  scrollbar_right: f32,
+  scrollbar_top: f32,
+  scrollbar_bottom: f32,
+  scrollbar_red: f32,
+  scrollbar_green: f32,
+  scrollbar_blue: f32,
+  scrollbar_alpha: f32,
+  scrollbar_padding0: f32,
+  scrollbar_padding1: f32,
+  scrollbar_padding2: f32,
 }
 
 struct RasterOut {
@@ -260,4 +272,19 @@ fn cursor_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (frame.cursor_shape > 0.5 && frame.cursor_shape < 1.5 && input.local_position.y < 0.82) { discard; }
   if (frame.cursor_shape > 1.5 && input.local_position.x > 0.18) { discard; }
   return input.fg;
+}
+
+@vertex
+fn scrollbar_vs(@builtin(vertex_index) vertex_index: u32) -> RasterOut {
+  return raster_out(
+    vec2<f32>(frame.scrollbar_left, frame.scrollbar_top * frame.rows),
+    vec2<f32>(frame.scrollbar_right - frame.scrollbar_left, (frame.scrollbar_bottom - frame.scrollbar_top) * frame.rows),
+    vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, 0u, 0u, vertex_index
+  );
+}
+
+@fragment
+fn scrollbar_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if (frame.scrollbar_visible < 0.5) { discard; }
+  return srgb_to_surface(vec4<f32>(frame.scrollbar_red, frame.scrollbar_green, frame.scrollbar_blue, frame.scrollbar_alpha));
 }
