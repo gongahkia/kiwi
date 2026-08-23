@@ -19,6 +19,14 @@ typedef void (*KiwiGtkFocusCallback)(void *userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void *userdata, int width, int height, double scale);
 typedef void (*KiwiGtkProductActionCallback)(void *userdata, uint32_t action);
 
+typedef struct KiwiGtkCommandPaletteEntry {
+  uint32_t action;
+  const char *title;
+  const char *description;
+} KiwiGtkCommandPaletteEntry;
+
+typedef struct KiwiGtkCommandPalette KiwiGtkCommandPalette;
+
 typedef struct KiwiGtkCallbacks {
   KiwiGtkFocusCallback focus;
   KiwiGtkKeyCallback key;
@@ -56,6 +64,7 @@ struct KiwiGtkHost {
   GtkIMContext *im_context;
   KiwiGtkProductActionCallback product_action;
   void *product_action_userdata;
+  KiwiGtkCommandPalette *command_palette;
   struct wl_surface *presentation_surface;
   struct wl_subsurface *presentation_subsurface;
   struct wp_viewport *presentation_viewport;
@@ -85,6 +94,7 @@ enum {
   KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW = 9,
   KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW = 10,
   KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW = 11,
+  KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE = 12,
 };
 
 enum {
@@ -114,6 +124,7 @@ static const KiwiGtkProductAction kiwi_gtk_product_actions[] = {
   { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW, "move-session-next-window" },
   { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW, "duplicate-session-new-window" },
   { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW, "duplicate-session-next-window" },
+  { KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE, "command-palette" },
 };
 
 static const KiwiGtkProductAction *kiwi_gtk_product_action(uint32_t identifier) {
@@ -385,6 +396,207 @@ static void kiwi_gtk_set_error(const char *message) {
   snprintf(kiwi_gtk_error, sizeof(kiwi_gtk_error), "%s", message == NULL ? "unknown GTK host error" : message);
 }
 
+struct KiwiGtkCommandPalette {
+  KiwiGtkHost *host;
+  GtkWidget *dialog;
+  GtkSearchEntry *search;
+  GtkListBox *list;
+  KiwiGtkProductActionCallback callback;
+  void *userdata;
+};
+
+static GtkListBoxRow *kiwi_gtk_command_palette_first_visible(KiwiGtkCommandPalette *palette) {
+  for (GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(palette->list)); child != NULL;
+       child = gtk_widget_get_next_sibling(child)) {
+    if (gtk_widget_get_visible(child)) return GTK_LIST_BOX_ROW(child);
+  }
+  return NULL;
+}
+
+static void kiwi_gtk_command_palette_refresh(KiwiGtkCommandPalette *palette) {
+  const char *query = gtk_editable_get_text(GTK_EDITABLE(palette->search));
+  char *needle = g_utf8_strdown(query == NULL ? "" : query, -1);
+  for (GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(palette->list)); child != NULL;
+       child = gtk_widget_get_next_sibling(child)) {
+    const char *title = g_object_get_data(G_OBJECT(child), "kiwi-command-palette-title");
+    const char *description = g_object_get_data(G_OBJECT(child), "kiwi-command-palette-description");
+    char *combined = g_strconcat(title == NULL ? "" : title, "\n",
+                                 description == NULL ? "" : description, NULL);
+    char *haystack = g_utf8_strdown(combined, -1);
+    gboolean visible = needle == NULL || needle[0] == '\0' || g_strstr_len(haystack, -1, needle) != NULL;
+    gtk_widget_set_visible(child, visible);
+    g_free(combined);
+    g_free(haystack);
+  }
+  g_free(needle);
+  GtkListBoxRow *first = kiwi_gtk_command_palette_first_visible(palette);
+  gtk_list_box_select_row(palette->list, first);
+}
+
+static void kiwi_gtk_command_palette_destroyed(GtkWidget *widget, gpointer userdata) {
+  (void)widget;
+  KiwiGtkCommandPalette *palette = userdata;
+  if (palette->host != NULL && palette->host->command_palette == palette) {
+    palette->host->command_palette = NULL;
+  }
+  palette->dialog = NULL;
+  g_free(palette);
+}
+
+void kiwi_gtk_host_command_palette_remove(KiwiGtkHost *host) {
+  if (host == NULL || host->command_palette == NULL) return;
+  KiwiGtkCommandPalette *palette = host->command_palette;
+  host->command_palette = NULL;
+  if (palette->dialog != NULL) {
+    gtk_window_destroy(GTK_WINDOW(palette->dialog));
+  } else {
+    g_free(palette);
+  }
+}
+
+static void kiwi_gtk_command_palette_invoke(KiwiGtkCommandPalette *palette, GtkListBoxRow *row) {
+  if (palette == NULL || row == NULL) return;
+  uint32_t action = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(row), "kiwi-command-palette-action"));
+  KiwiGtkProductActionCallback callback = palette->callback;
+  void *userdata = palette->userdata;
+  KiwiGtkHost *host = palette->host;
+  kiwi_gtk_host_command_palette_remove(host);
+  if (callback != NULL) callback(userdata, action);
+}
+
+static void kiwi_gtk_command_palette_query_changed(GtkEditable *editable, gpointer userdata) {
+  (void)editable;
+  kiwi_gtk_command_palette_refresh(userdata);
+}
+
+static void kiwi_gtk_command_palette_activate(GtkSearchEntry *search, gpointer userdata) {
+  (void)search;
+  KiwiGtkCommandPalette *palette = userdata;
+  GtkListBoxRow *row = gtk_list_box_get_selected_row(palette->list);
+  if (row == NULL) row = kiwi_gtk_command_palette_first_visible(palette);
+  kiwi_gtk_command_palette_invoke(palette, row);
+}
+
+static void kiwi_gtk_command_palette_row_activated(GtkListBox *list, GtkListBoxRow *row,
+                                                    gpointer userdata) {
+  (void)list;
+  kiwi_gtk_command_palette_invoke(userdata, row);
+}
+
+static void kiwi_gtk_command_palette_response(GtkDialog *dialog, int response,
+                                              gpointer userdata) {
+  (void)dialog;
+  KiwiGtkCommandPalette *palette = userdata;
+  if (response == GTK_RESPONSE_ACCEPT) {
+    GtkListBoxRow *row = gtk_list_box_get_selected_row(palette->list);
+    if (row == NULL) row = kiwi_gtk_command_palette_first_visible(palette);
+    kiwi_gtk_command_palette_invoke(palette, row);
+  } else {
+    kiwi_gtk_host_command_palette_remove(palette->host);
+  }
+}
+
+int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
+                                       const KiwiGtkCommandPaletteEntry *entries,
+                                       size_t count, KiwiGtkProductActionCallback callback,
+                                       void *userdata) {
+  if (host == NULL || host->window == NULL || entries == NULL || callback == NULL ||
+      count == 0 || count > 32) {
+    kiwi_gtk_set_error("GTK command palette needs a host, callback, and one through 32 entries");
+    return 0;
+  }
+  for (size_t index = 0; index < count; index += 1) {
+    if (kiwi_gtk_product_action(entries[index].action) == NULL ||
+        entries[index].action == KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE ||
+        entries[index].title == NULL || entries[index].description == NULL ||
+        entries[index].title[0] == '\0' || strlen(entries[index].title) > 128 ||
+        strlen(entries[index].description) > 256 ||
+        !g_utf8_validate(entries[index].title, -1, NULL) ||
+        !g_utf8_validate(entries[index].description, -1, NULL)) {
+      kiwi_gtk_set_error("GTK command palette received an invalid bounded UTF-8 entry");
+      return 0;
+    }
+  }
+  kiwi_gtk_host_command_palette_remove(host);
+  KiwiGtkCommandPalette *palette = g_new0(KiwiGtkCommandPalette, 1);
+  palette->host = host;
+  palette->callback = callback;
+  palette->userdata = userdata;
+  palette->dialog = gtk_dialog_new();
+  gtk_window_set_title(GTK_WINDOW(palette->dialog), "Command Palette");
+  gtk_window_set_modal(GTK_WINDOW(palette->dialog), TRUE);
+  gtk_window_set_transient_for(GTK_WINDOW(palette->dialog), GTK_WINDOW(host->window));
+  gtk_window_set_default_size(GTK_WINDOW(palette->dialog), 520, 340);
+  GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(palette->dialog));
+  gtk_widget_set_margin_top(content, 12);
+  gtk_widget_set_margin_bottom(content, 12);
+  gtk_widget_set_margin_start(content, 12);
+  gtk_widget_set_margin_end(content, 12);
+  palette->search = GTK_SEARCH_ENTRY(gtk_search_entry_new());
+  gtk_editable_set_text(GTK_EDITABLE(palette->search), "");
+  gtk_search_entry_set_placeholder_text(palette->search, "Type to filter actions");
+  gtk_box_append(GTK_BOX(content), GTK_WIDGET(palette->search));
+  GtkWidget *scroll = gtk_scrolled_window_new();
+  gtk_widget_set_vexpand(scroll, TRUE);
+  gtk_widget_set_margin_top(scroll, 8);
+  palette->list = GTK_LIST_BOX(gtk_list_box_new());
+  gtk_list_box_set_selection_mode(palette->list, GTK_SELECTION_SINGLE);
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), GTK_WIDGET(palette->list));
+  gtk_box_append(GTK_BOX(content), scroll);
+  for (size_t index = 0; index < count; index += 1) {
+    GtkWidget *row = gtk_list_box_row_new();
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    gtk_widget_set_margin_top(box, 6);
+    gtk_widget_set_margin_bottom(box, 6);
+    gtk_widget_set_margin_start(box, 8);
+    gtk_widget_set_margin_end(box, 8);
+    GtkWidget *title = gtk_label_new(entries[index].title);
+    gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
+    gtk_widget_add_css_class(title, "heading");
+    GtkWidget *description = gtk_label_new(entries[index].description);
+    gtk_label_set_xalign(GTK_LABEL(description), 0.0f);
+    gtk_label_set_wrap(GTK_LABEL(description), TRUE);
+    gtk_widget_add_css_class(description, "dim-label");
+    gtk_box_append(GTK_BOX(box), title);
+    gtk_box_append(GTK_BOX(box), description);
+    gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(row), box);
+    g_object_set_data(G_OBJECT(row), "kiwi-command-palette-action",
+                      GUINT_TO_POINTER(entries[index].action));
+    g_object_set_data_full(G_OBJECT(row), "kiwi-command-palette-title",
+                           g_strdup(entries[index].title), g_free);
+    g_object_set_data_full(G_OBJECT(row), "kiwi-command-palette-description",
+                           g_strdup(entries[index].description), g_free);
+    gtk_list_box_append(palette->list, row);
+  }
+  gtk_dialog_add_button(GTK_DIALOG(palette->dialog), "Cancel", GTK_RESPONSE_CANCEL);
+  gtk_dialog_add_button(GTK_DIALOG(palette->dialog), "Run", GTK_RESPONSE_ACCEPT);
+  g_signal_connect(palette->search, "changed", G_CALLBACK(kiwi_gtk_command_palette_query_changed), palette);
+  g_signal_connect(palette->search, "activate", G_CALLBACK(kiwi_gtk_command_palette_activate), palette);
+  g_signal_connect(palette->list, "row-activated", G_CALLBACK(kiwi_gtk_command_palette_row_activated), palette);
+  g_signal_connect(palette->dialog, "response", G_CALLBACK(kiwi_gtk_command_palette_response), palette);
+  g_signal_connect(palette->dialog, "destroy", G_CALLBACK(kiwi_gtk_command_palette_destroyed), palette);
+  host->command_palette = palette;
+  kiwi_gtk_command_palette_refresh(palette);
+  gtk_window_present(GTK_WINDOW(palette->dialog));
+  gtk_widget_grab_focus(GTK_WIDGET(palette->search));
+  return 1;
+}
+
+int kiwi_gtk_host_command_palette_invoke_smoke(KiwiGtkHost *host) {
+  if (host == NULL || host->command_palette == NULL || host->command_palette->dialog == NULL) {
+    kiwi_gtk_set_error("GTK command palette smoke needs an active palette");
+    return 0;
+  }
+  GtkListBoxRow *row = gtk_list_box_get_selected_row(host->command_palette->list);
+  if (row == NULL) row = kiwi_gtk_command_palette_first_visible(host->command_palette);
+  if (row == NULL) {
+    kiwi_gtk_set_error("GTK command palette smoke needs a visible palette entry");
+    return 0;
+  }
+  kiwi_gtk_command_palette_invoke(host->command_palette, row);
+  return 1;
+}
+
 static void kiwi_gtk_product_action_activate(GSimpleAction *action, GVariant *parameter,
                                              gpointer userdata) {
   (void)parameter;
@@ -403,6 +615,7 @@ static void kiwi_gtk_install_product_menu(GtkApplication *application) {
   GMenu *window = g_menu_new();
   g_menu_append(file, "New Tab", "win.new-tab");
   g_menu_append(file, "New Window", "win.new-window");
+  g_menu_append(file, "Command Palette", "win.command-palette");
   g_menu_append(file, "Reload Configuration", "win.reload-config");
   g_menu_append_submenu(menubar, "File", G_MENU_MODEL(file));
   g_menu_append(window, "Next Tab", "win.next-tab");
@@ -738,6 +951,7 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
 
 void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   if (host == NULL) return;
+  kiwi_gtk_host_command_palette_remove(host);
   host->product_action = NULL;
   host->product_action_userdata = NULL;
   if (host->presentation_viewport != NULL) wp_viewport_destroy(host->presentation_viewport);

@@ -71,6 +71,14 @@ if ffi.os == "OSX" then
   function Host.invoke_product_action_smoke(window, action)
     return window:cocoa_menu_invoke_smoke(action)
   end
+
+  function Host.show_command_palette(window, entries, handler)
+    return window:show_cocoa_command_palette(entries, handler)
+  end
+
+  function Host.invoke_command_palette_smoke(window)
+    return window:cocoa_command_palette_invoke_smoke()
+  end
 end
 
 function Host.run(options, title, controller)

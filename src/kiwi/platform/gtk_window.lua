@@ -9,6 +9,7 @@ typedef void (*KiwiGtkPointerCallback)(void* userdata, int kind, double x, doubl
 typedef void (*KiwiGtkFocusCallback)(void* userdata, int focused);
 typedef void (*KiwiGtkResizeCallback)(void* userdata, int width, int height, double scale);
 typedef void (*KiwiGtkProductActionCallback)(void* userdata, uint32_t action);
+typedef struct KiwiGtkCommandPaletteEntry { uint32_t action; const char* title; const char* description; } KiwiGtkCommandPaletteEntry;
 typedef struct KiwiGtkCallbacks {
   KiwiGtkFocusCallback focus;
   KiwiGtkKeyCallback key;
@@ -22,6 +23,9 @@ KiwiGtkHost* kiwi_gtk_host_new(const char* application_id, int width, int height
 void kiwi_gtk_host_destroy(KiwiGtkHost* host);
 int kiwi_gtk_host_set_product_action_handler(KiwiGtkHost* host, KiwiGtkProductActionCallback callback, void* userdata);
 int kiwi_gtk_host_product_action_invoke_smoke(KiwiGtkHost* host, uint32_t action);
+int kiwi_gtk_host_command_palette_show(KiwiGtkHost* host, const KiwiGtkCommandPaletteEntry* entries, size_t count, KiwiGtkProductActionCallback callback, void* userdata);
+void kiwi_gtk_host_command_palette_remove(KiwiGtkHost* host);
+int kiwi_gtk_host_command_palette_invoke_smoke(KiwiGtkHost* host);
 void kiwi_gtk_host_pump(KiwiGtkHost* host, uint32_t timeout_milliseconds);
 int kiwi_gtk_host_should_close(const KiwiGtkHost* host);
 double kiwi_gtk_host_time(void);
@@ -68,6 +72,7 @@ local product_actions = {
   [9] = "move-session-next-window",
   [10] = "duplicate-session-new-window",
   [11] = "duplicate-session-next-window",
+  [12] = "command-palette",
 }
 local product_action_ids = {}
 for identifier, name in pairs(product_actions) do product_action_ids[name] = identifier end
@@ -224,6 +229,49 @@ function Window:product_action_invoke_smoke(action)
   local identifier = product_action_ids[action]
   if identifier == nil then return nil, "GTK product-menu smoke names an unknown action" end
   if native.kiwi_gtk_host_product_action_invoke_smoke(self.handle, identifier) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+local function command_palette_entries(entries)
+  assert(type(entries) == "table" and #entries > 0 and #entries <= 32, "GTK command palette needs one through 32 entries")
+  local values = ffi.new("KiwiGtkCommandPaletteEntry[?]", #entries)
+  for index, entry in ipairs(entries) do
+    assert(type(entry) == "table", "GTK command palette entry must be a table")
+    local action = product_action_ids[entry.action]
+    assert(action ~= nil and entry.action ~= "command-palette", "GTK command palette entry names an unavailable action")
+    assert(type(entry.title) == "string" and #entry.title > 0 and #entry.title <= 128 and not entry.title:find("\0", 1, true), "GTK command palette title is invalid")
+    assert(type(entry.description) == "string" and #entry.description <= 256 and not entry.description:find("\0", 1, true), "GTK command palette description is invalid")
+    values[index - 1].action = action
+    values[index - 1].title = entry.title
+    values[index - 1].description = entry.description
+  end
+  return values
+end
+
+function Window:show_command_palette(entries, handler)
+  assert(type(handler) == "function", "GTK command palette needs an action handler")
+  local values = command_palette_entries(entries)
+  if self.callbacks.command_palette ~= nil then
+    native.kiwi_gtk_host_command_palette_remove(self.handle)
+    self.callbacks.command_palette:free()
+    self.callbacks.command_palette = nil
+  end
+  local callback = ffi.cast("KiwiGtkProductActionCallback", function(_, action)
+    local name = product_actions[tonumber(action)]
+    if name == nil or name == "command-palette" then return end
+    local ok, message = pcall(handler, name)
+    if not ok then io.stderr:write("Kiwi GTK command palette action failed: ", tostring(message), "\n") end
+  end)
+  if native.kiwi_gtk_host_command_palette_show(self.handle, values, #entries, callback, nil) ~= 0 then
+    self.callbacks.command_palette = callback
+    return true
+  end
+  callback:free()
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:command_palette_invoke_smoke()
+  if native.kiwi_gtk_host_command_palette_invoke_smoke(self.handle) ~= 0 then return true end
   return false, ffi.string(native.kiwi_gtk_host_last_error())
 end
 

@@ -814,6 +814,17 @@ function Controller.run(window, host, options)
     end
 
     local function handle_product_action(product_action)
+      if product_action == "command-palette" then
+        if type(host.show_command_palette) ~= "function" then
+          io.stderr:write("Kiwi command palette unavailable: this host has no native palette bridge\n")
+          return true
+        end
+        local opened, reason = host.show_command_palette(window, ProductActions.palette_entries(), function(selected_action)
+          if handle_product_action(selected_action) then options.application:mark_layout_dirty() end
+        end)
+        if not opened then io.stderr:write("Kiwi command palette unavailable: ", reason or "unknown error", "\n") end
+        return true
+      end
       if product_action == "next-tab" then
         focus_next_tab()
         return true

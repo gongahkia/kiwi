@@ -10,6 +10,7 @@ int kiwi_cocoa_accessibility_round_trip(void* window);
 typedef struct KiwiCocoaTextInput KiwiCocoaTextInput;
 typedef void (*KiwiCocoaTextInputCallback)(void* userdata, const char* text, size_t text_bytes, int32_t selection_start, int32_t selection_end);
 typedef void (*KiwiCocoaMenuCallback)(void* userdata, uint32_t action);
+typedef struct KiwiCocoaCommandPaletteEntry { uint32_t action; const char* title; const char* description; } KiwiCocoaCommandPaletteEntry;
 KiwiCocoaTextInput* kiwi_cocoa_text_input_new(void* window, KiwiCocoaTextInputCallback preedit, KiwiCocoaTextInputCallback commit, void* userdata);
 void kiwi_cocoa_text_input_destroy(KiwiCocoaTextInput* adapter);
 void kiwi_cocoa_text_input_set_caret(KiwiCocoaTextInput* adapter, double x, double y, double width, double height);
@@ -19,6 +20,9 @@ int kiwi_cocoa_system_appearance(void* window);
 int kiwi_cocoa_menu_install(void* window, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_menu_remove(void* window);
 int kiwi_cocoa_menu_invoke_smoke(void* window, uint32_t action);
+int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
+void kiwi_cocoa_command_palette_remove(void* window);
+int kiwi_cocoa_command_palette_invoke_smoke(void* window);
 int kiwi_cocoa_progress_set(void* window, uint32_t progress, uint32_t state);
 int kiwi_cocoa_progress_round_trip(void* window);
 void kiwi_cocoa_progress_remove_bridge(void* window);
@@ -48,6 +52,7 @@ local cocoa_menu_actions = {
   [9] = "move-session-next-window",
   [10] = "duplicate-session-new-window",
   [11] = "duplicate-session-next-window",
+  [12] = "command-palette",
 }
 local cocoa_menu_action_ids = {}
 for identifier, name in pairs(cocoa_menu_actions) do cocoa_menu_action_ids[name] = identifier end
@@ -319,6 +324,51 @@ function Window:cocoa_menu_invoke_smoke(action)
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+local function command_palette_entries(entries)
+  assert(type(entries) == "table" and #entries > 0 and #entries <= 32, "Cocoa command palette needs one through 32 entries")
+  local values = ffi.new("KiwiCocoaCommandPaletteEntry[?]", #entries)
+  for index, entry in ipairs(entries) do
+    assert(type(entry) == "table", "Cocoa command palette entry must be a table")
+    local action = cocoa_menu_action_ids[entry.action]
+    assert(action ~= nil and entry.action ~= "command-palette", "Cocoa command palette entry names an unavailable action")
+    assert(type(entry.title) == "string" and #entry.title > 0 and #entry.title <= 128 and not entry.title:find("\0", 1, true), "Cocoa command palette title is invalid")
+    assert(type(entry.description) == "string" and #entry.description <= 256 and not entry.description:find("\0", 1, true), "Cocoa command palette description is invalid")
+    values[index - 1].action = action
+    values[index - 1].title = entry.title
+    values[index - 1].description = entry.description
+  end
+  return values
+end
+
+function Window:show_cocoa_command_palette(entries, handler)
+  if ffi.os ~= "OSX" then return nil, "Cocoa command palettes are unavailable on this platform" end
+  assert(type(handler) == "function", "Cocoa command palette needs an action handler")
+  local values = command_palette_entries(entries)
+  if self.callbacks.cocoa_command_palette ~= nil then
+    native.kiwi_cocoa_command_palette_remove(self.handle)
+    self.callbacks.cocoa_command_palette:free()
+    self.callbacks.cocoa_command_palette = nil
+  end
+  local callback = ffi.cast("KiwiCocoaMenuCallback", function(_, action)
+    local name = cocoa_menu_actions[tonumber(action)]
+    if name == nil or name == "command-palette" then return end
+    local ok, message = pcall(handler, name)
+    if not ok then io.stderr:write("Kiwi Cocoa command palette action failed: ", tostring(message), "\n") end
+  end)
+  if native.kiwi_cocoa_command_palette_show(self.handle, values, #entries, callback, nil) ~= 0 then
+    self.callbacks.cocoa_command_palette = callback
+    return true
+  end
+  callback:free()
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_command_palette_invoke_smoke()
+  if ffi.os ~= "OSX" then return nil, "Cocoa command palettes are unavailable on this platform" end
+  if native.kiwi_cocoa_command_palette_invoke_smoke(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:cocoa_set_progress(progress, state)
   if ffi.os ~= "OSX" then return nil, "Cocoa progress is unavailable on this platform" end
   assert(type(progress) == "number" and progress % 1 == 0 and progress >= 0 and progress <= 100, "Cocoa progress must be an integer from 0 through 100")
@@ -437,17 +487,21 @@ function Window:destroy()
   if self.cocoa_text_input ~= nil then
     native.kiwi_cocoa_text_input_destroy(self.cocoa_text_input)
     self.cocoa_text_input = nil
-    self.callbacks.cocoa_preedit = nil
-    self.callbacks.cocoa_commit = nil
+    if self.callbacks.cocoa_preedit ~= nil then self.callbacks.cocoa_preedit:free(); self.callbacks.cocoa_preedit = nil end
+    if self.callbacks.cocoa_commit ~= nil then self.callbacks.cocoa_commit:free(); self.callbacks.cocoa_commit = nil end
   end
   if self.handle ~= nil then
     if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
+    if ffi.os == "OSX" then native.kiwi_cocoa_command_palette_remove(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end
     glfw.lib.glfwDestroyWindow(self.handle)
     self.handle = nil
     live_windows = live_windows - 1
     assert(live_windows >= 0, "GLFW window lifetime underflow")
     if live_windows == 0 then glfw.lib.glfwTerminate() end
+  end
+  for name, callback in pairs(self.callbacks) do
+    if callback ~= nil then callback:free(); self.callbacks[name] = nil end
   end
 end
 

@@ -4,8 +4,10 @@ local Actions = {}
 
 Actions.maximum_bindings = 64
 Actions.maximum_binding_bytes = 128
+Actions.maximum_palette_entries = 32
 
 local known_actions = {
+  ["command-palette"] = true,
   ["close-pane"] = true,
   ["new-tab"] = true,
   ["new-window"] = true,
@@ -19,6 +21,20 @@ local known_actions = {
   ["split-right"] = true,
 }
 
+local palette_catalog = {
+  { action = "new-tab", title = "New Tab", description = "Create a terminal tab in this window." },
+  { action = "new-window", title = "New Window", description = "Open a new Kiwi window." },
+  { action = "next-tab", title = "Next Tab", description = "Focus the next terminal tab." },
+  { action = "close-pane", title = "Close Pane", description = "Close the active terminal pane." },
+  { action = "split-right", title = "Split Right", description = "Create a pane to the right of the active pane." },
+  { action = "split-down", title = "Split Down", description = "Create a pane below the active pane." },
+  { action = "move-session-new-window", title = "Move Session to New Window", description = "Move the active live terminal session into a new window." },
+  { action = "move-session-next-window", title = "Move Session to Next Window", description = "Move the active live terminal session into the next Kiwi window." },
+  { action = "duplicate-session-new-window", title = "Duplicate Session to New Window", description = "Open a fresh terminal session in a new window." },
+  { action = "duplicate-session-next-window", title = "Duplicate Session to Next Window", description = "Open a fresh terminal session in the next Kiwi window." },
+  { action = "reload-config", title = "Reload Configuration", description = "Reload Kiwi's configuration and trusted theme data." },
+}
+
 local default_specs = {
   "ctrl+tab=next-tab",
   "ctrl+shift+t=new-tab",
@@ -30,6 +46,7 @@ local default_specs = {
   "ctrl+shift+w=close-pane",
   "ctrl+shift+enter=split-right",
   "ctrl+shift+j=split-down",
+  "ctrl+shift+p=command-palette",
   "f6=reload-config",
 }
 
@@ -190,6 +207,18 @@ function Actions.names()
   for name in pairs(known_actions) do names[#names + 1] = name end
   table.sort(names)
   return names
+end
+
+function Actions.palette_entries()
+  local entries = {}
+  for index, entry in ipairs(palette_catalog) do
+    entries[index] = {
+      action = entry.action,
+      description = entry.description,
+      title = entry.title,
+    }
+  end
+  return entries
 end
 
 return Actions
