@@ -63,7 +63,6 @@ function PreparedImages.prepare(model)
   return {
     columns = model.columns,
     descriptors = descriptors,
-    graphics = graphics,
     over = over,
     placement_view = placement_view,
     releases = type(graphics.take_gpu_releases) == "function" and graphics:take_gpu_releases() or {},

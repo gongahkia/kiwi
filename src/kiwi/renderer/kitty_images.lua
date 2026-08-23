@@ -295,7 +295,8 @@ end
 function KittyImages:sync(owner, model, prepared)
   local plan = prepared or PreparedImages.prepare(model)
   if plan == nil then return false end
-  local graphics = plan.graphics
+  local graphics = model.kitty_graphics
+  if graphics == nil then return false end
   self.graphics = graphics
   local placement_view = plan.placement_view
   local under, over = plan.under, plan.over

@@ -42,10 +42,11 @@ declared complete.
   implemented and live-smoked through Cocoa/Metal. The next core slice,
   `prepared_frame`, now produces WGPU-free terminal cells, shaped glyphs,
   glyph-atlas updates, overlays, and frame uniforms with explicit retry/commit
-  ownership. Kitty image GPU residency is still WGPU-specific, and neither the
-  context nor pass encoder can render inside a GTK widget. The approved
-  follow-on is the image-data extraction and embedded GTK OpenGL adapter, then
-  a libadwaita `AdwTabView` group owner; see
+  ownership. `prepared_images` now also produces renderer-neutral decoded
+  Kitty image data and visible placements; GPU residency remains WGPU-specific.
+  Neither the context nor pass encoder can render inside a GTK widget. The
+  approved follow-on is the embedded GTK OpenGL adapter, then a libadwaita
+  `AdwTabView` group owner; see
   [ADR 0041](adr/0041-embedded-gtk-presentation.md). Do not add cosmetic GTK
   tab chrome before that adapter passes its gates.
 - The GLFW Cocoa route already has bounded AppKit-owned `New Tab`/`Next Tab`
