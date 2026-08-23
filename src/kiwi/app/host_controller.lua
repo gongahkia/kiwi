@@ -904,6 +904,15 @@ function Controller.run(window, host, options)
       assert(workspace:tab_count() == tabs_before + 1, "native product-menu smoke did not create a tab through the host controller")
       options.application.menu_smoke_reported = true
     end
+    if options.palette_smoke then
+      assert(host.show_command_palette and host.invoke_command_palette_smoke, "--palette-smoke needs the native command-palette bridge")
+      local tabs_before = workspace:tab_count()
+      assert(handle_product_action("command-palette"))
+      local invoked, reason = host.invoke_command_palette_smoke(window)
+      assert(invoked, "native command-palette smoke could not select its first action: " .. tostring(reason))
+      assert(workspace:tab_count() == tabs_before + 1, "native command-palette smoke did not create a tab through the live controller")
+      options.application.palette_smoke_reported = true
+    end
 
     local pointer_pane_id
     local function pointer_pane(event)
@@ -1087,6 +1096,9 @@ function Controller.run(window, host, options)
     end
     if options.menu_smoke and options.application.menu_smoke_reported then
       io.stdout:write("Kiwi native product-menu smoke passed: New Tab reached the live workspace controller through the native menu bridge.\n")
+    end
+    if options.palette_smoke and options.application.palette_smoke_reported then
+      io.stdout:write("Kiwi native command-palette smoke passed: a searchable palette selected New Tab through the live workspace controller.\n")
     end
     while not window:should_close() do
       local now = window:time()
