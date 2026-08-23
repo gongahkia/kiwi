@@ -347,6 +347,7 @@ function PreparedFrame:complete_snapshot(plan, frame)
   local atlas = self.font.glyph_cache.atlas
   return {
     atlas_bytes = self.font.glyph_cache.pixel_bytes,
+    atlas_generation = self.font.glyph_cache.generation,
     atlas_height = atlas.height,
     atlas_pixels = self.font.glyph_cache.pixels,
     atlas_width = atlas.width,

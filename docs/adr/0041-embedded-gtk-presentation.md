@@ -196,6 +196,15 @@ new Linux gates are `make gtk-gl-wayland-smoke` and `make gtk-gl-x11-smoke`;
 they prove a bounded PTY-driven terminal reaches the GtkGLArea render callback,
 not visual quality or interactive desktop behaviour.
 
+Each accepted native snapshot owns a deep copy of its data. The atlas has an
+explicit cache generation: unchanged generations retain the native copy and
+skip the OpenGL texture upload, including cursor-blink redraws. Cells and
+shaped glyphs still use complete bounded snapshot copies and buffer uploads on
+each submitted frame. That is a correctness-first baseline, not an established
+performance result; a dirty-range/resource-generation upload protocol and
+measured Linux frame-time evidence remain required before it becomes the
+default GTK presenter.
+
 The full GL adapter will retain that shape: one terminal root widget per
 controller, with the `GtkGLArea` below that root. GTK's main context alone
 creates, realizes, resizes, renders, unrealizes, and destroys the area. The
@@ -229,11 +238,11 @@ details.
 - The current GTK bridge can continue to qualify window actions, IME,
   accessibility projection, clipboard, Wayland presentation, and PTY behavior
   independently of native tabs.
-- Native GTK tabs become a renderer project with a clear cost: an OpenGL
-  implementation of Kiwi's pass/resource pipeline. It is not a small C host
-  change. A future documented WGPU/GDK interchange can be evaluated as a
-  replacement only after it clears the same lifetime, backend, and benchmark
-  gates.
+- Native GTK tabs remain a renderer project with a clear cost: completion and
+  qualification of the OpenGL pass/resource pipeline, then a native page
+  owner. This is not a small C host change. A future documented WGPU/GDK
+  interchange can be evaluated as a replacement only after it clears the same
+  lifetime, backend, and benchmark gates.
 - libadwaita is not added to current builds merely to display unavailable tab
   chrome. When the adapter is ready, the build contract must pin a supported
   libadwaita version and add it to CI and release dependencies.

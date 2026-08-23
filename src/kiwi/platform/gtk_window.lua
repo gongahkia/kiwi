@@ -22,6 +22,7 @@ typedef struct KiwiGtkGlFrame {
   uint32_t atlas_bytes;
   uint32_t atlas_width;
   uint32_t atlas_height;
+  uint64_t atlas_generation;
   const KiwiFrameUniform* frame;
 } KiwiGtkGlFrame;
 typedef struct KiwiGtkCallbacks {
@@ -72,6 +73,9 @@ const char* kiwi_gtk_host_last_error(void);
 local root = os.getenv("KIWI_ROOT") or "."
 local loaded, native = pcall(ffi.load, os.getenv("KIWI_GTK_HOST_LIB") or root .. "/.build/native/libkiwi_gtk_host.so")
 if not loaded then error("Unable to load the Kiwi GTK host bridge; run make gtk-host: " .. tostring(native)) end
+if tonumber(native.kiwi_gtk_gl_renderer_abi_version()) ~= 2 then
+  error("Kiwi GTK host bridge has an incompatible GL snapshot ABI; run make gtk-host")
+end
 
 local glfw = require("kiwi.ffi.glfw").constants
 local Correlation = require("kiwi.input.correlation")
@@ -354,6 +358,7 @@ function Window:submit_gl_area_snapshot(snapshot)
   frame.atlas_bytes = snapshot.atlas_bytes or 0
   frame.atlas_width = snapshot.atlas_width or 0
   frame.atlas_height = snapshot.atlas_height or 0
+  frame.atlas_generation = snapshot.atlas_generation or 0
   frame.frame = snapshot.frame
   if native.kiwi_gtk_host_gl_area_submit_snapshot(self.handle, frame) ~= 0 then return true end
   return false, ffi.string(native.kiwi_gtk_host_last_error())

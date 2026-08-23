@@ -30,6 +30,7 @@ return {
     Assert.truthy(snapshots[1].atlas_bytes > 0)
     Assert.equal(state.damage.dirty_count, 0)
     Assert.truthy(not consumer:needs_render(1))
+    Assert.near(consumer:next_render_deadline(), 1.5, 0.00001)
     consumer:destroy()
     font:destroy()
   end,
