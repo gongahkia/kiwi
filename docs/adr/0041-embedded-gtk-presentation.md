@@ -151,12 +151,19 @@ of an OpenGL backend or complete backend-neutral image rendering.
 
 ### GTK execution and lifetime rules
 
-The GL adapter will have one terminal root widget per controller, with the
-`GtkGLArea` below that root. GTK's main context alone creates, realizes,
-resizes, renders, unrealizes, and destroys the area. The host event loop may
-prepare or mark a new scene while it handles PTY data, but it must only request
-`gtk_gl_area_queue_render`; it must never issue OpenGL calls outside GTK's
-realize/render/unrealize lifecycle or from another thread.
+The host now supplies an opt-in lifecycle probe with one `GtkGLArea` below its
+accessible terminal root. It has no terminal draw calls: it establishes the
+GTK-owned realize/render/unrealize boundary, records context generations and
+render callbacks, and is qualified only by `make gtk-gl-area-smoke` in a real
+Linux graphical session. It deliberately does not alter the WGPU presenter or
+claim an embedded terminal renderer.
+
+The full GL adapter will retain that shape: one terminal root widget per
+controller, with the `GtkGLArea` below that root. GTK's main context alone
+creates, realizes, resizes, renders, unrealizes, and destroys the area. The
+host event loop may prepare or mark a new scene while it handles PTY data, but
+it must only request `gtk_gl_area_queue_render`; it must never issue OpenGL
+calls outside GTK's realize/render/unrealize lifecycle or from another thread.
 
 On realization the adapter makes the context current, checks GTK's context
 error, and creates its GL resources. A render callback consumes at most the

@@ -832,6 +832,15 @@ int kiwi_framebuffer_capture_begin(KiwiFramebufferCapture *capture, uint64_t fra
   return 0;
 }
 
+void kiwi_framebuffer_capture_abort(KiwiFramebufferCapture *capture) {
+  if (capture == NULL || capture->active_slot < 0) return;
+  KiwiFramebufferSlot *slot = &capture->slots[capture->active_slot];
+  slot->occupied = 0;
+  slot->map_requested = 0;
+  slot->map->status = 0;
+  capture->active_slot = -1;
+}
+
 void kiwi_framebuffer_capture_encode(KiwiFramebufferCapture *capture, WGPUCommandEncoder encoder, WGPUTexture texture) {
   if (capture == NULL || capture->active_slot < 0 || encoder == NULL || texture == NULL) return;
   KiwiFramebufferSlot *slot = &capture->slots[capture->active_slot];

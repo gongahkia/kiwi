@@ -140,6 +140,7 @@ make gtk-run                           # launch through the GTK4 development hos
 make gtk-wayland-smoke                 # bounded GTK Wayland WGPU/PTy smoke (requires a Wayland session)
 make gtk-input-smoke                   # GTK preedit/commit callback boundary smoke (requires a graphical session)
 make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
+make gtk-gl-area-smoke                  # GTK child-GL-context lifecycle smoke; not terminal rendering (requires graphical Linux)
 make demo                              # retain the M0 synthetic renderer mode
 make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
 make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK

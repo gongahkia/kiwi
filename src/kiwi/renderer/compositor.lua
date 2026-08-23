@@ -75,6 +75,7 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   self:validate(entries)
   local presentation, presentation_reason = self.context:begin_presentation_frame()
   if presentation == nil then return false, presentation_reason end
+  local capture_started = false
   local ok, result = xpcall(function()
     for index, entry in ipairs(entries) do
       entry.renderer:encode_into(presentation, entry.model, time, debug_dirty, debug_boundaries, {
@@ -83,15 +84,16 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
       })
     end
     self.frame = self.frame + 1
-    if self.context.begin_framebuffer_capture then self.context:begin_framebuffer_capture(self.frame) end
-    if self.context.encode_framebuffer_capture then self.context:encode_framebuffer_capture(presentation.encoder, presentation.texture) end
-    if self.context.submit_framebuffer_capture then self.context:submit_framebuffer_capture() end
+    if self.context.begin_framebuffer_capture then capture_started = self.context:begin_framebuffer_capture(self.frame) == true end
+    if capture_started and self.context.encode_framebuffer_capture then self.context:encode_framebuffer_capture(presentation.encoder, presentation.texture) end
   end, debug.traceback)
   if not ok then
+    if capture_started and self.context.abort_framebuffer_capture then self.context:abort_framebuffer_capture() end
     self.context:abort_presentation_frame(presentation)
     error(result, 0)
   end
   local presented, present_reason = self.context:present_presentation_frame(presentation)
+  if capture_started and self.context.submit_framebuffer_capture then self.context:submit_framebuffer_capture() end
   if not presented then return false, present_reason end
   for _, entry in ipairs(entries) do entry.renderer:finish_frame(entry.model, time) end
   if self.context.poll_framebuffer_capture then self.context:poll_framebuffer_capture() end

@@ -73,7 +73,11 @@ only clears terminal damage after the current WGPU backend acknowledges the
 uploads. `prepared_images` also produces renderer-neutral decoded Kitty image
 data and visible placements, but GPU residency and all pass encoding remain
 WGPU-specific. [ADR 0041](adr/0041-embedded-gtk-presentation.md) records the
-remaining `GtkGLArea` work.
+remaining `GtkGLArea` work. The host now has an opt-in `GtkGLArea` lifecycle
+probe below its accessible terminal root: `make gtk-gl-area-smoke` checks
+realize, render queueing, and a context-generation counter in a graphical
+Linux session. It does not draw a terminal frame or replace the WGPU
+presentation path.
 
 Once that renderer boundary exists, the Linux group owner should use
 [libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)

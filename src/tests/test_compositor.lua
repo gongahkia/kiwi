@@ -89,6 +89,42 @@ return {
     Assert.truthy(compositor:render({ { model = { id = "pane" }, renderer = renderer, viewport = { x = 0, y = 0, width = 100, height = 80 } } }, 4, true, true))
     Assert.equal(table.concat(events, ","), "begin,encode,present,finish")
   end,
+  compositor_maps_framebuffer_capture_only_after_submission = function()
+    local events = {}
+    local frame = { encoder = {}, texture = {} }
+    local compositor = Compositor.new({
+      abort_presentation_frame = function() events[#events + 1] = "abort" end,
+      begin_framebuffer_capture = function(_, number)
+        Assert.equal(number, 1)
+        events[#events + 1] = "capture-begin"
+        return true
+      end,
+      begin_presentation_frame = function()
+        events[#events + 1] = "begin"
+        return frame
+      end,
+      encode_framebuffer_capture = function(_, encoder, texture)
+        Assert.equal(encoder, frame.encoder)
+        Assert.equal(texture, frame.texture)
+        events[#events + 1] = "capture-encode"
+      end,
+      poll_framebuffer_capture = function() events[#events + 1] = "capture-poll" end,
+      present_presentation_frame = function()
+        events[#events + 1] = "present"
+        return true
+      end,
+      submit_framebuffer_capture = function() events[#events + 1] = "capture-submit" end,
+      window = { minimized = false },
+      width = 100,
+      height = 80,
+    })
+    local renderer = {
+      encode_into = function() events[#events + 1] = "encode" end,
+      finish_frame = function() events[#events + 1] = "finish" end,
+    }
+    Assert.truthy(compositor:render({ { model = {}, renderer = renderer, viewport = { x = 0, y = 0, width = 100, height = 80 } } }, 1))
+    Assert.equal(table.concat(events, ","), "begin,encode,capture-begin,capture-encode,present,capture-submit,finish,capture-poll")
+  end,
   compositor_aborts_an_acquired_presentation_frame_when_encoding_fails = function()
     local frame = {}
     local aborted = 0
@@ -111,5 +147,30 @@ return {
     end)
     Assert.truthy(not ok)
     Assert.equal(aborted, 1)
+  end,
+  compositor_aborts_an_unsubmitted_framebuffer_capture_when_capture_encoding_fails = function()
+    local frame = { encoder = {}, texture = {} }
+    local capture_aborted = 0
+    local presentation_aborted = 0
+    local compositor = Compositor.new({
+      abort_framebuffer_capture = function() capture_aborted = capture_aborted + 1 end,
+      abort_presentation_frame = function() presentation_aborted = presentation_aborted + 1 end,
+      begin_framebuffer_capture = function() return true end,
+      begin_presentation_frame = function() return frame end,
+      encode_framebuffer_capture = function() error("expected capture encoding failure") end,
+      present_presentation_frame = function() error("unexpected presentation") end,
+      window = { minimized = false },
+      width = 100,
+      height = 80,
+    })
+    local ok = pcall(function()
+      compositor:render({ { model = {}, renderer = {
+        encode_into = function() end,
+        finish_frame = function() error("unexpected finish") end,
+      }, viewport = { x = 0, y = 0, width = 100, height = 80 } } }, 1)
+    end)
+    Assert.truthy(not ok)
+    Assert.equal(capture_aborted, 1)
+    Assert.equal(presentation_aborted, 1)
   end,
 }
