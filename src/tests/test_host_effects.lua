@@ -1,8 +1,13 @@
 local Assert = require("tests.assert")
 local Effects = require("kiwi.app.host_effects")
 
-local function configuration(notification, progress)
-  return { osc9_notifications = notification or "off", osc9_progress = progress or "off" }
+local function configuration(notification, progress, command_finish, after)
+  return {
+    notify_on_command_finish = command_finish or "never",
+    notify_on_command_finish_after = after == nil and 5 or after,
+    osc9_notifications = notification or "off",
+    osc9_progress = progress or "off",
+  }
 end
 
 return {
@@ -87,5 +92,74 @@ return {
     handled, status = effects:consume({ kind = "progress_changed", value = { progress = 50, state = 1 } })
     Assert.truthy(handled)
     Assert.equal(status, "unavailable")
+  end,
+  host_effects_notifies_only_a_completed_slow_command_from_an_unfocused_source = function()
+    local notifications = {}
+    local effects = Effects.new(configuration("off", "off", "unfocused", 5), {
+      notify = function(window, title, body)
+        notifications[#notifications + 1] = { body = body, title = title, window = window }
+        return true
+      end,
+    }, {})
+    local first, second = {}, {}
+    local handled, status = effects:consume({ kind = "shell_marker", value = { kind = "command_executed" } }, {
+      focused = true,
+      now = 10,
+      source = first,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "tracked")
+    handled, status = effects:consume({ kind = "shell_marker", value = { exit_status = 0, kind = "command_finished" } }, {
+      focused = false,
+      now = 15,
+      source = first,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "submitted")
+    Assert.equal(notifications[1].title, "Kiwi terminal")
+    Assert.equal(notifications[1].body, "A terminal command finished.")
+    handled, status = effects:consume({ kind = "shell_marker", value = { kind = "command_executed" } }, {
+      focused = false,
+      now = 20,
+      source = second,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "tracked")
+    handled, status = effects:consume({ kind = "shell_marker", value = { exit_status = 7, kind = "command_finished" } }, {
+      focused = false,
+      now = 24,
+      source = second,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "below-threshold")
+    Assert.equal(#notifications, 1)
+  end,
+  host_effects_suppresses_focused_or_untracked_command_completion_without_retaining_diagnostics = function()
+    local effects = Effects.new(configuration("off", "off", "unfocused", 0), {
+      notify = function() return true end,
+    }, {})
+    local source = {}
+    local handled, status = effects:consume({ kind = "shell_marker", value = { kind = "command_executed" } }, {
+      focused = true,
+      now = 3,
+      source = source,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "tracked")
+    handled, status = effects:consume({ kind = "shell_marker", value = { kind = "command_finished" } }, {
+      focused = true,
+      now = 4,
+      source = source,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "focused")
+    handled, status = effects:consume({ kind = "shell_marker", value = { kind = "command_finished" } }, {
+      focused = false,
+      now = 5,
+      source = source,
+    })
+    Assert.truthy(handled)
+    Assert.equal(status, "untracked")
+    Assert.equal(#effects:snapshot().diagnostics, 0)
   end,
 }

@@ -34,6 +34,14 @@ local function application_capability(context, subject, name)
   rejected(context, subject, "missing application." .. name)
 end
 
+local function initial_working_directory(context)
+  local callback = context.initial_working_directory
+  if type(callback) ~= "function" then return nil end
+  local cwd = callback()
+  if type(cwd) == "string" and #cwd <= 2048 and cwd:sub(1, 1) == "/" and not cwd:find("\0", 1, true) then return cwd end
+  return nil
+end
+
 function Dispatcher:handle(action)
   local context = self.context
   if action == "command-palette" then
@@ -66,7 +74,8 @@ function Dispatcher:handle(action)
     local application, request_window = application_capability(context, "new-window", "request_window")
     local configuration_path = function_capability(context, "new-window", "configuration_path")
     if application == nil or configuration_path == nil then return true, false end
-    local opened, reason = request_window(application, configuration_path(), { kind = "standalone" })
+    local request = { initial_cwd = initial_working_directory(context), kind = "standalone" }
+    local opened, reason = request_window(application, configuration_path(), request)
     if not opened then rejected(context, "new-window request", reason) end
     return true, false
   end
@@ -124,7 +133,10 @@ function Dispatcher:handle(action)
       local application, request_window = application_capability(context, "session duplication", "request_window")
       local configuration_path = function_capability(context, "session duplication", "configuration_path")
       if application == nil or configuration_path == nil then return true, false end
-      duplicated, reason = request_window(application, configuration_path(), { kind = "standalone" })
+      duplicated, reason = request_window(application, configuration_path(), {
+        initial_cwd = initial_working_directory(context),
+        kind = "standalone",
+      })
     end
     if not duplicated then rejected(context, "session duplication", reason) end
     return true, false

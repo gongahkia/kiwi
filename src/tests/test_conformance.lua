@@ -88,6 +88,9 @@ local function assert_expected(fixture, state, parser)
   if expected.title then
     Assert.equal(state.title, expected.title, fixture.id .. " title")
   end
+  if expected.pointer_shape then
+    Assert.equal(state.pointer_shape, expected.pointer_shape, fixture.id .. " pointer shape")
+  end
   if expected.unknown then
     for family, count in pairs(expected.unknown) do
       Assert.equal(state.stats.unknown[family], count, fixture.id .. " unknown " .. family)

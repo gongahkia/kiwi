@@ -102,6 +102,7 @@ local function renderer_options(runtime_options, configuration)
     hyperlink_color = configuration.hyperlink_color,
     command_region_visual_enabled = configuration.command_regions,
     command_region_color = configuration.command_region_color,
+    scrollbar_policy = configuration.scrollbar,
     text_backend = TextLab.requested_backend(),
     extensions_enabled = not runtime_options.no_extensions,
     extensions = {},
@@ -232,8 +233,10 @@ function Controller.run(window, host, options)
         state_options = {
           scrollback_limit = configuration.scrollback_limit,
           ambiguous_width = configuration.ambiguous_width,
+          osc52_read = configuration.osc52_read == "allow",
           osc52_write = configuration.osc52_write,
-          keyboard_supported_flags = host.keyboard_supported_flags,
+          keyboard_supported_flags = host.keyboard_supported_flags_for and
+            host.keyboard_supported_flags_for(window) or host.keyboard_supported_flags,
           cell_width = font.cell_width,
           cell_height = font.cell_height,
           colors = {
@@ -247,7 +250,7 @@ function Controller.run(window, host, options)
     local root = os.getenv("KIWI_ROOT") or "."
     local terminfo_directory = os.getenv("KIWI_TERMINFO") or root .. "/.build/terminfo"
     local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
-    local function spawn_child(command, child_columns, child_rows)
+    local function spawn_child(command, child_columns, child_rows, cwd)
       local environment = {
         TERM = "xterm-kiwi",
         TERMINFO = terminfo_directory,
@@ -261,7 +264,7 @@ function Controller.run(window, host, options)
         command = command or Pty.default_command()
         if configuration.shell_integration == "none" then environment.KIWI_SHELL_INTEGRATION = false end
       end
-      return Pty.spawn(command, child_columns, child_rows, environment)
+      return Pty.spawn(command, child_columns, child_rows, environment, { cwd = cwd })
     end
     local render_options = renderer_options(options, configuration)
     local clipboard = Clipboard.new(window)
@@ -274,6 +277,7 @@ function Controller.run(window, host, options)
     local metrics
     local mouse
     local mouse_generation
+    local scrollback_wheel
     local selection_pointer
     local composition
     if options.moved_session then
@@ -296,17 +300,22 @@ function Controller.run(window, host, options)
       mouse = active_session.mouse
       mouse_generation = state.modes.mouse_generation
       active_session.mouse_generation = mouse_generation
+      scrollback_wheel = active_session.scrollback_wheel or require("kiwi.input.scrollback_wheel").new()
+      active_session.scrollback_wheel = scrollback_wheel
+      scrollback_wheel.scrollbar_pointer = scrollback_wheel.scrollbar_pointer or require("kiwi.input.scrollbar_pointer").new()
       selection_pointer = active_session.selection_pointer
     else
       terminal = new_terminal(columns, rows)
       state = VTInternal.state(terminal)
-      pty = spawn_child(options.command, columns, rows)
+      pty = spawn_child(options.command, columns, rows, options.initial_cwd)
       parser = VTInternal.parser(terminal)
       recovery = Recovery.new()
       renderer = Renderer.new(context, font, state, render_options)
       metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
       mouse = Mouse.new()
       mouse_generation = state.modes.mouse_generation
+      scrollback_wheel = require("kiwi.input.scrollback_wheel").new()
+      scrollback_wheel.scrollbar_pointer = require("kiwi.input.scrollbar_pointer").new()
       selection_pointer = SelectionPointer.new()
       active_session = {
         metrics = metrics,
@@ -315,6 +324,7 @@ function Controller.run(window, host, options)
         pty = pty,
         recovery = recovery,
         renderer = renderer,
+        scrollback_wheel = scrollback_wheel,
         selection_pointer = selection_pointer,
         terminal = terminal,
       }
@@ -362,7 +372,12 @@ function Controller.run(window, host, options)
       session.terminal:close()
     end
 
+    local function active_working_directory()
+      return Pty.local_working_directory(state and state.shell.current_directory or nil)
+    end
+
     local last_represented_directory_uri = false
+    local last_pointer_shape = false
     local function sync_represented_directory()
       if host.set_represented_directory == nil then return end
       local directory = state and state.shell.current_directory or nil
@@ -373,6 +388,18 @@ function Controller.run(window, host, options)
         last_represented_directory_uri = uri
       else
         io.stderr:write("Kiwi Cocoa proxy URL update rejected: ", tostring(message), "\n")
+      end
+    end
+
+    local function sync_pointer_shape()
+      if type(host.set_pointer_shape) ~= "function" then return end
+      local shape = state and state.pointer_shape or "default"
+      if shape == last_pointer_shape then return end
+      local applied, reason = host.set_pointer_shape(window, shape)
+      if applied then
+        last_pointer_shape = shape
+      else
+        io.stderr:write("Kiwi pointer shape unavailable: ", tostring(reason), "\n")
       end
     end
 
@@ -391,7 +418,9 @@ function Controller.run(window, host, options)
       mouse = session.mouse
       mouse_generation = session.mouse_generation
       recovery = session.recovery
+      scrollback_wheel = session.scrollback_wheel
       selection_pointer = session.selection_pointer
+      sync_pointer_shape()
       sync_represented_directory()
     end
 
@@ -445,10 +474,10 @@ function Controller.run(window, host, options)
       return true
     end
 
-    local function new_session(columns, rows, command)
+    local function new_session(columns, rows, command, cwd)
       local session_terminal = new_terminal(columns, rows)
       local new_state = VTInternal.state(session_terminal)
-      local new_pty = spawn_child(command == false and nil or command or options.command, columns, rows)
+      local new_pty = spawn_child(command == false and nil or command or options.command, columns, rows, cwd or (command ~= false and active_working_directory() or nil))
       local new_recovery = Recovery.new()
       return {
         metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = VTInternal.parser(session_terminal), recovery = new_recovery }),
@@ -457,6 +486,11 @@ function Controller.run(window, host, options)
         pty = new_pty,
         recovery = new_recovery,
         renderer = nil,
+        scrollback_wheel = (function()
+          local wheel = require("kiwi.input.scrollback_wheel").new()
+          wheel.scrollbar_pointer = require("kiwi.input.scrollbar_pointer").new()
+          return wheel
+        end)(),
         selection_pointer = SelectionPointer.new(),
         terminal = session_terminal,
       }
@@ -491,6 +525,7 @@ function Controller.run(window, host, options)
       if recorder then return nil, "tabs are unavailable while --record is active" end
       if host.native_tabs then
         return options.application:request_window(configuration_path, {
+          initial_cwd = active_working_directory(),
           kind = "host-tab",
           source_controller_id = options.controller_id,
         })
@@ -619,7 +654,7 @@ function Controller.run(window, host, options)
       begin_transfer = begin_transfer,
       complete_transfer = complete_transfer,
       destroy_session = destroy_session,
-      new_session = function() return new_session(1, 1, false) end,
+      new_session = function() return new_session(1, 1, false, active_working_directory()) end,
       restore_transfer = restore_transfer,
       snapshot = function()
         return { geometry = window:geometry(), workspace = workspace:snapshot() }
@@ -684,6 +719,7 @@ function Controller.run(window, host, options)
           background = configuration.background,
           palette = configuration.palette,
         })
+        VTInternal.state(pane.session.terminal):configure_osc52_read(configuration.osc52_read == "allow")
         VTInternal.state(pane.session.terminal):configure_osc52_write(configuration.osc52_write)
       end
       if font_changed then
@@ -859,6 +895,7 @@ function Controller.run(window, host, options)
       explicit_configuration_path = options.config,
       focus_next_tab = focus_next_tab,
       host = host,
+      initial_working_directory = active_working_directory,
       report = function(message) io.stderr:write(message, "\n") end,
       request_configuration_reload = function() configuration_reload_requested = true end,
       session_move_smoke_requester = options.session_move_smoke_requester,
@@ -958,13 +995,13 @@ function Controller.run(window, host, options)
     local function pointer_pane(event)
       local pane
       local placement
-      if event.kind == "button" and event.action == "press" then
+      if (event.kind == "button" and event.action == "press") or event.kind == "wheel" then
         local column = math.floor(event.x * (font.content_scale or 1) / font.cell_width)
         local row = math.floor(event.y * (font.content_scale or 1) / font.cell_height)
         pane, placement = workspace:pane_at(workspace_columns, workspace_rows, column, row)
         if pane then
-          pointer_pane_id = pane.id
-          activate_pane(pane.id)
+          if event.kind == "button" then pointer_pane_id = pane.id end
+          if workspace:active_pane().id ~= pane.id then activate_pane(pane.id) end
         end
       elseif pointer_pane_id then
         pane = workspace.panes[pointer_pane_id]
@@ -982,6 +1019,8 @@ function Controller.run(window, host, options)
       local pixel_height = math.max(1, math.floor(placement.height * font.cell_height + 0.5))
       event.pixel_x = math.max(1, math.min(pixel_width, math.floor(event.x * scale) + 1))
       event.pixel_y = math.max(1, math.min(pixel_height, math.floor(event.y * scale) + 1))
+      event.pixel_width = pixel_width
+      event.pixel_height = pixel_height
       return pane
     end
 
@@ -990,6 +1029,7 @@ function Controller.run(window, host, options)
         apply_commit("")
         local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, {
           associated_text = codepoints,
+          unicode_key = key_event.variants and key_event.variants.unicode_key,
           layout_key = key_event.variants and key_event.variants.layout_key,
           shifted_key = key_event.variants and key_event.variants.shifted_key,
           base_key = key_event.variants and key_event.variants.base_key,
@@ -1008,7 +1048,7 @@ function Controller.run(window, host, options)
         renderer:invalidate("search")
         return { handled = true, suppress_text = true }
       end
-      if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw) then
+      if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
         return { handled = true, defer_text = true }
       end
       local encoded = Keyboard.key(key, action, modifiers, state.modes, glfw, variants)
@@ -1063,18 +1103,27 @@ function Controller.run(window, host, options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
-      local hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes)
+      local scrollbar_handled, scrollbar_changed = scrollback_wheel.scrollbar_pointer:handle(event, state, renderer:scrollbar_descriptor(state))
+      if scrollbar_changed then renderer:invalidate("scrollbar") end
+      local hyperlink_handled, hyperlink_opened, hyperlink_status = false, false, nil
+      if not scrollbar_handled then hyperlink_handled, hyperlink_opened, hyperlink_status = hyperlink_pointer:handle(event, state, state.modes) end
       if hyperlink_handled and not hyperlink_opened then report_hyperlink_failure(hyperlink_status) end
       local selection_handled, selection_changed = false, false
-      if not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes) end
+      if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
       if selection_changed then renderer:invalidate("selection") end
       local encoded
-      if not hyperlink_handled and not selection_handled and event.kind == "button" then
+      if not scrollbar_handled and not hyperlink_handled and not selection_handled and event.kind == "button" then
         encoded = mouse:button(event, state:input_modes())
-      elseif not hyperlink_handled and not selection_handled and event.kind == "motion" then
+      elseif not scrollbar_handled and not hyperlink_handled and not selection_handled and event.kind == "motion" then
         encoded = mouse:motion(event, state:input_modes())
-      elseif not hyperlink_handled and not selection_handled and event.kind == "wheel" then
-        encoded = mouse:wheel(event, state:input_modes())
+      elseif not scrollbar_handled and not hyperlink_handled and not selection_handled and event.kind == "wheel" then
+        local history_lines = scrollback_wheel:consume(event, state:input_modes())
+        if history_lines ~= nil then
+          state:scroll_history(history_lines)
+          renderer:invalidate("terminal")
+        else
+          encoded = mouse:wheel(event, state:input_modes())
+        end
       end
       if encoded then enqueue_input(encoded) end
       if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
@@ -1083,6 +1132,7 @@ function Controller.run(window, host, options)
       if not focused then
         product_actions:reset_sequence()
         selection_pointer:reset()
+        scrollback_wheel.scrollbar_pointer:reset()
         state.ime_preedit = nil
         composition:leave()
         if renderer then renderer:invalidate("terminal") end
@@ -1264,12 +1314,23 @@ function Controller.run(window, host, options)
           if effect.kind == "clipboard_write_requested" then
             local written, status = clipboard:write_osc52(effect.value.text)
             if not written then io.stderr:write("Kiwi OSC 52 clipboard write rejected: ", status, "\n") end
+          elseif effect.kind == "clipboard_read_requested" then
+            local reply, status = clipboard:read_osc52_reply(effect.value.selection, effect.value.maximum_bytes)
+            if reply then session.pty:enqueue(reply) else io.stderr:write("Kiwi OSC 52 clipboard read rejected: ", status, "\n") end
           elseif effect.kind == "pwd_changed" and session == active_session then
             sync_represented_directory()
+          elseif effect.kind == "pointer_shape_changed" and session == active_session then
+            sync_pointer_shape()
           else
-            local consumed, status, first_report = configuration.host_effects:consume(effect)
-            if consumed and status ~= "submitted" and first_report then
-              io.stderr:write("Kiwi OSC 9 ", effect.kind == "notification_requested" and "notification" or "progress", " ignored: ", status, "\n")
+            local consumed, status, first_report = configuration.host_effects:consume(effect, {
+              focused = window_focused and session == active_session,
+              now = now,
+              source = session,
+            })
+            if consumed and first_report and (status == "invalid" or status == "unavailable" or status == "rejected") then
+              local subject = effect.kind == "shell_marker" and "command-finish notification"
+                or effect.kind == "notification_requested" and "OSC 9 notification" or "OSC 9 progress"
+              io.stderr:write("Kiwi ", subject, " ignored: ", status, "\n")
             end
           end
         end

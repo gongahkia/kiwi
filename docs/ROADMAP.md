@@ -36,10 +36,13 @@ declared complete.
   graphical palette smoke is not yet local qualification evidence. Interactive desktop
   qualification, including real IME, fractional scale, clipboard, and Orca,
   remains outstanding.
-- GTK-native tabs are deliberately deferred until its presentation path can
-  render inside a GTK widget on both X11 and Wayland. The first prerequisite,
-  an opaque compositor acquire/encode/present-or-abort lifecycle, is
-  implemented and live-smoked through Cocoa/Metal. The next core slice,
+- GTK-native tabs are experimental, not deferred: the opt-in
+  `KIWI_GTK_NATIVE_TABS=1` GL route renders inside a GTK widget and owns an
+  `AdwTabView` page per independent VT/PTY/session. It proves bounded New
+  Tab/Next Tab routing, including background PTY draining without hidden-page
+  presentation, but it is not a supported host-tab feature. The opaque
+  compositor acquire/encode/present-or-abort lifecycle is implemented and
+  live-smoked through Cocoa/Metal. The next core slice,
   `prepared_frame`, now produces WGPU-free terminal cells, shaped glyphs,
   glyph-atlas updates, overlays, and frame uniforms with explicit retry/commit
   ownership. `prepared_images` now also produces renderer-neutral decoded
@@ -47,12 +50,15 @@ declared complete.
   The GTK host now has an opt-in, single-terminal GtkGLArea/OpenGL adapter:
   `KIWI_GTK_PRESENTER=gl make gtk-run` feeds a real VT/PTy/shaping frame into
   background, overlays, alpha-atlas glyph, command-region, and cursor passes.
-  It is not GTK-native tabs: workspace state, Kitty images, colour management,
-  pacing/recovery, and graphical Linux evidence remain open. The approved next
-  step after `make gtk-gl-wayland-smoke` and `make gtk-gl-x11-smoke` pass is a
-  libadwaita `AdwTabView` group owner; see [ADR
-  0041](adr/0041-embedded-gtk-presentation.md). Do not add cosmetic GTK tab
-  chrome before that adapter passes its gates.
+  Its initial/resize/retry grid snapshots are complete, while normal terminal
+  updates retain a bounded native mirror and upload only dirty ranges and
+  changed glyph/atlas resources. Workspace state, Kitty images, colour
+  management, pacing/recovery, detach/transfer, manager host-tab ownership,
+  and graphical Linux evidence remain open. The prototype now has a bounded
+  non-final-page close transaction; the next approved slice is the group-owner
+  lifecycle and its detach/transfer gates; see [ADR
+  0041](adr/0041-embedded-gtk-presentation.md). Do not
+  advertise the prototype as supported GTK tab chrome before those gates pass.
 - The GLFW Cocoa route already has bounded AppKit-owned `New Tab`/`Next Tab`
   containers, explicitly separate native windows, menu, searchable command
   palette, action-only AppleScript bridge, text-input, accessibility, and

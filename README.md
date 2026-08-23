@@ -29,10 +29,10 @@ not inherit an xterm entry or claim unimplemented xterm behavior; see the
 evidence and remaining deployment limits in
 [CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
-M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16 (with flag 4 partial on macOS), PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16 (with flag 4 partial on Cocoa and qualifying GTK hosts), PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
 
 The validated launch settings `--theme`, `--theme-file`, `--appearance`,
-`--font-family`, `--font-size`, `--scrollback-limit`, and
+`--font-family`, `--font-size`, `--scrollback-limit`, `--scrollbar`, and
 `--shell-integration` override file and environment values for that process.
 See the [user guide](docs/USER_GUIDE.md#configuration) for their precedence,
 reload behavior, and the colour-only external-theme trust boundary.
@@ -43,7 +43,7 @@ The Linux support target is x86_64. On Fedora 43:
 
 ```sh
 sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
-  glib2-devel glfw-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  glib2-devel glfw-devel gtk4-devel libadwaita-devel libepoxy-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
   vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
@@ -93,7 +93,7 @@ tar -xzf "dist/$release.tar.gz"
 ./"$release"/bin/kiwi --version
 ```
 
-The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher. Its executable is deterministically ad-hoc signed so LaunchServices can launch it, but it has no Developer ID signature or notarization. `kiwi --version` reports the artifact version and
+The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, GTK4, libadwaita, libepoxy, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. It includes both the default surface bridge and the optional GTK host bridge. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher. Its executable is deterministically ad-hoc signed so LaunchServices can launch it, but it has no Developer ID signature or notarization. `kiwi --version` reports the artifact version and
 revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
 shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
 renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
@@ -136,13 +136,22 @@ make test-fuzz                         # bounded seed-reproducible parser/state 
 make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make run                               # launch the default shell
-make gtk-run                           # launch through the GTK4 development host on Linux x86_64
-make gtk-gl-run                        # experimental GtkGLArea single-terminal route; no tabs/splits/images or workspace restore
-make gtk-gl-renderer-check             # strict native GTK/OpenGL renderer compile check
+make gtk-run                           # launch through the partial GTK4 Linux host on x86_64
+make gtk-gl-run                        # experimental GtkGLArea one-terminal default; set KIWI_GTK_NATIVE_TABS=1 for the separately gated multi-PTY tab prototype
+make gtk-gl-renderer-check             # strict native GTK host and OpenGL renderer source check
 make gtk-wayland-smoke                 # bounded GTK Wayland WGPU/PTy smoke (requires a Wayland session)
+make gtk-wayland-multi-window-smoke    # bounded GTK Wayland WGPU multi-window lifecycle smoke
+make gtk-x11-smoke                     # bounded GTK X11 WGPU/PTy smoke (requires an X11 session)
+make gtk-x11-multi-window-smoke        # bounded GTK X11 WGPU multi-window lifecycle smoke
 make gtk-gl-wayland-smoke              # GTK GL terminal/PTY render smoke (requires a Wayland session)
 make gtk-gl-x11-smoke                  # GTK GL terminal/PTY render smoke (requires an X11 session)
-make gtk-input-smoke                   # GTK preedit/commit callback boundary smoke (requires a graphical session)
+make gtk-gl-native-tabs-wayland-smoke  # opt-in GTK GL multi-PTY native-tab lifecycle smoke (requires Wayland)
+make gtk-gl-native-tabs-x11-smoke      # opt-in GTK GL multi-PTY native-tab lifecycle smoke (requires X11)
+make gtk-gl-native-tabs-close-wayland-smoke # GTK native-tab close/session-teardown smoke (requires Wayland)
+make gtk-gl-native-tabs-close-x11-smoke     # GTK native-tab close/session-teardown smoke (requires X11)
+make gtk-input-smoke                   # GTK preedit/commit and Kitty alternate-key callback smoke (requires a graphical session)
+make gtk-input-wayland-smoke           # force that GTK input smoke through Wayland
+make gtk-input-x11-smoke               # force that GTK input smoke through X11
 make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
 make gtk-gl-area-smoke                  # GTK GL native snapshot/render lifecycle probe; separate from the PTY application smokes (requires graphical Linux)
 make demo                              # retain the M0 synthetic renderer mode
@@ -247,15 +256,25 @@ is advertised through terminfo.
 
 X10/normal/button/any mouse tracking (9/1000/1002/1003), X10, UTF-8 (1005),
 URXVT (1015), SGR-cell (1006), and SGR-pixel (1016) coordinate encodings,
-plus focus reporting (1004), are supported with exact scope and local-selection precedence in the
-[conformance matrix](docs/CONFORMANCE.md). Selected cells receive a
+plus focus reporting (1004), are supported with exact scope in the
+[conformance matrix](docs/CONFORMANCE.md). When an application enables mouse
+tracking, a primary-button Shift drag is a configured local-selection override:
+the default respects an XTSHIFTESCAPE (`CSI > Ps s`) application capture
+request, and `mouse-shift-capture` has explicit `true`, `false`, `always`, and
+`never` policies. Selected cells receive a
 pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
 `#RRGGBBAA`. The current scrollback-search result receives a second pre-glyph
 alpha highlight; `KIWI_SEARCH_COLOR` has the same format. Neither input
 capability is advertised through terminfo.
 
+When an application has not enabled mouse tracking and Kiwi is on the primary
+screen, vertical-wheel input navigates local scrollback. Fractional host deltas
+accumulate per terminal session and at most 16 history rows move for one host
+event. Mouse-reporting applications and alternate-screen alternate-scroll mode
+retain their existing input ownership.
+
 `Ctrl+Shift+T` opens a tab and `Ctrl+Tab` cycles tabs. On the regular GLFW and
-current GTK host, that is a renderer-workspace tab; on the Cocoa host it is a
+default GTK host, that is a renderer-workspace tab; on the Cocoa host it is a
 new GLFW/Metal controller in the AppKit tab group. `Ctrl+Shift+Enter` creates
 a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
 `Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
@@ -266,10 +285,13 @@ fresh default-shell counterparts. Each visible pane has its own terminal and
 PTY, is resized to its cell-layout rectangle, and is rendered into a scissored
 viewport in one shared WGPU frame. Primary-clicking a pane focuses it before
 pointer input is routed to that terminal. Inactive tabs continue to service
-their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes the ordinary
-GLFW's platform clipboard bridge. Clipboard reads/writes are limited to 1 MiB;
+their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes
+through the active host's ordinary platform clipboard bridge. Clipboard
+reads/writes are limited to 1 MiB;
 paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
-when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless `osc52-write = true` explicitly permits its bounded write-only subset.
+when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless
+`osc52-write = true` explicitly permits bounded writes or `osc52-read = allow`
+explicitly permits bounded query replies; Kiwi has no prompt policy yet.
 
 `Ctrl+Shift+P` opens a searchable native command palette on the Cocoa and GTK4
 hosts. Its twelve default workspace actions and up to 32 total configured
@@ -279,7 +301,8 @@ command, or terminal control bytes. These local actions are configurable with
 bounded one- through three-chord `keybind` directives in the configuration
 file; `F6` is the default reload action. `theme = system`,
 bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
-settings are documented in the [user guide](docs/USER_GUIDE.md#configuration).
+settings plus the separate default-disabled OSC 133 command-finish notification
+policy are documented in the [user guide](docs/USER_GUIDE.md#configuration).
 The macOS Cocoa and GTK4 host menus route those same actions, including
 Settings/Open Configuration and the command palette, without adding menu
 keyboard equivalents; native product-chrome qualification remains partial.
@@ -376,6 +399,6 @@ decoder/cache ownership, fixture, and composition boundary are in
 
 ## Deliberate limits
 
-M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 updates, primary-screen width reflow, read-only xterm text-area/cell geometry replies, and documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting. M4 adds GLFW clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and an explicitly configured bounded OSC 52 write-only subset, but not primary selections, rich formats, automatic synchronization, OSC 52 reads/queries, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, arbitrary command-palette execution, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture mouse protocols, arbitrary image transforms or editing, video, exhaustive reset semantics and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 plus bounded, transactional Kitty OSC 21 numeric-palette/foreground/background/cursor updates, queries, and resets. OSC 21 deliberately rejects dynamic empty assignments and selection-colour keys. It also implements bounded OSC 22 CSS pointer-name state, primary-screen width reflow, read-only xterm text-area/cell geometry replies, documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting, and a configured XTSHIFTESCAPE-aware primary-button Shift selection override. GTK maps the declared OSC 22 names through its native cursor theme; GLFW maps each to its available standard cursor set, so diagonal and move shapes are an intentional approximation. M4 adds GLFW/GTK clipboard copy/paste, bounded exact scrollback search, safe OSC 8 hyperlinks, and explicit bounded OSC 52 writes plus a static opt-in read-query policy; it has no per-request prompt, primary selection, rich formats, automatic synchronization, regular expressions, full-text indexing, link previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, current-host OSC 7 working-directory inheritance for fresh sessions, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, but no end-to-end screen-reader validation. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, arbitrary command-palette execution, and a region UI. Kiwi does not implement bidi, Unicode line breaking, color emoji, a multiformat/multipage glyph atlas, touch/gesture/locator mouse protocols, arbitrary image transforms or editing, video, exhaustive reset semantics and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
 
 The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).

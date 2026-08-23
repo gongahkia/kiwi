@@ -22,6 +22,8 @@ return {
   require("tests.fixtures.vt.osc_and_strings"),
   require("tests.fixtures.vt.osc52_policy"),
   require("tests.fixtures.vt.osc8_hyperlinks"),
+  require("tests.fixtures.vt.kitty_osc21"),
+  require("tests.fixtures.vt.pointer_shape"),
   require("tests.fixtures.vt.shell_integration"),
   require("tests.fixtures.vt.shell_integration_scripts"),
   require("tests.fixtures.vt.utf8_and_malformed"),

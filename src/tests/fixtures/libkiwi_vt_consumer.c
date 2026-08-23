@@ -18,6 +18,7 @@ int main(void) {
       .rows = 1,
       .scrollback_limit = 32,
       .keyboard_supported_flags = 31,
+      .osc52_read = 1,
   };
   kiwi_vt_terminal *terminal = NULL;
   kiwi_vt_options incompatible = options;
@@ -80,6 +81,21 @@ int main(void) {
   if (check(kiwi_vt_terminal_take_effect(terminal, &effect, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "title effect size") || effect.kind != KIWI_VT_EFFECT_TITLE_CHANGED || required != sizeof(expected_title_payload)) return 1;
   char title_payload[sizeof(expected_title_payload)];
   if (check(kiwi_vt_terminal_take_effect(terminal, &effect, title_payload, sizeof(title_payload), &required), KIWI_VT_OK, terminal, "title effect") || strcmp(title_payload, expected_title_payload) != 0) return 1;
+  static const char osc52_query[] = "\033]52;c;?\a";
+  if (check(kiwi_vt_terminal_write(terminal, osc52_query, sizeof(osc52_query) - 1, &consumed), KIWI_VT_OK, terminal, "OSC 52 read request")) return 1;
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "OSC 52 read effect size") || effect.kind != KIWI_VT_EFFECT_CLIPBOARD_READ_REQUESTED || required > 256) return 1;
+  char osc52_read_payload[256];
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, osc52_read_payload, sizeof(osc52_read_payload), &required), KIWI_VT_OK, terminal, "OSC 52 read effect") || strstr(osc52_read_payload, "\"maximum_bytes\":65536") == NULL || strstr(osc52_read_payload, "\"selection\":{\"bytes\":\"Yw==\"}") == NULL) return 1;
+  static const char osc22_pointer[] = "\033]22;pointer\a";
+  if (check(kiwi_vt_terminal_write(terminal, osc22_pointer, sizeof(osc22_pointer) - 1, &consumed), KIWI_VT_OK, terminal, "OSC 22 pointer shape")) return 1;
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "OSC 22 effect size") || effect.kind != KIWI_VT_EFFECT_POINTER_SHAPE_CHANGED || required > 256) return 1;
+  char osc22_payload[256];
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, osc22_payload, sizeof(osc22_payload), &required), KIWI_VT_OK, terminal, "OSC 22 effect") || strstr(osc22_payload, "\"shape\":{\"bytes\":\"cG9pbnRlcg==\"}") == NULL) return 1;
+  static const char osc21_palette[] = "\033]21;foreground=#010203;1=#0a0c0e\a";
+  if (check(kiwi_vt_terminal_write(terminal, osc21_palette, sizeof(osc21_palette) - 1, &consumed), KIWI_VT_OK, terminal, "OSC 21 palette")) return 1;
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "OSC 21 effect size") || effect.kind != KIWI_VT_EFFECT_PALETTE_CHANGED || required > 256) return 1;
+  char osc21_payload[256];
+  if (check(kiwi_vt_terminal_take_effect(terminal, &effect, osc21_payload, sizeof(osc21_payload), &required), KIWI_VT_OK, terminal, "OSC 21 effect") || strstr(osc21_payload, "\"count\":2") == NULL || strstr(osc21_payload, "\"kitty_osc21\":true") == NULL) return 1;
   static const char unknown_mode[] = "\033[?9999h";
   if (check(kiwi_vt_terminal_write(terminal, unknown_mode, sizeof(unknown_mode) - 1, &consumed), KIWI_VT_OK, terminal, "unknown effect")) return 1;
   if (check(kiwi_vt_terminal_take_effect(terminal, &effect, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "unknown effect size") || effect.kind != KIWI_VT_EFFECT_UNKNOWN_SEQUENCE || required > 512) return 1;
@@ -139,6 +155,16 @@ int main(void) {
   key.layout_key = 0;
   key.shifted_key = 0;
   key.base_key = 0;
+  key.key = KIWI_VT_KEY_F6;
+  key.modifiers = KIWI_VT_MODIFIER_CONTROL;
+  key.unicode_key = 0x0127;
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "Unicode key collision size") || required != 9) return 1;
+  char unicode_key_bytes[9];
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, unicode_key_bytes, sizeof(unicode_key_bytes), &required), KIWI_VT_OK, terminal, "Unicode key collision") || strcmp(unicode_key_bytes, "\033[295;5u") != 0) return 1;
+  key.unicode_key = 0;
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "F6 key size") || required != 8) return 1;
+  char f6_key_bytes[8];
+  if (check(kiwi_vt_terminal_encode_key(terminal, &key, &input, f6_key_bytes, sizeof(f6_key_bytes), &required), KIWI_VT_OK, terminal, "F6 key") || strcmp(f6_key_bytes, "\033[17;5~") != 0) return 1;
   if (check(kiwi_vt_terminal_write(terminal, "\033[?2004h", 8, &consumed), KIWI_VT_OK, terminal, "enable bracketed paste")) return 1;
   if (check(kiwi_vt_terminal_encode_paste(terminal, "x", 1, NULL, 0, &required), KIWI_VT_BUFFER_TOO_SMALL, terminal, "paste input size") || required != 14) return 1;
   char paste_bytes[14];
@@ -147,7 +173,11 @@ int main(void) {
   static const char mouse_modes[] = "\033[?1006h\033[?1000h\033[?1004h";
   if (check(kiwi_vt_terminal_write(terminal, mouse_modes, sizeof(mouse_modes) - 1, &consumed), KIWI_VT_OK, terminal, "enable mouse modes")) return 1;
   kiwi_vt_input_modes modes = { .struct_size = sizeof(modes) };
-  if (check(kiwi_vt_terminal_input_modes(terminal, &modes), KIWI_VT_OK, terminal, "input modes") || modes.bracketed_paste != 1 || modes.focus_reporting != 1 || modes.keyboard_flags != 24 || modes.mouse_protocol != KIWI_VT_MOUSE_PROTOCOL_SGR || modes.mouse_tracking != KIWI_VT_MOUSE_TRACKING_NORMAL || modes.alternate_screen != 0 || modes.alternate_scroll != 0 || modes.application_keypad != 1 || modes.backarrow != 1) return 1;
+  if (check(kiwi_vt_terminal_input_modes(terminal, &modes), KIWI_VT_OK, terminal, "input modes") || modes.bracketed_paste != 1 || modes.focus_reporting != 1 || modes.keyboard_flags != 24 || modes.mouse_protocol != KIWI_VT_MOUSE_PROTOCOL_SGR || modes.mouse_tracking != KIWI_VT_MOUSE_TRACKING_NORMAL || modes.alternate_screen != 0 || modes.alternate_scroll != 0 || modes.application_keypad != 1 || modes.backarrow != 1 || modes.mouse_shift_escape != 0) return 1;
+  if (check(kiwi_vt_terminal_write(terminal, "\033[>1s", 5, &consumed), KIWI_VT_OK, terminal, "enable Shift mouse capture")) return 1;
+  if (check(kiwi_vt_terminal_input_modes(terminal, &modes), KIWI_VT_OK, terminal, "Shift mouse capture input modes") || modes.mouse_shift_escape != 2) return 1;
+  if (check(kiwi_vt_terminal_write(terminal, "\033[>s", 4, &consumed), KIWI_VT_OK, terminal, "enable Shift mouse override")) return 1;
+  if (check(kiwi_vt_terminal_input_modes(terminal, &modes), KIWI_VT_OK, terminal, "Shift mouse override input modes") || modes.mouse_shift_escape != 1) return 1;
   kiwi_vt_mouse *mouse = NULL;
   if (check(kiwi_vt_mouse_new(terminal, &mouse), KIWI_VT_OK, terminal, "new mouse")) return 1;
   kiwi_vt_mouse_button_event button = {

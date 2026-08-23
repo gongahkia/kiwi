@@ -1,4 +1,5 @@
 local Utf8 = require("kiwi.terminal.utf8")
+local Base64 = require("kiwi.terminal.base64")
 
 local Clipboard = {}
 Clipboard.__index = Clipboard
@@ -43,6 +44,11 @@ function Clipboard.new(bridge, options)
       osc52_over_limit = 0,
       osc52_invalid_utf8 = 0,
       osc52_platform_error = 0,
+      osc52_read_success = 0,
+      osc52_read_over_limit = 0,
+      osc52_read_invalid_utf8 = 0,
+      osc52_read_unavailable = 0,
+      osc52_read_platform_error = 0,
       paste_success = 0,
       paste_empty = 0,
       paste_over_limit = 0,
@@ -92,6 +98,29 @@ function Clipboard:write_osc52(text)
   end
   self:record("osc52", "success")
   return true, "success"
+end
+
+function Clipboard:read_osc52_reply(selection, maximum_bytes)
+  assert(type(selection) == "string" and #selection == 1 and not selection:find("[^cps]", 1), "OSC 52 read needs one supported selection")
+  maximum_bytes = maximum_bytes or self.maximum_bytes
+  assert(type(maximum_bytes) == "number" and maximum_bytes >= 1 and maximum_bytes % 1 == 0, "OSC 52 read limit must be a positive integer")
+  maximum_bytes = math.min(maximum_bytes, self.maximum_bytes)
+  local text, status = self.bridge:clipboard_read(maximum_bytes)
+  if text == nil then
+    status = status == "over-limit" and "over_limit" or status == "unavailable" and "unavailable" or "platform_error"
+    self:record("osc52_read", status)
+    return nil, status:gsub("_", "-")
+  end
+  if #text > maximum_bytes then
+    self:record("osc52_read", "over_limit")
+    return nil, "over-limit"
+  end
+  if not valid_utf8(text) then
+    self:record("osc52_read", "invalid_utf8")
+    return nil, "invalid-utf8"
+  end
+  self:record("osc52_read", "success")
+  return "\27]52;" .. selection .. ";" .. Base64.encode(text) .. "\27\\", "success"
 end
 
 function Clipboard:paste(state)

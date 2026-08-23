@@ -2,6 +2,7 @@ local Assert = require("tests.assert")
 local Actions = require("kiwi.terminal.actions")
 local Parser = require("kiwi.terminal.parser")
 local Replay = require("kiwi.terminal.replay")
+local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 
@@ -14,6 +15,19 @@ local function with_recording(callback)
 end
 
 return {
+  shell_metadata_derives_only_safe_local_paths_for_new_sessions = function()
+    local localhost = assert(ShellIntegration.parse_cwd("file://localhost/private/tmp/kiwi%20work"))
+    Assert.equal(ShellIntegration.local_path(localhost, "other-host"), "/private/tmp/kiwi work")
+    local local_host = assert(ShellIntegration.parse_cwd("file://workstation/private/tmp/kiwi"))
+    Assert.equal(ShellIntegration.local_path(local_host, "workstation.local"), "/private/tmp/kiwi")
+    local remote = assert(ShellIntegration.parse_cwd("file://remote.example/private/tmp/kiwi"))
+    Assert.equal(ShellIntegration.local_path(remote, "workstation.local"), nil)
+    local malformed = assert(ShellIntegration.parse_cwd("file:///private/tmp/kiwi%2"))
+    Assert.equal(ShellIntegration.local_path(malformed, "workstation"), nil)
+    local nul = assert(ShellIntegration.parse_cwd("file:///private/tmp/kiwi%00"))
+    Assert.equal(ShellIntegration.local_path(nul, "workstation"), nil)
+  end,
+
   shell_metadata_emits_a_bounded_cwd_effect = function()
     local effects = {}
     local state = State.new(4, 1, {

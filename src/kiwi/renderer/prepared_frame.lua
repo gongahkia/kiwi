@@ -10,6 +10,7 @@ local Hyperlink = require("kiwi.renderer.hyperlink")
 local Packing = require("kiwi.renderer.packing")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
+local Scrollbar = require("kiwi.renderer.scrollbar")
 local TextBackend = require("kiwi.text.backend")
 
 local PreparedFrame = {}
@@ -140,6 +141,7 @@ function PreparedFrame.new(font, model, options)
     revision = 0,
     search_color = Search.parse_color(options.search_color),
     selection_color = Selection.parse_color(options.selection_color),
+    scrollbar_policy = Scrollbar.validate_policy(options.scrollbar_policy),
     text_backend = text_backend,
   }, PreparedFrame)
 end
@@ -160,6 +162,10 @@ function PreparedFrame:command_regions_descriptor(model)
   return CommandRegions.descriptor(model)
 end
 
+function PreparedFrame:scrollbar_descriptor(model)
+  return Scrollbar.descriptor(model, self.scrollbar_policy)
+end
+
 function PreparedFrame:descriptors(model)
   return {
     command_regions = self:command_regions_descriptor(model),
@@ -167,6 +173,7 @@ function PreparedFrame:descriptors(model)
     hyperlinks = self:hyperlink_descriptor(model),
     search = self:search_descriptor(model),
     selection = self:selection_descriptor(model),
+    scrollbar = self:scrollbar_descriptor(model),
   }
 end
 
@@ -276,6 +283,7 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
   local search = descriptors.search
   local hyperlinks = descriptors.hyperlinks
   local command_regions = descriptors.command_regions
+  local scrollbar = descriptors.scrollbar
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows
@@ -327,6 +335,15 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
     self.frame[0].command_region_boundaries[offset + 2] = boundary and CommandRegions.role_value(boundary.role) or 0
     self.frame[0].command_region_boundaries[offset + 3] = 0
   end
+  self.frame[0].scrollbar_visible = scrollbar.active and 1 or 0
+  self.frame[0].scrollbar_left = scrollbar.left
+  self.frame[0].scrollbar_right = scrollbar.right
+  self.frame[0].scrollbar_top = scrollbar.top
+  self.frame[0].scrollbar_bottom = scrollbar.bottom
+  self.frame[0].scrollbar_red = scrollbar.color.red
+  self.frame[0].scrollbar_green = scrollbar.color.green
+  self.frame[0].scrollbar_blue = scrollbar.color.blue
+  self.frame[0].scrollbar_alpha = scrollbar.color.alpha
   return {
     byte_count = ffi.sizeof("KiwiFrameUniform"),
     command_regions = command_regions,
@@ -336,6 +353,7 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
     hyperlinks = hyperlinks,
     search = search,
     selection = selection,
+    scrollbar = scrollbar,
     time = time,
   }
 end
@@ -344,18 +362,24 @@ function PreparedFrame:complete_snapshot(plan, frame)
   assert(plan == self.pending_model, "prepared frame snapshot does not match the pending model plan")
   assert(type(frame) == "table" and frame.data == self.frame,
     "prepared frame snapshot needs this producer's frame uniform")
-  local atlas = self.font.glyph_cache.atlas
+  local resource_flags = 0
+  if plan.diagnostics.full_update then resource_flags = resource_flags + 1 end
+  if plan.glyph_update then resource_flags = resource_flags + 2 end
+  if plan.atlas_update then resource_flags = resource_flags + 4 end
+  local glyph_update = plan.glyph_update
+  local atlas_update = plan.atlas_update
   return {
-    atlas_bytes = self.font.glyph_cache.pixel_bytes,
-    atlas_generation = self.font.glyph_cache.generation,
-    atlas_height = atlas.height,
-    atlas_pixels = self.font.glyph_cache.pixels,
-    atlas_width = atlas.width,
+    atlas_bytes = atlas_update and atlas_update.byte_count or 0,
+    atlas_generation = atlas_update and atlas_update.generation or 0,
+    atlas_height = atlas_update and atlas_update.height or 0,
+    atlas_pixels = atlas_update and atlas_update.data or nil,
+    atlas_width = atlas_update and atlas_update.width or 0,
+    cell_updates = plan.cell_updates,
     cell_count = self.capacity,
-    cells = self.cells,
     frame = frame.data,
-    glyph_count = plan.glyph_count,
-    glyphs = self.glyphs,
+    glyph_count = glyph_update and glyph_update.count or plan.glyph_count,
+    glyphs = glyph_update and glyph_update.data or nil,
+    resource_flags = resource_flags,
   }
 end
 

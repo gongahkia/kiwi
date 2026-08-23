@@ -11,7 +11,12 @@ return {
       font-family = "Noto Sans Mono"
       font-size = 18
       ligatures = true
+      scrollbar = never
+      mouse-shift-capture = never
+      osc52-read = allow
       osc52-write = true
+      notify-on-command-finish = unfocused
+      notify-on-command-finish-after = 30
       shell-integration = none
       macos-applescript = false
       palette-1 = #010203
@@ -21,7 +26,12 @@ return {
     Assert.equal(config.font_family, "Noto Sans Mono")
     Assert.equal(config.font_size, 18)
     Assert.equal(config.ligatures, true)
+    Assert.equal(config.scrollbar, "never")
+    Assert.equal(config.mouse_shift_capture, "never")
+    Assert.equal(config.osc52_read, "allow")
     Assert.equal(config.osc52_write, true)
+    Assert.equal(config.notify_on_command_finish, "unfocused")
+    Assert.equal(config.notify_on_command_finish_after, 30)
     Assert.equal(config.shell_integration, "none")
     Assert.equal(config.macos_applescript, false)
     Assert.equal(Color.unpack(config.palette[1]).green, 2)
@@ -33,10 +43,21 @@ return {
     Assert.truthy(not pcall(Config.parse, "background = teal", "test"))
     Assert.truthy(not pcall(Config.parse, "theme = unknown", "test"))
     Assert.truthy(not pcall(Config.parse, "shell-integration = always", "test"))
+    Assert.truthy(not pcall(Config.parse, "mouse-shift-capture = prompt", "test"))
+    Assert.truthy(not pcall(Config.parse, "scrollbar = system", "test"))
+    Assert.truthy(not pcall(Config.parse, "osc52-read = ask", "test"))
+    Assert.truthy(not pcall(Config.parse, "notify-on-command-finish = sometimes", "test"))
+    Assert.truthy(not pcall(Config.parse, "notify-on-command-finish-after = -1", "test"))
     Assert.truthy(not pcall(Config.parse, "macos-applescript = enabled", "test"))
   end,
   configuration_defaults_to_bounded_macos_applescript_actions = function()
-    Assert.equal(Config.parse("", "test").macos_applescript, true)
+    local config = Config.parse("", "test")
+    Assert.equal(config.macos_applescript, true)
+    Assert.equal(config.mouse_shift_capture, false)
+    Assert.equal(config.scrollbar, "always")
+    Assert.equal(config.osc52_read, "deny")
+    Assert.equal(config.notify_on_command_finish, "never")
+    Assert.equal(config.notify_on_command_finish_after, 5)
   end,
   configuration_environment_overrides_file_values_without_mutating_other_values = function()
     local config = Config.parse("font-size = 14\nligatures = false\n", "test")
@@ -44,12 +65,22 @@ return {
       KIWI_FONT_PX = "22",
       KIWI_LIGATURES = "1",
       KIWI_SCROLLBACK = "3000",
+      KIWI_SCROLLBAR = "never",
+      KIWI_MOUSE_SHIFT_CAPTURE = "always",
+      KIWI_OSC52_READ = "allow",
+      KIWI_NOTIFY_ON_COMMAND_FINISH = "always",
+      KIWI_NOTIFY_ON_COMMAND_FINISH_AFTER = "10",
       KIWI_SHELL_INJECTION = "none",
     }
     Config.apply_environment(config, function(name) return values[name] end)
     Assert.equal(config.font_size, 22)
     Assert.equal(config.ligatures, true)
     Assert.equal(config.scrollback_limit, 3000)
+    Assert.equal(config.scrollbar, "never")
+    Assert.equal(config.mouse_shift_capture, "always")
+    Assert.equal(config.osc52_read, "allow")
+    Assert.equal(config.notify_on_command_finish, "always")
+    Assert.equal(config.notify_on_command_finish_after, 10)
     Assert.equal(config.font_family, "monospace")
     Assert.equal(config.shell_integration, "none")
   end,

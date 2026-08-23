@@ -1,6 +1,6 @@
 local RenderState = {}
 RenderState.__index = RenderState
-RenderState.api_version = 1
+RenderState.api_version = 2
 
 local function copy_range(range)
   return { count = range.count, first = range.first }

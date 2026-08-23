@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native gtk-host gtk-host-check gtk-gl-renderer-check gtk-run gtk-gl-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-gl-wayland-smoke gtk-gl-x11-smoke gtk-accessibility-smoke gtk-input-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native gtk-host gtk-host-check gtk-gl-renderer-check gtk-run gtk-gl-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-x11-smoke gtk-x11-multi-window-smoke gtk-gl-wayland-smoke gtk-gl-x11-smoke gtk-gl-native-tabs-wayland-smoke gtk-gl-native-tabs-x11-smoke gtk-gl-native-tabs-close-wayland-smoke gtk-gl-native-tabs-close-x11-smoke gtk-accessibility-smoke gtk-input-smoke gtk-input-wayland-smoke gtk-input-x11-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing pacing-compare pacing-budget power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -17,9 +17,10 @@ gtk-host: bootstrap
 gtk-host-check: gtk-host
 	$(LUAJIT) src/kiwi/gtk_host_check.lua
 
-gtk-gl-renderer-check:
-	@pkg-config --exists gtk4 epoxy || { echo "GTK4 and libepoxy development files are required." >&2; exit 2; }
-	cc -std=c17 -Wall -Wextra -Werror -fsyntax-only -Inative $$(pkg-config --cflags gtk4 epoxy) native/gtk_gl_renderer.c
+gtk-gl-renderer-check: bootstrap
+	@pkg-config --exists gtk4 libadwaita-1 epoxy || { echo "GTK4, libadwaita, and libepoxy development files are required." >&2; exit 2; }
+	cc -std=c17 -Wall -Wextra -Werror -fsyntax-only -Inative $$(pkg-config --cflags gtk4 libadwaita-1 epoxy) native/gtk_gl_renderer.c
+	cc -std=c17 -Wall -Wextra -Werror -fsyntax-only -Inative -Inative/protocols -I.deps/wgpu-native-v29.0.1.1/include $$(pkg-config --cflags gtk4 libadwaita-1 epoxy) native/gtk_host.c
 
 gtk-run: gtk-host native terminfo
 	KIWI_HOST=gtk $(LUAJIT) src/kiwi/app/main.lua $(ARGS)
@@ -33,17 +34,41 @@ gtk-wayland-smoke: gtk-host native terminfo
 gtk-wayland-multi-window-smoke: gtk-host native terminfo
 	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK Wayland multi-window smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-8} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --multi-window-smoke -- /usr/bin/yes; fi
 
+gtk-x11-smoke: gtk-host native terminfo
+	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK X11 smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 KIWI_HOST=gtk KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
+gtk-x11-multi-window-smoke: gtk-host native terminfo
+	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK X11 multi-window smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 KIWI_HOST=gtk KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-8} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --multi-window-smoke -- /usr/bin/yes; fi
+
 gtk-gl-wayland-smoke: gtk-host native terminfo
 	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK GL Wayland smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_GL_REPORT=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
 
 gtk-gl-x11-smoke: gtk-host native terminfo
 	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK GL X11 smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_GL_REPORT=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
 
+gtk-gl-native-tabs-wayland-smoke: gtk-host native terminfo
+	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK GL native-tab Wayland smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 KIWI_GTK_NATIVE_TABS_SMOKE=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
+gtk-gl-native-tabs-x11-smoke: gtk-host native terminfo
+	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK GL native-tab X11 smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 KIWI_GTK_NATIVE_TABS_SMOKE=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
+gtk-gl-native-tabs-close-wayland-smoke: gtk-host native terminfo
+	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK GL native-tab close Wayland smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 KIWI_GTK_NATIVE_TABS_SMOKE=1 KIWI_GTK_NATIVE_TABS_CLOSE_SMOKE=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
+gtk-gl-native-tabs-close-x11-smoke: gtk-host native terminfo
+	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK GL native-tab close X11 smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 KIWI_HOST=gtk KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 KIWI_GTK_NATIVE_TABS_SMOKE=1 KIWI_GTK_NATIVE_TABS_CLOSE_SMOKE=1 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions -- /usr/bin/yes; fi
+
 gtk-accessibility-smoke: gtk-host
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK accessibility smoke: no graphical session is available."; else $(LUAJIT) src/kiwi/gtk_accessibility_smoke.lua; fi
 
 gtk-input-smoke: gtk-host
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK input smoke: no graphical session is available."; else $(LUAJIT) src/kiwi/gtk_input_smoke.lua; fi
+
+gtk-input-wayland-smoke: gtk-host
+	@if [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK Wayland input smoke: WAYLAND_DISPLAY is unavailable."; else GDK_BACKEND=wayland $(LUAJIT) src/kiwi/gtk_input_smoke.lua; fi
+
+gtk-input-x11-smoke: gtk-host
+	@if [ -z "$$DISPLAY" ]; then echo "SKIP GTK X11 input smoke: DISPLAY is unavailable."; else GDK_BACKEND=x11 $(LUAJIT) src/kiwi/gtk_input_smoke.lua; fi
 
 gtk-gl-area-smoke: gtk-host
 	@if [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP GTK GL area smoke: no graphical session is available."; else $(LUAJIT) src/kiwi/gtk_gl_area_smoke.lua; fi
@@ -157,7 +182,15 @@ budget-smoke: native terminfo
 
 pacing: native terminfo
 	mkdir -p bench/results
-	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
+	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
+
+pacing-compare:
+	@test -n "$(BASELINE)" && test -n "$(CANDIDATE)" || { echo "BASELINE and CANDIDATE pacing reports are required." >&2; exit 2; }
+	./script/compare-pacing "$(BASELINE)" "$(CANDIDATE)"
+
+pacing-budget:
+	@test -n "$(BASELINE)" && test -n "$(CANDIDATE)" || { echo "BASELINE and CANDIDATE pacing reports are required." >&2; exit 2; }
+	./script/check-pacing-budget "$(BASELINE)" "$(CANDIDATE)"
 
 power-smoke: native terminfo
 	mkdir -p bench/results

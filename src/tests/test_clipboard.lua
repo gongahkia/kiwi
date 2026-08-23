@@ -1,4 +1,5 @@
 local Assert = require("tests.assert")
+local Base64 = require("kiwi.terminal.base64")
 local Clipboard = require("kiwi.input.clipboard")
 local State = require("kiwi.terminal.state")
 local Utf8 = require("kiwi.terminal.utf8")
@@ -105,5 +106,21 @@ return {
     written, status = clipboard:write_osc52("\255")
     Assert.equal(written, false)
     Assert.equal(status, "invalid-utf8")
+  end,
+  clipboard_osc52_read_returns_only_a_bounded_validated_reply = function()
+    local clipboard = Clipboard.new(bridge("a\n中"), { maximum_bytes = 16 })
+    local reply, status = clipboard:read_osc52_reply("c", 8)
+    Assert.equal(reply, "\27]52;c;" .. Base64.encode("a\n中") .. "\27\\")
+    Assert.equal(status, "success")
+    Assert.equal(clipboard:snapshot().counters.osc52_read_success, 1)
+    reply, status = Clipboard.new(bridge("abcde"), { maximum_bytes = 16 }):read_osc52_reply("p", 4)
+    Assert.equal(reply, nil)
+    Assert.equal(status, "over-limit")
+    reply, status = Clipboard.new(bridge("\255"), { maximum_bytes = 16 }):read_osc52_reply("s", 4)
+    Assert.equal(reply, nil)
+    Assert.equal(status, "invalid-utf8")
+    reply, status = Clipboard.new(bridge(nil, "unavailable"), { maximum_bytes = 16 }):read_osc52_reply("c", 4)
+    Assert.equal(reply, nil)
+    Assert.equal(status, "unavailable")
   end,
 }

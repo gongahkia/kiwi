@@ -55,11 +55,11 @@ broad configuration and VT compatibility remain incomplete.
 | Area | Kiwi now | Daily-driver target | Status |
 | --- | --- | --- | --- |
 | Linux and macOS runtime | Linux x86_64 Vulkan and macOS arm64 Cocoa/Metal are built locally; macOS has deterministic core/PTY/Cocoa/release-bundle checks. | Maintain the same executable, PTY, renderer, clipboard, resize, packaging, and smoke behavior on both targets. | **Partial** — Linux and Intel macOS require their own evidence. |
-| Window/workspace model | One process-wide scheduler owns independent GLFW/Cocoa windows, WGPU contexts, compositors, workspaces, and PTY sets. On macOS, those top-level windows join a native AppKit tab group. `Ctrl+Shift+M` moves a live pane session to a new window, `Ctrl+Shift+Alt+M` moves it to the next window as a workspace tab, and the corresponding `D` bindings create fresh default-shell sessions. Schema-v1 persistence restores only geometry and tab/split topology with fresh shells. | Native in-window tab/split ownership, user-selectable move targets, Linux native tabs, schema migration, and interactive Linux/macOS lifecycle qualification. | **Partial** |
+| Window/workspace model | One process-wide scheduler owns independent GLFW/Cocoa windows, WGPU contexts, compositors, workspaces, and PTY sets. On macOS, those top-level windows join a native AppKit tab group. Fresh tabs, splits, duplicates, and windows inherit only a validated current-host OSC 7 directory; a moved session keeps its PTY. `Ctrl+Shift+M` moves a live pane session to a new window, `Ctrl+Shift+Alt+M` moves it to the next window as a workspace tab, and the corresponding `D` bindings create fresh default-shell sessions. Schema-v1 persistence restores only geometry and tab/split topology with fresh shells. | Native in-window tab/split ownership, user-selectable move targets, Linux native tabs, schema migration, and interactive Linux/macOS lifecycle qualification. | **Partial** |
 | Native desktop UX | Cocoa global menu and searchable AppKit palette on macOS; GTK `GMenu` and searchable dialog on Linux; bounded Cocoa/GTK text-input and accessibility adapters. Both native action surfaces share the product action catalogue and configurable one- through three-chord local bindings. | Platform-appropriate native tab/split/settings/automation behavior, interactive menu and palette validation, and no loss of core terminal semantics. | **Partial** |
 | Text and media | Unicode 17 clusters, HarfBuzz shaping, Fontconfig fallback, bounded atlas, and PNG/APNG/GIF Kitty subset. | Stable behavior in daily applications; visual media tests supplement pass-level GPU checks. | **Partial** |
 | Configuration | Strict bounded XDG file, environment overrides, validated reload, nine built-in themes, colour-only absolute theme files, system appearance selection, bounded command-palette entries, and bounded one- through three-chord product actions. | Broader user-visible settings and CLI mapping, additional safely-scoped appearance/font controls, and per-target interactive reload validation. | **Partial** |
-| Terminal contract | Tested C0/ESC/CSI/OSC subset, primary/alternate screens, reflow, selected Kitty keyboard/mouse modes, OSC 8/52 policy, and an `xterm-kiwi` terminfo contract that advertises 256 indexed colours and direct RGB. | A versioned xterm-oriented compatibility ledger, regression corpus, honest terminfo, and documented policy for every advertised sequence. | **Partial** |
+| Terminal contract | Tested C0/ESC/CSI/OSC subset, primary/alternate screens, reflow, selected Kitty keyboard/mouse modes, OSC 8/52 policy, bounded Kitty OSC 21 palette/default/cursor controls, and an `xterm-kiwi` terminfo contract that advertises 256 indexed colours and direct RGB. | A versioned xterm-oriented compatibility ledger, regression corpus, honest terminfo, and documented policy for every advertised sequence. | **Partial** |
 | Core reuse | Experimental renderer-free `libkiwi-vt` Lua/C surface with copied render updates, input encoders, and effects. | Keep the core platform-neutral while desktop capabilities remain host-owned and versioned. | **Partial** |
 
 ## Daily-driver compatibility gate
@@ -94,7 +94,7 @@ daily-driver readiness.
 
 The authoritative implementation ledger is
 [docs/DAILY_DRIVER_COMPATIBILITY.md](docs/DAILY_DRIVER_COMPATIBILITY.md).
-`make compatibility` emits the checked, machine-readable v1.0 manifest. Both
+`make compatibility` emits the checked, machine-readable v1.4 manifest. Both
 are versioned with the code and identify the evidence, support boundary, and
 next sequence or application behavior for each area. They are deliberately not
 a copy of Ghostty’s evolving VT reference.
@@ -117,7 +117,8 @@ Ghostty documents an xterm-first, protocol-origin, and de-facto-standard
 compatibility policy, including many controls, ESC, CSI, and OSC forms. Kiwi
 has a consciously narrower contract. It already implements a substantial
 subset—RIS, DECKPAM/DECKPNM, DECALN, left/right margins, selected mode reports,
-palette/default/cursor color operations, OSC 8, a default-denied bounded OSC
+palette/default/cursor color operations including the bounded Kitty OSC 21
+numeric-palette/foreground/background/cursor subset, OSC 8, a default-denied bounded OSC
 52 write path, mouse modes, focus, selected Kitty keyboard flags, and an
 `xterm-kiwi` entry that advertises 256 indexed colours plus direct RGB. Its
 documented unsupported list nevertheless remains large.
@@ -145,6 +146,24 @@ restores a strict, bounded v1 topology with fresh shells, never persisted
 terminal or host-sensitive data. This is not equivalent to
 Ghostty's native chrome, arbitrary target selection, session persistence, or
 broader recovery model; `kiwi.vt` remains free of host handles.
+
+Ghostty's current command-finish notifications are driven by shell lifecycle
+metadata. Kiwi now has the corresponding constrained policy: per-session OSC
+133 `C`→`D` observation, a five-second default threshold, `never`/`unfocused`/
+`always` configuration, and fixed payload-free notification text. GTK can
+submit through its existing desktop-notification bridge; Cocoa/GLFW has no
+notification provider yet. This is a useful host-policy seam, not equivalent
+to Ghostty's broader notification, bell, focus, or native-UI behavior.
+
+Kiwi now supplies the baseline scrollback interaction that a shell user
+expects: primary-screen vertical wheel input moves local history unless an
+application owns mouse reporting, and an inactive custom-workspace pane is
+focused before it moves. It still has **no visible or native scrollbar**.
+Ghostty 1.3 added native scrollbars, so this remains a material product-UX
+gap. The next scrollbar implementation should be a host presentation feature,
+not another terminal-state protocol: it needs a renderer-neutral viewport
+descriptor, pane-local hit testing/drag ownership, accessibility value/range
+projection, and separate Cocoa/GTK qualification.
 
 On macOS, Kiwi’s Cocoa bridge is real and verified for a private pasteboard,
 drawable resize, Metal surface configuration, and development app-bundle
@@ -185,6 +204,37 @@ surface readback: it sees the composed PNG region and the distinct red/blue
 GIF and APNG frames. Manual visual confirmation of real application images,
 colour management, and display behavior remains part of qualification.
 
+### libkiwi-vt and libghostty-vt
+
+`libkiwi-vt` is already a shipped experimental Lua API v2 and C API v2, not a
+proposed extraction. Its C adapter creates one opaque terminal backed by an
+independent LuaJIT state and supplies copied logical render updates, input
+encoders, typed queued effects, and an explicit two-call buffer convention.
+The archive check rebuilds the SDK reproducibly and compiles standalone Lua and
+C consumers. Its deliberate boundary excludes a renderer, PTY, window,
+clipboard, process launcher, and network transport.
+
+[Inference] That makes it useful today for a controlled same-platform embedder that needs
+Kiwi's terminal state and already owns presentation and transport. It is **not
+yet a credible general replacement for libghostty-vt**: Kiwi supports only the
+application's macOS arm64 and Linux x86_64 targets, carries LuaJIT as its
+implementation dependency, has no ABI-stability promise, and has only the
+checked-in consumer coverage. `libghostty-vt` likewise documents its C API as
+work in progress, but its public header and repository already cover a much
+broader terminal surface, a custom allocator/system interface, formatters,
+WebAssembly helpers, examples, and a stated macOS/Linux/Windows/WebAssembly
+target. Those are adoption advantages that Kiwi cannot infer from its current
+package check.
+
+[Inference] The right next milestone is not a rename or a broad public marketing claim.
+Keep `libkiwi-vt` as the sibling library name, add two non-Kiwi integration
+consumers with different ownership models, and then decide whether a stable v1
+is warranted. Its potentially distinguishable value is a small LuaJIT-native,
+strictly bounded terminal kernel with host effects that never perform desktop
+actions themselves; that is narrower than libghostty-vt, not more compatible.
+Until a consumer needs a capability, the public ABI should not absorb Kiwi's
+renderer, GTK/AppKit, PTY, or configuration objects.
+
 ## Features that are not useful parity signals
 
 - Windows desktop support is not a current Ghostty application advantage: its
@@ -216,3 +266,5 @@ colour management, and display behavior remains part of qualification.
 - [terminfo installation and remote fallback](https://ghostty.org/docs/help/terminfo)
 - [VT sequence reference](https://ghostty.org/docs/vt/reference)
 - [native application architecture](https://ghostty.org/docs/about)
+- [libghostty-vt public C header and scope](https://github.com/ghostty-org/ghostty/blob/main/include/ghostty/vt.h)
+- [Ghostty 1.3 libghostty status](https://ghostty.org/docs/install/release-notes/1-3-0)

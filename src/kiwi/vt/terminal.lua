@@ -4,7 +4,7 @@ local State = require("kiwi.terminal.state")
 
 local Terminal = {}
 Terminal.__index = Terminal
-Terminal.api_version = 1
+Terminal.api_version = 2
 
 local function copy_table(value)
   local copy = {}

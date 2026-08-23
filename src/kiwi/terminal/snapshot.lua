@@ -66,6 +66,7 @@ function Snapshot.value(state)
     command_regions = state.command_regions and state.command_regions:snapshot() or nil,
     kitty_graphics = state.kitty_graphics and state.kitty_graphics:snapshot() or nil,
     kitty_placements = state.kitty_placements and state.kitty_placements:snapshot() or nil,
+    pointer_shape = state.pointer_shape,
     shell = state.shell and state.shell:snapshot() or nil,
     scrollback_lines = state.scrollback:size(),
     title = state.title,

@@ -25,8 +25,12 @@ end
 local function window_request(manager, request)
   if request == nil then return { kind = "standalone" } end
   if type(request) ~= "table" then return nil, "invalid-window-request" end
+  local initial_cwd = request.initial_cwd
+  if initial_cwd ~= nil and (type(initial_cwd) ~= "string" or #initial_cwd > 2048 or initial_cwd:sub(1, 1) ~= "/" or initial_cwd:find("\0", 1, true)) then
+    return nil, "invalid-working-directory"
+  end
   if request.kind == "standalone" and request.source_controller_id == nil then
-    return { kind = "standalone" }
+    return { initial_cwd = initial_cwd, kind = "standalone" }
   end
   if request.kind ~= "host-tab" then return nil, "invalid-window-request" end
   local source_controller_id = request.source_controller_id
@@ -34,7 +38,7 @@ local function window_request(manager, request)
     return nil, "invalid-source-window"
   end
   if manager:controller(source_controller_id) == nil then return nil, "unknown-source-window" end
-  return { kind = "host-tab", source_controller_id = source_controller_id }
+  return { initial_cwd = initial_cwd, kind = "host-tab", source_controller_id = source_controller_id }
 end
 
 function Manager.new(run_window, options, dependencies)
@@ -243,6 +247,7 @@ function Manager:request_window(configuration_path, request)
   options.workspace_smoke = false
   options.host_tab = intent.kind == "host-tab"
   options.host_tab_source_id = intent.source_controller_id
+  options.initial_cwd = intent.initial_cwd
   clear_one_shot_smokes(options)
   options.config = configuration_path or self.options.config
   local controller, reason = self:_start(options)

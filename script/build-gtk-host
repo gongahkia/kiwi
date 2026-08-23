@@ -17,6 +17,10 @@ pkg-config --atleast-version=4.14 gtk4 || {
   print -u2 "GTK4 development files version 4.14 or newer are required; install gtk4-devel."
   exit 1
 }
+pkg-config --atleast-version=1.4 libadwaita-1 || {
+  print -u2 "libadwaita development files version 1.4 or newer are required; install libadwaita-devel."
+  exit 1
+}
 pkg-config --exists epoxy || {
   print -u2 "libepoxy development files are required for the GTK OpenGL renderer; install libepoxy-devel."
   exit 1
@@ -26,12 +30,12 @@ mkdir -p "${OUTPUT:h}"
 cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
   -I"$WGPU/include" \
   -I"$ROOT/native/protocols" \
-  $(pkg-config --cflags gtk4 epoxy) \
+  $(pkg-config --cflags gtk4 libadwaita-1 epoxy) \
   "$ROOT/native/gtk_host.c" \
   "$ROOT/native/gtk_gl_renderer.c" \
   "$ROOT/native/protocols/viewporter-client-protocol.c" \
   -L"$WGPU/lib" -lwgpu_native \
-  $(pkg-config --libs gtk4 epoxy) \
+  $(pkg-config --libs gtk4 libadwaita-1 epoxy) \
   -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
   -o "$OUTPUT"
 

@@ -1,4 +1,4 @@
--- ABI v1 shared by renderer-neutral LuaJIT producers and native presentation
+-- ABI v2 shared by renderer-neutral LuaJIT producers and native presentation
 -- consumers. Keep this definition identical to native/kiwi_render_model.h.
 local ffi = require("ffi")
 
@@ -81,12 +81,22 @@ typedef struct {
   float command_region_alpha;
   float command_region_padding[5];
   float command_region_boundaries[128];
+  float scrollbar_visible;
+  float scrollbar_left;
+  float scrollbar_right;
+  float scrollbar_top;
+  float scrollbar_bottom;
+  float scrollbar_red;
+  float scrollbar_green;
+  float scrollbar_blue;
+  float scrollbar_alpha;
+  float scrollbar_padding[3];
 } KiwiFrameUniform;
 ]]
 
 local RenderModel = {
   command_region_limit = 32,
-  version = 1,
+  version = 2,
 }
 
 function RenderModel.assert_layout()
@@ -95,7 +105,7 @@ function RenderModel.assert_layout()
   assert(ffi.sizeof("KiwiTextGlyphInstance") == 48, "KiwiTextGlyphInstance ABI changed")
   assert(ffi.offsetof("KiwiTextGlyphInstance", "fg") == 32, "KiwiTextGlyphInstance field ABI changed")
   assert(ffi.sizeof("KiwiImageInstance") == 32, "KiwiImageInstance ABI changed")
-  assert(ffi.sizeof("KiwiFrameUniform") == 688, "KiwiFrameUniform ABI changed")
+  assert(ffi.sizeof("KiwiFrameUniform") == 736, "KiwiFrameUniform ABI changed")
   assert(ffi.offsetof("KiwiFrameUniform", "command_region_boundaries") == 176,
     "KiwiFrameUniform boundary ABI changed")
 end

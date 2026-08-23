@@ -71,7 +71,7 @@ return {
   selection_renderer_declares_alpha_overlay_order = function()
     local renderer = { native = { constants = { load_clear = 2, load_load = 1 } }, search = { active = true }, selection = { active = true } }
     local passes = Passes.build(renderer)
-    Assert.equal(#passes, 5)
+    Assert.equal(#passes, 6)
     Assert.equal(passes[2].name, "terminal/selection")
     Assert.equal(passes[2].blend, "alpha")
     Assert.equal(passes[2].reads[1], "terminal.selection")
@@ -83,5 +83,8 @@ return {
     Assert.equal(passes[4].after[1], "terminal/search")
     Assert.equal(passes[4].blend, "alpha")
     Assert.equal(passes[5].after[1], "terminal/glyph")
+    Assert.equal(passes[6].name, "terminal/scrollbar")
+    Assert.equal(passes[6].blend, "alpha")
+    Assert.equal(passes[6].after[1], "terminal/cursor")
   end,
 }

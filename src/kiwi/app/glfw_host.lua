@@ -72,6 +72,10 @@ function Host.open_text_file(window, path)
   return window:open_text_file(path)
 end
 
+function Host.set_pointer_shape(window, shape)
+  return window:set_pointer_shape(shape)
+end
+
 if ffi.os == "OSX" then
   function Host.set_progress(window, progress, state)
     return window:cocoa_set_progress(progress, state)

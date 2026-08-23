@@ -4,7 +4,7 @@ local Headless = require("kiwi.vt.headless")
 
 return {
   libkiwi_vt_exports_a_versioned_constructor_without_platform_dependencies = function()
-    Assert.equal(VT.api_version, 1)
+    Assert.equal(VT.api_version, 2)
     Assert.equal(VT.Terminal.api_version, VT.api_version)
     local terminal = VT.new({ columns = 3, rows = 1 })
     terminal:write("ok")
@@ -31,5 +31,14 @@ return {
     local projection = Headless.render_terminal(terminal, { trim_trailing = true })
     Assert.equal(projection.text, "")
     Assert.equal(terminal:pop_responses()[1], "\27[0n")
+  end,
+  libkiwi_vt_reports_an_explicitly_permitted_osc52_read_to_its_host = function()
+    local terminal = VT.new({ columns = 2, rows = 1, state_options = { osc52_read = true } })
+    terminal:write("\27]52;c;?\7")
+    local effect = terminal:pop_effect()
+    Assert.equal(effect.kind, "clipboard_read_requested")
+    Assert.equal(effect.value.selection, "c")
+    Assert.equal(effect.value.maximum_bytes, 64 * 1024)
+    Assert.equal(terminal:pop_response(), nil)
   end,
 }

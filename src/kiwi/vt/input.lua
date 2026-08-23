@@ -5,7 +5,7 @@ local Keyboard = require("kiwi.input.keyboard")
 local Mouse = require("kiwi.input.mouse")
 
 local Input = {
-  api_version = 1,
+  api_version = 2,
   actions = { press = "press", release = "release", repeat_key = "repeat" },
   modifiers = { shift = 0x0001, control = 0x0002, alt = 0x0004, super = 0x0008 },
 }
@@ -111,7 +111,9 @@ end
 
 function Input.key(event, modes)
   assert(type(event) == "table", "input key event must be a table")
+  local unicode_key = key_variant(event.unicode_key, "input Unicode key")
   local key = key_code(event.key)
+  if key == nil or (key == 0 and unicode_key ~= nil) then key = unicode_key end
   local action = actions[event.action]
   assert(key ~= nil, "input key is unknown")
   assert(action ~= nil, "input key action is invalid")
@@ -123,6 +125,7 @@ function Input.key(event, modes)
     layout_key = key_variant(event.layout_key, "input layout key"),
     shifted_key = key_variant(event.shifted_key, "input shifted key"),
     base_key = key_variant(event.base_key, "input base key"),
+    unicode_key = unicode_key,
   })
 end
 

@@ -2,6 +2,7 @@ local ffi = require("ffi")
 
 ffi.cdef[[
 typedef struct GLFWwindow GLFWwindow;
+typedef struct GLFWcursor GLFWcursor;
 typedef void (*GLFWframebuffersizefun)(GLFWwindow* window, int width, int height);
 typedef void (*GLFWkeyfun)(GLFWwindow* window, int key, int scancode, int action, int mods);
 typedef void (*GLFWcharfun)(GLFWwindow* window, unsigned int codepoint);
@@ -16,6 +17,9 @@ void glfwTerminate(void);
 void glfwWindowHint(int hint, int value);
 GLFWwindow* glfwCreateWindow(int width, int height, const char* title, void* monitor, GLFWwindow* share);
 void glfwDestroyWindow(GLFWwindow* window);
+GLFWcursor* glfwCreateStandardCursor(int shape);
+void glfwDestroyCursor(GLFWcursor* cursor);
+void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
 void glfwPollEvents(void);
 void glfwWaitEventsTimeout(double timeout);
 int glfwWindowShouldClose(GLFWwindow* window);
@@ -61,6 +65,13 @@ return {
     scale_framebuffer = 0x0002200D,
     yes = 1,
     no = 0,
+    arrow_cursor = 0x00036001,
+    ibeam_cursor = 0x00036002,
+    crosshair_cursor = 0x00036003,
+    pointing_hand_cursor = 0x00036004,
+    resize_ew_cursor = 0x00036005,
+    resize_ns_cursor = 0x00036006,
+    not_allowed_cursor = 0x00036008,
     release = 0,
     press = 1,
     repeat_action = 2,

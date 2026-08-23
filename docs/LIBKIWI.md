@@ -1,8 +1,8 @@
 # libkiwi-vt (experimental Lua and C APIs)
 
 `libkiwi-vt` is Kiwi's renderer-neutral terminal-emulation boundary. It has
-an **experimental pre-1.0 Lua API v1**, imported as `kiwi.vt`, and an
-**experimental C API v1** in `include/kiwi/vt.h`. Neither API has an ABI or
+an **experimental pre-1.0 Lua API v2**, imported as `kiwi.vt`, and an
+**experimental C API v2** in `include/kiwi/vt.h`. Neither API has an ABI or
 source-compatibility promise. The C API is a small Linux x86_64 and macOS
 arm64 adapter over the same LuaJIT core; it does not make Kiwi portable beyond
 the supported application platform. Mutable terminal state is an
@@ -65,18 +65,18 @@ only.
 
 ## Version and ownership contract
 
-`VT.api_version` is `1`. New incompatible behavior requires a new API version;
+`VT.api_version` is `2`. New incompatible behavior requires a new API version;
 the experimental API may still gain compatible fields and methods. Callers must require
 the module once and compare this number before relying on an optional feature.
 
 | Surface | Ownership and rule |
 | --- | --- |
-| `VT.new({ columns, rows, state_options?, parser_options?, effects?, effect_limit? })` | Creates one single-threaded terminal. Dimensions and limits are validated. `effects` is an optional host callback table. `state_options.keyboard_supported_flags` defaults to portable Kitty flags 1/2/8/16; a host may opt into flag 4 only when it can supply every key variant described below. |
+| `VT.new({ columns, rows, state_options?, parser_options?, effects?, effect_limit? })` | Creates one single-threaded terminal. Dimensions and limits are validated. `effects` is an optional host callback table. `state_options.keyboard_supported_flags` defaults to portable Kitty flags 1/2/8/16; a host may opt into flag 4 only when it has a truthful runtime provider for the variant meanings described below. `state_options.osc52_read` defaults to false; a host enabling it receives a bounded payload-free clipboard-read request and must decide whether to reply. |
 | `terminal:write(bytes)` / `finish()` / `resize(columns, rows, options?)` / `set_cell_metrics(width, height)` | Mutate terminal state or provide host-measured physical cell metrics. `write` consumes a Lua byte string incrementally. Calls during a render update are rejected. Metrics enable only read-only xterm geometry replies; they do not let terminal applications resize a host. |
 | `terminal:pop_response()` / `pop_responses()` / `pop_effect()` / `pop_effects()` | Transfer one response, all current responses, one effect, or all effects to the caller and remove them from the bounded queue. Response bytes are a subset of typed `write_pty` effects. |
 | `terminal:begin_render_update()` / `end_render_update(consumed)` | Bracket a borrowed read view. Do not write, resize, finish, or re-enter the terminal until the matching end call. `consumed=true` acknowledges logical damage; `false` leaves it pending. Render-view cell colours include the active `DECSCNM` reverse-screen presentation transform; terminal storage remains semantic. |
-| `view.input_modes` | Detached mode data needed to encode host input: application cursor/keypad, DECBKM backspace mode, bracketed paste, focus reporting, Kitty keyboard flags, current screen identity, alternate-scroll, and mouse tracking/protocol. |
-| `VT.Input` | Host-neutral input helpers. `text(codepoint, modes)`, `key({ key, action, modifiers?, layout_key?, shifted_key?, base_key? }, modes)`, `new_mouse()`, and `paste(bytes, modes)` return terminal bytes or a host-decided local-action token. The optional key scalars are the unshifted active-layout key, Shift active-layout key, and unshifted US PC-101 physical-position key for Kitty flag 4; provide all three only when the terminal construction opted into that flag. Mouse events normally use 1-origin `column`/`row`; SGR-Pixels uses `pixel_x`/`pixel_y` instead. Symbolic special keys include `up`, `down`, `left`, `right`, `home`, `end`, `insert`, `delete`, `page_up`, `page_down`, `escape`, `enter`, `tab`, `backspace`, `f1` through `f12`, and `kp_0` through `kp_9` plus `kp_decimal`, `kp_divide`, `kp_multiply`, `kp_subtract`, `kp_add`, `kp_enter`, and `kp_equal`. |
+| `view.input_modes` | Detached mode data needed to encode host input: application cursor/keypad, DECBKM backspace mode, bracketed paste, focus reporting, Kitty keyboard flags, current screen identity, alternate-scroll, mouse tracking/protocol, and the application’s XTSHIFTESCAPE request as `mouse_shift_escape` (`nil` for no request, `false` to permit a local Shift selection override, `true` to request Shift capture). The library exposes the request but does not choose host selection policy. |
+| `VT.Input` | Host-neutral input helpers. `text(codepoint, modes)`, `key({ key?, unicode_key?, action, modifiers?, layout_key?, shifted_key?, base_key? }, modes)`, `new_mouse()`, and `paste(bytes, modes)` return terminal bytes or a host-decided local-action token. `key` is an optional symbolic/physical token; `unicode_key` is the distinct printable non-control scalar, required when a host's physical token overlaps its Unicode value. The optional variant scalars are the unshifted active-layout key, Shift active-layout key, and unshifted US PC-101 physical-position key for Kitty flag 4. A flag-4 host provides every applicable meaning it can derive and uses zero for an inapplicable or unavailable scalar; it must not invent one variant from another. Mouse events normally use 1-origin `column`/`row`; SGR-Pixels uses `pixel_x`/`pixel_y` instead. Symbolic special keys include `up`, `down`, `left`, `right`, `home`, `end`, `insert`, `delete`, `page_up`, `page_down`, `escape`, `enter`, `tab`, `backspace`, `f1` through `f12`, and `kp_0` through `kp_9` plus `kp_decimal`, `kp_divide`, `kp_multiply`, `kp_subtract`, `kp_add`, `kp_enter`, and `kp_equal`. |
 | `kiwi.vt.headless.render(view, options?)` | Reads only the public render view and returns owned plain tables. Wide-cell continuation slots are omitted; their anchor cell contributes its full display text. |
 | `kiwi.vt.headless.render_terminal(terminal, options?)` | Convenience transaction that always closes its update, including when rendering errors. `consume_damage` defaults to false. |
 | `terminal:close()` | Releases bounded queues and prohibits further operations. It is idempotent outside active operations. |
@@ -90,11 +90,20 @@ instead of corrupting state when a callback fails; inspect it through
 ## Effects and host policy
 
 The terminal exposes observable terminal effects such as `write_pty`, `bell`,
-`title_changed`, `pwd_changed`, and `shell_marker`. Their exact set is driven
-by the terminal contract, and values are copied before delivery. A host decides
-whether a title reaches a window, whether a bell is audible, whether a terminal
-response is written to a PTY, and whether a security-sensitive effect is
-allowed. OSC 52 remains denied by default under the terminal configuration.
+`title_changed`, `pwd_changed`, `shell_marker`, `palette_changed`,
+`cursor_color_changed`, and `pointer_shape_changed`. The palette and cursor
+effects expose the bounded state mutation from OSC 4/10/11/12 and the supported
+OSC 21 numeric-palette/foreground/background/cursor subset; they never alter a
+host palette or cursor by themselves. `pointer_shape_changed` carries a
+bounded CSS cursor name from OSC 22; the host chooses its platform approximation
+and performs the cursor update. Their exact set is driven by the terminal
+contract, and values are copied before delivery. A host decides whether a title
+reaches a window, whether a bell is audible, whether a terminal response is
+written to a PTY, and whether a security-sensitive effect is allowed. OSC 52 remains denied by default under
+the terminal configuration. A host that opts into `state_options.osc52_read` receives
+`clipboard_read_requested` with only a selector and byte limit, validates its
+clipboard independently, and writes any base64 OSC reply to its own PTY; the
+terminal core never receives clipboard contents.
 
 The headless projection is deliberately diagnostic: it preserves logical
 grapheme anchors but performs no font fallback, bidi resolution, shaping,
@@ -103,7 +112,9 @@ renderer should consume the render-update view and provide those policies
 outside `libkiwi-vt`.
 
 `VT.Input` uses its own symbolic event contract and modifier bit constants;
-it accepts no GLFW object or native handle. A key event may include
+it accepts no GLFW object or native handle. A key event may include a distinct
+`unicode_key` scalar, which removes the collision between valid Unicode values
+and the symbolic special-key range, and may include
 `associated_text = { codepoint, ... }` for the negotiated Kitty 8+16 mode;
 the sequence is bounded to non-control Unicode scalars. A host normally takes `input_modes`
 from its most recent render update, passes it to these helpers, and writes only
@@ -111,7 +122,7 @@ their returned `bytes` to its own transport. Returned `local_action` tokens
 describe optional UI policy such as copy, search, or scrollback navigation;
 the library never performs those host actions itself.
 
-## C API v1
+## C API v2
 
 The C ABI is deliberately smaller than the Lua facade. Every
 `kiwi_vt_terminal` is an opaque, independently allocated handle with its own
@@ -131,6 +142,7 @@ kiwi_vt_options options = {
   .columns = 80,
   .rows = 24,
   .scrollback_limit = 2000,
+  .osc52_read = 0, /* default deny */
 };
 kiwi_vt_terminal *terminal = NULL;
 if (kiwi_vt_terminal_new(&options, &terminal) != KIWI_VT_OK) {
@@ -145,8 +157,12 @@ kiwi_vt_terminal_free(terminal);
 must equal `KIWI_VT_API_VERSION`. Versions and dimension/scrollback bounds are
 validated before creating a handle. Zero `scrollback_limit` selects the C API
 default of 2,000 rows. Zero `keyboard_supported_flags` preserves the portable
-1/2/8/16 Kitty mask; a host may use `31` only when it supplies all three
-nonzero key variants for flag-4 events. `kiwi_vt_version()` reports Kiwi's package version;
+1/2/8/16 Kitty mask; a host may use `31` only when it has a runtime provider
+for the three flag-4 meanings and leaves an individual inapplicable variant at
+zero. `osc52_read` is zero by default; set it to one only when the external
+host has an explicit OSC 52 query policy and can consume the resulting
+`KIWI_VT_EFFECT_CLIPBOARD_READ_REQUESTED` without exposing clipboard text to
+the terminal core. `kiwi_vt_version()` reports Kiwi's package version;
 `kiwi_vt_api_version()` reports the C API version.
 
 | Function | Contract |
@@ -156,7 +172,7 @@ nonzero key variants for flag-4 events. `kiwi_vt_version()` reports Kiwi's packa
 | `kiwi_vt_terminal_text` | Return a deterministic, trimmed logical text projection. It is diagnostic text, not a shaped or pixel-rendered frame. |
 | `kiwi_vt_terminal_take_response` | Return and consume one queued terminal response, such as a DSR reply. It is the dedicated C PTY-response channel. |
 | `kiwi_vt_terminal_take_effect` | Return one typed queued effect and consume it only after its payload buffer is sufficient. Its byte-safe payload observation never asks the terminal to perform a host action. |
-| `kiwi_vt_terminal_input_modes` | Copy the current host-input modes: application cursor/keypad, DECBKM backspace mode, bracketed paste, focus, Kitty keyboard flags, mouse protocol/tracking enums, and alternate-screen/alternate-scroll state. |
+| `kiwi_vt_terminal_input_modes` | Copy the current host-input modes: application cursor/keypad, DECBKM backspace mode, bracketed paste, focus, Kitty keyboard flags, mouse protocol/tracking enums, alternate-screen/alternate-scroll state, and `mouse_shift_escape` (`0` no application request, `1` local Shift override permitted, `2` Shift capture requested). The C API does not implement selection policy. |
 | `kiwi_vt_terminal_encode_text` / `encode_key` / `encode_paste` | Encode host text, a key event, or paste bytes from the terminal's current negotiated modes. Key results contain a host-local action and text-suppression flag as well as optional terminal bytes. |
 | `kiwi_vt_mouse_new` / `free` and `kiwi_vt_mouse_encode_*` | Create a terminal-owned stateful mouse/focus encoder. Button, motion, wheel, and focus events use the terminal's current mouse/focus modes and return optional terminal bytes. Wheel events accept vertical and optional horizontal offsets. |
 | `kiwi_vt_terminal_begin_render_update` / `kiwi_vt_render_update_end` | Open and close an opaque, frozen logical view. No other operation may run on its terminal while it is active. Pass nonzero `consume_damage` to acknowledge logical damage; ending always invalidates the update handle. |
@@ -181,9 +197,13 @@ the effect with a sufficiently sized payload buffer. `kind` uses the
 values remain byte-safe. `value` tables keep their named fields and
 numeric/boolean values remain JSON primitives. The embedded payload kind makes
 the `KIWI_VT_EFFECT_OTHER` fallback observable across future experimental
-extensions. `write_pty` effects are also visible through `take_response`; a
-host normally chooses one of those interfaces for PTY replies rather than
-consuming both queues.
+extensions. `palette_changed`, `cursor_color_changed`, and
+`pointer_shape_changed` have typed `KIWI_VT_EFFECT_*` constants.
+`pointer_shape_changed` carries the requested CSS name in `value.shape`; a host
+treats it as presentation advice, not authority to perform another action.
+`write_pty` effects are also visible through
+`take_response`; a host normally chooses one of those interfaces for PTY
+replies rather than consuming both queues.
 
 `kiwi_vt_render_state` and `kiwi_vt_render_cell` are copied output structs: set
 their `struct_size` fields before use. `active_screen` is
@@ -197,16 +217,21 @@ selection, or input-mode data.
 `kiwi_vt_terminal_encode_text`, `encode_key`, and `encode_paste` use the
 terminal's current negotiated modes without accepting a GLFW object or native
 handle. `kiwi_vt_key_event` and `kiwi_vt_input_result` are size-tagged. Its
-optional `layout_key`, `shifted_key`, and `base_key` fields are non-control
-Unicode scalars (or zero when unavailable) for Kitty flag 4: respectively the
+optional `unicode_key`, `layout_key`, `shifted_key`, and `base_key` fields are
+non-control Unicode scalars (or zero when unavailable). `unicode_key` is the
+printable scalar for the current event; the remaining flag-4 fields are respectively the
 unshifted active-layout result, Shift active-layout result, and unshifted US
-PC-101 physical-position result. A consumer must not opt into flag 4 unless it
-can provide those meanings; Kiwi does not derive one from another.
+PC-101 physical-position result. A consumer opting into flag 4 supplies every
+meaning it can derive with a runtime provider; an individual inapplicable
+scalar remains zero. Kiwi does not derive one from another.
 `KIWI_VT_KEY_*`, `KIWI_VT_KEY_ACTION_*`, and `KIWI_VT_MODIFIER_*` are the
-complete symbolic C key vocabulary for this API version; printable keys use
-their ASCII code and `KIWI_VT_KEY_KP_*` covers the numeric keypad. A successful key operation can have no terminal bytes when
-it reports a `KIWI_VT_LOCAL_ACTION_*` token such as copy or search; the host
-must decide whether to perform that action. A key with neither bytes nor a
+complete symbolic C key vocabulary for this API version. Legacy ASCII
+printable keys may use `key`; every non-ASCII printable value belongs in
+`unicode_key`. Set `key` to zero only when the host has no symbolic or
+physical token. `KIWI_VT_KEY_KP_*` covers the numeric keypad. A successful
+key operation can have no terminal bytes when it reports a
+`KIWI_VT_LOCAL_ACTION_*` token such as copy or search; the host must decide
+whether to perform that action. A key with neither bytes nor a
 local action returns `KIWI_VT_NOT_FOUND`.
 
 When legacy application keypad mode is active (`ESC =`), the keypad event
@@ -250,7 +275,8 @@ and runtime-library search path used in `script/libkiwi-vt-check`.
 - A renderer, text rasterizer, PTY, window, OS clipboard, process launcher, or
   remote-media downloader.
 
-This deliberately narrow boundary is the basis for a future standalone library
-only after it has external-consumer coverage and an explicit ownership/error
-contract appropriate for a C API. The comparison and extraction roadmap are in
-[KIWI-TO-LIBGHOSTTY.md](../KIWI-TO-LIBGHOSTTY.md).
+This deliberately narrow boundary is the shipped experimental SDK surface.
+Promotion to a standalone library with a stable compatibility commitment still
+requires external-consumer coverage and an explicit ownership/error contract
+appropriate for a C API. The comparison and extraction roadmap are in
+[KIWI-TO-GHOSTTY.md](../KIWI-TO-GHOSTTY.md).

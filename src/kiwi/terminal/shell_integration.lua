@@ -32,12 +32,49 @@ local function valid_ascii_uri(value, maximum)
   return true
 end
 
+local function percent_decode_path(value)
+  local decoded = {}
+  local index = 1
+  while index <= #value do
+    local byte = value:byte(index)
+    if byte == 0x25 then
+      local encoded = value:sub(index + 1, index + 2)
+      if #encoded ~= 2 or encoded:match("^[%x][%x]$") == nil then return nil end
+      local decoded_byte = tonumber(encoded, 16)
+      if decoded_byte == 0 then return nil end
+      decoded[#decoded + 1] = string.char(decoded_byte)
+      index = index + 3
+    else
+      decoded[#decoded + 1] = string.char(byte)
+      index = index + 1
+    end
+  end
+  local path = table.concat(decoded)
+  if path:sub(1, 1) ~= "/" or not valid_utf8(path) then return nil end
+  return path
+end
+
+local function local_hostname_matches(host, hostname)
+  if host == "" or host:lower() == "localhost" then return true end
+  if type(hostname) ~= "string" or hostname == "" then return false end
+  host = host:lower()
+  hostname = hostname:lower()
+  if host == hostname then return true end
+  return host == hostname:match("^[^.]+")
+end
+
 function ShellIntegration.parse_cwd(value, maximum_bytes)
   maximum_bytes = maximum_bytes or ShellIntegration.maximum_cwd_bytes
   if not valid_ascii_uri(value, maximum_bytes) then return nil, "invalid-cwd" end
   local host, path = value:match("^file://([^/]*)(/.*)$")
   if host == nil or path == nil or host:match("^[A-Za-z0-9%._%-%[%]:]*$") == nil or path:find("[?#]", 1) then return nil, "invalid-cwd" end
   return { host = host, path = path, uri = value }
+end
+
+function ShellIntegration.local_path(directory, hostname)
+  if type(directory) ~= "table" or type(directory.host) ~= "string" or type(directory.path) ~= "string" then return nil end
+  if not local_hostname_matches(directory.host, hostname) then return nil end
+  return percent_decode_path(directory.path)
 end
 
 function ShellIntegration.parse_marker(value)

@@ -41,10 +41,20 @@ implementation has one application group leader, but retaining the source
 identity now avoids baking that shortcut into the application contract. A GTK
 container must use it to find the group that owns the requested tab.
 
-GTK does **not** advertise `native_tabs` yet. Today each GTK controller creates
-its own `GtkApplicationWindow` and one native content/surface owner. Merely
-adding a `GtkNotebook` without replacing that per-controller toplevel ownership
-would be cosmetic and would leave focus, close, teardown, session movement,
+GTK does **not** advertise `native_tabs` yet. The opt-in GL route selected by
+`KIWI_GTK_NATIVE_TABS=1` has an internal `AdwTabView` owner: `New Tab` creates
+a distinct terminal session with its own VT, PTY, Lua input correlation state,
+GTK input/IME controllers, accessibility projection, font, and `GtkGLArea`
+renderer. `Next Tab` selects and focuses that page; background sessions
+continue to drain their PTYs without advancing a hidden GL presentation clock.
+The route is still an experiment, not the host-tab contract: it does not route
+the application manager's `host-tab` intent, support splits, persistence,
+session/window transfer, or detach/tear-off. It closes a non-final page by
+first detaching its GTK presentation and then releasing that session; closing
+the final page orderly closes the group. It has no graphical Linux result. The ordinary GTK controller still owns one
+`GtkApplicationWindow` and one native content/surface owner. Merely adding a
+`GtkNotebook` without replacing that per-controller toplevel ownership would
+be cosmetic and would leave focus, close, teardown, session movement,
 and surface ownership ambiguous. The current bridge derives its GDK surface
 from that toplevel; on X11 it binds WGPU to the toplevel XID, while on Wayland
 it creates a per-host `wl_subsurface`. A notebook cannot safely create multiple
@@ -52,8 +62,8 @@ current-style page renderers until a group explicitly owns a shared X11
 presentation surface or supplies an equivalent per-page surface strategy on
 both backends.
 
-The GTK native-tab phase has one further prerequisite: an embedded GTK
-presentation adapter. The current WGPU surface is bound to the entire
+The GTK native-tab phase still needs a group-owner lifecycle above an embedded
+GTK presentation adapter. The current WGPU surface is bound to the entire
 toplevel: an X11 `Window` surface uses the toplevel XID, while the Wayland
 route creates one `wl_subsurface` below that toplevel. GTK4 widgets do not
 provide ordinary child-native surfaces, so putting the current renderer inside
@@ -73,39 +83,55 @@ after a backend acknowledges the uploads. `prepared_images` also produces
 renderer-neutral decoded Kitty image data and visible placements, but GPU
 residency and all pass encoding remain WGPU-specific.
 
-`KIWI_GTK_PRESENTER=gl` selects an experimental GtkGLArea route for exactly one
-PTY-backed terminal. It uses the same VT, shaping, keyboard, GTK IME,
+`KIWI_GTK_PRESENTER=gl` selects an experimental GtkGLArea route for one
+PTY-backed terminal by default. Adding `KIWI_GTK_NATIVE_TABS=1` enables the
+separately-gated multi-PTY `AdwTabView` prototype described above. Both use the
+same VT, shaping, keyboard, GTK IME,
 selection/clipboard, accessibility, and resize policies as the normal GTK
-controller, then deep-copies complete prepared snapshots into a private native
-OpenGL renderer. Background, selection/search, shaped alpha-atlas text,
+controller, then deep-copies bounded prepared updates into a private native
+OpenGL renderer. Initial, resize, and retry submissions replace the complete
+grid; ordinary terminal changes retain a bounded native mirror and upload only
+dirty cell ranges and changed glyph/atlas resources. Background, selection/search, shaped alpha-atlas text,
 available text decorations, command-region separators, and cursor passes are
-implemented. Workspace restore/persistence, tabs, splits, session/window
-transfer, recording, product-menu/palette actions, and Kitty images are not.
-It is deliberately opt-in; `make gtk-gl-wayland-smoke` and
-`make gtk-gl-x11-smoke` are the pending graphical Linux integration gates.
-They do not qualify colour management, pacing, resize/scale behaviour, device
-recovery, interactive IME, or visual comparison. [ADR
+implemented. Workspace restore/persistence, splits, session/window transfer,
+recording, and Kitty images are not. The one-page GL route does not expose
+product actions; the native-tab prototype exposes bounded New Tab, Next Tab,
+and Close Pane actions through the same configured product-action dispatcher
+but rejects split, movement, and persistence actions. It is deliberately
+opt-in; `make gtk-gl-wayland-smoke`, `make gtk-gl-x11-smoke`,
+`make gtk-gl-native-tabs-wayland-smoke`, and
+`make gtk-gl-native-tabs-x11-smoke` are pending graphical Linux integration
+gates. They do not qualify colour management, pacing, resize/scale behaviour,
+device recovery, interactive IME, or visual comparison. [ADR
 0041](adr/0041-embedded-gtk-presentation.md) records the remaining work.
 
-Once that renderer boundary exists, the Linux group owner should use
+The native-tab GL prototype uses
 [libadwaita's `AdwTabView`](https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.8/class.TabView.html)
 and `AdwTabBar`, not `GtkNotebook`. `AdwTabView` is specifically designed for
 dynamic multi-window document and terminal tabs, including reorder, detach,
-transfer, and accessible tab panels. The owner will resolve the request's
+transfer, and accessible tab panels. A production owner must resolve the request's
 `source_controller_id`, attach/select/focus a controller page, transfer a
 detached page to a standalone group, and remove a page before its controller
 releases the embedded presentation resource. It must explicitly disable
 libadwaita's built-in shortcut policy where it conflicts with Kiwi's configured
-shortcut map. This is an architectural decision and acceptance prerequisite,
-not a shipped GTK feature; [ADR 0041](adr/0041-embedded-gtk-presentation.md)
-defines the migration and rejection criteria.
+shortcut map. The current prototype proves distinct page/session/render
+ownership and bounded New Tab/Next Tab/Close Pane dispatch, but not the
+group-owner lifecycle or a supported GTK-native tab. [ADR
+0041](adr/0041-embedded-gtk-presentation.md) defines the migration and
+rejection criteria.
 
 ## Target hosts
 
 | Platform | Host | Native responsibilities | Initial acceptance gate |
 | --- | --- | --- | --- |
 | macOS arm64 | GLFW Cocoa with targeted AppKit bridges | GLFW owns the event loop, per-tab split workspace, and Metal surface. `Kiwi.app` runs that LuaJIT application in its own LaunchServices process. AppKit owns the visible tab containers: `New Tab` creates another GLFW/Cocoa controller in Kiwi's explicit `NSWindow` group and `Next Tab` invokes AppKit selection. `New Window`, restored windows, and a move-to-new-window controller are registered outside that group; the verified GLFW/Cocoa default retains `NSWindowTabbingModeDisallowed` for them. AppKit also supplies a unified titlebar toolbar, local-shell `representedURL` proxy icon, global main menu, searchable command-palette panel, text-configuration opener, `NSTextInputClient`, pasteboard, `NSAccessibility`, current-layout key-variant bridges for Kitty flag 4, and a bounded Apple-event action bridge. | **Partial:** `make cocoa-smoke` covers bridge callbacks, direct AppKit grouping/next-tab selection and standalone-window configuration, Settings routing, unified toolbar dispatch, local/remote OSC 7 proxy-URL handling, Cocoa/Metal surfaces, and bundle launch. The menu, toolbar, palette, and Apple-event smokes each dispatch `New Tab` into the live host tab controller. Interactive filtering/navigation, Finder disclosure, external automation permission, text-editor selection, tab switching/tearing-off, VoiceOver, IME, non-US physical-key behavior, and product chrome remain manual or unimplemented. |
-| Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and either the default toplevel-WGPU surface or opt-in single-terminal `GtkGLArea` surface | **Partial:** bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths are covered. The experimental GL route feeds a real one-terminal PTY loop into the widget renderer but lacks a graphical Linux run. `New Tab` is still a renderer-workspace tab, not a GTK-native tab. `make gtk-palette-smoke`, `make gtk-gl-wayland-smoke`, and `make gtk-gl-x11-smoke` are distinct graphical-Linux gates. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, GL colour/pacing/recovery, and desktop qualification remain manual or unverified. |
+| Linux x86_64 | GTK4 4.14+ | `GtkApplication`/`GtkApplicationWindow`, window-scoped `GAction`/`GMenu` product actions, searchable command-palette window, text-configuration opener, clipboard, input, session lifecycle, accessibility projection, and either the default toplevel-WGPU surface or opt-in `GtkGLArea` surface. `KIWI_GTK_NATIVE_TABS=1` additionally selects an experimental libadwaita multi-PTY page owner. | **Partial:** the desktop workflow gates bounded Wayland/X11 WGPU/PTy rendering, IME/accessibility callbacks, and product-menu callback paths with distinct normal-presenter and widget-presenter commands. `make gtk-wayland-smoke` / `make gtk-x11-smoke` exercise the default WGPU route; their `*-multi-window-smoke` companions cover bounded same-process lifecycle; `make gtk-gl-wayland-smoke` / `make gtk-gl-x11-smoke` cover the one-terminal GL route. `make gtk-gl-native-tabs-wayland-smoke` / `make gtk-gl-native-tabs-x11-smoke` dispatch `New Tab` through the GTK product-action bridge and require separate page/PTY owners; their `*-close-*` companions dispatch `Close Pane` and require exactly one retained page/session. Per backend it also runs `gtk-input-*`, `gtk-menu-smoke`, `gtk-palette-smoke`, and `gtk-accessibility-smoke`. The default GTK route retains renderer-workspace tabs; the opt-in GL prototype has real `AdwTabView` pages, distinct per-page lifecycle, selection, and non-final-page close, but no manager `host-tab` lifecycle, splits, transfer, detach, persistence, or graphical Linux result. Interactive palette/menu behavior, desktop file-handler selection, IME, clipboard, fractional-scale, Orca, GL colour/pacing/recovery, and desktop qualification remain manual or unverified. |
+
+A primary-screen wheel scrolls local history when application mouse tracking
+is inactive on each current route. Kiwi still exposes no visible or native
+scrollbar. A scrollbar must remain a host-presentation feature with a bounded
+terminal viewport descriptor, pane-local pointer ownership, and native
+accessibility semantics; it must not mutate the terminal protocol contract.
 
 The terminal content may remain GPU-rendered. Native UI does not require a
 native text widget or a replacement renderer.
@@ -154,7 +180,7 @@ native text widget or a replacement renderer.
    upload; Kitty image residency and all encoder calls remain WGPU-only. This
    is a prerequisite for a GTK widget renderer, not an embedded GTK renderer or
    native-tab implementation.
-4. GTK4 4.14 or newer is an explicit development host selected with `KIWI_HOST=gtk` or
+4. GTK4 4.14 or newer is an explicit partial Linux host selected with `KIWI_HOST=gtk` or
    `make gtk-run`. It owns `GtkApplication`/`GtkWindow`, event pumping, GDK
    Wayland/X11 surface discovery, title/resize/focus/input, bounded clipboard
    reads/writes, URI opening, and the existing GPU-rendered terminal content.
@@ -167,21 +193,30 @@ native text widget or a replacement renderer.
    through that handler. Its searchable GTK dialog uses the same default and
    configuration-augmented bounded catalogue; `make gtk-palette-smoke` opens
    it and dispatches the first entry through the live controller on a graphical
-   Linux session. It does not advertise host-native tabs: `New Tab` remains a
-   renderer-workspace tab until the GTK group-owner lifecycle described above
-   exists and has its own attach/select/detach/close qualification.
+   Linux session. Its default WGPU route does not advertise host-native tabs:
+   `New Tab` remains a renderer-workspace tab. The separately gated
+   `KIWI_GTK_NATIVE_TABS=1` GL route owns real libadwaita pages with independent
+   terminal sessions, but does not yet implement the manager group-owner
+   lifecycle or its attach/select/detach/close qualification.
 5. The GTK Wayland rendering gate uses a WGPU-owned `wl_subsurface`, rather
    than sharing GTK's toplevel `wl_surface`. It uses a private generated
    `wp_viewporter` binding to map each physical WGPU buffer to GTK's logical
    content size, keeping GTK responsible for fractional scale. GTK text input
-   uses `GtkIMMulticontext` and preserves Kiwi's key/text correlation; its
+   uses `GtkIMMulticontext` and preserves Kiwi's key/text correlation. Its
+   keyboard bridge carries the raw GDK keyval, a distinct Unicode scalar, and
+   active-group level-zero/level-one plus standard-XKB-PC-101 variants for
+   Kitty flag 4; custom XKB keycode remapping remains unqualified. The GTK
+   host advertises flag 4 only after a live GDK keymap probe qualifies.
+   Its
    terminal widget implements `GtkAccessibleText` rather than starting a
    second AT-SPI application tree. Optional text extents and hit testing are
    supplied on GTK 4.16 or newer; widget focus state is managed by GTK rather
-   than calling the non-widget-only 4.18 platform-state API. Bounded single-window, same-process
-   multi-window, input-callback, and accessible-text runs pass on the
-   Fedora/KWin session. Run `make gtk-wayland-smoke`, `make
-   gtk-wayland-multi-window-smoke`, `make gtk-input-smoke`, `make
+   than calling the non-widget-only 4.18 platform-state API. Earlier bounded
+   single-window, same-process multi-window, generic input-callback, and
+   accessible-text runs passed on the Fedora/KWin session; they do not qualify
+   the newer alternate-key path. Run `make gtk-wayland-smoke`, `make
+   gtk-wayland-multi-window-smoke`, `make gtk-input-wayland-smoke`, `make
+   gtk-input-x11-smoke`, `make
    gtk-accessibility-smoke`, `make gtk-menu-smoke`, and `make
    gtk-palette-smoke` to repeat those checks.
    Real IME, public

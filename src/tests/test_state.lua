@@ -16,6 +16,21 @@ local function text_at(state, row)
 end
 
 return {
+  terminal_state_accepts_only_bounded_osc22_pointer_shapes_and_resets_them = function()
+    local effects = {}
+    local state = State.new(1, 1, { effect_sink = function(kind, value)
+      effects[#effects + 1] = { kind = kind, value = value }
+    end })
+    Parser.new(state):feed("\27]22;pointer\7\27]22;unsupported\7\27c")
+    Assert.equal(state.pointer_shape, "default")
+    Assert.equal(state.stats.unknown.osc, 1)
+    Assert.equal(#effects, 3)
+    Assert.equal(effects[1].kind, "pointer_shape_changed")
+    Assert.equal(effects[1].value.shape, "pointer")
+    Assert.equal(effects[2].kind, "unknown_sequence")
+    Assert.equal(effects[3].kind, "pointer_shape_changed")
+    Assert.equal(effects[3].value.shape, "default")
+  end,
   terminal_state_uses_deferred_autowrap = function()
     local state = State.new(3, 2)
     state.damage:clear()
@@ -203,6 +218,46 @@ return {
     state:apply(Actions.osc(11, "?"))
     Assert.truthy(state:pop_responses()[1]:match("^\27%]11;rgb:"))
   end,
+  terminal_state_applies_bounded_transactional_kitty_osc21_colours = function()
+    local effects = {}
+    local configured_foreground = Color.pack(0x11, 0x22, 0x33, 0xff)
+    local configured_background = Color.pack(0x44, 0x55, 0x66, 0xff)
+    local configured_red = Color.pack(0x77, 0x88, 0x99, 0xff)
+    local state = State.new(3, 1, {
+      colors = {
+        foreground = configured_foreground,
+        background = configured_background,
+        palette = { [1] = configured_red },
+      },
+      effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end,
+    })
+    local initial_cursor = state.cursor_color
+    local parser = Parser.new(state)
+    parser:feed("\27[31mP\27[0mD\27]21;1=#0a0c0e;foreground=#010203;background=#040506;cursor=#070809\27\\")
+    Assert.equal(state:get(0, 0).fg, Color.pack(0x0a, 0x0c, 0x0e, 0xff))
+    Assert.equal(state:get(1, 0).fg, Color.pack(1, 2, 3, 0xff))
+    Assert.equal(state:get(1, 0).bg, Color.pack(4, 5, 6, 0xff))
+    Assert.equal(state.cursor_color, Color.pack(7, 8, 9, 0xff))
+    Assert.equal(effects[1].kind, "palette_changed")
+    Assert.truthy(effects[1].value.kitty_osc21)
+    Assert.equal(effects[2].kind, "cursor_color_changed")
+    Assert.truthy(effects[2].value.kitty_osc21)
+
+    parser:feed("\27]21;1=?;foreground=?;background=?;cursor=?;selection_background=?\7")
+    Assert.equal(state:pop_responses()[1], "\27]21;1=rgb:0a0a/0c0c/0e0e;foreground=rgb:0101/0202/0303;background=rgb:0404/0505/0606;cursor=rgb:0707/0808/0909;selection_background=?\27\\")
+
+    parser:feed("\27]21;1;foreground;background;cursor\7")
+    Assert.equal(state:get(0, 0).fg, configured_red)
+    Assert.equal(state:get(1, 0).fg, configured_foreground)
+    Assert.equal(state:get(1, 0).bg, configured_background)
+    Assert.equal(state.cursor_color, initial_cursor)
+
+    local palette_before = state.colors:indexed(1)
+    parser:feed("\27]21;1=#ffffff;unsupported=#000000\7\27]21;cursor=\7")
+    Assert.equal(state.colors:indexed(1), palette_before)
+    Assert.equal(state.cursor_color, initial_cursor)
+    Assert.equal(state.stats.unknown.osc, 2)
+  end,
   terminal_state_applies_queries_and_resets_osc_cursor_colour = function()
     local effects = {}
     local state = State.new(3, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })
@@ -219,6 +274,14 @@ return {
   terminal_state_denies_osc52_unless_the_host_explicitly_enables_it = function()
     local effects = {}
     local state = State.new(4, 1, { effect_sink = function(kind, value) effects[#effects + 1] = { kind = kind, value = value } end })
+    state:apply(Actions.osc(52, "c;?"))
+    Assert.equal(effects[#effects].kind, "clipboard_read_denied")
+    Assert.equal(effects[#effects].value.reason, "disabled")
+    state:configure_osc52_read(true)
+    state:apply(Actions.osc(52, "s;?"))
+    Assert.equal(effects[#effects].kind, "clipboard_read_requested")
+    Assert.equal(effects[#effects].value.selection, "s")
+    Assert.equal(effects[#effects].value.maximum_bytes, 64 * 1024)
     state:apply(Actions.osc(52, "c;" .. Base64.encode("clipboard text")))
     Assert.equal(effects[#effects].kind, "clipboard_write_denied")
     Assert.equal(effects[#effects].value.reason, "disabled")
@@ -229,6 +292,10 @@ return {
     state:apply(Actions.osc(52, "c;%%%%"))
     Assert.equal(effects[#effects].kind, "clipboard_write_denied")
     Assert.equal(effects[#effects].value.reason, "invalid")
+    state:apply(Actions.osc(52, "c;"))
+    Assert.equal(effects[#effects].kind, "clipboard_write_denied")
+    Assert.equal(effects[#effects].value.reason, "clear-disabled")
+    Assert.truthy(not pcall(State.new, 4, 1, { osc52_maximum_bytes = 64 * 1024 + 1 }))
   end,
   terminal_state_emits_bounded_notification_and_progress_effects = function()
     local effects = {}
@@ -592,6 +659,20 @@ return {
     Assert.equal(state.modes.alternate_scroll, false)
     Assert.equal(state.modes.focus_reporting, false)
     Assert.equal(state.modes.mouse_protocol, "x10")
+  end,
+  terminal_state_applies_only_declared_xterm_shift_escape_requests = function()
+    local state = State.new(4, 1)
+    Assert.equal(state:input_modes().mouse_shift_escape, nil)
+    state:apply(Actions.csi({}, ">", "", "s"))
+    Assert.equal(state:input_modes().mouse_shift_escape, false)
+    state:apply(Actions.csi({ 1 }, ">", "", "s"))
+    Assert.equal(state:input_modes().mouse_shift_escape, true)
+    local before = state.stats.unknown.csi
+    state:apply(Actions.csi({ 2 }, ">", "", "s"))
+    Assert.equal(state:input_modes().mouse_shift_escape, true)
+    Assert.equal(state.stats.unknown.csi, before + 1)
+    state:apply(Actions.esc("c"))
+    Assert.equal(state:input_modes().mouse_shift_escape, nil)
   end,
   terminal_state_negotiates_bounded_kitty_keyboard_disambiguation = function()
     local state = State.new(4, 2)

@@ -20,8 +20,14 @@ Config.edit_template = [[# Kiwi configuration
 # ligatures = false
 # contextual-alternates = false
 # scrollback-limit = 2000
+# scrollbar = always
+# mouse-shift-capture = false
+# osc52-read = deny
+# osc52-write = false
 # shell-integration = auto
 # macos-applescript = true
+# notify-on-command-finish = never
+# notify-on-command-finish-after = 5
 # keybind = ctrl+shift+t = new-tab
 ]]
 
@@ -30,6 +36,7 @@ local command_line_keys = {
   ["font-family"] = true,
   ["font-size"] = true,
   ["scrollback-limit"] = true,
+  ["scrollbar"] = true,
   ["shell-integration"] = true,
   ["theme"] = true,
   ["theme-file"] = true,
@@ -198,6 +205,7 @@ local function defaults()
     ligatures = false,
     contextual_alternates = false,
     scrollback_limit = 2000,
+    scrollbar = "always",
     ambiguous_width = 1,
     foreground = nil,
     background = nil,
@@ -210,9 +218,13 @@ local function defaults()
     command_regions = false,
     keybindings = {},
     command_palette_entries = {},
+    mouse_shift_capture = false,
+    osc52_read = "deny",
     osc52_write = false,
     osc9_notifications = "off",
     osc9_progress = "off",
+    notify_on_command_finish = "never",
+    notify_on_command_finish_after = 5,
     shell_integration = "auto",
     macos_applescript = true,
   }
@@ -227,6 +239,30 @@ local function parse_appearance(value, line)
   value = parse_string(value, line)
   if value ~= "system" and value ~= "dark" and value ~= "light" then
     error("configuration line " .. line .. " appearance must be system, dark, or light")
+  end
+  return value
+end
+
+local function parse_osc52_read_policy(value, line)
+  value = parse_string(value, line)
+  if value ~= "allow" and value ~= "deny" then
+    error("configuration line " .. line .. " osc52-read must be allow or deny")
+  end
+  return value
+end
+
+local function parse_mouse_shift_capture(value, line)
+  value = parse_string(value, line)
+  if value == "true" then return true end
+  if value == "false" then return false end
+  if value == "always" or value == "never" then return value end
+  error("configuration line " .. line .. " mouse-shift-capture must be true, false, always, or never")
+end
+
+local function parse_scrollbar_policy(value, line)
+  value = parse_string(value, line)
+  if value ~= "always" and value ~= "never" then
+    error("configuration line " .. line .. " scrollbar must be always or never")
   end
   return value
 end
@@ -253,6 +289,14 @@ local function parse_osc9_policy(value, line)
   value = parse_string(value, line)
   if value ~= "off" and value ~= "system" then
     error("configuration line " .. line .. " OSC 9 policy must be off or system")
+  end
+  return value
+end
+
+local function parse_command_finish_policy(value, line)
+  value = parse_string(value, line)
+  if value ~= "never" and value ~= "unfocused" and value ~= "always" then
+    error("configuration line " .. line .. " notify-on-command-finish must be never, unfocused, or always")
   end
   return value
 end
@@ -341,6 +385,8 @@ local function apply_value(config, key, raw, line)
     config.contextual_alternates = parse_boolean(raw, line)
   elseif key == "scrollback-limit" then
     config.scrollback_limit = parse_integer(raw, line, 0, 1000000)
+  elseif key == "scrollbar" then
+    config.scrollbar = parse_scrollbar_policy(raw, line)
   elseif key == "ambiguous-width" then
     config.ambiguous_width = parse_integer(raw, line, 1, 2)
   elseif key == "foreground" then
@@ -367,6 +413,8 @@ local function apply_value(config, key, raw, line)
     config.color_overrides.command_region_color = config.command_region_color
   elseif key == "command-regions" then
     config.command_regions = parse_boolean(raw, line)
+  elseif key == "mouse-shift-capture" then
+    config.mouse_shift_capture = parse_mouse_shift_capture(raw, line)
   elseif key == "keybind" then
     if #config.keybindings >= Actions.maximum_bindings then
       error("configuration line " .. line .. " exceeds " .. Actions.maximum_bindings .. " keybindings")
@@ -379,10 +427,16 @@ local function apply_value(config, key, raw, line)
     config.command_palette_entries[#config.command_palette_entries + 1] = Actions.parse_palette_entry(raw, line)
   elseif key == "osc52-write" then
     config.osc52_write = parse_boolean(raw, line)
+  elseif key == "osc52-read" then
+    config.osc52_read = parse_osc52_read_policy(raw, line)
   elseif key == "osc9-notifications" then
     config.osc9_notifications = parse_osc9_policy(raw, line)
   elseif key == "osc9-progress" then
     config.osc9_progress = parse_osc9_policy(raw, line)
+  elseif key == "notify-on-command-finish" then
+    config.notify_on_command_finish = parse_command_finish_policy(raw, line)
+  elseif key == "notify-on-command-finish-after" then
+    config.notify_on_command_finish_after = parse_integer(raw, line, 0, 86400)
   elseif key == "shell-integration" then
     local mode = parse_string(raw, line)
     if mode ~= "auto" and mode ~= "none" then error("configuration line " .. line .. " shell-integration must be auto or none") end
@@ -524,13 +578,18 @@ function Config.apply_environment(config, environment)
     ["ligatures"] = environment("KIWI_LIGATURES") == "1" and "true" or environment("KIWI_LIGATURES") == "0" and "false" or nil,
     ["contextual-alternates"] = environment("KIWI_CALT") == "1" and "true" or environment("KIWI_CALT") == "0" and "false" or nil,
     ["scrollback-limit"] = environment("KIWI_SCROLLBACK"),
+    ["scrollbar"] = environment("KIWI_SCROLLBAR"),
     ["ambiguous-width"] = environment("KIWI_AMBIGUOUS_WIDTH"),
     ["selection-color"] = environment("KIWI_SELECTION_COLOR"),
     ["search-color"] = environment("KIWI_SEARCH_COLOR"),
     ["hyperlink-color"] = environment("KIWI_HYPERLINK_COLOR"),
     ["command-region-color"] = environment("KIWI_COMMAND_REGION_COLOR"),
     ["command-regions"] = environment("KIWI_COMMAND_REGIONS") == "1" and "true" or environment("KIWI_COMMAND_REGIONS") == "0" and "false" or nil,
+    ["mouse-shift-capture"] = environment("KIWI_MOUSE_SHIFT_CAPTURE"),
+    ["osc52-read"] = environment("KIWI_OSC52_READ"),
     ["osc52-write"] = environment("KIWI_OSC52_WRITE") == "1" and "true" or environment("KIWI_OSC52_WRITE") == "0" and "false" or nil,
+    ["notify-on-command-finish"] = environment("KIWI_NOTIFY_ON_COMMAND_FINISH"),
+    ["notify-on-command-finish-after"] = environment("KIWI_NOTIFY_ON_COMMAND_FINISH_AFTER"),
     ["shell-integration"] = environment("KIWI_SHELL_INJECTION"),
   }
   for key, value in pairs(values) do

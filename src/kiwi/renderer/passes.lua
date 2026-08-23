@@ -139,6 +139,16 @@ function Passes.build(renderer)
   function cursor:shutdown(owner)
     shutdown_pipeline(owner, self)
   end
+  local scrollbar = Pass.new("terminal/scrollbar", 35, nil, c.load_load, function()
+      return renderer.scrollbar and renderer.scrollbar.active and 1 or 0
+    end, { "terminal.scrollbar", "frame.viewport", "frame.timing" }, { "surface.color" }, { "terminal/cursor" })
+  scrollbar.blend = "alpha"
+  function scrollbar:initialize(owner)
+    initialize_pipeline(owner, self, "scrollbar-pass", "scrollbar_vs", "scrollbar_fs")
+  end
+  function scrollbar:shutdown(owner)
+    shutdown_pipeline(owner, self)
+  end
   local passes = {
     background,
   }
@@ -149,6 +159,7 @@ function Passes.build(renderer)
   passes[#passes + 1] = glyph
   if images_over then passes[#passes + 1] = images_over end
   passes[#passes + 1] = cursor
+  passes[#passes + 1] = scrollbar
   return passes
 end
 

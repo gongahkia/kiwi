@@ -147,6 +147,7 @@ font-size = 18
 ligatures = true
 contextual-alternates = true
 scrollback-limit = 4000
+scrollbar = always
 ambiguous-width = 1
 foreground = #d8dee9
 background = #2e3440
@@ -156,9 +157,13 @@ search-color = #ebcb8b
 hyperlink-color = #88c0d0
 command-regions = true
 command-region-color = #88c0d0
+mouse-shift-capture = false
+osc52-read = deny
 osc52-write = false
 osc9-notifications = off
 osc9-progress = off
+notify-on-command-finish = never
+notify-on-command-finish-after = 5
 # keybind = ctrl+alt+t = new-tab
 # keybind = ctrl+a > n = new-window
 # command-palette-entry = title:"Reload, safely", description:"Reload the trusted \"theme\".", action:reload-config
@@ -167,22 +172,46 @@ osc9-progress = off
 `F6` is the default binding for `reload-config`; it can be remapped or removed.
 Kiwi validates the full replacement, including its action map and theme, before
 changing live resources; an invalid file leaves the current configuration
-active. Theme, renderer colors, font settings, host-effect policy, and local
-actions reload in the same session. `ambiguous-width` and `scrollback-limit`
+active. Theme, renderer colors, font settings, host-effect policy, local
+actions, and the WGPU `scrollbar` policy reload in the same session.
+`ambiguous-width` and `scrollback-limit`
 remain startup-only, because changing either would require semantic grid reflow
 or history retention changes; Kiwi reports that limitation instead of partially
 applying the file.
+
+`mouse-shift-capture` chooses what a primary-button Shift drag does while an
+application has enabled DEC mouse tracking. The default `false` makes Shift a
+local-selection override unless the application asks to capture it with
+XTSHIFTESCAPE (`CSI > 1 s`). `true` reverses that default, allowing selection
+only after the application explicitly permits it (`CSI > s` or `CSI > 0 s`).
+`always` forces application capture and `never` forces local selection. Once a
+local drag begins, its motion and release stay local. This is a host policy:
+Kiwi does not infer whether Shift is meaningful to a particular application,
+and non-Shift modifiers do not override mouse reporting. The setting reloads
+with the rest of the local input policy. `KIWI_MOUSE_SHIFT_CAPTURE` accepts the
+same four values.
+
+`scrollbar = always|never` controls Kiwi's renderer-drawn primary-screen
+scrollback overlay; it defaults to `always`. `always` means the overlay is
+eligible when the primary screen has retained history, not that an empty
+history displays a disabled track. The overlay's track click and thumb drag
+move only the local history viewport, including when an application has mouse
+tracking enabled; normal pointer events outside it retain the application's
+mouse-mode ownership. It is hidden on the alternate screen. This is presently
+implemented by WGPU presenters, not as a Cocoa/GTK platform scrollbar widget;
+the experimental `KIWI_GTK_PRESENTER=gl` presenter does not draw or receive
+the overlay. `KIWI_SCROLLBAR` accepts the same two values.
 
 At launch, these documented command-line settings use the same validation as
 the file and take precedence over file and `KIWI_*` environment values:
 
 ```sh
 kiwi --theme dracula --appearance dark --font-family "Noto Sans Mono" --font-size 18
-kiwi --theme-file /absolute/path/to/colours.conf --scrollback-limit 4000 --shell-integration none
+kiwi --theme-file /absolute/path/to/colours.conf --scrollback-limit 4000 --scrollbar never --shell-integration none
 ```
 
 The accepted flags are `--theme`, `--theme-file`, `--appearance`,
-`--font-family`, `--font-size`, `--scrollback-limit`, and
+`--font-family`, `--font-size`, `--scrollback-limit`, `--scrollbar`, and
 `--shell-integration`; each needs one non-empty, NUL-free, control-free value.
 Later occurrences win, except that `--theme` and `--theme-file` cannot be
 combined. The configuration file and environment are read first, then these
@@ -201,14 +230,26 @@ scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
 
+On the primary screen, vertical wheel input moves local scrollback while an
+application has not enabled terminal mouse tracking. Touchpad-style fractional
+deltas accumulate separately for each terminal session; one host event moves at
+most 16 rows. Wheel input over an inactive custom-workspace pane first makes
+that pane active. Kiwi does not steal application mouse reports or alternate
+screen alternate-scroll input.
+
 On macOS, `Ctrl+Shift+T` / `New Tab` creates a new GLFW/Cocoa controller and
 joins it to Kiwi's AppKit tab group; `Ctrl+Tab` selects the next AppKit tab.
 `Ctrl+Shift+N` / `New Window`, restored windows, and a session moved to a new
 window explicitly stay outside that group. Each native tab has its own WGPU
 surface, custom split workspace, and PTY set. Normal macOS tab creation is
-therefore host-owned, but Kiwi has not implemented native split content or a
-Linux native-tab equivalent. Session movement to an already open target and a
-restored multi-tab workspace still use the existing custom workspace topology.
+therefore host-owned, but Kiwi has not implemented native split content. On
+Linux, the default GTK route likewise keeps renderer-workspace tabs; the
+separately gated `KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1` route has
+experimental libadwaita pages with independent VT/PTY sessions. That prototype
+supports New Tab, Next Tab, and non-final-page Close Pane: it has no splits,
+detach/transfer, persistence, manager `host-tab` lifecycle, or graphical Linux
+qualification. Session movement to an already open target and a restored
+multi-tab workspace still use the existing custom workspace topology.
 
 Use up to 64 bounded `keybind` directives to replace that map. A directive has
 the form `keybind = chord = action`, or a sequence such as
@@ -286,6 +327,13 @@ use a different file, `KIWI_LAYOUT_PERSISTENCE=0` or
 `--no-restore-layout` to disable both. Malformed, oversized, or unknown-schema
 files are rejected with a diagnostic and never evaluated as code.
 
+When the active shell has emitted a valid OSC 7 `file:` directory, a fresh tab,
+split, duplicate, or window starts there only if the URI authority is empty,
+`localhost`, or the current machine name (including its short name). Kiwi
+percent-decodes the bounded path and lets the child fall back to the process
+launch directory if it cannot enter it. Remote or malformed OSC 7 metadata is
+never used as a local working directory.
+
 The built-in themes are `kiwi`, `nord`, `light`, `dracula`, `gruvbox-dark`,
 `solarized-dark`, `solarized-light`, `tokyo-night`, and `catppuccin-mocha`.
 Set `theme = system` to select `theme-dark` (default `kiwi`) or `theme-light`
@@ -304,9 +352,14 @@ code, or set general configuration. It must provide foreground and background.
 An external theme replaces inherited colour overrides; values written after it
 in the same configuration layer are explicit overrides.
 
-`osc52-write` remains `false` by default. Setting it to `true` permits only
-validated, bounded OSC 52 clipboard writes; it does not permit reads, queries,
-clears, or automatic synchronization. `osc9-notifications` and
+`osc52-read` remains `deny` by default. Setting it to `allow` permits a
+terminal to query the ordinary clipboard through one `c`, `p`, or `s` OSC 52
+selector; Kiwi reads at most 65,536 valid UTF-8, NUL-free bytes and replies to
+the PTY only after that validation. It is a static session-wide permission, not
+a prompt or per-program grant. `osc52-write` remains `false` by default;
+setting it to `true` permits only validated, bounded OSC 52 clipboard writes.
+Neither option permits clears, primary/secondary clipboard access, rich data,
+or automatic synchronization. `osc9-notifications` and
 `osc9-progress` are also `off` by default. Setting either to `system` allows a
 validated typed request to reach a host that implements it. GTK currently
 submits notifications through the desktop notification service; the desktop may
@@ -315,6 +368,22 @@ native titlebar progress indicator: states `0`/`1`/`2`/`3`/`4` mean
 clear/normal/error/indeterminate/paused. Cocoa notification delivery and GTK progress are unavailable,
 so those requests report unavailable rather than succeeding silently. Kiwi
 never logs the terminal-supplied notification text.
+
+`notify-on-command-finish` is separate from OSC 9. It consumes only Kiwi's
+observed OSC 133 `C` (command execution) and `D` (completion) lifecycle, never
+the command or its output. `never` is the default; `unfocused` submits only
+when the completing pane/tab is not focused; `always` also submits while it is
+focused. `notify-on-command-finish-after` is an integer threshold from zero to
+86,400 seconds and defaults to five. The elapsed time is measured between
+host-observed `C` and `D` markers, so it is advisory rather than an audited
+process-duration measurement. A qualifying completion submits a fixed local
+message (with an optional numeric exit status) to the same host notification
+bridge as configured OSC 9 notifications. GTK can submit it to the desktop
+notification service; Cocoa/GLFW notification delivery is currently
+unavailable and reports that result once rather than succeeding silently.
+`KIWI_NOTIFY_ON_COMMAND_FINISH` and
+`KIWI_NOTIFY_ON_COMMAND_FINISH_AFTER` accept the same values for a single
+launch.
 
 For example, a source checkout can still use environment-only configuration:
 
@@ -441,8 +510,8 @@ Kiwi advertises 256 indexed colours and direct RGB SGR through its
 or VT certification. Its supported targets are Linux x86_64 and a verified
 macOS arm64 source path. It has a bounded Linux AT-SPI provider and macOS
 NSAccessibility element, but no validated end-to-end screen-reader result,
-primary selection, OSC 52 reads/queries, regular-expression search, full text
-indexing, command execution UI, or controlled-remote SSH qualification. The
+primary selection, an OSC 52 prompt policy, regular-expression search, full
+text indexing, command execution UI, or controlled-remote SSH qualification. The
 current, precise limits are maintained in the [conformance matrix](CONFORMANCE.md),
 [text contract](TEXT.md), [accessibility contract](ACCESSIBILITY.md), and the
 repository [README](../README.md#deliberate-limits).

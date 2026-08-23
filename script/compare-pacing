@@ -1,0 +1,74 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  print -u2 "usage: script/compare-pacing BASELINE CANDIDATE"
+  exit 2
+fi
+if ! command -v jq >/dev/null; then
+  print -u2 "jq is required to compare pacing reports."
+  exit 2
+fi
+for report in "$1" "$2"; do
+  if [[ ! -f "$report" ]]; then
+    print -u2 "pacing report is missing: $report"
+    exit 2
+  fi
+  if ! jq -e '.schema_version == 1 and .engine == "Kiwi frame pacing methodology"' "$report" >/dev/null; then
+    print -u2 "unsupported pacing report: $report"
+    exit 2
+  fi
+done
+if ! jq -e -n --slurpfile baseline "$1" --slurpfile candidate "$2" '
+  $baseline[0].metadata.configuration == $candidate[0].metadata.configuration
+  and $baseline[0].metadata.system == $candidate[0].metadata.system
+  and $baseline[0].metadata.runtime == $candidate[0].metadata.runtime
+  and $baseline[0].metadata.methodology == $candidate[0].metadata.methodology
+  and $baseline[0].methodology == $candidate[0].methodology
+' >/dev/null; then
+  print -u2 "pacing configuration, host, runtime, or methodology differs; compare only the same qualified environment."
+  exit 2
+fi
+
+jq -n --slurpfile baseline "$1" --slurpfile candidate "$2" '
+  def metric($name; $before; $after):
+    if ($before.status == "measured" and $after.status == "measured"
+        and ($before.p95 | type) == "number" and ($after.p95 | type) == "number"
+        and $before.p95 > 0)
+    then {
+      name: $name,
+      baseline_p95_ms: $before.p95,
+      candidate_p95_ms: $after.p95,
+      delta_ms: ($after.p95 - $before.p95),
+      regression_percent: (($after.p95 - $before.p95) * 100 / $before.p95),
+      status: "comparable"
+    }
+    elif ($before.status == "unavailable" and $after.status == "unavailable") then {
+      name: $name,
+      baseline_status: ($before.status // "missing"),
+      candidate_status: ($after.status // "missing"),
+      status: "unavailable"
+    }
+    else {
+      name: $name,
+      baseline_status: ($before.status // "missing"),
+      candidate_status: ($after.status // "missing"),
+      status: "incompatible"
+    }
+    end;
+  {
+    configuration: $baseline[0].metadata.configuration,
+    same_environment: true,
+    metrics: [
+      metric("frame_cpu_p95_ms"; $baseline[0].measurement.frame_cpu_ms; $candidate[0].measurement.frame_cpu_ms),
+      metric("frame_interval_p95_ms"; $baseline[0].measurement.frame_interval_ms; $candidate[0].measurement.frame_interval_ms),
+      metric("output_to_present_p95_ms"; $baseline[0].measurement.output_to_present_ms; $candidate[0].measurement.output_to_present_ms)
+    ]
+  }
+' | jq -r '
+  "pacing same-environment=\(.same_environment) sample-limit=\(.configuration.sample_limit) warmup-frames=\(.configuration.warmup_frames) pty-read-budget=\(.configuration.pty_read_budget)",
+  (.metrics[] | if .status == "comparable"
+    then "\(.name) baseline=\(.baseline_p95_ms) candidate=\(.candidate_p95_ms) delta-ms=\(.delta_ms) regression-percent=\(.regression_percent)"
+    else "\(.name) \(.status) baseline-status=\(.baseline_status) candidate-status=\(.candidate_status)"
+  end)
+'

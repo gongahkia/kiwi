@@ -1,5 +1,5 @@
 local Headless = {}
-Headless.api_version = 1
+Headless.api_version = 2
 
 local function validate_view(view)
   assert(type(view) == "table" and type(view.row) == "function", "headless renderer needs a libkiwi-vt render view")

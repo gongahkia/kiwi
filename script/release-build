@@ -21,7 +21,7 @@ case "$(uname -s)-$(uname -m)" in
     readonly LIBRARY_EXTENSION=so
     readonly WGPU_SHA256='95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a'
     readonly WGPU_URL="https://github.com/gfx-rs/wgpu-native/releases/download/$WGPU_VERSION/wgpu-linux-x86_64-release.zip"
-    readonly RUNTIME_DEPENDENCIES='["curl","luajit","glib2","glfw","freetype","harfbuzz","fontconfig","giflib","libpng","vulkan-loader","zsh","openssh-clients"]'
+    readonly RUNTIME_DEPENDENCIES='["curl","luajit","glib2","glfw","gtk4","libadwaita","libepoxy","freetype","harfbuzz","fontconfig","giflib","libpng","vulkan-loader","zsh","openssh-clients"]'
     ;;
   Darwin-arm64)
     readonly TARGET=macos-arm64
@@ -69,6 +69,9 @@ else
 fi
 
 "$ROOT/script/build-native"
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  "$ROOT/script/build-gtk-host"
+fi
 "$ROOT/script/build-terminfo"
 
 readonly NAME="kiwi-$VERSION-$TARGET"
@@ -82,6 +85,9 @@ mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/share/kiwi/lua" "$STAGE/share/terminf
 cp -R "$ROOT/src/kiwi" "$STAGE/share/kiwi/lua/kiwi"
 cp -R "$ROOT/integrations" "$STAGE/share/kiwi/integrations"
 cp "$ROOT/.build/native/libkiwi_surface.$LIBRARY_EXTENSION" "$STAGE/lib/libkiwi_surface.$LIBRARY_EXTENSION"
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  cp "$ROOT/.build/native/libkiwi_gtk_host.so" "$STAGE/lib/libkiwi_gtk_host.so"
+fi
 cp "$WGPU/lib/libwgpu_native.$LIBRARY_EXTENSION" "$STAGE/lib/libwgpu_native.$LIBRARY_EXTENSION"
 cp "$ROOT/VERSION" "$STAGE/VERSION"
 print -r -- "$revision" > "$STAGE/BUILD_REVISION"
@@ -103,6 +109,9 @@ print 'readonly KIWI_INSTALL_ROOT=${0:A:h:h}' >> "$STAGE/bin/kiwi"
 print 'export KIWI_ROOT="$KIWI_INSTALL_ROOT"' >> "$STAGE/bin/kiwi"
 print "export KIWI_WGPU_LIB=\"\$KIWI_INSTALL_ROOT/lib/libwgpu_native.$LIBRARY_EXTENSION\"" >> "$STAGE/bin/kiwi"
 print "export KIWI_SURFACE_LIB=\"\$KIWI_INSTALL_ROOT/lib/libkiwi_surface.$LIBRARY_EXTENSION\"" >> "$STAGE/bin/kiwi"
+if [[ "$TARGET" == linux-x86_64 ]]; then
+  print 'export KIWI_GTK_HOST_LIB="$KIWI_INSTALL_ROOT/lib/libkiwi_gtk_host.so"' >> "$STAGE/bin/kiwi"
+fi
 print 'export KIWI_RELEASE=1' >> "$STAGE/bin/kiwi"
 print 'export TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
 print 'export KIWI_TERMINFO="$KIWI_INSTALL_ROOT/share/terminfo"' >> "$STAGE/bin/kiwi"
