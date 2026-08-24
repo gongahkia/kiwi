@@ -77,6 +77,18 @@ function Host.set_pointer_shape(window, shape)
 end
 
 if ffi.os == "OSX" then
+  function Host.configure_host_effects(window, configuration)
+    assert(type(configuration) == "table", "Cocoa host effects need configuration")
+    local notifications_enabled = configuration.osc9_notifications == "system"
+      or configuration.notify_on_command_finish ~= "never"
+    if not notifications_enabled then return true end
+    return window:cocoa_prepare_notifications()
+  end
+
+  function Host.notify(window, title, body)
+    return window:cocoa_notify(title, body)
+  end
+
   function Host.set_progress(window, progress, state)
     return window:cocoa_set_progress(progress, state)
   end

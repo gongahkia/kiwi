@@ -126,22 +126,32 @@ percentage; determinate state `1` requires an integer percentage from 0 through
 host update and keeps bounded kind/status diagnostics only, so rejected
 terminal payloads are not retained or printed.
 
-At present, `system` can submit a valid notification through the GTK host's
-`GApplication` notification path, using the fixed local identifier
-`kiwi-terminal-osc9`. Successful submission is not a guarantee that a desktop
-will display it. On macOS, the GLFW/Cocoa route maps OSC 9 progress to a
-per-window native titlebar progress indicator: state `0` removes it, state `1`
-is normal determinate progress, state `2` is error, state `3` is indeterminate,
-and state `4` is paused. The determinate states show the carried/supplied
-percentage with the corresponding tooltip. It does not use a global Dock badge,
-so independent terminal windows cannot overwrite one another's visible
-progress. Cocoa notification delivery and GTK progress remain unavailable and
-are explicitly reported rather than silently accepted. The deterministic policy
-tests cover default denial, payload validation, submission, unavailability, and
-payload-free diagnostics. Native notification delivery and presentation still
-need desktop qualification. Kiwi leaves accepted progress visible until a
-state-`0` clear request or window teardown; it does not currently apply a stale
-progress timeout.
+On GTK, `system` submits a valid notification through `GApplication` with a
+host-unique, payload-free identifier that is withdrawn at window teardown.
+Submission does not guarantee that a desktop will display it. GTK also maps
+progress to a non-interactive `GtkProgressBar` overlay for that terminal
+presentation: state `0` hides it, state `1` is normal determinate progress,
+state `2` adds GTK's error treatment, state `3` pulses in activity mode, and
+state `4` adds the paused warning treatment. Its text and tooltip are fixed
+local status text plus a validated percentage; it neither receives pointer
+input nor exposes terminal content to the accessibility tree. On macOS, the
+GLFW/Cocoa route maps progress to a per-window native titlebar indicator with
+the same state meanings. It uses no global Dock badge, so independent terminal
+windows cannot overwrite one another's visible progress.
+
+Configured Cocoa notifications use `UNUserNotificationCenter`. Kiwi requests
+only alert permission after the user enables a notification policy in trusted
+configuration, never while handling a terminal payload. Until macOS resolves
+that permission, a notification request is rejected without retaining its
+payload; once permitted, each window owns one replaceable local request and
+teardown removes its pending and delivered request. Scheduling is not a
+guarantee of desktop display: system settings, Focus, and delivery policy may
+suppress or delay it. The deterministic policy tests cover default denial,
+payload validation, submission, unavailability, and payload-free diagnostics;
+`make gtk-progress-smoke` covers GTK's valid state transitions. Native
+notification delivery still needs desktop qualification on both targets. Kiwi
+leaves accepted progress visible until a state-`0` clear request or window
+teardown; it does not currently apply a stale-progress timeout.
 
 ## Command-finish notification policy
 
@@ -158,12 +168,13 @@ CPU or wall-clock duration.
 
 The submitted notification has fixed local text, optionally containing only
 the numeric OSC 133 exit status; it never includes command text, output,
-directory data, or other terminal payload. GTK uses the existing
-`GApplication` notification bridge and desktop delivery still requires manual
-qualification. Cocoa/GLFW has no notification provider, so a qualifying
-configured completion reports `unavailable` once through the bounded host
-diagnostics. The terminal, recording, and LibKiwi boundary continue to expose
-only the ordinary typed `shell_marker` effect.
+directory data, or other terminal payload. GTK and permitted Cocoa/GLFW use
+the same bounded notification adapters as configured OSC 9 requests, and
+desktop delivery still requires separate qualification. Until Cocoa permission
+resolves or when it is denied, a qualifying completion reports the bounded
+rejected result once without retaining terminal payload. The terminal,
+recording, and LibKiwi boundary continue to expose only the ordinary typed
+`shell_marker` effect.
 
 ## OSC 8 hyperlinks
 

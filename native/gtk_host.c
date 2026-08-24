@@ -96,6 +96,7 @@ struct KiwiGtkHost {
   GtkApplication *application;
   GtkWidget *window;
   GdkSurface *surface;
+  char notification_id[64];
   KiwiGtkTerminalPresentation *primary_presentation;
   GtkWidget *tab_root;
   AdwTabView *tab_view;
@@ -123,6 +124,8 @@ struct KiwiGtkHost {
 struct KiwiGtkTerminalPresentation {
   KiwiGtkHost *host;
   GtkWidget *content;
+  GtkProgressBar *progress;
+  guint progress_pulse_source;
   KiwiGtkTerminal *terminal;
   KiwiGtkCallbacks callbacks;
   GtkIMContext *im_context;
@@ -140,6 +143,7 @@ typedef struct KiwiGtkClipboardRead {
 
 static char kiwi_gtk_error[1024];
 static GtkApplication *kiwi_gtk_application;
+static guint64 kiwi_gtk_next_notification_id;
 
 enum {
   KIWI_GTK_PRODUCT_ACTION_NEW_TAB = 1,
@@ -1187,6 +1191,16 @@ static int kiwi_gtk_terminal_presentation_enable_gl_renderer(
     return 0;
   }
   gtk_overlay_add_overlay(GTK_OVERLAY(terminal->content), area);
+  /* GTK4 overlays paint in insertion order. Keep host-owned progress above
+   * the optional GL terminal surface without allowing it to take input. */
+  if (terminal->progress != NULL) {
+    g_object_ref(terminal->progress);
+    gtk_overlay_remove_overlay(GTK_OVERLAY(terminal->content),
+                               GTK_WIDGET(terminal->progress));
+    gtk_overlay_add_overlay(GTK_OVERLAY(terminal->content),
+                            GTK_WIDGET(terminal->progress));
+    g_object_unref(terminal->progress);
+  }
   KiwiGlyphInstance cell = {0};
   cell.bg = UINT32_C(0xff12ab34);
   KiwiGtkGlCellUpdate cell_update = {
@@ -1283,9 +1297,118 @@ int kiwi_gtk_host_gl_area_submit_snapshot(KiwiGtkHost *host,
   return 0;
 }
 
+static void kiwi_gtk_terminal_progress_stop(
+    KiwiGtkTerminalPresentation *presentation) {
+  if (presentation != NULL && presentation->progress_pulse_source != 0) {
+    g_source_remove(presentation->progress_pulse_source);
+    presentation->progress_pulse_source = 0;
+  }
+}
+
+static gboolean kiwi_gtk_terminal_progress_pulse(gpointer userdata) {
+  KiwiGtkTerminalPresentation *presentation = userdata;
+  if (presentation == NULL || presentation->progress == NULL ||
+      !gtk_widget_get_visible(GTK_WIDGET(presentation->progress))) {
+    if (presentation != NULL) presentation->progress_pulse_source = 0;
+    return G_SOURCE_REMOVE;
+  }
+  gtk_progress_bar_pulse(presentation->progress);
+  return G_SOURCE_CONTINUE;
+}
+
+int kiwi_gtk_terminal_presentation_set_progress(
+    KiwiGtkTerminalPresentation *presentation, uint32_t progress, uint32_t state) {
+  if (presentation == NULL || presentation->progress == NULL || progress > 100 || state > 4) {
+    kiwi_gtk_set_error("GTK terminal progress needs a live presentation, state 0 through 4, and progress 0 through 100");
+    return 0;
+  }
+  GtkWidget *widget = GTK_WIDGET(presentation->progress);
+  kiwi_gtk_terminal_progress_stop(presentation);
+  gtk_widget_remove_css_class(widget, "error");
+  gtk_widget_remove_css_class(widget, "warning");
+  if (state == 0) {
+    gtk_widget_set_visible(widget, FALSE);
+    gtk_progress_bar_set_fraction(presentation->progress, 0.0);
+    gtk_progress_bar_set_text(presentation->progress, NULL);
+    gtk_widget_set_tooltip_text(widget, NULL);
+    return 1;
+  }
+
+  gtk_widget_set_visible(widget, TRUE);
+  gtk_progress_bar_set_show_text(presentation->progress, TRUE);
+  if (state == 3) {
+    gtk_progress_bar_set_text(presentation->progress, "Terminal task is running");
+    gtk_widget_set_tooltip_text(widget, "Terminal task is running");
+    gtk_progress_bar_pulse(presentation->progress);
+    presentation->progress_pulse_source = g_timeout_add(100,
+        kiwi_gtk_terminal_progress_pulse, presentation);
+    return 1;
+  }
+
+  gtk_progress_bar_set_fraction(presentation->progress, (double)progress / 100.0);
+  if (state == 1) {
+    char text[32];
+    g_snprintf(text, sizeof(text), "%u%%", progress);
+    gtk_progress_bar_set_text(presentation->progress, text);
+    gtk_widget_set_tooltip_text(widget, "Terminal task progress");
+  } else if (state == 2) {
+    char text[64];
+    g_snprintf(text, sizeof(text), "Terminal task failed (%u%%)", progress);
+    gtk_widget_add_css_class(widget, "error");
+    gtk_progress_bar_set_text(presentation->progress, text);
+    gtk_widget_set_tooltip_text(widget, "Terminal task failed");
+  } else {
+    char text[64];
+    g_snprintf(text, sizeof(text), "Terminal task paused (%u%%)", progress);
+    gtk_widget_add_css_class(widget, "warning");
+    gtk_progress_bar_set_text(presentation->progress, text);
+    gtk_widget_set_tooltip_text(widget, "Terminal task paused");
+  }
+  return 1;
+}
+
+int kiwi_gtk_terminal_presentation_progress_round_trip(
+    KiwiGtkTerminalPresentation *presentation) {
+  if (!kiwi_gtk_terminal_presentation_set_progress(presentation, 73, 1) ||
+      !gtk_widget_get_visible(GTK_WIDGET(presentation->progress)) ||
+      gtk_progress_bar_get_fraction(presentation->progress) != 0.73 ||
+      g_strcmp0(gtk_progress_bar_get_text(presentation->progress), "73%") != 0) {
+    kiwi_gtk_set_error("GTK terminal progress did not retain a determinate value");
+    return 0;
+  }
+  if (!kiwi_gtk_terminal_presentation_set_progress(presentation, 73, 2) ||
+      !gtk_widget_has_css_class(GTK_WIDGET(presentation->progress), "error") ||
+      g_strcmp0(gtk_progress_bar_get_text(presentation->progress),
+                 "Terminal task failed (73%)") != 0) {
+    kiwi_gtk_set_error("GTK terminal progress did not retain an error state");
+    return 0;
+  }
+  if (!kiwi_gtk_terminal_presentation_set_progress(presentation, 0, 3) ||
+      presentation->progress_pulse_source == 0) {
+    kiwi_gtk_set_error("GTK terminal progress did not retain an indeterminate state");
+    return 0;
+  }
+  if (!kiwi_gtk_terminal_presentation_set_progress(presentation, 73, 4) ||
+      presentation->progress_pulse_source != 0 ||
+      !gtk_widget_has_css_class(GTK_WIDGET(presentation->progress), "warning") ||
+      g_strcmp0(gtk_progress_bar_get_text(presentation->progress),
+                 "Terminal task paused (73%)") != 0) {
+    kiwi_gtk_set_error("GTK terminal progress did not retain a paused state");
+    return 0;
+  }
+  if (!kiwi_gtk_terminal_presentation_set_progress(presentation, 0, 0) ||
+      gtk_widget_get_visible(GTK_WIDGET(presentation->progress)) ||
+      presentation->progress_pulse_source != 0) {
+    kiwi_gtk_set_error("GTK terminal progress did not clear");
+    return 0;
+  }
+  return 1;
+}
+
 static void kiwi_gtk_terminal_presentation_dispose(
     KiwiGtkTerminalPresentation *presentation) {
   if (presentation == NULL) return;
+  kiwi_gtk_terminal_progress_stop(presentation);
   kiwi_gtk_gl_presentation_prepare_destroy(presentation->gl_presentation);
 }
 
@@ -1304,6 +1427,7 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   presentation->host = host;
   presentation->callbacks = *callbacks;
   presentation->content = gtk_overlay_new();
+  presentation->progress = GTK_PROGRESS_BAR(gtk_progress_bar_new());
   presentation->terminal = KIWI_GTK_TERMINAL(
       g_object_new(KIWI_TYPE_GTK_TERMINAL, NULL));
   gtk_widget_set_hexpand(presentation->content, TRUE);
@@ -1312,6 +1436,17 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   gtk_widget_set_vexpand(GTK_WIDGET(presentation->terminal), TRUE);
   gtk_overlay_set_child(GTK_OVERLAY(presentation->content),
                         GTK_WIDGET(presentation->terminal));
+  gtk_widget_set_halign(GTK_WIDGET(presentation->progress), GTK_ALIGN_FILL);
+  gtk_widget_set_valign(GTK_WIDGET(presentation->progress), GTK_ALIGN_START);
+  gtk_widget_set_margin_start(GTK_WIDGET(presentation->progress), 12);
+  gtk_widget_set_margin_end(GTK_WIDGET(presentation->progress), 12);
+  gtk_widget_set_margin_top(GTK_WIDGET(presentation->progress), 8);
+  gtk_widget_set_can_target(GTK_WIDGET(presentation->progress), FALSE);
+  gtk_widget_set_focusable(GTK_WIDGET(presentation->progress), FALSE);
+  gtk_widget_add_css_class(GTK_WIDGET(presentation->progress), "osd");
+  gtk_widget_set_visible(GTK_WIDGET(presentation->progress), FALSE);
+  gtk_overlay_add_overlay(GTK_OVERLAY(presentation->content),
+                          GTK_WIDGET(presentation->progress));
   g_signal_connect(presentation->terminal, "notify::width",
                    G_CALLBACK(kiwi_gtk_resize_property), presentation);
   g_signal_connect(presentation->terminal, "notify::height",
@@ -1766,6 +1901,9 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
     return NULL;
   }
   host->application = g_object_ref(kiwi_gtk_application);
+  g_snprintf(host->notification_id, sizeof(host->notification_id),
+             "kiwi-terminal-osc9-%" G_GUINT64_FORMAT,
+             ++kiwi_gtk_next_notification_id);
   host->window = gtk_application_window_new(host->application);
   gtk_window_set_default_size(GTK_WINDOW(host->window), width, height);
   gtk_window_set_title(GTK_WINDOW(host->window), title);
@@ -1797,6 +1935,10 @@ KiwiGtkHost *kiwi_gtk_host_new(const char *application_id, int width, int height
 void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
   if (host == NULL) return;
   kiwi_gtk_host_command_palette_remove(host);
+  if (host->application != NULL && host->notification_id[0] != '\0') {
+    g_application_withdraw_notification(G_APPLICATION(host->application),
+                                        host->notification_id);
+  }
   host->product_action = NULL;
   host->product_action_userdata = NULL;
   if (host->presentations != NULL) {
@@ -1909,7 +2051,7 @@ int kiwi_gtk_host_notify(KiwiGtkHost *host, const char *title, const char *body)
   }
   g_notification_set_body(notification, body);
   g_application_send_notification(G_APPLICATION(host->application),
-                                  "kiwi-terminal-osc9", notification);
+                                  host->notification_id, notification);
   g_object_unref(notification);
   return 1;
 }

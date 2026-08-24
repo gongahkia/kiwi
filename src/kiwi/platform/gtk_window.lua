@@ -103,6 +103,8 @@ void kiwi_gtk_terminal_presentation_drawable_size(const KiwiGtkTerminalPresentat
 double kiwi_gtk_terminal_presentation_content_scale(const KiwiGtkTerminalPresentation* presentation);
 int kiwi_gtk_terminal_presentation_set_text_input_caret(KiwiGtkTerminalPresentation* presentation, int x, int y, int width, int height);
 int kiwi_gtk_terminal_presentation_set_pointer_shape(KiwiGtkTerminalPresentation* presentation, const char* shape);
+int kiwi_gtk_terminal_presentation_set_progress(KiwiGtkTerminalPresentation* presentation, uint32_t progress, uint32_t state);
+int kiwi_gtk_terminal_presentation_progress_round_trip(KiwiGtkTerminalPresentation* presentation);
 int kiwi_gtk_terminal_presentation_accessibility_update(KiwiGtkTerminalPresentation* presentation, const char* text, size_t text_bytes, uint32_t character_count, int32_t caret_offset, int32_t selection_start, int32_t selection_end, int focused, const char* title);
 void kiwi_gtk_terminal_presentation_set_title(KiwiGtkTerminalPresentation* presentation, const char* title);
 int kiwi_gtk_host_request_gl_area_render(KiwiGtkHost* host);
@@ -660,6 +662,24 @@ function Window:notify(title, body)
   assert(type(title) == "string" and type(body) == "string", "GTK notification needs strings")
   if native.kiwi_gtk_host_notify(self.handle, title, body) ~= 0 then return true end
   return false, "platform-error"
+end
+
+function Window:set_progress(progress, state)
+  assert(type(progress) == "number" and progress % 1 == 0 and progress >= 0 and progress <= 100,
+    "GTK progress must be an integer from 0 through 100")
+  assert(type(state) == "number" and state % 1 == 0 and state >= 0 and state <= 4,
+    "GTK progress state must be an integer from 0 through 4")
+  local presentation = native_presentation(self)
+  if presentation == nil then return false, "GTK terminal presentation is unavailable" end
+  if native.kiwi_gtk_terminal_presentation_set_progress(presentation, progress, state) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
+end
+
+function Window:progress_round_trip()
+  local presentation = native_presentation(self)
+  if presentation == nil then return nil, "GTK terminal presentation is unavailable" end
+  if native.kiwi_gtk_terminal_presentation_progress_round_trip(presentation) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_gtk_host_last_error())
 end
 
 function Window:open_uri(uri)

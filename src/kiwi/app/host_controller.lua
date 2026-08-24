@@ -268,6 +268,7 @@ function Controller.run(window, host, options)
     end
     local render_options = renderer_options(options, configuration)
     local clipboard = Clipboard.new(window)
+    if host.configure_host_effects then host.configure_host_effects(window, configuration) end
     configuration.host_effects = require("kiwi.app.host_effects").new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
     local active_session
@@ -704,6 +705,7 @@ function Controller.run(window, host, options)
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
       local candidate_actions = ProductActions.new(reloaded.keybindings, glfw)
+      if host.configure_host_effects then host.configure_host_effects(window, reloaded) end
       reloaded.host_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
       local previous_font = font
       local font_changed = reloaded.font_size ~= configuration.font_size

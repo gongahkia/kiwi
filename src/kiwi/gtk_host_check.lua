@@ -21,6 +21,8 @@ assert(type(GtkWindow.bridge.kiwi_gtk_host_gl_area_rendered_revision) == "cdata"
 assert(type(GtkWindow.bridge.kiwi_gtk_host_gl_area_upload_metrics) == "cdata", "GTK GL renderer metrics ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_gl_area_submit_snapshot) == "cdata", "GTK GL snapshot ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_notify) == "cdata", "GTK notification ABI is unavailable")
+assert(type(GtkWindow.bridge.kiwi_gtk_terminal_presentation_set_progress) == "cdata", "GTK progress ABI is unavailable")
+assert(type(GtkWindow.bridge.kiwi_gtk_terminal_presentation_progress_round_trip) == "cdata", "GTK progress smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_text_input_inject_smoke) == "cdata", "GTK text-input smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_key_text_inject_smoke) == "cdata", "GTK key/text smoke ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_set_product_action_handler) == "cdata", "GTK product-action ABI is unavailable")

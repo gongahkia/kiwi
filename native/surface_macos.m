@@ -2,6 +2,7 @@
 #import <AppKit/AppKit.h>
 #import <Carbon/Carbon.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <UserNotifications/UserNotifications.h>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -105,10 +106,21 @@ static KiwiCocoaMenuRegistration *kiwi_cocoa_active_menu_registration;
 static NSMutableDictionary *kiwi_cocoa_automation_registrations;
 static KiwiCocoaAutomationDispatcher *kiwi_cocoa_automation_dispatcher;
 static KiwiCocoaAutomationRegistration *kiwi_cocoa_active_automation_registration;
+static NSMutableDictionary *kiwi_cocoa_notification_registrations;
 static NSMutableDictionary *kiwi_cocoa_progress_registrations;
 static NSMutableDictionary *kiwi_cocoa_command_palette_registrations;
 static NSWindow *kiwi_cocoa_tab_group_leader;
 static KiwiCocoaStandaloneWindow *kiwi_cocoa_standalone_windows;
+static NSUInteger kiwi_cocoa_next_notification_identifier;
+
+enum {
+  KIWI_COCOA_NOTIFICATION_PERMISSION_UNKNOWN,
+  KIWI_COCOA_NOTIFICATION_PERMISSION_REQUESTING,
+  KIWI_COCOA_NOTIFICATION_PERMISSION_ALLOWED,
+  KIWI_COCOA_NOTIFICATION_PERMISSION_DENIED,
+};
+
+static int kiwi_cocoa_notification_permission;
 
 static NSString *const KIWI_COCOA_TOOLBAR_IDENTIFIER = @"io.github.gongahkia.kiwi.toolbar";
 static NSString *const KIWI_COCOA_TOOLBAR_NEW_TAB = @"io.github.gongahkia.kiwi.toolbar.new-tab";
@@ -168,6 +180,129 @@ static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
 
 static NSWindow *kiwi_cocoa_native_window(GLFWwindow *window) {
   return window == NULL ? nil : glfwGetCocoaWindow(window);
+}
+
+static void kiwi_cocoa_set_notification_permission(int permission) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    kiwi_cocoa_notification_permission = permission;
+  });
+}
+
+static void kiwi_cocoa_request_notification_permission(void) {
+  if (kiwi_cocoa_notification_permission == KIWI_COCOA_NOTIFICATION_PERMISSION_REQUESTING ||
+      kiwi_cocoa_notification_permission == KIWI_COCOA_NOTIFICATION_PERMISSION_ALLOWED ||
+      kiwi_cocoa_notification_permission == KIWI_COCOA_NOTIFICATION_PERMISSION_DENIED) return;
+  kiwi_cocoa_notification_permission = KIWI_COCOA_NOTIFICATION_PERMISSION_REQUESTING;
+  UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+  [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings) {
+    if (settings.authorizationStatus == UNAuthorizationStatusAuthorized) {
+      kiwi_cocoa_set_notification_permission(KIWI_COCOA_NOTIFICATION_PERMISSION_ALLOWED);
+      return;
+    }
+    if (settings.authorizationStatus != UNAuthorizationStatusNotDetermined) {
+      kiwi_cocoa_set_notification_permission(KIWI_COCOA_NOTIFICATION_PERMISSION_DENIED);
+      return;
+    }
+    [center requestAuthorizationWithOptions:UNAuthorizationOptionAlert
+                          completionHandler:^(BOOL granted, NSError *error) {
+      (void)error;
+      kiwi_cocoa_set_notification_permission(granted
+          ? KIWI_COCOA_NOTIFICATION_PERMISSION_ALLOWED
+          : KIWI_COCOA_NOTIFICATION_PERMISSION_DENIED);
+    }];
+  }];
+}
+
+static BOOL kiwi_cocoa_valid_notification_text(const char *text, size_t maximum,
+                                                BOOL allow_empty) {
+  if (text == NULL || (!allow_empty && text[0] == '\0')) return NO;
+  size_t length = strlen(text);
+  if (length > maximum || strchr(text, '\r') != NULL || strchr(text, '\n') != NULL) return NO;
+  NSString *value = [[NSString alloc] initWithBytes:text length:length
+                                             encoding:NSUTF8StringEncoding];
+  if (value == nil) return NO;
+  [value release];
+  return YES;
+}
+
+static NSValue *kiwi_cocoa_notification_window_key(GLFWwindow *window) {
+  NSWindow *native_window = kiwi_cocoa_native_window(window);
+  return native_window == nil ? nil : [NSValue valueWithPointer:native_window];
+}
+
+static NSString *kiwi_cocoa_notification_identifier(GLFWwindow *window) {
+  NSValue *key = kiwi_cocoa_notification_window_key(window);
+  if (key == nil) return nil;
+  if (kiwi_cocoa_notification_registrations == nil) {
+    kiwi_cocoa_notification_registrations = [[NSMutableDictionary alloc] init];
+  }
+  NSString *identifier = [kiwi_cocoa_notification_registrations objectForKey:key];
+  if (identifier != nil) return identifier;
+  identifier = [NSString stringWithFormat:@"io.github.gongahkia.kiwi.osc9.%lu",
+                (unsigned long)++kiwi_cocoa_next_notification_identifier];
+  [kiwi_cocoa_notification_registrations setObject:identifier forKey:key];
+  return identifier;
+}
+
+static void kiwi_cocoa_notification_remove(GLFWwindow *window) {
+  NSValue *key = kiwi_cocoa_notification_window_key(window);
+  NSString *identifier = key == nil ? nil :
+      [kiwi_cocoa_notification_registrations objectForKey:key];
+  if (identifier != nil) {
+    NSArray *identifiers = [NSArray arrayWithObject:identifier];
+    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+    [center removePendingNotificationRequestsWithIdentifiers:identifiers];
+    [center removeDeliveredNotificationsWithIdentifiers:identifiers];
+  }
+  if (key != nil && kiwi_cocoa_notification_registrations != nil) {
+    [kiwi_cocoa_notification_registrations removeObjectForKey:key];
+  }
+}
+
+int kiwi_cocoa_notification_prepare(void) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa notification authorization needs the main thread");
+      return 0;
+    }
+    kiwi_cocoa_request_notification_permission();
+    return 1;
+  }
+}
+
+int kiwi_cocoa_notify(GLFWwindow *window, const char *title, const char *body) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || kiwi_cocoa_native_window(window) == nil ||
+        !kiwi_cocoa_valid_notification_text(title, 128, NO) ||
+        !kiwi_cocoa_valid_notification_text(body, 1024, YES)) {
+      kiwi_surface_set_error("Cocoa notification needs a main-thread window and valid bounded UTF-8 text");
+      return 0;
+    }
+    if (kiwi_cocoa_notification_permission != KIWI_COCOA_NOTIFICATION_PERMISSION_ALLOWED) {
+      kiwi_surface_set_error(kiwi_cocoa_notification_permission == KIWI_COCOA_NOTIFICATION_PERMISSION_DENIED
+          ? "Cocoa notification permission is denied"
+          : "Cocoa notification permission is pending");
+      return 0;
+    }
+    NSString *identifier = kiwi_cocoa_notification_identifier(window);
+    NSString *title_value = [NSString stringWithUTF8String:title];
+    NSString *body_value = [NSString stringWithUTF8String:body];
+    if (identifier == nil || title_value == nil || body_value == nil) {
+      kiwi_surface_set_error("Cocoa notification could not create a bounded request");
+      return 0;
+    }
+    UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+    content.title = title_value;
+    content.body = body_value;
+    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:identifier
+        content:content trigger:nil];
+    [[UNUserNotificationCenter currentNotificationCenter]
+        addNotificationRequest:request withCompletionHandler:^(NSError *error) {
+          (void)error;
+        }];
+    [content release];
+    return 1;
+  }
 }
 
 static BOOL kiwi_cocoa_window_is_registered_standalone(NSWindow *window) {
@@ -1022,6 +1157,12 @@ int kiwi_cocoa_command_palette_invoke_smoke(GLFWwindow *window) {
 void kiwi_cocoa_progress_remove_bridge(GLFWwindow *window) {
   @autoreleasepool {
     kiwi_cocoa_progress_remove(window);
+  }
+}
+
+void kiwi_cocoa_notification_remove_bridge(GLFWwindow *window) {
+  @autoreleasepool {
+    kiwi_cocoa_notification_remove(window);
   }
 }
 
