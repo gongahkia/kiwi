@@ -98,6 +98,8 @@ tmux 3.7b capture reaches the marker but also contains theme, version, and
 application escape-key controls outside Kiwi's declared subset. The
 `tmux-client-queries` fixture records that boundary; the probe remains failed
 until the necessary controls have deliberately specified behavior.
+The [protocol demand decision ledger](PROTOCOL_DEMAND_LEDGER.md) records why
+each observed control is resolved, deferred, or routed to separate evidence.
 
 The standalone entry intentionally declares `colors#256`, `Tc`, `RGB`,
 `setrgbf`, and `setrgbb`; it declares DEC Special Graphics line drawing through

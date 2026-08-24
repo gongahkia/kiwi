@@ -23,6 +23,10 @@ screen, parser counters, unknown-control counters, and queued responses must
 match. A skipped desktop or remote check is evidence of an unavailable
 prerequisite, never a passing qualification.
 
+Observed candidates and their admit/defer decisions are retained in the
+[protocol demand decision ledger](PROTOCOL_DEMAND_LEDGER.md). It prevents an
+unknown control in a capture from becoming an automatic parser or terminfo task.
+
 ## Change rule
 
 For every application failure or requested protocol:
