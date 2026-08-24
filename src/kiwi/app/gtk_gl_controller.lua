@@ -47,6 +47,21 @@ local function dimensions(window, font)
   return math.max(1, math.floor(width / font.cell_width)), math.max(1, math.floor(height / font.cell_height))
 end
 
+-- GTK can briefly allocate no drawable space while realizing, minimizing, or
+-- reparenting the GL area. Keep the existing terminal grid until it has a
+-- valid allocation again; terminal and PTY resize both require positive rows.
+local function next_grid(window, font, columns, rows)
+  local next_columns, next_rows = dimensions(window, font)
+  if next_columns == nil then return nil end
+  return {
+    columns = next_columns,
+    rows = next_rows,
+    resize = window.resized or next_columns ~= columns or next_rows ~= rows,
+  }
+end
+
+Controller.next_grid = next_grid
+
 local function content_scale(window)
   local xscale, yscale = window:content_scale()
   return math.max(xscale, yscale)
@@ -338,7 +353,8 @@ function Controller.run(window, host, options)
       command_line_overrides = options.configuration_overrides,
     })
     font = new_font(window, configuration)
-    local columns, rows = assert(dimensions(window, font), "window has no drawable size")
+    local columns, rows = dimensions(window, font)
+    assert(columns ~= nil, "window has no drawable size")
     local function new_terminal(child_columns, child_rows)
       return VT.new({
         columns = child_columns,
@@ -682,28 +698,36 @@ function Controller.run(window, host, options)
       end
       if window:should_close() then break end
 
-      if await_rendered_target(window:time()) then break end
-
       local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
-      local new_columns, new_rows = dimensions(window, font)
-      if scale_changed then
-        local previous_font = font
-        next_revision = consumer.revision
-        consumer:destroy()
-        consumer = nil
-        font = new_font(window, configuration)
-        terminal:set_cell_metrics(font.cell_width, font.cell_height)
-        new_columns, new_rows = assert(dimensions(window, font), "window has no drawable size")
-        previous_font:destroy()
-        window.resized = true
+      local grid = next_grid(window, font, columns, rows)
+      if scale_changed and grid ~= nil then
+        local replacement_font = new_font(window, configuration)
+        local replacement_grid = next_grid(window, replacement_font, columns, rows)
+        if replacement_grid == nil then
+          replacement_font:destroy()
+          grid = nil
+        else
+          local previous_font = font
+          next_revision = consumer.revision
+          consumer:destroy()
+          consumer = nil
+          font = replacement_font
+          terminal:set_cell_metrics(font.cell_width, font.cell_height)
+          previous_font:destroy()
+          window.resized = true
+          replacement_grid.resize = true
+          grid = replacement_grid
+        end
       end
-      if window.resized or new_columns ~= columns or new_rows ~= rows then
-        columns, rows = new_columns, new_rows
+      if grid ~= nil and grid.resize then
+        columns, rows = grid.columns, grid.rows
         terminal:resize(columns, rows)
         pty:resize(columns, rows)
         window.resized = false
         recreate_consumer()
       end
+
+      if grid ~= nil and await_rendered_target(window:time()) then break end
 
       local output = pty:read_available(read_budget)
       if #output > 0 then
@@ -747,7 +771,7 @@ function Controller.run(window, host, options)
       sync_text_input_caret()
 
       now = window:time()
-      if render_target_revision == nil and not window.minimized and consumer:needs_render(now) then
+      if grid ~= nil and render_target_revision == nil and not window.minimized and consumer:needs_render(now) then
         local rendered, render_reason = consumer:render(state, now, window.debug_dirty, window.debug_boundaries)
         if rendered then
           frames = frames + 1
