@@ -37,6 +37,9 @@ void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_command_palette_remove(void* window);
 int kiwi_cocoa_command_palette_invoke_smoke(void* window);
+int kiwi_cocoa_notification_prepare(void);
+int kiwi_cocoa_notify(void* window, const char* title, const char* body);
+void kiwi_cocoa_notification_remove_bridge(void* window);
 int kiwi_cocoa_progress_set(void* window, uint32_t progress, uint32_t state);
 int kiwi_cocoa_progress_round_trip(void* window);
 void kiwi_cocoa_progress_remove_bridge(void* window);
@@ -529,6 +532,24 @@ function Window:cocoa_command_palette_invoke_smoke()
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:cocoa_prepare_notifications()
+  if ffi.os ~= "OSX" then return nil, "Cocoa notifications are unavailable on this platform" end
+  if native.kiwi_cocoa_notification_prepare() ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_notify(title, body)
+  if ffi.os ~= "OSX" then return nil, "Cocoa notifications are unavailable on this platform" end
+  assert(type(title) == "string" and #title > 0 and #title <= 128
+    and not title:find("\0", 1, true) and not title:find("\r", 1, true) and not title:find("\n", 1, true),
+    "Cocoa notification title must be bounded NUL-free single-line text")
+  assert(type(body) == "string" and #body <= 1024
+    and not body:find("\0", 1, true) and not body:find("\r", 1, true) and not body:find("\n", 1, true),
+    "Cocoa notification body must be bounded NUL-free single-line text")
+  if native.kiwi_cocoa_notify(self.handle, title, body) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 function Window:cocoa_set_progress(progress, state)
   if ffi.os ~= "OSX" then return nil, "Cocoa progress is unavailable on this platform" end
   assert(type(progress) == "number" and progress % 1 == 0 and progress >= 0 and progress <= 100, "Cocoa progress must be an integer from 0 through 100")
@@ -663,6 +684,7 @@ function Window:destroy()
       self.cursors[shape] = nil
     end
     if ffi.os == "OSX" then native.kiwi_cocoa_window_tabs_remove_bridge(self.handle) end
+    if ffi.os == "OSX" then native.kiwi_cocoa_notification_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_progress_remove_bridge(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_command_palette_remove(self.handle) end
     if ffi.os == "OSX" then native.kiwi_cocoa_menu_remove(self.handle) end

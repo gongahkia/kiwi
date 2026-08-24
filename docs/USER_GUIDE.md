@@ -362,11 +362,17 @@ Neither option permits clears, primary/secondary clipboard access, rich data,
 or automatic synchronization. `osc9-notifications` and
 `osc9-progress` are also `off` by default. Setting either to `system` allows a
 validated typed request to reach a host that implements it. GTK currently
-submits notifications through the desktop notification service; the desktop may
-decline to show them. On macOS, `osc9-progress = system` shows a per-window
-native titlebar progress indicator: states `0`/`1`/`2`/`3`/`4` mean
-clear/normal/error/indeterminate/paused. Cocoa notification delivery and GTK progress are unavailable,
-so those requests report unavailable rather than succeeding silently. Kiwi
+submits notifications through the desktop notification service with a
+window-owned identifier; the desktop may decline to show them. GTK progress
+uses a non-interactive accessible progress bar above its terminal presentation:
+states `0`/`1`/`2`/`3`/`4` mean clear/normal/error/indeterminate/paused. On
+macOS, `osc9-progress = system` shows the same state in a per-window native
+titlebar indicator. When either notification policy is enabled, macOS asks for
+alert permission from that trusted configuration choice, not from a terminal
+escape sequence. Once granted, Cocoa sends one replaceable local notification
+per window and removes it on teardown; system settings or Focus can still
+suppress or delay delivery. Requests arriving before permission resolves, or
+after it is denied, are rejected without retaining their terminal body. Kiwi
 never logs the terminal-supplied notification text.
 
 `notify-on-command-finish` is separate from OSC 9. It consumes only Kiwi's
@@ -379,8 +385,9 @@ host-observed `C` and `D` markers, so it is advisory rather than an audited
 process-duration measurement. A qualifying completion submits a fixed local
 message (with an optional numeric exit status) to the same host notification
 bridge as configured OSC 9 notifications. GTK can submit it to the desktop
-notification service; Cocoa/GLFW notification delivery is currently
-unavailable and reports that result once rather than succeeding silently.
+notification service; a permitted Cocoa/GLFW host can submit its own local
+notification. Desktop policy can still suppress either request, and a Cocoa
+permission-pending or denied request reports its bounded rejected result once.
 `KIWI_NOTIFY_ON_COMMAND_FINISH` and
 `KIWI_NOTIFY_ON_COMMAND_FINISH_AFTER` accept the same values for a single
 launch.
