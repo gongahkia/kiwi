@@ -90,6 +90,15 @@ launch helper, which uses `execvpe` on Linux and PATH-aware `execve` on macOS.
 The explicit `kiwi-ssh` fallback instead uses `TERM=xterm-256color` with
 `COLORTERM=truecolor` when it cannot prepare the remote entry.
 
+tmux deliberately assigns an inner `TERM` such as `tmux-256color`, so an inner
+`tput setrgbf` result is not evidence about Kiwi's outer terminal contract.
+The native tmux probe instead emits one fixed direct-RGB SGR marker from a pane,
+then verifies both that byte sequence and the replay result. Its current Linux
+tmux 3.7b capture reaches the marker but also contains theme, version, and
+application escape-key controls outside Kiwi's declared subset. The
+`tmux-client-queries` fixture records that boundary; the probe remains failed
+until the necessary controls have deliberately specified behavior.
+
 The standalone entry intentionally declares `colors#256`, `Tc`, `RGB`,
 `setrgbf`, and `setrgbb`; it declares DEC Special Graphics line drawing through
 `smacs`, `rmacs`, and `acsc`, but does not declare italic SGR, hyperlinks,
@@ -325,10 +334,12 @@ or mixed queries fail as one bounded `DCS 0 + r` response.
 
 The promotion does not make a general visual or deployment claim. A bounded
 macOS Metal framebuffer check observes a known non-palette terminal RGB
-background, the native child contract replays cleanly under the promoted
-environment, and tmux 3.7b preserves a nested direct-RGB contract on the
-current macOS qualification host. Btop is not installed here, so its earlier
-application-stream capture has not been requalified under the new TERM value.
+background and the native child contract replays cleanly under the promoted
+environment. Earlier macOS tmux evidence used the inner `tput` criterion that
+the current probe supersedes; it must be rerun with the direct-RGB-marker and
+clean-replay criteria before it can be treated as current macOS qualification.
+Btop is not installed here, so its earlier application-stream capture has not
+been requalified under the new TERM value.
 On 2026-08-23 an isolated loopback OpenSSH server accepted a fresh client key;
 `kiwi-ssh` installed the compiled private entry and its actual remote probe
 passed `infocmp`, `tput colors=256`, and `tput setrgbf`. That exercises the
@@ -540,7 +551,7 @@ fidelity or general application compatibility.
 | Native keyboard TUI | `KIWI_MAX_FRAMES=120 make run ARGS='--record <temporary>/nvim.jsonl -- /opt/homebrew/bin/nvim -u NONE -n -c "sleep 200m" -c "qa!"'`; `make replay REPLAY_ARGS=--chunk-invariant REPLAY=<temporary>/nvim.jsonl` | Passed on macOS arm64 with Neovim 0.12.4 on 2026-08-22: it emitted the Kitty query `CSI ? u`, a valid progressive-enhancement set `CSI > 3 u`, and `CSI < u`; the most recent run replayed 5,231 bytes / 4,886 actions with zero parser errors, ignored actions, or unknown controls under all recorded chunk layouts. This proves negotiated mode handling, not physical-key usability. |
 | Daily-driver application corpus | `make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report <temporary>/compatibility.json'` | Passed on macOS arm64 on 2026-08-23 with the GLFW/Cocoa host: local terminfo, tmux 3.7b nesting, Bash/Zsh/fish/Nushell prompt metadata, native shell-metadata and OSC 8 recordings, the private clipboard bridge, physical RGB readback, Neovim Kitty-keyboard negotiation, Vim mouse-mode startup, and `top` all passed. A separate run against an isolated loopback OpenSSH server also passed the private-terminfo probe. The privacy-bounded report retained no terminal, shell, clipboard, recording, destination, or connection-option contents; its network field explicitly recorded the host-redacted controlled SSH probe. This consolidates bounded application-stream evidence; it does not qualify interactive input, visual fidelity, an external or Linux remote deployment, or a Linux desktop. |
 | Native AT-SPI provider | `make accessibility-provider-smoke` | Passed structurally on 2026-08-17: the live provider completed registry `Socket.Embed`; an external D-Bus client found its Kiwi application root and terminal child, read the child process's OSC 2 title as the terminal accessible name, read the bounded sentinel viewport, observed a positive character count, and received a `TextChanged` event. This is protocol evidence, not a screen-reader usability certification. |
-| Local tmux | `TERM=xterm-kiwi COLORTERM=truecolor TERMINFO=.build/terminfo tmux -L kiwi-evidence new-session ...`; capture its pane and run `tput setrgbf 1 2 3` | Passed on macOS arm64 on 2026-08-22 with tmux 3.7b: the inner session reported `TERM=tmux-256color`, `COLORTERM=truecolor`, `tput colors=256`, and a successful direct-RGB `tput` command. This is nested protocol evidence, not a pixel comparison. |
+| Local tmux | `make daily-driver-compatibility` or `make conformance-evidence`; the pane emits a fixed direct-RGB marker and the recording is replayed with chunk invariance | Linux tmux 3.7b reached the marker on 2026-08-24, proving outer-byte pass-through, but replay reported unsupported CSI controls. The minimal `tmux-client-queries` fixture records the four distinct controls; pixel geometry is handled when replay records cell metrics, while theme/version/application-key controls retain no behavior. Earlier macOS `tput` evidence is not equivalent to this criterion and must be rerun. This is protocol evidence, not a pixel comparison. |
 | vttest | `make vttest` in an interactive graphical session | No access in this environment: `vttest` is not installed. Record selected case names and visual observations before changing a claim. |
 | SSH | `make kiwi-ssh SSH_ARGS='--probe --ssh-option Port=2222 -- <controlled-host>'`, then `infocmp -x xterm-kiwi; tput colors; tput setrgbf 1 2 3` | The deterministic suite verifies upload and launch ordering against local SSH/SCP stubs, including preservation of the `tic` directory path. On macOS arm64 on 2026-08-23, an isolated loopback OpenSSH server accepted a fresh client key; Kiwi uploaded the compiled private entry and the actual remote probe passed `infocmp`, `tput colors=256`, and `tput setrgbf`. This qualifies the launcher path against OpenSSH on the same host, not a Linux or external remote deployment. |
 

@@ -231,6 +231,10 @@ function Window:set_input_handlers(on_text, on_key, on_pointer, on_focus)
   self.on_focus = on_focus
 end
 
+function Window:clear_input_handlers()
+  self:set_input_handlers(nil, nil, nil, nil)
+end
+
 function Window:set_pointer_shape(shape)
   local cursor_shape = glfw_pointer_shapes[shape]
   if cursor_shape == nil then return false, "unsupported-pointer-shape" end

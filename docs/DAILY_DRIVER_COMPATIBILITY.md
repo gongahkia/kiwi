@@ -26,8 +26,9 @@ enough to support an interactive terminal behavior.
 | Local reproducible release archive | supported | supported | `make release-check` rebuilds, compares, checksums, extracts, and invokes the release launcher | **Partial:** macOS launcher is deterministically ad-hoc signed only; Developer ID signing and notarization are absent. |
 | Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and no Intel macOS result. |
 | Resize and clipboard bridge | GLFW and GTK4 adapters | GLFW Cocoa plus private Cocoa pasteboard smoke; GTK bounded clipboard bridge | `make cocoa-smoke`; `make daily-driver-compatibility COMPAT_ARGS='--host gtk'` | **Partial:** Linux public clipboard behavior requires manual user validation. |
+| Presentation lifecycle | the WGPU presenter checks the current drawable size before every surface acquisition and reconfigures on a size change; host callbacks are detached before PTY/session teardown | Cocoa/Metal route needs current native verification | `make test`; `make device-loss-sim`; `make device-soak-native`; GTK Wayland/X11 and Cocoa smoke routes | **Partial:** deterministic lifecycle coverage includes zero-size drawables, missed resize notifications, configured recovery, and callback teardown. Linux WGPU device-loss simulation is available; GTK Wayland/X11, physical fractional-scale/monitor/occlusion transitions, and all current macOS results remain separately unqualified. Framebuffer readback is not colour-management evidence. |
 | Image composition | native surface smoke when a display is available | native Metal surface smoke | `make kitty-graphics-smoke`, `make kitty-animation-smoke`, `make kitty-framebuffer-smoke` | **Partial:** framebuffer readback asserts rendered PNG pixels and GIF/APNG red/blue frame changes; real application images still need manual qualification. |
-| Terminal RGB composition | native visual evidence requires a graphical session | Metal framebuffer readback | `make truecolour-framebuffer-smoke` | **Partial:** macOS arm64 readback observed the controlled terminal RGB background on 2026-08-22, and the native direct-RGB child plus tmux 3.7b contract probes passed. This remains compositor/protocol evidence only; colour-managed display output, a real RGB TUI under `xterm-kiwi` (Btop is unavailable), SSH, and Linux native evidence remain unqualified. |
+| Terminal RGB composition | native visual evidence requires a graphical session | Metal framebuffer readback | `make truecolour-framebuffer-smoke`; `make daily-driver-compatibility` | **Partial:** macOS arm64 readback observed the controlled terminal RGB background on 2026-08-22. On Linux, tmux 3.7b delivered a fixed direct-RGB marker, but replay also observed unsupported theme, version, and application-key controls; the current tmux gate therefore fails rather than treating byte pass-through as full compatibility. The earlier macOS tmux `tput` probe must be rerun using this stricter criterion. Colour-managed display output, a real RGB TUI under `xterm-kiwi` (Btop is unavailable), controlled SSH, and Linux native framebuffer evidence remain unqualified. |
 
 ## Desktop/session contract
 
@@ -147,6 +148,18 @@ workflow. A successful run is required evidence, not an implicit support claim.
 At this revision, the recorded macOS native evidence is Apple Silicon; the
 Intel job and a real Linux desktop runner are the mechanisms for collecting the
 missing qualification.
+
+## Current qualification observations
+
+On 2026-08-24, the Linux x86_64 local route passed the deterministic presentation
+tests, `make device-loss-sim` (one configured WGPU retry after a simulated loss),
+and `make device-soak-native` (bounded resize/minimize/restore cycling). The
+default GTK WGPU and experimental GtkGLArea Wayland/X11 smoke routes, including
+their multi-window and native-tab close variants, also passed after controller
+teardown began detaching input callbacks before controller deregistration. This
+is targeted Linux structural evidence only: no physical fractional-scale,
+monitor-move, occlusion, colour-management, interactive input, controlled SSH,
+or macOS result was collected in this run.
 
 ## Required manual qualification
 
