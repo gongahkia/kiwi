@@ -12,6 +12,7 @@ Actions.maximum_palette_directives = 64
 Actions.maximum_palette_entry_bytes = 512
 Actions.maximum_palette_title_bytes = 128
 Actions.maximum_palette_description_bytes = 256
+Actions.maximum_session_target_entries = 15
 
 local known_actions = {
   ["command-palette"] = true,
@@ -23,8 +24,10 @@ local known_actions = {
   ["reload-config"] = true,
   ["move-session-new-window"] = true,
   ["move-session-next-window"] = true,
+  ["move-session-select-window"] = true,
   ["duplicate-session-new-window"] = true,
   ["duplicate-session-next-window"] = true,
+  ["duplicate-session-select-window"] = true,
   ["split-down"] = true,
   ["split-right"] = true,
 }
@@ -37,9 +40,9 @@ local palette_catalog = {
   { action = "split-right", title = "Split Right", description = "Create a pane to the right of the active pane." },
   { action = "split-down", title = "Split Down", description = "Create a pane below the active pane." },
   { action = "move-session-new-window", title = "Move Session to New Window", description = "Move the active live terminal session into a new window." },
-  { action = "move-session-next-window", title = "Move Session to Next Window", description = "Move the active live terminal session into the next Kiwi window." },
+  { action = "move-session-select-window", title = "Move Session to Window…", description = "Choose a Kiwi window for the active live terminal session." },
   { action = "duplicate-session-new-window", title = "Duplicate Session to New Window", description = "Open a fresh terminal session in a new window." },
-  { action = "duplicate-session-next-window", title = "Duplicate Session to Next Window", description = "Open a fresh terminal session in the next Kiwi window." },
+  { action = "duplicate-session-select-window", title = "Duplicate Session to Window…", description = "Choose a Kiwi window for a fresh terminal session." },
   { action = "open-configuration", title = "Open Configuration", description = "Open the active Kiwi configuration as text." },
   { action = "reload-config", title = "Reload Configuration", description = "Reload Kiwi's configuration and trusted theme data." },
 }
@@ -49,9 +52,9 @@ local default_specs = {
   "ctrl+shift+t=new-tab",
   "ctrl+shift+n=new-window",
   "ctrl+shift+m=move-session-new-window",
-  "ctrl+shift+alt+m=move-session-next-window",
+  "ctrl+shift+alt+m=move-session-select-window",
   "ctrl+shift+d=duplicate-session-new-window",
-  "ctrl+shift+alt+d=duplicate-session-next-window",
+  "ctrl+shift+alt+d=duplicate-session-select-window",
   "ctrl+shift+w=close-pane",
   "ctrl+shift+enter=split-right",
   "ctrl+shift+j=split-down",
@@ -109,6 +112,29 @@ local function valid_palette_text(value, maximum, required)
     if byte < 0x20 or byte == 0x7f then return false end
   end
   return true
+end
+
+function Actions.session_target_index(action)
+  if type(action) ~= "string" then return nil end
+  local index = action:match("^session%-target%-(%d+)$")
+  index = index and tonumber(index) or nil
+  if index == nil or index < 1 or index > Actions.maximum_session_target_entries or index % 1 ~= 0 then return nil end
+  return index
+end
+
+function Actions.session_target_entries(targets, operation)
+  assert(type(targets) == "table" and #targets > 0 and #targets <= Actions.maximum_session_target_entries, "session target chooser needs one through " .. Actions.maximum_session_target_entries .. " targets")
+  assert(operation == "move" or operation == "duplicate", "session target chooser needs a known operation")
+  local entries = {}
+  for index, target in ipairs(targets) do
+    assert(type(target) == "table" and valid_palette_text(target.title, Actions.maximum_palette_title_bytes, true), "session target chooser has an invalid target title")
+    entries[index] = {
+      action = "session-target-" .. index,
+      description = operation == "move" and "Move the active live terminal session here." or "Create a fresh terminal session here.",
+      title = target.title,
+    }
+  end
+  return entries
 end
 
 local function palette_parse_error(line, message)

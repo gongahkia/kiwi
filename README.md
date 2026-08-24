@@ -177,6 +177,7 @@ make cocoa-menu-smoke                   # macOS global-menu New Tab action throu
 make cocoa-toolbar-smoke                # macOS unified titlebar-toolbar action through the live controller
 make cocoa-cwd-smoke                    # macOS active local/remote OSC 7 titlebar proxy-URL lifecycle
 make cocoa-palette-smoke                # macOS searchable native command-palette callback smoke
+make gtk-session-target-smoke           # GTK bounded destination chooser callback smoke
 make cocoa-automation-smoke             # macOS staged-bundle bounded Apple-event action smoke
 make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
 make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
@@ -279,9 +280,10 @@ new GLFW/Metal controller in the AppKit tab group. `Ctrl+Shift+Enter` creates
 a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
 `Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
 `Ctrl+Shift+N` creates a same-process default-shell window; `Ctrl+Shift+M`
-moves the active live session to a new window, and `Ctrl+Shift+Alt+M` moves it
-to the next open window as a tab. `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` create
-fresh default-shell counterparts. Each visible pane has its own terminal and
+moves the active live session to a new window, and `Ctrl+Shift+Alt+M` opens a
+bounded chooser for an existing Kiwi window. `Ctrl+Shift+D` and
+`Ctrl+Shift+Alt+D` create fresh default-shell counterparts, with the latter
+also choosing its destination. Each visible pane has its own terminal and
 PTY, is resized to its cell-layout rectangle, and is rendered into a scissored
 viewport in one shared WGPU frame. Primary-clicking a pane focuses it before
 pointer input is routed to that terminal. Inactive tabs continue to service

@@ -47,9 +47,11 @@ function Manager.new(run_window, options, dependencies)
   dependencies = dependencies or {}
   local maximum_windows = options.maximum_windows or tonumber(os.getenv("KIWI_MAX_WINDOWS")) or 16
   positive_integer(maximum_windows, "live window manager maximum windows")
+  assert(maximum_windows <= 16, "live window manager maximum windows must not exceed 16")
   return setmetatable({
     controllers = {},
     layout_dirty = false,
+    legacy_layout_path = dependencies.legacy_layout_path,
     layout_path = dependencies.layout_path,
     layout_store = dependencies.layout_store,
     maximum_windows = maximum_windows,
@@ -114,11 +116,10 @@ function Manager:snapshot()
     if controller.adapter then
       local snapshot = controller.adapter.snapshot()
       assert(type(snapshot) == "table" and type(snapshot.geometry) == "table" and type(snapshot.workspace) == "table", "live window controller returned an invalid layout snapshot")
-      windows[#windows + 1] = { geometry = snapshot.geometry, id = controller.id, workspace = snapshot.workspace }
+      windows[#windows + 1] = { geometry = snapshot.geometry, workspace = snapshot.workspace }
     end
   end
-  table.sort(windows, function(left, right) return left.id < right.id end)
-  return { schema_version = 1, windows = windows }
+  return { schema_version = 2, windows = windows }
 end
 
 function Manager:_write_layout()
@@ -133,8 +134,19 @@ end
 
 function Manager:_read_layout()
   if not self.layout_store or self.options.layout_restore == false or self.options.record then return nil end
-  local snapshot, reason = self.layout_store.load(self.layout_path)
-  if snapshot then return snapshot end
+  local snapshot, reason, migrated = self.layout_store.load(self.layout_path)
+  if snapshot then
+    if migrated then self.layout_dirty = true end
+    return snapshot
+  end
+  if reason == "missing" and self.legacy_layout_path ~= nil then
+    local legacy, legacy_reason = self.layout_store.load(self.legacy_layout_path)
+    if legacy then
+      self.layout_dirty = true
+      return legacy
+    end
+    if legacy_reason ~= "missing" then reason = legacy_reason end
+  end
   if reason ~= "missing" then io.stderr:write("Kiwi layout restore skipped: ", reason or "unavailable", "\n") end
   return nil
 end
@@ -177,20 +189,43 @@ function Manager:move_active_to_new_window(source_id)
   return true
 end
 
-function Manager:move_active_to_next_window(source_id)
+local function transfer_endpoints(manager, source_id, destination_id)
+  local source = manager:controller(source_id)
+  local destination = manager:controller(destination_id)
+  if source == nil or source.adapter == nil then return nil, "unknown-source-window" end
+  if destination == nil or destination.adapter == nil then return nil, "unknown-target-window" end
+  if source.id == destination.id then return nil, "same-window-target" end
+  if type(destination.adapter.accept_transfer) ~= "function" then return nil, "target-transfer-unavailable" end
+  return source, destination
+end
+
+function Manager:session_targets(source_id)
   if self.options.record then return nil, "session moves are unavailable while --record is active" end
   local source = self:controller(source_id)
-  if source == nil or source.adapter == nil then return nil, "unknown-window" end
-  local destination
+  if source == nil or source.adapter == nil then return nil, "unknown-source-window" end
+  local targets = {}
   for _, candidate in ipairs(self.controllers) do
-    if candidate.id ~= source.id and candidate.adapter then destination = candidate break end
+    if candidate.id ~= source.id and candidate.adapter ~= nil and type(candidate.adapter.accept_transfer) == "function" then
+      targets[#targets + 1] = { id = candidate.id, title = "Window " .. candidate.id }
+    end
   end
-  if destination == nil then return nil, "no-other-window" end
+  if #targets == 0 then return nil, "no-other-window" end
+  return targets
+end
+
+function Manager:move_active_to_window(source_id, destination_id)
+  if self.options.record then return nil, "session moves are unavailable while --record is active" end
+  local source, destination_or_reason = transfer_endpoints(self, source_id, destination_id)
+  if source == nil then return nil, destination_or_reason end
+  local destination = destination_or_reason
+  if type(source.adapter.begin_transfer) ~= "function" or type(source.adapter.restore_transfer) ~= "function" or type(source.adapter.complete_transfer) ~= "function" then
+    return nil, "source-transfer-unavailable"
+  end
   local session, reason = source.adapter.begin_transfer()
   if session == nil then return nil, reason end
   local accepted, accept_reason = destination.adapter.accept_transfer(session)
   if not accepted then
-    assert(source.adapter.restore_transfer(session))
+    assert(source.adapter.restore_transfer(session), "failed session transfer must restore the source exactly once")
     return nil, accept_reason
   end
   assert(source.adapter.complete_transfer(session))
@@ -198,21 +233,30 @@ function Manager:move_active_to_next_window(source_id)
   return true
 end
 
-function Manager:duplicate_active_to_next_window(source_id)
+function Manager:move_active_to_next_window(source_id)
+  local targets, reason = self:session_targets(source_id)
+  if targets == nil then return nil, reason end
+  return self:move_active_to_window(source_id, targets[1].id)
+end
+
+function Manager:duplicate_active_to_window(source_id, destination_id)
   if self.options.record then return nil, "session duplication is unavailable while --record is active" end
-  local source = self:controller(source_id)
-  if source == nil or source.adapter == nil then return nil, "unknown-window" end
-  local destination
-  for _, candidate in ipairs(self.controllers) do
-    if candidate.id ~= source.id and candidate.adapter then destination = candidate break end
-  end
-  if destination == nil then return nil, "no-other-window" end
+  local source, destination_or_reason = transfer_endpoints(self, source_id, destination_id)
+  if source == nil then return nil, destination_or_reason end
+  local destination = destination_or_reason
+  if type(source.adapter.new_session) ~= "function" or type(source.adapter.destroy_session) ~= "function" then return nil, "source-duplication-unavailable" end
   local session, session_reason = source.adapter.new_session()
   if session == nil then return nil, session_reason or "session-create-failed" end
   local accepted, reason = destination.adapter.accept_transfer(session)
   if not accepted then source.adapter.destroy_session(session); return nil, reason end
   self.layout_dirty = true
   return true
+end
+
+function Manager:duplicate_active_to_next_window(source_id)
+  local targets, reason = self:session_targets(source_id)
+  if targets == nil then return nil, reason end
+  return self:duplicate_active_to_window(source_id, targets[1].id)
 end
 
 function Manager:confirm_transfer(target_id)

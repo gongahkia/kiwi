@@ -146,12 +146,13 @@ local product_actions = {
   [6] = "split-down",
   [7] = "reload-config",
   [8] = "move-session-new-window",
-  [9] = "move-session-next-window",
+  [9] = "move-session-select-window",
   [10] = "duplicate-session-new-window",
-  [11] = "duplicate-session-next-window",
+  [11] = "duplicate-session-select-window",
   [12] = "command-palette",
   [13] = "open-configuration",
 }
+for index = 1, 15 do product_actions[13 + index] = "session-target-" .. index end
 local product_action_ids = {}
 for identifier, name in pairs(product_actions) do product_action_ids[name] = identifier end
 

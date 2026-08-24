@@ -104,6 +104,61 @@ function Dispatcher:handle(action)
     if not opened then rejected(context, "configuration opener", reason) end
     return true, false
   end
+  local target_index = Actions.session_target_index(action)
+  if target_index ~= nil then
+    local selection = self.pending_session_target_selection
+    self.pending_session_target_selection = nil
+    if selection == nil then
+      rejected(context, "session target selection", "no active destination chooser")
+      return true, false
+    end
+    if selection.source_id ~= context.controller_id then
+      rejected(context, "session target selection", "source window changed")
+      return true, false
+    end
+    local target = selection.targets[target_index]
+    if target == nil then
+      rejected(context, "session target selection", "unknown selected target")
+      return true, false
+    end
+    local application, transfer = application_capability(context, "session target selection", selection.operation == "move" and "move_active_to_window" or "duplicate_active_to_window")
+    if application == nil then return true, false end
+    local completed, reason = transfer(application, selection.source_id, target.id)
+    if not completed then rejected(context, "session target selection", reason) end
+    return true, completed == true
+  end
+  if action == "move-session-select-window" or action == "duplicate-session-select-window" then
+    local active_session = function_capability(context, "session target selection", "active_session")
+    local application, session_targets = application_capability(context, "session target selection", "session_targets")
+    local host = context.host
+    if active_session == nil or application == nil then return true, false end
+    if type(active_session()) ~= "table" then
+      rejected(context, "session target selection", "no active terminal session")
+      return true, false
+    end
+    if type(host) ~= "table" or type(host.show_command_palette) ~= "function" or context.window == nil then
+      rejected(context, "session target selection", "this host has no native destination chooser")
+      return true, false
+    end
+    local targets, reason = session_targets(application, context.controller_id)
+    if targets == nil or type(targets) ~= "table" or #targets == 0 then
+      rejected(context, "session target selection", reason or "no-other-window")
+      return true, false
+    end
+    local operation = action == "move-session-select-window" and "move" or "duplicate"
+    local entries = Actions.session_target_entries(targets, operation)
+    self.pending_session_target_selection = { operation = operation, source_id = context.controller_id, targets = targets }
+    local opened, open_reason = host.show_command_palette(context.window, entries, function(selected)
+      local handled, layout_changed = self:handle(selected)
+      local mark_layout_dirty = type(context.application) == "table" and context.application.mark_layout_dirty or nil
+      if handled and layout_changed and type(mark_layout_dirty) == "function" then mark_layout_dirty(context.application) end
+    end)
+    if not opened then
+      self.pending_session_target_selection = nil
+      rejected(context, "session target selection", open_reason)
+    end
+    return true, false
+  end
   if action == "move-session-new-window" or action == "move-session-next-window" then
     local active_session = function_capability(context, "session move", "active_session")
     local application, move_session = application_capability(context, "session move", action == "move-session-next-window" and "move_active_to_next_window" or "move_active_to_new_window")

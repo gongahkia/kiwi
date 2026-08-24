@@ -123,7 +123,7 @@ return {
     assert(manager:duplicate_active_to_next_window(source.id))
     assert(destination_sessions[2].id == "fresh-1")
     assert(manager:_write_layout())
-    assert(persisted.schema_version == 1 and #persisted.windows == 2)
+    assert(persisted.schema_version == 2 and #persisted.windows == 2 and persisted.windows[1].id == nil)
 
     local rollback = Manager.new(function() end, {}, { window_api = { poll_events_for = function() end, wait_events_for = function() end } })
     local rollback_source = assert(rollback:_start({}))
@@ -140,6 +140,104 @@ return {
     assert(rollback:move_active_to_new_window(rollback_source.id))
     rollback:_remove(2)
     assert(pending == recovered)
+  end,
+
+  live_window_manager_selects_a_live_destination_and_rolls_back_exactly_once = function()
+    local manager = Manager.new(function() end, {})
+    local source = assert(manager:_start({}))
+    local first = assert(manager:_start({}))
+    local second = assert(manager:_start({}))
+    local source_session = { id = "live-pty" }
+    local active = source_session
+    local restored = 0
+    local first_received = 0
+    local second_received = 0
+    local function snapshot()
+      return {
+        geometry = { height = 800, width = 1200, x = 0, y = 0 },
+        workspace = { active_tab_id = 1, tabs = { { active_pane_id = 1, id = 1, root = { kind = "leaf", pane_id = 1 } } } },
+      }
+    end
+    assert(manager:register_controller(source.id, {
+      begin_transfer = function() local session = active; active = nil; return session end,
+      complete_transfer = function(session) assert(session == source_session); return true end,
+      destroy_session = function() error("live transfer must not destroy the source session") end,
+      new_session = function() return { id = "fresh" } end,
+      restore_transfer = function(session) restored = restored + 1; active = session; return true end,
+      snapshot = snapshot,
+    }))
+    assert(manager:register_controller(first.id, {
+      accept_transfer = function() first_received = first_received + 1; return true end,
+      snapshot = snapshot,
+    }))
+    assert(manager:register_controller(second.id, {
+      accept_transfer = function(session) second_received = second_received + 1; assert(session == source_session); return true end,
+      snapshot = snapshot,
+    }))
+    local targets = assert(manager:session_targets(source.id))
+    assert(#targets == 2 and targets[1].id == first.id and targets[2].id == second.id)
+    assert(manager:move_active_to_window(source.id, second.id))
+    assert(first_received == 0 and second_received == 1 and active == nil and restored == 0)
+
+    local rollback = Manager.new(function() end, {})
+    local rollback_source = assert(rollback:_start({}))
+    local rollback_target = assert(rollback:_start({}))
+    local pending = { id = "must-return" }
+    local restore_count = 0
+    local destroy_count = 0
+    assert(rollback:register_controller(rollback_source.id, {
+      begin_transfer = function() local session = pending; pending = nil; return session end,
+      complete_transfer = function() error("rejected transfer must not complete") end,
+      destroy_session = function(session) destroy_count = destroy_count + 1; assert(session.id == "fresh") end,
+      new_session = function() return { id = "fresh" } end,
+      restore_transfer = function(session) restore_count = restore_count + 1; pending = session; return true end,
+      snapshot = snapshot,
+    }))
+    assert(rollback:register_controller(rollback_target.id, {
+      accept_transfer = function() return nil, "tab-limit" end,
+      snapshot = snapshot,
+    }))
+    local moved, move_reason = rollback:move_active_to_window(rollback_source.id, rollback_target.id)
+    assert(moved == nil and move_reason == "tab-limit" and pending.id == "must-return" and restore_count == 1)
+    local duplicated, duplicate_reason = rollback:duplicate_active_to_window(rollback_source.id, rollback_target.id)
+    assert(duplicated == nil and duplicate_reason == "tab-limit" and destroy_count == 1 and restore_count == 1)
+    local same, same_reason = rollback:move_active_to_window(rollback_source.id, rollback_source.id)
+    assert(same == nil and same_reason == "same-window-target" and restore_count == 1)
+  end,
+
+  live_window_manager_promotes_a_default_legacy_layout_without_reading_past_a_future_file = function()
+    local reads = {}
+    local migrated = {
+      schema_version = 2,
+      windows = {
+        { geometry = { height = 800, width = 1200, x = 0, y = 0 }, workspace = {
+          active_tab_id = 1,
+          tabs = { { active_pane_id = 1, id = 1, root = { kind = "leaf", pane_id = 1 } } },
+        } },
+      },
+    }
+    local manager = Manager.new(function() end, {}, {
+      layout_path = "memory://workspace-v2",
+      legacy_layout_path = "memory://workspace-v1",
+      layout_store = {
+        load = function(path)
+          reads[#reads + 1] = path
+          if path == "memory://workspace-v2" then return nil, "missing" end
+          return migrated
+        end,
+      },
+    })
+    assert(manager:_read_layout() == migrated)
+    assert(manager.layout_dirty and reads[1] == "memory://workspace-v2" and reads[2] == "memory://workspace-v1")
+
+    reads = {}
+    manager = Manager.new(function() end, {}, {
+      layout_path = "memory://workspace-v2",
+      legacy_layout_path = "memory://workspace-v1",
+      layout_store = { load = function(path) reads[#reads + 1] = path; return nil, "unsupported-layout-version" end },
+    })
+    assert(manager:_read_layout() == nil)
+    assert(#reads == 1 and reads[1] == "memory://workspace-v2")
   end,
 
   live_window_manager_rehydrates_persisted_windows_with_fresh_workspace_descriptors = function()

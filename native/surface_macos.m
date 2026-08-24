@@ -37,11 +37,13 @@ enum {
   KIWI_COCOA_MENU_SPLIT_DOWN = 6,
   KIWI_COCOA_MENU_RELOAD_CONFIGURATION = 7,
   KIWI_COCOA_MENU_MOVE_SESSION_NEW_WINDOW = 8,
-  KIWI_COCOA_MENU_MOVE_SESSION_NEXT_WINDOW = 9,
+  KIWI_COCOA_MENU_MOVE_SESSION_SELECT_WINDOW = 9,
   KIWI_COCOA_MENU_DUPLICATE_SESSION_NEW_WINDOW = 10,
-  KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW = 11,
+  KIWI_COCOA_MENU_DUPLICATE_SESSION_SELECT_WINDOW = 11,
   KIWI_COCOA_MENU_COMMAND_PALETTE = 12,
   KIWI_COCOA_MENU_OPEN_CONFIGURATION = 13,
+  KIWI_COCOA_MENU_SESSION_TARGET_1 = 14,
+  KIWI_COCOA_MENU_SESSION_TARGET_15 = 28,
 };
 
 @interface KiwiCocoaMenuRegistration : NSObject {
@@ -170,7 +172,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_OPEN_CONFIGURATION;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_SESSION_TARGET_15;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
@@ -936,9 +938,9 @@ static void kiwi_cocoa_install_main_menu(void) {
   [window_menu addItem:kiwi_cocoa_menu_item(@"Split Down", KIWI_COCOA_MENU_SPLIT_DOWN)];
   [window_menu addItem:[NSMenuItem separatorItem]];
   [window_menu addItem:kiwi_cocoa_menu_item(@"Move Session to New Window", KIWI_COCOA_MENU_MOVE_SESSION_NEW_WINDOW)];
-  [window_menu addItem:kiwi_cocoa_menu_item(@"Move Session to Next Window", KIWI_COCOA_MENU_MOVE_SESSION_NEXT_WINDOW)];
+  [window_menu addItem:kiwi_cocoa_menu_item(@"Move Session to Window…", KIWI_COCOA_MENU_MOVE_SESSION_SELECT_WINDOW)];
   [window_menu addItem:kiwi_cocoa_menu_item(@"Duplicate Session to New Window", KIWI_COCOA_MENU_DUPLICATE_SESSION_NEW_WINDOW)];
-  [window_menu addItem:kiwi_cocoa_menu_item(@"Duplicate Session to Next Window", KIWI_COCOA_MENU_DUPLICATE_SESSION_NEXT_WINDOW)];
+  [window_menu addItem:kiwi_cocoa_menu_item(@"Duplicate Session to Window…", KIWI_COCOA_MENU_DUPLICATE_SESSION_SELECT_WINDOW)];
   window_item.submenu = window_menu;
   [window_menu release];
   [menu addItem:window_item];

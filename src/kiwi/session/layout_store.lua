@@ -1,7 +1,7 @@
 local Json = require("kiwi.bench.json")
 local ffi = require("ffi")
 
-local Store = { maximum_bytes = 64 * 1024, schema_version = 1 }
+local Store = { maximum_bytes = 64 * 1024, schema_version = 2 }
 
 ffi.cdef[[
 int mkdir(const char* path, unsigned int mode);
@@ -43,21 +43,24 @@ local function validate_node(node, depth, pane_ids)
   return first and second and first + second or nil
 end
 
-function Store.validate(snapshot)
-  if not exact_keys(snapshot, { schema_version = true, windows = true }) or snapshot.schema_version ~= Store.schema_version or not array(snapshot.windows) or #snapshot.windows < 1 or #snapshot.windows > 16 then
+local function validate_snapshot(snapshot, schema_version)
+  if not exact_keys(snapshot, { schema_version = true, windows = true }) or snapshot.schema_version ~= schema_version or not array(snapshot.windows) or #snapshot.windows < 1 or #snapshot.windows > 16 then
     return nil, "invalid-layout"
   end
   local window_ids = {}
   for _, window in ipairs(snapshot.windows) do
     local geometry = window.geometry
     local workspace = window.workspace
-    if not exact_keys(window, { geometry = true, id = true, workspace = true }) or not valid_integer(window.id, 1, 4096) or window_ids[window.id] or not exact_keys(geometry, { height = true, width = true, x = true, y = true })
+    local valid_window = schema_version == 1
+      and exact_keys(window, { geometry = true, id = true, workspace = true }) and valid_integer(window.id, 1, 4096)
+      or schema_version == Store.schema_version and exact_keys(window, { geometry = true, workspace = true })
+    if not valid_window or (schema_version == 1 and window_ids[window.id]) or not exact_keys(geometry, { height = true, width = true, x = true, y = true })
       or not valid_integer(geometry.x, -32768, 32768) or not valid_integer(geometry.y, -32768, 32768)
       or not valid_integer(geometry.width, 320, 16384) or not valid_integer(geometry.height, 240, 16384)
       or not exact_keys(workspace, { active_tab_id = true, tabs = true }) or not valid_integer(workspace.active_tab_id, 1, 4096) or not array(workspace.tabs) or #workspace.tabs < 1 or #workspace.tabs > 32 then
       return nil, "invalid-layout"
     end
-    window_ids[window.id] = true
+    if schema_version == 1 then window_ids[window.id] = true end
     local tab_ids = {}
     local pane_ids = {}
     local active_tab = false
@@ -81,7 +84,40 @@ function Store.validate(snapshot)
   return true
 end
 
+function Store.validate(snapshot)
+  return validate_snapshot(snapshot, Store.schema_version)
+end
+
+function Store.migrate(snapshot)
+  if type(snapshot) ~= "table" or type(snapshot.schema_version) ~= "number" or snapshot.schema_version % 1 ~= 0 then
+    return nil, "invalid-layout"
+  end
+  if snapshot.schema_version == Store.schema_version then
+    if not validate_snapshot(snapshot, Store.schema_version) then return nil, "invalid-layout" end
+    return snapshot, false
+  end
+  if snapshot.schema_version ~= 1 then return nil, "unsupported-layout-version" end
+  if not validate_snapshot(snapshot, 1) then return nil, "invalid-layout" end
+  local windows = {}
+  for index, window in ipairs(snapshot.windows) do
+    -- v1 controller IDs are process-local and were never consumed by restore.
+    -- v2 keeps only the ordered geometry/topology contract.
+    windows[index] = { geometry = window.geometry, workspace = window.workspace }
+  end
+  local migrated = { schema_version = Store.schema_version, windows = windows }
+  assert(validate_snapshot(migrated, Store.schema_version))
+  return migrated, true
+end
+
 function Store.path(environment, platform)
+  environment = environment or os.getenv
+  platform = platform or ffi.os
+  local home = environment("HOME") or "."
+  if platform == "OSX" then return home .. "/Library/Application Support/io.github.gongahkia.kiwi/workspace-v2.json" end
+  return (environment("XDG_STATE_HOME") or home .. "/.local/state") .. "/kiwi/workspace-v2.json"
+end
+
+function Store.legacy_path(environment, platform)
   environment = environment or os.getenv
   platform = platform or ffi.os
   local home = environment("HOME") or "."
@@ -249,8 +285,10 @@ function Store.load(path)
   file:close()
   if text == nil or #text > Store.maximum_bytes then return nil, "invalid-layout" end
   local decoded, decoded_or_error = pcall(decode, text)
-  if not decoded or not Store.validate(decoded_or_error) then return nil, "invalid-layout" end
-  return decoded_or_error
+  if not decoded then return nil, "invalid-layout" end
+  local migrated, migration_or_reason = Store.migrate(decoded_or_error)
+  if migrated == nil then return nil, migration_or_reason end
+  return migrated, nil, migration_or_reason
 end
 
 function Store.write(path, snapshot)

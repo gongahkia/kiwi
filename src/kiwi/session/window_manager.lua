@@ -88,12 +88,14 @@ function WindowManager:duplicate_pane(source_window_id, destination_window_id, d
 end
 
 function WindowManager:snapshot()
+  local ordered = {}
+  for _, window in pairs(self.windows) do ordered[#ordered + 1] = window end
+  table.sort(ordered, function(left, right) return left.id < right.id end)
   local windows = {}
-  for _, window in pairs(self.windows) do
-    windows[#windows + 1] = { geometry = window.geometry, id = window.id, workspace = window.workspace:snapshot() }
+  for index, window in ipairs(ordered) do
+    windows[index] = { geometry = window.geometry, workspace = window.workspace:snapshot() }
   end
-  table.sort(windows, function(left, right) return left.id < right.id end)
-  return { schema_version = 1, windows = windows }
+  return { schema_version = 2, windows = windows }
 end
 
 return WindowManager
