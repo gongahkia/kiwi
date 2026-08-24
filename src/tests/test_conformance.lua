@@ -18,7 +18,9 @@ local function chunks_for_randomized_boundaries(length, seed)
 end
 
 local function run(fixture, chunks)
-  local state = State.new(fixture.columns, fixture.rows, { scrollback_limit = 16 })
+  local state_options = { scrollback_limit = 16 }
+  for name, value in pairs(fixture.state_options or {}) do state_options[name] = value end
+  local state = State.new(fixture.columns, fixture.rows, state_options)
   local parser = Parser.new(function(action)
     state:apply(action)
   end, fixture.parser_options)

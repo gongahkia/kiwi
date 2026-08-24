@@ -9,6 +9,7 @@ readonly VT_RECORDING="$WORK_DIR/vttest-style.jsonl"
 readonly VIM_RECORDING="$WORK_DIR/vim-mouse.jsonl"
 readonly NVIM_RECORDING="$WORK_DIR/nvim-keyboard.jsonl"
 readonly KITTY_GRAPHICS_RECORDING="$WORK_DIR/kitty-graphics.jsonl"
+readonly TMUX_RECORDING="$WORK_DIR/tmux.jsonl"
 readonly TRUECOLOUR_RECORDING="$WORK_DIR/truecolour-contract.jsonl"
 readonly REPLAY_LOG="$WORK_DIR/replay.stderr"
 readonly TMUX_SOCKET="kiwi-conformance-$$"
@@ -50,14 +51,31 @@ print "terminfo: name=xterm-kiwi colors=256 RGB/Tc/setrgbf/setrgbb present"
 print "platform: $(uname -srmo)"
 
 if command -v tmux >/dev/null; then
-  env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; if tput setrgbf 1 2 3 >/dev/null 2>&1; then printf " rgb=true"; else printf " rgb=false"; fi; sleep 2'"'"''
+  env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-evidence '/bin/sh -c '"'"'printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; printf "\\033[38;2;12;34;56mkiwi-tmux\\033[0m"; sleep 30'"'"''
   sleep 1
   tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-evidence -S -20)
   print "tmux: ${tmux_output//$'\n'/; }"
-  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* && "$tmux_output" == *"rgb=true"* ]] || {
-    print -u2 "tmux did not preserve the Kiwi direct-RGB inner terminal contract."
+  [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* ]] || {
+    print -u2 "tmux did not preserve the Kiwi nested TERM and colour environment contract."
     exit 1
   }
+  if native_session_available; then
+    KIWI_MAX_SECONDS="${KIWI_CONFORMANCE_TMUX_SECONDS:-1}" make run ARGS="--record $TMUX_RECORDING -- tmux -L $TMUX_SOCKET attach-session -t kiwi-evidence"
+    tmux_bytes=$(recorded_output "$TMUX_RECORDING")
+    [[ "$tmux_bytes" == *$'\e[38;2;12;34;56m'* && "$tmux_bytes" == *"kiwi-tmux"* ]] || {
+      print -u2 "native tmux recording did not preserve the bounded direct-RGB marker."
+      exit 1
+    }
+    make replay REPLAY_ARGS=--chunk-invariant REPLAY="$TMUX_RECORDING" >/dev/null 2>"$REPLAY_LOG"
+    tmux_replay=$(<"$REPLAY_LOG")
+    print "native-tmux: direct-RGB marker captured; ${tmux_replay//$'\n'/; }"
+    [[ "$tmux_replay" == *"errors=0 ignored=0 unknown=csi:0,esc:0,osc:0,string:0"* ]] || {
+      print -u2 "native tmux recording contains unsupported terminal controls; see tmux-client-queries."
+      exit 1
+    }
+  else
+    print "native-tmux: No access (neither DISPLAY nor WAYLAND_DISPLAY is available on Linux)"
+  fi
 else
   print "tmux: No access (not installed)"
 fi

@@ -94,7 +94,8 @@ run_native_recording() {
   local recording="$WORK_DIR/${name}.jsonl"
   local output="$WORK_DIR/${name}.stdout"
   local errors="$WORK_DIR/${name}.stderr"
-  if ! KIWI_HOST="$host" KIWI_MAX_FRAMES="${KIWI_COMPAT_MAX_FRAMES:-120}" "$LUAJIT_BIN" "$ROOT/src/kiwi/app/main.lua" --no-extensions --record "$recording" -- "$@" >"$output" 2>"$errors"; then
+  local max_seconds=${KIWI_COMPAT_MAX_SECONDS:-0}
+  if ! KIWI_HOST="$host" KIWI_MAX_FRAMES="${KIWI_COMPAT_MAX_FRAMES:-120}" KIWI_MAX_SECONDS="$max_seconds" "$LUAJIT_BIN" "$ROOT/src/kiwi/app/main.lua" --no-extensions --record "$recording" -- "$@" >"$output" 2>"$errors"; then
     return 1
   fi
   REPLAY_SUMMARY=$("$LUAJIT_BIN" "$ROOT/src/kiwi/replay.lua" --chunk-invariant "$recording" 2>&1 >/dev/null) || return 1
@@ -104,9 +105,9 @@ run_native_recording() {
 
 run_tmux_native_recording() {
   local session="kiwi-native-$RANDOM-$$"
-  local command='printf "\\033[?25l\\033[38;2;12;34;56mkiwi-tmux\\033[0m\\033[?25h\\n"; sleep 0.2'
+  local command='printf "\\033[?25l\\033[38;2;12;34;56mkiwi-tmux\\033[0m\\033[?25h\\n"; sleep 30'
   tmux -L "$TMUX_SOCKET" new-session -d -s "$session" "$command" || return 1
-  run_native_recording tmux tmux -L "$TMUX_SOCKET" attach-session -t "$session"
+  KIWI_COMPAT_MAX_SECONDS="${KIWI_COMPAT_TMUX_RECORD_SECONDS:-1}" run_native_recording tmux tmux -L "$TMUX_SOCKET" attach-session -t "$session"
 }
 
 recorded_output() {
@@ -163,10 +164,10 @@ else
 fi
 
 if (( $+commands[tmux] )); then
-  if env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-compatibility '/bin/sh -c '\''printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; if tput setrgbf 1 2 3 >/dev/null 2>&1; then printf " rgb=true"; else printf " rgb=false"; fi; sleep 2'\''' && sleep 1; then
+  if env TERM=xterm-kiwi COLORTERM=truecolor TERMINFO="$TERMINFO_DIR" tmux -L "$TMUX_SOCKET" new-session -d -s kiwi-compatibility '/bin/sh -c '\''printf "term=%s colorterm=%s colors=" "$TERM" "${COLORTERM-unset}"; tput colors; sleep 30'\''' && sleep 1; then
     tmux_output=$(tmux -L "$TMUX_SOCKET" capture-pane -pt kiwi-compatibility -S -20)
-    if [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* && "$tmux_output" == *"rgb=true"* ]]; then
-      record_result tmux passed "tmux preserved the nested direct-RGB terminal contract"
+    if [[ "$tmux_output" == *"term="* && "$tmux_output" != *"term=xterm-kiwi"* && "$tmux_output" == *"colorterm=truecolor"* && "$tmux_output" == *"colors=256"* ]]; then
+      record_result tmux passed "tmux selected its own 256-colour TERM while preserving COLORTERM=truecolor"
     else
       record_result tmux failed "tmux did not provide the expected nested TERM and colour contract"
     fi
@@ -207,10 +208,17 @@ fi
 
 if [[ "$native_session" == true ]]; then
   if (( $+commands[tmux] )); then
-    if run_tmux_native_recording && require_clean_replay; then
-      record_result tmux-native passed "tmux rendered a bounded truecolour session through native recording and clean replay"
+    if run_tmux_native_recording; then
+      tmux_bytes=$(recorded_output "$RECORDING_PATH")
+      if [[ "$tmux_bytes" != *$'\e[38;2;12;34;56m'* || "$tmux_bytes" != *"kiwi-tmux"* ]]; then
+        record_result tmux-native failed "tmux native recording lacked the bounded direct-RGB marker"
+      elif require_clean_replay; then
+        record_result tmux-native passed "tmux emitted the bounded direct-RGB marker through native recording and clean replay"
+      else
+        record_result tmux-native failed "tmux emitted direct RGB but replay reported unsupported terminal controls; see the tmux-client-queries fixture"
+      fi
     else
-      record_result tmux-native failed "tmux did not complete a bounded native recording with clean replay"
+      record_result tmux-native failed "tmux did not complete a bounded native recording"
     fi
   else
     record_result tmux-native skipped "tmux is not installed"

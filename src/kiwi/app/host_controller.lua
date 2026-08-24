@@ -331,7 +331,7 @@ function Controller.run(window, host, options)
     end
     if options.record then
       recorder = Replay.Recorder.new(options.record)
-      recorder:resize(columns, rows)
+      recorder:resize(columns, rows, font.cell_width, font.cell_height)
     end
     local last_title
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
@@ -444,6 +444,7 @@ function Controller.run(window, host, options)
         local pane = assert(workspace.panes[placement.pane_id], "workspace layout references an unknown pane")
         local session = pane.session
         local session_state = VTInternal.state(session.terminal)
+        local metrics_changed = session_state.cell_width ~= font.cell_width or session_state.cell_height ~= font.cell_height
         session.terminal:set_cell_metrics(font.cell_width, font.cell_height)
         if session_state.columns ~= placement.width or session_state.rows ~= placement.height then
           if session.renderer then
@@ -452,7 +453,9 @@ function Controller.run(window, host, options)
           end
           session.terminal:resize(placement.width, placement.height)
           session.pty:resize(placement.width, placement.height)
-          if session == active_session and recorder then recorder:resize(placement.width, placement.height) end
+          if session == active_session and recorder then recorder:resize(placement.width, placement.height, font.cell_width, font.cell_height) end
+        elseif metrics_changed and session == active_session and recorder then
+          recorder:resize(placement.width, placement.height, font.cell_width, font.cell_height)
         end
         if session.renderer == nil then rebuild_session_renderer(session) end
         local viewport = Compositor.viewport(placement, font.cell_width, font.cell_height)
@@ -1484,6 +1487,11 @@ function Controller.run(window, host, options)
     end
   end, debug.traceback)
 
+  if window.clear_input_handlers then
+    window:clear_input_handlers()
+  elseif window.set_input_handlers then
+    window:set_input_handlers(nil, nil, nil, nil)
+  end
   if options.application then options.application:unregister_controller(options.controller_id) end
   local preserve_transferred_session = options.moved_session ~= nil and not options.transfer_confirmed
   if preserve_transferred_session and options.moved_session.renderer then

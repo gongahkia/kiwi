@@ -40,9 +40,17 @@ function Recorder:input(bytes)
   self:bytes("input", bytes)
 end
 
-function Recorder:resize(columns, rows)
+function Recorder:resize(columns, rows, cell_width, cell_height)
   assert(columns > 0 and rows > 0, "recording dimensions must be positive")
-  self:write({ cols = columns, event = "resize", rows = rows, v = Replay.version })
+  assert((cell_width == nil) == (cell_height == nil), "recording cell metrics must provide both width and height")
+  assert(cell_width == nil or (cell_width > 0 and cell_width % 1 == 0 and cell_width <= 65535), "recording cell width is invalid")
+  assert(cell_height == nil or (cell_height > 0 and cell_height % 1 == 0 and cell_height <= 65535), "recording cell height is invalid")
+  local event = { cols = columns, event = "resize", rows = rows, v = Replay.version }
+  if cell_width ~= nil then
+    event.cell_width = cell_width
+    event.cell_height = cell_height
+  end
+  self:write(event)
 end
 
 function Recorder:close()
@@ -64,7 +72,15 @@ local function event_from_line(line)
   local kind = line:match('"event":"([a-z]+)"')
   assert(kind ~= nil, "recording event has no event name")
   if kind == "resize" then
-    return { event = kind, cols = required_number(line, "cols"), rows = required_number(line, "rows") }
+    local cell_width = line:match('"cell_width":(%d+)')
+    local cell_height = line:match('"cell_height":(%d+)')
+    assert((cell_width == nil) == (cell_height == nil), "recording resize event has incomplete cell metrics")
+    local event = { event = kind, cols = required_number(line, "cols"), rows = required_number(line, "rows") }
+    if cell_width ~= nil then
+      event.cell_width = tonumber(cell_width)
+      event.cell_height = tonumber(cell_height)
+    end
+    return event
   end
   if kind == "output" or kind == "input" then
     local data = line:match('"data":"([A-Za-z0-9+/=]*)"')
@@ -130,6 +146,7 @@ function Replay.apply_file(state, path, options)
   Replay.each(path, function(event)
     if event.event == "resize" then
       state:resize(event.cols, event.rows)
+      if event.cell_width ~= nil then state:set_cell_metrics(event.cell_width, event.cell_height) end
     elseif event.event == "output" then
       seed = feed(parser, event.bytes, chunking, seed)
     end

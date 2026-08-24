@@ -266,7 +266,10 @@ function Window:_new_input_callbacks()
     end
   end)
   self.callbacks.focus = ffi.cast("KiwiGtkFocusCallback", function(_, focused)
-    if self.on_focus then self.on_focus(focused ~= 0) end
+    if self.on_focus then
+      local ok, message = pcall(self.on_focus, focused ~= 0)
+      if not ok then io.stderr:write("Kiwi GTK focus callback failed: ", tostring(message), "\n") end
+    end
   end)
   self.callbacks.resize = ffi.cast("KiwiGtkResizeCallback", function(_, resized_width, resized_height, scale)
     self.width, self.height = tonumber(resized_width), tonumber(resized_height)
@@ -410,6 +413,11 @@ end
 
 function Window:set_input_handlers(on_text, on_key, on_pointer, on_focus)
   self.on_text, self.on_key, self.on_pointer, self.on_focus = on_text, on_key, on_pointer, on_focus
+end
+
+function Window:clear_input_handlers()
+  self.on_text, self.on_key, self.on_pointer, self.on_focus = nil, nil, nil, nil
+  self.on_preedit, self.on_commit = nil, nil
 end
 
 function Window:enable_text_input(on_preedit, on_commit)

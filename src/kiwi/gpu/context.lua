@@ -200,8 +200,12 @@ end
 -- another frame type without teaching window/session code about its graphics
 -- API.
 function Context:begin_presentation_frame()
-  if self.window.minimized then return nil, "zero-sized drawable" end
-  if self.window.resized and not self:configure_surface() then return nil, "zero-sized drawable" end
+  local width, height = self.window:drawable_size()
+  if self.window.minimized or width <= 0 or height <= 0 then return nil, "zero-sized drawable" end
+  if self.window.resized or width ~= self.width or height ~= self.height then
+    self.window.resized = true
+    if not self:configure_surface() then return nil, "zero-sized drawable" end
+  end
   local api = self.native.lib
   local constants = self.native.constants
   local surface_texture = ffi.new("WGPUSurfaceTexture")

@@ -39,7 +39,13 @@ local function fake_presentation_context(options)
     },
     queue = ffi.cast("WGPUQueue", 6),
     surface = ffi.cast("WGPUSurface", 7),
-    window = { minimized = false, resized = false },
+    width = options.configured_width or options.width or 800,
+    height = options.configured_height or options.height or 480,
+    window = {
+      minimized = false,
+      resized = false,
+      drawable_size = function() return options.width or 800, options.height or 480 end,
+    },
   }, Context)
   return context, events
 end
@@ -93,5 +99,26 @@ return {
     Assert.equal(reason, "surface present status 0")
     Assert.equal(frame.state, "presented")
     Assert.equal(table.concat(events, ","), "surface-acquire,view-create,encoder-create,command-finish,queue-submit,command-buffer-release,encoder-release,view-release,surface-present,texture-release")
+  end,
+  wgpu_presentation_never_acquires_a_zero_sized_drawable = function()
+    local context, events = fake_presentation_context({ configured_width = 800, configured_height = 480, width = 0, height = 480 })
+    local frame, reason = context:begin_presentation_frame()
+    Assert.equal(frame, nil)
+    Assert.equal(reason, "zero-sized drawable")
+    Assert.equal(table.concat(events, ","), "")
+  end,
+  wgpu_presentation_reconfigures_when_the_drawable_changes_without_a_resize_callback = function()
+    local context, events = fake_presentation_context({ configured_width = 800, configured_height = 480, width = 640, height = 480 })
+    local reconfigures = 0
+    context.configure_surface = function(self)
+      reconfigures = reconfigures + 1
+      self.width, self.height = 640, 480
+      self.window.resized = false
+      return true
+    end
+    local frame = assert(context:begin_presentation_frame())
+    Assert.equal(reconfigures, 1)
+    Assert.truthy(context:abort_presentation_frame(frame))
+    Assert.equal(table.concat(events, ","), "surface-acquire,view-create,encoder-create,encoder-release,view-release,texture-release")
   end,
 }
