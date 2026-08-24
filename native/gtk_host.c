@@ -154,11 +154,13 @@ enum {
   KIWI_GTK_PRODUCT_ACTION_SPLIT_DOWN = 6,
   KIWI_GTK_PRODUCT_ACTION_RELOAD_CONFIGURATION = 7,
   KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEW_WINDOW = 8,
-  KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW = 9,
+  KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_SELECT_WINDOW = 9,
   KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW = 10,
-  KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW = 11,
+  KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_SELECT_WINDOW = 11,
   KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE = 12,
   KIWI_GTK_PRODUCT_ACTION_OPEN_CONFIGURATION = 13,
+  KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 = 14,
+  KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_15 = 28,
 };
 
 enum {
@@ -200,11 +202,26 @@ static const KiwiGtkProductAction kiwi_gtk_product_actions[] = {
   { KIWI_GTK_PRODUCT_ACTION_SPLIT_DOWN, "split-down" },
   { KIWI_GTK_PRODUCT_ACTION_RELOAD_CONFIGURATION, "reload-config" },
   { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEW_WINDOW, "move-session-new-window" },
-  { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_NEXT_WINDOW, "move-session-next-window" },
+  { KIWI_GTK_PRODUCT_ACTION_MOVE_SESSION_SELECT_WINDOW, "move-session-select-window" },
   { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEW_WINDOW, "duplicate-session-new-window" },
-  { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_NEXT_WINDOW, "duplicate-session-next-window" },
+  { KIWI_GTK_PRODUCT_ACTION_DUPLICATE_SESSION_SELECT_WINDOW, "duplicate-session-select-window" },
   { KIWI_GTK_PRODUCT_ACTION_COMMAND_PALETTE, "command-palette" },
   { KIWI_GTK_PRODUCT_ACTION_OPEN_CONFIGURATION, "open-configuration" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 0, "session-target-1" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 1, "session-target-2" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 2, "session-target-3" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 3, "session-target-4" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 4, "session-target-5" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 5, "session-target-6" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 6, "session-target-7" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 7, "session-target-8" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 8, "session-target-9" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 9, "session-target-10" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 10, "session-target-11" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 11, "session-target-12" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 12, "session-target-13" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 13, "session-target-14" },
+  { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_15, "session-target-15" },
 };
 
 static const KiwiGtkProductAction *kiwi_gtk_product_action(uint32_t identifier) {
@@ -745,9 +762,9 @@ static void kiwi_gtk_install_product_menu(GtkApplication *application) {
   g_menu_append(window, "Split Right", "win.split-right");
   g_menu_append(window, "Split Down", "win.split-down");
   g_menu_append(window, "Move Session to New Window", "win.move-session-new-window");
-  g_menu_append(window, "Move Session to Next Window", "win.move-session-next-window");
+  g_menu_append(window, "Move Session to Window…", "win.move-session-select-window");
   g_menu_append(window, "Duplicate Session to New Window", "win.duplicate-session-new-window");
-  g_menu_append(window, "Duplicate Session to Next Window", "win.duplicate-session-next-window");
+  g_menu_append(window, "Duplicate Session to Window…", "win.duplicate-session-select-window");
   g_menu_append_submenu(menubar, "Window", G_MENU_MODEL(window));
   gtk_application_set_menubar(application, G_MENU_MODEL(menubar));
   g_object_unref(window);
@@ -762,6 +779,7 @@ static int kiwi_gtk_install_product_actions(KiwiGtkHost *host) {
   }
   GActionMap *actions = G_ACTION_MAP(host->window);
   for (size_t index = 0; index < G_N_ELEMENTS(kiwi_gtk_product_actions); index += 1) {
+    if (kiwi_gtk_product_actions[index].identifier >= KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1) continue;
     const char *name = kiwi_gtk_product_actions[index].name;
     if (g_action_map_lookup_action(actions, name) != NULL) continue;
     GSimpleAction *action = g_simple_action_new(name, NULL);

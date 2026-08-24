@@ -8,6 +8,8 @@ return {
     Assert.equal(actions:lookup(string.byte("T"), glfw.mod_control + glfw.mod_shift), "new-tab")
     Assert.equal(actions:lookup(glfw.key_enter, glfw.mod_control + glfw.mod_shift), "split-right")
     Assert.equal(actions:lookup(string.byte("P"), glfw.mod_control + glfw.mod_shift), "command-palette")
+    Assert.equal(actions:lookup(string.byte("M"), glfw.mod_control + glfw.mod_shift + glfw.mod_alt), "move-session-select-window")
+    Assert.equal(actions:lookup(string.byte("D"), glfw.mod_control + glfw.mod_shift + glfw.mod_alt), "duplicate-session-select-window")
     Assert.equal(actions:lookup(glfw.key_f6, 0), "reload-config")
   end,
   product_actions_replace_and_remove_exact_default_chords = function()
@@ -100,5 +102,17 @@ return {
     Assert.equal(#Actions.palette_entries(configured), Actions.maximum_palette_entries)
     configured[#configured + 1] = custom
     Assert.truthy(not pcall(Actions.palette_entries, configured))
+  end,
+  product_actions_build_bounded_private_session_target_entries = function()
+    local entries = Actions.session_target_entries({
+      { id = 2, title = "Window 2" },
+      { id = 7, title = "Window 7" },
+    }, "move")
+    Assert.equal(entries[1].action, "session-target-1")
+    Assert.equal(entries[2].description, "Move the active live terminal session here.")
+    Assert.equal(Actions.session_target_index("session-target-15"), 15)
+    Assert.equal(Actions.session_target_index("session-target-16"), nil)
+    Assert.truthy(not pcall(Actions.session_target_entries, {}, "move"))
+    Assert.truthy(not pcall(Actions.session_target_entries, { { title = "\255" } }, "duplicate"))
   end,
 }

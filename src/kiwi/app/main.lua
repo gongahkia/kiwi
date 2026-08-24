@@ -43,6 +43,7 @@ else
   LiveWindowManager.new(function(controller_options)
     return Host.run(controller_options, "Kiwi M2 terminal", HostController.run)
   end, options, {
+    legacy_layout_path = os.getenv("KIWI_LAYOUT_PATH") and nil or LayoutStore.legacy_path(),
     layout_path = os.getenv("KIWI_LAYOUT_PATH") or LayoutStore.path(),
     layout_store = LayoutStore,
     window_api = Host.window_api,

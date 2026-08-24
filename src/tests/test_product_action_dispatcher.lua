@@ -21,14 +21,28 @@ local function dispatcher(options)
       state.move_next_identifier = identifier
       return options.move_next ~= false, options.move_next_reason
     end,
+    move_active_to_window = function(_, source_identifier, target_identifier)
+      state.move_selected_source_identifier = source_identifier
+      state.move_selected_target_identifier = target_identifier
+      return options.move_selected ~= false, options.move_selected_reason
+    end,
     duplicate_active_to_next_window = function()
       state.duplicate_next = true
       return options.duplicate_next ~= false, options.duplicate_next_reason
+    end,
+    duplicate_active_to_window = function(_, source_identifier, target_identifier)
+      state.duplicate_selected_source_identifier = source_identifier
+      state.duplicate_selected_target_identifier = target_identifier
+      return options.duplicate_selected ~= false, options.duplicate_selected_reason
     end,
     request_window = function(_, path, request)
       state.requested_path = path
       state.window_request = request
       return options.request_window ~= false, options.request_window_reason
+    end,
+    session_targets = function(_, identifier)
+      state.target_source_identifier = identifier
+      return options.targets or { { id = 18, title = "Window 18" } }, options.targets_reason
     end,
   }
   local host = {
@@ -150,6 +164,34 @@ return {
     handled, layout_changed = actions:handle("duplicate-session-new-window")
     Assert.truthy(handled and not layout_changed)
     Assert.equal(state.window_request.kind, "standalone")
+  end,
+  product_action_dispatcher_uses_one_bounded_destination_chooser_for_move_and_duplicate = function()
+    local targets = { { id = 18, title = "Window 18" }, { id = 29, title = "Window 29" } }
+    local actions, state = dispatcher({ palette = "session-target-2", targets = targets })
+    local handled, layout_changed = actions:handle("move-session-select-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.equal(state.target_source_identifier, 17)
+    Assert.equal(state.palette_entries[1].action, "session-target-1")
+    Assert.equal(state.palette_entries[2].title, "Window 29")
+    Assert.equal(state.move_selected_source_identifier, 17)
+    Assert.equal(state.move_selected_target_identifier, 29)
+    Assert.equal(state.layout_marks, 1)
+
+    actions, state = dispatcher({ palette = "session-target-1", targets = targets })
+    handled, layout_changed = actions:handle("duplicate-session-select-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.equal(state.duplicate_selected_source_identifier, 17)
+    Assert.equal(state.duplicate_selected_target_identifier, 18)
+    Assert.equal(state.layout_marks, 1)
+  end,
+  product_action_dispatcher_rejects_stale_or_unavailable_destination_selection = function()
+    local actions, state = dispatcher({ targets = {} })
+    local handled, layout_changed = actions:handle("session-target-1")
+    Assert.truthy(handled and not layout_changed)
+    Assert.truthy(state.logs[#state.logs]:find("no active destination chooser", 1, true) ~= nil)
+    handled, layout_changed = actions:handle("move-session-select-window")
+    Assert.truthy(handled and not layout_changed)
+    Assert.truthy(state.logs[#state.logs]:find("session target selection rejected", 1, true) ~= nil)
   end,
   product_action_dispatcher_accepts_action_specific_automation_contexts = function()
     local logs = {}

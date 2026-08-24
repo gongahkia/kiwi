@@ -221,14 +221,19 @@ execute content.
 
 The default local actions are `Ctrl+Tab` (next tab), `Ctrl+Shift+T` (new tab),
 `Ctrl+Shift+N` (new window), `Ctrl+Shift+M` (move the active live session to a
-new window), `Ctrl+Shift+Alt+M` (move it to the next window as a tab),
-`Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts),
+new window), `Ctrl+Shift+Alt+M` (choose an existing window for that live
+session), `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts,
+with the latter choosing an existing window),
 `Ctrl+Shift+W` (close pane), `Ctrl+Shift+Enter` (split right), and
 `Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette. Moves
 preserve the live PTY, terminal state, and
 scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
 and these operations are unavailable while `--record` is active.
+The chooser exposes only the other registered windows in this application (at
+most 15), never terminal titles, paths, contents, or remote targets. It
+revalidates the selected window and its tab/pane capacity when the choice is
+confirmed; a rejected live move restores its source exactly once.
 
 On the primary screen, vertical wheel input moves local scrollback while an
 application has not enabled terminal mouse tracking. Touchpad-style fractional
@@ -261,8 +266,12 @@ Keys are letters, digits, `F1` through `F12`, or `backspace`, `delete`, `down`,
 `command-palette`, `new-tab`, `new-window`, `next-tab`, `reload-config`,
 `open-configuration`,
 `move-session-new-window`, `move-session-next-window`,
-`duplicate-session-new-window`, `duplicate-session-next-window`, `split-down`,
-and `split-right`. Set a binding or sequence to `none` to remove it, or use
+`move-session-select-window`, `duplicate-session-new-window`,
+`duplicate-session-next-window`, `duplicate-session-select-window`,
+`split-down`, and `split-right`. The two `*-next-window` actions preserve the
+older deterministic target route for an explicitly configured binding; the
+default bindings and native menus use `*-select-window`. Set a binding or
+sequence to `none` to remove it, or use
 `keybind = clear` before later directives to start from an empty local action
 map. Kiwi rejects bindings where one sequence is a prefix of another, rather
 than delay an action ambiguously. A prefix is consumed locally and must be
@@ -296,7 +305,9 @@ host command and is therefore available even while Kitty keyboard flag 8
 reserves physical keyboard input for the terminal. `make cocoa-palette-smoke`
 opens the Cocoa palette and selects `New Tab` through the live host tab
 controller;
-`make gtk-palette-smoke` is the corresponding graphical-Linux gate. Neither
+`make gtk-palette-smoke` is the corresponding graphical-Linux gate, and
+`make gtk-session-target-smoke` validates the bounded GTK destination-slot
+callback. Neither
 proves interactive filtering, keyboard navigation, or general product-chrome
 behavior.
 
@@ -318,13 +329,16 @@ the active tab/pane on normal live-session changes, reporting an I/O failure to
 stderr. Successful updates use a temporary file and same-directory rename. It
 restores that topology with one fresh default shell per pane at the next launch;
 terminal text, scrollback, running processes, command arguments, clipboard
-data, and environment values are never written. The default path is
-`~/Library/Application Support/io.github.gongahkia.kiwi/workspace-v1.json` on
-macOS and `$XDG_STATE_HOME/kiwi/workspace-v1.json` (or
-`~/.local/state/kiwi/workspace-v1.json`) on Linux. Set `KIWI_LAYOUT_PATH` to
-use a different file, `KIWI_LAYOUT_PERSISTENCE=0` or
+data, and environment values are never written. The current schema is v2 and
+the default path is `~/Library/Application Support/io.github.gongahkia.kiwi/workspace-v2.json`
+on macOS and `$XDG_STATE_HOME/kiwi/workspace-v2.json` (or
+`~/.local/state/kiwi/workspace-v2.json`) on Linux. On the default path, Kiwi
+also reads one valid v1 file, drops its process-local controller IDs, and
+atomically writes v2 on the next persistence update. An explicit
+`KIWI_LAYOUT_PATH` migrates valid v1 content in place. Set
+`KIWI_LAYOUT_PERSISTENCE=0` or
 `KIWI_LAYOUT_RESTORE=0` to disable one direction, or pass
-`--no-restore-layout` to disable both. Malformed, oversized, or unknown-schema
+`--no-restore-layout` to disable both. Malformed, oversized, and future-schema
 files are rejected with a diagnostic and never evaluated as code.
 
 When the active shell has emitted a valid OSC 7 `file:` directory, a fresh tab,

@@ -10,7 +10,7 @@ fi
 export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;"
 make -C "$ROOT" native terminfo
 layout_root=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-layout.XXXXXX")
-readonly layout_path="$layout_root/workspace-v1.json"
+readonly layout_path="$layout_root/workspace-v2.json"
 trap 'rm -rf "$layout_root"' EXIT
 
 KIWI_LAYOUT_PATH="$layout_path" \
