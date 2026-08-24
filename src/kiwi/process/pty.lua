@@ -254,7 +254,9 @@ function Pty:enqueue(bytes)
 end
 
 function Pty:flush()
-  if self.fd == nil then
+  if self.fd == nil or self.eof then
+    self.pending = ""
+    self.pending_offset = 1
     return false
   end
   while self.pending_offset <= #self.pending do
