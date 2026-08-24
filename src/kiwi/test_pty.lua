@@ -170,19 +170,19 @@ test("pty_interactive_shell_accepts_input_and_exits", function()
   Assert.equal(status.code, 0)
 end)
 
-test("pty_discards_a_terminal_response_after_the_child_closes_its_slave", function()
+test("pty_discards_a_terminal_response_after_the_master_observes_slave_close", function()
   local pty = Pty.spawn({ "/bin/sh", "-c", "stty -echo; printf '\\033[6n'; exit 0" }, 8, 2, { TERM = "xterm-kiwi" })
   local transcript = ""
   for _ = 1, 400 do
     transcript = transcript .. pty:read_available()
-    if transcript:find("\27[6n", 1, true) ~= nil then break end
+    if pty.eof then break end
     ffi.C.usleep(5000)
   end
   Assert.truthy(transcript:find("\27[6n", 1, true) ~= nil)
-  ffi.C.usleep(20000)
+  Assert.truthy(pty.eof)
   pty:enqueue("\27[1;1R")
   Assert.equal(pty:flush(), false)
-  Assert.truthy(pty.eof)
+  Assert.equal(pty.bytes_written, 0)
   pty:shutdown()
 end)
 
