@@ -1,7 +1,12 @@
 # Mermaid coverage
 
-Last checked: 2026-06-19 against the official Mermaid docs sidebar for Mermaid
-11.15.0.
+Last checked: 2026-09-04 against the official Mermaid docs sidebar for Mermaid
+11.15.0, using the `mermaid@11.15.0` release tag.
+
+`npm run test:compat` derives this tag from the pinned Mermaid CLI version. To
+audit newer upstream syntax without changing the compatibility claim, run
+`MERMAID_DOCS_REF=develop npm run test:compat`; new syntax roots are reported
+as drift until they are explicitly classified and documented.
 
 Sources:
 

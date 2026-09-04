@@ -1,0 +1,682 @@
+%% benchmark: kind=sequence participants=20 messages=500
+sequenceDiagram
+participant P1 as Service 1
+participant P2 as Service 2
+participant P3 as Service 3
+participant P4 as Service 4
+participant P5 as Service 5
+participant P6 as Service 6
+participant P7 as Service 7
+participant P8 as Service 8
+participant P9 as Service 9
+participant P10 as Service 10
+participant P11 as Service 11
+participant P12 as Service 12
+participant P13 as Service 13
+participant P14 as Service 14
+participant P15 as Service 15
+participant P16 as Service 16
+participant P17 as Service 17
+participant P18 as Service 18
+participant P19 as Service 19
+participant P20 as Service 20
+loop Batch 1
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 001
+      activate P2
+      deactivate P2
+      P2->>P3: message 002
+      P3->>P4: message 003
+      P4->>P5: message 004
+      P5->>P6: message 005
+      P6->>P7: message 006
+      P7->>P8: message 007
+      P8->>P9: message 008
+      P9->>P10: message 009
+      P10->>P11: message 010
+      P11->>P12: message 011
+      activate P12
+      deactivate P12
+      P12->>P13: message 012
+      P13->>P14: message 013
+      P14->>P15: message 014
+      P15->>P16: message 015
+      P16->>P17: message 016
+      P17->>P18: message 017
+      P18->>P19: message 018
+      P19->>P20: message 019
+      P20->>P1: message 020
+      P1->>P2: message 021
+      activate P2
+      deactivate P2
+      P2->>P3: message 022
+      P3->>P4: message 023
+      P4->>P5: message 024
+      P5->>P6: message 025
+      P6-->>P5: message 026
+      P7-->>P6: message 027
+      P8-->>P7: message 028
+      P9-->>P8: message 029
+      P10-->>P9: message 030
+      P11-->>P10: message 031
+      activate P10
+      deactivate P10
+      P12-->>P11: message 032
+      P13-->>P12: message 033
+      P14-->>P13: message 034
+      P15-->>P14: message 035
+      P16-->>P15: message 036
+      P17-->>P16: message 037
+      P18-->>P17: message 038
+      P19-->>P18: message 039
+      P20-->>P19: message 040
+      P1-->>P20: message 041
+      activate P20
+      deactivate P20
+      P2-->>P1: message 042
+      P3-->>P2: message 043
+      P4-->>P3: message 044
+      P5-->>P4: message 045
+      P6-->>P5: message 046
+      P7-->>P6: message 047
+      P8-->>P7: message 048
+      P9-->>P8: message 049
+      P10-->>P9: message 050
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 2
+  alt Primary path
+    critical protected operation
+      P11->>P12: message 051
+      activate P12
+      deactivate P12
+      P12->>P13: message 052
+      P13->>P14: message 053
+      P14->>P15: message 054
+      P15->>P16: message 055
+      P16->>P17: message 056
+      P17->>P18: message 057
+      P18->>P19: message 058
+      P19->>P20: message 059
+      P20->>P1: message 060
+      P1->>P2: message 061
+      activate P2
+      deactivate P2
+      P2->>P3: message 062
+      P3->>P4: message 063
+      P4->>P5: message 064
+      P5->>P6: message 065
+      P6->>P7: message 066
+      P7->>P8: message 067
+      P8->>P9: message 068
+      P9->>P10: message 069
+      P10->>P11: message 070
+      P11->>P12: message 071
+      activate P12
+      deactivate P12
+      P12->>P13: message 072
+      P13->>P14: message 073
+      P14->>P15: message 074
+      P15->>P16: message 075
+      P16-->>P15: message 076
+      P17-->>P16: message 077
+      P18-->>P17: message 078
+      P19-->>P18: message 079
+      P20-->>P19: message 080
+      P1-->>P20: message 081
+      activate P20
+      deactivate P20
+      P2-->>P1: message 082
+      P3-->>P2: message 083
+      P4-->>P3: message 084
+      P5-->>P4: message 085
+      P6-->>P5: message 086
+      P7-->>P6: message 087
+      P8-->>P7: message 088
+      P9-->>P8: message 089
+      P10-->>P9: message 090
+      P11-->>P10: message 091
+      activate P10
+      deactivate P10
+      P12-->>P11: message 092
+      P13-->>P12: message 093
+      P14-->>P13: message 094
+      P15-->>P14: message 095
+      P16-->>P15: message 096
+      P17-->>P16: message 097
+      P18-->>P17: message 098
+      P19-->>P18: message 099
+      P20-->>P19: message 100
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 3
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 101
+      activate P2
+      deactivate P2
+      P2->>P3: message 102
+      P3->>P4: message 103
+      P4->>P5: message 104
+      P5->>P6: message 105
+      P6->>P7: message 106
+      P7->>P8: message 107
+      P8->>P9: message 108
+      P9->>P10: message 109
+      P10->>P11: message 110
+      P11->>P12: message 111
+      activate P12
+      deactivate P12
+      P12->>P13: message 112
+      P13->>P14: message 113
+      P14->>P15: message 114
+      P15->>P16: message 115
+      P16->>P17: message 116
+      P17->>P18: message 117
+      P18->>P19: message 118
+      P19->>P20: message 119
+      P20->>P1: message 120
+      P1->>P2: message 121
+      activate P2
+      deactivate P2
+      P2->>P3: message 122
+      P3->>P4: message 123
+      P4->>P5: message 124
+      P5->>P6: message 125
+      P6-->>P5: message 126
+      P7-->>P6: message 127
+      P8-->>P7: message 128
+      P9-->>P8: message 129
+      P10-->>P9: message 130
+      P11-->>P10: message 131
+      activate P10
+      deactivate P10
+      P12-->>P11: message 132
+      P13-->>P12: message 133
+      P14-->>P13: message 134
+      P15-->>P14: message 135
+      P16-->>P15: message 136
+      P17-->>P16: message 137
+      P18-->>P17: message 138
+      P19-->>P18: message 139
+      P20-->>P19: message 140
+      P1-->>P20: message 141
+      activate P20
+      deactivate P20
+      P2-->>P1: message 142
+      P3-->>P2: message 143
+      P4-->>P3: message 144
+      P5-->>P4: message 145
+      P6-->>P5: message 146
+      P7-->>P6: message 147
+      P8-->>P7: message 148
+      P9-->>P8: message 149
+      P10-->>P9: message 150
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 4
+  alt Primary path
+    critical protected operation
+      P11->>P12: message 151
+      activate P12
+      deactivate P12
+      P12->>P13: message 152
+      P13->>P14: message 153
+      P14->>P15: message 154
+      P15->>P16: message 155
+      P16->>P17: message 156
+      P17->>P18: message 157
+      P18->>P19: message 158
+      P19->>P20: message 159
+      P20->>P1: message 160
+      P1->>P2: message 161
+      activate P2
+      deactivate P2
+      P2->>P3: message 162
+      P3->>P4: message 163
+      P4->>P5: message 164
+      P5->>P6: message 165
+      P6->>P7: message 166
+      P7->>P8: message 167
+      P8->>P9: message 168
+      P9->>P10: message 169
+      P10->>P11: message 170
+      P11->>P12: message 171
+      activate P12
+      deactivate P12
+      P12->>P13: message 172
+      P13->>P14: message 173
+      P14->>P15: message 174
+      P15->>P16: message 175
+      P16-->>P15: message 176
+      P17-->>P16: message 177
+      P18-->>P17: message 178
+      P19-->>P18: message 179
+      P20-->>P19: message 180
+      P1-->>P20: message 181
+      activate P20
+      deactivate P20
+      P2-->>P1: message 182
+      P3-->>P2: message 183
+      P4-->>P3: message 184
+      P5-->>P4: message 185
+      P6-->>P5: message 186
+      P7-->>P6: message 187
+      P8-->>P7: message 188
+      P9-->>P8: message 189
+      P10-->>P9: message 190
+      P11-->>P10: message 191
+      activate P10
+      deactivate P10
+      P12-->>P11: message 192
+      P13-->>P12: message 193
+      P14-->>P13: message 194
+      P15-->>P14: message 195
+      P16-->>P15: message 196
+      P17-->>P16: message 197
+      P18-->>P17: message 198
+      P19-->>P18: message 199
+      P20-->>P19: message 200
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 5
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 201
+      activate P2
+      deactivate P2
+      P2->>P3: message 202
+      P3->>P4: message 203
+      P4->>P5: message 204
+      P5->>P6: message 205
+      P6->>P7: message 206
+      P7->>P8: message 207
+      P8->>P9: message 208
+      P9->>P10: message 209
+      P10->>P11: message 210
+      P11->>P12: message 211
+      activate P12
+      deactivate P12
+      P12->>P13: message 212
+      P13->>P14: message 213
+      P14->>P15: message 214
+      P15->>P16: message 215
+      P16->>P17: message 216
+      P17->>P18: message 217
+      P18->>P19: message 218
+      P19->>P20: message 219
+      P20->>P1: message 220
+      P1->>P2: message 221
+      activate P2
+      deactivate P2
+      P2->>P3: message 222
+      P3->>P4: message 223
+      P4->>P5: message 224
+      P5->>P6: message 225
+      P6-->>P5: message 226
+      P7-->>P6: message 227
+      P8-->>P7: message 228
+      P9-->>P8: message 229
+      P10-->>P9: message 230
+      P11-->>P10: message 231
+      activate P10
+      deactivate P10
+      P12-->>P11: message 232
+      P13-->>P12: message 233
+      P14-->>P13: message 234
+      P15-->>P14: message 235
+      P16-->>P15: message 236
+      P17-->>P16: message 237
+      P18-->>P17: message 238
+      P19-->>P18: message 239
+      P20-->>P19: message 240
+      P1-->>P20: message 241
+      activate P20
+      deactivate P20
+      P2-->>P1: message 242
+      P3-->>P2: message 243
+      P4-->>P3: message 244
+      P5-->>P4: message 245
+      P6-->>P5: message 246
+      P7-->>P6: message 247
+      P8-->>P7: message 248
+      P9-->>P8: message 249
+      P10-->>P9: message 250
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 6
+  alt Primary path
+    critical protected operation
+      P11->>P12: message 251
+      activate P12
+      deactivate P12
+      P12->>P13: message 252
+      P13->>P14: message 253
+      P14->>P15: message 254
+      P15->>P16: message 255
+      P16->>P17: message 256
+      P17->>P18: message 257
+      P18->>P19: message 258
+      P19->>P20: message 259
+      P20->>P1: message 260
+      P1->>P2: message 261
+      activate P2
+      deactivate P2
+      P2->>P3: message 262
+      P3->>P4: message 263
+      P4->>P5: message 264
+      P5->>P6: message 265
+      P6->>P7: message 266
+      P7->>P8: message 267
+      P8->>P9: message 268
+      P9->>P10: message 269
+      P10->>P11: message 270
+      P11->>P12: message 271
+      activate P12
+      deactivate P12
+      P12->>P13: message 272
+      P13->>P14: message 273
+      P14->>P15: message 274
+      P15->>P16: message 275
+      P16-->>P15: message 276
+      P17-->>P16: message 277
+      P18-->>P17: message 278
+      P19-->>P18: message 279
+      P20-->>P19: message 280
+      P1-->>P20: message 281
+      activate P20
+      deactivate P20
+      P2-->>P1: message 282
+      P3-->>P2: message 283
+      P4-->>P3: message 284
+      P5-->>P4: message 285
+      P6-->>P5: message 286
+      P7-->>P6: message 287
+      P8-->>P7: message 288
+      P9-->>P8: message 289
+      P10-->>P9: message 290
+      P11-->>P10: message 291
+      activate P10
+      deactivate P10
+      P12-->>P11: message 292
+      P13-->>P12: message 293
+      P14-->>P13: message 294
+      P15-->>P14: message 295
+      P16-->>P15: message 296
+      P17-->>P16: message 297
+      P18-->>P17: message 298
+      P19-->>P18: message 299
+      P20-->>P19: message 300
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 7
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 301
+      activate P2
+      deactivate P2
+      P2->>P3: message 302
+      P3->>P4: message 303
+      P4->>P5: message 304
+      P5->>P6: message 305
+      P6->>P7: message 306
+      P7->>P8: message 307
+      P8->>P9: message 308
+      P9->>P10: message 309
+      P10->>P11: message 310
+      P11->>P12: message 311
+      activate P12
+      deactivate P12
+      P12->>P13: message 312
+      P13->>P14: message 313
+      P14->>P15: message 314
+      P15->>P16: message 315
+      P16->>P17: message 316
+      P17->>P18: message 317
+      P18->>P19: message 318
+      P19->>P20: message 319
+      P20->>P1: message 320
+      P1->>P2: message 321
+      activate P2
+      deactivate P2
+      P2->>P3: message 322
+      P3->>P4: message 323
+      P4->>P5: message 324
+      P5->>P6: message 325
+      P6-->>P5: message 326
+      P7-->>P6: message 327
+      P8-->>P7: message 328
+      P9-->>P8: message 329
+      P10-->>P9: message 330
+      P11-->>P10: message 331
+      activate P10
+      deactivate P10
+      P12-->>P11: message 332
+      P13-->>P12: message 333
+      P14-->>P13: message 334
+      P15-->>P14: message 335
+      P16-->>P15: message 336
+      P17-->>P16: message 337
+      P18-->>P17: message 338
+      P19-->>P18: message 339
+      P20-->>P19: message 340
+      P1-->>P20: message 341
+      activate P20
+      deactivate P20
+      P2-->>P1: message 342
+      P3-->>P2: message 343
+      P4-->>P3: message 344
+      P5-->>P4: message 345
+      P6-->>P5: message 346
+      P7-->>P6: message 347
+      P8-->>P7: message 348
+      P9-->>P8: message 349
+      P10-->>P9: message 350
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 8
+  alt Primary path
+    critical protected operation
+      P11->>P12: message 351
+      activate P12
+      deactivate P12
+      P12->>P13: message 352
+      P13->>P14: message 353
+      P14->>P15: message 354
+      P15->>P16: message 355
+      P16->>P17: message 356
+      P17->>P18: message 357
+      P18->>P19: message 358
+      P19->>P20: message 359
+      P20->>P1: message 360
+      P1->>P2: message 361
+      activate P2
+      deactivate P2
+      P2->>P3: message 362
+      P3->>P4: message 363
+      P4->>P5: message 364
+      P5->>P6: message 365
+      P6->>P7: message 366
+      P7->>P8: message 367
+      P8->>P9: message 368
+      P9->>P10: message 369
+      P10->>P11: message 370
+      P11->>P12: message 371
+      activate P12
+      deactivate P12
+      P12->>P13: message 372
+      P13->>P14: message 373
+      P14->>P15: message 374
+      P15->>P16: message 375
+      P16-->>P15: message 376
+      P17-->>P16: message 377
+      P18-->>P17: message 378
+      P19-->>P18: message 379
+      P20-->>P19: message 380
+      P1-->>P20: message 381
+      activate P20
+      deactivate P20
+      P2-->>P1: message 382
+      P3-->>P2: message 383
+      P4-->>P3: message 384
+      P5-->>P4: message 385
+      P6-->>P5: message 386
+      P7-->>P6: message 387
+      P8-->>P7: message 388
+      P9-->>P8: message 389
+      P10-->>P9: message 390
+      P11-->>P10: message 391
+      activate P10
+      deactivate P10
+      P12-->>P11: message 392
+      P13-->>P12: message 393
+      P14-->>P13: message 394
+      P15-->>P14: message 395
+      P16-->>P15: message 396
+      P17-->>P16: message 397
+      P18-->>P17: message 398
+      P19-->>P18: message 399
+      P20-->>P19: message 400
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 9
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 401
+      activate P2
+      deactivate P2
+      P2->>P3: message 402
+      P3->>P4: message 403
+      P4->>P5: message 404
+      P5->>P6: message 405
+      P6->>P7: message 406
+      P7->>P8: message 407
+      P8->>P9: message 408
+      P9->>P10: message 409
+      P10->>P11: message 410
+      P11->>P12: message 411
+      activate P12
+      deactivate P12
+      P12->>P13: message 412
+      P13->>P14: message 413
+      P14->>P15: message 414
+      P15->>P16: message 415
+      P16->>P17: message 416
+      P17->>P18: message 417
+      P18->>P19: message 418
+      P19->>P20: message 419
+      P20->>P1: message 420
+      P1->>P2: message 421
+      activate P2
+      deactivate P2
+      P2->>P3: message 422
+      P3->>P4: message 423
+      P4->>P5: message 424
+      P5->>P6: message 425
+      P6-->>P5: message 426
+      P7-->>P6: message 427
+      P8-->>P7: message 428
+      P9-->>P8: message 429
+      P10-->>P9: message 430
+      P11-->>P10: message 431
+      activate P10
+      deactivate P10
+      P12-->>P11: message 432
+      P13-->>P12: message 433
+      P14-->>P13: message 434
+      P15-->>P14: message 435
+      P16-->>P15: message 436
+      P17-->>P16: message 437
+      P18-->>P17: message 438
+      P19-->>P18: message 439
+      P20-->>P19: message 440
+      P1-->>P20: message 441
+      activate P20
+      deactivate P20
+      P2-->>P1: message 442
+      P3-->>P2: message 443
+      P4-->>P3: message 444
+      P5-->>P4: message 445
+      P6-->>P5: message 446
+      P7-->>P6: message 447
+      P8-->>P7: message 448
+      P9-->>P8: message 449
+      P10-->>P9: message 450
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 10
+  alt Primary path
+    critical protected operation
+      P11->>P12: message 451
+      activate P12
+      deactivate P12
+      P12->>P13: message 452
+      P13->>P14: message 453
+      P14->>P15: message 454
+      P15->>P16: message 455
+      P16->>P17: message 456
+      P17->>P18: message 457
+      P18->>P19: message 458
+      P19->>P20: message 459
+      P20->>P1: message 460
+      P1->>P2: message 461
+      activate P2
+      deactivate P2
+      P2->>P3: message 462
+      P3->>P4: message 463
+      P4->>P5: message 464
+      P5->>P6: message 465
+      P6->>P7: message 466
+      P7->>P8: message 467
+      P8->>P9: message 468
+      P9->>P10: message 469
+      P10->>P11: message 470
+      P11->>P12: message 471
+      activate P12
+      deactivate P12
+      P12->>P13: message 472
+      P13->>P14: message 473
+      P14->>P15: message 474
+      P15->>P16: message 475
+      P16-->>P15: message 476
+      P17-->>P16: message 477
+      P18-->>P17: message 478
+      P19-->>P18: message 479
+      P20-->>P19: message 480
+      P1-->>P20: message 481
+      activate P20
+      deactivate P20
+      P2-->>P1: message 482
+      P3-->>P2: message 483
+      P4-->>P3: message 484
+      P5-->>P4: message 485
+      P6-->>P5: message 486
+      P7-->>P6: message 487
+      P8-->>P7: message 488
+      P9-->>P8: message 489
+      P10-->>P9: message 490
+      P11-->>P10: message 491
+      activate P10
+      deactivate P10
+      P12-->>P11: message 492
+      P13-->>P12: message 493
+      P14-->>P13: message 494
+      P15-->>P14: message 495
+      P16-->>P15: message 496
+      P17-->>P16: message 497
+      P18-->>P17: message 498
+      P19-->>P18: message 499
+      P20-->>P19: message 500
+    end
+  Note over P1: batch checkpoint
+end

@@ -1,0 +1,139 @@
+%% benchmark: kind=sequence participants=5 messages=100
+sequenceDiagram
+participant P1 as Service 1
+participant P2 as Service 2
+participant P3 as Service 3
+participant P4 as Service 4
+participant P5 as Service 5
+loop Batch 1
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 001
+      activate P2
+      deactivate P2
+      P2->>P3: message 002
+      P3->>P4: message 003
+      P4->>P5: message 004
+      P5->>P1: message 005
+      P1->>P2: message 006
+      P2->>P3: message 007
+      P3->>P4: message 008
+      P4->>P5: message 009
+      P5->>P1: message 010
+      P1->>P2: message 011
+      activate P2
+      deactivate P2
+      P2->>P3: message 012
+      P3->>P4: message 013
+      P4->>P5: message 014
+      P5->>P1: message 015
+      P1->>P2: message 016
+      P2->>P3: message 017
+      P3->>P4: message 018
+      P4->>P5: message 019
+      P5->>P1: message 020
+      P1->>P2: message 021
+      activate P2
+      deactivate P2
+      P2->>P3: message 022
+      P3->>P4: message 023
+      P4->>P5: message 024
+      P5->>P1: message 025
+      P1-->>P5: message 026
+      P2-->>P1: message 027
+      P3-->>P2: message 028
+      P4-->>P3: message 029
+      P5-->>P4: message 030
+      P1-->>P5: message 031
+      activate P5
+      deactivate P5
+      P2-->>P1: message 032
+      P3-->>P2: message 033
+      P4-->>P3: message 034
+      P5-->>P4: message 035
+      P1-->>P5: message 036
+      P2-->>P1: message 037
+      P3-->>P2: message 038
+      P4-->>P3: message 039
+      P5-->>P4: message 040
+      P1-->>P5: message 041
+      activate P5
+      deactivate P5
+      P2-->>P1: message 042
+      P3-->>P2: message 043
+      P4-->>P3: message 044
+      P5-->>P4: message 045
+      P1-->>P5: message 046
+      P2-->>P1: message 047
+      P3-->>P2: message 048
+      P4-->>P3: message 049
+      P5-->>P4: message 050
+    end
+  Note over P1: batch checkpoint
+end
+loop Batch 2
+  alt Primary path
+    critical protected operation
+      P1->>P2: message 051
+      activate P2
+      deactivate P2
+      P2->>P3: message 052
+      P3->>P4: message 053
+      P4->>P5: message 054
+      P5->>P1: message 055
+      P1->>P2: message 056
+      P2->>P3: message 057
+      P3->>P4: message 058
+      P4->>P5: message 059
+      P5->>P1: message 060
+      P1->>P2: message 061
+      activate P2
+      deactivate P2
+      P2->>P3: message 062
+      P3->>P4: message 063
+      P4->>P5: message 064
+      P5->>P1: message 065
+      P1->>P2: message 066
+      P2->>P3: message 067
+      P3->>P4: message 068
+      P4->>P5: message 069
+      P5->>P1: message 070
+      P1->>P2: message 071
+      activate P2
+      deactivate P2
+      P2->>P3: message 072
+      P3->>P4: message 073
+      P4->>P5: message 074
+      P5->>P1: message 075
+      P1-->>P5: message 076
+      P2-->>P1: message 077
+      P3-->>P2: message 078
+      P4-->>P3: message 079
+      P5-->>P4: message 080
+      P1-->>P5: message 081
+      activate P5
+      deactivate P5
+      P2-->>P1: message 082
+      P3-->>P2: message 083
+      P4-->>P3: message 084
+      P5-->>P4: message 085
+      P1-->>P5: message 086
+      P2-->>P1: message 087
+      P3-->>P2: message 088
+      P4-->>P3: message 089
+      P5-->>P4: message 090
+      P1-->>P5: message 091
+      activate P5
+      deactivate P5
+      P2-->>P1: message 092
+      P3-->>P2: message 093
+      P4-->>P3: message 094
+      P5-->>P4: message 095
+      P1-->>P5: message 096
+      P2-->>P1: message 097
+      P3-->>P2: message 098
+      P4-->>P3: message 099
+      P5-->>P4: message 100
+    end
+  Note over P1: batch checkpoint
+end

@@ -1,0 +1,17 @@
+%% benchmark: kind=state nested_depth=5
+stateDiagram-v2
+state Level_01 {
+  state Level_02 {
+    state Level_03 {
+      state Level_04 {
+        state Level_05 {
+          [*] --> Working
+          Working --> Waiting: checkpoint
+          Waiting --> [*]: complete
+        }
+      }
+    }
+  }
+}
+[*] --> Level_01
+Level_01 --> [*]

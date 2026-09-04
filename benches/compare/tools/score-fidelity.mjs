@@ -11,6 +11,7 @@ const defaultOut = join(repoRoot, "benches/compare/results/fidelity.json");
 const textTools = [
   "alexander-mermaid-ascii",
   "beautiful-mermaid",
+  "kumeyuri",
   "mermaid2term",
   "pgavlin-mermaid-ascii",
 ];

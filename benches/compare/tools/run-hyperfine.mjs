@@ -10,13 +10,16 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const defaultInput = join(repoRoot, "benches/compare/corpus/flowchart-dense.mmd");
 const defaultOut = join(repoRoot, "benches/compare/results/timing.json");
 const defaultResultsDir = join(repoRoot, "benches/compare/results/timing");
+const defaultKumeyuriBin = join(repoRoot, "target/release/kumeyuri");
 
 function usage() {
   return `Usage:
-  node benches/compare/tools/run-hyperfine.mjs [--input FILE] [--out FILE] [--runs N]
+  node benches/compare/tools/run-hyperfine.mjs [--input FILE] [--kumeyuri-bin FILE] [--out FILE] [--runs N]
 
 Options:
   --input FILE   Corpus input to benchmark. Defaults to flowchart-dense.mmd.
+  --kumeyuri-bin FILE
+                 Release kumeyuri binary. Defaults to KUMEYURI_BENCH_BIN or target/release/kumeyuri.
   --out FILE     hyperfine JSON export path. Defaults to benches/compare/results/timing.json.
   --runs N       Exact hyperfine runs per command. Defaults to 3.
 `;
@@ -33,6 +36,7 @@ function takeValue(args, index, flag) {
 function parseArgs(args) {
   const options = {
     input: defaultInput,
+    kumeyuriBin: process.env.KUMEYURI_BENCH_BIN || defaultKumeyuriBin,
     out: defaultOut,
     runs: "3",
   };
@@ -46,6 +50,10 @@ function parseArgs(args) {
         break;
       case "--input":
         options.input = takeValue(args, index, arg);
+        index += 1;
+        break;
+      case "--kumeyuri-bin":
+        options.kumeyuriBin = takeValue(args, index, arg);
         index += 1;
         break;
       case "--out":
@@ -87,8 +95,16 @@ async function pathBinary(name) {
 
 async function adapterCommands(options) {
   const input = resolve(options.input);
+  const kumeyuriBin = resolve(options.kumeyuriBin);
+  if (!await executableExists(kumeyuriBin)) {
+    throw new Error(`release kumeyuri binary not found: ${kumeyuriBin}; run cargo build --release -p kumeyuri-cli --bin kumeyuri`);
+  }
   const node = process.execPath;
   const commands = [
+    {
+      name: "kumeyuri",
+      command: `${node} benches/compare/tools/kumeyuri.mjs --bin ${JSON.stringify(kumeyuriBin)} --input ${JSON.stringify(input)} --format text --out-dir ${JSON.stringify(join(defaultResultsDir, "kumeyuri"))}`,
+    },
     {
       name: "beautiful-mermaid",
       command: `${node} benches/compare/tools/beautiful-mermaid.mjs --input ${JSON.stringify(input)} --out-dir ${JSON.stringify(join(defaultResultsDir, "beautiful-mermaid"))}`,

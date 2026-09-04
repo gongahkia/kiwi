@@ -6,8 +6,11 @@ import { chromium } from "playwright";
 
 const root = process.cwd();
 const runs = positiveInteger(process.env.KUMEYURI_WEB_PLAYER_PERF_RUNS ?? "7");
-const fcrBudgetMs = positiveNumber(process.env.KUMEYURI_WEB_PLAYER_FCR_BUDGET_MS ?? "250");
+const fcrBudgetMs = positiveNumber(process.env.KUMEYURI_WEB_PLAYER_FCR_BUDGET_MS ?? "4000");
 const componentModule = await readFile(join(root, "packages/kumeyuri/dist/index.js"), "utf8");
+const wasmModule = await readFile(join(root, "packages/kumeyuri/wasm/kumeyuri_render_wasm.js"), "utf8");
+const wasmBinary = await readFile(join(root, "packages/kumeyuri/wasm/kumeyuri_render_wasm_bg.wasm"));
+const benchmarkSource = await readFile(join(root, "benches/compare/corpus/scales/flowchart-tree-100.mmd"), "utf8");
 
 const { server, url } = await serve();
 
@@ -27,6 +30,7 @@ async function runPerf(baseUrl) {
         await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
         await page.waitForSelector("kumeyuri-diagram svg");
         await page.waitForFunction(() => performance.getEntriesByName("kumeyuri-contentful-render").length > 0);
+        await page.waitForFunction(() => document.querySelector("kumeyuri-diagram")?.dataset.error === undefined);
         samples.push(
           await page.evaluate(() => {
             const fcr = performance.getEntriesByName("kumeyuri-contentful-render")[0];
@@ -70,6 +74,16 @@ async function serve() {
       response.end(componentModule);
       return;
     }
+    if (path === "/wasm/kumeyuri_render_wasm.js") {
+      response.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
+      response.end(wasmModule);
+      return;
+    }
+    if (path === "/wasm/kumeyuri_render_wasm_bg.wasm") {
+      response.writeHead(200, { "content-type": "application/wasm" });
+      response.end(wasmBinary);
+      return;
+    }
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     response.end("not found");
   });
@@ -102,31 +116,21 @@ function pageHtml() {
     </script>
   </head>
   <body>
-    <kumeyuri-diagram
-      inline="graph TD&#10;A[Cart] --> B{Signed in?}&#10;B -->|Yes| C[Checkout]&#10;B -->|No| D[Login]&#10;D --> C"
-      animate="trace"
-      theme="github"
-      dark-theme="tokyo-night"
-      speed="1.25"
-      autoplay
-      controls
-    ></kumeyuri-diagram>
     <script type="module">
       import { defineKumeyuriElement, initKumeyuri } from "/dist/index.js";
+      import * as wasm from "/wasm/kumeyuri_render_wasm.js";
 
-      await initKumeyuri({
-        async default() {},
-        render() {
-          return {
-            svg: '<svg role="img" aria-labelledby="kumeyuri-title kumeyuri-desc"><title id="kumeyuri-title">Checkout flow</title><desc id="kumeyuri-desc">A checkout flow animation.</desc><g id="frame-0" opacity="1"><text>Cart</text></g><g id="frame-1" opacity="0"><text>Checkout</text></g></svg>',
-            frames: [
-              { text: "Cart", durationMs: 10000 },
-              { text: "Checkout", durationMs: 10000 }
-            ]
-          };
-        }
-      });
+      await initKumeyuri(wasm);
       defineKumeyuriElement();
+      const diagram = document.createElement("kumeyuri-diagram");
+      diagram.setAttribute("inline", ${JSON.stringify(benchmarkSource)});
+      diagram.setAttribute("animate", "trace");
+      diagram.setAttribute("theme", "github");
+      diagram.setAttribute("dark-theme", "tokyo-night");
+      diagram.setAttribute("speed", "1.25");
+      diagram.setAttribute("autoplay", "");
+      diagram.setAttribute("controls", "");
+      document.body.append(diagram);
     </script>
   </body>
 </html>`;

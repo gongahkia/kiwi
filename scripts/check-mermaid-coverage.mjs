@@ -1,8 +1,14 @@
 import { readFile } from "node:fs/promises";
 
+const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+const mermaidCliVersion = packageManifest.devDependencies?.["@mermaid-js/mermaid-cli"];
+if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(mermaidCliVersion ?? "")) {
+  throw new Error("package.json must pin @mermaid-js/mermaid-cli to an exact version");
+}
+const syntaxDocsRef = process.env.MERMAID_DOCS_REF ?? `mermaid@${mermaidCliVersion}`;
 const syntaxDocsApiUrl =
   process.env.MERMAID_DOCS_API_URL ??
-  "https://api.github.com/repos/mermaid-js/mermaid/contents/packages/mermaid/src/docs/syntax?ref=develop";
+  `https://api.github.com/repos/mermaid-js/mermaid/contents/packages/mermaid/src/docs/syntax?ref=${encodeURIComponent(syntaxDocsRef)}`;
 
 const expectedSyntaxDocs = new Map([
   ["architecture.md", "Architecture"],
@@ -74,7 +80,7 @@ if (unmappedDocs.length || missingCoverageRows.length || staleCoverageRows.lengt
   process.exit(1);
 }
 
-console.log(`Mermaid docs syntax coverage is current (${upstreamNames.length} roots checked).`);
+console.log(`Mermaid ${syntaxDocsRef} syntax coverage is current (${upstreamNames.length} roots checked).`);
 
 async function fetchSyntaxDocs() {
   const headers = {

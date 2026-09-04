@@ -1,6 +1,6 @@
 # Comparison Benchmark Corpus
 
-This directory contains source inputs shared by future comparison harnesses.
+This directory contains source inputs shared by the comparison harnesses.
 Each tool adapter should read from `corpus/manifest.json` and write outputs under
 an ignored results directory, not mutate these inputs.
 
@@ -55,3 +55,98 @@ Adapters:
 * `npm run bench:compare:fidelity` scores text adapters against `mermaid-cli`
   SVG ground truth by extracting visible SVG labels and measuring label recall.
   This is a conservative semantic smoke score, not a pixel/image diff.
+
+## Release benchmark workflow
+
+`kumeyuri` now has a comparison adapter and a release-only phase probe. Prepare
+both release binaries once before invoking either directly:
+
+```sh
+npm run bench:compare:prepare
+```
+
+The adapter at `tools/kumeyuri.mjs` defaults to `target/release/kumeyuri` and
+never invokes `cargo run`. Override the binary with `KUMEYURI_BENCH_BIN` or
+`--bin` when profiling a separately built artifact.
+
+```sh
+npm run bench:compare:kumeyuri -- --input benches/compare/corpus/flowchart-dense.mmd --stdout
+npm run bench:compare:timing -- --input benches/compare/corpus/scales/flowchart-tree-100.mmd --runs 10
+```
+
+The timing command compares process-level wall time through Hyperfine. It now
+includes KumeYuri alongside the existing adapters, but each tool's output model
+remains different and the comparison should not be read as visual-fidelity
+evidence.
+
+## Generated scale corpus
+
+`corpus/scales/` is generated, checked-in input—not ephemeral benchmark output.
+It contains:
+
+* 10, 50, 100, 250, and 500 node flowcharts for chains, trees, fan-in, fan-out,
+  cycles, and nested subgraphs with long labels;
+* 5/100, 10/250, and 20/500 participant/message sequence workloads with
+  activations and nested `loop`/`alt`/`critical` blocks; and
+* state hierarchies nested 5, 10, and 20 levels deep.
+
+Regenerate after changing `tools/generate-scale-corpus.mjs`; CI-oriented checks
+must use `--check` instead:
+
+```sh
+node benches/compare/tools/generate-scale-corpus.mjs --write
+npm run test:bench:scale-corpus
+```
+
+`corpus/manifest.json` stays a fast, feature-focused corpus. The generated
+`corpus/benchmark-manifest.json` combines it with every scale fixture and is
+the default for phase and SVG-structure reports.
+
+Large animated sources can legitimately consume substantial time and memory:
+each trace frame carries a complete text grid. Do not put every output phase
+for the 500-node fixtures in routine unit-test CI. Select an input and phase
+when investigating a regression.
+
+## Phase measurements
+
+`kumeyuri-bench` measures individual operations inside a release process:
+
+| Operation | Scope |
+| --- | --- |
+| `parse` | Mermaid source to KumeYuri AST |
+| `layout` | Isolated layout for flowchart, sequence, and state roots |
+| `frames` | Animated timeline and text-frame generation |
+| `svg` | SVG serialization from a prebuilt timeline |
+| `kumecast` | KumeCast JSON serialization from a prebuilt timeline |
+| `raster-gif`, `raster-apng`, `raster-webp` | GIF, APNG, and WebP encoding from a prebuilt timeline |
+
+The Node runner records every measured sample, p50/p95/min/max milliseconds,
+and Linux peak RSS from `/usr/bin/time`. Setup work is intentionally outside
+the component sample, while peak RSS covers the whole probe process.
+
+```sh
+npm run bench:compare:phases -- \
+  --input benches/compare/corpus/scales/flowchart-tree-100.mmd \
+  --iterations 20 --warmup 3
+```
+
+The default command writes ignored JSON beneath `benches/compare/results/`.
+Use `--allow-failures` to retain results for intentionally capacity-breaking
+inputs without making the command fail.
+
+## Structural SVG comparison
+
+Render the same pinned benchmark manifest through both KumeYuri and Mermaid
+CLI, then compare accessible text, SVG element counts, viewbox metadata, and
+semantic element classes:
+
+```sh
+npm run bench:compare:svg
+```
+
+`tools/compare-svg-structure.mjs` writes `svg-structure.json`. Its label
+metrics are retained for continuity, but the report also captures tag-count and
+element-count differences plus accessibility metadata. It deliberately does
+not declare a visual match: KumeYuri renders text-grid SVG while Mermaid CLI
+uses a browser SVG layout. Screenshot/image diffs remain an optional stronger
+visual gate for a future renderer whose geometry is intended to match Mermaid.

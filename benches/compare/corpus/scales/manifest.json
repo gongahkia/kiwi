@@ -1,0 +1,222 @@
+{
+  "version": 1,
+  "generatedBy": "benches/compare/tools/generate-scale-corpus.mjs",
+  "inputs": [
+    {
+      "id": "flowchart-chain-10",
+      "root": "flowchart",
+      "path": "flowchart-chain-10.mmd",
+      "reason": "10-node chain flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-tree-10",
+      "root": "flowchart",
+      "path": "flowchart-tree-10.mmd",
+      "reason": "10-node tree flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-out-10",
+      "root": "flowchart",
+      "path": "flowchart-fan-out-10.mmd",
+      "reason": "10-node fan-out flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-in-10",
+      "root": "flowchart",
+      "path": "flowchart-fan-in-10.mmd",
+      "reason": "10-node fan-in flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-cyclic-10",
+      "root": "flowchart",
+      "path": "flowchart-cyclic-10.mmd",
+      "reason": "10-node cyclic flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-nested-subgraphs-long-labels-10",
+      "root": "flowchart",
+      "path": "flowchart-nested-subgraphs-long-labels-10.mmd",
+      "reason": "10-node nested-subgraphs-long-labels flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-chain-50",
+      "root": "flowchart",
+      "path": "flowchart-chain-50.mmd",
+      "reason": "50-node chain flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-tree-50",
+      "root": "flowchart",
+      "path": "flowchart-tree-50.mmd",
+      "reason": "50-node tree flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-out-50",
+      "root": "flowchart",
+      "path": "flowchart-fan-out-50.mmd",
+      "reason": "50-node fan-out flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-in-50",
+      "root": "flowchart",
+      "path": "flowchart-fan-in-50.mmd",
+      "reason": "50-node fan-in flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-cyclic-50",
+      "root": "flowchart",
+      "path": "flowchart-cyclic-50.mmd",
+      "reason": "50-node cyclic flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-nested-subgraphs-long-labels-50",
+      "root": "flowchart",
+      "path": "flowchart-nested-subgraphs-long-labels-50.mmd",
+      "reason": "50-node nested-subgraphs-long-labels flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-chain-100",
+      "root": "flowchart",
+      "path": "flowchart-chain-100.mmd",
+      "reason": "100-node chain flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-tree-100",
+      "root": "flowchart",
+      "path": "flowchart-tree-100.mmd",
+      "reason": "100-node tree flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-out-100",
+      "root": "flowchart",
+      "path": "flowchart-fan-out-100.mmd",
+      "reason": "100-node fan-out flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-in-100",
+      "root": "flowchart",
+      "path": "flowchart-fan-in-100.mmd",
+      "reason": "100-node fan-in flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-cyclic-100",
+      "root": "flowchart",
+      "path": "flowchart-cyclic-100.mmd",
+      "reason": "100-node cyclic flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-nested-subgraphs-long-labels-100",
+      "root": "flowchart",
+      "path": "flowchart-nested-subgraphs-long-labels-100.mmd",
+      "reason": "100-node nested-subgraphs-long-labels flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-chain-250",
+      "root": "flowchart",
+      "path": "flowchart-chain-250.mmd",
+      "reason": "250-node chain flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-tree-250",
+      "root": "flowchart",
+      "path": "flowchart-tree-250.mmd",
+      "reason": "250-node tree flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-out-250",
+      "root": "flowchart",
+      "path": "flowchart-fan-out-250.mmd",
+      "reason": "250-node fan-out flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-in-250",
+      "root": "flowchart",
+      "path": "flowchart-fan-in-250.mmd",
+      "reason": "250-node fan-in flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-cyclic-250",
+      "root": "flowchart",
+      "path": "flowchart-cyclic-250.mmd",
+      "reason": "250-node cyclic flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-nested-subgraphs-long-labels-250",
+      "root": "flowchart",
+      "path": "flowchart-nested-subgraphs-long-labels-250.mmd",
+      "reason": "250-node nested-subgraphs-long-labels flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-chain-500",
+      "root": "flowchart",
+      "path": "flowchart-chain-500.mmd",
+      "reason": "500-node chain flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-tree-500",
+      "root": "flowchart",
+      "path": "flowchart-tree-500.mmd",
+      "reason": "500-node tree flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-out-500",
+      "root": "flowchart",
+      "path": "flowchart-fan-out-500.mmd",
+      "reason": "500-node fan-out flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-fan-in-500",
+      "root": "flowchart",
+      "path": "flowchart-fan-in-500.mmd",
+      "reason": "500-node fan-in flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-cyclic-500",
+      "root": "flowchart",
+      "path": "flowchart-cyclic-500.mmd",
+      "reason": "500-node cyclic flowchart scale fixture"
+    },
+    {
+      "id": "flowchart-nested-subgraphs-long-labels-500",
+      "root": "flowchart",
+      "path": "flowchart-nested-subgraphs-long-labels-500.mmd",
+      "reason": "500-node nested-subgraphs-long-labels flowchart scale fixture"
+    },
+    {
+      "id": "sequence-5p-100m",
+      "root": "sequenceDiagram",
+      "path": "sequence-5p-100m.mmd",
+      "reason": "5 participants, 100 messages, activations, and nested controls"
+    },
+    {
+      "id": "sequence-10p-250m",
+      "root": "sequenceDiagram",
+      "path": "sequence-10p-250m.mmd",
+      "reason": "10 participants, 250 messages, activations, and nested controls"
+    },
+    {
+      "id": "sequence-20p-500m",
+      "root": "sequenceDiagram",
+      "path": "sequence-20p-500m.mmd",
+      "reason": "20 participants, 500 messages, activations, and nested controls"
+    },
+    {
+      "id": "state-nested-depth-5",
+      "root": "stateDiagram-v2",
+      "path": "state-nested-depth-5.mmd",
+      "reason": "5-level nested state hierarchy"
+    },
+    {
+      "id": "state-nested-depth-10",
+      "root": "stateDiagram-v2",
+      "path": "state-nested-depth-10.mmd",
+      "reason": "10-level nested state hierarchy"
+    },
+    {
+      "id": "state-nested-depth-20",
+      "root": "stateDiagram-v2",
+      "path": "state-nested-depth-20.mmd",
+      "reason": "20-level nested state hierarchy"
+    }
+  ]
+}

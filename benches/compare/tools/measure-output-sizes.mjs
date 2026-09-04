@@ -9,6 +9,7 @@ const defaultResultsDir = join(repoRoot, "benches/compare/results");
 const defaultTools = [
   "alexander-mermaid-ascii",
   "beautiful-mermaid",
+  "kumeyuri",
   "mermaid-cli",
   "mermaid2term",
   "pgavlin-mermaid-ascii",
