@@ -121,8 +121,11 @@ when investigating a regression.
 | `raster-gif`, `raster-apng`, `raster-webp` | GIF, APNG, and WebP encoding from a prebuilt timeline |
 
 The Node runner records every measured sample, p50/p95/min/max milliseconds,
-and Linux peak RSS from `/usr/bin/time`. Setup work is intentionally outside
-the component sample, while peak RSS covers the whole probe process.
+and Linux peak RSS from `/usr/bin/time`. Each isolated probe runs in a user
+systemd scope with a 4 GiB memory limit, no swap, and a five-minute wall-time
+limit. Override either with `--memory-max-mib` or `--timeout-seconds`. Setup
+work is intentionally outside the component sample, while peak RSS covers the
+whole probe process.
 
 ```sh
 npm run bench:compare:phases -- \

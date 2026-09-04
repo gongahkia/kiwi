@@ -26,6 +26,8 @@ Options:
   --operation NAME   parse, layout, frames, svg, kumecast, raster-gif, raster-apng, or raster-webp; repeatable. Defaults to all.
   --iterations N     Timed samples collected by the probe. Defaults to 10.
   --warmup N         Unrecorded probe iterations. Defaults to 2.
+  --memory-max-mib N Per-operation cgroup memory limit. Defaults to 4096 MiB.
+  --timeout-seconds N Per-operation wall-time limit. Defaults to 300 seconds.
   --out FILE         JSON report path. Defaults to benches/compare/results/kumeyuri-phases.json.
   --allow-failures   Write errors to the report without returning a nonzero status.
 `;
@@ -50,6 +52,8 @@ function parseArgs(args) {
     operations: [],
     iterations: 10,
     warmup: 2,
+    memoryMaxMiB: 4096,
+    timeoutSeconds: 300,
     out: defaultOut,
     allowFailures: false,
   };
@@ -82,6 +86,14 @@ function parseArgs(args) {
         break;
       case "--warmup":
         options.warmup = positiveInteger(takeValue(args, index, arg), arg);
+        index += 1;
+        break;
+      case "--memory-max-mib":
+        options.memoryMaxMiB = positiveInteger(takeValue(args, index, arg), arg);
+        index += 1;
+        break;
+      case "--timeout-seconds":
+        options.timeoutSeconds = positiveInteger(takeValue(args, index, arg), arg);
         index += 1;
         break;
       case "--out":
@@ -148,7 +160,17 @@ function percentile(samples, fraction) {
 
 async function runProbe(probe, entry, operation, options, workDir) {
   const rssPath = join(workDir, `${entry.id}-${operation}.rss-kib`);
-  const { stdout } = await execFileAsync("/usr/bin/time", [
+  const { stdout } = await execFileAsync("systemd-run", [
+    "--user",
+    "--scope",
+    "--quiet",
+    `--property=MemoryMax=${options.memoryMaxMiB}M`,
+    "--property=MemorySwapMax=0",
+    "--",
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    `${options.timeoutSeconds}s`,
+    "/usr/bin/time",
     "-f", "%M",
     "-o", rssPath,
     probe,
@@ -176,6 +198,25 @@ async function runProbe(probe, entry, operation, options, workDir) {
   };
 }
 
+function probeFailure(error, options) {
+  if (error && typeof error === "object") {
+    const stderr = typeof error.stderr === "string" ? error.stderr.trim() : "";
+    const stdout = typeof error.stdout === "string" ? error.stdout.trim() : "";
+    if (error.code === 124) return `timed out after ${options.timeoutSeconds} seconds`;
+    if (error.code === 137) {
+      return `terminated with status 137; the ${options.memoryMaxMiB} MiB memory cgroup limit may have been reached`;
+    }
+    if (["SIGKILL", "SIGTERM"].includes(error.signal) && !stderr && !stdout) {
+      return `cgrouped probe was terminated with ${error.signal}; the ${options.memoryMaxMiB} MiB memory limit may have been reached`;
+    }
+    if (error.code === 1 && !stderr && !stdout) {
+      return `cgrouped probe exited without diagnostic output; the ${options.memoryMaxMiB} MiB memory limit may have been reached`;
+    }
+    if (stderr) return stderr;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -187,6 +228,8 @@ async function main() {
     throw new Error(`release benchmark probe not found: ${probe}; run cargo build --release -p kumeyuri-cli --bin kumeyuri-bench`);
   }
   if (!await exists("/usr/bin/time")) throw new Error("/usr/bin/time is required to record peak RSS");
+  if (!await exists("/usr/bin/timeout")) throw new Error("/usr/bin/timeout is required to enforce phase time limits");
+  if (!await exists("/usr/bin/systemd-run")) throw new Error("/usr/bin/systemd-run is required to enforce phase memory limits");
 
   const entries = options.inputs.length > 0 ? await entriesFromInputs(options.inputs) : await entriesFromManifest(options.manifest);
   const workDir = await mkdtemp(join(tmpdir(), "kumeyuri-bench-"));
@@ -202,7 +245,7 @@ async function main() {
         try {
           phases[operation] = await runProbe(probe, entry, operation, options, workDir);
         } catch (error) {
-          phases[operation] = { status: "error", error: error instanceof Error ? error.message : String(error) };
+          phases[operation] = { status: "error", error: probeFailure(error, options) };
         }
       }
       results.push({ id: entry.id, root: entry.root, input: entry.file, phases });
@@ -218,6 +261,11 @@ async function main() {
     manifest: options.manifest ? resolve(options.manifest) : null,
     iterations: options.iterations,
     warmup: options.warmup,
+    resourceLimits: {
+      memoryMaxMiB: options.memoryMaxMiB,
+      memorySwapMaxMiB: 0,
+      timeoutSeconds: options.timeoutSeconds,
+    },
     results,
   };
   const output = resolve(options.out);
