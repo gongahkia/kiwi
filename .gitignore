@@ -1,11 +1,42 @@
-CLAUDE.md
-target/
-crates/*/Cargo.lock
-companion/*/Cargo.lock
-plugins/*/Cargo.lock
-node_modules/
-dist/
-bench/results.json
-benches/compare/results/
 .DS_Store
+
+# build outputs
+build/
+cmake-build-*/
+out/
+dist/
+bin/
+lib/
+_CPack_Packages/
+target/
+*.tar.gz
+*.deb
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# compiled artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.app
+*.dSYM/
+
+# editor/local
+.cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+CLAUDE.md
+
 AGENTS.md

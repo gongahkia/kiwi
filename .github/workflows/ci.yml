@@ -1,311 +1,225 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  rust:
-    name: Rust
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Cache Cargo
-        uses: actions/cache@v5.0.5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal --component clippy --component rustfmt
-          rustup default stable
-
-      - name: Format
-        run: cargo fmt --check
-
-      - name: Clippy
-        run: cargo clippy --workspace -- -D warnings
-
-      - name: Test
-        run: cargo test --workspace
-
-  wasm:
-    name: WebAssembly
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Cache Cargo
-        uses: actions/cache@v5.0.5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ runner.os }}-wasm-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-wasm-cargo-
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          rustup target add wasm32-unknown-unknown
-
-      - name: Check wasm32
-        run: cargo check --workspace --target wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        run: cargo install wasm-pack --locked --version 0.13.1
-
-      - name: Enforce WASM bundle budget (<500 KB gzip)
-        run: scripts/check-wasm-budget.sh
-
-  visual-diff:
-    name: Visual Diff
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Cache Cargo
-        uses: actions/cache@v5.0.5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ runner.os }}-visual-diff-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-visual-diff-cargo-
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - name: Compare static fixtures against golden outputs
-        run: cargo test -p kumeyuri-core --test visual_diff
-
-  heap-profile:
-    name: Heap Profile
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Cache Cargo
-        uses: actions/cache@v5.0.5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ runner.os }}-heap-profile-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-heap-profile-cargo-
-
-      - name: Install Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-
-      - name: Profile official render corpus
-        run: cargo test -p kumeyuri-core --features dhat-heap --test heap_profile -- --nocapture
-
-      - name: Upload heap profile
-        uses: actions/upload-artifact@v6.0.0
-        with:
-          name: kumeyuri-core-dhat-heap
-          path: target/dhat/kumeyuri-core-heap.json
-          if-no-files-found: error
-
-  reference-plugins:
-    name: Reference Plugin (${{ matrix.plugin }})
-    runs-on: ubuntu-latest
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        plugin:
-          - kumeyuri-render-pdf
-          - kumeyuri-diagram-sankey
+        os:
+          - ubuntu-latest
+          - macos-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v4
 
-      - name: Cache Cargo
-        uses: actions/cache@v5.0.5
-        with:
-          path: |
-            ~/.cargo/git
-            ~/.cargo/registry
-            plugins/${{ matrix.plugin }}/target
-          key: ${{ runner.os }}-reference-plugin-${{ matrix.plugin }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-reference-plugin-${{ matrix.plugin }}-
-
-      - name: Install Rust
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config ffmpeg \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
-      - name: Install Node
-        uses: actions/setup-node@v6
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config ffmpeg freetype glslang spirv-cross zlib
+
+      - name: Configure
+        run: cmake --preset ci
+
+      - name: Build
+        run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Smoke test
+        run: |
+          ./build/ci/strok --version
+          ./build/ci/strok --help >/dev/null
+          scripts/verify_terminal_paths.sh ./build/ci/strok
+
+  windows-msys:
+    name: build (windows-latest, msys2)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 dependencies
+        uses: msys2/setup-msys2@v2
         with:
-          node-version: 20
+          msystem: MSYS
+          update: true
+          install: >-
+            cmake
+            ffmpeg
+            freetype
+            gcc
+            make
+            pkgconf
+            zlib
 
-      - name: Load plugin manifest
-        run: node scripts/test-reference-plugins.mjs ${{ matrix.plugin }}
+      - name: Configure
+        run: cmake --preset ci
 
-      - name: Render sample and diff golden output
-        run: cargo test --manifest-path plugins/${{ matrix.plugin }}/Cargo.toml
+      - name: Build
+        run: cmake --build --preset ci
 
-  coverage-metadata:
-    name: Coverage Metadata
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure
+
+      - name: Smoke test
+        run: |
+          ./build/ci/strok --version
+          ./build/ci/strok --help >/dev/null
+
+  windows-ucrt-core:
+    name: core ABI (windows-latest, ucrt64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up UCRT64 dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build/windows-ucrt-core -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DSTROK_BUILD_CLI=OFF
+          -DSTROK_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build/windows-ucrt-core
+
+      - name: Test
+        run: ctest --test-dir build/windows-ucrt-core --output-on-failure
+
+  sanitize:
+    name: asan-ubsan (ubuntu-latest)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+        uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config ffmpeg \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
 
-      - name: Check snapshot-count deltas
+      - name: Configure
+        run: cmake --preset asan-ubsan
+
+      - name: Build
+        run: cmake --build --preset asan-ubsan
+
+      - name: Test
+        run: ctest --test-dir build/asan-ubsan --output-on-failure
+
+      - name: Decode/render smoke
+        run: |
+          ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc=size=64x48:rate=5:duration=1 -pix_fmt yuv420p /tmp/strok-sanitize.mp4
+          ./build/asan-ubsan/strok --width 16 --height 8 --dump-frame 1 --dump-png /tmp/strok-sanitize.png /tmp/strok-sanitize.mp4 >/tmp/strok-sanitize.probe
+
+      - name: Shutdown path smoke
         env:
-          COVERAGE_GATE_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          COVERAGE_GATE_HEAD: ${{ github.sha }}
-        run: npm run test:coverage-gate
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
+        run: scripts/verify_shutdown_paths.sh ./build/asan-ubsan/strok
 
-  metric-regression:
-    name: Metric Regression
-    if: github.event_name == 'pull_request'
+  valgrind:
+    name: valgrind (ubuntu-latest)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.3
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+        uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config ffmpeg valgrind \
+            glslang-tools spirv-cross libvulkan-dev vulkan-tools mesa-vulkan-drivers \
+            libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libfreetype-dev zlib1g-dev
 
-      - name: Check metric regressions
+      - name: Configure
+        run: cmake --preset ci
+
+      - name: Build
+        run: cmake --build --preset ci --target strok
+
+      - name: Shutdown path leak checks
+        run: |
+          cat >/tmp/strok-valgrind-wrapper <<'EOF'
+          #!/usr/bin/env bash
+          exec valgrind --leak-check=full --show-leak-kinds=definite --errors-for-leak-kinds=definite --error-exitcode=99 \
+            ./build/ci/strok "$@"
+          EOF
+          chmod +x /tmp/strok-valgrind-wrapper
+          scripts/verify_shutdown_paths.sh /tmp/strok-valgrind-wrapper
+
+  homebrew:
+    name: homebrew formula (macos-latest)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate Homebrew source checkout
         env:
-          PERF_GATE_BASE: ${{ github.event.pull_request.base.sha }}
-          PERF_GATE_HEAD: ${{ github.sha }}
-          PERF_GATE_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: npm run test:perf-regression
-
-  svg-sanitizer:
-    name: SVG Sanitizer
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Install Rust
+          STROK_REPOSITORY_TOKEN: ${{ github.token }}
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          git config --global url."https://x-access-token:${STROK_REPOSITORY_TOKEN}@github.com/${GITHUB_REPOSITORY}.git".insteadOf "https://github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Install Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Verify sanitized SVG animations
-        run: npm run test:svg-sanitizer
-
-  web-player-perf:
-    name: Web Player Perf
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Install Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Check first contentful render budget
-        run: npm run test:web-component:perf
-
-  dependency-policy:
-    name: Dependency Policy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2.0.20
-        with:
-          command: check advisories licenses sources
-          arguments: --all-features
-
-  release-trust:
-    name: Release Trust
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Install Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-
-      - name: Check release trust metadata
-        run: npm run release:trust
-
-  unused-dependencies:
-    name: Unused Dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.3
-
-      - name: Install Rust
+      - name: Install formula from source
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          brew untap local/strok >/dev/null 2>&1 || true
+          brew tap-new local/strok
+          cp packaging/homebrew/strok.rb "$(brew --repo local/strok)/Formula/strok.rb"
+          brew install --HEAD --build-from-source local/strok/strok
 
-      - name: Install cargo-machete
-        run: cargo install cargo-machete --locked --version 0.9.2
-
-      - name: Check unused dependencies
-        run: cargo machete
+      - name: Test formula
+        run: |
+          strok --version
+          brew test local/strok/strok

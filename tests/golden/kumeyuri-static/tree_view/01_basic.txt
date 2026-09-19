@@ -1,7 +1,0 @@
-
- [folder] my-project/
- |-- [folder] src/
- |  |-- [javascript] index.js
- |  `-- [typescript] utils.ts
- |-- [json] package.json
- `-- [markdown] README.md
