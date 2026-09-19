@@ -1,5 +1,5 @@
 01_single_message 045aeabc6c766143
-02_declared_participants 271da790f4929a11
+02_declared_participants e41b864a10684599
 03_multiple_messages a7e8f554e213cea8
 04_self_message 504159e94b46667c
 05_note_over eca8489702fe9c33
