@@ -50,7 +50,7 @@ use {
         execute,
         terminal::{
             Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
-            enable_raw_mode,
+            enable_raw_mode, size as terminal_size,
         },
     },
     kumeyuri_render_tui::{TuiDebugOverlay, TuiRenderConfig, TuiRenderer, TuiTransitionEffect},
@@ -2506,6 +2506,7 @@ fn svg_config(options: &RenderOptions) -> SvgRenderConfig {
     let mut config = SvgRenderConfig {
         foreground: css_color(theme.colors.foreground),
         background: css_color(theme.colors.background),
+        highlight: css_color(theme.colors.highlight),
         ..SvgRenderConfig::default()
     };
     if let Some(padding) = options.padding {
@@ -3716,13 +3717,16 @@ impl InteractiveTimelineRenderer for TuiRenderer {
         let mut state = PlaybackState::new();
         let mut debug_state = PlaybackDebug::new(debug);
         loop {
+            let frame = timeline.keyframes()[state.index].frame();
+            let (terminal_width, terminal_height) = terminal_size()?;
+            let fits_terminal = self.fits_terminal(frame, terminal_width, terminal_height);
             debug_state.record_draw(Instant::now());
             self.draw_with_debug(
                 terminal,
-                timeline.keyframes()[state.index].frame(),
+                frame,
                 debug_state.overlay(state.index, timeline.len()),
             )?;
-            let timeout = if state.paused {
+            let timeout = if state.paused || !fits_terminal {
                 Duration::from_millis(100)
             } else {
                 timeline.keyframes()[state.index].duration()
@@ -3736,7 +3740,10 @@ impl InteractiveTimelineRenderer for TuiRenderer {
                 {
                     break;
                 }
-            } else if !state.paused && !state.advance(timeline.len(), timeline.repeat()) {
+            } else if !state.paused
+                && fits_terminal
+                && !state.advance(timeline.len(), timeline.repeat())
+            {
                 break;
             }
         }

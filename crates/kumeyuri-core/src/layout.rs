@@ -3064,23 +3064,29 @@ impl SequenceLayoutEngine {
         self,
         participants: &[SequenceParticipantRef],
     ) -> Vec<PositionedSequenceParticipant> {
+        let gap = (self.config.lane_spacing - self.config.participant_width).max(1);
+        let mut next_x = 0;
         participants
             .iter()
             .enumerate()
             .map(|(order, participant)| {
-                let lane_x =
-                    order as i32 * self.config.lane_spacing + self.config.participant_width / 2;
+                let width = self
+                    .config
+                    .participant_width
+                    .max(label_width(&participant.label) + 2);
+                let lane_x = next_x + width / 2;
+                next_x += width + gap;
                 PositionedSequenceParticipant {
                     id: participant.id.clone(),
                     label: participant.label.clone(),
                     lane_x,
                     header: Rect {
                         origin: Point {
-                            x: lane_x - self.config.participant_width / 2,
+                            x: lane_x - width / 2,
                             y: 0,
                         },
                         size: Size {
-                            width: self.config.participant_width,
+                            width,
                             height: self.config.participant_height,
                         },
                     },
@@ -3134,15 +3140,27 @@ impl SequenceLayoutEngine {
         participants: &[PositionedSequenceParticipant],
         y: i32,
     ) -> PositionedSequenceNote {
-        let lanes = note
+        let headers = note
             .participants
             .iter()
-            .map(|participant| participant_lane(participants, &participant.value))
+            .filter_map(|participant| {
+                participants
+                    .iter()
+                    .find(|positioned| positioned.id == participant.value)
+                    .map(|positioned| positioned.header)
+            })
             .collect::<Vec<_>>();
-        let min_x = lanes.iter().copied().min().unwrap_or(0);
-        let max_x = lanes.iter().copied().max().unwrap_or(min_x);
-        let width =
-            (max_x - min_x + self.config.participant_width).max(label_width(&note.label.text) + 2);
+        let left = headers
+            .iter()
+            .map(|header| header.origin.x)
+            .min()
+            .unwrap_or(0);
+        let right = headers
+            .iter()
+            .map(|header| header.right())
+            .max()
+            .unwrap_or(left + self.config.participant_width);
+        let width = (right - left).max(label_width(&note.label.text) + 2);
         PositionedSequenceNote {
             participants: note
                 .participants
@@ -3151,10 +3169,7 @@ impl SequenceLayoutEngine {
                 .collect(),
             label: note.label.text.clone(),
             rect: Rect {
-                origin: Point {
-                    x: min_x - self.config.participant_width / 2,
-                    y: y - 1,
-                },
+                origin: Point { x: left, y: y - 1 },
                 size: Size {
                     width,
                     height: self.config.participant_height,
@@ -9914,10 +9929,10 @@ fn sequence_width(
     config: SequenceLayoutConfig,
 ) -> i32 {
     participants
-        .last()
-        .map_or(config.participant_width, |last| {
-            last.header.right().max(config.participant_width)
-        })
+        .iter()
+        .map(|participant| participant.header.right())
+        .max()
+        .unwrap_or(config.participant_width)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11560,6 +11575,7 @@ System(c, "C")"#,
 
         assert_eq!(layout.participants.len(), 2);
         assert_eq!(sequence_participant(&layout, "Alice").label, "Alice Doe");
+        assert!(sequence_participant(&layout, "Alice").header.size.width >= 11);
         assert!(
             sequence_participant(&layout, "Alice").lane_x
                 < sequence_participant(&layout, "Bob").lane_x
@@ -11568,6 +11584,24 @@ System(c, "C")"#,
         assert_eq!(layout.messages[0].points.len(), 2);
         assert_eq!(layout.messages[0].from, "Alice");
         assert_eq!(layout.messages[0].to, "Bob");
+    }
+
+    #[test]
+    fn sizes_sequence_participant_headers_to_aliases() {
+        let ast = sequence(vec![
+            SequenceStatement::Participant(Box::new(participant(
+                "Auth",
+                Some("Authorization Server"),
+            ))),
+            SequenceStatement::Participant(Box::new(participant("API", None))),
+            SequenceStatement::Message(Box::new(message("Auth", "API", "Authorize"))),
+        ]);
+
+        let layout = SequenceLayoutEngine::default().layout(&ast);
+        let auth = sequence_participant(&layout, "Auth");
+
+        assert!(auth.header.size.width >= super::label_width("Authorization Server") + 2);
+        assert!(layout.size.width >= auth.header.right());
     }
 
     #[test]

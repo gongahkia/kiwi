@@ -2,7 +2,10 @@
 
 use std::time::Duration;
 
-use kumeyuri_core::{animator::Timeline, frame::Frame};
+use kumeyuri_core::{
+    animator::Timeline,
+    frame::{Frame, KeyFrameMarkerKind},
+};
 
 const MAX_PROGRESS_DOTS: usize = 32;
 
@@ -23,6 +26,8 @@ pub struct SvgRenderConfig {
     pub foreground: String,
     /// Background color as a CSS color.
     pub background: String,
+    /// Highlight color for active animation regions.
+    pub highlight: String,
     /// Foreground color used when the viewer prefers a dark color scheme.
     pub dark_foreground: Option<String>,
     /// Background color used when the viewer prefers a dark color scheme.
@@ -45,6 +50,7 @@ impl Default for SvgRenderConfig {
             font_family: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace".to_owned(),
             foreground: "#111827".to_owned(),
             background: "#ffffff".to_owned(),
+            highlight: "#2563eb".to_owned(),
             dark_foreground: None,
             dark_background: None,
             animation: SvgAnimationMode::Smil,
@@ -265,6 +271,7 @@ impl SvgRenderer {
             escape_attr(id),
         ));
         svg.push_str(animate);
+        self.push_marker_highlights(svg, frame);
         for (row, line) in frame.to_lines().into_iter().enumerate() {
             let x = usize::from(self.config.padding);
             let y = usize::from(self.config.padding)
@@ -279,6 +286,28 @@ impl SvgRenderer {
             ));
         }
         svg.push_str("</g>\n");
+    }
+
+    fn push_marker_highlights(&self, svg: &mut String, frame: &Frame) {
+        let char_width = usize::from(self.config.char_width);
+        let line_height = usize::from(self.config.line_height);
+        let padding = usize::from(self.config.padding);
+        for marker in frame.markers() {
+            let opacity = match marker.kind {
+                KeyFrameMarkerKind::Enter => "0.18",
+                KeyFrameMarkerKind::Active => "0.28",
+                KeyFrameMarkerKind::Exit => "0.14",
+                KeyFrameMarkerKind::Hold => "0.10",
+            };
+            let x = padding.saturating_add(marker.region.x.saturating_mul(char_width));
+            let y = padding.saturating_add(marker.region.y.saturating_mul(line_height));
+            let width = marker.region.width.saturating_mul(char_width);
+            let height = marker.region.height.saturating_mul(line_height);
+            svg.push_str(&format!(
+                r#"<rect class="kumeyuri-marker" x="{x}" y="{y}" width="{width}" height="{height}" fill="{}" fill-opacity="{opacity}" pointer-events="none"/>\n"#,
+                escape_attr(&self.config.highlight),
+            ));
+        }
     }
 
     fn push_progress_dots(
@@ -458,7 +487,7 @@ mod tests {
 
     use kumeyuri_core::{
         animator::{KeyFrame, Timeline},
-        frame::Frame,
+        frame::{Frame, FrameRegion, KeyFrameMarker, KeyFrameMarkerKind},
     };
 
     use super::{SvgAnimationMode, SvgRenderConfig, SvgRenderer};
@@ -481,6 +510,28 @@ mod tests {
         assert!(!svg.contains("prefers-reduced-motion"));
         assert!(!svg.contains("kumeyuri-progress-dots"));
         assert!(svg.ends_with("</svg>\n"));
+    }
+
+    #[test]
+    fn renders_keyframe_markers_as_highlights() {
+        let mut frame = Frame::new(2, 1);
+        frame.write_text(0, 0, "AB", Default::default()).unwrap();
+        frame.add_marker(KeyFrameMarker {
+            id: "message-1".to_owned(),
+            kind: KeyFrameMarkerKind::Active,
+            region: FrameRegion {
+                x: 0,
+                y: 0,
+                width: 1,
+                height: 1,
+            },
+        });
+
+        let svg = SvgRenderer::default().render_frame(&frame);
+
+        assert!(svg.contains(
+            r##"<rect class="kumeyuri-marker" x="0" y="0" width="8" height="16" fill="#2563eb" fill-opacity="0.28" pointer-events="none"/>"##
+        ));
     }
 
     #[test]

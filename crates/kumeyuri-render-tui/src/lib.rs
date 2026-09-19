@@ -11,7 +11,8 @@ use ratatui::{
     Frame, Terminal,
     backend::Backend,
     layout::{Alignment, Rect},
-    style::Color,
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, Paragraph},
 };
 use tachyonfx::{Effect, EffectRenderer, EffectTimer, Interpolation, Motion, fx, fx::Glitch};
@@ -123,6 +124,13 @@ impl TuiRenderer {
         self.output.render_frame(frame)
     }
 
+    /// Return whether a terminal area can display the full frame without clipping.
+    #[must_use]
+    pub fn fits_terminal(self, frame: &CoreFrame, width: u16, height: u16) -> bool {
+        let (required_width, required_height) = self.required_terminal_size(frame);
+        required_width <= usize::from(width) && required_height <= usize::from(height)
+    }
+
     /// Draw one frame to a terminal.
     pub fn draw<B: Backend>(
         self,
@@ -173,8 +181,11 @@ impl TuiRenderer {
         overlay: Option<TuiDebugOverlay>,
     ) {
         let area_rect = area.area();
-        let text = self.frame_text(frame);
-        let mut paragraph = Paragraph::new(text);
+        if !self.fits_terminal(frame, area_rect.width, area_rect.height) {
+            self.render_too_small(area, area_rect, frame);
+            return;
+        }
+        let mut paragraph = Paragraph::new(self.styled_frame_text(frame));
         if self.config.border {
             paragraph = paragraph.block(Block::default().borders(Borders::ALL));
         }
@@ -185,6 +196,65 @@ impl TuiRenderer {
         if let Some(overlay) = overlay {
             render_debug_overlay(area, area_rect, overlay);
         }
+    }
+
+    fn styled_frame_text(self, frame: &CoreFrame) -> Text<'static> {
+        if frame.width() == 0 {
+            return Text::default();
+        }
+        let mut lines = Vec::with_capacity(frame.height());
+        for row in frame.cells().chunks(frame.width()) {
+            let mut spans = Vec::new();
+            let mut text = String::new();
+            let mut active = false;
+            for cell in row {
+                let cell_active = cell.marker.is_some();
+                if !text.is_empty() && active != cell_active {
+                    spans.push(marker_span(std::mem::take(&mut text), active));
+                }
+                active = cell_active;
+                text.push(cell.glyph);
+            }
+            if !text.is_empty() {
+                spans.push(marker_span(text, active));
+            }
+            lines.push(Line::from(spans));
+        }
+        Text::from(lines)
+    }
+
+    fn render_too_small(self, area: &mut Frame<'_>, area_rect: Rect, frame: &CoreFrame) {
+        area.render_widget(Clear, area_rect);
+        let (required_width, required_height) = self.required_terminal_size(frame);
+        let message = format!(
+            "terminal too small\ncurrent: {} x {}\nrequired: {} x {}\nresize to continue",
+            area_rect.width, area_rect.height, required_width, required_height,
+        );
+        area.render_widget(
+            Paragraph::new(message).alignment(Alignment::Center),
+            area_rect,
+        );
+    }
+
+    fn required_terminal_size(self, frame: &CoreFrame) -> (usize, usize) {
+        let border = usize::from(self.config.border) * 2;
+        (
+            frame.width().saturating_add(border),
+            frame.height().saturating_add(border),
+        )
+    }
+}
+
+fn marker_span(text: String, active: bool) -> Span<'static> {
+    if active {
+        Span::styled(
+            text,
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::raw(text)
     }
 }
 
@@ -224,7 +294,11 @@ mod tests {
         animator::{KeyFrame, Timeline},
         frame::Frame,
     };
-    use ratatui::{Terminal, backend::TestBackend};
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        style::{Color, Modifier},
+    };
     use std::time::Duration;
 
     #[test]
@@ -262,6 +336,52 @@ mod tests {
         assert_eq!(buffer[(0, 0)].symbol(), "A");
         assert_eq!(buffer[(1, 0)].symbol(), "B");
         assert_eq!(buffer[(2, 0)].symbol(), "C");
+    }
+
+    #[test]
+    fn highlights_marked_cells() {
+        let mut frame = Frame::new(1, 1);
+        frame.write_text(0, 0, "A", Default::default()).unwrap();
+        frame.mark_cell(0, 0, "active").unwrap();
+        let backend = TestBackend::new(1, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        TuiRenderer::default().draw(&mut terminal, &frame).unwrap();
+
+        let cell = &terminal.backend().buffer()[(0, 0)];
+        assert_eq!(cell.fg, Color::Yellow);
+        assert!(cell.modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn replaces_clipped_frames_with_resize_guidance() {
+        let frame = Frame::new(31, 6);
+        let backend = TestBackend::new(30, 5);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        TuiRenderer::default().draw(&mut terminal, &frame).unwrap();
+
+        let content = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(content.contains("terminal too small"));
+        assert!(content.contains("required: 31 x 6"));
+    }
+
+    #[test]
+    fn accounts_for_borders_when_checking_terminal_size() {
+        let frame = Frame::new(3, 1);
+        let renderer = TuiRenderer::new(TuiRenderConfig {
+            border: true,
+            ..TuiRenderConfig::default()
+        });
+
+        assert!(!renderer.fits_terminal(&frame, 4, 2));
+        assert!(renderer.fits_terminal(&frame, 5, 3));
     }
 
     #[test]
