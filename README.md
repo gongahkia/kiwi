@@ -9,6 +9,12 @@ strok is a C++20 terminal media renderer for live video, webcam, and stream play
 
 ![v1.0 shader demo: bundled plasma shader rendered as ASCII](docs/v1.0-shader-demo.gif)
 
+![v1.0 scene demo: bundled rotating cube rendered with cell shading](docs/v1.0-scene-demo.gif)
+
+![v0.5 structure demo: real video rendered as structure-aware ASCII](docs/v0.5-structure-demo.gif)
+
+![v0.1 luminance demo: truecolor terminal media playback](docs/v0.1-luminance.gif)
+
 Demo sources: generated FFmpeg test media for split view and the bundled plasma shader for shader input. See [docs/demo-source.md](docs/demo-source.md).
 
 ## Status
@@ -85,6 +91,8 @@ Layout: `--width` and `--height` set render bounds, `--fit` clamps those bounds 
 Stream inputs: direct FFmpeg URLs such as HLS/HTTP/RTSP are passed through to libav. YouTube URLs require `yt-dlp`; strok resolves them with `yt-dlp -g` and fails with a clear install/direct-URL message when it is missing. Set `STROK_YTDLP` to override the resolver binary path.
 
 Camera inputs: use `--input cam` for the platform default (`avfoundation` on macOS, `v4l2` on Linux, `dshow` on Windows) or pass an explicit device alias such as `avfoundation:0`, `v4l2:/dev/video0`, or `dshow:video=Integrated Camera`. Live capture requests 640x480 at 30 fps for low-latency structure analysis. The two-frame queue bounds decoded-frame backlog, but slow rendering or terminal writes can still add per-frame latency; `--debug-stats` reports decoded-frame-to-present timing, not physical sensor-to-terminal latency. Camera playback mirrors horizontally by default; pass `--no-mirror` for sensor-native orientation.
+
+WSL does not expose Windows cameras as Linux `/dev/video*` devices automatically. To use a Windows laptop's built-in or USB camera from strok in WSL 2, attach the device with `usbipd-win` first; see [WSL camera setup](docs/wsl-camera.md).
 
 Live acceptance: [`docs/live-input-acceptance.md`](docs/live-input-acceptance.md) documents an opt-in MediaMTX RTSP fixture, physical-camera and remote-RTSP trace collection, and the artifacts required for hardware acceptance. It is deliberately separate from default CTest because it needs a PTY and host media resources.
 

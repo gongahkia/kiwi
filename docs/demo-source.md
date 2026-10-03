@@ -1,5 +1,7 @@
 # Demo Source
 
+`docs/v0.1-luminance.gif` is the historical truecolor luminance-playback baseline retained in source control. Its original capture source was not retained, so it is included as a visual comparison rather than a reproducible input fixture.
+
 `docs/v1.0-split-demo.gif` uses generated FFmpeg `testsrc2` footage rendered twice with strok still snapshots, then stacked with `ffmpeg`: luminance on the left, `--mode structure --style hatch` on the right.
 
 `docs/v1.0-scene-demo.gif` uses the in-tree MIT-licensed bundled cube scene (`share/strok/scenes/cube.obj`) rendered with `--style cell-shade --scene-camera orbit`.
