@@ -1,7 +1,7 @@
 ![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
 ![CI](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
 
-# `strok` ✒️
+# `strok` 🎨
 
 A structure-aware [terminal media renderer](#architecture) for local video, images, cameras, streams, terminal casts, scenes, and shaders. Rather than choosing glyphs by brightness alone, `strok` uses edges, orientation, and local shape while keeping native terminal playback paced to media and audio.
 
