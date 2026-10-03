@@ -13,6 +13,7 @@ option(STROK_VULKAN "Build the optional Vulkan compute backend when available" O
 option(STROK_FORCE_VULKAN "Prefer Vulkan over Metal when both are available" OFF)
 option(STROK_BUILD_CLI "Build the media, terminal, and output frontend" ON)
 option(STROK_BUILD_SDL_SAMPLE "Build the optional SDL CellBuffer sample" OFF)
+option(STROK_TEST_INSTALLED_CONSUMERS "Test installed C, Rust, and Python consumers" ON)
 set(STROK_SDL_SAMPLE_FONT "" CACHE FILEPATH "Font path for the SDL sample smoke test")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -918,6 +919,7 @@ else()
 endif()
 add_test(NAME cli COMMAND cli_tests)
 
+if(STROK_BUILD_CLI)
 add_executable(ffmpeg_log_tests
   tests/ffmpeg_log_tests.cpp
   src/ffmpeg_log.cpp
@@ -943,6 +945,7 @@ else()
   endif()
 endif()
 add_test(NAME ffmpeg_log COMMAND ffmpeg_log_tests)
+endif()
 
 add_executable(metrics_jsonl_tests
   tests/metrics_jsonl_tests.cpp
@@ -1448,6 +1451,7 @@ else()
 endif()
 add_test(NAME c_api_result COMMAND c_api_result_tests)
 
+if(STROK_TEST_INSTALLED_CONSUMERS)
 add_test(NAME c_api_installed_consumer
   COMMAND ${CMAKE_COMMAND}
     -DSTROK_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
@@ -1522,6 +1526,7 @@ if(STROK_NUMPY_PYTHON_EXECUTABLE)
       -DSTROK_PYTHON_INSTALL=ON
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/python_c_api_install_test.cmake
   )
+endif()
 endif()
 
 add_executable(renderer_config_tests tests/renderer_config_tests.cpp)

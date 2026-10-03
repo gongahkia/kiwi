@@ -34,6 +34,16 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install cmake pkg-config ffmpeg freetype glslang spirv-cross zlib
 
+      - name: Install Python binding build support
+        if: runner.os == 'macOS'
+        run: |
+          for python in python3.15 python3.14 python3.13 python3.12 python3.11 python3; do
+            if command -v "$python" >/dev/null 2>&1; then
+              "$python" -m pip install --user setuptools
+              break
+            fi
+          done
+
       - name: Configure
         run: cmake --preset ci
 
@@ -50,7 +60,7 @@ jobs:
           scripts/verify_terminal_paths.sh ./build/ci/strok
 
   windows-msys:
-    name: build (windows-latest, msys2)
+    name: build (windows-latest, ucrt64)
     runs-on: windows-latest
     defaults:
       run:
@@ -67,16 +77,16 @@ jobs:
       - name: Set up MSYS2 dependencies
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MSYS
+          msystem: UCRT64
           update: true
           install: >-
-            cmake
-            ffmpeg
-            freetype
-            gcc
-            make
-            pkgconf
-            zlib
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ffmpeg
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-zlib
 
       - name: Configure
         run: cmake --preset ci

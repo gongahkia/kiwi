@@ -39,20 +39,25 @@ Demo provenance and generation notes are in [docs/demo-source.md](docs/demo-sour
 
 ## Architecture
 
-```text
-video / image / stream / camera / cast / stdin / OBJ / GLSL
-                           │
-                           ▼
-             FFmpeg decode · scene rasterizer · shader runtime
-                           │
-                           ▼
-RGB frame ──► optional styles ──► luminance / edges / shape / temporal analysis
-                           │
-                           ▼
-              CellBuffer (glyph + foreground + background per terminal cell)
-                           │
-                           ▼
-       ANSI text · Kitty · iTerm inline images · Sixel · MP4 / PNG / ANSI / cast
+```mermaid
+flowchart TD
+  subgraph inputs [Inputs]
+    media[Video · image · stream · camera · cast]
+    generated[stdin plots · OBJ scenes · GLSL shaders]
+  end
+
+  acquire[FFmpeg decode · scene rasterizer · shader runtime]
+  styles["Optional styles<br/>painterly · hatch · stipple · flow"]
+  analysis[Luminance · edges · shape matching · temporal analysis]
+  cells["CellBuffer<br/>glyph + foreground + background per terminal cell"]
+  terminal["Terminal output<br/>ANSI · Kitty · iTerm · Sixel"]
+  exports["Exports<br/>MP4 · PNG · ANSI · cast"]
+
+  media --> acquire
+  generated --> acquire
+  acquire --> styles --> analysis --> cells
+  cells --> terminal
+  cells --> exports
 ```
 
 `--graph dump --mode structure` prints the resolved render-pass graph. The public C/C++ core renders into `CellBuffer`; the CLI adds media acquisition, pacing, terminal sessions, and presentation.

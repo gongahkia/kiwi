@@ -17,6 +17,11 @@ function(run_checked)
 endfunction()
 
 run_checked("${CMAKE_COMMAND}" --install "${STROK_BINARY_DIR}" --prefix "${STROK_INSTALL_PREFIX}")
+if(WIN32)
+  set(STROK_RUNTIME_LIBRARY_DIR "${STROK_INSTALL_PREFIX}/bin")
+  set(STROK_RUNTIME_LIBRARY_PATH "${STROK_RUNTIME_LIBRARY_DIR};$ENV{PATH}")
+  set(STROK_RUNTIME_ENVIRONMENT "PATH=${STROK_RUNTIME_LIBRARY_PATH}")
+endif()
 run_checked(
   "${CMAKE_COMMAND}"
   -S "${STROK_CONSUMER_SOURCE_DIR}"
@@ -24,4 +29,12 @@ run_checked(
   "-DCMAKE_PREFIX_PATH=${STROK_INSTALL_PREFIX}"
 )
 run_checked("${CMAKE_COMMAND}" --build "${STROK_CONSUMER_BINARY_DIR}" --parallel)
-run_checked("${CMAKE_CTEST_COMMAND}" --test-dir "${STROK_CONSUMER_BINARY_DIR}" --output-on-failure)
+if(WIN32)
+  run_checked(
+    "${CMAKE_COMMAND}" -E env
+    "${STROK_RUNTIME_ENVIRONMENT}"
+    "${CMAKE_CTEST_COMMAND}" --test-dir "${STROK_CONSUMER_BINARY_DIR}" --output-on-failure
+  )
+else()
+  run_checked("${CMAKE_CTEST_COMMAND}" --test-dir "${STROK_CONSUMER_BINARY_DIR}" --output-on-failure)
+endif()

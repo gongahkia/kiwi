@@ -28,8 +28,11 @@ if [[ -z "$timeout_bin" ]]; then
 fi
 
 ffmpeg -hide_banner -loglevel error \
-  -f lavfi -i testsrc=size=160x90:rate=5:duration=10 \
+  -f lavfi -i testsrc=size=160x90:rate=2:duration=1 \
   -pix_fmt yuv420p -y "$tmp/fixture.mp4"
+ffmpeg -hide_banner -loglevel error \
+  -f lavfi -i testsrc=size=160x90:rate=2:duration=10 \
+  -pix_fmt yuv420p -y "$tmp/sigint-fixture.mp4"
 
 script_style="bsd"
 if script -q -c '/bin/true' "$tmp/script-style.typescript" >/dev/null 2>&1; then
@@ -45,7 +48,7 @@ run_pty() {
   fi
   local command=""
   printf -v command "%q " "$@"
-  script -q -c "$command" "$typescript" >/dev/null
+  script -q -c "stty cols 80 rows 24; exec $command" "$typescript" >/dev/null
 }
 
 expect_log() {
@@ -79,7 +82,7 @@ expect_log "$tmp/quit.log" "playback quit before eof"
 set +e +o pipefail
 run_pty "$tmp/seek.typescript" \
   "$timeout_bin" 40 "$bin" --mode structure --width 24 --height 12 --fps 5 \
-  --input-keys $'\033[Cq' --log "$tmp/seek.log" "$tmp/fixture.mp4"
+  --input-keys $'\033[Dq' --log "$tmp/seek.log" "$tmp/fixture.mp4"
 seek_status=$?
 set -e -o pipefail
 if [[ "$seek_status" -ne 0 ]]; then
@@ -92,8 +95,8 @@ expect_log "$tmp/seek.log" "playback quit before eof"
 
 set +e
 run_pty "$tmp/sigint.typescript" \
-  "$timeout_bin" -s INT 8 "$bin" --mode structure --width 24 --height 12 --fps 5 \
-  --log "$tmp/sigint.log" "$tmp/fixture.mp4"
+  "$timeout_bin" -s INT 2 "$bin" --mode structure --width 24 --height 12 --fps 5 \
+  --log "$tmp/sigint.log" "$tmp/sigint-fixture.mp4"
 sigint_status=$?
 set -e
 if [[ "$sigint_status" -ne 0 && "$sigint_status" -ne 124 && "$sigint_status" -ne 130 ]]; then

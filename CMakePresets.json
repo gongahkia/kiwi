@@ -19,6 +19,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "STROK_WARNINGS_AS_ERRORS": "ON",
+        "STROK_TEST_INSTALLED_CONSUMERS": "OFF",
         "CMAKE_CXX_FLAGS_DEBUG": "-fsanitize=address,undefined -fno-omit-frame-pointer",
         "CMAKE_EXE_LINKER_FLAGS_DEBUG": "-fsanitize=address,undefined"
       }
