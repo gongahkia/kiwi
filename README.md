@@ -1,28 +1,46 @@
-![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
-![CI](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
+[![](https://img.shields.io/badge/strok_1.0.0-passing-green)](https://github.com/gongahkia/strok/releases/tag/1.0.0) 
+![](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
 
 # `strok` 🎨
 
-A structure-aware [terminal media renderer](#architecture) for local video, images, cameras, streams, terminal casts, scenes, and shaders. Rather than choosing glyphs by brightness alone, `strok` uses edges, orientation, and local shape while keeping native terminal playback paced to media and audio.
+A [structure-aware](https://arxiv.org/abs/2609.24616) media renderer entirely in the [CLI](#architecture).
 
-Pre-alpha: command-line interfaces, output formats, and platform support may change.
+## Rationale
+
+While most other [ASCII](https://en.wikipedia.org/wiki/ASCII)/[ANSI](https://stackoverflow.com/questions/701882/what-is-ansi-format) renderers select and filter out glyphs by their brightness alone, `Strok` utilises the raw edges, orientation, and local shapes inherent within media to output [streams](https://hyperskill.org/learn/step/8837) with greater fidelity.
+
+For the nerds, `Strok` also optionally transforms inputs by adding painterly, hatch, stipple, flow, posterization, DoG, ETF, line-ligature & temporal-stability passes to the [render graph](https://logins.github.io/graphics/2021/05/31/RenderGraphs.html).
 
 ## Stack
 
-* Core: [C++20](https://en.cppreference.com/w/cpp/20), [CMake](https://cmake.org/), [FreeType](https://freetype.org/), and in-tree rendering/terminal protocol code
-* Media: [FFmpeg](https://ffmpeg.org/) 6+, [zlib](https://zlib.net/), and [miniaudio](https://miniaud.io/) for decoding, conversion, export, and playback
-* GPU: optional [Metal](https://developer.apple.com/metal/) analysis on macOS and optional [Vulkan](https://www.vulkan.org/) analysis when available
-* Interfaces: terminal CLI, versioned C/C++ core API, [Python bindings](bindings/python/README.md), [Rust bindings](bindings/rust/README.md), and a browser replay embed for ANSI/asciinema exports
-* Tests: [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html), C/C++ API tests, shell smoke tests, and installed Python/Rust consumer checks
+* Scripting: [C++20](https://en.cppreference.com/w/cpp/20), [CMake](https://cmake.org/), [FreeType](https://freetype.org/)
+* Media: [FFmpeg](https://ffmpeg.org/), [zlib](https://zlib.net/), [miniaudio](https://miniaud.io/) 
+* GPU: [Metal](https://developer.apple.com/metal/), [Vulkan](https://www.vulkan.org/) 
+* Tests: [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html)
 
 ## Features
 
-* Plays local video, images, animated GIFs, image grids, asciinema casts, numeric stdin plots, OBJ scenes, camera input, direct FFmpeg URLs, and YouTube URLs through `yt-dlp`
-* Reconstructs frames with luminance, structure, half-block, block, octant, sextant, and braille renderers; supports custom ramps and font-backed shape matching
-* Adds painterly, hatch, stipple, flow, posterization, DoG, ETF, line-ligature, and temporal-stability passes to the render graph
-* Emits ANSI text by default and can use Kitty graphics, iTerm inline images, Sixel, or hybrid text/pixel output when the terminal supports them
-* Keeps audio/video in sync, handles live camera/RTSP reconnects, bounds capture backlog, and exposes profiles for live, structure, low-bandwidth, and export workflows
-* Exports rasterized MP4, PNG stills, ANSI streams, asciinema casts, captions, metrics, and diagnostics
+* Consumes, parses and plays the following input formats
+    * Video
+    * Images
+    * Animated GIFs
+    * Image grids
+    * Asciinema casts
+    * Numeric stdin plots 
+    * OBJ scenes
+    * Live camera input
+    * Direct FFmpeg URLs
+    * YouTube URLs
+* Syncs audio and video streams 
+* Handles live camera/RTSP reconnects
+* Exposes profiles for live, structure and low-bandwidth outputs
+* Emits ANSI text by default & optionally supports the below 
+    * [Kitty](https://sw.kovidgoyal.net/kitty/) graphics
+    * [iTerm2](https://iterm2.com/) inline images
+    * [Sixel](https://en.wikipedia.org/wiki/Sixel)
+    * [Hybrid](https://www.sciencedirect.com/science/article/abs/pii/S0167865504000224) text/pixel output 
+* Extensibly supports custom ramps and font-backed shape matching
+* Exports to rasterized MP4, PNG stills, ANSI streams & asciinema casts
 
 ## GIF
 
@@ -34,8 +52,6 @@ Pre-alpha: command-line interfaces, output formats, and platform support may cha
   <img width="85%" src="docs/v1.0-hatch-cat-demo.gif" alt="Six seconds of a cat video alongside strok's shape-aware hatch rendering." />
   <p><sub>Six seconds of public-domain video beside its shape-aware hatch output.</sub></p>
 </div>
-
-Demo provenance and generation notes are in [docs/demo-source.md](docs/demo-source.md).
 
 ## Architecture
 
@@ -60,69 +76,60 @@ flowchart TD
   cells --> exports
 ```
 
-`--graph dump --mode structure` prints the resolved render-pass graph. The public C/C++ core renders into `CellBuffer`; the CLI adds media acquisition, pacing, terminal sessions, and presentation.
-
 ## Usage
 
-The following builds `strok` from source.
+The below instructions are for running `Strok` locally.
 
-1. Clone the repository.
-
-   ```console
-   $ git clone https://github.com/gongahkia/strok && cd strok
-   ```
-
-2. Install build and media dependencies.
-
-   ```sh
-   # macOS
-   brew install cmake pkg-config ffmpeg freetype zlib
-
-   # Debian / Ubuntu
-   sudo apt-get update
-   sudo apt-get install -y build-essential cmake dpkg-dev file pkg-config \
-     libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev \
-     libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
-   ```
-
-3. Configure, build, and inspect the local runtime.
-
-   ```console
-   $ cmake --preset ci
-   $ cmake --build --preset ci --parallel
-   $ ./build/ci/strok --doctor
-   ```
-
-4. Play a file, use the built-in scene, or start a camera session. Press `q` to quit; `space` pauses and left/right arrows seek.
-
-   ```console
-   $ ./build/ci/strok --input movie.mp4 --profile structure --fit
-   $ ./build/ci/strok --input strok:scene:cube --mode luminance --scene-camera orbit
-   $ ./build/ci/strok --input cam --profile live
-   ```
-
-5. Optionally run the test suite.
-
-   ```console
-   $ ctest --test-dir build/ci --output-on-failure
-   ```
-
-For a CPU-only build without optional Metal/Vulkan linkage:
+1. First, run the below to clone the repository.
 
 ```console
-$ cmake -S . -B build/light -DCMAKE_BUILD_TYPE=Release -DSTROK_LIGHT=ON
-$ cmake --build build/light --target strok --parallel
+$ git clone https://github.com/gongahkia/strok && cd strok
 ```
 
-Run `strok --help` for the complete CLI surface. `--doctor` is read-only and reports the active backend, FFmpeg/device support, terminal capabilities, configuration, and shader-tool discovery.
+2. Then execute the below commands to install build and media dependencies.
+
+```console
+$ brew install cmake pkg-config ffmpeg freetype zlib
+
+$ sudo apt-get update
+
+$ sudo apt-get install -y build-essential cmake dpkg-dev file pkg-config \
+    libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev \
+    libswscale-dev libswresample-dev libfreetype-dev zlib1g-dev
+```
+
+3. Next, configure, build & inspect the local runtime with these commands.
+
+```console
+$ cmake --preset ci
+$ cmake --build --preset ci --parallel
+$ ./build/ci/strok --doctor
+```
+
+4. Finally, play a file using the built-in scene or start a camera session. 
+    1. Press `q` to quit
+    2. Press `space` to pause 
+    3. Press `left` and `right` arrows to seek
+
+```console
+$ ./build/ci/strok --input movie.mp4 --profile structure --fit
+$ ./build/ci/strok --input strok:scene:cube --mode luminance --scene-camera orbit
+$ ./build/ci/strok --input cam --profile live
+```
+
+5. Optionally run `Strok`'s test suite with the below.
+
+```console
+$ ctest --test-dir build/ci --output-on-failure
+```
 
 ## Support
 
 | Platform | Support |
 | --- | --- |
-| macOS | ✅ CPU and Metal analysis; GLSL shader input requires `glslangValidator` and `spirv-cross` on `PATH` |
-| Linux | ✅ CPU analysis and optional Vulkan; graphics-protocol support depends on the terminal |
-| Windows (WSL 2) | 🧪 Experimental; cameras require USB/IP passthrough as described in [WSL camera setup](docs/wsl-camera.md) |
+| macOS | ✅ CPU and Metal analysis. *(GLSL shader input requires `glslangValidator` and `spirv-cross` on `PATH`.)* |
+| Linux | ✅ CPU analysis and optional Vulkan. |
+| Windows (WSL 2) | 🧪 Experimental *(Note that cameras require USB/IP passthrough as described in [WSL camera setup](docs/wsl-camera.md).)* |
 
 ## Other docs
 
@@ -132,7 +139,3 @@ Run `strok --help` for the complete CLI surface. `--doctor` is read-only and rep
 * [Terminal graphics proof](docs/phase-n-terminal-graphics-proof.md) and [metrics JSON Lines schema](docs/metrics-jsonl.md)
 * [Python bindings](bindings/python/README.md), [Rust bindings](bindings/rust/README.md), and [`@strok/embed`](packages/strok-embed/README.md)
 * [Benchmarks](BENCHMARKS.md) and [demo provenance](docs/demo-source.md)
-
-## License
-
-MIT.
