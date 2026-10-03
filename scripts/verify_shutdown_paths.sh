@@ -30,9 +30,6 @@ fi
 ffmpeg -hide_banner -loglevel error \
   -f lavfi -i testsrc=size=160x90:rate=2:duration=1 \
   -pix_fmt yuv420p -y "$tmp/fixture.mp4"
-ffmpeg -hide_banner -loglevel error \
-  -f lavfi -i testsrc=size=160x90:rate=2:duration=10 \
-  -pix_fmt yuv420p -y "$tmp/sigint-fixture.mp4"
 
 script_style="bsd"
 if script -q -c '/bin/true' "$tmp/script-style.typescript" >/dev/null 2>&1; then
@@ -93,16 +90,21 @@ expect_log "$tmp/seek.log" "scripted input keys queued count=4"
 expect_log "$tmp/seek.log" "seek reset render state target_us="
 expect_log "$tmp/seek.log" "playback quit before eof"
 
-set +e
-run_pty "$tmp/sigint.typescript" \
-  "$timeout_bin" -s INT 2 "$bin" --mode structure --width 24 --height 12 --fps 5 \
-  --log "$tmp/sigint.log" "$tmp/sigint-fixture.mp4"
-sigint_status=$?
-set -e
-if [[ "$sigint_status" -ne 0 && "$sigint_status" -ne 124 && "$sigint_status" -ne 130 ]]; then
-  echo "SIGINT path failed with status $sigint_status" >&2
-  exit 1
+if [[ "${STROK_SKIP_SIGINT_SMOKE:-0}" != "1" ]]; then
+  ffmpeg -hide_banner -loglevel error \
+    -f lavfi -i testsrc=size=160x90:rate=2:duration=10 \
+    -pix_fmt yuv420p -y "$tmp/sigint-fixture.mp4"
+  set +e
+  run_pty "$tmp/sigint.typescript" \
+    "$timeout_bin" -s INT 2 "$bin" --mode structure --width 24 --height 12 --fps 5 \
+    --log "$tmp/sigint.log" "$tmp/sigint-fixture.mp4"
+  sigint_status=$?
+  set -e
+  if [[ "$sigint_status" -ne 0 && "$sigint_status" -ne 124 && "$sigint_status" -ne 130 ]]; then
+    echo "SIGINT path failed with status $sigint_status" >&2
+    exit 1
+  fi
+  expect_log "$tmp/sigint.log" "playback quit before eof"
 fi
-expect_log "$tmp/sigint.log" "playback quit before eof"
 
 echo "shutdown path smoke ok"

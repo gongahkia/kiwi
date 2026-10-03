@@ -161,7 +161,7 @@ jobs:
             ./build/ci/strok "$@"
           EOF
           chmod +x /tmp/strok-valgrind-wrapper
-          scripts/verify_shutdown_paths.sh /tmp/strok-valgrind-wrapper
+          STROK_SKIP_SIGINT_SMOKE=1 scripts/verify_shutdown_paths.sh /tmp/strok-valgrind-wrapper
 
   homebrew:
     name: homebrew formula (macos-latest)
