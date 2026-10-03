@@ -1,6 +1,8 @@
 # Demo Source
 
-`docs/v0.1-luminance.gif` is the historical truecolor luminance-playback baseline retained in source control. Its original capture source was not retained, so it is included as a visual comparison rather than a reproducible input fixture.
+`docs/v1.0-input-to-structure.gif` uses generated FFmpeg `testsrc2` footage. The left panel is the source frame; the right panel is strok's truecolor `--mode structure` export. Pango-rendered labels and FFmpeg compose the panels. It has no external media dependency.
+
+`docs/v1.0-color-tiers.gif` uses an animated FFmpeg RGB gradient rendered with strok's luminance mode in truecolor, 256-color, and 16-color configurations. The render command unsets `NO_COLOR`, which otherwise intentionally forces mono output. Pango-rendered labels and FFmpeg compose the panels. It has no external media dependency.
 
 `docs/v1.0-split-demo.gif` uses generated FFmpeg `testsrc2` footage rendered twice with strok still snapshots, then stacked with `ffmpeg`: luminance on the left, `--mode structure --style hatch` on the right.
 

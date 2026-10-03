@@ -5,15 +5,25 @@
 
 strok is a C++20 terminal media renderer for live video, webcam, and stream playback as structure-aware ASCII: glyphs are selected from edge direction and shape, not brightness alone, while keeping audio/video sync in a native terminal UI.
 
+**Frame to glyphs.** The input video frame is color-preserved while structure mode chooses glyphs from local edge direction and shape.
+
+![v1.0 input-to-structure demo: labeled input video frame beside strok structure-mode output](docs/v1.0-input-to-structure.gif)
+
+**Why structure mode.** Luminance glyphs on the left are compared with edge- and shape-aware hatching on the right.
+
 ![v1.0 split demo: luminance left, structure+hatch right](docs/v1.0-split-demo.gif)
 
-![v1.0 shader demo: bundled plasma shader rendered as ASCII](docs/v1.0-shader-demo.gif)
+**Color tiers.** The same animated gradient is rendered for truecolor, 256-color, and 16-color terminals.
+
+![v1.0 color tiers demo: labeled truecolor, 256-color, and 16-color terminal output](docs/v1.0-color-tiers.gif)
+
+**3D input.** A bundled rotating OBJ scene supplies depth and normal data to cell shading.
 
 ![v1.0 scene demo: bundled rotating cube rendered with cell shading](docs/v1.0-scene-demo.gif)
 
-![v0.5 structure demo: real video rendered as structure-aware ASCII](docs/v0.5-structure-demo.gif)
+**Shader input.** The bundled Shadertoy-style plasma shader is rendered as ASCII.
 
-![v0.1 luminance demo: truecolor terminal media playback](docs/v0.1-luminance.gif)
+![v1.0 shader demo: bundled plasma shader rendered as ASCII](docs/v1.0-shader-demo.gif)
 
 Demo sources: generated FFmpeg test media for split view and the bundled plasma shader for shader input. See [docs/demo-source.md](docs/demo-source.md).
 
