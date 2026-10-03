@@ -1,4 +1,4 @@
-name: CI
+name: Strok CI/CD on Push
 
 on:
   push:
