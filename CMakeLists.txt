@@ -545,7 +545,7 @@ target_link_libraries(strok PRIVATE strok_cli_adapter strok_terminal_backend str
 install(TARGETS strok
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-install(FILES README.md LICENSE CONTRIBUTING.md
+install(FILES README.md
   DESTINATION ${CMAKE_INSTALL_DOCDIR}
 )
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/docs/demo-source.md")
@@ -3360,7 +3360,6 @@ set(CPACK_PACKAGE_VENDOR "strok")
 set(CPACK_PACKAGE_CONTACT "https://github.com/gongahkia/strok")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Structure-aware ASCII terminal media renderer")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/gongahkia/strok")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_GENERATOR "TGZ")
 if(UNIX AND NOT APPLE)
