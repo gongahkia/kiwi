@@ -21,15 +21,15 @@ For the nerds, `Strok` also optionally transforms inputs by adding painterly, ha
 ## Features
 
 * Consumes, parses and plays the following input formats
-    * Video
-    * Images
-    * Animated GIFs
+    * [Video](https://aww.media/what-are-the-different-types-of-video-formats/)
+    * [Images](https://en.wikipedia.org/wiki/Image_file_format)
+    * Animated [GIFs](https://en.wikipedia.org/wiki/GIF)
     * Image grids
-    * Asciinema casts
-    * Numeric stdin plots 
-    * OBJ scenes
-    * Live camera input
-    * Direct FFmpeg URLs
+    * [Asciinema](https://asciinema.org/) casts
+    * Numeric [stdin plots](https://stackoverflow.com/questions/4134314/live-plot-from-stdin)
+    * [OBJ](https://en.wikipedia.org/wiki/Wavefront_.obj_file) scenes
+    * Live Web Camera input
+    * Direct [FFmpeg](https://ffmpeg.org/) URLs
     * YouTube URLs
 * Syncs audio and video streams 
 * Handles live camera/RTSP reconnects
