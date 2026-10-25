@@ -55,6 +55,11 @@ function Screen:new_row()
   return new_row(self.columns, self.blank_cell, self.line_id_factory)
 end
 
+-- Reflow fills text first and allocates only the remaining blank cells.
+function Screen:new_sparse_row()
+  return new_row(0, self.blank_cell, self.line_id_factory)
+end
+
 function Screen:get(column, row)
   return self.rows[row].cells[column]
 end
