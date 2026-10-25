@@ -154,9 +154,11 @@ third-party clipboard managers, rich formats, or concurrent clipboard changes.
 The repository has an Intel macOS GitHub Actions qualification job on
 `macos-15-intel` and a manually dispatched self-hosted `kiwi-desktop` Linux
 workflow. A successful run is required evidence, not an implicit support claim.
-At this revision, the recorded macOS native evidence is Apple Silicon; the
-Intel job and a real Linux desktop runner are the mechanisms for collecting the
-missing qualification.
+Recorded macOS evidence now also includes the bounded Intel startup/native
+checks from 2026-10-25. The separate `make test-applications` gate adds eight
+local PTY workflows with edited-file assertions and chunk-invariant recordings;
+see [TESTING.md](TESTING.md). Those results do not replace physical desktop or
+SSH qualification, and current Linux execution of the new gates remains open.
 
 ## Current qualification observations
 

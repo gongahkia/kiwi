@@ -248,6 +248,10 @@ generate-unicode:
 test-pty: native
 	$(LUAJIT) src/kiwi/test_pty.lua
 
+.PHONY: test-applications
+test-applications: native terminfo
+	./script/test-applications
+
 smoke: native
 	./script/smoke
 

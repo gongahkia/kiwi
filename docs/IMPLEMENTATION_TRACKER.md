@@ -19,7 +19,9 @@ tests do not establish Linux or Windows desktop qualification.
 - [x] Reproduce and close the recorded tmux protocol qualification failures.
 - [ ] Exercise real tmux, Neovim, Vim, shells, SSH, pagers, and full-screen
       monitoring tools, including resize, alternate screens, queries and input.
-- [ ] Preserve reproducible captures and automate regression gates in CI.
+- [x] Automate local PTY workflows for Bash/Zsh, Vim/Neovim, tmux, nested Neovim,
+      less and system top, with saved-file assertions and replay verification.
+- [x] Preserve reproducible captures and configure regression gates in CI.
 
 ## Desktop reliability
 
@@ -240,3 +242,23 @@ to check rejection behaviour. Tests verify cursor/attribute preservation,
 responses, parser recovery at every byte split, query levels and malformed
 requests. The full check passed 533 Lua tests across 115 suites, 16 PTY tests,
 native checks and the remaining gates; core passed 306 tests across 58 suites.
+
+### Interactive application workflows
+
+The new `make test-applications` gate drives eight controlled application
+workflows through the real PTY and product input/parser/state paths. It checks
+edited file contents, Unicode paste, child-reported dimensions, foreground
+job interruption, tmux split/zoom/close, pager search/navigation and monitor
+exit. Reports retain versions and diagnostics; every successful capture is
+replayed with whole, one-byte and eight randomized chunkings against live state.
+
+All eight workflows passed three consecutive local Intel macOS runs. Vim's
+deliberate invalid probes remain explicitly counted; all other unsupported
+controls fail. Linux and macOS CI now install dependencies, run this gate and
+upload bounded controlled recordings. Linux desktop CI also includes automatic
+configuration reload on each available GTK WGPU backend. Configured CI gates
+are not evidence of remote runner execution. SSH, additional shells, real
+keyboard/native presentation and long interactive sessions remain open.
+The final local report is
+`evidence/2026-10-25-macos-interactive-applications.json`. The complete check
+and native automatic-reload smoke also passed after the watcher/protocol changes.

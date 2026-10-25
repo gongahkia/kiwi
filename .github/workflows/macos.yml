@@ -19,9 +19,17 @@ jobs:
       - name: verify runner architecture
         run: test "$(uname -m)" = arm64
       - name: install build dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish tmux neovim
       - name: deterministic checks
-        run: make check && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
+        run: make check test-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
+      - name: upload interactive application evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kiwi-macos-arm64-interactive-applications
+          path: .build/application-evidence
+          include-hidden-files: true
+          if-no-files-found: warn
 
   intel-compatibility:
     name: daily-driver compatibility (Intel)
@@ -35,7 +43,7 @@ jobs:
       - name: collect bounded Intel compatibility evidence
         run: |
           mkdir -p artifacts
-          make check
+          make check test-applications
           make cocoa-smoke
           make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
@@ -44,7 +52,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kiwi-macos-intel-compatibility
-          path: artifacts/macos-intel-compatibility.json
+          path: |
+            artifacts/macos-intel-compatibility.json
+            .build/application-evidence
+          include-hidden-files: true
           if-no-files-found: warn
 
   artifact:
