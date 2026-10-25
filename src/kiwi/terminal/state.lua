@@ -13,6 +13,7 @@ local Screen = require("kiwi.terminal.screen")
 local Scrollback = require("kiwi.terminal.scrollback")
 local Search = require("kiwi.input.search")
 local Selection = require("kiwi.input.selection")
+local Document = require("kiwi.terminal.document")
 local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
@@ -406,6 +407,8 @@ function State:selection_scope()
   return self.active_screen == self.primary and "primary" or "alternate"
 end
 
+function State:document(scope) return Document.new(self, scope or self:selection_scope()) end
+
 function State:shell_position()
   local cursor = self.active_screen.cursor
   return {
@@ -602,7 +605,7 @@ end
 
 function State:reconcile_selection()
   local scope = self.selection.scope
-  if scope then self.selection:reconcile(self:selection_rows(scope), self.columns) end
+  if scope then self.selection:reconcile(self:document(scope), self.columns) end
 end
 
 local function selection_coordinate(value, upper)
@@ -616,6 +619,7 @@ function State:selection_endpoint(row, column)
   return {
     column = selection_coordinate(column, self.columns),
     line_id = visible.line_id,
+    row_index = self:document():top() + row,
   }
 end
 
@@ -674,18 +678,17 @@ end
 
 function State:selection_precedes(left_row, left_column, right_row, right_column)
   local scope = self:selection_scope()
-  local positions = {}
-  for index, entry in ipairs(self:selection_rows(scope)) do positions[entry.line_id] = index end
+  local document = self:document(scope)
   local left = self:selection_endpoint(left_row, left_column)
   local right = self:selection_endpoint(right_row, right_column)
-  local left_index = positions[left.line_id]
-  local right_index = positions[right.line_id]
+  local left_index = document:position(left.line_id)
+  local right_index = document:position(right.line_id)
   return left_index < right_index or (left_index == right_index and left.column <= right.column)
 end
 
 function State:set_selection(anchor_row, anchor_column, focus_row, focus_column)
   local scope = self:selection_scope()
-  return self.selection:set(scope, self:selection_endpoint(anchor_row, anchor_column), self:selection_endpoint(focus_row, focus_column), self:selection_rows(scope), self.columns)
+  return self.selection:set(scope, self:selection_endpoint(anchor_row, anchor_column), self:selection_endpoint(focus_row, focus_column), self:document(scope), self.columns)
 end
 
 function State:clear_selection()
@@ -694,10 +697,11 @@ end
 
 function State:select_all()
   local scope = self:selection_scope()
-  local rows = self:selection_rows(scope)
-  if #rows == 0 then return false end
-  return self.selection:set(scope, { line_id = rows[1].line_id, column = 0 },
-    { line_id = rows[#rows].line_id, column = self.columns }, rows, self.columns)
+  local document = self:document(scope)
+  local count = document:count()
+  if count == 0 then return false end
+  return self.selection:set(scope, { line_id = document:row(1).line_id, row_index = 1, column = 0 },
+    { line_id = document:row(count).line_id, row_index = count, column = self.columns }, document, self.columns)
 end
 
 function State:clear_scrollback()
@@ -719,18 +723,16 @@ end
 function State:selection_view()
   local scope = self.selection.scope
   if scope == nil then return { active = false, empty = true, visible = false } end
-  return self.selection:view(self:selection_rows(scope, true), self.columns, self:selection_scope())
+  return self.selection:view(self:document(scope), self.columns, self:selection_scope())
 end
 
 function State:selection_text(maximum_bytes)
   assert(type(maximum_bytes) == "number" and maximum_bytes >= 0 and maximum_bytes % 1 == 0, "selection text limit must be a non-negative integer")
   local view = self:selection_view()
   if not view.active or not view.visible or view.empty then return nil, "no-selection" end
-  local document = self:selection_rows(view.scope)
-  local positions = {}
-  for index, entry in ipairs(document) do positions[entry.line_id] = index end
-  local first = positions[view.start.line_id]
-  local last = positions[view.finish.line_id]
+  local document = self:document(view.scope)
+  local first = view.start.row_index
+  local last = view.finish.row_index
   if first == nil or last == nil then return nil, "no-selection" end
   local bytes = 0
   local text = {}
@@ -741,7 +743,7 @@ function State:selection_text(maximum_bytes)
     return true
   end
   for index = first, last do
-    local row = document[index].row
+    local row = document:row(index).row
     local start = index == first and view.start.column or 0
     local finish = index == last and view.finish.column or self.columns
     -- A selection through the right edge includes text, not unused cell padding.
@@ -810,12 +812,7 @@ function State:reveal_search_match(match)
 end
 
 function State:search_row(index, scope)
-  local row
-  if scope == "primary" then
-    local history = self.scrollback:size()
-    row = index <= history and self.scrollback:peek(index) or self.primary.rows[index - history - 1]
-  elseif scope == "alternate" then row = self.alternate.rows[index - 1] end
-  if row then return { line_id = row.line_id, row = row } end
+  return Document.row_at(self, index, scope)
 end
 
 function State:search_pending() return self.search.job ~= nil end
