@@ -17,7 +17,7 @@ return {
         }))
       end
       options.application:await_events(window, 0.001)
-    end, { menu_smoke = true, multi_window_smoke = true }, {
+    end, { menu_smoke = true, interaction_smoke = true, multi_window_smoke = true }, {
       window_api = {
         poll_events_for = function(windows)
           polls = polls + 1
@@ -35,6 +35,7 @@ return {
     assert(controller_options[1].multi_window_smoke_requester == true, "the initial controller should own the smoke request")
     assert(controller_options[2].multi_window_smoke_requester == false, "new controllers must not recursively request windows")
     assert(controller_options[2].menu_smoke == false, "new controllers must not repeat one-shot smoke actions")
+    assert(controller_options[2].interaction_smoke == false, "new controllers must not repeat interaction smoke actions")
     assert(controller_options[2].host_tab == true, "native-tab requests must retain their explicit host intent")
     assert(controller_options[2].host_tab_source_id == controller_options[1].controller_id, "native-tab requests must retain their source controller")
     assert(waits == 2 and polls == 2, "each controller turn should share one platform event wait and poll")

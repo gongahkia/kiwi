@@ -17,6 +17,7 @@ local function clear_one_shot_smokes(options)
   options.automation_smoke = false
   options.cwd_smoke = false
   options.key_sequence_smoke = false
+  options.interaction_smoke = false
   options.menu_smoke = false
   options.palette_smoke = false
   options.toolbar_smoke = false

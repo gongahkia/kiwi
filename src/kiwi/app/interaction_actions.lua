@@ -41,7 +41,7 @@ function Interaction.workspace(action, workspace, columns, rows)
   if action == "previous-tab" then return workspace:focus_relative_tab(-1) end
   if action == "next-pane" then return workspace:focus_relative_pane(1) end
   if action == "previous-pane" then return workspace:focus_relative_pane(-1) end
-  if action == "toggle-pane-zoom" then return workspace:toggle_zoom() end
+  if action == "toggle-pane-zoom" then return workspace:toggle_zoom(columns, rows) end
   if action == "equalize-splits" then return workspace:equalize_splits() end
   local direction = action:match("^focus%-pane%-(%a+)$")
   if direction then return workspace:focus_direction(direction, columns, rows) end
