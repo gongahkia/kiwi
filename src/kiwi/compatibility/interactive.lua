@@ -64,15 +64,16 @@ function Session.new(name, command)
   end
   local recorder = Replay.Recorder.new(artifacts .. "/" .. name .. ".jsonl")
   recorder:resize(80, 24, 8, 16)
-  local ok, pty = pcall(Pty.spawn, command, 80, 24, {
-    TERM = "xterm-kiwi", TERMINFO = root .. "/.build/terminfo", COLORTERM = "truecolor",
+  local environment = require("kiwi.process.environment").terminal(root .. "/.build/terminfo")
+  for name, value in pairs({
     HOME = work, ZDOTDIR = work, XDG_CONFIG_HOME = work, XDG_DATA_HOME = work,
     XDG_STATE_HOME = work, XDG_CACHE_HOME = work, HISTFILE = "/dev/null",
     INPUTRC = "/dev/null", ENV = false, BASH_ENV = false, VIMINIT = false, EXINIT = false,
     TMUX = false, TMUX_PANE = false, PS1 = "KIWI> ", PROMPT = "KIWI> ", PS2 = "MORE> ",
     LC_ALL = ffi.os == "OSX" and "en_US.UTF-8" or "C.UTF-8", BASH_SILENCE_DEPRECATION_WARNING = "1", LESS = "", LESSOPEN = false, LESSCLOSE = false,
     LESSHISTFILE = "-", LESSCHARSET = "utf-8", NVIM = false, NVIM_LISTEN_ADDRESS = false,
-  }, { cwd = work })
+  }) do environment[name] = value end
+  local ok, pty = pcall(Pty.spawn, command, 80, 24, environment, { cwd = work })
   if not ok then recorder:close(); error(pty) end
   return setmetatable({ name = name, terminal = terminal, state = Terminal.state(terminal),
     pty = pty, recorder = recorder, checkpoints = {}, output_bytes = 0, input_bytes = 0,

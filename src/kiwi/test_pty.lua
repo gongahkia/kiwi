@@ -72,6 +72,17 @@ test("pty_resolves_unqualified_commands_with_the_inherited_path", function()
   Assert.equal(status.code, 0)
 end)
 
+test("application_child_receives_kiwi_program_identity_and_build_version", function()
+  local environment = require("kiwi.process.environment").terminal("/tmp/kiwi-terminfo-fixture")
+  local expected = "Kiwi|" .. require("kiwi.build").info().version .. "|xterm-kiwi|truecolor|/tmp/kiwi-terminfo-fixture"
+  local transcript, _, status = pump({ "/bin/sh", "-c",
+    "printf '%s|%s|%s|%s|%s' \"$TERM_PROGRAM\" \"$TERM_PROGRAM_VERSION\" \"$TERM\" \"$COLORTERM\" \"$TERMINFO\"" },
+    80, 4, nil, environment)
+  Assert.equal(transcript, expected)
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
 test("pty_starts_a_child_in_a_validated_local_working_directory", function()
   local _, _, status = pump({ "/bin/sh", "-c", "test \"$(pwd -P)\" = \"$(cd /tmp && pwd -P)\"" }, 16, 4, nil, {
     TERM = "xterm-kiwi",
