@@ -1,4 +1,5 @@
 -- Experimental single-terminal controller for GtkGLArea presentation.
+local PollSchedule = require("kiwi.app.poll_schedule")
 --
 -- It deliberately reuses Kiwi's VT, PTY, input, clipboard, and host-effect
 -- boundaries. Workspace composition remains owned by the WGPU controller until
@@ -299,7 +300,7 @@ function Controller.run_native_tabs(window, host, options)
       local timeout = 0.050
       for _, session in ipairs(sessions) do
         local deadline = session:next_deadline()
-        if deadline and deadline > now then timeout = math.min(timeout, deadline - now) else timeout = 0 end
+        timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted, window.minimized))
       end
       if host.await_events and options.application then
         host.await_events(options.application, window, math.max(0, timeout))
@@ -689,7 +690,7 @@ function Controller.run(window, host, options)
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = consumer:next_render_deadline()
-      local requested_wait = deadline and now < deadline and math.min(deadline - now, 0.050) or 0.050
+      local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
       else
