@@ -51,6 +51,9 @@ function Compositor:can_present(entries)
 end
 
 function Compositor:needs_render(entries, time)
+  if self.retry_at and time < self.retry_at and not self.context.window.resized then return false end
+  local effect = self.context.effect
+  if effect and effect.animated and time >= (effect.next_frame or 0) then return true end
   for _, entry in ipairs(entries) do
     if entry.renderer:needs_render(time) then return true end
   end
@@ -58,11 +61,14 @@ function Compositor:needs_render(entries, time)
 end
 
 function Compositor:next_render_deadline(entries)
-  local deadline
+  if not self:can_present(entries) then return nil end
+  local effect = self.context.effect
+  local deadline = effect and effect.animated and (effect.next_frame or 0) or nil
   for _, entry in ipairs(entries) do
     local candidate = entry.renderer:next_render_deadline()
     if candidate and (deadline == nil or candidate < deadline) then deadline = candidate end
   end
+  if self.retry_at and not self.context.window.resized then deadline = math.max(deadline or self.retry_at, self.retry_at) end
   return deadline
 end
 
@@ -74,7 +80,11 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   if self.context.window.minimized then return false, "zero-sized drawable" end
   self:validate(entries)
   local presentation, presentation_reason = self.context:begin_presentation_frame()
-  if presentation == nil then return false, presentation_reason end
+  if presentation == nil then
+    if presentation_reason == "surface occluded" or presentation_reason == "zero-sized drawable" then self.retry_at = time + 0.25 end
+    return false, presentation_reason
+  end
+  self.retry_at = nil
   local capture_started = false
   local ok, result = xpcall(function()
     for index, entry in ipairs(entries) do

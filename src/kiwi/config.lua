@@ -5,6 +5,7 @@ local Config = {}
 
 Config.maximum_bytes = 64 * 1024
 Config.maximum_lines = 512
+Config.maximum_shader_bytes = 64 * 1024
 Config.maximum_theme_bytes = 32 * 1024
 Config.maximum_theme_lines = 256
 
@@ -19,6 +20,8 @@ Config.edit_template = [[# Kiwi configuration
 # font-family = "monospace"
 # font-size = 20
 # background-opacity = 1.0
+# custom-shader = "effects/scanlines.wgsl"
+# custom-shader-animation = false
 # ligatures = false
 # contextual-alternates = false
 # scrollback-limit = 2000
@@ -213,6 +216,7 @@ local function defaults()
     foreground = nil,
     background = nil,
     background_opacity = 1,
+    custom_shader_animation = false,
     palette = {},
     selection_color = nil,
     search_color = nil,
@@ -398,6 +402,15 @@ local function apply_value(config, key, raw, line)
   elseif key == "foreground" then
     config.foreground = Config.parse_color(raw, line)
     config.color_overrides.foreground = config.foreground
+  elseif key == "custom-shader" then
+    local path = parse_string(raw, line)
+    if #path > 4096 or path:find("%z") or path:find("[\r\n]") then
+      error("configuration line " .. line .. " custom-shader needs a bounded file path")
+    end
+    config.custom_shader = path ~= "" and path or nil
+    config.custom_shader_source = nil
+  elseif key == "custom-shader-animation" then
+    config.custom_shader_animation = parse_boolean(raw, line)
   elseif key == "background-opacity" then
     local opacity = tonumber(parse_string(raw, line))
     if opacity == nil or opacity ~= opacity or opacity < 0 or opacity > 1 then
@@ -541,6 +554,9 @@ function Config.parse(text, source, base, options)
     if assignment.key ~= "theme" and assignment.key ~= "theme-dark" and assignment.key ~= "theme-light"
       and assignment.key ~= "appearance" and assignment.key ~= "theme-file" then
       apply_value(config, assignment.key, assignment.value, assignment.line)
+      if assignment.key == "custom-shader" and config.custom_shader and config.custom_shader:sub(1, 1) ~= "/" then
+        config.custom_shader = (source and source:match("^(.*)/[^/]+$") or ".") .. "/" .. config.custom_shader
+      end
     end
   end
   Actions.palette_entries(config.command_palette_entries)
@@ -672,6 +688,17 @@ function Config.load(path, environment, options)
     theme_loader = theme_loader,
   })
   config.path = loaded_path
+  if config.custom_shader then
+    dependency(config.custom_shader)
+    local file, reason = io.open(config.custom_shader, "rb")
+    if not file then error("could not open custom shader " .. config.custom_shader .. ": " .. tostring(reason)) end
+    local source = file:read(Config.maximum_shader_bytes + 1)
+    file:close()
+    if not source or #source == 0 or #source > Config.maximum_shader_bytes or source:find("%z") then
+      error("custom shader must contain 1 through " .. Config.maximum_shader_bytes .. " bytes of NUL-free WGSL")
+    end
+    config.custom_shader_source = source
+  end
   return config, loaded_path
 end
 

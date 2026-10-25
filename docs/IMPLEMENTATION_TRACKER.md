@@ -438,3 +438,19 @@ ran there too. Retained reports:
 `evidence/2026-10-25-linux-reload-ssh-applications.json`. Linux graphical reload,
 GPU-inclusive latency, large-history memory, and font-change responsiveness
 remain open; the container result does not establish any of those claims.
+
+## Numbered tabs and appearance controls (2026-10-25)
+
+- [x] Command+1–9 selects the corresponding native macOS tab; custom bindings
+      support workspace tabs. Command+Shift+P opens the default palette.
+- [x] Background opacity with opaque foreground text and native surface alpha
+      negotiation on GLFW/Metal and GLFW/Vulkan.
+- [x] User-configured WGSL postprocessing, watched shader files, transactional
+      failure recovery, static/animated scheduling and two sample effects.
+- [x] Native macOS GPU readback for opacity, shader output, resize and recovery;
+      live config/shader file edits with a retained PTY and scrollback.
+- [ ] Qualify transparency on physical X11 and Wayland compositors; implement
+      appearance controls in the experimental GTK GL presenter.
+
+Custom shaders use Kiwi's WGSL function interface, not Ghostty's GLSL interface.
+Window blur and shader chains remain unimplemented.

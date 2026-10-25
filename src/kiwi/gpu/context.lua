@@ -250,8 +250,10 @@ function Context:abort_presentation_frame(frame)
 end
 
 function Context:prepare_effects(options)
-  if (options.background_opacity or 1) < 1 and self.surface_alpha_mode == 3 then
-    return require("kiwi.renderer.postprocess").new(self)
+  if options.custom_shader_source or ((options.background_opacity or 1) < 1 and self.surface_alpha_mode == 3) then
+    local effect = require("kiwi.renderer.postprocess").new(self, options.custom_shader_source)
+    effect.animated = options.custom_shader_source ~= nil and options.custom_shader_animation == true
+    return effect
   end
 end
 

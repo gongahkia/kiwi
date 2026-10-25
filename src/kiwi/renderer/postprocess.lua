@@ -9,6 +9,8 @@ Effect.identity = "fn kiwi_effect(color: vec4<f32>, uv: vec2<f32>, time: f32, re
 local function view(value) return ffi.new("WGPUStringView", { data = value, length = #value }) end
 
 function Effect.new(context, source)
+  assert(source == nil or (type(source) == "string" and #source > 0 and #source <= 64 * 1024 and not source:find("%z")),
+    "custom shader source must be bounded NUL-free WGSL")
   local self = setmetatable({ context = context, native = context.native,
     resource_registry = Resources.new(context:next_renderer_generation()) }, Effect)
   local ok, message = pcall(function()
@@ -95,6 +97,7 @@ function Effect:encode(encoder, target, time)
   api.wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0)
   api.wgpuRenderPassEncoderEnd(pass)
   api.wgpuRenderPassEncoderRelease(pass)
+  self.next_frame = time + 1 / 30
 end
 
 function Effect:destroy()

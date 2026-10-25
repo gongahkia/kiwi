@@ -22,7 +22,7 @@ jobs:
       - name: install build dependencies
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish nushell tmux neovim
       - name: deterministic checks
-        run: make check test-applications test-ssh-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
+        run: make check test-applications test-ssh-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke appearance-smoke
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -51,7 +51,7 @@ jobs:
           mkdir -p artifacts
           make check test-applications test-ssh-applications
           make cocoa-smoke
-          make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
+          make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke appearance-smoke
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
       - name: upload compatibility report
         if: always()

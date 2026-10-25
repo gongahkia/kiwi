@@ -104,3 +104,13 @@ The native watcher tests cover one-shot behavior, rearming unread output,
 replacement, EOF, invalid bounds and repeated shutdown. The host smoke supplies
 a deliberately delayed child and a two-second event-loop timeout; it verifies
 that output interrupts the wait. It is not a display-latency benchmark.
+
+## Appearance and direct tab selection
+
+Command+1–9 now selects native macOS tabs by visible order, and
+Command+Shift+P opens the palette. `background-opacity` and `custom-shader`
+are user-facing WGPU settings, with watched WGSL files and transactional reload
+recovery. Native macOS GPU readback covers transparency, opaque text, shader
+output and resizing. Linux desktop compositor qualification remains outstanding.
+The GTK GL prototype, window blur, shader chains and direct Ghostty GLSL shader
+compatibility remain gaps. See the [configuration guide](USER_GUIDE.md#custom-shaders).

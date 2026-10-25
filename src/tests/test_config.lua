@@ -4,6 +4,38 @@ local Config = require("kiwi.config")
 local Filesystem = require("kiwi.platform.filesystem")
 
 return {
+  custom_shader_files_are_relative_watched_bounded_and_compared_by_contents = function()
+    local path = os.tmpname()
+    local shader = path .. ".wgsl"
+    local function save(target, value)
+      local file = assert(io.open(target, "wb")); assert(file:write(value)); file:close()
+    end
+    local ok, message = pcall(function()
+      save(path, 'custom-shader = "' .. shader:match("[^/]+$") .. '"\ncustom-shader-animation = true\n')
+      save(shader, "first source")
+      local dependencies = {}
+      local first = Config.load(path, function() return nil end, { on_dependency = function(value) dependencies[value] = true end })
+      Assert.equal(first.custom_shader, shader)
+      Assert.equal(first.custom_shader_source, "first source")
+      Assert.equal(first.custom_shader_animation, true)
+      Assert.truthy(dependencies[shader])
+      save(shader, "second source")
+      local second = Config.load(path, function() return nil end)
+      Assert.truthy(not Config.equivalent(first, second))
+      for _, value in ipairs({ "", "a\0b", string.rep("x", Config.maximum_shader_bytes + 1) }) do
+        save(shader, value)
+        Assert.truthy(not pcall(Config.load, path, function() return nil end))
+      end
+      os.remove(shader)
+      Assert.truthy(not pcall(Config.load, path, function() return nil end))
+      local disabled = Config.parse('custom-shader = ""', path, first)
+      Assert.equal(disabled.custom_shader, nil)
+      Assert.equal(disabled.custom_shader_source, nil)
+      Assert.truthy(not pcall(Config.parse, "custom-shader-animation = sometimes", "test"))
+    end)
+    os.remove(path); os.remove(shader)
+    assert(ok, message)
+  end,
   background_opacity_is_finite_bounded_and_defaults_to_opaque = function()
     Assert.equal(Config.parse("", "test").background_opacity, 1)
     for _, value in ipairs({ "0", "0.75", "1" }) do

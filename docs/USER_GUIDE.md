@@ -624,3 +624,56 @@ select a supported surface alpha mode. Transparency requires desktop compositing
 an unsupported surface rejects the configuration instead of silently ignoring it.
 The experimental GTK presenters do not currently implement this setting.
 Native GPU readback is available with `make appearance-smoke`.
+
+## Custom shaders
+
+The WGPU renderer supports one custom WGSL postprocessing file per window:
+
+```ini
+background-opacity = 0.85
+custom-shader = "effects/scanlines.wgsl"
+custom-shader-animation = false
+```
+
+Relative shader paths resolve against the configuration file containing the
+setting. Absolute paths also work; `~` and environment variables are not expanded.
+The shader file and configuration are watched when `live-config-reload = true`.
+F6 / Reload Configuration also rereads the shader. An invalid or missing shader
+during reload preserves the previous effect and the entire live configuration;
+the window title reports the error. Invalid startup configuration reports an
+error and exits. Remove the setting, or use `custom-shader = ""`, to disable it.
+
+Define this WGSL function (this example leaves the image unchanged):
+
+```wgsl
+fn kiwi_effect(color: vec4<f32>, uv: vec2<f32>, time: f32,
+               resolution: vec2<f32>) -> vec4<f32> {
+  return color;
+}
+```
+
+`color` is the fully composited terminal pixel, including splits, cursor, images
+and overlays. RGB is linear on the preferred sRGB surface, with straight alpha.
+`uv` runs from the top-left `(0, 0)` to the bottom-right `(1, 1)`; `resolution`
+is the window's physical pixel size. `time` is seconds from the host clock.
+`kiwi_sample(uv)` samples another point in the same frame, clamped to its edges.
+Return straight RGBA in `[0, 1]`; preserving `color.a` preserves transparency.
+Kiwi handles the final surface alpha conversion. Effects do not cover native
+window decorations, menus or the command palette.
+
+[Scanlines](../examples/shaders/scanlines.wgsl) and
+[grayscale](../examples/shaders/grayscale.wgsl) are working examples. These use
+Kiwi's WGSL interface; Ghostty/Shadertoy GLSL files require porting. Shader chains,
+previous-frame feedback, external textures and blur behind the window are not
+implemented. Files are limited to 64 KiB and are explicitly selected by the user.
+
+Static effects redraw with terminal activity. Set `custom-shader-animation = true`
+for time-based effects; this schedules redraws at 30 Hz, pauses presentation when
+minimized or synchronized output is active, and backs off on occluded surfaces.
+An effect costs one window-sized RGBA texture and one additional GPU pass.
+The default opaque configuration without a shader allocates neither.
+The experimental GTK GL presenter does not implement custom shaders.
+
+`make appearance-smoke` checks GPU output, transparency, resize and invalid shader
+recovery. `make configuration-reload-smoke` checks file watching and transactional
+rollback through a live terminal process. These also run in the macOS CI workflow.
