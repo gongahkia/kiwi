@@ -100,7 +100,7 @@ function Passes.build(renderer)
     end
   end
   local glyph = Pass.new("terminal/glyph", 20, nil, c.load_load, function(model)
-      return renderer.glyph_count or 0
+      return renderer.hint_first or renderer.glyph_count or 0
     end, { "text.shaped_glyphs", "text.alpha_atlas", "terminal.hyperlinks", "terminal.damage", "frame.viewport", "frame.timing" }, { "surface.color" }, command_regions and { "terminal/command_regions" } or { "terminal/search" })
   glyph.blend = "alpha"
   function glyph:initialize(owner)
@@ -160,6 +160,24 @@ function Passes.build(renderer)
   if images_over then passes[#passes + 1] = images_over end
   passes[#passes + 1] = cursor
   passes[#passes + 1] = scrollbar
+  if renderer.hints_enabled then
+    local hints = Pass.new("terminal/hints", 40, nil, c.load_load, function()
+      return renderer.hint_count or 0
+    end, { "text.shaped_glyphs", "frame.viewport" }, { "surface.color" }, { "terminal/scrollbar" })
+    hints.first_instance = function() return renderer.hint_first or 0 end
+    function hints:initialize(owner)
+      initialize_pipeline(owner, self, "hint-pass", "glyph_vs", "glyph_fs")
+    end
+    function hints:encode(owner, encoder, view, model)
+      -- No extra GPU render pass when labels are absent.
+      if (owner.hint_count or 0) > 0 or (owner.gpu_timing and owner.gpu_timing.enabled) then
+        owner:encode_semantic_pass(self, encoder, view, model, self.resources or owner:resolve_pass_resources(self))
+      end
+      self.resources = nil
+    end
+    function hints:shutdown(owner) shutdown_pipeline(owner, self) end
+    passes[#passes + 1] = hints
+  end
   return passes
 end
 

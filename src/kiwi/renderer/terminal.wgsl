@@ -171,6 +171,19 @@ fn glyph_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) i
 
 @fragment
 fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
+  if ((input.flags & 0x04000000u) != 0u) {
+    let point = (input.local_position - vec2<f32>(0.15, 0.15)) / vec2<f32>(0.70, 0.70);
+    var ink = false;
+    if (all(point >= vec2<f32>(0.0)) && all(point < vec2<f32>(1.0))) {
+      let index = u32(floor(point.y * 7.0)) * 5u + u32(floor(point.x * 5.0));
+      let mask = select(input.glyph, input.flags & 32767u, index >= 20u);
+      ink = ((mask >> (index % 20u)) & 1u) != 0u;
+    }
+    var background = vec4<f32>(235.0/255.0, 203.0/255.0, 139.0/255.0, 1.0);
+    if ((input.flags & 0x08000000u) != 0u) { background = vec4<f32>(136.0/255.0, 192.0/255.0, 208.0/255.0, 1.0); }
+    if ((input.flags & 0x10000000u) != 0u) { background = vec4<f32>(153.0/255.0, 145.0/255.0, 129.0/255.0, 1.0); }
+    return select(srgb_to_surface(background), input.fg, ink);
+  }
   if (input.glyph == 0u || (input.flags & 128u) != 0u) { discard; }
   let coverage = textureSample(glyph_atlas, glyph_sampler, input.uv).r;
   var color = input.fg;
