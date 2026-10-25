@@ -45,9 +45,10 @@ tests do not establish Linux or Windows desktop qualification.
 
 ## Configuration
 
-- [ ] Stage and atomically commit font/renderer/configuration replacement.
+- [x] Stage and atomically commit font/renderer/configuration replacement on the
+      supported WGPU application path; GTK GL prototype parity remains open.
 - [ ] Debounce automatic file reload and show recoverable configuration errors.
-- [ ] Inject resource failures and verify the old session remains usable.
+- [x] Inject resource failures and verify the old session remains usable.
 
 ## Search and keyboard navigation
 
@@ -133,3 +134,22 @@ readback found 103,197 pixels near the independently selected underline RGB
 on blank cells. Both macOS CI jobs now run this bounded framebuffer gate.
 This proves that the native pipeline draws the decorations; all-style visual
 comparisons, Linux GL execution and cross-DPI qualification remain open.
+
+### Transactional configuration resources
+
+Reload now stages independent terminal state and all pane renderers before
+activation. Font/layout/renderer failure releases only candidates. State
+adoption preserves the parser's live object identity, incomplete input,
+scrollback, alternate screens and callback ownership; host effects and PTY
+resize wait until every pane is active. New image textures get independent
+residency. Cleanup/PTY errors after activation are reported without tearing
+down the replacement sessions. Staging temporarily duplicates retained state
+and GPU resources; worst-case reload latency and peak memory remain to measure.
+
+Eight deterministic tests inject font and each-pane renderer failures, check
+abort/cleanup, hidden panes, image residency and partial UTF-8 input. `make
+check` passed 517 tests across 113 suites, 16 PTY tests and the remaining gates;
+core passed 292 tests across 57 suites. The native Metal interaction smoke
+injects failure after allocating the first replacement renderer in a three-pane
+window, verifies unchanged snapshots/resources, then successfully changes and
+resets the font. Automatic watching and visible error feedback remain open.

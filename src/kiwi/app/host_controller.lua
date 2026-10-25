@@ -705,56 +705,48 @@ function Controller.run(window, host, options)
     local update_automation_action_handler
     local configured_font_size = configuration.font_size
 
-    local function apply_configuration(reloaded, path)
-      if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
-        return nil, "ambiguous-width and scrollback-limit require a new terminal session"
-      end
+    local function apply_configuration(reloaded, path, force_font)
       local candidate_actions = ProductActions.new(reloaded.keybindings, glfw, host.platform)
-      local previous_font = font
-      local font_changed = reloaded.font_size ~= configuration.font_size
-        or reloaded.font_path ~= configuration.font_path
-        or reloaded.font_family ~= configuration.font_family
-        or reloaded.ligatures ~= configuration.ligatures
-        or reloaded.contextual_alternates ~= configuration.contextual_alternates
-      local candidate_font = font_changed and new_font(window, reloaded) or font
-      if font_changed then
-        local candidate_columns, candidate_rows = dimensions(window, candidate_font)
-        local fits = candidate_columns and workspace:fits(candidate_columns, candidate_rows)
-        if not fits then
-          candidate_font:destroy()
-          return nil, "font size leaves insufficient space for the current pane layout"
+      local candidate_options = renderer_options(options, reloaded)
+      local candidate_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
+      local plan, reason = require("kiwi.app.configuration_reload").prepare({
+        current = configuration, candidate = reloaded, font = font, workspace = workspace,
+        force_font = force_font, renderer_options = candidate_options,
+        dimensions = function(candidate_font) return dimensions(window, candidate_font) end,
+        new_font = function(candidate) return new_font(window, candidate) end,
+        new_renderer = function(candidate_font, candidate_state, candidate_render_options)
+          return Renderer.new(context, candidate_font, candidate_state, candidate_render_options)
+        end,
+      })
+      if not plan then return nil, reason end
+      if host.configure_host_effects then
+        local ready, message = pcall(host.configure_host_effects, window, reloaded)
+        if not ready then plan:abort(); return nil, tostring(message) end
+      end
+      plan:activate()
+      font = plan.font
+      configuration, configuration_path = reloaded, path
+      configuration.host_effects = candidate_effects
+      product_actions, render_options = candidate_actions, candidate_options
+      workspace_columns, workspace_rows = plan.columns, plan.rows
+      pane_entries, pane_layouts = {}, {}
+      for _, placement in ipairs(plan.layout) do
+        local pane = workspace.panes[placement.pane_id]
+        local viewport = Compositor.viewport(placement, font.cell_width, font.cell_height)
+        pane_layouts[pane.id] = { grid = placement, viewport = viewport }
+        pane_entries[#pane_entries + 1] = {
+          model = Terminal.state(pane.session.terminal), renderer = pane.session.renderer, viewport = viewport,
+        }
+      end
+      bind_active_session(assert(workspace:active_pane()).session)
+      for _, message in ipairs(plan:finish()) do
+        io.stderr:write("Kiwi configuration applied with cleanup/resize error: ", message, "\n")
+      end
+      for _, entry in ipairs(plan.entries) do
+        if entry.session == active_session and recorder and (entry.resized or entry.metrics_changed) then
+          recorder:resize(entry.columns, entry.rows, font.cell_width, font.cell_height)
         end
       end
-      if host.configure_host_effects then host.configure_host_effects(window, reloaded) end
-      reloaded.host_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
-      configuration = reloaded
-      configuration_path = path
-      product_actions = candidate_actions
-      render_options = renderer_options(options, configuration)
-      for _, pane in pairs(workspace.panes) do
-        Terminal.state(pane.session.terminal):configure_palette({
-          foreground = configuration.foreground,
-          background = configuration.background,
-          palette = configuration.palette,
-        })
-        Terminal.state(pane.session.terminal):configure_osc52_read(configuration.osc52_read == "allow")
-        Terminal.state(pane.session.terminal):configure_osc52_write(configuration.osc52_write)
-      end
-      if font_changed then
-        font = candidate_font
-        for _, pane in pairs(workspace.panes) do pane.session.metrics.font = font end
-      end
-      for _, pane in pairs(workspace.panes) do
-        local session = pane.session
-        if session.renderer then
-          session.renderer:destroy()
-          session.renderer = nil
-        end
-        Terminal.state(session.terminal):mark_all_dirty()
-      end
-      local refreshed, reason = refresh_workspace_layout()
-      if not refreshed then return nil, reason end
-      if font_changed then previous_font:destroy() end
       if update_automation_action_handler then update_automation_action_handler() end
       return true
     end
@@ -1025,6 +1017,33 @@ function Controller.run(window, host, options)
       assert(#pane_entries == 3)
       invoke("equalize-splits")
       assert(workspace:active_tab().root.ratio == 0.5)
+      -- Exercise cleanup after one real GPU renderer has been allocated, while
+      -- every original pane and its font must remain available for presentation.
+      local original_new, original_font, original_configuration = Renderer.new, font, configuration
+      local before, snapshots = {}, {}
+      local Snapshot = require("kiwi.terminal.snapshot")
+      for id, pane in pairs(workspace.panes) do
+        before[id] = pane.session.renderer
+        snapshots[id] = Snapshot.encode(Terminal.state(pane.session.terminal))
+      end
+      local attempts = 0
+      Renderer.new = function(...)
+        attempts = attempts + 1
+        if attempts == 2 then error("injected second-pane renderer allocation failure") end
+        return original_new(...)
+      end
+      local failed_candidate = {}
+      for key, value in pairs(configuration) do failed_candidate[key] = value end
+      failed_candidate.font_size = original_font_size + 1
+      local invoked, applied = pcall(apply_configuration, failed_candidate, configuration_path)
+      Renderer.new = original_new
+      assert(invoked and not applied and attempts == 2, "reload failure was not contained")
+      assert(font == original_font and configuration == original_configuration)
+      for id, pane in pairs(workspace.panes) do
+        assert(pane.session.renderer == before[id], "rejected reload replaced a live renderer")
+        assert(Snapshot.encode(Terminal.state(pane.session.terminal)) == snapshots[id], "rejected reload changed terminal state")
+      end
+      io.stdout:write("Kiwi configuration rollback smoke passed: second-pane GPU failure retained all live sessions.\n")
       invoke("increase-font-size")
       assert(configuration.font_size == original_font_size + 1)
       invoke("reset-font-size")
