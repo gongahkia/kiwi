@@ -50,11 +50,12 @@ local function row_positions(model, scope)
 end
 
 local function viewport_range(match, positions, top_index)
-  local row = positions[match.line_id]
-  if row == nil then return nil end
+  local row = match.row_index and match.row_index - 1 or positions[match.line_id]
+  local finish_row = match.finish_row_index and match.finish_row_index - 1 or positions[match.finish_line_id or match.line_id]
+  if row == nil or finish_row == nil then return nil end
   return {
     finish_column = match.finish_column,
-    finish_row = row - top_index,
+    finish_row = finish_row - top_index,
     start_column = match.start_column,
     start_row = row - top_index,
   }
@@ -69,14 +70,23 @@ function Search.descriptor(model, color)
   descriptor.match_count = view.match_count
   descriptor.current_index = view.current_index
   if not view.active or not view.visible then return descriptor end
-  local positions = row_positions(model, view.scope)
-  local top = model:visible_row(0)
-  local top_index = top and positions[top.line_id]
+  local positions, top_index = {}, nil
+  if model.scrollback and type(model.history_offset) == "number" then
+    top_index = view.scope == "primary" and model.scrollback:size() - model.history_offset or 0
+  else
+    positions = row_positions(model, view.scope)
+    local top = model:visible_row(0)
+    top_index = top and positions[top.line_id]
+  end
   if top_index == nil then return descriptor end
   local visible = { count = 0 }
   for _, match in ipairs(view.matches) do
     local range = viewport_range(match, positions, top_index)
-    if range and range.start_row >= 0 and range.start_row < model.rows then
+    if range and range.finish_row >= 0 and range.start_row < model.rows then
+      if match.empty then
+        range.start_column = math.min(model.columns - 1, range.start_column)
+        range.finish_column = range.start_column + 1
+      end
       visible.count = visible.count + 1
       visible["match_" .. visible.count] = range
     end
@@ -85,11 +95,15 @@ function Search.descriptor(model, color)
   if view.current == nil then return descriptor end
   local current = viewport_range(view.current, positions, top_index)
   if current == nil then return descriptor end
+  if view.current.empty then
+    current.start_column = math.min(model.columns - 1, current.start_column)
+    current.finish_column = current.start_column + 1
+  end
   descriptor.start_column = current.start_column
   descriptor.start_row = current.start_row
   descriptor.finish_column = current.finish_column
   descriptor.finish_row = current.finish_row
-  descriptor.active = descriptor.color.alpha > 0 and current.start_row >= 0 and current.start_row < model.rows
+  descriptor.active = descriptor.color.alpha > 0 and current.finish_row >= 0 and current.start_row < model.rows
   return descriptor
 end
 
