@@ -662,7 +662,8 @@ end
 function Window.wait_events_for(timeout, windows)
   assert(type(timeout) == "number" and timeout >= 0, "event wait timeout must be non-negative")
   assert(type(windows) == "table", "event waiting needs a window list")
-  glfw.lib.glfwWaitEventsTimeout(timeout)
+  if timeout == 0 then glfw.lib.glfwPollEvents()
+  else glfw.lib.glfwWaitEventsTimeout(timeout) end
   flush_input_correlations(windows)
 end
 

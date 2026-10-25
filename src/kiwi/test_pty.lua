@@ -97,6 +97,7 @@ test("pty_read_budget_preserves_all_output_across_multiple_polls", function()
   for _ = 1, 400 do
     local output = pty:read_available(4)
     Assert.truthy(#output <= 4)
+    Assert.equal(pty.read_budget_exhausted, #output == 4 and not pty.eof)
     transcript = transcript .. output
     status = pty:poll_exit()
     if status and pty.eof then

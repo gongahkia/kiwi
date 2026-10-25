@@ -210,6 +210,7 @@ function Controller.run(window, host, options)
   local workspace_rows
   local destroy_session
   local ok, result = xpcall(function()
+    local PollSchedule = require("kiwi.app.poll_schedule")
     local context_options = {
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
       framebuffer_expected_rgb = os.getenv("KIWI_FRAMEBUFFER_EXPECT_RGB"),
@@ -1298,14 +1299,11 @@ function Controller.run(window, host, options)
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
-      local maximum_wait = window.minimized and 0.250 or 0.050
+      local budget_exhausted = false
       for _, pane in pairs(workspace.panes) do
-        if Terminal.state(pane.session.terminal).kitty_graphics.transfer ~= nil then
-          maximum_wait = math.min(maximum_wait, 0.001)
-          break
-        end
+        if pane.session.pty.read_budget_exhausted then budget_exhausted = true break end
       end
-      local requested_wait = deadline and now < deadline and math.min(deadline - now, maximum_wait) or maximum_wait
+      local requested_wait = PollSchedule.timeout(now, deadline, budget_exhausted, window.minimized)
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)

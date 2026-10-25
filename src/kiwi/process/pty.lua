@@ -200,6 +200,7 @@ function Pty:read_available(max_bytes)
   if self.fd == nil or self.eof then
     self.last_read_bytes = 0
     self.last_read_calls = 0
+    self.read_budget_exhausted = false
     return ""
   end
   if max_bytes ~= nil then
@@ -239,6 +240,7 @@ function Pty:read_available(max_bytes)
   end
   self.last_read_bytes = bytes_read
   self.last_read_calls = read_calls
+  self.read_budget_exhausted = max_bytes ~= nil and remaining == 0 and not self.eof
   return table.concat(chunks)
 end
 
