@@ -7,6 +7,7 @@ local ffi = require("ffi")
 local CommandRegions = require("kiwi.renderer.command_regions")
 local Color = require("kiwi.renderer.color")
 local Hyperlink = require("kiwi.renderer.hyperlink")
+local Hints = require("kiwi.renderer.hints")
 local Packing = require("kiwi.renderer.packing")
 local Search = require("kiwi.renderer.search")
 local Selection = require("kiwi.renderer.selection")
@@ -100,6 +101,10 @@ function PreparedFrame.pack_shaped_glyph(packer, glyph, index)
 end
 
 function PreparedFrame.cursor_descriptor(model)
+  if model.hints and model:hints_view().active then
+    return { column = 0, row = 0, visible = false, style = 2, shape = "block", blink = false,
+      color = Color.unpack(model.cursor_color or Color.pack(0x8c, 0xd9, 0xe0, 0xff)) }
+  end
   local vi = model.vi_view and model:vi_view()
   if vi and vi.active then
     return { column = vi.column, row = vi.row, visible = vi.row >= 0 and vi.row < model.rows,
@@ -191,6 +196,8 @@ function PreparedFrame:prepare_model(model)
   local preedit_changed = self.preedit_signature ~= preedit
   self.preedit_signature = preedit
   local shaped_glyphs = self.text_backend:update(model)
+  local hint_glyphs, hint_revision = Hints.glyphs(model)
+  local hints_changed = self.hint_revision ~= hint_revision
   local ranges = self.force_full_upload and {
     { first = 0, count = self.capacity },
   } or damage:ranges()
@@ -207,14 +214,18 @@ function PreparedFrame:prepare_model(model)
     }
   end
   local glyph_update
-  if self.layout.stats.rows_reshaped > 0 or preedit_changed or self.force_full_upload then
-    local glyph_count = math.min(#shaped_glyphs, self.glyph_capacity)
-    for index = 1, glyph_count do PreparedFrame.pack_shaped_glyph(self, shaped_glyphs[index], index - 1) end
+  if self.layout.stats.rows_reshaped > 0 or preedit_changed or hints_changed or self.force_full_upload then
+    local first = math.min(#shaped_glyphs, self.glyph_capacity - #hint_glyphs)
+    local glyph_count = first + #hint_glyphs
+    for index = 1, first do PreparedFrame.pack_shaped_glyph(self, shaped_glyphs[index], index - 1) end
+    for index, glyph in ipairs(hint_glyphs) do PreparedFrame.pack_shaped_glyph(self, glyph, first + index - 1) end
     glyph_update = {
       byte_count = glyph_count * Packing.text_glyph_instance_size,
       count = glyph_count,
       data = self.glyphs,
-      dropped = #shaped_glyphs - glyph_count,
+      dropped = #shaped_glyphs - first,
+      hint_first = first,
+      hint_count = #hint_glyphs,
     }
   end
   local atlas = self.font.glyph_cache.atlas
@@ -253,6 +264,7 @@ function PreparedFrame:prepare_model(model)
     },
     glyph_count = glyph_update and glyph_update.count or self.glyph_count,
     glyph_update = glyph_update,
+    hint_revision = hint_revision,
     model = model,
     revision = self.revision + 1,
   }
@@ -264,6 +276,10 @@ function PreparedFrame:commit_model(plan)
   assert(plan == self.pending_model, "prepared frame commit does not match the pending model plan")
   if plan.atlas_update then self.atlas_generation = plan.atlas_update.generation end
   self.glyph_count = plan.glyph_count
+  self.hint_revision = plan.hint_revision
+  if plan.glyph_update then
+    self.hint_first, self.hint_count = plan.glyph_update.hint_first, plan.glyph_update.hint_count
+  end
   self.revision = plan.revision
   self.force_full_upload = false
   plan.model.damage:clear()
@@ -291,6 +307,7 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
   local hyperlinks = descriptors.hyperlinks
   local command_regions = descriptors.command_regions
   local scrollbar = descriptors.scrollbar
+  if model.hints and model:hints_view().active then scrollbar.active = false end
   self.frame_time = time
   self.frame[0].columns = model.columns
   self.frame[0].rows = model.rows

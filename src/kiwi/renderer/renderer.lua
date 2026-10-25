@@ -83,6 +83,7 @@ function Renderer.new(context, font, model, options)
     text_backend = prepared_frame.text_backend,
     capacity = prepared_frame.capacity,
     glyph_capacity = prepared_frame.glyph_capacity,
+    hints_enabled = true,
     cells = prepared_frame.cells,
     glyphs = prepared_frame.glyphs,
     frame = prepared_frame.frame,
@@ -556,6 +557,7 @@ function Renderer:update_model(model)
   if not CommandRegions.same(self.command_regions, plan.descriptors.command_regions) then self:invalidate("command_regions") end
   self.prepared_frame:commit_model(plan)
   self.glyph_count = self.prepared_frame.glyph_count
+  self.hint_first, self.hint_count = self.prepared_frame.hint_first, self.prepared_frame.hint_count
   self.atlas_generation = self.prepared_frame.atlas_generation
   for name, value in pairs(plan.diagnostics) do self.diagnostics[name] = value end
   self.diagnostics.text_backend = self.text_backend:descriptor()
@@ -625,7 +627,8 @@ function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resource
   self:configure_pass_viewport(pass)
   self.native.lib.wgpuRenderPassEncoderSetPipeline(pass, pass_info.pipeline)
   self.native.lib.wgpuRenderPassEncoderSetBindGroup(pass, 0, self.bind_group, 0, nil)
-  self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, pass_info.instances(model), 0, 0)
+  self.native.lib.wgpuRenderPassEncoderDraw(pass, 6, pass_info.instances(model), 0,
+    pass_info.first_instance and pass_info.first_instance(model) or 0)
   self.native.lib.wgpuRenderPassEncoderEnd(pass)
   self.native.lib.wgpuRenderPassEncoderRelease(pass)
 end

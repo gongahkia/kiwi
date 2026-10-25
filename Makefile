@@ -348,6 +348,10 @@ appearance-smoke: native
 selection-smoke: native
 	$(LUAJIT) src/kiwi/selection_smoke.lua
 
+.PHONY: hints-framebuffer-smoke
+hints-framebuffer-smoke: native
+	$(LUAJIT) src/kiwi/hints_framebuffer_smoke.lua
+
 .PHONY: vi-smoke
 vi-smoke: native terminfo
 	./script/vi-smoke
