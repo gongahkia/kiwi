@@ -214,3 +214,14 @@ watcher/process-metrics tests and the remaining checks. Core passed 303 tests
 across 58 suites. Native Metal reload and interaction smokes passed their
 assertions, including injected second-pane allocation failure and retained
 sessions. These runs do not establish Linux or Windows qualification.
+
+### Symlink reload recovery
+
+A native regression reproduced a missed notification when a configuration
+symlink's target was deleted and later recreated in another directory. The
+watcher now follows bounded relative/absolute link chains, including directory
+components, and watches alias and target parents while a target is missing.
+Subscriptions are deduplicated, cycles are rejected, and file stamps are
+compared field by field instead of comparing structure padding. Native tests
+cover target recreation, alias replacement, missing target directories and
+nested links, including AddressSanitizer/UndefinedBehaviorSanitizer on macOS.

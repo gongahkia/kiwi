@@ -67,6 +67,35 @@ int main(void) {
   assert(rename(temporary, path) == 0); changed(watch);
   assert(!kiwi_file_watch_update(watch, paths, KIWI_FILE_WATCH_PATHS + 1));
   write_file(path, "still armed"); changed(watch);
+  // A dangling symlink must keep watching the target's directory, even when
+  // that directory is unrelated to the link's containing directory.
+  assert(unlink(link_path) == 0);
+  assert(symlink("new/theme", link_path) == 0);
+  changed(watch);
+  assert(unlink(future) == 0); changed(watch);
+  write_file(future, "restored target"); changed(watch);
+  // Resolve a symlink in a directory component and observe alias replacement.
+  assert(unlink(link_path) == 0);
+  assert(symlink("new", link_path) == 0);
+  char nested_link[512];
+  snprintf(nested_link, sizeof(nested_link), "%s/link/theme", directory);
+  assert(kiwi_file_watch_update(watch, (const char *[]) {nested_link}, 1));
+  assert(kiwi_file_watch_take_changes(watch) == 1);
+  assert(unlink(future) == 0); changed(watch);
+  write_file(future, "directory target"); changed(watch);
+  assert(unlink(link_path) == 0); changed(watch);
+  assert(symlink("new", link_path) == 0); changed(watch);
+  // Missing target directories and nested relative symlinks also recover.
+  assert(unlink(future) == 0); changed(watch);
+  assert(rmdir(parent) == 0);
+  assert(kiwi_file_watch_take_changes(watch) == 0);
+  assert(mkdir(parent, 0700) == 0);
+  assert(kiwi_file_watch_take_changes(watch) == 0);
+  assert(symlink("../config", future) == 0); changed(watch);
+  assert(unlink(path) == 0); changed(watch);
+  write_file(path, "nested restored"); changed(watch);
+  assert(unlink(future) == 0); changed(watch);
+  write_file(future, "ordinary again"); changed(watch);
   for (int round = 0; round < 128; ++round) {
     kiwi_file_watch_destroy(watch);
     watch = kiwi_file_watch_create(paths, 2);
@@ -77,11 +106,14 @@ int main(void) {
   kiwi_file_watch_destroy(watch);
   kiwi_file_watch_destroy(NULL);
   assert(unlink(link_path) == 0);
+  assert(symlink("link", link_path) == 0);
+  assert(!kiwi_file_watch_create((const char *[]) {link_path}, 1));
+  assert(unlink(link_path) == 0);
   assert(unlink(path) == 0);
   assert(unlink(future) == 0);
   assert(unlink(unrelated) == 0);
   assert(rmdir(parent) == 0);
   assert(rmdir(directory) == 0);
-  puts("File watcher tests passed: creation, overwrite, atomic rename, delete/recreate, missing parents, symlinks, unrelated events and lifecycle.");
+  puts("File watcher tests passed: creation, overwrite, atomic rename, delete/recreate, missing parents, symlink target recovery, linked directories, cycle rejection, unrelated events and lifecycle.");
   return 0;
 }
