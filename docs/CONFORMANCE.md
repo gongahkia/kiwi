@@ -357,13 +357,49 @@ Literal matches may overlap; regex advances past each match, including zero-widt
 progress. A reached bound is a visible partial-result status, never a silent
 complete-result claim. Zero-width matches highlight one boundary cell.
 
-WGPU shares at most 4,096 search operations per event-loop iteration across its
-panes; GTK GL advances the selected session. Minimized windows suspend search
+WGPU shares a 4,096-operation background budget between pending Find and vi work
+across its panes; GTK GL advances the selected session. Input may start an initial
+bounded slice before that background work. Minimized windows suspend pending
 work. Jobs contain copyable resumable data and bounded scratch buffers, without
 retaining a second document or borrowed terminal rows across yields. Generations
 cancel changed documents; configuration transactions can copy pending work.
 
-The result state is separate from selection. It records its search generation, so terminal-content, scrollback, or resize changes make it explicitly `stale` instead of navigating an inferred result. Empty and no-match queries are likewise explicit. Navigating a retained primary result moves only `history_offset` to reveal that row; it does not alter terminal content, selection endpoints, or terminal input. `terminal.search` exposes count, current index/status, bounded visible range descriptors, and a current viewport range but no query text. The `terminal/search` alpha pass renders the current match after selection and before glyphs; `KIWI_SEARCH_COLOR` accepts `#RRGGBB` (default alpha `70`) or `#RRGGBBAA`, with default `#EBCB8B70`. Search-only input requests the `search` redraw reason without terminal/text damage. The full contract is [ADR 0024](adr/0024-bounded-scrollback-search.md).
+The result state is separate from selection. It records its search generation, so terminal-content, scrollback, or resize changes make it explicitly `stale` instead of navigating an inferred result. Empty and no-match queries are likewise explicit. Outside vi mode, navigating a retained primary result moves only `history_offset` to reveal that row; it does not alter terminal content, selection endpoints, or terminal input. In vi mode, a result moves the independent vi cursor and extends its visual selection, preserving the application's cursor and input. `terminal.search` exposes count, current index/status, bounded visible range descriptors, and a current viewport range but no query text. The `terminal/search` alpha pass renders the current match after selection and before glyphs; `KIWI_SEARCH_COLOR` accepts `#RRGGBB` (default alpha `70`) or `#RRGGBBAA`, with default `#EBCB8B70`. Search-only input requests the `search` redraw reason without terminal/text damage. The full contract is [ADR 0024](adr/0024-bounded-scrollback-search.md).
+
+## Vi navigation and visual selection
+
+`toggle-vi-mode` (Ctrl+Shift+Space and the palette) exposes a separate nonblinking
+cursor over indexed retained rows. Character, line, word and rectangular visual
+selections preserve wide/combining cell boundaries. Line and word selection cross
+soft wraps, not hard line breaks. Word classes distinguish Unicode whitespace,
+ASCII word characters and ASCII punctuation; other non-ASCII scalars form word
+text. This is not Unicode word segmentation. Horizontal motions cross soft wraps;
+vertical motions preserve a preferred column. Supported commands are listed in
+the [user guide](USER_GUIDE.md#everyday-pane-and-text-controls).
+
+Counts stop at 9,999; scans and selection expansion use at most 4,096 work units
+per slice and 8,388,608 per job. Selection expansion starts with a 256-unit slice.
+No partial selection is exposed while expansion is pending. Cancellation,
+document changes, eviction and column reflow are explicit transitions. Jobs
+contain plain data and copy safely through configuration transactions. Retained
+row lookup uses stable line identities and a ring-slot index; it does not copy a
+second history array for each motion. Copy assembles bounded chunks rather than
+one history-sized array of cell references.
+
+Vi input captures keyboard/IME text, repeats, releases and pointer events before
+child protocol encoding. Global product shortcuts remain usable, including after
+entering through the palette when a Kitty application requests all keys. `i` and
+Ctrl+C return to live output. Clipboard paste remains unavailable outside an
+active Find query. `/` and `?` start relative regex Find; `n`/`N` wrap among the
+bounded retained results. Partial, stale and no-match statuses remain visible.
+Enter reveals the retained vi cursor and activates only its explicit OSC 8 link.
+
+There are no vi editing commands, registers, macros, custom vi keymaps, paragraph
+motions, or plain-text URL hints. This increment establishes a bounded navigation
+subset, not complete Alacritty/Vim feature parity. Native WGPU input/readback and
+model/load evidence are recorded in [the vi qualification](evidence/2026-10-25-vi.md).
+GTK GL compiles and passes its renderer lifecycle test; its rectangular overlay
+has not received a separate pixel-readback qualification.
 
 ## Truecolour decision
 
