@@ -47,7 +47,8 @@ tests do not establish Linux or Windows desktop qualification.
 
 - [x] Stage and atomically commit font/renderer/configuration replacement on the
       supported WGPU application path; GTK GL prototype parity remains open.
-- [ ] Debounce automatic file reload and show recoverable configuration errors.
+- [x] Debounce automatic file reload and show recoverable configuration errors
+      on WGPU; native Linux execution and GTK GL parity remain open.
 - [x] Inject resource failures and verify the old session remains usable.
 
 ## Search and keyboard navigation
@@ -153,3 +154,22 @@ core passed 292 tests across 57 suites. The native Metal interaction smoke
 injects failure after allocating the first replacement renderer in a three-pane
 window, verifies unchanged snapshots/resources, then successfully changes and
 resets the font. Automatic watching and visible error feedback remain open.
+
+### Automatic reload and recoverable errors
+
+The WGPU controller watches configuration precedence paths and referenced
+themes through kqueue/inotify and the existing readiness worker. Edits are
+debounced for 200 ms; invalid saves retain live resources and display a bounded
+UTF-8 error in the title until recovery. Missing themes are watched even when
+loading fails. An explicit opt-out retains manual reload, and equivalent
+settings (including comment-only saves) skip expensive resource replacement.
+
+`make check` passed 523 Lua tests across 114 suites, 16 PTY tests, native
+file/readiness watcher tests and the remaining checks. Core passed 298 tests
+across 58 suites. The file watcher passed AddressSanitizer/UndefinedBehaviorSanitizer
+on macOS with create/overwrite/atomic-rename/delete/recreate, missing parents,
+symlink targets, unrelated events and 128 teardown/recreate cycles. The live
+Metal smoke passed invalid-save retention, visible title errors, missing-theme
+recovery, theme edits, automatic-reload opt-out/manual retry and retained PTY
+output. macOS CI runs this smoke; Linux CI runs sanitizer-backed native tests.
+The Linux implementation still needs execution on a Linux runner/desktop.

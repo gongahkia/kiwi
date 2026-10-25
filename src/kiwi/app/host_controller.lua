@@ -5,10 +5,6 @@ local ProductActions = require("kiwi.app.actions")
 local Interaction = require("kiwi.app.interaction_actions")
 local bit = require("bit")
 local Recovery = require("kiwi.gpu.recovery")
-local DeviceSoak = require("kiwi.bench.device_soak")
-local Pacing = require("kiwi.bench.pacing")
-local Power = require("kiwi.bench.power")
-local TextInspector = require("kiwi.diagnostics.text_inspector")
 local FontSystem = require("kiwi.font.system")
 local Clipboard = require("kiwi.input.clipboard")
 local Composition = require("kiwi.input.composition")
@@ -185,13 +181,16 @@ function Controller.run(window, host, options)
   local default_title = "Kiwi M2 terminal"
   local glfw = host.keymap
   local system_appearance = host.system_appearance and host.system_appearance(window) or nil
-  local function load_configuration()
+  local configuration_source = { dependencies = {} }
+  function configuration_source.load()
+    configuration_source.dependencies = {}
     return Config.load(options.config, nil, {
       appearance = system_appearance,
       command_line_overrides = options.configuration_overrides,
+      on_dependency = function(path) configuration_source.dependencies[#configuration_source.dependencies + 1] = path end,
     })
   end
-  local configuration, configuration_path = load_configuration()
+  local configuration, configuration_path = configuration_source.load()
   local product_actions = ProductActions.new(configuration.keybindings, glfw, host.platform)
   local started_at = window:time()
   if geometry then window:set_position(geometry.x, geometry.y) end
@@ -210,6 +209,10 @@ function Controller.run(window, host, options)
   local workspace_rows
   local destroy_session
   local ok, result = xpcall(function()
+    local DeviceSoak = require("kiwi.bench.device_soak")
+    local Pacing = require("kiwi.bench.pacing")
+    local Power = require("kiwi.bench.power")
+    local TextInspector = require("kiwi.diagnostics.text_inspector")
     local PollSchedule = require("kiwi.app.poll_schedule")
     local context_options = {
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
@@ -361,6 +364,23 @@ function Controller.run(window, host, options)
     local synthetic_input_sent = false
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
     local configuration_reload_requested = false
+    local configuration_status = require("kiwi.app.configuration_watch").new()
+    local configuration_watch
+    local function sync_configuration_watch()
+      if not window.watch_files or #configuration_source.dependencies == 0 then return end
+      local paths, known = {}, {}
+      for _, path in ipairs(configuration_source.dependencies) do
+        if not known[path] then paths[#paths + 1] = path; known[path] = true end
+      end
+      local watched, result = pcall(window.watch_files, window, paths)
+      if watched then configuration_watch = result
+      else
+        configuration_watch = nil
+        configuration_status:set_error(result)
+        io.stderr:write("Kiwi automatic configuration reload unavailable: ", tostring(result), "\n")
+      end
+    end
+    sync_configuration_watch()
     workspace = Workspace.new()
     assert(workspace:new_tab(active_session))
 
@@ -706,6 +726,10 @@ function Controller.run(window, host, options)
     local configured_font_size = configuration.font_size
 
     local function apply_configuration(reloaded, path, force_font)
+      if not force_font and Config.equivalent(configuration, reloaded) then
+        configuration_path, configuration.path = path, path
+        return true
+      end
       local candidate_actions = ProductActions.new(reloaded.keybindings, glfw, host.platform)
       local candidate_options = renderer_options(options, reloaded)
       local candidate_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
@@ -854,6 +878,7 @@ function Controller.run(window, host, options)
     local function update_search_title()
       local search = state:search_view()
       local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
+      title = configuration_status:title(title)
       if title ~= last_title then
         window:set_title(title)
         last_title = title
@@ -1325,8 +1350,14 @@ function Controller.run(window, host, options)
         watched_ptys[#watched_ptys + 1] = pane.session.pty
         if pane.session.pty.read_budget_exhausted then budget_exhausted = true end
       end
+      if configuration.live_config_reload and configuration_watch then
+        watched_ptys[#watched_ptys + 1] = configuration_watch
+      end
       if window.watch_ptys then window:watch_ptys(watched_ptys) end
       local requested_wait = PollSchedule.timeout(now, deadline, budget_exhausted, window.minimized)
+      if configuration.live_config_reload and configuration_status.deadline then
+        requested_wait = math.min(requested_wait, math.max(0, configuration_status.deadline - now))
+      end
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)
@@ -1339,6 +1370,17 @@ function Controller.run(window, host, options)
         io.stdout:write("Kiwi same-process multi-window smoke passed: two native window controllers share this application process.\n")
       end
       now = window:time()
+      if configuration.live_config_reload and configuration_watch then
+        local watched, changed = pcall(configuration_watch.take_changes, configuration_watch)
+        if watched then
+          configuration_status:observe(changed, now)
+          if configuration_status:ready(now) then configuration_reload_requested = true end
+        else
+          configuration_watch = nil
+          configuration_status:set_error(changed)
+          io.stderr:write("Kiwi automatic configuration reload unavailable: ", tostring(changed), "\n")
+        end
+      end
       local observed_appearance = host.system_appearance and host.system_appearance(window) or nil
       if configuration.theme_mode == "system" and observed_appearance ~= nil and observed_appearance ~= system_appearance then
         system_appearance = observed_appearance
@@ -1346,18 +1388,23 @@ function Controller.run(window, host, options)
       end
       if configuration_reload_requested then
         configuration_reload_requested = false
-        local loaded, reloaded_or_error, path = pcall(load_configuration)
+        configuration_status:acknowledge()
+        local loaded, reloaded_or_error, path = pcall(configuration_source.load)
         if not loaded then
+          configuration_status:set_error(reloaded_or_error)
           io.stderr:write("Kiwi configuration reload rejected: ", tostring(reloaded_or_error), "\n")
         else
           local applied_ok, applied, reason = pcall(apply_configuration, reloaded_or_error, path)
           if not applied_ok or not applied then
+            configuration_status:set_error(applied_ok and reason or applied)
             io.stderr:write("Kiwi configuration reload rejected: ", tostring(applied_ok and reason or applied), "\n")
           else
+            configuration_status:set_error(nil)
             configured_font_size = configuration.font_size
             io.stdout:write("Kiwi configuration reloaded", configuration_path and ": " .. configuration_path or " (defaults)", "\n")
           end
         end
+        sync_configuration_watch()
       end
       if power then
         local power_state = window.minimized and "minimized" or compositor:needs_render(pane_entries, now) and "active" or "idle"

@@ -747,8 +747,15 @@ function Window:watch_ptys(ptys)
   self.pty_watch:update(ptys)
 end
 
+function Window:watch_files(paths)
+  if self.file_watch == nil then self.file_watch = require("kiwi.platform.file_watch").new(native, paths)
+  else self.file_watch:update(paths) end
+  return self.file_watch
+end
+
 function Window:destroy()
   if self.pty_watch then self.pty_watch:destroy(); self.pty_watch = nil end
+  if self.file_watch then self.file_watch:destroy(); self.file_watch = nil end
   if self.root ~= nil then
     local root = self.root
     if root.handle ~= nil then

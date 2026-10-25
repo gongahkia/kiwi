@@ -30,7 +30,7 @@ int main(void) {
   KiwiPtyWatch *watch = kiwi_pty_watch_create(notify, &events[1]);
   assert(watch);
   assert(!kiwi_pty_watch_update(watch, NULL, 1));
-  assert(!kiwi_pty_watch_update(watch, terminal, 65));
+  assert(!kiwi_pty_watch_update(watch, terminal, 66));
   int invalid = -1;
   assert(!kiwi_pty_watch_update(watch, &invalid, 1));
   assert(kiwi_pty_watch_update(watch, terminal, 1));

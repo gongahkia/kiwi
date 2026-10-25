@@ -21,7 +21,7 @@ jobs:
       - name: install build dependencies
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish
       - name: deterministic checks
-        run: make check && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke
+        run: make check && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
 
   intel-compatibility:
     name: daily-driver compatibility (Intel)
@@ -37,7 +37,7 @@ jobs:
           mkdir -p artifacts
           make check
           make cocoa-smoke
-          make interaction-smoke pty-wake-smoke underline-framebuffer-smoke
+          make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
       - name: upload compatibility report
         if: always()
