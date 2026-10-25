@@ -289,6 +289,14 @@ bench-text-stress: native
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/text_stress.lua
 
+.PHONY: bench-configuration-reload test-process-metrics
+bench-configuration-reload: native
+	mkdir -p bench/results
+	$(LUAJIT) src/kiwi/bench/configuration_reload.lua
+
+test-process-metrics:
+	./script/test-process-metrics
+
 bench-longrun:
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/longrun.lua
@@ -317,7 +325,7 @@ configuration-reload-smoke: native terminfo
 pty-wake-smoke: native
 	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
 
-check: test test-fuzz test-pty test-pty-watch test-file-watch terminfo
+check: test test-fuzz test-pty test-pty-watch test-file-watch test-process-metrics terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 

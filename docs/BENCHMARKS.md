@@ -493,3 +493,26 @@ The harness measures elapsed and per-service-turn time with `clock_gettime(CLOCK
 On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
 
 Results depend on CPU governor, thermals, JIT state, allocator state, kernel load, and host graphics stack. Do not compare these values with other terminal emulators or treat them as a latency service-level objective.
+## Configuration replacement
+
+`make bench-configuration-reload` measures palette and font/resize staging at
+0, 2,000 and 10,000 retained lines. `KIWI_RELOAD_HISTORY` selects one history
+size (0–20,000); `KIWI_RELOAD_ITERATIONS` selects 1–100 samples (default five).
+Each case warms once, constructs real fonts and renderer-neutral prepared
+buffers, rejects every candidate, checks that the live state/history survive,
+and bounds retained Lua growth after collection. JSON reports contain CPU and
+monotonic wall-time distributions, Lua heap and sampled process RSS.
+
+The scope excludes GPU allocation/upload/presentation and PTY resize. Sampled
+RSS is current resident memory, not the operating system's high-water mark or
+GPU memory. macOS observations use `MACH_TASK_BASIC_INFO`; Linux observations
+use `/proc/self/statm`. The existing burst, long-run and text-stress workloads
+now use the same sampler. `make native` must build the matching bridge.
+
+The first 2026-10-25 Intel macOS run is retained in
+`evidence/2026-10-25-macos-reload-baseline.json`. At 10,000 lines, palette
+staging had 901 ms p95 wall time; font/resize staging had 2,813 ms p95 and
+sampled peak process RSS of 1,582 MiB. These are unacceptable interactive
+costs and identify state-copy/reflow optimization work; they are not terminal
+performance-parity evidence. Repeat the same workload after changes and keep
+machine, fonts and execution conditions comparable.
