@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define KIWI_WATCH_MAX_FDS 64
+#define KIWI_WATCH_MAX_FDS 65 /* 64 terminal panes plus the configuration watcher */
 struct KiwiPtyWatch {
   pthread_t thread;
   pthread_mutex_t mutex;

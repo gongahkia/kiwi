@@ -21,6 +21,7 @@ jobs:
       - name: check readiness watcher memory and concurrency
         run: |
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch
+          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-file-watch
           CFLAGS='-fsanitize=thread -fno-omit-frame-pointer' make test-pty-watch
 
   check:

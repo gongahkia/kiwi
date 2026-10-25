@@ -14,14 +14,14 @@ Watch.__index = Watch
 function Watch.new(native, create)
   local handle = create()
   assert(handle ~= nil, "could not start terminal readiness watcher")
-  return setmetatable({ native = native, handle = handle, fds = ffi.new("int[64]") }, Watch)
+  return setmetatable({ native = native, handle = handle, fds = ffi.new("int[65]") }, Watch)
 end
 
 function Watch:update(ptys)
   local count = 0
   for _, pty in ipairs(ptys) do
     if pty.fd ~= nil and not pty.eof then
-      assert(count < 64, "too many PTYs for readiness watcher")
+      assert(count < 65, "too many descriptors for readiness watcher")
       self.fds[count] = pty.fd
       count = count + 1
     end

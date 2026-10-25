@@ -19,6 +19,8 @@ Individual suites can be run without loading unrelated tests:
 LUA_PATH='src/?.lua;src/?/init.lua;;' luajit src/kiwi/test.lua workspace interaction_actions
 CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch
 CFLAGS='-fsanitize=thread -fno-omit-frame-pointer' make test-pty-watch
+CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-file-watch
+make configuration-reload-smoke
 ```
 
 The runner sorts test names for repeatable failure order. A failed test stops
@@ -39,6 +41,9 @@ smoke disables saved-layout restore and persistence. The layout-restore smoke
 uses a temporary layout path and a temporary default shell; explicit command
 launches intentionally do not restore saved layouts. The host-wake smoke creates
 one temporary window and does not touch the user's clipboard or workspace file.
+The configuration-reload smoke owns temporary configuration/theme files and
+drives automatic save, error/recovery and opt-out/manual-retry paths through a
+real WGPU window, retaining the child output across reflow.
 
 Linux graphical checks are in the existing self-hosted desktop qualification
 workflow. Adding those gates is not evidence that they have run. The macOS

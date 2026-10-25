@@ -303,14 +303,21 @@ profile-text:
 bench-compare:
 	./script/compare-bench "$(BASELINE)" "$(CANDIDATE)"
 
-.PHONY: test-pty-watch pty-wake-smoke
+.PHONY: test-pty-watch test-file-watch pty-wake-smoke
 test-pty-watch:
 	./script/test-pty-watch
+
+test-file-watch:
+	./script/test-file-watch
+
+.PHONY: configuration-reload-smoke
+configuration-reload-smoke: native terminfo
+	./script/configuration-reload-smoke
 
 pty-wake-smoke: native
 	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
 
-check: test test-fuzz test-pty test-pty-watch terminfo
+check: test test-fuzz test-pty test-pty-watch test-file-watch terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 

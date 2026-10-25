@@ -169,6 +169,15 @@ notify-on-command-finish-after = 5
 ```
 
 `F6` is the default binding for `reload-config`; it can be remapped or removed.
+On the WGPU application path, saving a configuration or referenced theme file
+also reloads it after 200 ms without another observed edit. Native kqueue
+(macOS) or inotify (Linux) events wake the existing host readiness worker;
+there is no periodic configuration-file scan. Atomic editor saves and later
+creation of missing files are watched too. `live-config-reload = false`
+disables automatic reload; F6 still works and can re-enable it. An invalid
+save leaves a bounded error in the window title until a successful reload;
+the full diagnostic is also written to stderr. Saving comments alone does not
+rebuild resources. The GTK GL prototype retains manual reload only.
 Kiwi validates the full replacement, including its action map and theme, before
 changing live resources; an invalid file leaves the current configuration
 active. Theme, renderer colors, font settings, host-effect policy, local

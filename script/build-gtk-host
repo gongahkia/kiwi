@@ -31,7 +31,7 @@ cc -std=c17 -pthread -fPIC -shared -Wall -Wextra -Werror \
   -I"$WGPU/include" \
   -I"$ROOT/native/protocols" \
   $(pkg-config --cflags gtk4 libadwaita-1 epoxy) \
-  "$ROOT/native/gtk_host.c" "$ROOT/native/pty_watch.c" \
+  "$ROOT/native/gtk_host.c" "$ROOT/native/pty_watch.c" "$ROOT/native/file_watch.c" \
   "$ROOT/native/gtk_gl_renderer.c" \
   "$ROOT/native/protocols/viewporter-client-protocol.c" \
   -L"$WGPU/lib" -lwgpu_native \

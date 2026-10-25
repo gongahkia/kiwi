@@ -10,11 +10,12 @@ Config.maximum_theme_lines = 256
 
 Config.edit_template = [[# Kiwi configuration
 #
-# This file is read on launch and by Reload Configuration (F6). Uncomment and
+# This file is read on launch, when saved, and by Reload Configuration (F6). Uncomment and
 # adjust only the settings you want to override. See docs/USER_GUIDE.md for the
 # complete, bounded configuration surface.
 #
 # theme = kiwi
+# live-config-reload = true
 # font-family = "monospace"
 # font-size = 20
 # ligatures = false
@@ -197,6 +198,7 @@ local function defaults()
     theme_dark = "kiwi",
     theme_light = "light",
     theme_file = nil,
+    live_config_reload = true,
     appearance = "system",
     resolved_appearance = "dark",
     font_family = "monospace",
@@ -377,6 +379,8 @@ local function apply_value(config, key, raw, line)
     config.font_family = parse_string(raw, line)
   elseif key == "font-path" then
     config.font_path = parse_string(raw, line)
+  elseif key == "live-config-reload" then
+    config.live_config_reload = parse_boolean(raw, line)
   elseif key == "font-size" then
     config.font_size = parse_integer(raw, line, 1, 256)
   elseif key == "ligatures" then
@@ -629,6 +633,14 @@ function Config.load(path, environment, options)
   options = options or {}
   local explicit = path ~= nil
   local paths = explicit and { path } or Config.default_paths(environment)
+  local function dependency(candidate)
+    if options.on_dependency then options.on_dependency(candidate) end
+  end
+  for _, candidate in ipairs(paths) do dependency(candidate) end
+  local function theme_loader(candidate)
+    dependency(candidate)
+    return (options.theme_loader or Config.load_theme)(candidate)
+  end
   local config = Config.parse("", "defaults")
   local loaded_path = nil
   for _, candidate in ipairs(paths) do
@@ -641,7 +653,7 @@ function Config.load(path, environment, options)
       if text == nil then error("could not read configuration file: " .. candidate) end
       config = Config.parse(text, candidate, config, {
         appearance = options.appearance,
-        theme_loader = options.theme_loader or Config.load_theme,
+        theme_loader = theme_loader,
       })
       loaded_path = candidate
     end
@@ -649,7 +661,7 @@ function Config.load(path, environment, options)
   config = Config.apply_environment(config, environment)
   config = Config.apply_command_line(config, options.command_line_overrides or {}, {
     appearance = options.appearance,
-    theme_loader = options.theme_loader or Config.load_theme,
+    theme_loader = theme_loader,
   })
   config.path = loaded_path
   return config, loaded_path
@@ -660,6 +672,22 @@ function Config.theme_names()
   for name in pairs(themes) do names[#names + 1] = name end
   table.sort(names)
   return names
+end
+
+local function equal_value(left, right, root)
+  if type(left) ~= type(right) then return false end
+  if type(left) ~= "table" then return left == right end
+  for key, value in pairs(left) do
+    if not (root and (key == "host_effects" or key == "path")) and not equal_value(value, right[key], false) then return false end
+  end
+  for key in pairs(right) do
+    if not (root and (key == "host_effects" or key == "path")) and left[key] == nil then return false end
+  end
+  return true
+end
+
+function Config.equivalent(left, right)
+  return equal_value(left, right, true)
 end
 
 return Config

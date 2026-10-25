@@ -47,7 +47,7 @@ to offer useful everyday terminal behavior.
 | Copy, paste, history | Unicode selection, bracketed paste, select all, oldest/live history, clear history while retaining visible text | Clipboard/state tests, alternate-screen isolation, private Cocoa pasteboard smoke. X11 primary selection and broad Wayland clipboard qualification remain open. |
 | Search | Exact retained-text search, next/previous result, palette/menu/shortcut routing | Search and interaction tests. Regex, indexing and vi copy mode remain absent. |
 | Responsive output | Bounded PTY reads, immediate continuation after budget exhaustion, expired-deadline handling, one-shot host readiness notifications | Real PTY tests, sanitizer-tested C watcher, native host-wake smoke. No comparative latency, energy or throughput claim. |
-| Configuration and discoverability | Bounded text config, themes, transactional manual reload on WGPU, 37 built-in palette entries, Edit/View/Window menu actions | Parser, dispatcher, allocation-failure tests and live Cocoa rollback checks. Automatic file watching, visible error feedback and worst-case reload memory/latency remain work. |
+| Configuration and discoverability | Bounded text config, themes, transactional automatic/manual reload on WGPU, title-bar errors, 37 built-in palette entries, Edit/View/Window menu actions | Parser, debounce/dependency tests, native file-watch lifecycle tests, allocation-failure tests and live Cocoa reload checks. Worst-case reload memory/latency and Linux native execution remain work. |
 | Unicode and rendering | Unicode 17 grapheme/width handling, HarfBuzz shaping, styled FreeType/Fontconfig faces with synthesis, reclaimable bounded glyph storage, five underline styles/colours, primary-screen reflow | Text, bitmap, cache-churn, renderer suites and native underline readback. Bidi, colour emoji and visual quality on every GPU remain incomplete. |
 | Terminal protocols | Documented VT subset, terminfo, true colour, mouse/focus, keyboard protocols, OSC metadata, bounded Kitty images | Conformance corpus, fuzzing, protocol tests and image fixtures. See the ledger for application failures; parser coverage is not certification. |
 | Shell and remote use | Reversible Bash/Zsh/fish/Nushell integrations, OSC directory/command metadata, explicit terminfo SSH helper | Script tests and controlled PTYs. The SSH helper is not WezTerm-style remote multiplexing or persistent sessions. |
@@ -71,7 +71,7 @@ new persistent service.
 | P0 | Qualify real terminal applications | Large | tmux, Neovim, Vim, shells, SSH and full-screen tools pass the existing daily-driver corpus without unsupported-sequence failures being hidden. |
 | P0 | Validate Linux desktop behavior | Large | Run both available Wayland/X11 paths, input/clipboard/IME, fractional scale, resize/minimize, GPU recovery and new interaction/wake gates. |
 | P1 | Finish text presentation | Large | Bold/italic faces, bounded glyph recovery and underline variants/colours are implemented. Broader screenshot/readback fixtures across fallback, DPI, selection, wide and combining text remain required. Colour emoji requires atlas/texture-format work. |
-| P1 | Complete automatic configuration reload | Medium | Transactional WGPU replacement is implemented and failure-tested. File changes must be debounced; invalid files need visible, recoverable feedback; large-history reload cost needs measurement. |
+| P1 | Qualify configuration reload under load | Medium | Transactional, debounced automatic WGPU reload and visible errors are implemented and tested on macOS. Large-history memory/latency and Linux native execution need qualification. |
 | P1 | Improve everyday discoverability | Medium | Visible search feedback, keyboard-only selection, useful pane/tab titles, consistent shortcuts, unsaved-running-process close policy, accessibility validation. |
 | P1 | Windows, if all-three-platform delivery is required | Very large; release blocker | ConPTY lifecycle, HWND/DX12 surface, font discovery, native input/clipboard/IME/accessibility, packaging and actual Windows CI/desktop evidence. Follow [ADR 0038](adr/0038-windows-native-feasibility.md). |
 | P2 | Expand search and desktop conveniences | Medium | Bounded regex search with cancellation, primary selection policy, URL hint navigation and tested configuration migration. |
@@ -85,7 +85,8 @@ user-visible behavior. A GPU backend alone establishes neither speed nor parity.
 
 ## Scheduler ownership and limits
 
-Each live native window owns one readiness worker watching up to 64 PTYs. The
+Each live native window owns one readiness worker watching up to 64 PTYs plus
+one configuration event descriptor. The
 worker polls readable/closed descriptors and posts a host event once per arm.
 It never reads terminal bytes, runs Lua, accesses terminal state or touches GPU
 objects. The UI thread rearms it before waiting, drains bounded output, parses
