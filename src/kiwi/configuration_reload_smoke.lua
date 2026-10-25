@@ -9,7 +9,11 @@ local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
 local Window = require(gtk and "kiwi.platform.gtk_window" or "kiwi.platform.window")
 assert(Host.presentation_backend ~= "gtk-gl", "configuration smoke requires the WGPU application path")
 
-local path, theme = os.tmpname(), os.tmpname()
+local Context = require("kiwi.gpu.context")
+local context_new, context, working_effect = Context.new
+Context.new = function(...) context = context_new(...); return context end
+local path, theme, shader = os.tmpname(), os.tmpname(), os.tmpname()
+local identity = require("kiwi.renderer.postprocess").identity
 os.remove(theme)
 local function save(target, text)
   local temporary = target .. ".new"
@@ -36,7 +40,7 @@ Host.await_events = function(application, window, timeout)
   await(application, window, timeout)
   local now = window:time()
   started = started or now
-  assert(now - started < 20, "configuration reload smoke timed out at stage " .. stage)
+  assert(now - started < 30, "configuration reload smoke timed out at stage " .. stage)
   local failed = title and title:find("Configuration error:", 1, true)
   if stage == 0 and now - started > 0.5 then
     assert(background("000000"))
@@ -80,6 +84,33 @@ Host.await_events = function(application, window, timeout)
     end
     assert(retained, "reload lost the child output from both viewport and scrollback")
     assert(Terminal.parser(live).stats.errors == 0)
+    save(shader, identity)
+    save(path, "background = #ab1234\ncustom-shader = " .. shader .. "\nbackground-opacity = " .. (context.transparency_supported and "0.5" or "1") .. "\n")
+    next_stage(now)
+  elseif stage == 9 and context.effect and not failed then
+    working_effect = context.effect
+    save(shader, "invalid WGSL")
+    save(path, "background = #ff0000\ncustom-shader = " .. shader .. "\n")
+    next_stage(now)
+  elseif stage == 10 and failed then
+    assert(background("ab1234"), "invalid shader partially committed the new palette")
+    assert(context.effect == working_effect, "invalid shader replaced the working effect")
+    save(shader, identity .. "\n// repaired")
+    next_stage(now)
+  elseif stage == 11 and background("ff0000") and not failed then
+    assert(context.effect ~= working_effect, "shader file edit did not replace the effect")
+    working_effect = context.effect
+    os.remove(shader)
+    next_stage(now)
+  elseif stage == 12 and failed then
+    assert(context.effect == working_effect, "missing shader discarded the working effect")
+    save(shader, identity)
+    next_stage(now)
+  elseif stage == 13 and context.effect ~= working_effect and not failed then
+    save(path, "background = #ab1234\n")
+    next_stage(now)
+  elseif stage == 14 and background("ab1234") and not failed then
+    assert(context.effect == nil, "removing custom-shader retained the effect")
     next_stage(now)
     window:request_close()
   end
@@ -88,7 +119,9 @@ arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/
   "printf 'PTY-survives-reload\\r\\n'; i=0; while [ $i -lt 200 ]; do printf 'retained history %03d\\r\\n' $i; i=$((i + 1)); done; sleep 30" }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Dispatcher.new, Window.set_title, Config.load, Host.await_events = terminal_new, dispatcher_new, set_title, load, await
+Context.new = context_new
+os.remove(shader); os.remove(shader .. ".new")
 os.remove(path); os.remove(theme); os.remove(path .. ".new"); os.remove(theme .. ".new")
 assert(ok, message)
-assert(stage == 9, "configuration reload smoke ended before all stages completed")
-print("Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry and recoloured visible PTY history.")
+assert(stage == 15, "configuration reload smoke ended before all stages completed")
+print("Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry, recoloured visible PTY history, opacity, shader file edits, invalid/missing shader rollback and recovery.")

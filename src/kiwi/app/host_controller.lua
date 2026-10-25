@@ -217,6 +217,8 @@ function Controller.run(window, host, options)
     local PollSchedule = require("kiwi.app.poll_schedule")
     local context_options = {
       background_opacity = configuration.background_opacity,
+      custom_shader_source = configuration.custom_shader_source,
+      custom_shader_animation = configuration.custom_shader_animation,
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
       framebuffer_expected_rgb = os.getenv("KIWI_FRAMEBUFFER_EXPECT_RGB"),
       gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1",
@@ -750,6 +752,8 @@ function Controller.run(window, host, options)
       plan:activate()
       context:set_effects(effect)
       context_options.background_opacity = reloaded.background_opacity
+      context_options.custom_shader_source = reloaded.custom_shader_source
+      context_options.custom_shader_animation = reloaded.custom_shader_animation
       font = plan.font
       configuration, configuration_path = reloaded, path
       configuration.host_effects = candidate_effects

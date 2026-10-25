@@ -22,12 +22,12 @@ local function validate_definition(definition)
   end
 end
 
-local function read_source(path)
+local function read_source(path, maximum)
   local file, error_message = io.open(path, "rb")
   if not file then
     return nil, error_message
   end
-  local source = file:read("*a")
+  local source = file:read(maximum + 1)
   file:close()
   return source
 end
@@ -55,7 +55,7 @@ end
 
 function Loader:read(definition)
   validate_definition(definition)
-  local source, read_error = self.read_source(definition.path)
+  local source, read_error = self.read_source(definition.path, self.max_source_bytes)
   if source == nil then
     fail(definition, "could not read source", tostring(read_error))
   end

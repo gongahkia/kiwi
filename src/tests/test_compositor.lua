@@ -2,6 +2,33 @@ local Assert = require("tests.assert")
 local Compositor = require("kiwi.renderer.compositor")
 
 return {
+  custom_shader_animation_is_opt_in_and_respects_presentation_gates = function()
+    local context = { window = {}, begin_presentation_frame = function() end,
+      present_presentation_frame = function() end, abort_presentation_frame = function() end,
+      effect = { animated = false, next_frame = 2 } }
+    local compositor = Compositor.new(context)
+    local entries = { { model = { modes = {} }, renderer = {
+      needs_render = function() return false end, next_render_deadline = function() return nil end,
+    } } }
+    Assert.equal(compositor:needs_render(entries, 3), false)
+    Assert.equal(compositor:next_render_deadline(entries), nil)
+    context.effect.animated = true
+    Assert.equal(compositor:needs_render(entries, 1), false)
+    Assert.equal(compositor:needs_render(entries, 2), true)
+    Assert.equal(compositor:next_render_deadline(entries), 2)
+    context.window.minimized = true
+    Assert.equal(compositor:next_render_deadline(entries), nil)
+    Assert.equal(compositor:can_present(entries), false)
+    context.window.minimized = false
+    entries[1].model.modes.synchronized_output = true
+    Assert.equal(compositor:next_render_deadline(entries), nil)
+    Assert.equal(compositor:can_present(entries), false)
+    entries[1].model.modes.synchronized_output = false
+    compositor.retry_at = 4
+    Assert.equal(compositor:needs_render(entries, 3), false)
+    Assert.equal(compositor:next_render_deadline(entries), 4)
+    Assert.equal(compositor:needs_render(entries, 4), true)
+  end,
   compositor_converts_cell_layouts_to_exact_physical_viewports = function()
     local viewport = Compositor.viewport({ x = 3, y = 5, width = 40, height = 20 }, 9, 18)
     Assert.equal(viewport.x, 27)
