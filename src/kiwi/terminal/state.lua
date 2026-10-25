@@ -753,11 +753,17 @@ function State:selection_text(maximum_bytes)
   local last = view.finish.row_index
   if first == nil or last == nil then return nil, "no-selection" end
   local bytes = 0
-  local text = {}
+  local text, chunk, chunk_bytes = {}, {}, 0
   local function append(value)
     bytes = bytes + #value
     if bytes > maximum_bytes then return false end
-    text[#text + 1] = value
+    -- Bound temporary cell references independently of the selected history.
+    -- A 1 MiB ASCII copy must not create a million-element Lua table.
+    if chunk_bytes + #value > 4096 and #chunk > 0 then
+      text[#text + 1] = table.concat(chunk)
+      chunk, chunk_bytes = {}, 0
+    end
+    chunk[#chunk + 1], chunk_bytes = value, chunk_bytes + #value
     return true
   end
   for index = first, last do
@@ -784,6 +790,7 @@ function State:selection_text(maximum_bytes)
     end
     if index < last and (block or not row.wrapped) and not append("\n") then return nil, "over-limit" end
   end
+  if #chunk > 0 then text[#text + 1] = table.concat(chunk) end
   return table.concat(text)
 end
 

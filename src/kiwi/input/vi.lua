@@ -119,29 +119,35 @@ function Vi:step_selection(state, budget)
   self.last_step_work = 0
   if not self:reconcile(state) or not self.selection_job then return false end
   local job, document = self.selection_job, state:document(self.scope)
+  -- Borrow a row only within this slice, never in resumable/transaction data.
+  local cached_index, cached_entry
+  local function row(index)
+    if cached_index ~= index then cached_index, cached_entry = index, document:row(index) end
+    return cached_entry
+  end
   while self.selection_job and self.last_step_work < budget do
     if job.work >= Vi.maximum_work then self.selection_job, self.status = nil, "selection-limit"; break end
     self.last_step_work, job.work = self.last_step_work + 1, job.work + 1
     local first = job.phase == "first"
     local endpoint = first and job.first or job.last
     local index, column = endpoint.row_index, endpoint.column
-    local current = document:row(index).row
+    local current = row(index).row
     local entry
     if job.mode == "line" then
-      entry = document:row(index + (first and -1 or 1))
+      entry = row(index + (first and -1 or 1))
       if entry and (first and entry.row.wrapped or not first and current.wrapped) then
         endpoint.row_index, endpoint.line_id = index + (first and -1 or 1), entry.line_id
       else entry = nil end
     else
       if first then
-        if column > 0 then column = anchor(current, column - 1, state.columns); entry = document:row(index)
+        if column > 0 then column = anchor(current, column - 1, state.columns); entry = row(index)
         else
-          index = index - 1; entry = document:row(index)
+          index = index - 1; entry = row(index)
           if entry and entry.row.wrapped then column = anchor(entry.row, state.columns - 1, state.columns)
           else entry = nil end
         end
-      elseif column < state.columns then entry = document:row(index)
-      elseif current.wrapped then index, column = index + 1, 0; entry = document:row(index) end
+      elseif column < state.columns then entry = row(index)
+      elseif current.wrapped then index, column = index + 1, 0; entry = row(index) end
       if entry and class(entry.row.cells[column]) == (first and job.first_class or job.last_class) then
         endpoint.row_index, endpoint.line_id = index, entry.line_id
         endpoint.column = first and column or math.min(state.columns, column + width(entry.row, column))
