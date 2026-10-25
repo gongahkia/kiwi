@@ -173,3 +173,22 @@ Metal smoke passed invalid-save retention, visible title errors, missing-theme
 recovery, theme edits, automatic-reload opt-out/manual retry and retained PTY
 output. macOS CI runs this smoke; Linux CI runs sanitizer-backed native tests.
 The Linux implementation still needs execution on a Linux runner/desktop.
+
+### Reload load baseline and process metrics
+
+Added current RSS on macOS/Linux and monotonic timing, with a native test that
+touches 16 MiB and observes resident growth. Existing burst/long-run/text-stress
+workloads now sample macOS RSS too. The new reload benchmark stages real fonts,
+state/reflow and packed text buffers at 0/2,000/10,000 retained lines, repeatedly
+rejects candidates, and asserts unchanged live state plus bounded retained Lua
+heap. GPU allocation/presentation and child resize are excluded.
+
+The first five-sample run reached 901 ms palette p95 / 2,813 ms font-resize p95
+at 10,000 lines, with the latter reaching 1,582 MiB sampled process RSS. This
+is evidence of a responsiveness problem, not a passing performance gate. The
+raw report is `evidence/2026-10-25-macos-reload-baseline.json`; optimization and
+a comparable rerun are required.
+
+`make check` passed 525 Lua tests across 115 suites, 16 PTY tests, both native
+watchers, process metrics and the remaining gates. The native metrics test also
+passed AddressSanitizer/UndefinedBehaviorSanitizer locally.

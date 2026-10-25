@@ -13,19 +13,7 @@ local function number_from_env(name, fallback)
   return value and value > 0 and math.floor(value) or fallback
 end
 
-local function resident_kib()
-  local file = io.open("/proc/self/status", "r")
-  if not file then return nil end
-  for line in file:lines() do
-    local value = line:match("^VmRSS:%s+(%d+)%s+kB$")
-    if value then
-      file:close()
-      return tonumber(value)
-    end
-  end
-  file:close()
-  return nil
-end
+local resident_kib = require("kiwi.bench.process_metrics").resident_kib
 
 local function write(state, codepoint)
   state:write_codepoint(Utf8.encode(codepoint), codepoint)

@@ -22,6 +22,7 @@ jobs:
         run: |
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-file-watch
+          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-process-metrics
           CFLAGS='-fsanitize=thread -fno-omit-frame-pointer' make test-pty-watch
 
   check:

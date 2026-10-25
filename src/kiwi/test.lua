@@ -7,6 +7,7 @@ local suites = {
   "tests.test_config",
   "tests.test_configuration_reload",
   "tests.test_configuration_watch",
+  "tests.test_reload_bench",
   "tests.test_filesystem",
   "tests.test_app_options",
   "tests.test_actions",

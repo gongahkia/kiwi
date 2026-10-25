@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+binary=$(mktemp "${TMPDIR:-/tmp}/kiwi-process-metrics.XXXXXX")
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c17 -Wall -Wextra -Werror ${CFLAGS:-} \
+  native/process_metrics.c src/tests/fixtures/process_metrics_test.c -o "$binary"
+"$binary"
