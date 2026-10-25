@@ -288,3 +288,19 @@ test harness uses the same environment builder. A real-PTY assertion passed
 with deliberately conflicting parent identity/version values; all 17 PTY
 checks, 306 headless checks, eight local application workflows and the live
 macOS interaction/rollback smoke passed.
+
+### Fish and Nushell interactive workflows
+
+Added real fish and Nushell line editing, Unicode paste, resize and external-job
+interruption to the PTY harness. All ten local application cases passed on Intel
+macOS with fish 4.9.3 and Nushell 0.116.1; the four shell integrations passed
+all nine script/launcher tests. The report is
+`evidence/2026-10-25-macos-ten-applications.json`.
+
+Nushell's OSC 133 metadata exposed a harness initialization mismatch: replay
+applied an initial resize that the live session had not applied, allocating
+different row IDs. The harness now applies every recorded resize to the live
+state and preserves failure snapshots for diagnosis. No snapshot fields or
+protocol failures were excluded. The default gate now requires fish; both
+macOS CI jobs additionally require Nushell. Reports from source archives use
+`BUILD_REVISION` and explicitly mark Git cleanliness as unavailable.

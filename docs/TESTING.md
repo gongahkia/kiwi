@@ -7,7 +7,7 @@ exercise internal models, native boundaries and user-visible behavior.
 | --- | --- | --- |
 | `make test-core` | LuaJIT, standard shell utilities | Headless core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
 | `make check` | Documented native build dependencies and C compiler | Complete Lua suite, seeded parser fuzzing, real PTYs, C readiness watcher, terminfo contract, CLI behavior and syntax of every Lua file. |
-| `make test-applications` | Native build, Bash, Zsh, Vim, Neovim, tmux, less, system top | Eight real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. No display is needed. |
+| `make test-applications` | Native build, Bash, Zsh, fish, Vim, Neovim, tmux, less, system top | Nine real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. Optional explicit Nushell case; no display is needed. |
 | `make test-ssh-applications` | Native build, Python 3, OpenSSH client/server/keygen, Bash, Neovim, tmux | Real authenticated loopback SSH, remote shell/editor input, resize through SSH/tmux, disconnect/HUP cleanup and replay. |
 | `make test-pty-watch` | C17 compiler, POSIX pthreads | One-shot notifications, no byte consumption, rearm, descriptor replacement, EOF and worker shutdown. |
 | `make interaction-smoke` | Native build and a graphical desktop | Live splits, directional focus, divider resize, zoom, font reset, search and close through native action dispatch. |
@@ -32,8 +32,8 @@ the complete suite.
 
 Shell-script tests report explicit skips for missing optional shells. CI installs
 Bash, Zsh and fish and sets `KIWI_REQUIRE_SHELLS=bash,zsh,fish` in the primary
-Linux/macOS checks. A required missing shell fails. Nushell is exercised where
-installed, including the existing Intel compatibility job. Test subprocesses
+Linux/macOS checks. A required missing shell fails. Both macOS CI jobs additionally
+install and require Nushell for scripts and interactive workflows. Test subprocesses
 record and validate exit status independently of LuaJIT's `io.popen():close()`
 behavior. SSH helper tests use explicit local stubs and cannot fall back to the
 user's real SSH client.
@@ -60,16 +60,20 @@ For focused debugging after building native/terminfo dependencies:
 
 ```sh
 KIWI_INTERACTIVE_APPS=vim,tmux-nvim ./script/test-applications
+KIWI_INTERACTIVE_APPS=fish,nu ./script/test-applications
 KIWI_INTERACTIVE_ARTIFACTS="$PWD/.build/application-trial" ./script/test-applications
 ```
 
-The default eight workflows exercise Bash/Zsh line editing, Unicode paste,
+The default nine workflows exercise Bash/Zsh/fish line editing, Unicode paste,
 resize and foreground-job interruption; Vim/Neovim Unicode insertion and
 saved-file contents; Neovim inside tmux; tmux split/resize/zoom/close; less
 search/page navigation; and system top filtered to its own process. Special
 keys and paste pass through the application's encoders. Readiness is observed
 from terminal output, saved files and foreground process groups, with bounded
 deadlines. Vim runs in normal Vim mode (`-N`) with user configuration disabled.
+The explicit `nu` case exercises the same shell workflow with Nushell. The
+foreground job uses `/bin/sleep` so shells with different builtin sleep syntax
+all exercise external process-group interruption.
 
 Each case retains bounded input/output/resize JSONL, text checkpoints and a
 machine-readable report in `.build/application-evidence`. Successful captures
@@ -89,8 +93,9 @@ CI installs the applications, runs the gate on Linux and both macOS
 architectures, and uploads reports and controlled recordings even on failure.
 Captures contain only these test sessions; they may include timestamps, process
 IDs and temporary paths. This does not exercise physical keyboard layouts,
-native input routing, IME, clipboard ownership, visual rendering, fish or
-Nushell. Those remain independent qualification requirements.
+native input routing, IME, clipboard ownership or visual rendering. Those remain
+independent qualification requirements. Nushell is required in macOS CI; it
+must be explicitly selected and installed for a local or Linux run.
 
 `make test-ssh-applications` adds four workflows using a real OpenSSH server
 bound to `127.0.0.1` on an ephemeral port. It creates temporary host/client

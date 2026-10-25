@@ -47,6 +47,9 @@ end
 
 function Session.new(name, command)
   local terminal = Terminal.new({ columns = 80, rows = 24 })
+  -- Apply every recorded resize, including initialization. Even a same-size
+  -- resize currently allocates row IDs used by shell metadata snapshots.
+  terminal:resize(80, 24)
   terminal:set_cell_metrics(8, 16)
   local negative_probes = { dcs = 0, csi = 0 }
   local state = Terminal.state(terminal)
@@ -239,7 +242,7 @@ local function shell(session, remote)
     session:command("sh -c 'printf ready > ssh-job-ready; exec sleep 30'")
     session:wait("remote foreground job started", function() return read(work .. "/ssh-job-ready") == "ready" end)
   else
-    session:command("sleep 30")
+    session:command("/bin/sleep 30")
     session:wait("foreground job started", function()
       local group = ffi.C.tcgetpgrp(session.pty.fd)
       return group > 0 and group ~= session.pty.pid
@@ -256,16 +259,22 @@ local function shell(session, remote)
   session:exited()
 end
 
+local revision = first_line("git rev-parse --short HEAD")
+local git_status = first_line("git status --porcelain --untracked-files=no && printf 'KIWI_GIT_CLEAN\\n'")
+local source_state = git_status == "KIWI_GIT_CLEAN" and "clean" or (git_status == "unavailable" and "unavailable" or "dirty")
+if revision == "unavailable" then revision = require("kiwi.build").info().revision end
 local report = { schema_version = 1, kind = "kiwi-interactive-applications", checks = {},
   scope = "real PTY, parser/state, keyboard/paste encoding, resize, saved-file assertions and chunk-invariant replay; no native UI or GPU",
   platform = ffi.os .. "-" .. ffi.arch, kernel = first_line("uname -sr"),
-  revision = first_line("git rev-parse --short HEAD"), timestamp_utc = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-  source_state = first_line("git status --porcelain --untracked-files=no") == "unavailable" and "clean" or "dirty",
+  revision = revision, timestamp_utc = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+  source_state = source_state,
   network = os.getenv("KIWI_INTERACTIVE_SSH") and "loopback TCP; temporary key-authenticated OpenSSH server" or "not used",
   versions = { bash = first_line("bash --version"), zsh = first_line("zsh --version"),
     vim = first_line("vim --version"), nvim = first_line("nvim --version"),
     tmux = first_line("tmux -V"), less = first_line("less --version"), top = "platform system top",
     ssh = os.getenv("KIWI_INTERACTIVE_SSH_VERSION") or "not exercised" } }
+report.versions.fish = first_line("fish --version")
+report.versions.nu = first_line("nu --version")
 local failed = false
 local function run(name, command, body, cleanup)
   local session
@@ -284,7 +293,12 @@ local function run(name, command, body, cleanup)
     entry.unknown = session.state.stats.unknown
     session:close()
     local replayed, replay_stats = Replay.verify_chunk_invariance(artifacts .. "/" .. name .. ".jsonl")
-    assert(Snapshot.encode(replayed) == Snapshot.encode(session.state), "live application and replay differ")
+    local replay_snapshot, live_snapshot = Snapshot.encode(replayed), Snapshot.encode(session.state)
+    if replay_snapshot ~= live_snapshot then
+      write(artifacts .. "/" .. name .. "-live.json", live_snapshot)
+      write(artifacts .. "/" .. name .. "-replay.json", replay_snapshot)
+      error("live application and replay differ")
+    end
     assert(replay_stats.errors == 0 and replay_stats.ignored == session.negative_probes.dcs)
     entry.output_bytes, entry.input_bytes, entry.response_bytes = session.output_bytes, session.input_bytes, session.response_bytes
     entry.resizes, entry.checkpoints = session.resize_count, #session.checkpoints
@@ -301,14 +315,20 @@ local function run(name, command, body, cleanup)
 end
 
 write(artifacts .. "/report.json", Json.encode(report) .. "\n")
-local applications = os.getenv("KIWI_INTERACTIVE_APPS") or "bash,zsh,vim,nvim,tmux,tmux-nvim,less,top"
+local applications = os.getenv("KIWI_INTERACTIVE_APPS") or "bash,zsh,fish,vim,nvim,tmux,tmux-nvim,less,top"
 assert(applications ~= "" and not applications:find("^,") and not applications:find(",$") and not applications:find(",,"), "application list must not contain empty entries")
 local supported = { bash = true, zsh = true, vim = true, nvim = true, tmux = true, ["tmux-nvim"] = true, less = true, top = true,
-  ["ssh-shell"] = true, ["ssh-nvim"] = true, ["ssh-tmux-nvim"] = true, ["ssh-hangup"] = true }
+  fish = true, nu = true, ["ssh-shell"] = true, ["ssh-nvim"] = true, ["ssh-tmux-nvim"] = true, ["ssh-hangup"] = true }
 for name in applications:gmatch("[^,]+") do assert(supported[name], "unknown application: " .. name) end
 for name in applications:gmatch("[^,]+") do
   if name == "bash" then run(name, { "bash", "--noprofile", "--norc", "-i" }, shell)
   elseif name == "zsh" then run(name, { "zsh", "-d", "-f", "-i" }, shell)
+  elseif name == "fish" then
+    run(name, { "fish", "--no-config", "--interactive", "--init-command",
+      "function fish_prompt; printf 'KIWI> '; end; function fish_right_prompt; end; set -g fish_greeting" }, shell)
+  elseif name == "nu" then
+    run(name, { "nu", "--no-config-file", "--interactive", "--execute",
+      "$env.config.show_banner = false; $env.PROMPT_COMMAND = {|| 'KIWI> '}; $env.PROMPT_COMMAND_RIGHT = {|| ''}; $env.PROMPT_INDICATOR = ''" }, shell)
   elseif name:sub(1, 4) == "ssh-" then
     local client = assert(os.getenv("KIWI_INTERACTIVE_SSH"), "run script/test-ssh-applications for SSH cases")
     run(name, { client, name:sub(5) }, function(s)
