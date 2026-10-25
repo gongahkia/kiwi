@@ -1,0 +1,17 @@
+# Sourced by native build scripts; preserves explicit pkg-config search paths.
+if [[ "$(uname -s)" == Darwin ]]; then
+  typeset -a kiwi_homebrew_prefixes
+  if [[ "$(uname -m)" == arm64 ]]; then
+    kiwi_homebrew_prefixes=(/opt/homebrew /usr/local)
+  else
+    kiwi_homebrew_prefixes=(/usr/local /opt/homebrew)
+  fi
+  for kiwi_dependency_prefix in $kiwi_homebrew_prefixes; do
+    for kiwi_dependency_formula in glfw freetype harfbuzz fontconfig libpng; do
+      kiwi_package_path="$kiwi_dependency_prefix/opt/$kiwi_dependency_formula/lib/pkgconfig"
+      if [[ -d "$kiwi_package_path" ]]; then
+        export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:+$PKG_CONFIG_PATH:}$kiwi_package_path"
+      fi
+    done
+  done
+fi

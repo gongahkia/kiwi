@@ -55,10 +55,7 @@ long lseek(int fd, long offset, int whence);
 int close(int fd);
 ]]
 
-local loaded, library = pcall(ffi.load, "gif")
-if not loaded then
-  loaded, library = pcall(ffi.load, "libgif.so.7")
-end
+local loaded, library = pcall(require("kiwi.ffi.library").load, { "gif", "libgif.so.7" }, "giflib")
 if not loaded then
   error("Unable to load giflib. Install giflib-devel (Fedora): " .. tostring(library))
 end

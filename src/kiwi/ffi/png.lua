@@ -20,10 +20,7 @@ int png_image_finish_read(png_image *image, const void *background, void *buffer
 void png_image_free(png_image *image);
 ]]
 
-local ok, libpng = pcall(ffi.load, "png16")
-if not ok then
-  ok, libpng = pcall(ffi.load, "png")
-end
+local ok, libpng = pcall(require("kiwi.ffi.library").load, { "png16", "png" }, "libpng")
 if not ok then
   error("Unable to load libpng. Install libpng-devel (Fedora): " .. tostring(libpng))
 end

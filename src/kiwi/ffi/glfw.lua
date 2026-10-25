@@ -50,7 +50,7 @@ int glfwGetPlatform(void);
 const char* glfwGetError(int* code);
 ]]
 
-local ok, glfw = pcall(ffi.load, "glfw")
+local ok, glfw = pcall(require("kiwi.ffi.library").load, "glfw", "glfw")
 if not ok then
   error("Unable to load GLFW. Install glfw-devel (Fedora) and run make bootstrap: " .. tostring(glfw))
 end

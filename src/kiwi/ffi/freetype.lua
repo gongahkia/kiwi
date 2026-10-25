@@ -62,7 +62,7 @@ FT_Error FT_Load_Glyph(FT_Face face, FT_UInt glyph_index, FT_Int32 load_flags);
 FT_UInt FT_Get_Char_Index(FT_Face face, FT_ULong charcode);
 ]]
 
-local ok, freetype = pcall(ffi.load, "freetype")
+local ok, freetype = pcall(require("kiwi.ffi.library").load, "freetype", "freetype")
 if not ok then
   error("Unable to load FreeType. Install freetype-devel (Fedora): " .. tostring(freetype))
 end
