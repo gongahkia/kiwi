@@ -7,6 +7,7 @@ import shlex
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -26,7 +27,10 @@ def main():
     executables = {name: binary(name) for name in ("sshd", "ssh", "ssh-keygen", "bash", "nvim", "tmux", "luajit")}
     artifacts = Path(os.environ.get("KIWI_INTERACTIVE_ARTIFACTS", ROOT / ".build/ssh-application-evidence")).resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="kiwi-ssh-applications-") as temporary:
+    account = pwd.getpwuid(os.getuid())
+    # StrictModes checks ancestors of AuthorizedKeysFile. Linux rejects /tmp
+    # even when mkdtemp itself is private; stop that walk at the real home.
+    with tempfile.TemporaryDirectory(prefix=".kiwi-ssh-applications-", dir=account.pw_dir) as temporary:
         work = Path(temporary)
         for key in ("host", "client"):
             subprocess.run([executables["ssh-keygen"], "-q", "-t", "ed25519", "-N", "", "-f", str(work / key)], check=True)
@@ -83,7 +87,8 @@ Port {port}
 HostKey {config_quote(str(work / 'host'))}
 PidFile {config_quote(str(work / 'server.pid'))}
 AuthorizedKeysFile {config_quote(str(work / 'client.pub'))}
-AllowUsers {pwd.getpwuid(os.getuid()).pw_name}
+AllowUsers {account.pw_name}
+StrictModes yes
 AuthenticationMethods publickey
 PubkeyAuthentication yes
 PasswordAuthentication no
@@ -93,7 +98,7 @@ DisableForwarding yes
 PermitUserRC no
 PrintMotd no
 PrintLastLog no
-LogLevel ERROR
+LogLevel VERBOSE
 SetEnv {' '.join(config_quote(key + '=' + value) for key, value in environment.items())}
 ForceCommand /bin/sh {q(str(child))}
 """)
@@ -125,6 +130,9 @@ ForceCommand /bin/sh {q(str(child))}
                     KIWI_INTERACTIVE_APPS="ssh-shell,ssh-nvim,ssh-tmux-nvim,ssh-hangup",
                     LUA_PATH=str(ROOT / "src/?.lua") + ";" + str(ROOT / "src/?/init.lua") + ";;")
                 result = subprocess.run([executables["luajit"], "src/kiwi/compatibility/interactive.lua"], cwd=ROOT, env=env, timeout=180)
+                if result.returncode:
+                    log.seek(0)
+                    print("Isolated SSH server diagnostics:\n" + log.read()[-4000:], file=sys.stderr)
                 return result.returncode
             finally:
                 subprocess.run([executables["tmux"], "-S", str(work / "ssh-tmux.sock"), "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)

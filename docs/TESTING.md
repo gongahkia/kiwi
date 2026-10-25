@@ -105,11 +105,13 @@ must be explicitly selected and installed for a local or Linux run.
 
 `make test-ssh-applications` adds four workflows using a real OpenSSH server
 bound to `127.0.0.1` on an ephemeral port. It creates temporary host/client
-keys and a pinned known-hosts file, uses only that client identity, and leaves
+keys and a pinned known-hosts file in a private temporary directory under the
+account's real home (required by OpenSSH `StrictModes`), uses only that client identity, and leaves
 the user's SSH configuration and system SSH service unchanged. The server
 allows the current user and forces the controlled shell/editor/lifecycle
 fixtures. Test configurations and keys stay in a private temporary directory
-and are removed after child/session cleanup; they are never uploaded.
+and are removed after child/session cleanup; they are never uploaded. Failures
+print the bounded tail of the isolated server's authentication/session log.
 
 The workflows edit shell commands and save Unicode text in Neovim, resize
 Neovim directly and inside remote tmux, and close the local PTY while a remote
