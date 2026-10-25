@@ -206,9 +206,22 @@ function Regex.compile(pattern, literal)
   return result
 end
 
-function Regex.runner(program, input, offset)
-  return setmetatable({ program = program, input = input, position = offset or 1,
-    matched = 0, frontier = {}, phase = "seed", steps = 0 }, Runner)
+function Regex.runner(program, input, offset, reuse)
+  local self = reuse or setmetatable({ frontier = {}, stack = {}, seen = {}, consumers = {}, epoch = 0 }, Runner)
+  for id in pairs(self.frontier) do self.frontier[id] = nil end
+  for index = #self.stack, 1, -1 do self.stack[index] = nil end
+  self.program, self.input, self.position = program, input, offset or 1
+  self.matched, self.phase, self.steps, self.consumer_count = 0, "seed", 0, 0
+  self.done, self.first, self.last = nil, nil, nil
+  self.stride = program.states and #program.states + 1 or 1
+  return self
+end
+
+local function descending(a, b) return a > b end
+
+local function push(self, target, start)
+  -- Numeric threads avoid allocating a table for every NFA transition.
+  self.stack[#self.stack + 1] = start * self.stride + target
 end
 
 local function accepts(state, codepoint)
@@ -242,43 +255,43 @@ function Runner:step(budget)
         if self.matched == #program.literal then self.first, self.last = position - self.matched + 1, position; self:finish() end
       end
     elseif self.phase == "seed" then
-      local seeds = {}
-      for id, start in pairs(self.frontier) do seeds[#seeds + 1] = { id, start } end
-      if not self.first then seeds[#seeds + 1] = { program.start, position } end
+      for id, start in pairs(self.frontier) do push(self, id, start); self.frontier[id] = nil end
+      if not self.first then push(self, program.start, position) end
       -- Earliest starts visit each epsilon state first, so cycles and duplicate
       -- paths cost at most one visit per state at this input position.
-      table.sort(seeds, function(a, b) return a[2] > b[2] end)
-      self.stack, self.seen, self.consumers = seeds, {}, {}
+      table.sort(self.stack, descending)
+      self.epoch, self.consumer_count = self.epoch + 1, 0
       self.phase = "closure"
     elseif self.phase == "closure" then
       local item = table.remove(self.stack)
       if item then
-        local id, start = item[1], item[2]
-        if not self.seen[id] and (not self.first or start <= self.first) then
-          self.seen[id] = true
+        local id = item % self.stride
+        local start = (item - id) / self.stride
+        if self.seen[id] ~= self.epoch and (not self.first or start <= self.first) then
+          self.seen[id] = self.epoch
           local state = program.states[id]
-          local function push(target) self.stack[#self.stack + 1] = { target, start } end
-          if state.kind == "split" then push(state.other); push(state.out)
-          elseif state.kind == "bol" then if position == 1 then push(state.out) end
-          elseif state.kind == "eol" then if position == #input + 1 then push(state.out) end
+          if state.kind == "split" then push(self, state.other, start); push(self, state.out, start)
+          elseif state.kind == "bol" then if position == 1 then push(self, state.out, start) end
+          elseif state.kind == "eol" then if position == #input + 1 then push(self, state.out, start) end
           elseif state.kind == "boundary" then
             local boundary = is_word(input[position - 1]) ~= is_word(input[position])
-            if boundary ~= (state.negate == true) then push(state.out) end
+            if boundary ~= (state.negate == true) then push(self, state.out, start) end
           elseif state.kind == "match" then
             if not self.first or start < self.first or (start == self.first and position - 1 > self.last) then
               self.first, self.last = start, position - 1
             end
-          else self.consumers[#self.consumers + 1] = { id, start } end
+          else self.consumer_count = self.consumer_count + 1; self.consumers[self.consumer_count] = item end
         end
       else
-        self.frontier, self.consumer_index, self.phase = {}, 1, "advance"
+        self.consumer_index, self.phase = 1, "advance"
         if position > #input then self:finish() end
       end
     else
-      local item = self.consumers[self.consumer_index]
+      local item = self.consumer_index <= self.consumer_count and self.consumers[self.consumer_index]
       if item then
         self.consumer_index = self.consumer_index + 1
-        local state, start = program.states[item[1]], item[2]
+        local id = item % self.stride
+        local state, start = program.states[id], (item - id) / self.stride
         if (not self.first or start <= self.first) and accepts(state, input[position]) then
           local previous = self.frontier[state.out]
           if not previous or start < previous then self.frontier[state.out] = start end

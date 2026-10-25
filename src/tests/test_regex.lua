@@ -14,6 +14,17 @@ local function find(pattern, text, budget, literal)
   until false
 end
 return {
+  regex_reused_scratch_does_not_retain_matches_or_epsilon_visits = function()
+    local runner
+    for _, case in ipairs({
+      { "(a|aa)+", "aaa", 1, 3 }, { "^z$", "z", 1, 1 },
+      { "a.*", "bbb" }, { "^$", "", 1, 0 }, { "z", "zz", 2, 2, 2 },
+    }) do
+      runner = Regex.runner(assert(Regex.compile(case[1])), Regex.scalars(case[2]), case[5], runner)
+      repeat runner:step(1) until runner.done
+      Assert.equal(runner.first, case[3]); Assert.equal(runner.last, case[4])
+    end
+  end,
   regex_matches_leftmost_longest_and_bounded_repetition = function()
     local cases = {
       { "ab|abc", "xabcab", 2, 4 }, { "(ab|a)+", "xxaba!", 3, 5 },
