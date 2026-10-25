@@ -25,6 +25,58 @@ local function move(state, motion, count, argument)
 end
 
 return {
+  vi_work_limits_leave_no_partial_motion_or_copyable_selection = function()
+    local state = fixture(string.rep("a", 200), 20, 12)
+    local limit = Vi.maximum_work
+    Vi.maximum_work = 16
+    local ok, message = xpcall(function()
+      state.vi:motion(state, "word-end")
+      Assert.equal(state.vi.status, "motion-limit")
+      Assert.equal(state:vi_view().column, 0); Assert.equal(state:vi_view().row_index, 1)
+      Assert.equal(state:vi_pending(), false)
+      state.vi:toggle_selection(state, "word")
+      Assert.equal(state.vi.status, "selection-limit")
+      Assert.equal(state:selection_view().active, false)
+      Assert.equal(state:vi_pending(), false)
+    end, debug.traceback)
+    Vi.maximum_work = limit
+    assert(ok, message)
+  end,
+  vi_seeded_motions_survive_output_resize_eviction_and_screen_switches = function()
+    local state, terminal = fixture("one 中 é two\r\nthree", 12, 4, 12)
+    local seed = 77123
+    local function random(maximum) seed = seed * 48271 % 2147483647; return seed % maximum + 1 end
+    local motions = { "left", "right", "up", "down", "word-next", "word-back", "word-end", "top", "bottom", "first", "last", "bracket" }
+    local modes = { "character", "line", "block", "word" }
+    for _ = 1, 500 do
+      local action = random(6)
+      if action == 1 then terminal:write("中a é\r\n")
+      elseif action == 2 then terminal:resize(random(14) + 2, random(5) + 2)
+      elseif action == 3 then terminal:write(state.active_screen == state.primary and "\27[?1049h" or "\27[?1049l")
+      else
+        if not state:vi_view().active then state:vi_toggle() end
+        local column, row = state.cursor.column, state.cursor.row
+        if action == 4 then state.vi:toggle_selection(state, modes[random(#modes)])
+        else state.vi:motion(state, motions[random(#motions)], random(4)) end
+        finish(state, 7)
+        Assert.equal(state.cursor.column, column); Assert.equal(state.cursor.row, row)
+      end
+      local view = state:vi_view()
+      if view.active then
+        local entry = state:document():row(view.row_index)
+        Assert.equal(entry.line_id, view.line_id)
+        Assert.truthy(view.column >= 0 and view.column < state.columns)
+        Assert.truthy(not entry.row.cells[view.column].continuation)
+      end
+      local copied = state:selection_text(4096)
+      if copied then
+        local Utf8 = require("kiwi.terminal.utf8")
+        local decoder = Utf8.Decoder.new(function(_, _, replaced) Assert.truthy(not replaced) end)
+        for index = 1, #copied do decoder:feed_byte(copied:byte(index)) end
+        decoder:finish()
+      end
+    end
+  end,
   vi_line_and_word_selections_cross_only_soft_wraps = function()
     local state = fixture("abcdefghijk\r\nend", 5, 4)
     move(state, "down"); move(state, "right", 2)
