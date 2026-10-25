@@ -101,6 +101,10 @@ if ffi.os == "OSX" then
     return window:cocoa_represented_directory_matches(path)
   end
 
+  function Host.select_window_tab(window, index)
+    return window:cocoa_select_window_tab(index)
+  end
+
   function Host.select_next_window_tab(window)
     return window:cocoa_select_next_window_tab()
   end

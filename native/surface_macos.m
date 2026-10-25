@@ -175,7 +175,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_ACTION_SEARCH_PREVIOUS;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_ACTION_GOTO_TAB_9;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
@@ -1259,6 +1259,8 @@ int kiwi_cocoa_window_set_tab_grouping(GLFWwindow *window, int grouped) {
   }
 }
 
+int kiwi_cocoa_window_select_tab(GLFWwindow *window, unsigned int index);
+
 int kiwi_cocoa_window_tabs_round_trip(GLFWwindow *first, GLFWwindow *second) {
   @autoreleasepool {
     if (![NSThread isMainThread]) {
@@ -1274,6 +1276,14 @@ int kiwi_cocoa_window_tabs_round_trip(GLFWwindow *first, GLFWwindow *second) {
       kiwi_surface_set_error("Cocoa native windows did not join Kiwi's tab group");
       return 0;
     }
+    NSArray<NSWindow *> *tabs = first_window.tabbedWindows;
+    for (unsigned int index = 1; index <= 2; index++) {
+      if (kiwi_cocoa_window_select_tab(first, index) < 0 || first_window.tabGroup.selectedWindow != tabs[index - 1]) {
+        kiwi_surface_set_error("Cocoa numbered-tab selection chose the wrong window");
+        return 0;
+      }
+    }
+    if (kiwi_cocoa_window_select_tab(first, 9) != 0 || first_window.tabGroup.selectedWindow != tabs[1]) return 0;
     return 1;
   }
 }
@@ -1291,6 +1301,24 @@ int kiwi_cocoa_window_is_standalone(GLFWwindow *window) {
       kiwi_surface_set_error("Cocoa window was not configured as a standalone window");
       return 0;
     }
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_select_tab(GLFWwindow *window, unsigned int index) {
+  @autoreleasepool {
+    if (![NSThread isMainThread] || index < 1 || index > 9) {
+      kiwi_surface_set_error("Cocoa tab selection needs the main thread and an index from 1 through 9");
+      return -1;
+    }
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == nil) return -1;
+    NSArray<NSWindow *> *tabs = native_window.tabbedWindows;
+    if (index > tabs.count) return 0;
+    NSWindow *target = tabs[index - 1];
+    if (native_window.tabGroup.selectedWindow == target) return 0;
+    native_window.tabGroup.selectedWindow = target;
+    [target makeKeyAndOrderFront:nil];
     return 1;
   }
 }

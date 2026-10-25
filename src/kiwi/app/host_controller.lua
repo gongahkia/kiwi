@@ -915,6 +915,11 @@ function Controller.run(window, host, options)
     end
 
     local function perform_workspace_action(action)
+      local tab_index = Interaction.tab_index(action)
+      if tab_index and host.native_tabs then
+        if host.select_window_tab then return host.select_window_tab(window, tab_index) end
+        return nil, "native tab selection is unavailable"
+      end
       if action == "previous-tab" and host.native_tabs then
         if host.select_previous_window_tab then return host.select_previous_window_tab(window) end
         return nil, "previous native tab is unavailable"
@@ -1103,7 +1108,10 @@ function Controller.run(window, host, options)
     if options.palette_smoke then
       assert(host.show_command_palette and host.invoke_command_palette_smoke, "--palette-smoke needs the native command-palette bridge")
       local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
-      local palette_handled = handle_product_action("command-palette")
+      local palette_modifiers = (host.platform == "OSX" and glfw.mod_super or glfw.mod_control) + glfw.mod_shift
+      local palette_action = product_actions:lookup(string.byte("P"), palette_modifiers)
+      assert(palette_action == "command-palette", "default palette shortcut is unavailable")
+      local palette_handled = handle_product_action(palette_action)
       assert(palette_handled)
       local invoked, reason = host.invoke_command_palette_smoke(window)
       assert(invoked, "native command-palette smoke could not select its first action: " .. tostring(reason))

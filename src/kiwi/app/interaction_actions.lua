@@ -27,6 +27,12 @@ Interaction.entries = {
   { id = 52, action = "search-next", kind = "terminal", title = "Find Next", description = "Navigate to the next search match." },
   { id = 53, action = "search-previous", kind = "terminal", title = "Find Previous", description = "Navigate to the previous search match." },
 }
+for index = 1, 9 do
+  Interaction.entries[#Interaction.entries + 1] = {
+    id = 53 + index, action = "goto-tab-" .. index, kind = "workspace", palette = false,
+    title = "Go to Tab " .. index, description = "Focus tab " .. index .. " in this window.",
+  }
+end
 Interaction.kinds = {}
 for _, entry in ipairs(Interaction.entries) do Interaction.kinds[entry.action] = entry.kind end
 
@@ -37,7 +43,17 @@ function Interaction.font_target(action, current, configured)
   error("unknown font action")
 end
 
+function Interaction.tab_index(action)
+  return tonumber(action:match("^goto%-tab%-([1-9])$"))
+end
+
 function Interaction.workspace(action, workspace, columns, rows)
+  local index = Interaction.tab_index(action)
+  if index then
+    local tab = workspace.tabs[index]
+    if tab == nil or tab.id == workspace.active_tab_id then return false end
+    return workspace:focus_tab(tab.id)
+  end
   if action == "previous-tab" then return workspace:focus_relative_tab(-1) end
   if action == "next-pane" then return workspace:focus_relative_pane(1) end
   if action == "previous-pane" then return workspace:focus_relative_pane(-1) end

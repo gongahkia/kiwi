@@ -238,7 +238,13 @@ new window), `Ctrl+Shift+Alt+M` (choose an existing window for that live
 session), `Ctrl+Shift+D` and `Ctrl+Shift+Alt+D` (fresh-shell counterparts,
 with the latter choosing an existing window),
 `Ctrl+Shift+W` (close pane), `Ctrl+Shift+Enter` (split right), and
-`Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette. Moves
+`Ctrl+Shift+J` (split down). `Ctrl+Shift+P` opens the command palette.
+On macOS, `Command+Shift+P` also opens it. `Command+1` through `Command+9`
+select the corresponding tab in its current visible order, within the current
+window group. A missing tab is a no-op; `Command+9` means the ninth tab.
+`Command+0` still resets font size. Tabs beyond nine remain accessible through
+next/previous-tab shortcuts or the tab bar. The `goto-tab-1` through `goto-tab-9`
+actions can also be assigned custom shortcuts or palette entries on any host. Moves
 preserve the live PTY, terminal state, and
 scrollback; duplicates create a fresh default-shell session. A move or
 duplicate to an existing window is rejected when there is no other Kiwi window,
