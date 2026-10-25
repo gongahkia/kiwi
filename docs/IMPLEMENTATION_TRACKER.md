@@ -57,7 +57,7 @@ tests do not establish Linux or Windows desktop qualification.
 
 ## Search and keyboard navigation
 
-- [ ] Bounded regex search with cancellation and Unicode-aware results.
+- [x] Bounded regex search with cancellation and Unicode-aware results.
 - [ ] Vi-style navigation/selection and keyboard URL hints.
 - [ ] X11 primary selection with explicit ownership and clipboard policy.
 
@@ -456,3 +456,20 @@ remain open; the container result does not establish any of those claims.
 
 Custom shaders use Kiwi's WGSL function interface, not Ghostty's GLSL interface.
 Window blur and shader chains remain unimplemented.
+
+## Incremental literal/regex search (2026-10-25)
+
+Find now scans logical lines in bounded event-loop slices, with Unicode cell
+mapping, visible partial-result limits, cancellation and copyable transaction
+state. The palette and default regex shortcuts expose it; query input, paste,
+key repeats and releases stay isolated from the child while global product
+shortcuts remain available. Reusing row/line/NFA buffers keeps the measured
+10,000-line workload below 3 MiB temporary Lua heap on macOS and Linux.
+
+Final Lua/core and native raw-PTY search fixtures pass on macOS Metal and Linux
+Xvfb/software Vulkan. POSIX differential tests use 5,000 cases per platform;
+Linux deliberately uses shallower patterns because libc stalls on some deep
+expressions. Complex equivalence on Linux is not inferred from the model/load
+checks. See [the complete search evidence](evidence/2026-10-25-search.md) for
+bounds, timings, oracle limits and remaining product/desktop gaps. Vi navigation,
+URL hints, primary selection and the other unchecked workstreams remain open.

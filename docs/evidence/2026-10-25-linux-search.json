@@ -1,0 +1,181 @@
+{
+  "baseline_heap_kib": 320461.967,
+  "baseline_resident_kib": 379896,
+  "cancel_ms": 0.00149902189,
+  "cases": {
+    "absent_literal": {
+      "matches": 0,
+      "max_step_cpu_ms": 2.882,
+      "max_step_wall_ms": 2.885636,
+      "maximum_step_work": 4096,
+      "peak_resident_kib": 380224,
+      "peak_temporary_heap_kib": 1603.92969,
+      "scanned_rows": 10024,
+      "status": "no-match",
+      "step_cpu_ms": {
+        "count": 833,
+        "mean": 0.274659064,
+        "p50": 0.246,
+        "p95": 0.4144,
+        "p99": 0.60168,
+        "total": 228.791
+      },
+      "step_wall_ms": {
+        "count": 833,
+        "mean": 0.275546173,
+        "p50": 0.246807002,
+        "p95": 0.416334579,
+        "p99": 0.603665011,
+        "total": 229.529962
+      },
+      "total_cpu_ms": 243.146,
+      "total_wall_ms": 243.044148,
+      "work": 3408064
+    },
+    "anchored_unicode": {
+      "matches": 1,
+      "max_step_cpu_ms": 1.944,
+      "max_step_wall_ms": 1.94673298,
+      "maximum_step_work": 4096,
+      "peak_resident_kib": 380412,
+      "peak_temporary_heap_kib": 1685.79297,
+      "scanned_rows": 10024,
+      "status": "matches",
+      "step_cpu_ms": {
+        "count": 1156,
+        "mean": 0.272203287,
+        "p50": 0.248,
+        "p95": 0.41325,
+        "p99": 0.54895,
+        "total": 314.667
+      },
+      "step_wall_ms": {
+        "count": 1156,
+        "mean": 0.273221717,
+        "p50": 0.249185978,
+        "p95": 0.413863731,
+        "p99": 0.560776994,
+        "total": 315.844305
+      },
+      "total_cpu_ms": 332.786,
+      "total_wall_ms": 332.790958,
+      "work": 4733376
+    },
+    "match_limit": {
+      "matches": 256,
+      "max_step_cpu_ms": 2.413,
+      "max_step_wall_ms": 2.41795898,
+      "maximum_step_work": 4096,
+      "peak_resident_kib": 381056,
+      "peak_temporary_heap_kib": 100.214844,
+      "scanned_rows": 7,
+      "status": "match-limit",
+      "step_cpu_ms": {
+        "count": 2,
+        "mean": 1.2465,
+        "p50": 1.2465,
+        "p95": 2.29635,
+        "p99": 2.38967,
+        "total": 2.493
+      },
+      "step_wall_ms": {
+        "count": 2,
+        "mean": 1.2487465,
+        "p50": 1.2487465,
+        "p95": 2.30103773,
+        "p99": 2.39457473,
+        "total": 2.497493
+      },
+      "total_cpu_ms": 3.083,
+      "total_wall_ms": 3.08394304,
+      "work": 4678
+    },
+    "nested_repetition": {
+      "matches": 0,
+      "max_step_cpu_ms": 2.537,
+      "max_step_wall_ms": 2.54227599,
+      "maximum_step_work": 4096,
+      "peak_resident_kib": 380660,
+      "peak_temporary_heap_kib": 2916.67969,
+      "scanned_rows": 10024,
+      "status": "no-match",
+      "step_cpu_ms": {
+        "count": 4525,
+        "mean": 0.34376663,
+        "p50": 0.32,
+        "p95": 0.49,
+        "p99": 0.64252,
+        "total": 1555.544
+      },
+      "step_wall_ms": {
+        "count": 4525,
+        "mean": 0.344691239,
+        "p50": 0.320227002,
+        "p95": 0.493257411,
+        "p99": 0.644072997,
+        "total": 1559.72786
+      },
+      "total_cpu_ms": 1629.277,
+      "total_wall_ms": 1629.43265,
+      "work": 18532775
+    }
+  },
+  "columns": 80,
+  "environment": {
+    "configuration": {
+      "iterations": 1,
+      "warmup_iterations": 0
+    },
+    "methodology": {
+      "clock": "os.clock process CPU time",
+      "cpu_scope": "Lua byte/UTF-8 scanning, parser, terminal state, damage, and CPU instance packing as named by each component; GPU submission and presentation are excluded",
+      "memory": "Lua heap retained and peak deltas in KiB after an explicit collection; allocator-sensitive diagnostic signal",
+      "warmup": "warm-up iterations run with identical setup and are excluded from timing summaries"
+    },
+    "revision": {
+      "branch": "unavailable",
+      "commit": "unavailable",
+      "dirty": false
+    },
+    "runtime": {
+      "compiler_flags": "not provided; LuaJIT default JIT configuration",
+      "jit": {
+        "enabled": true,
+        "features": [
+          "SSE3",
+          "SSE4.1",
+          "BMI2",
+          "fold",
+          "cse",
+          "dce",
+          "fwd",
+          "dse",
+          "narrow",
+          "loop",
+          "abc",
+          "sink",
+          "fuse"
+        ]
+      },
+      "lua_version": "Lua 5.1",
+      "luajit_version": "LuaJIT 2.1.1703358377"
+    },
+    "system": {
+      "architecture": "x64",
+      "cpu_affinity": "0-7",
+      "cpu_governor": "unavailable",
+      "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+      "gl_renderer": "unavailable",
+      "gl_version": "unavailable",
+      "kernel": "Linux 7.0.12-linuxkit x86_64",
+      "operating_system": "Linux",
+      "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+      "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+    },
+    "timestamp_utc": "2026-10-25T14:01:06Z"
+  },
+  "history_lines": 10000,
+  "retained_heap_kib_delta": 301.890625,
+  "rows": 24,
+  "step_budget": 4096
+}
