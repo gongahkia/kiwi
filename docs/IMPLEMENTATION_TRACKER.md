@@ -9,7 +9,7 @@ tests do not establish Linux or Windows desktop qualification.
 
 - [x] Recover bounded glyph storage after saturation without corrupting cached
       rows, other panes, or retained GPU frames; exercise repeated churn.
-- [ ] Resolve real bold/italic faces, with an explicit synthesis policy.
+- [x] Resolve real bold/italic faces, with an explicit synthesis policy.
 - [ ] Render underline variants and colours, including blank cells.
 - [ ] Improve fallback consistency and render colour emoji.
 - [ ] Add deterministic layout/bitmap/readback regressions and stress evidence.
@@ -98,3 +98,23 @@ private clipboard and RGB readback. Fish, Nushell and SSH were explicitly
 skipped. This is bounded startup/replay evidence; interactive editing, resize,
 physical layouts and Linux/Windows qualification remain incomplete. See
 `evidence/2026-10-25-macos-application-startup.json` for the sanitized report.
+
+### Bold and italic text
+
+Font selection now includes weight/slant for primary and fallback fonts.
+FreeType synthesis handles missing styles, with independent face/atlas keys;
+GPU shaders no longer brighten the foreground to simulate bold. The regular
+primary retains authority over cell dimensions. Five native-font tests cover
+real Menlo/DejaVu faces, bitmap synthesis, style run boundaries, fallback and
+bounded face exhaustion. Linux CI now explicitly installs the tested fonts.
+
+`make check` passed 496 Lua tests across 109 suites and 16 PTY tests, plus the
+other existing gates. Targeted tests passed after the final styled fallback
+adjustment. The native Metal smoke captured one frame containing all four
+styles; this checks pipeline execution, not a pixel-perfect visual comparison.
+The extended stress workload cycled four renditions for 5,000 mixed-text rounds
+plus 5,000 exact-glyph recovery rounds: 4,877 evictions, 96 retained entries,
+20 font faces and a 65,536-byte atlas. CPU time was 19,269 ms overall / 798 ms
+recovery; RSS remains unavailable. This workload differs from the preceding
+unstyled run, so its CPU result is not a performance regression comparison.
+The full report is `evidence/2026-10-25-macos-styled-text-stress.json`.

@@ -83,6 +83,7 @@ local suites = {
   "tests.test_atlas",
   "tests.test_glyph_cache",
   "tests.test_freetype",
+  "tests.test_font_styles",
   "tests.test_glyph_shader",
   "tests.test_packing",
   "tests.test_render_model",

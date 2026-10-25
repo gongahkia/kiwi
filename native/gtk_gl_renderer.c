@@ -138,7 +138,6 @@ static const char kiwi_gtk_gl_glyph_fragment_source[] =
     "void main() {\n"
     "  if (glyph_id == 0u) discard;\n"
     "  vec4 value = foreground_color;\n"
-    "  if ((glyph_flags & 1u) != 0u) value.rgb = min(vec3(1.0), value.rgb * 1.16);\n"
     "  if ((glyph_flags & 8u) != 0u) value.rgb *= 0.65;\n"
     "  if ((glyph_flags & 512u) != 0u && hyperlink_color.a > 0.0 && local_position.y > 0.91) { color = hyperlink_color; return; }\n"
     "  bool decoration = ((glyph_flags & 32u) != 0u && local_position.y > 0.88) || ((glyph_flags & 256u) != 0u && local_position.y > 0.46 && local_position.y < 0.54);\n"

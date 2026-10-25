@@ -1,4 +1,5 @@
 local ffi = require("ffi")
+local bit = require("bit")
 local Face = require("kiwi.font.face")
 local GlyphCache = require("kiwi.font.glyph_cache")
 local native = require("kiwi.ffi.freetype")
@@ -13,8 +14,15 @@ local function sequence_key(codepoints)
   return table.concat(values, ".")
 end
 
-local function face_key(description)
-  return description.path .. "#" .. tostring(description.index or 0)
+local styles = {
+  [0] = { bold = false, italic = false },
+  [1] = { bold = true, italic = false },
+  [16] = { bold = false, italic = true },
+  [17] = { bold = true, italic = true },
+}
+
+local function face_key(description, style)
+  return description.path .. "#" .. tostring(description.index or 0) .. "#" .. tostring(style or 0)
 end
 
 function System.new(options)
@@ -33,6 +41,8 @@ function System.new(options)
     fallback_cache_count = 0,
     fallback_cache_limit = options.fallback_cache_limit or 1024,
     primary_ascii_coverage = {},
+    style_primaries = {},
+    style_ascii_coverage = {},
     glyph_cache = GlyphCache.new(options.atlas),
     shape_options = {
       ligatures = options.ligatures == true,
@@ -81,8 +91,8 @@ function System:clear_fallback_cache()
   self.text_generation = self.text_generation + 1
 end
 
-function System:load_face(description, required)
-  local key = face_key(description)
+function System:load_face(description, required, style)
+  local key = face_key(description, style)
   local existing = self.face_by_key[key]
   if existing then return existing end
   if #self.faces >= self.face_cache_limit then
@@ -90,7 +100,7 @@ function System:load_face(description, required)
     return nil, "face-cache-limit"
   end
   local ok, face = xpcall(function()
-    return Face.new(self.library, description.path, description.index, self.pixel_height, self.next_face_id)
+    return Face.new(self.library, description.path, description.index, self.pixel_height, self.next_face_id, styles[style or 0])
   end, debug.traceback)
   if not ok then
     if required then error(face) end
@@ -102,26 +112,48 @@ function System:load_face(description, required)
   return face
 end
 
-function System:face_for_cluster(codepoints)
+function System:primary_for_style(style)
+  if style == 0 then return self.primary end
+  local cached = self.style_primaries[style]
+  if cached ~= nil then return cached or self.primary end
+  local description = self.resolver:primary(styles[style], self.primary.family)
+  local face = description and self:load_face(description, false, style)
+  if not face or face.family ~= self.primary.family then
+    face = self:load_face({ path = self.primary.path, index = self.primary.index }, false, style)
+  end
+  -- Face storage remains bounded. Exhaustion degrades to the primary rather
+  -- than repeatedly opening fonts or changing the terminal grid dimensions.
+  self.style_primaries[style] = face or false
+  return face or self.primary
+end
+
+function System:face_for_cluster(codepoints, flags)
+  local style = bit.band(flags or 0, 0x11)
+  local primary = self:primary_for_style(style)
+  local coverage = self.primary_ascii_coverage
+  if style ~= 0 then
+    coverage = self.style_ascii_coverage[style]
+    if not coverage then coverage = {}; self.style_ascii_coverage[style] = coverage end
+  end
   local codepoint = codepoints[1]
   local primary_supported
   if #codepoints == 1 and codepoint >= 0x20 and codepoint <= 0x7e then
-    primary_supported = self.primary_ascii_coverage[codepoint]
+    primary_supported = coverage[codepoint]
     if primary_supported == nil then
-      primary_supported = self.primary:supports(codepoints)
-      self.primary_ascii_coverage[codepoint] = primary_supported
+      primary_supported = primary:supports(codepoints)
+      coverage[codepoint] = primary_supported
       self.stats.primary_ascii_coverage_probes = self.stats.primary_ascii_coverage_probes + 1
     else
       self.stats.primary_ascii_cache_hits = self.stats.primary_ascii_cache_hits + 1
     end
   else
-    primary_supported = self.primary:supports(codepoints)
+    primary_supported = primary:supports(codepoints)
   end
   if primary_supported then
     self.stats.primary_hits = self.stats.primary_hits + 1
-    return self.primary, "primary"
+    return primary, "primary"
   end
-  local key = sequence_key(codepoints)
+  local key = style .. ":" .. sequence_key(codepoints)
   local cached = self.fallback_cache[key]
   if cached ~= nil then
     if cached == false then
@@ -135,8 +167,8 @@ function System:face_for_cluster(codepoints)
     self.stats.fallback_misses = self.stats.fallback_misses + 1
     return nil, "fallback-cache-limit"
   end
-  local description = self.resolver:fallback(codepoints)
-  local face = description and self:load_face(description, false) or nil
+  local description = self.resolver:fallback(codepoints, styles[style])
+  local face = description and self:load_face(description, false, style) or nil
   if face == nil or not face:supports(codepoints) then
     self.fallback_cache[key] = false
     self.fallback_cache_count = self.fallback_cache_count + 1
@@ -155,6 +187,7 @@ function System:destroy()
   for index = #(self.faces or {}), 1, -1 do self.faces[index]:destroy() end
   self.faces = {}
   self.face_by_key = {}
+  self.style_primaries = {}
   self.glyph_cache = nil
   if self.library ~= nil then native.lib.FT_Done_FreeType(self.library) end
   self.library = nil

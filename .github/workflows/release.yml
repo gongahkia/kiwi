@@ -20,7 +20,7 @@ jobs:
       - name: install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh \
+          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh fonts-dejavu-core fonts-noto-cjk \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
       - name: verify and package
         run: make check && make release-check && make release

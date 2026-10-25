@@ -55,6 +55,18 @@ For a contiguous same-face run, the layout concatenates its cluster display text
 
 Fontconfig chooses the configured primary family (`KIWI_FONT_FAMILY`, default `monospace`) or `KIWI_FONT` path. Singleton printable ASCII primary-coverage results are cached after the first FreeType probe in a bounded 95-entry table; a negative result still proceeds to normal fallback rather than assuming ASCII coverage. Missing clusters are otherwise matched by their full code-point set, then cached. The primary face is required; fallback face loading, face-cache exhaustion (default 32 faces), unavailable code points, and negative matches degrade to the missing-glyph path instead of expanding unboundedly or crashing the rendering path. The sequence fallback cache is capped at 1024 entries, including negative entries.
 
+Bold and italic SGR select separate styled faces before shaping. Fontconfig
+matches weight/slant in the primary family and in fallback fonts; regular,
+bold, italic and bold-italic decisions have separate coverage and fallback
+cache keys. When the family lacks a style, FreeType emboldens or obliques the
+glyph before rasterization. Synthetic slant applies to outline fonts. Styled
+faces have independent native handles and glyph IDs remain keyed by face, so
+synthesis never modifies cached regular glyphs. The primary's cell dimensions
+remain authoritative. The GPU uses the requested foreground colour without
+artificial bold brightening. If the face budget is exhausted, primary text
+remains visible with its regular style. Tests verify real Menlo/DejaVu faces,
+synthetic bitmap differences, style-separated fallback and run boundaries.
+
 Rasterization is by **glyph ID**, not the first Unicode scalar. The dynamic grayscale atlas has one 1024×1024 `r8unorm` page, a default 8,192-entry bound, and a 512-pixel bitmap-dimension bound. It keys entries by face ID, glyph ID, size, and raster mode. Least-recently-used unpinned glyphs are evicted under pressure. A coalescing rectangle allocator reuses space without moving live glyph coordinates. Each layout pins its unchanged rows before shaping changed rows, and other panes retain independent pins. Destroying a layout or replacing its font releases its pins; weak owner references also protect against abandoned layouts. An atlas generation upload currently sends the whole alpha page; this is simple and bounded but is an acknowledged performance limitation.
 
 The cache remembers bounded permanent rasterization failures. Capacity failures are temporary and never enter that negative cache. If the simultaneous pinned working set exceeds available space, Kiwi uses the existing `?` fallback or omits the glyph and records a capacity failure. Affected rows retry after space is released. Unsupported bitmap formats, missing fonts and glyph-instance overflow also retain bounded fallback behavior. Tests cover entry/page exhaustion, stable pixels across panes, released owners, repeated churn and recovery after clearing a large output stream.

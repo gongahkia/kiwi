@@ -1,4 +1,5 @@
 local ffi = require("ffi")
+local bit = require("bit")
 local HarfBuzz = require("kiwi.text.harfbuzz")
 local native = require("kiwi.ffi.freetype")
 
@@ -17,7 +18,8 @@ local function rounded_pixels(value, fallback)
   return math.max(1, math.floor(value + 0.5))
 end
 
-function Face.new(library, path, index, pixel_height, id)
+function Face.new(library, path, index, pixel_height, id, style)
+  style = style or {}
   assert(library ~= nil, "FreeType library is required")
   assert(type(path) == "string" and #path > 0, "font face path is required")
   local output = ffi.new("FT_Face[1]")
@@ -38,6 +40,11 @@ function Face.new(library, path, index, pixel_height, id)
       id = assert(id, "font face id is required"),
       path = path,
       index = index or 0,
+      family = face.family_name ~= nil and ffi.string(face.family_name) or nil,
+      bold = bit.band(tonumber(face.style_flags), native.style_bold) ~= 0,
+      italic = bit.band(tonumber(face.style_flags), native.style_italic) ~= 0,
+      synthetic_bold = style.bold == true and bit.band(tonumber(face.style_flags), native.style_bold) == 0,
+      synthetic_italic = style.italic == true and bit.band(tonumber(face.style_flags), native.style_italic) == 0,
       pixel_height = pixel_height,
       metrics = {
         cell_width = cell_width,
@@ -68,8 +75,15 @@ function Face:supports(codepoints)
 end
 
 function Face:rasterize(glyph_id)
-  require_success(self.native.lib.FT_Load_Glyph(self.face, glyph_id, self.native.load_render + self.native.load_color), "glyph loading for " .. glyph_id)
+  local synthetic = self.synthetic_bold or self.synthetic_italic
+  local flags = self.native.load_color + (synthetic and 0 or self.native.load_render)
+  require_success(self.native.lib.FT_Load_Glyph(self.face, glyph_id, flags), "glyph loading for " .. glyph_id)
   local slot = self.face.glyph
+  if synthetic then
+    if self.synthetic_italic then self.native.lib.FT_GlyphSlot_Oblique(slot) end
+    if self.synthetic_bold then self.native.lib.FT_GlyphSlot_Embolden(slot) end
+    require_success(self.native.lib.FT_Render_Glyph(slot, self.native.render_normal), "synthetic glyph rendering for " .. glyph_id)
+  end
   local bitmap = slot.bitmap
   return {
     width = tonumber(bitmap.width),

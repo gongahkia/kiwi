@@ -8,7 +8,7 @@ local function require_success(value, operation)
   if value == 0 then error("Fontconfig " .. operation .. " failed") end
 end
 
-local function match_pattern(family, codepoints, monospace)
+local function match_pattern(family, codepoints, monospace, style)
   local api, object = native.lib, native.object
   local pattern = api.FcPatternCreate()
   if pattern == nil then error("Fontconfig pattern creation returned a null handle") end
@@ -16,6 +16,8 @@ local function match_pattern(family, codepoints, monospace)
   local ok, result = xpcall(function()
     if family then require_success(api.FcPatternAddString(pattern, object.family, family), "family pattern construction") end
     if monospace then require_success(api.FcPatternAddInteger(pattern, object.spacing, native.mono_spacing), "spacing pattern construction") end
+    require_success(api.FcPatternAddInteger(pattern, object.weight, style and style.bold and native.weight_bold or native.weight_regular), "weight pattern construction")
+    require_success(api.FcPatternAddInteger(pattern, object.slant, style and style.italic and native.slant_italic or native.slant_roman), "slant pattern construction")
     if codepoints and #codepoints > 0 then
       charset = api.FcCharSetCreate()
       if charset == nil then error("Fontconfig charset creation returned a null handle") end
@@ -52,12 +54,12 @@ function Resolver.new(options)
   return setmetatable({ primary_family = options.primary_family or "monospace" }, Resolver)
 end
 
-function Resolver:primary()
-  return assert(match_pattern(self.primary_family, nil, true), "Fontconfig found no monospace primary font for " .. self.primary_family)
+function Resolver:primary(style, family)
+  return assert(match_pattern(family or self.primary_family, nil, true, style), "Fontconfig found no monospace primary font for " .. self.primary_family)
 end
 
-function Resolver:fallback(codepoints)
-  return match_pattern(nil, codepoints, false)
+function Resolver:fallback(codepoints, style)
+  return match_pattern(nil, codepoints, false, style)
 end
 
 return Resolver

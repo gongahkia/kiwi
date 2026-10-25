@@ -59,6 +59,9 @@ FT_Error FT_Reference_Face(FT_Face face);
 FT_Error FT_Set_Pixel_Sizes(FT_Face face, FT_UInt pixel_width, FT_UInt pixel_height);
 FT_Error FT_Load_Char(FT_Face face, FT_ULong char_code, FT_Int32 load_flags);
 FT_Error FT_Load_Glyph(FT_Face face, FT_UInt glyph_index, FT_Int32 load_flags);
+FT_Error FT_Render_Glyph(FT_GlyphSlot slot, int render_mode);
+void FT_GlyphSlot_Embolden(FT_GlyphSlot slot);
+void FT_GlyphSlot_Oblique(FT_GlyphSlot slot);
 FT_UInt FT_Get_Char_Index(FT_Face face, FT_ULong charcode);
 ]]
 
@@ -72,6 +75,9 @@ return {
   lib = freetype,
   load_render = 0x4,
   load_color = 0x100000,
+  style_italic = 1,
+  style_bold = 2,
+  render_normal = 0,
   pixel_mode_gray = 2,
   pixel_mode_bgra = 7,
 }

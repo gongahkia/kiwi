@@ -33,6 +33,10 @@ return {
   lib = fontconfig,
   match_pattern = 0,
   result_match = 0,
-  object = { family = "family", file = "file", index = "index", spacing = "spacing", charset = "charset" },
+  object = { family = "family", file = "file", index = "index", spacing = "spacing", charset = "charset", weight = "weight", slant = "slant" },
   mono_spacing = 100,
+  weight_regular = 80,
+  weight_bold = 200,
+  slant_roman = 0,
+  slant_italic = 100,
 }
