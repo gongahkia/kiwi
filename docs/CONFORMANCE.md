@@ -331,7 +331,37 @@ DECSET 1007 alternate scroll remains responsible for cursor-key emulation.
 
 ## Scrollback search
 
-`Ctrl+Shift+F` opens a title-bar query which consumes UTF-8 character input until `Enter` submits or `Escape` clears it. `Ctrl+Shift+G` and `Ctrl+Shift+R` navigate the current result set forward and backward; these local actions are reserved even under Kitty keyboard disambiguation and never enqueue PTY bytes. Search is exact and case-sensitive over each physical row's stored anchor glyphs, including retained primary scrollback and the active screen. It has a 1,024-byte query bound and retains at most 256 overlapping matches in oldest-to-newest order. A match that begins or ends inside a multibyte glyph maps to the entire anchor cell, including a wide cell's continuation footprint.
+`Ctrl+Shift+F` / macOS Command+F opens a title-bar query. `search-regex`
+(palette, Ctrl+Shift+Alt+F, macOS Command+Option+F) selects regex mode; Alt+R
+toggles mode while editing. Enter / Shift+Enter submits forward/backward;
+Escape clears Find, including pending jobs. Find captures text, paste, controls
+and corresponding releases before child keyboard encoding, including Kitty
+report-all-keys/associated-text modes. Opening shortcuts still follow the
+host's existing application-owned keyboard policy; native palette/menu actions
+remain available. Ctrl+Shift+G / Ctrl+Shift+R navigate completed results.
+
+Literal matching uses Unicode-scalar KMP; regex uses a resumable Thompson NFA
+with leftmost-longest semantics. Matching is case-sensitive without normalization.
+Stored grapheme text is joined across soft-wrapped rows; hard newlines separate
+logical lines. Erased trailing padding is excluded, while printed spaces remain.
+Results map to full grapheme cell footprints and may span physical rows. Existing
+stored gaps before a wide character wraps are still part of the logical text.
+
+Queries are limited to 1,024 bytes. Regex limits are 512 states, 32 group levels
+and repetition counts through 128. Supported syntax includes classes, anchors,
+groups, alternation, greedy quantifiers, ASCII character classes and word
+boundaries. Lookaround, backreferences, lazy quantifiers and Unicode properties
+are rejected with editable errors. Each logical line has at most 65,536 scalars;
+search retains at most 256 results and executes at most 33,554,432 work units.
+Literal matches may overlap; regex advances past each match, including zero-width
+progress. A reached bound is a visible partial-result status, never a silent
+complete-result claim. Zero-width matches highlight one boundary cell.
+
+WGPU shares at most 4,096 search operations per event-loop iteration across its
+panes; GTK GL advances the selected session. Minimized windows suspend search
+work. Jobs contain copyable resumable data and bounded scratch buffers, without
+retaining a second document or borrowed terminal rows across yields. Generations
+cancel changed documents; configuration transactions can copy pending work.
 
 The result state is separate from selection. It records its search generation, so terminal-content, scrollback, or resize changes make it explicitly `stale` instead of navigating an inferred result. Empty and no-match queries are likewise explicit. Navigating a retained primary result moves only `history_offset` to reveal that row; it does not alter terminal content, selection endpoints, or terminal input. `terminal.search` exposes count, current index/status, bounded visible range descriptors, and a current viewport range but no query text. The `terminal/search` alpha pass renders the current match after selection and before glyphs; `KIWI_SEARCH_COLOR` accepts `#RRGGBB` (default alpha `70`) or `#RRGGBBAA`, with default `#EBCB8B70`. Search-only input requests the `search` redraw reason without terminal/text damage. The full contract is [ADR 0024](adr/0024-bounded-scrollback-search.md).
 

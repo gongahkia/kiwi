@@ -333,7 +333,7 @@ configuration-reload-smoke: native terminfo
 pty-wake-smoke: native
 	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
 
-check: test test-fuzz test-pty test-pty-watch test-file-watch test-process-metrics terminfo
+check: test test-fuzz test-pty test-pty-watch test-file-watch test-process-metrics test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 
@@ -351,3 +351,11 @@ shader-smoke: native
 .PHONY: test-regex-oracle
 test-regex-oracle:
 	@./script/test-regex-oracle
+
+.PHONY: search-smoke
+search-smoke: native terminfo
+	./script/search-smoke
+
+.PHONY: bench-search
+bench-search: native
+	@$(LUAJIT) src/kiwi/bench/search.lua $(SEARCH_HISTORY)

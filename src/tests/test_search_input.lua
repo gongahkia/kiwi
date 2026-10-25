@@ -1,0 +1,69 @@
+local Assert = require("tests.assert")
+local State = require("kiwi.terminal.state")
+local Input = require("kiwi.input.search_input")
+local Clipboard = require("kiwi.input.clipboard")
+local Interaction = require("kiwi.app.interaction_actions")
+local keys = { press = 1, release = 0, repeat_action = 2, mod_shift = 1, mod_control = 2,
+  mod_alt = 4, mod_super = 8, key_escape = 256, key_enter = 257, key_backspace = 259, key_f3 = 292 }
+
+return {
+  find_text_ignores_child_protocol_encoding_and_keeps_unicode = function()
+    local state, input = State.new(80, 24), Input.new()
+    state.modes.keyboard_flags = 31
+    state:search_begin("forward", "regex")
+    local descriptor = input:key(state, string.byte("E"), keys.press, 0, keys)
+    Assert.truthy(descriptor.handled); Assert.equal(descriptor.suppress_text, false)
+    Assert.truthy(Input.text(state, { 0x65, 0x301, 0x4e2d }))
+    Assert.equal(state:search_view().query, "é中")
+    Assert.truthy(input:key(state, string.byte("E"), keys.release, 0, keys).handled)
+  end,
+  find_consumes_control_keys_and_releases_after_submit_and_escape = function()
+    local state, input = State.new(80, 24), Input.new()
+    state:search_begin("forward"); state:search_append("z")
+    Assert.truthy(input:key(state, string.byte("C"), keys.press, keys.mod_control, keys).suppress_text)
+    Assert.truthy(input:key(state, keys.key_enter, keys.press, 0, keys).handled)
+    Assert.equal(state:search_view().editing, false)
+    Assert.truthy(state:search_pending())
+    Assert.truthy(input:key(state, keys.key_enter, keys.release, 0, keys).handled)
+    Assert.truthy(input:key(state, keys.key_escape, keys.press, 0, keys).handled)
+    Assert.equal(state:search_pending(), false)
+    Assert.equal(state:search_view().active, false)
+    Assert.truthy(input:key(state, keys.key_escape, keys.release, 0, keys).handled)
+    Assert.equal(input:key(state, string.byte("X"), keys.press, 0, keys), nil)
+    Assert.equal(Input.text(state, { 0x78 }), false)
+  end,
+  find_mode_toggle_preserves_query_and_handles_invalid_expression = function()
+    local state, input = State.new(10, 2), Input.new()
+    state:search_begin("forward"); state:search_append("[")
+    input:key(state, string.byte("R"), keys.press, keys.mod_alt, keys)
+    Assert.equal(state:search_view().mode, "regex"); Assert.equal(state:search_view().query, "[")
+    local _, status = input:key(state, keys.key_enter, keys.press, 0, keys)
+    Assert.equal(status, "invalid-pattern"); Assert.truthy(Input.editing(state))
+    input:key(state, keys.key_backspace, keys.press, 0, keys)
+    Assert.equal(state:search_view().query, "")
+    Assert.truthy(input:key(state, string.byte("Q"), keys.press, keys.mod_alt + keys.mod_control, keys).handled)
+    Assert.equal(input:key(state, string.byte("Q"), keys.repeat_action, keys.mod_alt + keys.mod_control, keys).suppress_text, false)
+  end,
+  find_clipboard_uses_query_budget_and_never_sends_paste_to_the_child = function()
+    local state, budget = State.new(10, 2)
+    state.modes.bracketed_paste = true
+    local clipboard = Clipboard.new({ clipboard_write = function() return true end, clipboard_read = function(_, maximum)
+      budget = maximum; return "needle"
+    end })
+    Interaction.terminal("search-regex", state)
+    Assert.equal(state:search_view().mode, "regex")
+    state:search_append("^")
+    Assert.truthy(Interaction.terminal("paste", state, clipboard, function() error("query escaped to PTY") end))
+    Assert.equal(state:search_view().query, "^needle")
+    Assert.equal(budget, state.search.maximum_query_bytes - 1)
+    state:search_append(string.rep("x", state.search.maximum_query_bytes - #state.search.query))
+    Assert.equal(select(2, Input.paste(state, clipboard)), "over-limit")
+  end,
+  find_rejects_oversized_paste_without_truncating_utf8_or_query = function()
+    local state = State.new(10, 2)
+    state:search_begin("forward"); state:search_append("^")
+    local clipboard = Clipboard.new({ clipboard_write = function() return true end, clipboard_read = function() return string.rep("中", 400) end })
+    Assert.equal(select(2, Input.paste(state, clipboard)), "over_limit")
+    Assert.equal(state:search_view().query, "^")
+  end,
+}

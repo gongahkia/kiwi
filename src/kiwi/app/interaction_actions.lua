@@ -1,5 +1,6 @@
 -- Internal product-action catalogue shared by shortcuts, palettes and host adapters.
 local Interaction = {}
+local SearchInput = require("kiwi.input.search_input")
 Interaction.entries = {
   { id = 29, action = "previous-tab", kind = "workspace", title = "Previous Tab", description = "Focus the previous terminal tab." },
   { id = 30, action = "next-pane", kind = "workspace", title = "Next Pane", description = "Focus the next pane in layout order." },
@@ -33,6 +34,10 @@ for index = 1, 9 do
     title = "Go to Tab " .. index, description = "Focus tab " .. index .. " in this window.",
   }
 end
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 63, action = "search-regex", kind = "terminal", title = "Find Regular Expression",
+  description = "Search retained text using a bounded regular expression.",
+}
 Interaction.kinds = {}
 for _, entry in ipairs(Interaction.entries) do Interaction.kinds[entry.action] = entry.kind end
 
@@ -69,6 +74,7 @@ end
 function Interaction.terminal(action, state, clipboard, enqueue)
   if action == "copy" then return clipboard:copy(state) end
   if action == "paste" then
+    if SearchInput.editing(state) then return SearchInput.paste(state, clipboard) end
     local bytes, reason = clipboard:paste(state)
     if bytes == nil then return nil, reason end
     enqueue(bytes)
@@ -82,12 +88,13 @@ function Interaction.terminal(action, state, clipboard, enqueue)
   if action == "clear-scrollback" then return state:clear_scrollback() end
   if action == "select-all" then state:select_all(); return true end
   if action == "search" then state:search_begin("forward"); return true end
+  if action == "search-regex" then state:search_begin("forward", "regex"); return true end
   if action == "search-next" or action == "search-previous" then
     local direction = action == "search-next" and "forward" or "backward"
     local match, status
     if state:search_view().editing then match, status = state:search_submit(direction)
     else match, status = state:search_navigate(direction) end
-    if match == nil then return nil, status end
+    if match == nil then return status == "searching" or nil, status end
     return true
   end
   return nil, "unknown terminal action"
