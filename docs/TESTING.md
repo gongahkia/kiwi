@@ -51,6 +51,12 @@ Linux graphical checks are in the existing self-hosted desktop qualification
 workflow. Adding those gates is not evidence that they have run. The macOS
 workflow includes interaction and host-wake gates on Intel and Apple Silicon.
 
+Ubuntu 24.04 CI builds checksum-pinned GLFW 3.4 in a private prefix, with both
+X11 and Wayland enabled. Its `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH` are shared
+by subsequent build/test/package steps. The distribution's GLFW 3.3 cannot
+provide Kiwi's runtime platform-selection API. The README describes the same
+setup for local builds; the helper does not upgrade the system library.
+
 ## Interactive application regression gate
 
 `make test-applications` starts programs in a temporary working/configuration
