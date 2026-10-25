@@ -5,7 +5,7 @@ local Hints = {}
 Hints.__index = Hints
 Hints.alphabet = "asdfghjklqwertyuiopzxcvbnm"
 Hints.maximum_matches = 256
-Hints.maximum_cells = 262144
+Hints.maximum_work = 262144
 Hints.step_budget = 4096
 local prefixes = { ["https://"] = true, ["http://"] = true, ["mailto:"] = true }
 local punctuation = { ["."] = true, [","] = true, [";"] = true, [":"] = true, ["!"] = true, ["?"] = true }
@@ -47,7 +47,7 @@ function Hints:begin(state, action)
   -- A little context finds complete URLs crossing either viewport boundary.
   local context = Hyperlink.maximum_uri_bytes + 8
   self.job = { at = math.max(0, self.first - context), finish = math.min(document:count() * state.columns, self.finish + context),
-    probe = "", previous = nil, work = 0, phase = "scan" }
+    probe = "", validated = {}, work = 0, phase = "scan" }
   self.status, self.last_step_work = "scanning", 0
   self:changed()
   self:step(state)
@@ -100,9 +100,18 @@ function Hints:step(state, budget)
   end
   while self.job and self.last_step_work < budget do
     if #self.matches >= Hints.maximum_matches then self:finish_scan("match-limit"); break end
-    if job.work >= Hints.maximum_cells then self:finish_scan("scan-limit"); break end
+    if job.work >= Hints.maximum_work then self:finish_scan("scan-limit"); break end
     job.work, self.last_step_work = job.work + 1, self.last_step_work + 1
-    if job.phase == "trim" then
+    if job.validation then
+      local check = job.validation
+      if check.byte > #check.uri then
+        job.validated[check.id], job.validation = check.uri, nil
+      else
+        local byte = check.uri:byte(check.byte)
+        if byte <= 32 or byte >= 127 then job.validated[check.id], job.validation = false, nil
+        else check.byte = check.byte + 1 end
+      end
+    elseif job.phase == "trim" then
       local token, last = job.token, job.token.chars[#job.token.chars]
       if punctuation[last] or (last == ")" and token.round < 0) or (last == "]" and token.square < 0) then
         if last == ")" then token.round = token.round + 1 elseif last == "]" then token.square = token.square + 1 end
@@ -122,17 +131,24 @@ function Hints:step(state, budget)
       local current = row(index)
       if column == 0 and job.at ~= 0 and job.boundary ~= job.at and not row(index - 1).wrapped then
         job.boundary = job.at
-        explicit_finish(); job.probe, job.previous = "", nil
+        explicit_finish(); job.probe = ""
         if job.token and not job.token.overlong then job.phase = "trim" else job.token = nil end
       else
         local cell = current.cells[column]
         local id, text = cell.hyperlink_id, cell.glyph
         if job.explicit and job.explicit.id ~= id then explicit_finish() end
         if id then
-          job.token, job.probe, job.previous = nil, "", nil
+          job.token, job.probe = nil, ""
           if not job.explicit then
-            local link = state.hyperlinks[id]
-            if link and Hyperlink.validate_uri(link.uri) then job.explicit = { id = id, uri = link.uri, first = job.at } end
+            if job.validated[id] == nil then
+              local link = state.hyperlinks[id]
+              local uri = link and link.uri
+              local prefix = type(uri) == "string" and uri:sub(1, 7):lower() or ""
+              if type(uri) == "string" and #uri <= Hyperlink.maximum_uri_bytes
+                  and (prefix:sub(1, 5) == "http:" or prefix:sub(1, 6) == "https:" or prefix == "mailto:") then
+                job.validation = { id = id, uri = uri, byte = 1 }
+              else job.validated[id] = false end
+            elseif job.validated[id] then job.explicit = { id = id, uri = job.validated[id], first = job.at } end
           end
         elseif not cell.continuation then
           if job.token then
@@ -162,7 +178,7 @@ function Hints:step(state, budget)
           end
           job.original = ((job.original or "") .. text):sub(-8)
         else job.token, job.probe = nil, "" end
-        job.at = job.at + 1
+        if not job.validation then job.at = job.at + 1 end
       end
     end
   end
