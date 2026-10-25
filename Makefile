@@ -352,6 +352,11 @@ selection-smoke: native
 vi-smoke: native terminfo
 	./script/vi-smoke
 
+NAVIGATION_HISTORY ?= 10000
+.PHONY: bench-navigation
+bench-navigation: native
+	$(LUAJIT) src/kiwi/bench/navigation.lua $(NAVIGATION_HISTORY)
+
 .PHONY: shader-smoke
 shader-smoke: native
 	$(LUAJIT) src/kiwi/appearance_smoke.lua --opaque-only
