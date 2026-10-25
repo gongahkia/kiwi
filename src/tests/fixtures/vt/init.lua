@@ -2,6 +2,7 @@ return {
   require("tests.fixtures.vt.cursor_and_tabs"),
   require("tests.fixtures.vt.erase_and_edit"),
   require("tests.fixtures.vt.sgr_colours"),
+  require("tests.fixtures.vt.styled_underlines"),
   require("tests.fixtures.vt.colon_sgr_and_xtgettcap"),
   require("tests.fixtures.vt.wrap_and_scroll"),
   require("tests.fixtures.vt.margins_and_origin"),

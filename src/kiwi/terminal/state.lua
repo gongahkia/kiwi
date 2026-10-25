@@ -80,6 +80,9 @@ local function copy_cell(destination, source)
   destination.bg = source.bg
   destination.fg_slot = source.fg_slot
   destination.bg_slot = source.bg_slot
+  destination.underline_style = source.underline_style
+  destination.underline_color = source.underline_color
+  destination.underline_slot = source.underline_slot
   destination.flags = source.flags
   destination.codepoints = source.codepoints
   destination.width = source.width
@@ -104,6 +107,9 @@ local function same_cell(left, right)
     and left.bg == right.bg
     and left.fg_slot == right.fg_slot
     and left.bg_slot == right.bg_slot
+    and left.underline_style == right.underline_style
+    and left.underline_color == right.underline_color
+    and left.underline_slot == right.underline_slot
     and left.flags == right.flags
     and left.width == right.width
     and left.continuation == right.continuation
@@ -277,7 +283,7 @@ function State:new_screen()
 end
 
 function State:cell_from_attributes(glyph, metadata)
-  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
+  local foreground, background, flags, foreground_slot, background_slot, underline_style, underline_color, underline_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   metadata = metadata or {}
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
@@ -287,6 +293,9 @@ function State:cell_from_attributes(glyph, metadata)
     bg = background,
     fg_slot = foreground_slot,
     bg_slot = background_slot,
+    underline_style = underline_style,
+    underline_color = underline_color,
+    underline_slot = underline_slot,
     flags = flags,
     codepoints = metadata.codepoints,
     width = metadata.width or 1,
@@ -298,7 +307,7 @@ function State:cell_from_attributes(glyph, metadata)
 end
 
 function State:ascii_cell(glyph, codepoints)
-  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
+  local foreground, background, flags, foreground_slot, background_slot, underline_style, underline_color, underline_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
   return {
@@ -307,6 +316,9 @@ function State:ascii_cell(glyph, codepoints)
     bg = background,
     fg_slot = foreground_slot,
     bg_slot = background_slot,
+    underline_style = underline_style,
+    underline_color = underline_color,
+    underline_slot = underline_slot,
     flags = flags,
     codepoints = codepoints,
     width = 1,
@@ -316,7 +328,7 @@ function State:ascii_cell(glyph, codepoints)
 end
 
 function State:set_ascii_cell(column, row, glyph, codepoints)
-  local foreground, background, flags, foreground_slot, background_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
+  local foreground, background, flags, foreground_slot, background_slot, underline_style, underline_color, underline_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   local target = self.active_screen:get(column, row)
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
@@ -325,6 +337,9 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
     and target.bg == background
     and target.fg_slot == foreground_slot
     and target.bg_slot == background_slot
+    and target.underline_style == underline_style
+    and target.underline_color == underline_color
+    and target.underline_slot == underline_slot
     and target.flags == flags
     and target.codepoints == codepoints
     and target.width == 1
@@ -339,6 +354,9 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
   target.bg = background
   target.fg_slot = foreground_slot
   target.bg_slot = background_slot
+  target.underline_style = underline_style
+  target.underline_color = underline_color
+  target.underline_slot = underline_slot
   target.flags = flags
   target.codepoints = codepoints
   target.width = 1
@@ -1222,6 +1240,9 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     bg = cell.bg,
     fg_slot = cell.fg_slot,
     bg_slot = cell.bg_slot,
+    underline_style = cell.underline_style,
+    underline_color = cell.underline_color,
+    underline_slot = cell.underline_slot,
     flags = cell.flags,
     codepoints = codepoints,
     width = old_width,
@@ -1425,6 +1446,9 @@ function State:normalize_row(row_index)
           bg = anchor.bg,
           fg_slot = anchor.fg_slot,
           bg_slot = anchor.bg_slot,
+          underline_style = anchor.underline_style,
+          underline_color = anchor.underline_color,
+          underline_slot = anchor.underline_slot,
           flags = anchor.flags,
           width = 0,
           continuation = true,
@@ -1440,6 +1464,9 @@ function State:normalize_row(row_index)
           bg = cell.bg,
           fg_slot = cell.fg_slot,
           bg_slot = cell.bg_slot,
+          underline_style = cell.underline_style,
+          underline_color = cell.underline_color,
+          underline_slot = cell.underline_slot,
           flags = cell.flags,
           codepoints = cell.codepoints,
           width = 1,
@@ -1455,6 +1482,9 @@ function State:normalize_row(row_index)
             bg = cell.bg,
             fg_slot = cell.fg_slot,
             bg_slot = cell.bg_slot,
+            underline_style = cell.underline_style,
+            underline_color = cell.underline_color,
+            underline_slot = cell.underline_slot,
             flags = cell.flags,
             width = 0,
             continuation = true,
@@ -1854,6 +1884,7 @@ function State:is_reflow_blank(cell)
     and cell.display_text == nil
     and cell.hyperlink_id == nil
     and cell.flags == 0
+    and cell.underline_color == nil
     and cell.fg == self.default_cell.fg
     and cell.bg == self.default_cell.bg
     and cell.fg_slot == self.default_cell.fg_slot
@@ -2134,23 +2165,43 @@ local function apply_colon_sgr(state, action)
   if action.private ~= "" or action.intermediates ~= "" or action.final ~= "m" then return false end
   local groups = action.parameter_groups
   if groups == nil then groups = { action.parameters } end
+  local normalized, index = {}, 1
+  while index <= #groups do
+    local group = groups[index]
+    if #group == 1 and (group[1] == 38 or group[1] == 48 or group[1] == 58) then
+      local mode = groups[index + 1]
+      if not mode or #mode ~= 1 or (mode[1] ~= 2 and mode[1] ~= 5) then return false end
+      local count = mode[1] == 2 and 5 or 3
+      local combined = { group[1] }
+      for offset = 1, count - 1 do
+        local part = groups[index + offset]
+        if not part or #part ~= 1 then return false end
+        combined[#combined + 1] = part[1]
+      end
+      group = combined
+      index = index + count
+    else
+      index = index + 1
+    end
+    normalized[#normalized + 1] = group
+  end
   local operations = {}
-  for _, group in ipairs(groups) do
+  for _, group in ipairs(normalized) do
     local first = group[1]
-    if #group == 1 and first ~= 38 and first ~= 48 then
+    if #group == 1 and first ~= 38 and first ~= 48 and first ~= 58 then
       operations[#operations + 1] = { kind = "sgr", value = first }
     elseif first == 4 and #group == 2 and group[2] >= 0 and group[2] <= 5 then
-      operations[#operations + 1] = { kind = "underline", value = group[2] ~= 0 }
-    elseif (first == 38 or first == 48) and group[2] == 5 and #group == 3 and group[3] >= 0 and group[3] <= 255 then
-      operations[#operations + 1] = { channel = first == 38 and "fg" or "bg", kind = "indexed", value = group[3] }
-    elseif (first == 38 or first == 48) and group[2] == 2 then
+      operations[#operations + 1] = { kind = "underline", value = group[2] }
+    elseif (first == 38 or first == 48 or first == 58) and group[2] == 5 and #group == 3 and group[3] >= 0 and group[3] <= 255 then
+      operations[#operations + 1] = { channel = first == 38 and "fg" or first == 48 and "bg" or "underline_color", kind = "indexed", value = group[3] }
+    elseif (first == 38 or first == 48 or first == 58) and group[2] == 2 then
       local offset = #group == 6 and group[3] == 0 and 4 or 3
       if #group ~= offset + 2 or group[offset] < 0 or group[offset] > 255 or group[offset + 1] < 0 or group[offset + 1] > 255 or group[offset + 2] < 0 or group[offset + 2] > 255 then
         return false
       end
       operations[#operations + 1] = {
         blue = group[offset + 2],
-        channel = first == 38 and "fg" or "bg",
+        channel = first == 38 and "fg" or first == 48 and "bg" or "underline_color",
         green = group[offset + 1],
         kind = "rgb",
         red = group[offset],
@@ -2164,9 +2215,8 @@ local function apply_colon_sgr(state, action)
     if operation.kind == "sgr" then
       attributes = Attributes.apply_sgr(attributes, { operation.value })
     elseif operation.kind == "underline" then
-      -- Kiwi has one underline rendering mode. Retain the semantic underline
-      -- without pretending to draw curl, dots, or dashes differently.
-      attributes.underline = operation.value
+      attributes.underline = operation.value ~= 0
+      attributes.underline_style = operation.value ~= 0 and operation.value or nil
     elseif operation.kind == "indexed" then
       attributes[operation.channel] = { kind = "indexed", index = operation.value }
     else
@@ -2182,7 +2232,7 @@ local function sgr_status(attributes)
   if attributes.bold then parameters[#parameters + 1] = 1 end
   if attributes.faint then parameters[#parameters + 1] = 2 end
   if attributes.italic then parameters[#parameters + 1] = 3 end
-  if attributes.underline then parameters[#parameters + 1] = 4 end
+  if attributes.underline then parameters[#parameters + 1] = (attributes.underline_style or 1) == 1 and 4 or "4:" .. attributes.underline_style end
   if attributes.inverse then parameters[#parameters + 1] = 7 end
   if attributes.concealed then parameters[#parameters + 1] = 8 end
   if attributes.strike then parameters[#parameters + 1] = 9 end
@@ -2210,6 +2260,11 @@ local function sgr_status(attributes)
   end
   append_colour(attributes.fg, true)
   append_colour(attributes.bg, false)
+  local underline = attributes.underline_color
+  if underline then
+    parameters[#parameters + 1] = underline.kind == "indexed" and ("58:5:" .. underline.index)
+      or string.format("58:2::%d:%d:%d", underline.red, underline.green, underline.blue)
+  end
   return #parameters == 0 and "0m" or table.concat(parameters, ";") .. "m"
 end
 
@@ -3057,6 +3112,11 @@ function State:refresh_palette_slots(change)
         cell.bg = self.colors:indexed(background_index)
         changed = true
       end
+      local underline_index = cell.underline_slot and cell.underline_slot - 1
+      if underline_index ~= nil and changed_indexes[underline_index] then
+        cell.underline_color = self.colors:indexed(underline_index)
+        changed = true
+      end
     end
     if refresh_foreground and cell.fg_slot == 0 then
       cell.fg = self.colors.foreground
@@ -3073,6 +3133,10 @@ function State:refresh_palette_slots(change)
       end
       if cell.bg_slot and cell.bg_slot > 0 then
         cell.bg = self.colors:indexed(cell.bg_slot - 1)
+        changed = true
+      end
+      if cell.underline_slot and cell.underline_slot > 0 then
+        cell.underline_color = self.colors:indexed(cell.underline_slot - 1)
         changed = true
       end
     end

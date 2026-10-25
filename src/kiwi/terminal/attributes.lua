@@ -185,7 +185,10 @@ function Attributes.resolve(value, palette)
   if value.concealed then flags = flags + Attributes.flags.concealed end
   if value.strike then flags = flags + Attributes.flags.strike end
   if value.protected then flags = flags + Attributes.flags.protected end
-  return foreground, background, flags, foreground_slot, background_slot
+  local underline_color, underline_slot
+  if value.underline_color then underline_color, underline_slot = palette:resolve_color(value.underline_color, "foreground") end
+  return foreground, background, flags, foreground_slot, background_slot,
+    value.underline and (value.underline_style or 1) or nil, underline_color, underline_slot
 end
 
 function Attributes.apply_sgr(current, parameters)
@@ -205,6 +208,7 @@ function Attributes.apply_sgr(current, parameters)
       current.italic = true
     elseif parameter == 4 or parameter == 21 then
       current.underline = true
+      current.underline_style = parameter == 21 and 2 or 1
     elseif parameter == 7 then
       current.inverse = true
     elseif parameter == 8 then
@@ -218,6 +222,7 @@ function Attributes.apply_sgr(current, parameters)
       current.italic = false
     elseif parameter == 24 then
       current.underline = false
+      current.underline_style = nil
     elseif parameter == 27 then
       current.inverse = false
     elseif parameter == 28 then
@@ -236,8 +241,10 @@ function Attributes.apply_sgr(current, parameters)
       current.fg = nil
     elseif parameter == 49 then
       current.bg = nil
-    elseif parameter == 38 or parameter == 48 then
-      local target = parameter == 38 and "fg" or "bg"
+    elseif parameter == 59 then
+      current.underline_color = nil
+    elseif parameter == 38 or parameter == 48 or parameter == 58 then
+      local target = parameter == 38 and "fg" or parameter == 48 and "bg" or "underline_color"
       local mode = parameters[index + 1]
       if mode == 5 and parameters[index + 2] and parameters[index + 2] >= 0 and parameters[index + 2] <= 255 then
         current[target] = { kind = "indexed", index = parameters[index + 2] }
@@ -245,6 +252,10 @@ function Attributes.apply_sgr(current, parameters)
       elseif mode == 2 and parameters[index + 4] and parameters[index + 2] >= 0 and parameters[index + 2] <= 255 and parameters[index + 3] >= 0 and parameters[index + 3] <= 255 and parameters[index + 4] >= 0 and parameters[index + 4] <= 255 then
         current[target] = { kind = "rgb", red = parameters[index + 2], green = parameters[index + 3], blue = parameters[index + 4] }
         index = index + 4
+      elseif mode == 2 or mode == 5 then
+        -- Consume a malformed colour group so its channels cannot become
+        -- unrelated SGR actions (e.g. an invalid colour enabling bold).
+        index = math.min(#parameters, index + (mode == 2 and 4 or 2))
       end
     end
     index = index + 1

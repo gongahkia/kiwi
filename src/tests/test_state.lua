@@ -147,11 +147,12 @@ return {
     Assert.equal(background, original_background)
     Assert.equal(Snapshot.value(state).modes.reverse_video, false)
   end,
-  terminal_state_accepts_colon_form_sgr_underline_without_claiming_style_variants = function()
+  terminal_state_preserves_colon_form_sgr_underline_styles = function()
     local state = State.new(4, 1)
     state:apply(Actions.csi({ 4, 3 }, "", "", "m", true))
     state:write_codepoint("U")
     Assert.equal(state:get(0, 0).flags, State.flags.underline)
+    Assert.equal(state:get(0, 0).underline_style, 3)
     state:apply(Actions.csi({ 4, 0 }, "", "", "m", true))
     state:write_codepoint("N")
     Assert.equal(state:get(1, 0).flags, 0)

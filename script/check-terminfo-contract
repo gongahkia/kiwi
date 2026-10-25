@@ -20,6 +20,14 @@ readonly LUAJIT_BIN=${LUAJIT:-luajit}
   print -n -- R
   TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput setrgbb 68 85 102
   print -n -- b
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput Smulx 3
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput Setulc 1223476
+  print -n -- U
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput sitm
+  print -n -- I
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput ritm
+  TERM=xterm-kiwi TERMINFO="$TERMINFO_DIR" tput rmul
+  print -n -- N
 } | LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;" "$LUAJIT_BIN" "$ROOT/src/kiwi/terminfo_contract.lua"
 
-print "Kiwi terminfo contract passed: 256 indexed and direct RGB sequences reach terminal state."
+print "Kiwi terminfo contract passed: indexed/RGB colours, styled/coloured underlines and italic reach terminal state."

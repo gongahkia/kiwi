@@ -67,6 +67,18 @@ artificial bold brightening. If the face budget is exhausted, primary text
 remains visible with its regular style. Tests verify real Menlo/DejaVu faces,
 synthetic bitmap differences, style-separated fallback and run boundaries.
 
+Single, double, curly, dotted and dashed underlines use cell-sized alpha masks
+in the same bounded atlas and 48-byte glyph records as text. Masks cover blank
+and wide continuation cells and retain phase across fallback runs. Strike and
+hyperlink affordances use the same path. SGR 58/59 select/reset an independent
+indexed or RGB underline colour; default underlines follow the presentation
+foreground, while an explicit colour survives reverse video. The protocol
+follows [Kitty's underline specification](https://sw.kovidgoyal.net/kitty/underlines/).
+Deterministic tests cover styles, palette changes, reflow and mask geometry.
+`make underline-framebuffer-smoke` verifies independently coloured underlines
+on spaces through native readback; visual qualification of every style and
+scale across hosts remains required.
+
 Rasterization is by **glyph ID**, not the first Unicode scalar. The dynamic grayscale atlas has one 1024×1024 `r8unorm` page, a default 8,192-entry bound, and a 512-pixel bitmap-dimension bound. It keys entries by face ID, glyph ID, size, and raster mode. Least-recently-used unpinned glyphs are evicted under pressure. A coalescing rectangle allocator reuses space without moving live glyph coordinates. Each layout pins its unchanged rows before shaping changed rows, and other panes retain independent pins. Destroying a layout or replacing its font releases its pins; weak owner references also protect against abandoned layouts. An atlas generation upload currently sends the whole alpha page; this is simple and bounded but is an acknowledged performance limitation.
 
 The cache remembers bounded permanent rasterization failures. Capacity failures are temporary and never enter that negative cache. If the simultaneous pinned working set exceeds available space, Kiwi uses the existing `?` fallback or omits the glyph and records a capacity failure. Affected rows retry after space is released. Unsupported bitmap formats, missing fonts and glyph-instance overflow also retain bounded fallback behavior. Tests cover entry/page exhaustion, stable pixels across panes, released owners, repeated churn and recovery after clearing a large output stream.

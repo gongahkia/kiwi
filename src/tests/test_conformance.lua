@@ -151,6 +151,13 @@ local function assert_expected(fixture, state, parser)
     if cell_expected.default_fg then
       Assert.equal(cell.fg, Attributes.default_foreground, fixture.id .. " default foreground")
     end
+    if cell_expected.underline_style then
+      Assert.equal(cell.underline_style, cell_expected.underline_style, fixture.id .. " underline style")
+    end
+    if cell_expected.underline_color then
+      local color = cell_expected.underline_color
+      Assert.equal(cell.underline_color, require("kiwi.terminal.color").pack(color.red, color.green, color.blue, 255), fixture.id .. " underline colour")
+    end
     if cell_expected.fg then
       local foreground = Attributes.resolve({ fg = cell_expected.fg })
       Assert.equal(cell.fg, foreground, fixture.id .. " cell foreground")
