@@ -46,7 +46,13 @@ end
 function Input.title(state, fallback)
   local search, vi = state:search_view(), state:vi_view()
   if vi.active and not search.editing and not state:search_pending() then
-    return Vi.title(vi, fallback) .. (search.match_count > 0 and ("; match " .. search.current_index .. "/" .. search.match_count) or "")
+    local title = Vi.title(vi, fallback)
+    if search.active and search.visible then
+      if search.status == "matches" then return title .. "; match " .. search.current_index .. "/" .. search.match_count end
+      if search.status == "stale" then return title .. "; Find: output changed; restart query" end
+      return title .. (search.truncated and "; Partial Find: " or "; Find: ") .. (search.error or search.status:gsub("-", " "))
+    end
+    return title
   end
   return Search.title(search, Vi.title(vi, fallback))
 end
