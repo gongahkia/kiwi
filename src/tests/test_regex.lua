@@ -71,6 +71,13 @@ return {
     Assert.truthy(large < small * 11, "nested repeats grew faster than the input")
     Assert.truthy(large < 40000, "nested repeats exceeded the expected NFA work bound")
   end,
+  regex_finishes_the_long_ambiguous_case_that_stalls_the_glibc_oracle = function()
+    local pattern = "(([ab]{0,2}|.{0,2})?(b|.)|((b{0,2}|[^c]*){0,2}|(c{0,2}|[ab]?){1,3})+){1,3}"
+    local text = "zcazbbcczccbczcbcbbazcbzabbaczbaba"
+    local first, last, steps = find(pattern, text, 17)
+    Assert.equal(first, 1); Assert.equal(last, #text)
+    Assert.truthy(steps < 20000)
+  end,
   literal_matcher_keeps_regex_punctuation_literal_and_avoids_quadratic_prefixes = function()
     local first, last = find("[a]+", "x[a]+y", 1, true)
     Assert.equal(first, 2); Assert.equal(last, 5)
