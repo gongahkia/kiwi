@@ -1182,12 +1182,13 @@ function Controller.run(window, host, options)
       local text = Keyboard.text_sequence(codepoints, state.modes)
       handle_committed_text(text)
     end, function(key, action, modifiers, variants)
-      local search_key = handle_search_key(key, action, modifiers)
-      if search_key then renderer:invalidate("search"); return search_key end
       if handle_workspace_key(key, action, modifiers) then
+        search_input:claim(key)
         options.application:mark_layout_dirty()
         return { handled = true, suppress_text = true }
       end
+      local search_key = handle_search_key(key, action, modifiers)
+      if search_key then renderer:invalidate("search"); return search_key end
       if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
         return { handled = true, defer_text = true }
       end

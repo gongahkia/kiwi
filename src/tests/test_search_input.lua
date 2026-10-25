@@ -43,6 +43,14 @@ return {
     Assert.equal(input:key(state, string.byte("X"), keys.press, 0, keys), nil)
     Assert.equal(input:key(state, string.byte("X"), keys.release, 0, keys), nil)
   end,
+  product_actions_claim_repeats_and_releases_when_they_submit_find = function()
+    local state, input = State.new(10, 2), Input.new()
+    state:search_begin("forward"); state:search_append("z")
+    Interaction.terminal("search-next", state)
+    input:claim(string.byte("G"))
+    Assert.truthy(input:key(state, string.byte("G"), keys.repeat_action, keys.mod_super, keys).suppress_text)
+    Assert.truthy(input:key(state, string.byte("G"), keys.release, keys.mod_super, keys).handled)
+  end,
   find_mode_toggle_preserves_query_and_handles_invalid_expression = function()
     local state, input = State.new(10, 2), Input.new()
     state:search_begin("forward"); state:search_append("[")
