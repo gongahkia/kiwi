@@ -2,6 +2,30 @@ local Assert = require("tests.assert")
 local Options = require("kiwi.app.options")
 
 return {
+  explicit_launch_intent_cannot_restore_or_overwrite_saved_shells = function()
+    local configured = function() return "1" end
+    for _, arguments in ipairs({ { "--", "sh", "-c", "printf ok" }, { "--working-directory", "/tmp/work dir" } }) do
+      local options = Options.parse(arguments, configured)
+      Assert.equal(options.layout_restore, false)
+      Assert.equal(options.layout_persistence, false)
+    end
+    local options = Options.parse({}, function() return nil end)
+    Assert.equal(options.layout_restore, true)
+    Assert.equal(options.layout_persistence, true)
+  end,
+  launch_options_validate_paths_and_preserve_command_arguments = function()
+    for _, arguments in ipairs({ { "--" }, { "--", "" }, { "--", "sh\0bad" },
+      { "--working-directory", "relative" }, { "--working-directory", "/bad\npath" },
+      { "--working-directory", "/" .. string.rep("a", 2048) } }) do
+      Assert.equal(pcall(Options.parse, arguments), false)
+    end
+    local options = Options.parse({ "--working-directory", "/tmp/work dir", "--", "sh", "-c", "printf 'a\nb'", "" })
+    Assert.equal(options.initial_cwd, "/tmp/work dir")
+    Assert.equal(options.command[3], "printf 'a\nb'")
+    Assert.equal(options.command[4], "")
+    Assert.equal(Options.parse({ "-h" }).help, true)
+    Assert.equal(Options.parse({ "--help" }).help, true)
+  end,
   application_options_map_only_the_documented_configuration_flags = function()
     local options = Options.parse({
       "--theme", "dracula",

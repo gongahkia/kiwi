@@ -1,8 +1,4 @@
 local Build = require("kiwi.build")
-local Demo = require("kiwi.app.demo")
-local HostController = require("kiwi.app.host_controller")
-local LayoutStore = require("kiwi.session.layout_store")
-local LiveWindowManager = require("kiwi.app.window_manager")
 local Options = require("kiwi.app.options")
 local Replay = require("kiwi.terminal.replay")
 local Snapshot = require("kiwi.terminal.snapshot")
@@ -15,16 +11,25 @@ local function run_replay(path)
   io.stderr:write(string.format("Kiwi replay: bytes=%d actions=%d errors=%d\n", stats.bytes, stats.actions, stats.errors))
 end
 
-local options = Options.parse(arg, os.getenv, Build.info().release_mode)
-if options.version then
+local parsed, options = pcall(Options.parse, arg, os.getenv, Build.info().release_mode)
+if not parsed then
+  io.stderr:write("Kiwi: ", tostring(options):gsub("^.-:%d+: ", ""), "\n")
+  os.exit(2)
+end
+if options.help then
+  io.stdout:write(Options.help)
+elseif options.version then
   io.stdout:write(Build.format(Build.info()), "\n")
 elseif options.release_mode and options.demo then
   error("--demo is unavailable in release mode")
 elseif options.replay then
   run_replay(options.replay)
 elseif options.demo then
-  Demo.run()
+  require("kiwi.app.demo").run()
 else
+  local HostController = require("kiwi.app.host_controller")
+  local LayoutStore = require("kiwi.session.layout_store")
+  local LiveWindowManager = require("kiwi.app.window_manager")
   local requested_host = os.getenv("KIWI_HOST") or "glfw"
   local Host
   if requested_host == "glfw" then

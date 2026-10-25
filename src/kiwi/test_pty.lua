@@ -81,6 +81,15 @@ test("pty_starts_a_child_in_a_validated_local_working_directory", function()
   Assert.truthy(not pcall(Pty.spawn, { "/bin/sh" }, 16, 4, { TERM = "xterm-kiwi" }, { cwd = "relative" }))
 end)
 
+test("pty_missing_working_directory_fails_without_executing_the_command", function()
+  local transcript, _, status = pump({ "/bin/sh", "-c", "printf COMMAND_MUST_NOT_RUN" }, 80, 4, nil, nil,
+    { cwd = "/kiwi-nonexistent-working-directory/child" })
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 126)
+  Assert.truthy(transcript:find("cannot enter the requested working directory", 1, true))
+  Assert.equal(transcript:find("COMMAND_MUST_NOT_RUN", 1, true), nil)
+end)
+
 test("pty_read_budget_preserves_all_output_across_multiple_polls", function()
   local pty = Pty.spawn({ "/bin/sh", "-c", "printf 'abcdefghijklmnopqrstuvwxyz'" }, 16, 4, { TERM = "xterm-kiwi" })
   local transcript = ""
