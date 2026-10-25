@@ -158,6 +158,7 @@ function Controller.run_native_tabs(window, host, options)
     appearance = system_appearance,
     command_line_overrides = options.configuration_overrides,
   })
+  assert(configuration.background_opacity == 1, "background-opacity is unavailable in the experimental GTK GL presenter")
   local enabled, enable_reason = window:enable_native_tabs()
   assert(enabled, "GTK native tabs could not be enabled: " .. tostring(enable_reason))
   local tab_group = GtkNativeTabGroup.new(window)
@@ -355,6 +356,7 @@ function Controller.run(window, host, options)
       appearance = system_appearance,
       command_line_overrides = options.configuration_overrides,
     })
+    assert(configuration.background_opacity == 1, "background-opacity is unavailable in the experimental GTK GL presenter")
     font = new_font(window, configuration)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")

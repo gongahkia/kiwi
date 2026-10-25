@@ -339,3 +339,7 @@ check: test test-fuzz test-pty test-pty-watch test-file-watch test-process-metri
 
 clean:
 	./script/clean
+
+.PHONY: appearance-smoke
+appearance-smoke: native
+	$(LUAJIT) src/kiwi/appearance_smoke.lua

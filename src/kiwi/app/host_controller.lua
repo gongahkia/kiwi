@@ -93,6 +93,7 @@ local function renderer_options(runtime_options, configuration)
     pass_budgets_enabled = not release_mode and os.getenv("KIWI_PASS_BUDGETS") == "1",
     inspector_enabled = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR") == "1",
     inspector_selected_pass = not release_mode and os.getenv("KIWI_RENDER_INSPECTOR_PASS") or nil,
+    background_opacity = configuration.background_opacity,
     selection_color = configuration.selection_color,
     search_color = configuration.search_color,
     hyperlink_color = configuration.hyperlink_color,
@@ -215,6 +216,7 @@ function Controller.run(window, host, options)
     local TextInspector = require("kiwi.diagnostics.text_inspector")
     local PollSchedule = require("kiwi.app.poll_schedule")
     local context_options = {
+      background_opacity = configuration.background_opacity,
       framebuffer_capture = os.getenv("KIWI_FRAMEBUFFER_CAPTURE") == "1",
       framebuffer_expected_rgb = os.getenv("KIWI_FRAMEBUFFER_EXPECT_RGB"),
       gpu_timestamps = not options.release_mode and os.getenv("KIWI_GPU_TIMESTAMPS") == "1",
@@ -743,7 +745,11 @@ function Controller.run(window, host, options)
         local ready, message = pcall(host.configure_host_effects, window, reloaded)
         if not ready then plan:abort(); return nil, tostring(message) end
       end
+      local effect_ok, effect = pcall(context.prepare_effects, context, reloaded)
+      if not effect_ok then plan:abort(); return nil, tostring(effect) end
       plan:activate()
+      context:set_effects(effect)
+      context_options.background_opacity = reloaded.background_opacity
       font = plan.font
       configuration, configuration_path = reloaded, path
       configuration.host_effects = candidate_effects

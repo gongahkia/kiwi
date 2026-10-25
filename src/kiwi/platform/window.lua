@@ -134,6 +134,7 @@ function Window.new(width, height, title, options)
   glfw.lib.glfwWindowHint(glfw.constants.resizable, glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.visible, options.visible == false and glfw.constants.no or glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.scale_framebuffer, glfw.constants.yes)
+  glfw.lib.glfwWindowHint(glfw.constants.transparent_framebuffer, glfw.constants.yes)
   local handle = glfw.lib.glfwCreateWindow(width, height, title, nil, nil)
   if handle == nil then
     if live_windows == 0 then glfw.lib.glfwTerminate() end
@@ -484,6 +485,10 @@ function Window:cocoa_window_is_standalone()
   if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
   if native.kiwi_cocoa_window_is_standalone(self.handle) ~= 0 then return true end
   return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:has_transparent_framebuffer()
+  return glfw.lib.glfwGetWindowAttrib(self.handle, glfw.constants.transparent_framebuffer) ~= 0
 end
 
 function Window:cocoa_select_window_tab(index)

@@ -82,7 +82,7 @@ typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; size_t co
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandEncoderDescriptor;
 typedef struct { WGPUChainedStruct* nextInChain; WGPUStringView label; } WGPUCommandBufferDescriptor;
 typedef struct { uint64_t frame; uint32_t pass_index; uint64_t begin_ticks; uint64_t end_ticks; uint64_t map_latency_ns; } KiwiTimestampSample;
-typedef struct { uint64_t frame; uint64_t checksum; uint64_t opaque_pixels; uint64_t red_dominant_pixels; uint64_t blue_dominant_pixels; uint64_t expected_rgb_pixels; uint32_t modal_rgb; uint64_t modal_rgb_pixels; } KiwiFramebufferSample;
+typedef struct { uint64_t frame; uint64_t checksum; uint64_t opaque_pixels; uint64_t fully_opaque_pixels; uint64_t transparent_pixels; uint64_t red_dominant_pixels; uint64_t blue_dominant_pixels; uint64_t expected_rgb_pixels; uint32_t modal_rgb; uint64_t modal_rgb_pixels; } KiwiFramebufferSample;
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor);
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallbackInfo callbackInfo);

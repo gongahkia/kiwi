@@ -178,6 +178,8 @@ typedef struct KiwiFramebufferSample {
   uint64_t frame;
   uint64_t checksum;
   uint64_t opaque_pixels;
+  uint64_t fully_opaque_pixels;
+  uint64_t transparent_pixels;
   uint64_t red_dominant_pixels;
   uint64_t blue_dominant_pixels;
   uint64_t expected_rgb_pixels;
@@ -939,6 +941,8 @@ int kiwi_framebuffer_capture_poll(KiwiFramebufferCapture *capture, KiwiFramebuff
         result.checksum ^= alpha;
         result.checksum *= UINT64_C(1099511628211);
         if (alpha > 0) result.opaque_pixels += 1;
+        if (alpha == 255) result.fully_opaque_pixels += 1;
+        if (alpha == 0) result.transparent_pixels += 1;
         if (red >= 160 && (int)red >= (int)green + 48 && (int)red >= (int)blue + 48) result.red_dominant_pixels += 1;
         if (blue >= 160 && (int)blue >= (int)red + 48 && (int)blue >= (int)green + 48) result.blue_dominant_pixels += 1;
         if (capture->expected_rgb_enabled

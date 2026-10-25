@@ -1391,12 +1391,15 @@ WGPUSurface kiwi_surface_from_glfw(WGPUInstance instance, GLFWwindow *window) {
     } else {
       view.wantsLayer = YES;
       layer = [CAMetalLayer layer];
-      layer.opaque = YES;
+      layer.opaque = NO;
       layer.contentsScale = view.window.backingScaleFactor > 0.0 ? view.window.backingScaleFactor : 1.0;
       layer.drawableSize = CGSizeMake(view.bounds.size.width * layer.contentsScale, view.bounds.size.height * layer.contentsScale);
       view.layer = layer;
     }
 
+    layer.opaque = NO;
+    view.window.opaque = NO;
+    view.window.backgroundColor = [NSColor clearColor];
     WGPUSurfaceSourceMetalLayer source = WGPU_SURFACE_SOURCE_METAL_LAYER_INIT;
     WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
     source.layer = (__bridge void *)layer;
