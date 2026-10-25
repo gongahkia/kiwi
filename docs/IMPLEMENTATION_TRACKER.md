@@ -279,3 +279,12 @@ and both macOS CI jobs now run the gate and upload bounded evidence separately
 from temporary keys/configuration. The report is
 `evidence/2026-10-25-macos-ssh-applications.json`. This qualifies loopback TCP
 sessions, not heterogeneous remote hosts, adverse networks, or terminfo upload.
+
+### Child terminal identity
+
+Both application presenters now provide `TERM_PROGRAM=Kiwi` and the build
+version instead of inheriting the launcher's terminal identity. The interactive
+test harness uses the same environment builder. A real-PTY assertion passed
+with deliberately conflicting parent identity/version values; all 17 PTY
+checks, 306 headless checks, eight local application workflows and the live
+macOS interaction/rollback smoke passed.

@@ -23,8 +23,9 @@ make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
 make run ARGS='--theme dracula --font-size 18 -- /bin/zsh -l'
 ```
 
-The child receives `TERM=xterm-kiwi`, `TERMINFO=$PWD/.build/terminfo`, and
-`COLORTERM=truecolor`. Kiwi owns the version-controlled
+The child receives `TERM=xterm-kiwi`, `TERMINFO=$PWD/.build/terminfo`,
+`COLORTERM=truecolor`, `TERM_PROGRAM=Kiwi`, and the project version in
+`TERM_PROGRAM_VERSION`. Kiwi owns the version-controlled
 [terminfo source](terminfo/kiwi.ti); build and inspect it with:
 
 ```sh

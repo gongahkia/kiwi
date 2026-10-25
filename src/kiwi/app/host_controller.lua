@@ -256,11 +256,7 @@ function Controller.run(window, host, options)
     local terminfo_directory = os.getenv("KIWI_TERMINFO") or root .. "/.build/terminfo"
     local integration_directory = os.getenv("KIWI_INTEGRATION_DIR") or root .. "/integrations/v1"
     local function spawn_child(command, child_columns, child_rows, cwd)
-      local environment = {
-        TERM = "xterm-kiwi",
-        TERMINFO = terminfo_directory,
-        COLORTERM = "truecolor",
-      }
+      local environment = require("kiwi.process.environment").terminal(terminfo_directory)
       if command == nil and configuration.shell_integration == "auto" then
         local integration_environment
         command, integration_environment = ShellIntegration.prepare(Pty.default_command(), integration_directory)
