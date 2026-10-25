@@ -13,13 +13,14 @@ jobs:
     name: check (Apple Silicon)
     runs-on: macos-15
     env:
-      KIWI_REQUIRE_SHELLS: bash,zsh,fish
+      KIWI_REQUIRE_SHELLS: bash,zsh,fish,nu
+      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: verify runner architecture
         run: test "$(uname -m)" = arm64
       - name: install build dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish tmux neovim
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish nushell tmux neovim
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke
       - name: upload interactive application evidence
@@ -36,6 +37,9 @@ jobs:
   intel-compatibility:
     name: daily-driver compatibility (Intel)
     runs-on: macos-15-intel
+    env:
+      KIWI_REQUIRE_SHELLS: bash,zsh,fish,nu
+      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: verify runner architecture

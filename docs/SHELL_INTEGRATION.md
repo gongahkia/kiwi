@@ -136,7 +136,7 @@ or remote terminal library.
 The deterministic suite sources every supported shell installed on the host in
 a disposable interactive shell, captures the documented OSC byte stream, and
 feeds it through Kiwi's parser and command-region model. Nushell-specific
-checks are skipped only when `nu` is unavailable:
+checks are skipped only when `nu` is unavailable.
 
 The scripts and uninstall checks have been exercised with fish 4.9.3 and
 Nushell 0.116.1 on Intel macOS. Nushell configuration lookup uses optional cell
