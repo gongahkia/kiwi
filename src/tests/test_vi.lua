@@ -179,6 +179,16 @@ return {
     state.vi:inline(state, "中", 1, true, nil, true); finish(state)
     Assert.equal(state:vi_view().status, "not-found")
   end,
+  vi_inline_repeat_tracks_retained_line_identity_after_eviction = function()
+    local state, terminal = fixture("old\r\nabxbx\r\nlast", 5, 2, 1)
+    move(state, "down"); move(state, "first")
+    state.vi:inline(state, "x", 1, true); finish(state)
+    Assert.equal(state:vi_view().column, 1)
+    terminal:write("\r\nnew")
+    Assert.equal(state:vi_view().row_index, 1)
+    state.vi:inline(state, "x", 1, true, nil, true); finish(state)
+    Assert.equal(state:vi_view().column, 3)
+  end,
   vi_jobs_cancel_on_output_and_can_be_copied_transactionally = function()
     local state, terminal = fixture(string.rep("a", 6000), 100, 70)
     state.vi:motion(state, "word-end")

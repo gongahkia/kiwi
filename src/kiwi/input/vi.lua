@@ -207,6 +207,7 @@ function Vi:remap(scope, mapper)
   if not self.cursor then self.active, self.visual, self.anchor = false, nil, nil end
   if self.visual == "block" or not self.anchor then self.visual, self.anchor = nil, nil end
   self.preferred_column = self.cursor and self.cursor.column or 0
+  if self.last_inline and self.last_inline.found then self.last_inline.found = mapper(self.last_inline.found) end
   self.job, self.status = nil, "resized"
   self.selection_job = nil
 end
@@ -347,7 +348,7 @@ function Vi:step(state, budget)
       local before_row, before_column = job.row, job.column
       if not advance(spec.direction, "soft") then self.job, self.status = nil, "not-found"
       elseif point(cell()) == spec.point then
-        if not spec.skip or spec.skip.row_index ~= job.row or spec.skip.column ~= job.column then
+        if not spec.skip or spec.skip.line_id ~= row(job.row).line_id or spec.skip.column ~= job.column then
           if job.remaining == 1 and spec.till then
             spec.found = position(job.row, job.column, row(job.row).line_id)
             job.row, job.column = before_row, before_column
