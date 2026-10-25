@@ -51,8 +51,8 @@ make run
 ```
 
 The current Intel macOS source build, deterministic checks and bounded native
-interactions have [recorded evidence](TESTING.md). See [MACOS.md](MACOS.md) for the support boundary, runtime
-dependencies, and unverified areas.
+interactions have [recorded evidence](TESTING.md). See [MACOS.md](MACOS.md) for
+the support boundary, runtime dependencies, and unverified areas.
 
 To display a remote PNG, APNG, or GIF, run the explicit URL helper from inside
 that Kiwi shell. It fetches only a user-supplied HTTPS URL and then sends

@@ -19,28 +19,30 @@ its SHA-256, and `make native` creates `.build/native/libkiwi_surface.dylib`.
 `make release` writes a deterministically ad-hoc-signed, unnotarized local
 `kiwi-<version>-macos-<architecture>.tar.gz`; it contains both `bin/kiwi` and
 `Kiwi.app`. Use `./script/build_and_run.sh` for a project-local `.app` launch
-path, or the Codex Run action configured in `.codex/environments/`.
+path.
 
 The packaged and source launchers require the Homebrew LuaJIT, GLFW, FreeType,
-HarfBuzz, Fontconfig, giflib, and libpng runtimes. The runtime checks standard Homebrew `opt` paths when a library is installed
-but not globally linked; custom platform loader paths retain precedence.
+HarfBuzz, Fontconfig, giflib, and libpng runtimes. The runtime checks standard
+Homebrew `opt` paths when a library is installed but not globally linked; custom platform loader paths retain precedence.
 The app bundle's in-process
 LuaJIT host accepts `KIWI_LUAJIT_LIB` for a nonstandard LuaJIT library location.
 
 ## Boundaries and verification
 
-The verified local checks are `make check`,
-`make release-check`, and a bounded `make run` Metal smoke. They cover the
-native build, terminal PTY lifecycle, artifact reproducibility, and a
-live GLFW/Cocoa/Metal render path.
+The current local Intel checks cover `make check`, live interaction and
+PTY-wake smokes, and bounded Cocoa/Metal bridges. `make release-check` verified
+archive reproducibility and the extracted CLI launcher before the dictionary
+check stopped: `sdp` requires full Xcode, which this host does not have. The
+aggregate Cocoa smoke has the same limitation. See [TESTING.md](TESTING.md) for
+the individual passing checks and explicit exclusions.
 
 `make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/compatibility.json'`
 adds bounded tmux, shell-integration, OSC 8, Neovim, Vim, `top`, private
 pasteboard, and optional controlled-SSH evidence. The repository's
 `macos-15-intel` CI job is the Intel x86_64 collection path; it verifies the
 architecture before running the same suite. It must complete successfully
-before Intel macOS can be described as qualified. Local Intel evidence now includes source build, unit/PTY checks and bounded
-Cocoa/Metal interaction. This does not establish complete Intel desktop
+before Intel macOS can be described as qualified. Local Intel evidence now
+includes source build, unit/PTY checks and bounded Cocoa/Metal interaction. This does not establish complete Intel desktop
 qualification or replace the CI application corpus.
 
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
