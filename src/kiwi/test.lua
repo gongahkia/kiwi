@@ -58,6 +58,7 @@ local tests = {
   require("tests.test_scrollback_wheel"),
   require("tests.test_scrollbar"),
   require("tests.test_selection"),
+  require("tests.test_history_actions"),
   require("tests.test_selection_pointer"),
   require("tests.test_selection_renderer"),
   require("tests.test_clipboard"),
