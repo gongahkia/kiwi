@@ -45,10 +45,10 @@ def --env __kiwi_nu_enable [] {
   if (($env.KIWI_SHELL_INTEGRATION? | default '') != '1') { return }
   if ($env.__kiwi_nu_active? | default false) { return }
 
-  let config = ($env | get -i config | default {})
-  let hooks = ($config | get -i hooks | default {})
-  let prompt_hooks = ($hooks | get -i pre_prompt | default [])
-  let execution_hooks = ($hooks | get -i pre_execution | default [])
+  let config = ($env.config? | default {})
+  let hooks = ($config.hooks? | default {})
+  let prompt_hooks = ($hooks.pre_prompt? | default [])
+  let execution_hooks = ($hooks.pre_execution? | default [])
   $env.__kiwi_nu_hooks_before = $hooks
   $env.__kiwi_nu_prompt_seen = false
   $env.__kiwi_nu_active = true
