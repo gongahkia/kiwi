@@ -1,6 +1,7 @@
 local ffi = require("ffi")
 local glfw = require("kiwi.ffi.glfw")
 local Correlation = require("kiwi.input.correlation")
+local PtyWatch = require("kiwi.process.pty_watch")
 
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
@@ -679,7 +680,13 @@ function Window:time()
   return glfw.lib.glfwGetTime()
 end
 
+function Window:watch_ptys(ptys)
+  if self.pty_watch == nil then self.pty_watch = PtyWatch.new(native, native.kiwi_surface_create_pty_watch) end
+  self.pty_watch:update(ptys)
+end
+
 function Window:destroy()
+  if self.pty_watch then self.pty_watch:destroy(); self.pty_watch = nil end
   self.input_correlation:flush()
   if self.cocoa_text_input ~= nil then
     native.kiwi_cocoa_text_input_destroy(self.cocoa_text_input)

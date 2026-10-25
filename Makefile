@@ -294,7 +294,11 @@ profile-text:
 bench-compare:
 	./script/compare-bench "$(BASELINE)" "$(CANDIDATE)"
 
-check: test test-fuzz test-pty terminfo
+.PHONY: test-pty-watch
+test-pty-watch:
+	./script/test-pty-watch
+
+check: test test-fuzz test-pty test-pty-watch terminfo
 	./script/check
 
 clean:

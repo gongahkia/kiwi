@@ -1300,9 +1300,12 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
       local budget_exhausted = false
+      local watched_ptys = {}
       for _, pane in pairs(workspace.panes) do
-        if pane.session.pty.read_budget_exhausted then budget_exhausted = true break end
+        watched_ptys[#watched_ptys + 1] = pane.session.pty
+        if pane.session.pty.read_budget_exhausted then budget_exhausted = true end
       end
+      if window.watch_ptys then window:watch_ptys(watched_ptys) end
       local requested_wait = PollSchedule.timeout(now, deadline, budget_exhausted, window.minimized)
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do

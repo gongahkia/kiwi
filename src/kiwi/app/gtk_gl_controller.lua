@@ -298,10 +298,13 @@ function Controller.run_native_tabs(window, host, options)
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local timeout = 0.050
+      local watched_ptys = {}
       for _, session in ipairs(sessions) do
+        watched_ptys[#watched_ptys + 1] = session.pty
         local deadline = session:next_deadline()
         timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted, window.minimized))
       end
+      if window.watch_ptys then window:watch_ptys(watched_ptys) end
       if host.await_events and options.application then
         host.await_events(options.application, window, math.max(0, timeout))
       else
@@ -691,6 +694,7 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = consumer:next_render_deadline()
       local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
+      if window.watch_ptys then window:watch_ptys({ pty }) end
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
       else
