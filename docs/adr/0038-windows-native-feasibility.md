@@ -2,20 +2,21 @@
 
 ## Research result
 
-The current Fedora host has `x86_64-w64-mingw32-gcc` 15.2.1, but no Wine/Wine64
+The Fedora host used for the original feasibility probe had `x86_64-w64-mingw32-gcc` 15.2.1, but no Wine/Wine64
 runtime and no MinGW GLFW development package. A Windows syntax probe of
 `native/surface.c` therefore stopped at the missing target `GLFW/glfw3.h`.
-The checked-in wgpu dependency is a Linux x86_64 archive containing only
-`libwgpu_native.so`/`.a`; it cannot link a Windows executable. This is build
+The wgpu dependency available to that probe was a Linux x86_64 archive
+containing only `libwgpu_native.so`/`.a`; it could not link a Windows executable. This is build
 evidence only. **No access** to a Windows desktop, DX12 adapter, ConPTY host,
 Windows font stack, clipboard, IME, or accessibility tooling was available.
 
-The existing bridge is intentionally incompatible with a direct Windows build:
+The current process bridge is incompatible with a direct Windows build:
 it includes POSIX process/TTY headers, uses `forkpty`, `execvpe`, `waitpid`,
 signals, `fcntl`, `TIOCSWINSZ`, `nanosleep`, GLFW Wayland/X11 native handles,
-and forces `WGPUBackendType_Vulkan`. `src/kiwi/process/pty.lua` exposes those
+and platform-specific Vulkan/Metal surface setup. `src/kiwi/process/pty.lua` exposes those
 POSIX C entry points through LuaJIT FFI. `FontSystem` relies on Fontconfig; the
-Linux bootstrap and build scripts pin/download only Linux artifacts.
+bootstrap and build scripts cover Linux and macOS artifacts but no Windows
+artifact. The new POSIX readiness watcher also needs a Windows equivalent.
 
 Upstream wgpu lists Windows DX12 as first-class support and publishes Windows
 native binaries, including an x64 GNU build. That establishes a plausible
@@ -61,8 +62,8 @@ The recommendation is **defer** [issue #145](https://github.com/gongahkia/kiwi/i
 The refactor is feasible in bounded seams, but a cross compiler without the
 target dependencies or a Windows runtime cannot validate the hard requirements.
 Do not introduce a guessed ConPTY FFI, Windows package, or DX12 surface before
-the matrix has a real Windows host. `make check` remains the Linux regression
-gate only; it cannot prove Windows support.
+the matrix has a real Windows host. `make check` remains a Linux/macOS regression
+gate; it cannot prove Windows support.
 
 ## References
 

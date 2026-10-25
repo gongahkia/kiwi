@@ -1,10 +1,9 @@
 # Kiwi user guide
 
-Kiwi is a rendering-first terminal research platform for Linux x86_64 and a
-verified macOS arm64 source path. It is useful for evaluating the implemented
-terminal and renderer contracts, but it is not presented as a daily-driver
-terminal emulator or a complete VT/xterm-compatible terminal. Read the
-[conformance matrix](CONFORMANCE.md) before depending on a protocol feature.
+Kiwi is an experimental GPU-accelerated terminal application for Linux and
+macOS. It runs local shells and programs with tabs, splits, Unicode text,
+scrollback, search and shell integration. The [product parity assessment](PRODUCT_PARITY.md)
+distinguishes implemented behavior from desktop qualification and remaining work.
 
 ## Install and start
 
@@ -38,7 +37,7 @@ location and `make run` sets the project-local terminfo path for its child.
 
 ### macOS source checkout
 
-The verified macOS path is macOS 26.5.2 on Apple Silicon. It shares the terminal
+The macOS build supports Intel and Apple Silicon targets. It shares the terminal
 kernel and text stack with Linux, but presents through GLFW Cocoa,
 `CAMetalLayer`, and Metal:
 
@@ -51,8 +50,8 @@ make check
 make run
 ```
 
-The macOS x86_64 bootstrap selection exists but has not been compiled or run on
-an Intel Mac. See [MACOS.md](MACOS.md) for the support boundary, runtime
+The current Intel macOS source build, deterministic checks and bounded native
+interactions have [recorded evidence](TESTING.md). See [MACOS.md](MACOS.md) for the support boundary, runtime
 dependencies, and unverified areas.
 
 To display a remote PNG, APNG, or GIF, run the explicit URL helper from inside
@@ -576,3 +575,17 @@ ends while preserving printed spaces and Unicode grapheme text.
 `make interaction-smoke` exercises live pane creation, focus, resizing, zoom,
 font reset, and search through the native action bridge. It requires a graphical
 session and always disables layout restore and persistence.
+
+## Explicit launches
+
+`kiwi --working-directory /absolute/path -- command args...` starts that command
+in that directory. Arguments after `--` are passed unchanged, including spaces
+and empty arguments. A nonexistent directory exits the child with status 126
+before executing the command. A relative working directory or empty command
+is an argument error. `--help` and `--version` work without opening a window or
+loading native graphics libraries.
+
+An explicit command or working directory disables saved-layout restore and
+persistence for that launch, so saved shells cannot replace the requested work
+and a temporary command cannot overwrite the user's normal workspace topology.
+Omit both to retain the normal restore behavior.

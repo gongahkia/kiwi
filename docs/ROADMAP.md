@@ -1,8 +1,10 @@
 # Kiwi roadmap
 
 The daily-driver compatibility ledger is Kiwi's release contract. This roadmap
-records the work sequence toward a Ghostty-class native terminal without
-relabeling already implemented work as future milestones.
+records the work sequence toward a dependable everyday terminal. The
+[product parity assessment](PRODUCT_PARITY.md) compares the reference products,
+identifies current gaps and ranks their engineering complexity. The standalone
+terminal SDK has been removed; the application is the product.
 
 ## Foundations — complete
 
@@ -20,7 +22,7 @@ declared complete.
 
 - Keep `make native`, `make test`, `make check`, and `make release-check`
   runnable from a clean supported host.
-- Publish MIT-licensed, source-backed Linux x86_64 and macOS arm64 artifacts
+- Publish source-backed Linux x86_64 and macOS arm64 artifacts
   from version-matched Git tags.
 - Retain explicit platform, signing, and manual-qualification limits.
 
@@ -69,6 +71,13 @@ declared complete.
   handles. See [NATIVE_HOSTS.md](NATIVE_HOSTS.md).
 
 ## R3 — daily-driver desktop contract
+
+Implemented in the application pass: explicit launch/cwd precedence, previous
+tab and directional/cyclic pane focus, bounded divider resizing, equalization,
+pane zoom, runtime font sizing, macOS Command shortcuts, menu/palette text
+operations, history-only erase, padding-aware copy, event-driven PTY wakeups,
+and headless/native regression gates. See [TESTING.md](TESTING.md) for evidence.
+
 
 - Qualify tabs, splits, windows, recovery, clipboard, IME, accessibility,
   configuration, themes, and system appearance on every claimed platform.

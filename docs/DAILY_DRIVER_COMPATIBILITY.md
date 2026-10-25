@@ -18,13 +18,22 @@ enough to support an interactive terminal behavior.
 | planned | Accepted work with no supported user-facing behavior yet. |
 | manual | Automation exists only as a supplement; the named manual validation is still required. |
 
+## Application improvement evidence (2026-10-25)
+
+The [test record](TESTING.md) adds local Intel macOS source/native evidence and
+regression coverage for launch precedence, pane geometry/focus/zoom, font sizing,
+history/copy semantics and PTY readiness. The [parity assessment](PRODUCT_PARITY.md)
+lists the remaining product and engineering gaps. These additions do not promote
+all existing partial rows to supported, establish Linux desktop qualification,
+or add Windows support.
+
 ## Release and platform contract
 
 | Capability | Linux x86_64 | macOS arm64 | Evidence | Status / exclusions |
 | --- | --- | --- | --- | --- |
 | Source build, native surface, PTY, terminfo | supported in the documented Fedora-oriented source environment | supported in the documented Homebrew source environment | `make check`, `make test-pty` | **Partial:** clean-host qualification remains required. |
 | Local reproducible release archive | supported | supported | `make release-check` rebuilds, compares, checksums, extracts, and invokes the release launcher | **Partial:** macOS launcher is deterministically ad-hoc signed only; Developer ID signing and notarization are absent. |
-| Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and no Intel macOS result. |
+| Normal application launch | Linux desktop entry is packaged | development and extracted release `Kiwi.app` are launched through `open` | `make cocoa-smoke`, `make release-check` | **Partial:** no automated Linux desktop-session launch and broader Intel desktop qualification remains open. |
 | Resize and clipboard bridge | GLFW and GTK4 adapters | GLFW Cocoa plus private Cocoa pasteboard smoke; GTK bounded clipboard bridge | `make cocoa-smoke`; `make daily-driver-compatibility COMPAT_ARGS='--host gtk'` | **Partial:** Linux public clipboard behavior requires manual user validation. |
 | Presentation lifecycle | the WGPU presenter checks the current drawable size before every surface acquisition and reconfigures on a size change; host callbacks are detached before PTY/session teardown | Cocoa/Metal route needs current native verification | `make test`; `make device-loss-sim`; `make device-soak-native`; GTK Wayland/X11 and Cocoa smoke routes | **Partial:** deterministic lifecycle coverage includes zero-size drawables, missed resize notifications, configured recovery, and callback teardown. Linux WGPU device-loss simulation is available; GTK Wayland/X11, physical fractional-scale/monitor/occlusion transitions, and all current macOS results remain separately unqualified. Framebuffer readback is not colour-management evidence. |
 | Image composition | native surface smoke when a display is available | native Metal surface smoke | `make kitty-graphics-smoke`, `make kitty-animation-smoke`, `make kitty-framebuffer-smoke` | **Partial:** framebuffer readback asserts rendered PNG pixels and GIF/APNG red/blue frame changes; real application images still need manual qualification. |

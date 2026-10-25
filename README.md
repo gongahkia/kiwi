@@ -9,7 +9,8 @@ internal parts of the application.
 The product goal is a responsive, dependable everyday terminal. Windows is not
 yet supported, and Kiwi does not claim full VT/xterm or Ghostty parity. See the
 [daily-driver compatibility ledger](docs/DAILY_DRIVER_COMPATIBILITY.md) and
-[product roadmap](docs/ROADMAP.md) for implementation and qualification limits.
+[product parity assessment](docs/PRODUCT_PARITY.md), [test guide](docs/TESTING.md),
+and [product roadmap](docs/ROADMAP.md) for implementation and qualification limits.
 
 ## Current scope
 
@@ -17,6 +18,7 @@ yet supported, and Kiwi does not claim full VT/xterm or Ghostty parity. See the
 
 ```sh
 make run
+make run ARGS='--working-directory /absolute/path/to/project'
 make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
 make run ARGS='--theme dracula --font-size 18 -- /bin/zsh -l'
 ```
@@ -60,7 +62,9 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 
 ## macOS prerequisites
 
-The macOS source target is verified on macOS 26.5.2 Apple Silicon. Install the source dependencies with Homebrew, then build and run from the checkout:
+Source builds target Intel and Apple Silicon Macs. The current application pass
+was tested on macOS 15.7.7 Intel; see [the evidence record](docs/TESTING.md).
+Install the source dependencies with Homebrew, then build and run from the checkout:
 
 ```sh
 brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
@@ -68,7 +72,21 @@ make check
 make run
 ```
 
-Kiwi uses GLFW's Cocoa window, a `CAMetalLayer` WebGPU surface, and Metal; it retains FreeType/HarfBuzz for rasterization and shaping while Fontconfig provides the current font-discovery/fallback implementation. The matching macOS x86_64 bootstrap path exists but has not been validated on an Intel Mac. See [MACOS.md](docs/MACOS.md) for the supported boundary and verification status.
+Kiwi uses GLFW's Cocoa window, a `CAMetalLayer` WebGPU surface, and Metal; it retains FreeType/HarfBuzz for rasterization and shaping while Fontconfig provides the current font-discovery/fallback implementation. Intel source builds, unit/PTY tests, and bounded Cocoa/Metal interactions have local evidence; broader desktop qualification remains open. See [MACOS.md](docs/MACOS.md) for the supported boundary and verification status.
+
+## Everyday controls and verification
+
+The application now exposes directional pane focus, divider resizing, pane zoom,
+font increase/decrease/reset, select all, clear history, and history navigation
+through shortcuts and the command palette. macOS has Command-based copy/paste,
+search, tab/window, split and font controls. See the
+[shortcut table](docs/USER_GUIDE.md#everyday-pane-and-text-controls).
+
+`make test-core` requires only LuaJIT and standard shell utilities. `make check`
+adds real fonts, native boundaries, PTYs, fuzzing and terminfo checks. On a
+graphical desktop, `make interaction-smoke pty-wake-smoke` exercises the live
+controls and verifies that terminal output wakes the native host. These gates
+and their limits are documented in [TESTING.md](docs/TESTING.md).
 
 ## Local release artifact
 
@@ -115,9 +133,9 @@ flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
 the pinned-input update procedure and driver/display limitations.
 
 Arch/AUR publication is currently deferred pending the first public,
-immutable source release and an authorized AUR maintainer. Kiwi is MIT
-licensed; see [LICENSE](LICENSE), [RELEASES.md](docs/RELEASES.md), and
-[AUR.md](docs/AUR.md) for the release and packaging contracts.
+immutable source release and an authorized AUR maintainer. See
+[RELEASES.md](docs/RELEASES.md) and [AUR.md](docs/AUR.md) for the release and
+packaging contracts.
 
 For the supported source and artifact launch paths, environment-only
 configuration, safe-mode troubleshooting, maintained render-extension examples,
@@ -332,10 +350,6 @@ no Windows build or runtime support is claimed. The required native seams and
 validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
 
 macOS Metal/Cocoa support is implemented through a narrow Objective-C bridge and validated on an Apple-silicon host. It includes bounded `NSTextInputClient` preedit/commit handling, an `NSAccessibilityTextArea` adapter, and native AppKit tab containers: on macOS, `New Tab` creates a new GLFW/Cocoa controller that joins the AppKit group, while `New Window` is explicitly separate. Each native tab still renders Kiwi's custom split workspace; this is not native split content. `make cocoa-smoke`, `make cocoa-menu-smoke`, `make cocoa-toolbar-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those seams. Intel macOS, real input-source and VoiceOver interaction, interactive native tab behavior, Developer ID signing, and notarization remain unverified; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
-
-## License
-
-Kiwi is licensed under the [MIT License](LICENSE).
 
 ## Replay
 

@@ -1,6 +1,7 @@
 # macOS support
 
-Kiwi has a verified source-build path on macOS 26.5.2 Apple Silicon. It uses a
+Kiwi has source-build paths for Intel and Apple Silicon Macs. The current
+Intel macOS 15.7.7 checks are recorded in [TESTING.md](TESTING.md). It uses a
 GLFW Cocoa window, an Objective-C `CAMetalLayer` bridge, and wgpu-native's
 Metal backend; the terminal kernel, HarfBuzz shaping, FreeType rasterization,
 and renderer passes are shared with Linux.
@@ -13,15 +14,17 @@ make check
 make run
 ```
 
-`make bootstrap` downloads the pinned `wgpu-macos-aarch64-release.zip`, checks
+`make bootstrap` selects the pinned archive for the host architecture, checks
 its SHA-256, and `make native` creates `.build/native/libkiwi_surface.dylib`.
 `make release` writes a deterministically ad-hoc-signed, unnotarized local
-`kiwi-<version>-macos-arm64.tar.gz`; it contains both `bin/kiwi` and
+`kiwi-<version>-macos-<architecture>.tar.gz`; it contains both `bin/kiwi` and
 `Kiwi.app`. Use `./script/build_and_run.sh` for a project-local `.app` launch
 path, or the Codex Run action configured in `.codex/environments/`.
 
 The packaged and source launchers require the Homebrew LuaJIT, GLFW, FreeType,
-HarfBuzz, Fontconfig, giflib, and libpng runtimes. The app bundle's in-process
+HarfBuzz, Fontconfig, giflib, and libpng runtimes. The runtime checks standard Homebrew `opt` paths when a library is installed
+but not globally linked; custom platform loader paths retain precedence.
+The app bundle's in-process
 LuaJIT host accepts `KIWI_LUAJIT_LIB` for a nonstandard LuaJIT library location.
 
 ## Boundaries and verification
@@ -36,8 +39,9 @@ adds bounded tmux, shell-integration, OSC 8, Neovim, Vim, `top`, private
 pasteboard, and optional controlled-SSH evidence. The repository's
 `macos-15-intel` CI job is the Intel x86_64 collection path; it verifies the
 architecture before running the same suite. It must complete successfully
-before Intel macOS can be described as qualified. Current recorded native
-macOS evidence remains Apple Silicon.
+before Intel macOS can be described as qualified. Local Intel evidence now includes source build, unit/PTY checks and bounded
+Cocoa/Metal interaction. This does not establish complete Intel desktop
+qualification or replace the CI application corpus.
 
 `make cocoa-smoke` additionally round-trips a fixed UTF-8 string through a
 private AppKit pasteboard, checks the bounded `NSAccessibilityTextArea`

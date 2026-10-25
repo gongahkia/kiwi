@@ -3,8 +3,8 @@
 ## Decision
 
 Defer both a `PKGBUILD` and AUR publication until Kiwi has its first public,
-immutable source release. Kiwi is MIT licensed, but an AUR recipe still needs a
-public source tag and an authorized maintainer. This repository intentionally
+immutable source release. An AUR recipe needs a public source tag and an
+authorized maintainer. This repository intentionally
 contains no AUR remote, package upload automation, or telemetry.
 
 The decision is based on the repository state observed on 2026-08-11, not an
@@ -30,9 +30,9 @@ curl --location --silent --output /dev/null --write-out '%{http_code}\n' \
   https://codeload.github.com/gongahkia/kiwi/tar.gz/daf3a80a659ef419b9d1e3b312818e61a4312ef9
 ```
 
-Neither endpoint is a valid AUR source input in this state. Kiwi now includes
-an MIT `LICENSE`; public immutable source remains the outstanding distribution
-prerequisite.
+Neither endpoint was a valid AUR source input in that recorded state. Public
+source availability and distribution metadata must be checked against the
+release revision; this historical record does not establish current availability.
 
 `makepkg`, `namcap`, and an Arch Linux container image were unavailable in the
 validation environment. No local `makepkg` build was attempted because its
