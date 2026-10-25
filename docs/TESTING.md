@@ -77,6 +77,9 @@ search/page navigation; and system top filtered to its own process. Special
 keys and paste pass through the application's encoders. Readiness is observed
 from terminal output, saved files and foreground process groups, with bounded
 deadlines. Vim runs in normal Vim mode (`-N`) with user configuration disabled.
+Its version must identify Vim: on Linux the runner selects `vim.basic` if the
+system `vim` alternative invokes another editor. Set `KIWI_INTERACTIVE_VIM` to
+an explicit executable when needed. Substituting Neovim fails the Vim case.
 The explicit `nu` case exercises the same shell workflow with Nushell. The
 foreground job uses `/bin/sleep` so shells with different builtin sleep syntax
 all exercise external process-group interruption.

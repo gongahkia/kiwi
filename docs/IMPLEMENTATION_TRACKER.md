@@ -342,3 +342,12 @@ and macOS after the correction; each still checks live/replay equivalence.
 The Linux readiness watcher, inotify file watcher and process metrics also
 passed AddressSanitizer/UndefinedBehaviorSanitizer. The GTK native host compiled
 and passed its ABI check. These checks do not exercise a graphical compositor.
+
+### Editor identity validation
+
+Reviewing the Linux reports found that Ubuntu's `vim` alternative selected
+Neovim, so the first run exercised Neovim twice. The harness now checks Vim's
+version identity, selects `vim.basic` on Linux when necessary, and permits an
+explicit executable override. Actual Vim passed on Linux and macOS; a negative
+test explicitly selecting Neovim failed before spawning the wrong editor.
+The retained Linux application evidence must come from a rerun with this fix.
