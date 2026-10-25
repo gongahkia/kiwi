@@ -2851,6 +2851,14 @@ function State:apply_csi(action)
     self:set_modify_other_keys(action)
     return
   end
+  if action.private == "?" and action.intermediates == "" and final == "m" then
+    if #parameters == 1 and parameters[1] == 4 then
+      self:respond(string.format("\27[>4;%dm", self.modes.modify_other_keys))
+    else
+      self:record_unknown("csi", csi_detail(action))
+    end
+    return
+  end
   if action.private == ">" and action.intermediates == "" and final == "s" then
     self:set_mouse_shift_escape(action)
     return
@@ -2911,7 +2919,7 @@ function State:apply_csi(action)
     end
     return
   end
-  if action.private ~= "" then
+  if action.private ~= "" or action.intermediates ~= "" then
     self:record_unknown("csi", csi_detail(action))
     return
   end

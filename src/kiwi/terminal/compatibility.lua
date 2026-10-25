@@ -17,6 +17,7 @@ local Compatibility = {
     "device-status-attributes-and-read-only-geometry",
     "kiwi-version-and-configured-theme-reporting",
     "application-escape-key-mode",
+    "xterm-modify-other-keys-query",
     "mouse-focus-and-bracketed-paste",
     "xtshiftescape-host-selection-policy",
     "kitty-keyboard-flags-1-2-8-16",
