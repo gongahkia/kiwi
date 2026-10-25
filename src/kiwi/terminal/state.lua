@@ -192,6 +192,7 @@ function State.new(columns, rows, options)
     saved_private_modes = {},
     tab_stops = {},
     scrollback = Scrollback.new(options.scrollback_limit or 2000),
+    palette_generation = 0,
     search = Search.new(),
     search_generation = 0,
     selection = Selection.new(),
@@ -256,6 +257,7 @@ function State.new(columns, rows, options)
     end,
   })
   self:reset_tab_stops()
+  self:bind_scrollback()
   self.damage:mark_all()
   self.text_damage:mark_all()
   return self
@@ -533,11 +535,11 @@ function State:navigate_command_region(role, direction)
   return target.region, "navigated"
 end
 
-function State:selection_rows(scope)
+function State:selection_rows(scope, metadata_only)
   local rows = {}
   if scope == "primary" then
     for index = 1, self.scrollback:size() do
-      local row = self.scrollback:get(index)
+      local row = metadata_only and self.scrollback:peek(index) or self.scrollback:get(index)
       rows[#rows + 1] = { line_id = row.line_id, row = row }
     end
     for index = 0, self.rows - 1 do
@@ -717,7 +719,7 @@ end
 function State:selection_view()
   local scope = self.selection.scope
   if scope == nil then return { active = false, empty = true, visible = false } end
-  return self.selection:view(self:selection_rows(scope), self.columns, self:selection_scope())
+  return self.selection:view(self:selection_rows(scope, true), self.columns, self:selection_scope())
 end
 
 function State:selection_text(maximum_bytes)
@@ -964,6 +966,7 @@ function State:scroll_up(count)
     return
   end
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
+    row.palette_generation = self.palette_generation
     local evicted = self.scrollback:push(row)
     if evicted then
       self:release_command_regions(evicted)
@@ -1885,10 +1888,10 @@ function State:is_reflow_blank(cell)
     and cell.hyperlink_id == nil
     and cell.flags == 0
     and cell.underline_color == nil
-    and cell.fg == self.default_cell.fg
-    and cell.bg == self.default_cell.bg
     and cell.fg_slot == self.default_cell.fg_slot
     and cell.bg_slot == self.default_cell.bg_slot
+    and (cell.fg_slot ~= nil or cell.fg == self.default_cell.fg)
+    and (cell.bg_slot ~= nil or cell.bg == self.default_cell.bg)
 end
 
 function State:merge_reflow_row_metadata(target, source)
@@ -1932,7 +1935,7 @@ function State:can_keep_primary_rows_on_resize(columns, rows)
     return true
   end
   for index = 1, self.scrollback:size() do
-    if not fits(self.scrollback:get(index)) then return false end
+    if not fits(self.scrollback:peek(index)) then return false end
   end
   for row = 0, self.rows - 1 do
     if not fits(primary.rows[row]) then return false end
@@ -2100,6 +2103,7 @@ function State:resize(columns, rows, options)
   self.alternate = self.alternate:resize(columns, rows, blank)
   self.columns = columns
   self.rows = rows
+  self:bind_scrollback()
   self.primary.top_margin = 0
   self.primary.bottom_margin = rows - 1
   self.alternate.top_margin = 0
@@ -3102,6 +3106,27 @@ local function osc_fields(payload)
   return fields
 end
 
+function State:resolve_history_row(row)
+  if row.palette_generation == self.palette_generation then return end
+  for _, cell in pairs(row.cells) do
+    if cell.fg_slot ~= nil then
+      cell.fg = cell.fg_slot == 0 and self.colors.foreground or self.colors:indexed(cell.fg_slot - 1)
+    end
+    if cell.bg_slot ~= nil then
+      cell.bg = cell.bg_slot == 0 and self.colors.background or self.colors:indexed(cell.bg_slot - 1)
+    end
+    if cell.underline_slot and cell.underline_slot > 0 then
+      cell.underline_color = self.colors:indexed(cell.underline_slot - 1)
+    end
+  end
+  row.palette_generation = self.palette_generation
+end
+
+function State:bind_scrollback(owner)
+  owner = owner or self
+  self.scrollback.resolve_row = function(row) owner:resolve_history_row(row) end
+end
+
 function State:refresh_palette_slots(change)
   local changed_indexes = change.indexes
   if change.index ~= nil then changed_indexes = { [change.index] = true } end
@@ -3157,10 +3182,9 @@ function State:refresh_palette_slots(change)
   end
   refresh_rows(self.primary.rows, self.rows)
   refresh_rows(self.alternate.rows, self.rows)
-  for index = 1, self.scrollback:size() do
-    local row = self.scrollback:get(index)
-    for column = 0, self.columns - 1 do refresh(row.cells[column]) end
-  end
+  -- History is recoloured when read, using semantic palette slots. Retain
+  -- only the latest generation, regardless of how many OSC updates arrive.
+  self.palette_generation = self.palette_generation + 1
   if refresh_foreground then self.default_cell.fg = self.colors.foreground end
   if refresh_background then self.default_cell.bg = self.colors.background end
   if change.all_indexed or changed_indexes ~= nil or refresh_foreground or refresh_background then
@@ -3176,8 +3200,7 @@ function State:configure_palette(configuration)
   local previous_indexed = {}
   for index = 0, 255 do previous_indexed[index] = self.colors:indexed(index) end
   self.colors:configure(configuration)
-  self:refresh_palette_slots({ all_indexed = true })
-  self:refresh_palette_slots({ channels = { foreground = true, background = true } })
+  self:refresh_palette_slots({ all_indexed = true, channels = { foreground = true, background = true } })
   self:emit_effect("palette_changed", { configuration = true })
   local changed = previous_foreground ~= self.colors.foreground or previous_background ~= self.colors.background
   for index = 0, 255 do if previous_indexed[index] ~= self.colors:indexed(index) then changed = true; break end end

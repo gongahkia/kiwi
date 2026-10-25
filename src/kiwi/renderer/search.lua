@@ -43,7 +43,7 @@ end
 
 local function row_positions(model, scope)
   local positions = {}
-  for index, entry in ipairs(model:selection_rows(scope)) do
+  for index, entry in ipairs(model:selection_rows(scope, true)) do
     positions[entry.line_id] = index - 1
   end
   return positions

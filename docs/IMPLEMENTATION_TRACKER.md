@@ -364,3 +364,30 @@ times include replay verification and are not performance baselines. The source
 was a Git archive with `BUILD_REVISION`; report cleanliness is explicitly
 unavailable because there is no `.git` directory. Nushell and native desktop
 input/presentation were not exercised in this Linux run.
+
+### Palette reload without copying all retained cells
+
+Unchanged-geometry transactions now fork the scrollback ring and copy only
+accessed rows during staging. Activation transfers ownership of unread rows.
+History colours resolve from semantic palette slots on access, using one
+generation per row; repeated OSC updates do not accumulate deferred operations.
+Selection geometry reads row metadata without forcing colour resolution or
+cell copies. Screen cells and image residency remain independent, and reflow
+with pending colours cannot mutate borrowed source cells.
+
+Five new tests cover rollback, ring eviction/clear, selection, stale palette
+resolution across alternate screens and resize, literal RGB/underline colours,
+and staged reflow isolation. `make check` passed 538 tests across 115 suites,
+17 PTY checks and the remaining native/fuzz/CLI/syntax gates; core passed 311
+tests across 58 suites. Native macOS reload now starts with 200 history lines,
+views history during theme changes, and verifies updated visible colours.
+That smoke and the multi-pane GPU allocation-failure/interaction smoke passed.
+
+A fresh five-sample before/after benchmark at 10,000 history lines reduced
+palette staging wall p95 from 497.6 to 11.9 ms and additional sampled Lua heap
+from 352.6 to 4.3 MiB. Sampled process RSS fell from 826.1 to 498.1 MiB; retained
+history itself still consumes substantial memory. Font-change p95 remained
+poor (2,781 to 2,922 ms). These are CPU staging results, excluding GPU work and
+activation; deferred history-read costs need separate measurement. Raw reports:
+`evidence/2026-10-25-macos-reload-before-lazy-history.json` and
+`evidence/2026-10-25-macos-reload-lazy-history.json`.
