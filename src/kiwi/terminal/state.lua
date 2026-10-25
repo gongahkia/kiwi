@@ -764,14 +764,19 @@ end
 
 function State:invalidate_search()
   self.search_generation = self.search_generation + 1
+  self.search:invalidate()
 end
 
-function State:search_begin(direction)
-  self.search:begin(self:selection_scope(), direction or "forward")
+function State:search_begin(direction, mode)
+  self.search:begin(self:selection_scope(), direction or "forward", mode)
 end
 
 function State:search_append(text)
   return self.search:append(text)
+end
+
+function State:search_toggle_mode()
+  return self.search:toggle_mode()
 end
 
 function State:search_backspace()
@@ -785,10 +790,13 @@ end
 function State:reveal_search_match(match)
   if self.active_screen ~= self.primary then return false end
   local position
-  for index, entry in ipairs(self:selection_rows("primary")) do
-    if entry.line_id == match.line_id then
-      position = index - 1
-      break
+  if match.row_index then
+    local entry = self:search_row(match.row_index, "primary")
+    if entry and entry.line_id == match.line_id then position = match.row_index - 1 end
+  else
+    for index = 1, self.scrollback:size() + self.rows do
+      local entry = self:search_row(index, "primary")
+      if entry.line_id == match.line_id then position = index - 1; break end
     end
   end
   if position == nil then return false end
@@ -801,11 +809,28 @@ function State:reveal_search_match(match)
   return true
 end
 
-function State:search_submit(direction)
+function State:search_row(index, scope)
+  local row
+  if scope == "primary" then
+    local history = self.scrollback:size()
+    row = index <= history and self.scrollback:peek(index) or self.primary.rows[index - history - 1]
+  elseif scope == "alternate" then row = self.alternate.rows[index - 1] end
+  if row then return { line_id = row.line_id, row = row } end
+end
+
+function State:search_pending() return self.search.job ~= nil end
+
+function State:search_step(budget)
   local scope = self:selection_scope()
-  local match, status = self.search:submit(self:selection_rows(scope), self.columns, self.search_generation, scope, direction or "forward")
+  local match, status = self.search:step(function(index) return self:search_row(index, scope) end,
+    self.search_generation, scope, budget)
   if match then self:reveal_search_match(match) end
   return match, status
+end
+
+function State:search_submit(direction)
+  self.search:start(self.columns, self.search_generation, self:selection_scope(), direction or "forward")
+  return self:search_step()
 end
 
 function State:search_navigate(direction)
