@@ -32,7 +32,12 @@ function Input:key(state, key, action, modifiers, keys, clipboard)
     self.held[key] = nil
     return { handled = true, suppress_text = false }
   end
+  -- A fresh press replaces ownership left behind by a lost focus/release.
+  if action == keys.press then self.held[key] = nil end
   local view = state:search_view()
+  if action == keys.repeat_action and self.held[key] and not (view.editing and view.visible) then
+    return { handled = true, suppress_text = true }
+  end
   if not view.visible or not view.active then return nil end
   if not view.editing and key ~= keys.key_escape then return nil end
   if action == keys.release then return { handled = true, suppress_text = false } end
