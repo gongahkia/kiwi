@@ -67,6 +67,9 @@ function Input.command(state, text, clipboard, hyperlink)
       for _ = 1, steps do state:search_navigate(direction) end
     end
   elseif text == "\r" and hyperlink then
+    -- Output may have scrolled the stable vi cursor out of the viewport.
+    -- Reveal its row before resolving a viewport-relative OSC 8 link.
+    vi:reveal(state)
     local view = vi:view(state)
     local opened, status = hyperlink:activate(state:hyperlink_at(view.row, view.column))
     vi.status = opened and "opened-link" or status

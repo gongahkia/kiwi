@@ -117,6 +117,8 @@ return {
   vi_opens_only_the_explicit_hyperlink_at_its_cursor = function()
     local state, input, terminal = fixture()
     terminal:write("\27[H\27]8;;https://example.com\27\\linked\27]8;;\27\\")
+    terminal:write("\27[4;1Hnew\r\nnew\r\nnew\r\nnew")
+    Assert.truthy(state:vi_view().row < 0)
     local uri
     local hyperlink = require("kiwi.input.hyperlink").new({ open_uri = function(_, value) uri = value; return true end })
     input:key(state, keys.key_enter, keys.press, 0, keys, nil, hyperlink)
