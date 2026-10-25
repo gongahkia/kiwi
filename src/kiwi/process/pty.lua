@@ -151,7 +151,11 @@ function Pty.spawn(command, columns, rows, environment, options)
     error(errno_message("forkpty"))
   end
   if pid == 0 then
-    if cwd ~= nil then ffi.C.chdir(cwd) end
+    if cwd ~= nil and ffi.C.chdir(cwd) ~= 0 then
+      local message = "Kiwi: cannot enter the requested working directory\r\n"
+      ffi.C.write(2, message, #message)
+      ffi.C._exit(126)
+    end
     native.kiwi_execvpe(argv[0], argv, child_environment)
     ffi.C._exit(127)
   end

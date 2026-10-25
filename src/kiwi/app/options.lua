@@ -1,5 +1,34 @@
 local Options = {}
 
+Options.help = [=[Usage: kiwi [options] [-- command [args...]]
+
+Kiwi is an experimental GPU-accelerated terminal for Linux and macOS.
+Without a command, Kiwi starts your default shell.
+
+  -h, --help                  Show this help without opening a window
+  --version                   Show version and build information
+  --config PATH               Read a configuration file
+  --working-directory PATH    Start in an absolute directory
+  --theme NAME                Select a built-in theme
+  --theme-file PATH           Load a colour-only theme file
+  --appearance MODE           system, dark, or light
+  --font-family NAME          Select the primary font family
+  --font-size SIZE            Set font size (integer, 1–256)
+  --scrollback-limit ROWS     Set retained history size
+  --scrollbar POLICY          always or never
+  --shell-integration MODE    auto or none
+  --no-restore-layout         Start fresh without saving or restoring layout
+  --no-extensions             Disable trusted local renderer extensions
+  --record PATH               Record this terminal session for replay
+  --replay PATH               Replay a recording without a window
+
+Examples:
+  kiwi --theme dracula --font-size 18
+  kiwi --working-directory /path/to/project -- /bin/zsh -l
+
+Configuration and shortcuts: docs/USER_GUIDE.md
+]=]
+
 local configuration_options = {
   ["--appearance"] = "appearance",
   ["--font-family"] = "font-family",
@@ -21,10 +50,6 @@ local function option_value(arguments, index, option)
     if byte < 0x20 or byte == 0x7f then error(option .. " cannot contain control bytes") end
   end
   return value
-end
-
-local function option_summary()
-  return "--version, --demo, --config PATH, --theme NAME, --theme-file PATH, --appearance system|dark|light, --font-family NAME, --font-size POINTS, --scrollback-limit ROWS, --scrollbar always|never, --shell-integration auto|none, --no-extensions, --workspace-smoke, --menu-smoke, --toolbar-smoke, --cwd-smoke, --palette-smoke, --automation-smoke, --key-sequence-smoke, --multi-window-smoke, --session-move-smoke, --no-restore-layout, --inspect[=ROW,COLUMN], or -- <command> [args...]"
 end
 
 function Options.parse(arguments, environment, release_mode)
@@ -51,6 +76,12 @@ function Options.parse(arguments, environment, release_mode)
       options.demo = true
     elseif value == "--version" then
       options.version = true
+    elseif value == "--help" or value == "-h" then
+      options.help = true
+    elseif value == "--working-directory" then
+      options.initial_cwd = option_value(arguments, index, value)
+      assert(options.initial_cwd:sub(1, 1) == "/" and #options.initial_cwd <= 2048, "--working-directory needs an absolute path of at most 2048 bytes")
+      index = index + 1
     elseif value == "--no-extensions" then
       options.no_extensions = true
     elseif value == "--workspace-smoke" then
@@ -94,11 +125,20 @@ function Options.parse(arguments, environment, release_mode)
       for command_index = index + 1, #arguments do
         options.command[#options.command + 1] = arguments[command_index]
       end
+      assert(#options.command > 0 and options.command[1] ~= "", "-- needs a command")
+      for _, argument in ipairs(options.command) do
+        assert(type(argument) == "string" and not argument:find("\0", 1, true), "command arguments must be NUL-free strings")
+      end
       break
     else
-      error("unknown option: " .. value .. "; use " .. option_summary())
+      error("unknown option: " .. value .. "; use --help")
     end
     index = index + 1
+  end
+  -- An explicit launch intent must never silently restore unrelated shells.
+  if options.command or options.initial_cwd then
+    options.layout_restore = false
+    options.layout_persistence = false
   end
   if options.record or options.multi_window_smoke or options.session_move_smoke then
     options.layout_persistence = false
