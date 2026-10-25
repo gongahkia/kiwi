@@ -347,3 +347,7 @@ appearance-smoke: native
 .PHONY: shader-smoke
 shader-smoke: native
 	$(LUAJIT) src/kiwi/appearance_smoke.lua --opaque-only
+
+.PHONY: test-regex-oracle
+test-regex-oracle:
+	@./script/test-regex-oracle
