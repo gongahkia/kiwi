@@ -319,3 +319,13 @@ metrics, terminfo, fuzz, CLI and syntax checks. The old dependency is rejected
 before compilation; macOS bootstrap and all edited workflow YAML also passed
 their checks. This is Linux headless/native-library evidence, not graphical
 desktop, physical hardware or release-package qualification.
+
+### Pager resize synchronization
+
+The first Ubuntu application run passed eight cases and exposed an input race
+in the `less` test: its navigation key arrived while the pager processed
+SIGWINCH and was discarded. The workflow now waits for the pager to redraw its
+prompt on the resized last row before navigating. This passed three consecutive
+Ubuntu runs and two macOS runs. Search, resize, page navigation, exit, parser
+diagnostics and live/replay comparisons remain asserted. Archive report commands
+now suppress Git errors for the whole command group, not just its final command.

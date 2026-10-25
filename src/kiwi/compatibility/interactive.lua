@@ -33,7 +33,7 @@ end
 local function quote(value) return "'" .. value:gsub("'", "'\\''") .. "'" end
 
 local function first_line(command)
-  local pipe = assert(io.popen(command .. " 2>/dev/null", "r"))
+  local pipe = assert(io.popen("(" .. command .. ") 2>/dev/null", "r"))
   local line = pipe:read("*l")
   pipe:close()
   return (line or "unavailable"):sub(1, 256)
@@ -360,6 +360,11 @@ for name in applications:gmatch("[^,]+") do
       s:command("/KIWI-LINE-077")
       s:expect("KIWI-LINE-077")
       s:resize(47, 13)
+      -- less can discard pending input while handling SIGWINCH. Wait for its
+      -- prompt on the new last row before sending the next navigation key.
+      s:wait("pager resized prompt", function()
+        return s.state.cursor.row == 12 and s.state:get(0, 12).glyph == ":"
+      end)
       s:text("g"); s:expect("KIWI-LINE-001")
       s:key(glfw.key_page_down)
       s:wait("pager advanced", function() return s:screen():find("KIWI-LINE-023", 1, true) and not s:screen():find("KIWI-LINE-001", 1, true) end)
