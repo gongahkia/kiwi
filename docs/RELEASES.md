@@ -1,8 +1,7 @@
 # Public release contract
 
-Kiwi releases are public, source-backed, tag-gated artifacts. The repository
-uses the MIT license in [LICENSE](../LICENSE). Publishing a release still
-requires the repository owner to make `github.com/gongahkia/kiwi` publicly
+Kiwi releases are public, source-backed, tag-gated artifacts. Publishing a
+release requires the repository owner to make `github.com/gongahkia/kiwi` publicly
 readable; a workflow cannot grant that external repository permission.
 
 ## Release input
