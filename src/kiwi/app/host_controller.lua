@@ -232,6 +232,7 @@ function Controller.run(window, host, options)
         columns = child_columns,
         rows = child_rows,
         state_options = {
+          terminal_version = require("kiwi.build").info().version,
           scrollback_limit = configuration.scrollback_limit,
           ambiguous_width = configuration.ambiguous_width,
           osc52_read = configuration.osc52_read == "allow",

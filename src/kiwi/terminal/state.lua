@@ -132,6 +132,8 @@ function State.new(columns, rows, options)
   assert(options.cell_width == nil or valid_cell_metric(options.cell_width), "terminal cell width must be a positive integer no greater than 65535")
   assert(options.cell_height == nil or valid_cell_metric(options.cell_height), "terminal cell height must be a positive integer no greater than 65535")
   local colors = Attributes.Palette.new(options.colors)
+  local terminal_version = options.terminal_version or "development"
+  assert(type(terminal_version) == "string" and #terminal_version <= 64 and terminal_version:match("^[%w%._%+%-]+$"), "terminal version must be bounded printable version text")
   local self = setmetatable({
     columns = columns,
     rows = rows,
@@ -139,6 +141,7 @@ function State.new(columns, rows, options)
     cell_height = options.cell_height,
     next_line_id = 0,
     colors = colors,
+    terminal_version = terminal_version,
     cursor_color = default_cursor_color,
     cursor_default_color = default_cursor_color,
     pointer_shape = "default",
@@ -156,6 +159,8 @@ function State.new(columns, rows, options)
       cursor_blink = true,
       application_cursor = false,
       application_keypad = false,
+      application_escape = false,
+      color_scheme_reporting = false,
       backarrow = false,
       reverse_video = false,
       reverse_wrap = false,
@@ -1728,6 +1733,8 @@ function State:reset()
   self.modes.cursor_blink = true
   self.modes.application_cursor = false
   self.modes.application_keypad = false
+  self.modes.application_escape = false
+  self.modes.color_scheme_reporting = false
   self.modes.backarrow = false
   self.modes.reverse_video = false
   self.modes.reverse_wrap = false
@@ -1781,6 +1788,8 @@ function State:soft_reset()
   self.active_screen.keyboard_stack = {}
   self.modes.application_cursor = false
   self.modes.application_keypad = false
+  self.modes.application_escape = false
+  self.modes.color_scheme_reporting = false
   self.modes.backarrow = false
   self.modes.reverse_video = false
   self.modes.reverse_wrap = false
@@ -2308,6 +2317,10 @@ function State:apply_private_mode(parameters, enabled)
       self.modes.bracketed_paste = enabled
     elseif mode == 2026 then
       self.modes.synchronized_output = enabled
+    elseif mode == 2031 then
+      self.modes.color_scheme_reporting = enabled
+    elseif mode == 7727 then
+      self.modes.application_escape = enabled
     elseif mode == 1000 then
       self:set_mouse_tracking("normal", enabled)
     elseif mode == 9 then
@@ -2435,6 +2448,7 @@ function State:input_modes()
     alternate_scroll = modes.alternate_scroll == true,
     application_cursor = modes.application_cursor == true,
     application_keypad = modes.application_keypad == true,
+    application_escape = modes.application_escape == true,
     backarrow = modes.backarrow == true,
     bracketed_paste = modes.bracketed_paste == true,
     focus_reporting = modes.focus_reporting == true,
@@ -2614,6 +2628,10 @@ function State:mode_status(private, mode)
       enabled = modes.bracketed_paste
     elseif mode == 2026 then
       enabled = modes.synchronized_output
+    elseif mode == 2031 then
+      enabled = modes.color_scheme_reporting
+    elseif mode == 7727 then
+      enabled = modes.application_escape
     else
       return 0
     end
@@ -2712,6 +2730,14 @@ function State:report_device_attributes(action)
   end
 end
 
+function State:report_color_scheme()
+  -- Report the configured terminal palette, which may intentionally differ
+  -- from the OS appearance. Application OSC colour changes do not notify.
+  local background = Color.unpack(self.colors.configured_background)
+  local brightness = 0.299 * background.red + 0.587 * background.green + 0.114 * background.blue
+  self:respond(brightness >= 128 and "\27[?997;2n" or "\27[?997;1n")
+end
+
 function State:report_device_status(action)
   local parameters = action.parameters
   if #parameters ~= 1 then
@@ -2720,6 +2746,10 @@ function State:report_device_status(action)
   end
 
   local request = parameters[1]
+  if action.private == "?" and request == 996 then
+    self:report_color_scheme()
+    return
+  end
   if action.private == "" and request == 5 then
     self:respond("\27[0n")
     return
@@ -2750,8 +2780,16 @@ function State:apply_csi(action)
     self:report_mode(action.private, parameters, action)
     return
   end
-  if action.private == "?" and (final == "h" or final == "l") then
+  if action.private == "?" and action.intermediates == "" and (final == "h" or final == "l") then
     self:apply_private_mode(parameters, final == "h")
+    return
+  end
+  if action.private == ">" and action.intermediates == "" and final == "q" then
+    if #parameters == 0 or (#parameters == 1 and parameters[1] == 0) then
+      self:respond("\27P>|Kiwi(" .. self.terminal_version .. ")\27\\")
+    else
+      self:record_unknown("csi", csi_detail(action))
+    end
     return
   end
   if action.private == ">" and action.intermediates == "" and final == "m" then
@@ -3062,10 +3100,16 @@ end
 
 function State:configure_palette(configuration)
   assert(type(configuration) == "table", "terminal palette configuration must be a table")
+  local previous_foreground, previous_background = self.colors.foreground, self.colors.background
+  local previous_indexed = {}
+  for index = 0, 255 do previous_indexed[index] = self.colors:indexed(index) end
   self.colors:configure(configuration)
   self:refresh_palette_slots({ all_indexed = true })
   self:refresh_palette_slots({ channels = { foreground = true, background = true } })
   self:emit_effect("palette_changed", { configuration = true })
+  local changed = previous_foreground ~= self.colors.foreground or previous_background ~= self.colors.background
+  for index = 0, 255 do if previous_indexed[index] ~= self.colors:indexed(index) then changed = true; break end end
+  if changed and self.modes.color_scheme_reporting then self:report_color_scheme() end
 end
 
 function State:configure_osc52_write(enabled)

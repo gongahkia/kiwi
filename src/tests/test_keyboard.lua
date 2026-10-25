@@ -3,6 +3,12 @@ local glfw = require("kiwi.ffi.glfw").constants
 local Keyboard = require("kiwi.input.keyboard")
 
 return {
+  keyboard_application_escape_is_unambiguous_and_defers_to_kitty = function()
+    Assert.equal(Keyboard.key(glfw.key_escape, glfw.press, 0, { application_escape = true }, glfw).bytes, "\27O[")
+    Assert.equal(Keyboard.key(glfw.key_escape, glfw.press, 0, {}, glfw).bytes, "\27")
+    Assert.equal(Keyboard.key(glfw.key_escape, glfw.release, 0, { application_escape = true }, glfw), nil)
+    Assert.equal(Keyboard.key(glfw.key_escape, glfw.press, 0, { application_escape = true, keyboard_flags = 1 }, glfw).bytes, "\27[27u")
+  end,
   keyboard_encodes_text_and_terminal_control_keys = function()
     Assert.equal(Keyboard.text(0x20ac), "€")
     Assert.equal(Keyboard.key(glfw.key_enter, glfw.press, 0, {}, glfw).bytes, "\r")

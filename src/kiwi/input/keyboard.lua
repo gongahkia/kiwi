@@ -291,7 +291,7 @@ function Keyboard.key(key, action, modifiers, modes, glfw, options)
     return { bytes = "\t" }
   end
   if key == glfw.key_escape then
-    return { bytes = escape }
+    return { bytes = modes and modes.application_escape and escape .. "O[" or escape }
   end
   if arrows[key] then
     return { bytes = escape .. ((modes and modes.application_cursor) and "O" or "[") .. arrows[key] }

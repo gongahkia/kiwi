@@ -112,6 +112,7 @@ function Session.new(window, host, configuration, options)
     columns = self.columns,
     rows = self.rows,
     state_options = {
+      terminal_version = require("kiwi.build").info().version,
       scrollback_limit = configuration.scrollback_limit,
       ambiguous_width = configuration.ambiguous_width,
       osc52_read = configuration.osc52_read == "allow",
