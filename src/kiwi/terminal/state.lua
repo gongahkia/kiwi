@@ -15,6 +15,7 @@ local Search = require("kiwi.input.search")
 local Selection = require("kiwi.input.selection")
 local Document = require("kiwi.terminal.document")
 local Vi = require("kiwi.input.vi")
+local Hints = require("kiwi.input.hints")
 local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
@@ -199,6 +200,7 @@ function State.new(columns, rows, options)
     search_generation = 0,
     selection = Selection.new(),
     vi = Vi.new(),
+    hints = Hints.new(),
     shell = ShellIntegration.new(options.shell_integration),
     command_regions = CommandRegions.new(options.command_regions),
     command_region_navigation = nil,
@@ -412,6 +414,7 @@ end
 function State:document(scope) return Document.new(self, scope or self:selection_scope()) end
 
 function State:vi_toggle()
+  self.hints:clear()
   if self.vi.active then self.vi:leave(self, true) else self.vi:enter(self) end
   return true
 end
@@ -419,12 +422,28 @@ function State:vi_view() return self.vi:view(self) end
 function State:vi_pending() return self.vi.active and (self.vi.job ~= nil or self.vi.selection_job ~= nil) end
 function State:vi_step(budget) return self.vi:step(self, budget) end
 
-function State:navigation_pending() return self:search_pending() or self:vi_pending() end
+function State:hints_begin(action)
+  self:clear_search()
+  self.vi.job, self.vi.selection_job = nil, nil
+  if self.vi.active then self.vi.status = "normal" end
+  self.hints:begin(self, action or "open")
+end
+function State:hints_view() return self.hints:view(self) end
+function State:hints_pending() return self.hints.job ~= nil end
+function State:hints_step(budget) return self.hints:step(self, budget) end
+function State:navigation_pending() return self:search_pending() or self:vi_pending() or self:hints_pending() end
 function State:navigation_step(budget)
   budget = budget or Search.step_budget
-  local searching, moving = self:search_pending(), self:vi_pending()
-  if searching then self:search_step(moving and math.max(1, math.floor(budget / 2)) or budget) end
-  if moving and (not searching or budget > 1) then self:vi_step(searching and math.ceil(budget / 2) or budget) end
+  local pending = {}
+  if self:search_pending() then pending[#pending + 1] = "search_step" end
+  if self:vi_pending() then pending[#pending + 1] = "vi_step" end
+  if self:hints_pending() then pending[#pending + 1] = "hints_step" end
+  for index, method in ipairs(pending) do
+    if budget == 0 then break end
+    local share = math.max(1, math.floor(budget / (#pending - index + 1)))
+    self[method](self, share)
+    budget = budget - share
+  end
 end
 
 function State:shell_position()
@@ -800,6 +819,7 @@ function State:invalidate_search()
 end
 
 function State:search_begin(direction, mode)
+  self.hints:clear()
   if self.vi.active then self.vi.job = nil end
   self.search:begin(self:selection_scope(), direction or "forward", mode)
 end
