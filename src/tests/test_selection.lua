@@ -12,6 +12,17 @@ local function write_row(state, row, codepoints)
 end
 
 return {
+  large_copy_preserves_unicode_at_chunk_boundaries_and_enforces_exact_byte_limit = function()
+    local Terminal = require("kiwi.session.terminal")
+    local terminal = Terminal.new({ columns = 100, rows = 50 })
+    local text = string.rep("a", 4095) .. "中é" .. string.rep("b", 500)
+    terminal:write(text)
+    local state = Terminal.state(terminal)
+    state:set_selection(0, 0, state.cursor.row, state.cursor.column)
+    Assert.equal(state:selection_text(#text), text)
+    local copied, status = state:selection_text(#text - 1)
+    Assert.equal(copied, nil); Assert.equal(status, "over-limit")
+  end,
   selection_uses_indexed_rows_without_materializing_retained_history = function()
     local terminal = Terminal.new({ columns = 20, rows = 3, state_options = { scrollback_limit = 2000 } })
     for index = 1, 2003 do terminal:write(string.format("row %04d\r\n", index)) end

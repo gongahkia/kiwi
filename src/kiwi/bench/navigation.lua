@@ -58,6 +58,6 @@ result.cancel_ms = (Metrics.monotonic_seconds() - started) * 1000
 assert(not state:vi_pending() and not state:selection_view().active)
 collectgarbage("collect")
 result.retained_heap_kib_delta = collectgarbage("count") - baseline
-assert(result.retained_heap_kib_delta < 1024)
+assert(result.retained_heap_kib_delta < 1024, "navigation retained heap KiB: " .. result.retained_heap_kib_delta)
 result.environment = Environment.collect(os.date("!%Y-%m-%dT%H:%M:%SZ"), 1, 0)
 io.stdout:write(Json.encode(result), "\n")
