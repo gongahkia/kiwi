@@ -58,7 +58,8 @@ tests do not establish Linux or Windows desktop qualification.
 ## Search and keyboard navigation
 
 - [x] Bounded regex search with cancellation and Unicode-aware results.
-- [ ] Vi-style navigation/selection and keyboard URL hints.
+- [x] Bounded vi-style navigation and character/line/word/rectangular selection.
+- [ ] Keyboard URL hints.
 - [ ] X11 primary selection with explicit ownership and clipboard policy.
 
 ## Distribution
@@ -471,5 +472,25 @@ Xvfb/software Vulkan. POSIX differential tests use 5,000 cases per platform;
 Linux deliberately uses shallower patterns because libc stalls on some deep
 expressions. Complex equivalence on Linux is not inferred from the model/load
 checks. See [the complete search evidence](evidence/2026-10-25-search.md) for
-bounds, timings, oracle limits and remaining product/desktop gaps. Vi navigation,
-URL hints, primary selection and the other unchecked workstreams remain open.
+bounds, timings, oracle limits and remaining product/desktop gaps. URL hints,
+primary selection and the other unchecked workstreams remain open.
+
+## Vi navigation and selection (2026-10-25)
+
+Ctrl+Shift+Space and the palette now expose a separate vi cursor, counted motions,
+visual selection, copy, inline find, bracket matching, directional regex Find and
+explicit OSC 8 link activation. Long motions and wrapped line/word selections
+yield and cancel safely. Stable retained-row indexing avoids whole-history copies;
+chunked text extraction avoids a history-sized table of cell references.
+
+Native raw-PTY fixtures pass on macOS Metal and Linux Xvfb with both GLFW and GTK
+WGPU hosts. Framebuffer readback verifies rectangular wide-cell highlighting on
+Metal and software Vulkan. Headless tests cover transaction copies, cancellation,
+limits, reflow, eviction and 500 seeded lifecycle transitions. The 10,000-row model
+benchmark uses less than 1.5 MiB temporary heap during scanning, but retains about
+357 MiB for the terminal itself; this does not close the general memory/performance
+workstream. See [vi evidence and limits](evidence/2026-10-25-vi.md).
+
+URL hints, primary selection, actual-desktop/Wayland validation, Windows and the
+other unchecked workstreams remain required. Paragraph motions, vi-specific
+keymap customization and full Vim behavior are not implemented.
