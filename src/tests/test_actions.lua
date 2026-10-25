@@ -20,6 +20,21 @@ return {
     mac = Actions.new({ Actions.parse("cmd+c=none", "test") }, glfw, "OSX")
     Assert.equal(mac:lookup(string.byte("C"), glfw.mod_super), nil)
   end,
+  numbered_tabs_and_palette_follow_macos_defaults_and_user_overrides = function()
+    local mac = Actions.new({}, glfw, "OSX")
+    for index = 1, 9 do
+      Assert.equal(mac:lookup(string.byte(tostring(index)), glfw.mod_super), "goto-tab-" .. index)
+    end
+    Assert.equal(mac:lookup(string.byte("0"), glfw.mod_super), "reset-font-size")
+    Assert.equal(mac:lookup(string.byte("P"), glfw.mod_super + glfw.mod_shift), "command-palette")
+    Assert.equal(mac:lookup(string.byte("P"), glfw.mod_control + glfw.mod_shift), "command-palette")
+    local custom = Actions.new({ Actions.parse("cmd+1=none"), Actions.parse("cmd+shift+p=new-tab") }, glfw, "OSX")
+    Assert.equal(custom:lookup(string.byte("1"), glfw.mod_super), nil)
+    Assert.equal(custom:lookup(string.byte("P"), glfw.mod_super + glfw.mod_shift), "new-tab")
+    local linux = Actions.new({ Actions.parse("alt+1=goto-tab-1") }, glfw, "Linux")
+    Assert.equal(linux:lookup(string.byte("1"), glfw.mod_super), nil)
+    Assert.equal(linux:lookup(string.byte("1"), glfw.mod_alt), "goto-tab-1")
+  end,
   product_action_defaults_preserve_workspace_shortcuts = function()
     local actions = Actions.new({}, glfw)
     Assert.equal(actions:lookup(string.byte("T"), glfw.mod_control + glfw.mod_shift), "new-tab")

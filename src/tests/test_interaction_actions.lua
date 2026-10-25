@@ -22,6 +22,21 @@ return {
       ids[entry.id] = true
     end
   end,
+  numbered_tabs_select_current_order_and_ignore_missing_tabs = function()
+    local workspace = Workspace.new()
+    workspace:new_tab("first")
+    workspace:new_tab("second")
+    workspace:new_tab("third")
+    workspace.tabs[1], workspace.tabs[2] = workspace.tabs[2], workspace.tabs[1]
+    Assert.truthy(Interaction.workspace("goto-tab-1", workspace, 80, 24))
+    Assert.equal(workspace:active_pane().session, "second")
+    Assert.equal(Interaction.workspace("goto-tab-1", workspace, 80, 24), false)
+    Assert.equal(Interaction.workspace("goto-tab-9", workspace, 80, 24), false)
+    Assert.equal(workspace:active_pane().session, "second")
+    Assert.truthy(Interaction.workspace("goto-tab-3", workspace, 80, 24))
+    Assert.equal(workspace:active_pane().session, "third")
+    Assert.equal(Interaction.tab_index("goto-tab-10"), nil)
+  end,
   interaction_terminal_actions_use_selection_paste_modes_and_history_scope = function()
     local terminal = Terminal.new({ columns = 12, rows = 2 })
     terminal:write("old\r\nlive\r\ncurrent\27[?2004h")

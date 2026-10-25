@@ -33,6 +33,7 @@ int kiwi_cocoa_automation_invoke_smoke(void* window, uint32_t action);
 int kiwi_cocoa_window_set_tab_grouping(void* window, int grouped);
 int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
 int kiwi_cocoa_window_is_standalone(void* window);
+int kiwi_cocoa_window_select_tab(void* window, unsigned int index);
 int kiwi_cocoa_window_select_next_tab(void* window);
 int kiwi_cocoa_window_select_previous_tab(void* window);
 void kiwi_cocoa_window_tabs_remove_bridge(void* window);
@@ -483,6 +484,14 @@ function Window:cocoa_window_is_standalone()
   if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
   if native.kiwi_cocoa_window_is_standalone(self.handle) ~= 0 then return true end
   return false, ffi.string(native.kiwi_surface_last_error())
+end
+
+function Window:cocoa_select_window_tab(index)
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  assert(type(index) == "number" and index >= 1 and index <= 9 and index % 1 == 0, "tab index must be 1 through 9")
+  local selected = native.kiwi_cocoa_window_select_tab(self.handle, index)
+  if selected < 0 then return nil, ffi.string(native.kiwi_surface_last_error()) end
+  return selected ~= 0
 end
 
 function Window:cocoa_select_next_window_tab()

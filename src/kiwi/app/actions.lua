@@ -51,7 +51,7 @@ local palette_catalog = {
 
 for _, entry in ipairs(Interaction.entries) do
   known_actions[entry.action] = true
-  palette_catalog[#palette_catalog + 1] = entry
+  if entry.palette ~= false then palette_catalog[#palette_catalog + 1] = entry end
 end
 
 local default_specs = {
@@ -394,13 +394,14 @@ function Actions.new(configured, keymap, platform)
   for _, specification in ipairs(default_specs) do apply(specification, "default") end
   if platform == "OSX" then
     for _, specification in ipairs({
-      "cmd+t=new-tab", "cmd+n=new-window", "cmd+w=close-pane",
+      "cmd+shift+p=command-palette", "cmd+t=new-tab", "cmd+n=new-window", "cmd+w=close-pane",
       "cmd+d=split-right", "cmd+shift+d=split-down", "cmd+shift+enter=toggle-pane-zoom",
       "cmd+c=copy", "cmd+v=paste", "cmd+a=select-all", "cmd+f=search",
       "cmd+g=search-next", "cmd+shift+g=search-previous", "cmd+k=clear-scrollback",
       "cmd+equal=increase-font-size", "cmd+shift+equal=increase-font-size",
       "cmd+minus=decrease-font-size", "cmd+0=reset-font-size", "cmd+comma=open-configuration",
     }) do apply(specification, "macOS default") end
+    for index = 1, 9 do apply("cmd+" .. index .. "=goto-tab-" .. index, "macOS default") end
   end
   if #configured > Actions.maximum_bindings then error("configured keybindings exceed " .. Actions.maximum_bindings) end
   for index, specification in ipairs(configured) do apply(specification, "keybind " .. index) end
