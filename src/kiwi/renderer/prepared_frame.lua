@@ -327,6 +327,7 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
   self.frame[0].command_region_blue = command_region_color.blue
   self.frame[0].command_region_alpha = command_region_count > 0 and command_region_color.alpha or 0
   self.frame[0].command_region_padding[0] = options.surface_is_srgb and 1 or 0
+  self.frame[0].command_region_padding[1] = options.background_opacity or 1
   for index = 0, CommandRegions.visible_boundary_limit - 1 do
     local boundary = command_regions.boundaries["boundary_" .. (index + 1)]
     local offset = index * 4

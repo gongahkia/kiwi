@@ -34,6 +34,10 @@ function Host.await_events(application, window, timeout)
   return application:await_events(window, timeout)
 end
 
+function Host.has_transparent_framebuffer(window)
+  return window:has_transparent_framebuffer()
+end
+
 function Host.create_surface(instance, window)
   return require("kiwi.ffi.wgpu").surface.kiwi_surface_from_glfw(instance, window.handle)
 end

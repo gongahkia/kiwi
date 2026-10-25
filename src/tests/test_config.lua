@@ -4,6 +4,24 @@ local Config = require("kiwi.config")
 local Filesystem = require("kiwi.platform.filesystem")
 
 return {
+  background_opacity_is_finite_bounded_and_defaults_to_opaque = function()
+    Assert.equal(Config.parse("", "test").background_opacity, 1)
+    for _, value in ipairs({ "0", "0.75", "1" }) do
+      Assert.equal(Config.parse("background-opacity = " .. value, "test").background_opacity, tonumber(value))
+    end
+    for _, value in ipairs({ "-0.1", "1.01", "nan", "inf", "1e999", "transparent" }) do
+      Assert.truthy(not pcall(Config.parse, "background-opacity = " .. value, "test"))
+    end
+    local Alpha = require("kiwi.gpu.surface_alpha")
+    local mode, supported = Alpha.select({ [0] = 1, 2, 3 }, 3, true)
+    Assert.equal(mode, 2); Assert.equal(supported, true)
+    mode, supported = Alpha.select({ [0] = 1, 3 }, 2, true)
+    Assert.equal(mode, 3); Assert.equal(supported, true)
+    mode, supported = Alpha.select({ [0] = 1 }, 1, true)
+    Assert.equal(mode, 1); Assert.equal(supported, false)
+    mode, supported = Alpha.select({ [0] = 1, 2 }, 2, false)
+    Assert.equal(mode, 1); Assert.equal(supported, false)
+  end,
   configuration_parses_a_bounded_theme_and_explicit_overrides = function()
     local config = Config.parse([[ 
       # one comment

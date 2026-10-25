@@ -18,6 +18,7 @@ Config.edit_template = [[# Kiwi configuration
 # live-config-reload = true
 # font-family = "monospace"
 # font-size = 20
+# background-opacity = 1.0
 # ligatures = false
 # contextual-alternates = false
 # scrollback-limit = 2000
@@ -211,6 +212,7 @@ local function defaults()
     ambiguous_width = 1,
     foreground = nil,
     background = nil,
+    background_opacity = 1,
     palette = {},
     selection_color = nil,
     search_color = nil,
@@ -396,6 +398,12 @@ local function apply_value(config, key, raw, line)
   elseif key == "foreground" then
     config.foreground = Config.parse_color(raw, line)
     config.color_overrides.foreground = config.foreground
+  elseif key == "background-opacity" then
+    local opacity = tonumber(parse_string(raw, line))
+    if opacity == nil or opacity ~= opacity or opacity < 0 or opacity > 1 then
+      error("configuration line " .. line .. " background-opacity must be between 0 and 1")
+    end
+    config.background_opacity = opacity
   elseif key == "background" then
     config.background = Config.parse_color(raw, line)
     config.color_overrides.background = config.background

@@ -22,6 +22,7 @@ void glfwDestroyCursor(GLFWcursor* cursor);
 void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
 void glfwPollEvents(void);
 void glfwWaitEventsTimeout(double timeout);
+int glfwGetWindowAttrib(GLFWwindow* window, int attrib);
 int glfwWindowShouldClose(GLFWwindow* window);
 void glfwSetWindowShouldClose(GLFWwindow* window, int value);
 void glfwSetWindowPos(GLFWwindow* window, int xpos, int ypos);
@@ -61,6 +62,7 @@ return {
     client_api = 0x00022001,
     no_api = 0,
     resizable = 0x00020003,
+    transparent_framebuffer = 0x0002000A,
     visible = 0x00020004,
     scale_framebuffer = 0x0002200D,
     yes = 1,

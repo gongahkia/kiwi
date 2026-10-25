@@ -609,3 +609,18 @@ An explicit command or working directory disables saved-layout restore and
 persistence for that launch, so saved shells cannot replace the requested work
 and a temporary command cannot overwrite the user's normal workspace topology.
 Omit both to retain the normal restore behavior.
+
+## Background transparency
+
+Set `background-opacity = 0.85` in your Kiwi configuration. Values range from
+`0` (transparent background) to `1` (the default, opaque). Text, the cursor,
+selection overlays and images keep their own opacity. This applies to all cell
+backgrounds, including application colours, and to unused space around the grid.
+Saving the configuration or invoking Reload Configuration applies it to existing
+panes. It does not enable background blur or change window decorations.
+
+The GLFW/Metal and GLFW/Vulkan paths request an alpha-capable framebuffer and
+select a supported surface alpha mode. Transparency requires desktop compositing;
+an unsupported surface rejects the configuration instead of silently ignoring it.
+The experimental GTK presenters do not currently implement this setting.
+Native GPU readback is available with `make appearance-smoke`.

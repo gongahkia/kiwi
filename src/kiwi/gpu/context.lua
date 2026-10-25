@@ -104,6 +104,7 @@ function Context.new(host, window, options)
     end
     self.queue = assert_handle(api.wgpuDeviceGetQueue(self.device), "wgpuDeviceGetQueue")
     self:configure_surface()
+    self.effect = self:prepare_effects(options)
   end, debug.traceback)
   if not ok then
     self:destroy()
@@ -147,7 +148,10 @@ function Context:configure_surface()
   if self.framebuffer_capture_requested then config.usage = config.usage + self.native.constants.texture_usage_copy_src end
   config.width = width
   config.height = height
-  config.alphaMode = capabilities.alphaModes[0]
+  local transparent = self.host.has_transparent_framebuffer and self.host.has_transparent_framebuffer(self.window) == true
+  config.alphaMode, self.transparency_supported = require("kiwi.gpu.surface_alpha").select(
+    capabilities.alphaModes, tonumber(capabilities.alphaModeCount), transparent)
+  self.surface_alpha_mode = tonumber(config.alphaMode)
   config.presentMode = self.native.constants.present_fifo
   self.native.lib.wgpuSurfaceConfigure(self.surface, config)
   self.native.lib.wgpuSurfaceCapabilitiesFreeMembers(capabilities)
@@ -185,9 +189,9 @@ local function release_presentation_frame(context, frame)
     api.wgpuCommandEncoderRelease(frame.encoder)
     frame.encoder = nil
   end
-  if frame.view ~= nil then
-    api.wgpuTextureViewRelease(frame.view)
-    frame.view = nil
+  if frame.surface_view ~= nil then
+    api.wgpuTextureViewRelease(frame.surface_view)
+    frame.surface_view, frame.view = nil, nil
   end
   if frame.texture ~= nil then
     api.wgpuTextureRelease(frame.texture)
@@ -226,7 +230,10 @@ function Context:begin_presentation_frame()
     texture = surface_texture.texture,
   }
   local ok, result = xpcall(function()
-    frame.view = assert_handle(api.wgpuTextureCreateView(frame.texture, nil), "surface texture view creation")
+    frame.surface_view = assert_handle(api.wgpuTextureCreateView(frame.texture, nil), "surface texture view creation")
+    frame.effect = self.effect
+    if frame.effect then frame.effect:resize(self.width, self.height) end
+    frame.view = frame.effect and frame.effect.view or frame.surface_view
     frame.encoder = assert_handle(api.wgpuDeviceCreateCommandEncoder(self.device, nil), "command encoder creation")
   end, debug.traceback)
   if ok then return frame end
@@ -242,11 +249,32 @@ function Context:abort_presentation_frame(frame)
   return true
 end
 
+function Context:prepare_effects(options)
+  if (options.background_opacity or 1) < 1 and self.surface_alpha_mode == 3 then
+    return require("kiwi.renderer.postprocess").new(self)
+  end
+end
+
+function Context:set_effects(effect)
+  local previous = self.effect
+  self.effect = effect
+  if previous then previous:destroy() end
+end
+
+function Context:finish_presentation_effects(frame)
+  presentation_frame_assertion(self, frame)
+  if frame.effect and not frame.effects_encoded then
+    frame.effect:encode(frame.encoder, frame.surface_view, self.window:time())
+    frame.effects_encoded = true
+  end
+end
+
 function Context:present_presentation_frame(frame)
   presentation_frame_assertion(self, frame)
   local api = self.native.lib
   local completed = false
   local ok, presented, present_reason = xpcall(function()
+    self:finish_presentation_effects(frame)
     local commands = assert_handle(api.wgpuCommandEncoderFinish(frame.encoder, nil), "command-buffer creation")
     local command_list = ffi.new("WGPUCommandBuffer[1]")
     command_list[0] = commands
@@ -254,8 +282,8 @@ function Context:present_presentation_frame(frame)
     api.wgpuCommandBufferRelease(commands)
     api.wgpuCommandEncoderRelease(frame.encoder)
     frame.encoder = nil
-    api.wgpuTextureViewRelease(frame.view)
-    frame.view = nil
+    api.wgpuTextureViewRelease(frame.surface_view)
+    frame.surface_view, frame.view = nil, nil
     local present_status = api.wgpuSurfacePresent(self.surface)
     api.wgpuTextureRelease(frame.texture)
     frame.texture = nil
@@ -313,6 +341,8 @@ function Context:poll_framebuffer_capture()
       modal_rgb = tonumber(sample[0].modal_rgb),
       modal_rgb_pixels = tonumber(sample[0].modal_rgb_pixels),
       opaque_pixels = tonumber(sample[0].opaque_pixels),
+      fully_opaque_pixels = tonumber(sample[0].fully_opaque_pixels),
+      transparent_pixels = tonumber(sample[0].transparent_pixels),
       red_dominant_pixels = tonumber(sample[0].red_dominant_pixels),
     }
     captured[#captured + 1] = item
@@ -333,6 +363,8 @@ function Context:framebuffer_capture_snapshot()
       modal_rgb = sample.modal_rgb,
       modal_rgb_pixels = sample.modal_rgb_pixels,
       opaque_pixels = sample.opaque_pixels,
+      fully_opaque_pixels = sample.fully_opaque_pixels,
+      transparent_pixels = sample.transparent_pixels,
       red_dominant_pixels = sample.red_dominant_pixels,
     }
   end
@@ -365,6 +397,7 @@ end
 
 function Context:destroy()
   local api = self.native.lib
+  if self.effect then self.effect:destroy(); self.effect = nil end
   if self.framebuffer_capture ~= nil then
     self.native.surface.kiwi_framebuffer_capture_destroy(self.framebuffer_capture)
     self.framebuffer_capture = nil

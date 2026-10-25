@@ -159,7 +159,8 @@ fn background_fs(input: RasterOut) -> @location(0) vec4<f32> {
   if (frame.show_boundaries > 0.5 && (input.local_position.x < 0.025 || input.local_position.y < 0.035)) {
     color = vec4<f32>(srgb_to_surface(vec4<f32>(0.18, 0.52, 0.61, 1.0)).rgb, color.a);
   }
-  return color;
+  let opacity = frame.command_region_padding1.x;
+  return vec4<f32>(color.rgb * opacity, color.a * opacity);
 }
 
 @vertex

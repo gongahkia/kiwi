@@ -44,6 +44,9 @@ Renderer.pack_shaped_glyph = PreparedFrame.pack_shaped_glyph
 
 function Renderer.new(context, font, model, options)
   options = options or {}
+  local background_opacity = options.background_opacity or 1
+  assert(background_opacity >= 0 and background_opacity <= 1, "background opacity must be between 0 and 1")
+  assert(background_opacity == 1 or context.transparency_supported, "background opacity needs a transparent framebuffer and alpha-capable surface on this host")
   local lua_root = Paths.lua_root()
   local builtin_shader_path = lua_root .. "/kiwi/renderer/terminal.wgsl"
   local image_shader_path = lua_root .. "/kiwi/renderer/kitty_images.wgsl"
@@ -73,6 +76,7 @@ function Renderer.new(context, font, model, options)
   })
   local self = setmetatable({
     context = context,
+    background_opacity = background_opacity,
     native = context.native,
     font = font,
     layout = prepared_frame.layout,
@@ -283,49 +287,8 @@ function Renderer:register_extension_passes()
   end
 end
 
-function Renderer:create_pipeline(label, vertex_entry, fragment_entry, shader, blend, pipeline_layout)
-  local api = self.native.lib
-  local c = self.native.constants
-  local target = ffi.new("WGPUColorTargetState[1]")
-  target[0].format = self.context.surface_format
-  target[0].writeMask = c.color_write_all
-  if blend ~= nil then
-    assert(blend == "alpha", "unknown render pipeline blend mode " .. tostring(blend))
-    local state = ffi.new("WGPUBlendState[1]")
-    state[0].color.operation = c.blend_operation_add
-    state[0].color.srcFactor = c.blend_factor_src_alpha
-    state[0].color.dstFactor = c.blend_factor_one_minus_src_alpha
-    state[0].alpha.operation = c.blend_operation_add
-    state[0].alpha.srcFactor = c.blend_factor_one
-    state[0].alpha.dstFactor = c.blend_factor_one_minus_src_alpha
-    target[0].blend = state
-  end
-  local fragment = ffi.new("WGPUFragmentState")
-  fragment.module = shader.handle
-  fragment.entryPoint = string_view(fragment_entry)
-  fragment.targetCount = 1
-  fragment.targets = target
-  local descriptor = ffi.new("WGPURenderPipelineDescriptor")
-  descriptor.label = string_view(label)
-  descriptor.layout = pipeline_layout or self.pipeline_layout
-  descriptor.vertex.module = shader.handle
-  descriptor.vertex.entryPoint = string_view(vertex_entry)
-  descriptor.primitive.topology = c.primitive_triangle_list
-  descriptor.primitive.frontFace = c.front_face_ccw
-  descriptor.primitive.cullMode = c.cull_none
-  descriptor.multisample.count = 1
-  descriptor.multisample.mask = 0xffffffff
-  descriptor.fragment = fragment
-  self.native.surface.kiwi_surface_clear_error()
-  local pipeline = assert_handle(api.wgpuDeviceCreateRenderPipeline(self.context.device, descriptor), "render pipeline creation for " .. label)
-  api.wgpuInstanceProcessEvents(self.context.instance)
-  local native_error = ffi.string(self.native.surface.kiwi_surface_last_error())
-  if #native_error > 0 then
-    self.native.surface.kiwi_surface_clear_error()
-    api.wgpuRenderPipelineRelease(pipeline)
-    error("render pipeline creation for " .. label .. " with shader module " .. shader.id .. " for pass " .. shader.pass .. " failed: " .. native_error)
-  end
-  return self.resource_registry:own_native(label, pipeline, api.wgpuRenderPipelineRelease)
+function Renderer:create_pipeline(...)
+  return require("kiwi.renderer.pipeline").create(self, ...)
 end
 
 function Renderer:release_native(handle)
@@ -604,6 +567,7 @@ end
 function Renderer:update_frame(model, time, debug_dirty, debug_boundaries)
   local frame = self.prepared_frame:prepare_frame(model, time, debug_dirty, debug_boundaries, {
     surface_is_srgb = self.context.surface_is_srgb,
+    background_opacity = self.background_opacity,
   })
   self.frame_time = frame.time
   self.native.lib.wgpuQueueWriteBuffer(self.context.queue, self.frame_buffer, 0, frame.data, frame.byte_count)
@@ -640,10 +604,18 @@ function Renderer:encode_semantic_pass(pass_info, encoder, view, model, resource
   attachment.depthSlice = 0xffffffff
   attachment.loadOp = self:pass_load_op(pass_info)
   attachment.storeOp = self.native.constants.store_store
-  attachment.clearValue.r = 0.075
-  attachment.clearValue.g = 0.09
-  attachment.clearValue.b = 0.12
-  attachment.clearValue.a = 1
+  local color = Color.unpack(model.colors and model.colors.background or Color.pack(0x20, 0x24, 0x2b, 255))
+  local function channel(value)
+    value = value / 255
+    if self.context.surface_is_srgb then
+      value = value <= 0.04045 and value / 12.92 or ((value + 0.055) / 1.055) ^ 2.4
+    end
+    return value * self.background_opacity
+  end
+  attachment.clearValue.r = channel(color.red)
+  attachment.clearValue.g = channel(color.green)
+  attachment.clearValue.b = channel(color.blue)
+  attachment.clearValue.a = self.background_opacity
   local descriptor = ffi.new("WGPURenderPassDescriptor")
   descriptor.label = string_view(pass_info.name)
   descriptor.colorAttachmentCount = 1

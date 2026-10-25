@@ -83,6 +83,7 @@ function Compositor:render(entries, time, debug_dirty, debug_boundaries)
         viewport = entry.viewport,
       })
     end
+    if self.context.finish_presentation_effects then self.context:finish_presentation_effects(presentation) end
     self.frame = self.frame + 1
     if self.context.begin_framebuffer_capture then capture_started = self.context:begin_framebuffer_capture(self.frame) == true end
     if capture_started and self.context.encode_framebuffer_capture then self.context:encode_framebuffer_capture(presentation.encoder, presentation.texture) end
