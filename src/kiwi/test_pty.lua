@@ -160,6 +160,15 @@ test("terminal_private_mode_response_returns_through_pty", function()
   Assert.equal(status.kind, "exit")
 end)
 
+test("terminal_application_theme_and_version_replies_reach_the_child", function()
+  local transcript, _, status = pump({ "/bin/sh", "-c", "stty -echo; printf '\\033[?996n\\033[>q'; IFS= read -r reply; stty echo; printf 'reply:%s' \"$reply\"" }, 8, 2, function(responses)
+    return table.concat(responses) .. "\n"
+  end)
+  Assert.truthy(transcript:find("reply:\27[?997;1n\27P>|Kiwi(development)\27\\", 1, true))
+  Assert.equal(status.kind, "exit")
+  Assert.equal(status.code, 0)
+end)
+
 test("pty_interactive_shell_accepts_input_and_exits", function()
   local pty = Pty.spawn({ "/bin/sh" }, 20, 4, { TERM = "xterm-kiwi" })
   pty:enqueue("printf 'typed-from-pty\\n'\nexit\n")

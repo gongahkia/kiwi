@@ -16,7 +16,7 @@ tests do not establish Linux or Windows desktop qualification.
 
 ## Common applications
 
-- [ ] Reproduce and close the recorded tmux protocol qualification failures.
+- [x] Reproduce and close the recorded tmux protocol qualification failures.
 - [ ] Exercise real tmux, Neovim, Vim, shells, SSH, pagers, and full-screen
       monitoring tools, including resize, alternate screens, queries and input.
 - [ ] Preserve reproducible captures and automate regression gates in CI.
@@ -83,3 +83,18 @@ and a 65,536-byte test atlas. Recovery checked the actual rendered glyph IDs.
 The run reported 9,818 ms total CPU and 413 ms recovery CPU; it overlapped the
 check suite and is load-test evidence, not a comparative speed result. The
 macOS runner does not yet supply RSS for this benchmark.
+
+### Application startup protocols
+
+Implemented Kiwi-specific XTVERSION, configured-theme query/subscription and
+application Escape-key mode, including input encoding, Kitty precedence,
+mode queries, save/restore and resets. Invalid forms remain observable.
+`make check` passed 491 Lua tests across 108 suites, 16 PTY tests, and the
+remaining readiness/terminfo/CLI/fuzz/syntax gates. Headless core tests passed.
+
+The strict native daily-driver gate passed on macOS x86_64 / Intel Iris Plus
+655 / Metal with tmux 3.8, Neovim, Vim, top, Bash/Zsh metadata, hyperlinks,
+private clipboard and RGB readback. Fish, Nushell and SSH were explicitly
+skipped. This is bounded startup/replay evidence; interactive editing, resize,
+physical layouts and Linux/Windows qualification remain incomplete. See
+`evidence/2026-10-25-macos-application-startup.json` for the sanitized report.

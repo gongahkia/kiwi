@@ -7,7 +7,8 @@ return {
   input = "\27[?2031h\27[?996n\27[>q\27[14t\27[?7727h",
   expected = {
     cursor = { column = 0, row = 0 },
-    responses = { "\27[4;51;63t" },
-    unknown = { csi = 4 },
+    responses = { "\27[?997;1n", "\27P>|Kiwi(development)\27\\", "\27[4;51;63t" },
+    modes = { application_escape = true, color_scheme_reporting = true },
+    unknown = { csi = 0 },
   },
 }

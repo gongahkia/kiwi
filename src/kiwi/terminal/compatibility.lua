@@ -2,8 +2,8 @@ local Json = require("kiwi.bench.json")
 
 local Compatibility = {
   schema_version = 1,
-  version = "1.4",
-  next_version = "1.5",
+  version = "1.5",
+  next_version = "1.6",
   supported = {
     "c0-controls",
     "esc-controls-and-character-sets",
@@ -15,6 +15,8 @@ local Compatibility = {
     "bounded-osc22-css-pointer-shape",
     "default-denied-bounded-osc52-write",
     "device-status-attributes-and-read-only-geometry",
+    "kiwi-version-and-configured-theme-reporting",
+    "application-escape-key-mode",
     "mouse-focus-and-bracketed-paste",
     "xtshiftescape-host-selection-policy",
     "kitty-keyboard-flags-1-2-8-16",
