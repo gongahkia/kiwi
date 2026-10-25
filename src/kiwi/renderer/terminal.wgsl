@@ -183,7 +183,13 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
   return vec4<f32>(color.rgb, color.a * coverage);
 }
 
-fn selection_contains(column: f32, row: f32) -> bool {
+fn selection_contains(column: f32, row: f32, flags: u32) -> bool {
+  if (frame.command_region_padding1.y > 0.5) {
+    let anchor = column - select(0.0, 1.0, (flags & 0x02000000u) != 0u);
+    let width = select(1.0, 2.0, (flags & 0x03000000u) != 0u);
+    return row >= frame.selection_start_row && row <= frame.selection_finish_row
+      && anchor < frame.selection_finish_column && anchor + width > frame.selection_start_column;
+  }
   let after_start = row > frame.selection_start_row
     || (row == frame.selection_start_row && column >= frame.selection_start_column);
   let before_finish = row < frame.selection_finish_row
@@ -212,12 +218,12 @@ fn command_region_separator_row(row: f32) -> bool {
 fn selection_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) instance_index: u32) -> RasterOut {
   let row = floor(f32(instance_index) / frame.columns);
   let column = f32(instance_index) - row * frame.columns;
-  return raster_out(vec2<f32>(column, row), vec2<f32>(1.0, 1.0), vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, 0u, 0u, vertex_index);
+  return raster_out(vec2<f32>(column, row), vec2<f32>(1.0, 1.0), vec2<f32>(0.0), vec2<f32>(0.0), 0u, 0u, cells[instance_index].flags, 0u, vertex_index);
 }
 
 @fragment
 fn selection_fs(input: RasterOut) -> @location(0) vec4<f32> {
-  if (!selection_contains(input.cell_position.x, input.cell_position.y)) { discard; }
+  if (!selection_contains(input.cell_position.x, input.cell_position.y, input.flags)) { discard; }
   return srgb_to_surface(vec4<f32>(frame.selection_red, frame.selection_green, frame.selection_blue, frame.selection_alpha));
 }
 

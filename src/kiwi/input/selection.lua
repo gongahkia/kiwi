@@ -57,11 +57,13 @@ function Selection:clear()
   self.anchor = nil
   self.focus = nil
   self.scope = nil
+  self.mode = "normal"
 end
 
 function Selection:remap(scope, mapper)
   assert(type(mapper) == "function", "selection remap requires a mapper")
   if self.scope ~= scope or self.anchor == nil or self.focus == nil then return false end
+  if self.mode == "block" then self:clear(); return false end
   local anchor = mapper(self.anchor)
   local focus = mapper(self.focus)
   if anchor == nil or focus == nil then
@@ -82,7 +84,9 @@ function Selection:reconcile(document, columns)
     self:clear()
     return false
   end
-  if compare(anchor, focus) <= 0 then
+  if self.mode == "block" then
+    -- Rectangular edges are snapped separately for every copied/rendered row.
+  elseif compare(anchor, focus) <= 0 then
     anchor.column = snap(row_at(document, anchor.row_index), anchor.column, columns, false)
     focus.column = snap(row_at(document, focus.row_index), focus.column, columns, true)
   else
@@ -94,7 +98,9 @@ function Selection:reconcile(document, columns)
   return true
 end
 
-function Selection:set(scope, anchor, focus, document, columns)
+function Selection:set(scope, anchor, focus, document, columns, mode)
+  assert(mode == nil or mode == "normal" or mode == "block", "invalid selection mode")
+  self.mode = mode or "normal"
   self.scope = scope
   self.anchor = copy_endpoint(anchor)
   self.focus = copy_endpoint(focus)
@@ -111,16 +117,24 @@ function Selection:view(document, columns, visible_scope)
   else
     start, finish = self.focus, self.anchor
   end
+  start, finish = copy_endpoint(start), copy_endpoint(finish)
+  if self.mode == "block" then
+    start.column = math.min(self.anchor.column, self.focus.column)
+    finish.column = math.max(self.anchor.column, self.focus.column)
+  end
   return {
     active = true,
     anchor = copy_endpoint(self.anchor),
-    empty = start.line_id == finish.line_id and start.column == finish.column,
+    empty = start.column == finish.column and (self.mode == "block" or start.line_id == finish.line_id),
     finish = copy_endpoint(finish),
     focus = copy_endpoint(self.focus),
     scope = self.scope,
     start = copy_endpoint(start),
     visible = self.scope == visible_scope,
+    mode = self.mode or "normal",
   }
 end
+
+Selection.snap = snap
 
 return Selection

@@ -57,7 +57,8 @@ function PreparedFrame.pack_cell(packer, model, index)
   instance.y = row
   instance.fg = color_to_u32(foreground)
   instance.bg = color_to_u32(background)
-  instance.flags = cell.flags
+  instance.flags = cell.flags + (cell.continuation and Packing.continuation_cell
+    or cell.width == 2 and Packing.wide_cell or 0)
   if packer.font.glyph_cache then
     instance.u0 = 0
     instance.v0 = 0
@@ -99,6 +100,12 @@ function PreparedFrame.pack_shaped_glyph(packer, glyph, index)
 end
 
 function PreparedFrame.cursor_descriptor(model)
+  local vi = model.vi_view and model:vi_view()
+  if vi and vi.active then
+    return { column = vi.column, row = vi.row, visible = vi.row >= 0 and vi.row < model.rows,
+      style = 2, shape = "block", blink = false,
+      color = Color.unpack(model.cursor_color or Color.pack(0x8c, 0xd9, 0xe0, 0xff)) }
+  end
   local modes = model.modes or {}
   local style = modes.cursor_style or 1
   local details = cursor_styles[style] or cursor_styles[1]
@@ -328,6 +335,7 @@ function PreparedFrame:prepare_frame(model, time, debug_dirty, debug_boundaries,
   self.frame[0].command_region_alpha = command_region_count > 0 and command_region_color.alpha or 0
   self.frame[0].command_region_padding[0] = options.surface_is_srgb and 1 or 0
   self.frame[0].command_region_padding[1] = options.background_opacity or 1
+  self.frame[0].command_region_padding[2] = selection.block and 1 or 0
   for index = 0, CommandRegions.visible_boundary_limit - 1 do
     local boundary = command_regions.boundaries["boundary_" .. (index + 1)]
     local offset = index * 4
