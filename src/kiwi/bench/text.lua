@@ -360,10 +360,11 @@ local function glyph_cache_lookup(kind, iterations, warmup)
   local persistent = kind == "hit" and new_system() or nil
   local function insert(system, capacity_path)
     local face = assert(system:face_for_cluster({ string.byte("A") }))
-    local glyph = assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("A"))))
+    local owner = capacity_path and {} or nil
+    local glyph = assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("A")), owner))
     if capacity_path then
-      assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("B"))))
-      return system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("C")))
+      assert(system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("B")), owner))
+      return system.glyph_cache:get_or_insert(face, face:glyph_index(string.byte("C")), owner)
     end
     return glyph
   end
@@ -395,7 +396,7 @@ local function glyph_cache_lookup(kind, iterations, warmup)
   if persistent then persistent:destroy() end
   return result("glyph-atlas-" .. kind, kind, 1, iterations, warmup, timing, memory, counters,
     kind == "hit" and "Persistent glyph-ID alpha-atlas cache hit; rasterization, GPU upload, and presentation excluded"
-      or kind == "bounded-capacity" and "Fresh bounded single-page glyph-ID atlas filled to its entry limit; deterministic rejection is timed"
+      or kind == "bounded-capacity" and "Fresh bounded single-page glyph-ID atlas filled with pinned visible glyphs; temporary capacity rejection is timed"
       or "Fresh glyph-ID cache miss including FreeType rasterization and alpha-atlas insertion; GPU upload and presentation excluded")
 end
 

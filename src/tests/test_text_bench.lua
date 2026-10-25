@@ -49,5 +49,7 @@ return {
     Assert.truthy(result.atlas_entries <= result.atlas_entries_limit)
     Assert.truthy(result.fallback.fallback_misses >= 0)
     Assert.equal(result.lifecycle_text_systems, 2)
+    Assert.equal(result.recovery_rounds, 95)
+    Assert.truthy(result.glyph_cache.evictions > 0)
   end,
 }

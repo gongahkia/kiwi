@@ -46,6 +46,7 @@ function Atlas:descriptor()
 end
 
 function Atlas:destroy()
+  self.layout_engine:destroy()
   self.destroyed = true
 end
 
