@@ -138,6 +138,13 @@ function Search:step(provider, generation, scope, budget)
   self.last_step_work = 0
   if not self.job then return nil, self.status end
   if generation ~= self.generation or scope ~= self.scope then self:invalidate(); return nil, "stale" end
+  -- Cache only for this event-loop slice. No borrowed terminal rows survive
+  -- a yield or get copied into a configuration transaction's search job.
+  local provider_index, provider_entry
+  local function row_at(index)
+    if provider_index ~= index then provider_index, provider_entry = index, provider(index) end
+    return provider_entry
+  end
   local used = 0
   while self.job and used < budget do
     if self.work >= self.maximum_work then
@@ -147,7 +154,7 @@ function Search:step(provider, generation, scope, budget)
     local job, charged = self.job, 1
     local line = job.line
     if job.phase == "read" then
-      local entry = provider(job.row_index)
+      local entry = row_at(job.row_index)
       if entry == nil then
         self.last_step_work = used
         return self:finish(#self.matches > 0 and "matches" or "no-match")
@@ -157,7 +164,7 @@ function Search:step(provider, generation, scope, budget)
       if job.column >= job.columns then
         self.scanned_rows = self.scanned_rows + 1
         job.row_index, job.column, job.byte = job.row_index + 1, 0, 1
-        if entry.row.wrapped and provider(job.row_index) ~= nil then line.last_text = #line.points
+        if entry.row.wrapped and row_at(job.row_index) ~= nil then line.last_text = #line.points
         else job.phase = "trim" end
       else
         local cell = entry.row.cells[job.column]
@@ -185,7 +192,15 @@ function Search:step(provider, generation, scope, budget)
       if index > line.last_text then
         line.points[index], line.line_ids[index], line.row_indices[index], line.columns[index], line.finishes[index] = nil, nil, nil, nil, nil
       else
-        job.offset, job.runner, job.phase = 1, Regex.runner(job.program, line.points), "match"
+        job.offset, job.runner, job.phase = 1, Regex.runner(job.program, line.points, nil, job.runner), "match"
+      end
+    elseif job.phase == "clear" then
+      local index = #line.points
+      if index > 0 then
+        line.points[index], line.line_ids[index], line.row_indices[index], line.columns[index], line.finishes[index] = nil, nil, nil, nil, nil
+      else
+        line.first_line_id, line.first_row_index, line.last_text = nil, nil, 0
+        job.phase = "read"
       end
     else
       local done, first, last, operations = job.runner:step(math.min(budget - used, self.maximum_work - self.work))
@@ -199,8 +214,8 @@ function Search:step(provider, generation, scope, budget)
           end
           job.offset = self.mode == "literal" and first + 1 or math.max(first + 1, last + 1)
         end
-        if first and job.offset <= #line.points + 1 then job.runner = Regex.runner(job.program, line.points, job.offset)
-        else job.line, job.runner, job.phase = new_line(), nil, "read" end
+        if first and job.offset <= #line.points + 1 then job.runner = Regex.runner(job.program, line.points, job.offset, job.runner)
+        else job.phase = "clear" end
       end
     end
     used, self.work = used + charged, self.work + charged
