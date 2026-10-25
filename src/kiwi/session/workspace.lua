@@ -213,6 +213,7 @@ function Workspace:split(direction, session, options)
     replace_child(parent, target, split)
   end
   tab.active_pane_id = pane.id
+  tab.zoomed = false
   return pane
 end
 
@@ -233,6 +234,7 @@ function Workspace:close_pane(id)
     if candidate.id == pane.tab_id then tab = candidate break end
   end
   assert(tab, "workspace pane has no tab")
+  tab.zoomed = false
   if pane_count(tab.root) == 1 then return nil, "last-pane" end
   local target = assert(find_leaf(tab.root, id), "workspace pane is not in tab tree")
   local parent = assert(target.parent, "workspace non-root pane has no parent")
@@ -260,6 +262,7 @@ function Workspace:detach_pane(id)
   local pane = self.panes[id]
   if pane == nil then return nil, "unknown-pane" end
   local tab = assert(self:tab(pane.tab_id), "workspace pane has no tab")
+  tab.zoomed = false
   local target = assert(find_leaf(tab.root, id), "workspace pane is not in tab tree")
   local removed_tab = false
   if pane_count(tab.root) == 1 then
@@ -343,11 +346,14 @@ function Workspace:set_split_ratio(pane_id, ratio)
   return true
 end
 
-function Workspace:layout(width, height)
+function Workspace:layout(width, height, unzoomed)
   assert(type(width) == "number" and width >= 1 and width % 1 == 0, "workspace width must be a positive integer")
   assert(type(height) == "number" and height >= 1 and height % 1 == 0, "workspace height must be a positive integer")
   local tab = self:active_tab()
   if tab == nil then return {} end
+  if tab.zoomed and not unzoomed then
+    return {{ active = true, height = height, pane_id = tab.active_pane_id, width = width, x = 0, y = 0 }}
+  end
   local minimum_width, minimum_height = minimum_dimensions(tab.root)
   if width < minimum_width or height < minimum_height then return nil, "insufficient-space" end
   local result = {}
@@ -379,6 +385,116 @@ function Workspace:layout(width, height)
   end
   visit(tab.root, 0, 0, width, height)
   return result
+end
+
+function Workspace:focus_relative_tab(offset)
+  assert(offset == 1 or offset == -1, "tab offset must be 1 or -1")
+  if #self.tabs < 2 then return false end
+  for index, tab in ipairs(self.tabs) do
+    if tab.id == self.active_tab_id then
+      return self:focus_tab(self.tabs[(index - 1 + offset) % #self.tabs + 1].id)
+    end
+  end
+  return false
+end
+
+function Workspace:focus_relative_pane(offset)
+  assert(offset == 1 or offset == -1, "pane offset must be 1 or -1")
+  local tab = self:active_tab()
+  if tab == nil then return false end
+  local leaves = {}
+  collect_leaves(tab.root, leaves)
+  if #leaves < 2 then return false end
+  for index, node in ipairs(leaves) do
+    if node.pane_id == tab.active_pane_id then
+      return self:focus_pane(leaves[(index - 1 + offset) % #leaves + 1].pane_id)
+    end
+  end
+  return false
+end
+
+local function horizontal_direction(direction)
+  assert(direction == "left" or direction == "right" or direction == "up" or direction == "down", "invalid pane direction")
+  return direction == "left" or direction == "right"
+end
+
+function Workspace:focus_direction(direction, width, height)
+  local horizontal = horizontal_direction(direction)
+  local layout = self:layout(width, height, true)
+  if layout == nil then return false end
+  local active
+  for _, pane in ipairs(layout) do if pane.active then active = pane break end end
+  if active == nil then return false end
+  local best, best_gap, best_alignment
+  for _, pane in ipairs(layout) do
+    if not pane.active then
+      local gap
+      if direction == "left" then gap = active.x - pane.x - pane.width
+      elseif direction == "right" then gap = pane.x - active.x - active.width
+      elseif direction == "up" then gap = active.y - pane.y - pane.height
+      else gap = pane.y - active.y - active.height end
+      local start = horizontal and pane.y or pane.x
+      local size = horizontal and pane.height or pane.width
+      local active_start = horizontal and active.y or active.x
+      local active_size = horizontal and active.height or active.width
+      local overlap = math.min(start + size, active_start + active_size) - math.max(start, active_start)
+      local alignment = math.abs(start + size / 2 - active_start - active_size / 2)
+      if gap >= 0 and overlap > 0 and (best == nil or gap < best_gap or (gap == best_gap and alignment < best_alignment)) then
+        best, best_gap, best_alignment = pane, gap, alignment
+      end
+    end
+  end
+  return best ~= nil and self:focus_pane(best.pane_id) or false
+end
+
+function Workspace:toggle_zoom()
+  local tab = self:active_tab()
+  if tab == nil or pane_count(tab.root) < 2 then return false end
+  tab.zoomed = not tab.zoomed
+  return true
+end
+
+function Workspace:resize_active_split(direction, cells, width, height)
+  local horizontal = horizontal_direction(direction)
+  assert_positive_integer(cells, "split resize cells")
+  local tab = self:active_tab()
+  if tab == nil or tab.zoomed then return false end
+  local node = find_leaf(tab.root, tab.active_pane_id)
+  local split = node and node.parent
+  while split and (split.direction == "vertical") ~= horizontal do split = split.parent end
+  if split == nil then return false end
+  local layout = self:layout(width, height, true)
+  if layout == nil then return false end
+  local leaves, members = {}, {}
+  collect_leaves(split, leaves)
+  for _, leaf_node in ipairs(leaves) do members[leaf_node.pane_id] = true end
+  local first, last = math.huge, 0
+  for _, pane in ipairs(layout) do
+    if members[pane.pane_id] then
+      local start = horizontal and pane.x or pane.y
+      first = math.min(first, start)
+      last = math.max(last, start + (horizontal and pane.width or pane.height))
+    end
+  end
+  local sign = (direction == "left" or direction == "up") and -1 or 1
+  local ratio = math.max(0.1, math.min(0.9, split.ratio + sign * cells / (last - first)))
+  if ratio == split.ratio then return false end
+  split.ratio = ratio
+  return true
+end
+
+function Workspace:equalize_splits()
+  local tab = self:active_tab()
+  if tab == nil then return false end
+  local changed = false
+  local function visit(node)
+    if node.kind == "leaf" then return end
+    if node.ratio ~= 0.5 then node.ratio, changed = 0.5, true end
+    visit(node.first)
+    visit(node.second)
+  end
+  visit(tab.root)
+  return changed
 end
 
 function Workspace:pane_at(width, height, column, row)
