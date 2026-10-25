@@ -1,15 +1,43 @@
 -- Synchronous configuration staging. Preserve the live State object's identity
 -- because the parser and host hold references to it. Strings/image byte buffers
--- are immutable here; tables (including image residency) are private copies.
+-- and cluster arrays are immutable here; mutable tables (including image
+-- residency) are private copies once staging returns.
 local Transaction = {}
 Transaction.__index = Transaction
 
 local function copy(value, seen)
   if type(value) ~= "table" then return value end
   if seen[value] then return seen[value] end
+  if rawget(value, "glyph") ~= nil and rawget(value, "fg") ~= nil and rawget(value, "flags") ~= nil then
+    if value.glyph == " " and value.flags == 0 and value.width == 1 and value.codepoints == nil
+      and value.underline_color == nil and value.underline_style == nil and value.underline_slot == nil
+      and value.hyperlink_id == nil and value.display_text == nil and not value.continuation then
+      local blank = { glyph = " ", fg = value.fg, bg = value.bg, flags = 0, width = 1,
+        fg_slot = value.fg_slot, bg_slot = value.bg_slot }
+      seen[value] = blank
+      return blank
+    end
+    -- Fixed terminal cell record, matching Screen.copy_cell. Preallocate its
+    -- fields instead of growing a hash table and recursively copying scalars.
+    local cell = {
+      glyph = value.glyph, fg = value.fg, bg = value.bg,
+      fg_slot = value.fg_slot, bg_slot = value.bg_slot, flags = value.flags,
+      codepoints = value.codepoints, width = value.width, continuation = value.continuation,
+      anchor_column = value.anchor_column, display_text = value.display_text,
+      hyperlink_id = value.hyperlink_id, underline_style = value.underline_style,
+      underline_color = value.underline_color, underline_slot = value.underline_slot,
+    }
+    seen[value] = cell
+    return cell
+  end
   local result = setmetatable({}, getmetatable(value))
   seen[value] = result
-  for key, item in pairs(value) do result[copy(key, seen)] = copy(item, seen) end
+  for key, item in pairs(value) do
+    -- Cluster arrays are immutable: extending a grapheme creates a new array.
+    -- Keep the shared ASCII pool and Unicode arrays shared across candidates.
+    if key == "codepoints" then result[key] = item
+    else result[copy(key, seen)] = copy(item, seen) end
+  end
   return result
 end
 
@@ -27,11 +55,28 @@ local function bind(snapshot, owner)
   end
 end
 
-function Transaction.new(state)
-  local self = setmetatable({ original = state, state = copy(state, {}), effects = {} }, Transaction)
+function Transaction.new(state, dimensions)
+  local seen = {}
+  local resized = dimensions and (dimensions.columns ~= state.columns or dimensions.rows ~= state.rows)
+  local direct_reflow = resized and dimensions.columns ~= state.columns and state.reflow_on_resize
+    and not state:can_keep_primary_rows_on_resize(dimensions.columns, dimensions.rows)
+  if direct_reflow then
+    -- Reflow reads source cells and creates independent destination cells.
+    -- Clone row metadata but avoid copying the entire document twice. Do not
+    -- expose this snapshot until resize has detached every source cell array.
+    for _, screen in ipairs({ state.primary, state.alternate }) do
+      for _, row in pairs(screen.rows) do seen[row.cells] = row.cells end
+    end
+    for _, row in pairs(state.scrollback.rows) do seen[row.cells] = row.cells end
+  end
+  local self = setmetatable({ original = state, state = copy(state, seen), effects = {} }, Transaction)
   bind(self.state, self.state)
   self.state.effect_sink = function(kind, value)
     self.effects[#self.effects + 1] = { kind = kind, value = value }
+  end
+  if resized then
+    self.state:resize(dimensions.columns, dimensions.rows)
+    self.state.grapheme_context_storage = {}
   end
   return self
 end

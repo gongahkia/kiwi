@@ -82,10 +82,11 @@ end
 -- first source line_id. The returned map translates every old cell-gap
 -- coordinate, including blank trailing cells. The membership table maps each
 -- source row to the first output row that represents it, for row metadata.
-function Reflow.transform(rows, old_columns, new_columns, new_row, is_blank)
+function Reflow.transform(rows, old_columns, new_columns, new_row, is_blank, options)
   assert(type(rows) == "table" and old_columns >= 1 and new_columns >= 1, "invalid reflow input")
   assert(type(new_row) == "function", "reflow requires a row factory")
   is_blank = is_blank or default_blank
+  local compact_map = options and options.compact_map == true
 
   local output, map, membership, logical = {}, {}, {}, {}
   local function flush()
@@ -134,17 +135,22 @@ function Reflow.transform(rows, old_columns, new_columns, new_row, is_blank)
 
     for _, source in ipairs(logical) do
       local source_offsets = offsets[source.line_id]
-      local entries = {}
-      for source_column = 0, old_columns do
-        local position = position_for(segments, source_offsets.base + source_offsets.gaps[source_column], new_columns)
-        entries[#entries + 1] = {
-          column = position.column,
-          line_id = position.line_id,
-          source_column = source_column,
+      local position = position_for(segments, source_offsets.base + source_offsets.gaps[0], new_columns)
+      if compact_map then
+        -- Keep numeric gap offsets and shared output segments. Resolve only
+        -- positions actually requested by cursor/selection/shell metadata.
+        map[source.line_id] = {
+          base = source_offsets.base, gaps = source_offsets.gaps, segments = segments,
+          old_columns = old_columns, new_columns = new_columns,
         }
+      else
+        local entries = {}
+        for source_column = 0, old_columns do
+          local mapped = position_for(segments, source_offsets.base + source_offsets.gaps[source_column], new_columns)
+          entries[#entries + 1] = { column = mapped.column, line_id = mapped.line_id, source_column = source_column }
+        end
+        map[source.line_id] = entries
       end
-      map[source.line_id] = entries
-      local position = entries[1]
       membership[source.line_id] = position.line_id
       for _, candidate in ipairs(segments) do
         if candidate.row.line_id == position.line_id then
@@ -166,6 +172,10 @@ end
 
 function Reflow.remap_position(map, line_id, column, fallback)
   local entries = map[line_id]
+  if entries and entries.gaps then
+    local gap = math.max(0, math.min(entries.old_columns, math.floor(column)))
+    return position_for(entries.segments, entries.base + entries.gaps[gap], entries.new_columns)
+  end
   if entries == nil or #entries == 0 then return fallback end
   local selected = entries[1]
   for _, entry in ipairs(entries) do

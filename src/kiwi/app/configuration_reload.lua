@@ -42,17 +42,18 @@ function Reload.prepare(options)
     table.sort(ids)
     for _, id in ipairs(ids) do
       local session = options.workspace.panes[id].session
-      local transaction = StateTransaction.new(Terminal.state(session.terminal))
-      local state = transaction.state
+      local original = Terminal.state(session.terminal)
       local placement = placements[id]
-      local entry = { session = session, transaction = transaction,
-        previous_renderer = session.renderer, columns = state.columns, rows = state.rows,
-        metrics_changed = state.cell_width ~= self.font.cell_width or state.cell_height ~= self.font.cell_height }
+      local entry = { session = session,
+        previous_renderer = session.renderer, columns = original.columns, rows = original.rows,
+        metrics_changed = original.cell_width ~= self.font.cell_width or original.cell_height ~= self.font.cell_height }
       self.entries[#self.entries + 1] = entry
       if placement then entry.columns, entry.rows = placement.width, placement.height end
-      entry.resized = state.columns ~= entry.columns or state.rows ~= entry.rows
+      entry.resized = original.columns ~= entry.columns or original.rows ~= entry.rows
+      local transaction = StateTransaction.new(original, { columns = entry.columns, rows = entry.rows })
+      entry.transaction = transaction
+      local state = transaction.state
       state:set_cell_metrics(self.font.cell_width, self.font.cell_height)
-      if entry.resized then state:resize(entry.columns, entry.rows) end
       state:configure_palette({ foreground = candidate.foreground, background = candidate.background, palette = candidate.palette })
       state:configure_osc52_read(candidate.osc52_read == "allow")
       state:configure_osc52_write(candidate.osc52_write)

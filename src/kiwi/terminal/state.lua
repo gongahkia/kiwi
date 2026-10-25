@@ -2002,7 +2002,7 @@ function State:reflow_primary(columns, rows)
     return primary:new_row()
   end, function(cell)
     return self:is_reflow_blank(cell)
-  end)
+  end, { compact_map = true })
   local rows_by_line_id = {}
   for _, row in ipairs(reflowed) do rows_by_line_id[row.line_id] = row end
   for _, entry in ipairs(document) do

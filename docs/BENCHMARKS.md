@@ -516,3 +516,23 @@ sampled peak process RSS of 1,582 MiB. These are unacceptable interactive
 costs and identify state-copy/reflow optimization work; they are not terminal
 performance-parity evidence. Repeat the same workload after changes and keep
 machine, fonts and execution conditions comparable.
+
+The matching five-sample rerun is retained in
+`evidence/2026-10-25-macos-reload-optimized.json`. Reflow now resolves position
+mapping on demand, and configuration staging avoids duplicating source cells
+before reflow creates independent destination cells. Immutable grapheme arrays
+remain shared; mutable terminal cells and image residency remain isolated.
+
+| 10,000-line case | Baseline | Optimized |
+| --- | ---: | ---: |
+| Font/resize wall p95 | 2,813 ms | 1,925 ms |
+| Font/resize additional Lua heap peak | 1,041 MiB | 395 MiB |
+| Font/resize sampled process RSS peak | 1,582 MiB | 1,187 MiB |
+| Palette wall p95 | 901 ms | 1,033 ms |
+| Palette CPU p95 | 893 ms | 735 ms |
+
+The memory reduction is substantial, but large-history replacement remains too
+slow. Palette wall time increased despite lower CPU time; these short runs do
+not establish a consistent latency improvement. Neither report measures GPU
+staging, displayed latency or competitor performance. Incremental replacement
+and cheaper retained-history storage remain performance work.

@@ -192,3 +192,25 @@ a comparable rerun are required.
 `make check` passed 525 Lua tests across 115 suites, 16 PTY tests, both native
 watchers, process metrics and the remaining gates. The native metrics test also
 passed AddressSanitizer/UndefinedBehaviorSanitizer locally.
+
+### Reload memory reduction
+
+Reflow position mapping now retains numeric offsets and resolves requested
+positions on demand. Font-change transactions avoid copying cells immediately
+before reflow replaces them; unchanged-size paths still copy mutable cells.
+Immutable grapheme arrays are shared, with extension allocating new arrays.
+Failure and equivalence tests cover alternate screens, retained history, wide
+and combining text, underline/hyperlink attributes, images and post-commit input.
+
+The same five-sample benchmark at 10,000 lines reduced font-change additional
+Lua heap from 1,041 to 395 MiB and sampled peak process RSS from 1,582 to
+1,187 MiB. Font-change wall p95 fell from 2,813 to 1,925 ms. Palette wall p95
+increased from 901 to 1,033 ms, despite lower CPU time. These costs remain
+unacceptable for interactive use; the performance workstream stays open.
+The raw rerun is `evidence/2026-10-25-macos-reload-optimized.json`.
+
+`make check` passed 530 Lua tests across 115 suites, 16 PTY tests, native
+watcher/process-metrics tests and the remaining checks. Core passed 303 tests
+across 58 suites. Native Metal reload and interaction smokes passed their
+assertions, including injected second-pane allocation failure and retained
+sessions. These runs do not establish Linux or Windows qualification.
