@@ -173,6 +173,11 @@ Kiwi validates the full replacement, including its action map and theme, before
 changing live resources; an invalid file leaves the current configuration
 active. Theme, renderer colors, font settings, host-effect policy, local
 actions, and the `scrollbar` policy reload in the same session.
+On the WGPU application path, Kiwi stages every pane's state, font and renderer
+before replacing live resources. Failed font, layout or GPU allocation keeps
+the existing session usable; terminal replies and child resize happen only
+after activation. Staging temporarily duplicates retained state and GPU
+resources, so large histories can increase reload time and peak memory.
 `ambiguous-width` and `scrollback-limit`
 remain startup-only, because changing either would require semantic grid reflow
 or history retention changes; Kiwi reports that limitation instead of partially
