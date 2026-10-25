@@ -426,3 +426,15 @@ from the preceding run's 1,413 to 695 ms; additional sampled Lua heap fell from
 staging remained 9.6 ms. Large-history font changes are still a noticeable pause,
 and these CPU measurements exclude GPU allocation/presentation. Report:
 `evidence/2026-10-25-macos-streaming-reflow.json`.
+
+### Linux verification after history/reflow changes
+
+The Ubuntu container reran `make check test-applications test-ssh-applications`
+against revision `36820b2`. All 539 Lua tests across 115 suites, 17 PTY tests,
+remaining native/fuzz/CLI/syntax gates, nine local application workflows and
+four SSH workflows passed. The new palette isolation and sparse reflow tests
+ran there too. Retained reports:
+`evidence/2026-10-25-linux-reload-interactive-applications.json` and
+`evidence/2026-10-25-linux-reload-ssh-applications.json`. Linux graphical reload,
+GPU-inclusive latency, large-history memory, and font-change responsiveness
+remain open; the container result does not establish any of those claims.
