@@ -299,9 +299,12 @@ profile-text:
 bench-compare:
 	./script/compare-bench "$(BASELINE)" "$(CANDIDATE)"
 
-.PHONY: test-pty-watch
+.PHONY: test-pty-watch pty-wake-smoke
 test-pty-watch:
 	./script/test-pty-watch
+
+pty-wake-smoke: native
+	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
 
 check: test test-fuzz test-pty test-pty-watch terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
