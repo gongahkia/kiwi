@@ -10,10 +10,15 @@ assert(Host.presentation_backend ~= "gtk-gl", "this controller fixture requires 
 local keys = Host.keymap
 local capture, config = os.tmpname(), os.tmpname()
 local file = assert(io.open(config, "w")); file:write("scrollback-limit = 2000\nlive-config-reload = false\n"); file:close()
-local live, dispatcher, title
+local live, dispatcher, title, last_action
 local terminal_new, dispatcher_new, set_title, await = Terminal.new, Dispatcher.new, Window.set_title, Host.await_events
 Terminal.new = function(...) live = terminal_new(...); return live end
-Dispatcher.new = function(...) dispatcher = dispatcher_new(...); return dispatcher end
+Dispatcher.new = function(...)
+  dispatcher = dispatcher_new(...)
+  local handle = dispatcher.handle
+  dispatcher.handle = function(self, action) last_action = action; return handle(self, action) end
+  return dispatcher
+end
 Window.set_title = function(self, text) title = text; return set_title(self, text) end
 local function read_capture()
   local stream = assert(io.open(capture, "rb")); local bytes = stream:read("*a"); stream:close(); return bytes
@@ -43,6 +48,13 @@ Host.await_events = function(application, window, timeout)
     assert(state.scrollback:size() > 900 and state.modes.keyboard_flags == keyboard_flags)
     assert(require("bit").band(keyboard_flags, 24) == 24, "fixture needs report-all-keys and associated text")
     assert(dispatcher:handle("search-regex"))
+    -- Global product bindings remain available while Find owns text input.
+    -- Flags 7 enable release reports without asking the app to own all keys.
+    state.modes.keyboard_flags = 7
+    key(window, string.byte("0"), keys.press, keys.mod_control)
+    key(window, string.byte("0"), keys.release, keys.mod_control)
+    assert(last_action == "reset-font-size", "Find swallowed a global product shortcut")
+    state.modes.keyboard_flags = keyboard_flags
     type_query(window, "^unique é中 (needle|missing)$")
     key(window, keys.key_enter, keys.press); key(window, keys.key_enter, keys.repeat_action)
     key(window, keys.key_enter, keys.release)

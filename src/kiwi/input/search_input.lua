@@ -5,6 +5,7 @@ local Input = {}
 Input.__index = Input
 
 function Input.new() return setmetatable({ held = {} }, Input) end
+function Input:claim(key) self.held[key] = true end
 
 function Input.editing(state)
   local view = state:search_view()

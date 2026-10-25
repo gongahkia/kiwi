@@ -288,11 +288,12 @@ function Session:_install_input_handlers()
     self:_handle_committed_text(Keyboard.text_sequence(codepoints, self.state.modes))
   end, function(key, action, modifiers, variants)
     if self.closed then return { handled = true, suppress_text = true } end
-    local search_input = self:_handle_search_key(key, action, modifiers)
-    if search_input then self:_invalidate("search"); return search_input end
     if self.on_product_key and self.on_product_key(self, key, action, modifiers) then
+      self.search_input:claim(key)
       return { handled = true, suppress_text = true }
     end
+    local search_input = self:_handle_search_key(key, action, modifiers)
+    if search_input then self:_invalidate("search"); return search_input end
     if Keyboard.should_defer_text(key, action, modifiers, self.state.modes, self.glfw, variants) then
       return { handled = true, defer_text = true }
     end

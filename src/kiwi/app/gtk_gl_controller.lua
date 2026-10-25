@@ -567,16 +567,20 @@ function Controller.run(window, host, options)
       end
       handle_committed_text(Keyboard.text_sequence(codepoints, state.modes))
     end, function(key, action, modifiers, variants)
-      local search_key = handle_search_key(key, action, modifiers)
-      if search_key then invalidate("search"); return search_key end
       if action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
         if product_action and Interaction.kinds[product_action] == "terminal" then
           Interaction.terminal(product_action, state, clipboard, enqueue_input)
+          search_input:claim(key)
           invalidate("search")
           return { handled = true, suppress_text = true }
-        elseif status == "pending" then return { handled = true, suppress_text = true } end
+        elseif status == "pending" then
+          search_input:claim(key)
+          return { handled = true, suppress_text = true }
+        end
       end
+      local search_key = handle_search_key(key, action, modifiers)
+      if search_key then invalidate("search"); return search_key end
       if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
         return { handled = true, defer_text = true }
       end
