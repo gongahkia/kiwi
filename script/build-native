@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly ROOT=${0:A:h:h}
 readonly WGPU="$ROOT/.deps/wgpu-native-v29.0.1.1"
+source "$ROOT/script/homebrew-env"
 
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64)

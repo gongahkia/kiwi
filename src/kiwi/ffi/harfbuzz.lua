@@ -47,7 +47,7 @@ void hb_shape(hb_font_t *font, hb_buffer_t *buffer, const hb_feature_t *features
 const char *hb_version_string(void);
 ]]
 
-local ok, harfbuzz = pcall(ffi.load, "harfbuzz")
+local ok, harfbuzz = pcall(require("kiwi.ffi.library").load, "harfbuzz", "harfbuzz")
 if not ok then
   error("Unable to load HarfBuzz. Install harfbuzz-devel (Fedora): " .. tostring(harfbuzz))
 end

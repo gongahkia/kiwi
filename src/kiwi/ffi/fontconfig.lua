@@ -23,7 +23,7 @@ void FcCharSetDestroy(FcCharSet *fcs);
 FcBool FcCharSetAddChar(FcCharSet *fcs, FcChar32 ucs4);
 ]]
 
-local ok, fontconfig = pcall(ffi.load, "fontconfig")
+local ok, fontconfig = pcall(require("kiwi.ffi.library").load, "fontconfig", "fontconfig")
 if not ok then
   error("Unable to load Fontconfig. Install fontconfig-devel (Fedora): " .. tostring(fontconfig))
 end
