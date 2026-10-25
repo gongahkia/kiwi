@@ -17,21 +17,37 @@ local function finish(state, budget)
   end
 end
 return {
+  hints_charge_long_uri_validation_to_the_budget_and_reuse_validated_ids = function()
+    local uri = "https://e.test/" .. string.rep("x", 1900)
+    local parts = {}
+    for index = 1, 64 do parts[#parts + 1] = "\27]8;;" .. uri .. index .. "\27\\x\27]8;;\27\\" end
+    local state = fixture(table.concat(parts), 80, 2)
+    state:hints_begin(); Assert.truthy(state:hints_pending())
+    Assert.truthy(#state.hints.matches < 4)
+    finish(state, 31)
+    Assert.equal(#state.hints.matches, 64)
+    local repeat_link = "\27]8;id=shared;" .. uri .. "\27\\x\27]8;;\27\\ "
+    state = fixture(string.rep(repeat_link, 64), 80, 2)
+    state:hints_begin()
+    Assert.equal(state:hints_pending(), false)
+    Assert.equal(#state.hints.matches, 64)
+    Assert.truthy(state.hints.last_step_work < 2500)
+  end,
   hints_report_match_and_scan_limits_without_truncated_targets = function()
     local state = fixture(string.rep("https://e.test ", 300), 100, 80)
     state:hints_begin(); finish(state)
     Assert.equal(#state.hints.matches, Hints.maximum_matches)
     Assert.equal(state.hints.status, "match-limit")
     Assert.truthy(state:hints_view().truncated)
-    local maximum = Hints.maximum_cells
-    Hints.maximum_cells = 12
+    local maximum = Hints.maximum_work
+    Hints.maximum_work = 12
     local ok, message = xpcall(function()
       state:hints_begin()
       Assert.equal(state.hints.status, "scan-limit")
       Assert.equal(#state.hints.matches, 0)
       Assert.equal(state.hints:target(state), nil)
     end, debug.traceback)
-    Hints.maximum_cells = maximum
+    Hints.maximum_work = maximum
     assert(ok, message)
   end,
   hints_do_not_extend_a_plain_url_into_an_explicit_link_or_hard_break = function()
