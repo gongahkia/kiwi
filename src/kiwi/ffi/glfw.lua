@@ -81,6 +81,7 @@ return {
     mod_control = 0x0002,
     mod_alt = 0x0004,
     mod_super = 0x0008,
+    key_space = 32,
     key_escape = 256,
     key_enter = 257,
     key_tab = 258,

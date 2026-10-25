@@ -38,6 +38,10 @@ Interaction.entries[#Interaction.entries + 1] = {
   id = 63, action = "search-regex", kind = "terminal", title = "Find Regular Expression",
   description = "Search retained text using a bounded regular expression.",
 }
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 64, action = "toggle-vi-mode", kind = "terminal", title = "Toggle Vi Mode",
+  description = "Navigate and select retained text with the keyboard.",
+}
 Interaction.kinds = {}
 for _, entry in ipairs(Interaction.entries) do Interaction.kinds[entry.action] = entry.kind end
 
@@ -72,9 +76,11 @@ function Interaction.workspace(action, workspace, columns, rows)
 end
 
 function Interaction.terminal(action, state, clipboard, enqueue)
+  if action == "toggle-vi-mode" then return state:vi_toggle() end
   if action == "copy" then return clipboard:copy(state) end
   if action == "paste" then
     if SearchInput.editing(state) then return SearchInput.paste(state, clipboard) end
+    if state.vi and state.vi.active then return nil, "vi-active" end
     local bytes, reason = clipboard:paste(state)
     if bytes == nil then return nil, reason end
     enqueue(bytes)

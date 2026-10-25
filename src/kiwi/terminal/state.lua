@@ -419,6 +419,14 @@ function State:vi_view() return self.vi:view(self) end
 function State:vi_pending() return self.vi.active and self.vi.job ~= nil end
 function State:vi_step(budget) return self.vi:step(self, budget) end
 
+function State:navigation_pending() return self:search_pending() or self:vi_pending() end
+function State:navigation_step(budget)
+  budget = budget or Search.step_budget
+  local searching, moving = self:search_pending(), self:vi_pending()
+  if searching then self:search_step(moving and math.max(1, math.floor(budget / 2)) or budget) end
+  if moving and (not searching or budget > 1) then self:vi_step(searching and math.ceil(budget / 2) or budget) end
+end
+
 function State:shell_position()
   local cursor = self.active_screen.cursor
   return {
@@ -785,6 +793,7 @@ function State:invalidate_search()
 end
 
 function State:search_begin(direction, mode)
+  if self.vi.active then self.vi.job = nil end
   self.search:begin(self:selection_scope(), direction or "forward", mode)
 end
 
@@ -836,18 +845,38 @@ function State:search_step(budget)
   local scope = self:selection_scope()
   local match, status = self.search:step(function(index) return self:search_row(index, scope) end,
     self.search_generation, scope, budget)
-  if match then self:reveal_search_match(match) end
+  if match then
+    if self.vi:reconcile(self) then
+      -- Find starts relative to the vi cursor and wraps among retained results.
+      local cursor, direction = self.vi.cursor, self.search.direction
+      local chosen = direction == "forward" and 1 or #self.search.matches
+      for index, candidate in ipairs(self.search.matches) do
+        local after = candidate.row_index > cursor.row_index or
+          (candidate.row_index == cursor.row_index and candidate.start_column > cursor.column)
+        local before = candidate.row_index < cursor.row_index or
+          (candidate.row_index == cursor.row_index and candidate.start_column < cursor.column)
+        if direction == "forward" and after then chosen = index; break end
+        if direction == "backward" and before then chosen = index end
+      end
+      self.search.current, self.vi.search_direction = chosen, direction
+      match = self.search.matches[chosen]
+      self.vi:set_position(self, match.row_index, match.start_column)
+    else self:reveal_search_match(match) end
+  end
   return match, status
 end
 
 function State:search_submit(direction)
-  self.search:start(self.columns, self.search_generation, self:selection_scope(), direction or "forward")
+  self.search:start(self.columns, self.search_generation, self:selection_scope(), direction or self.search.direction or "forward")
   return self:search_step()
 end
 
 function State:search_navigate(direction)
   local match, status = self.search:navigate(direction or "forward", self.search_generation, self:selection_scope())
-  if match then self:reveal_search_match(match) end
+  if match then
+    if self.vi:reconcile(self) then self.vi:set_position(self, match.row_index, match.start_column)
+    else self:reveal_search_match(match) end
+  end
   return match, status
 end
 

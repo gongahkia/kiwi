@@ -84,6 +84,7 @@ local default_specs = {
   "ctrl+shift+enter=split-right",
   "ctrl+shift+j=split-down",
   "ctrl+shift+p=command-palette",
+  "ctrl+shift+space=toggle-vi-mode",
   "ctrl+shift+alt+f=search-regex",
   "f6=reload-config",
 }

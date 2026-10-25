@@ -574,6 +574,7 @@ presenter does not yet implement the full workspace action set.
 | Oldest history / live output | Ctrl+Shift+Home / End | `scroll-to-top`, `scroll-to-bottom` |
 | Clear saved history, preserve screen | Ctrl+Shift+K | `clear-scrollback` |
 | Select retained text | Ctrl+Shift+A | `select-all` |
+| Enter / leave vi navigation | Ctrl+Shift+Space | `toggle-vi-mode` |
 
 On macOS, Command+C/V/A copy, paste, and select all; Command+F starts search;
 Command+G and Command+Shift+G navigate results; Command+K clears history;
@@ -606,6 +607,45 @@ counts through 128, 65,536 scalars per logical line, 256 retained matches, and
 status. Work yields between event-loop slices; Escape does not wait for the
 whole history. These are bounded scans, without an index or live incremental
 updates as new terminal output arrives. See [the search contract](CONFORMANCE.md#scrollback-search).
+
+Vi mode uses a separate, nonblinking cursor over the current screen and retained
+history. It never moves the application's cursor. Toggle it with
+Ctrl+Shift+Space or **Toggle Vi Mode** in the palette. `i` or Ctrl+C exits and
+returns to live output; Escape cancels a motion, selection, or Find query.
+Applications requesting all keys through Kitty's keyboard protocol own the
+activation shortcut; the palette remains available. Once vi is active, global
+product shortcuts remain available and vi owns command text, repeats, releases,
+and pointer events. Clipboard paste is disabled unless editing a Find query.
+
+| Vi command | Effect |
+| --- | --- |
+| `h j k l` / arrows | Move by whole grapheme cells or physical rows |
+| `w b e` / `W B E` | Next word, previous word, word end; uppercase uses whitespace-separated words |
+| `0 ^ $` / Home / End | Row start, first nonspace cell, last occupied cell |
+| `gg G` | Oldest / newest retained row; a numeric prefix chooses a row |
+| `H M L`, `zz` | Top / middle / bottom of viewport; center cursor |
+| Ctrl+B/F, Page Up/Down; Ctrl+U/D | Page; half page |
+| Ctrl+Y/E | Scroll one row |
+| `v V`, Ctrl+V, Alt+V | Character, physical-row, rectangular, word selection |
+| `y` | Copy selection and clear it after a successful clipboard write |
+| `f F t T`, `; ,` | Find a character forward/backward, stop on/before it, repeat/reverse |
+| `%` | Find matching bracket, including nested brackets |
+| `/ ?`, `n N` | Regex Find forward/backward from the cursor; repeat/reverse result navigation |
+| Enter | Open the explicit OSC 8 hyperlink under the vi cursor |
+
+Numeric prefixes are bounded at 9,999. Scanning motions yield after at most
+4,096 work units per slice and stop at 8,388,608 total units with a visible limit
+status. Output changes cancel pending scans; history eviction clamps the cursor
+and clears selections whose anchor was removed. Resize remaps the cursor and
+ordinary selection; rectangular selections clear because their geometry changes.
+Rectangular copy includes spaces and separates physical rows with newlines.
+Both copying and highlighting expand a cut wide character to its full cell span.
+This is terminal navigation, without Vim editing, registers, or macros. Plain-text
+URL hints and X11 primary selection remain unimplemented.
+
+`make vi-smoke` checks live host input against a raw PTY receiver and a private
+clipboard bridge. `make selection-smoke` checks rectangular and linear highlight
+coverage through native GPU framebuffer readback; both require a graphical session.
 
 Font size changes apply to the current window without editing the configuration.
 Reset restores the last successfully loaded configured size. Sizes that cannot fit

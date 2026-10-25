@@ -16,8 +16,7 @@ local FontSystem = require("kiwi.font.system")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
-local Search = require("kiwi.input.search")
-local SearchInput = require("kiwi.input.search_input")
+local ModalInput = require("kiwi.input.modal_input")
 local Interaction = require("kiwi.app.interaction_actions")
 local Mouse = require("kiwi.input.mouse")
 local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
@@ -176,7 +175,7 @@ function Controller.run_native_tabs(window, host, options)
   end
 
   local function handle_product_key(session, key, action, modifiers)
-    if bit.band(session.state.modes.keyboard_flags, 8) ~= 0 then
+    if bit.band(session.state.modes.keyboard_flags, 8) ~= 0 and not session.state.vi.active then
       product_actions:reset_sequence()
       return false
     end
@@ -410,7 +409,7 @@ function Controller.run(window, host, options)
     local state = Terminal.state(terminal)
     pty = spawn_child(options.command, columns, rows)
     local clipboard = Clipboard.new(window)
-    local search_input = SearchInput.new()
+    local modal_input = ModalInput.new()
     local product_actions = ProductActions.new(configuration.keybindings, glfw)
     configuration.host_effects = HostEffects.new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
@@ -492,10 +491,9 @@ function Controller.run(window, host, options)
 
     local function handle_committed_text(text)
       if text == nil or #text == 0 then return end
-      local search = state:search_view()
-      if search.editing and search.visible then
-        local appended, status = state:search_append(text)
-        if not appended then io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n") end
+      local captured, status = ModalInput.commit(state, text, clipboard, hyperlink)
+      if captured then
+        if status and status ~= "query" then io.stderr:write("Kiwi input: ", status, "\n") end
         invalidate("search")
       else
         enqueue_input(text)
@@ -503,7 +501,7 @@ function Controller.run(window, host, options)
     end
 
     local function handle_search_key(key, action, modifiers)
-      local input, status = search_input:key(state, key, action, modifiers, glfw, clipboard)
+      local input, status = modal_input:key(state, key, action, modifiers, glfw, clipboard, hyperlink)
       if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
         io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
@@ -546,7 +544,7 @@ function Controller.run(window, host, options)
     end
 
     window:set_input_handlers(function(codepoints, key_event)
-      local captured, status = SearchInput.text(state, codepoints)
+      local captured, status = ModalInput.text(state, codepoints, clipboard, hyperlink)
       if captured then
         apply_commit("")
         if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
@@ -565,17 +563,17 @@ function Controller.run(window, host, options)
         if encoded then handle_local_action(encoded) end
         return
       end
-      handle_committed_text(Keyboard.text_sequence(codepoints, state.modes))
+      handle_committed_text(Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(state)))
     end, function(key, action, modifiers, variants)
-      if action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
+      if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active) then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
         if product_action and Interaction.kinds[product_action] == "terminal" then
           Interaction.terminal(product_action, state, clipboard, enqueue_input)
-          search_input:claim(key)
+          modal_input:claim(key)
           invalidate("search")
           return { handled = true, suppress_text = true }
         elseif status == "pending" then
-          search_input:claim(key)
+          modal_input:claim(key)
           return { handled = true, suppress_text = true }
         end
       end
@@ -594,6 +592,7 @@ function Controller.run(window, host, options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
+      if ModalInput.pointer(state, event) then invalidate("selection"); return end
       event.pixel_width = math.max(1, math.floor(state.columns * font.cell_width))
       event.pixel_height = math.max(1, math.floor(state.rows * font.cell_height))
       event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
@@ -639,7 +638,7 @@ function Controller.run(window, host, options)
     local text_input_enabled, text_input_reason = host.enable_text_input(window, apply_preedit, function(text)
       local committed = apply_commit(text)
       local codepoints = codepoints_from_utf8(committed)
-      handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, state.modes) or nil)
+      handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(state)) or nil)
     end)
     if not text_input_enabled then io.stderr:write("Kiwi IME: unavailable: ", text_input_reason, "\n") end
 
@@ -709,7 +708,7 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = consumer:next_render_deadline()
       local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
-      if state:search_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
+      if state:navigation_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       if window.watch_ptys then window:watch_ptys({ pty }) end
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
@@ -781,12 +780,11 @@ function Controller.run(window, host, options)
       pty:flush()
       local child_status = pty:poll_exit()
 
-      if not window.minimized and state:search_pending() then
-        state:search_step()
-        if not state:search_pending() then invalidate("search") end
+      if not window.minimized and state:navigation_pending() then
+        state:navigation_step()
+        if not state:navigation_pending() then invalidate("search") end
       end
-      local search = state:search_view()
-      local title = Search.title(search, state.title or default_title)
+      local title = ModalInput.title(state, state.title or default_title)
       if title ~= last_title then
         window:set_title(title)
         last_title = title
