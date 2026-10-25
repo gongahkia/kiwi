@@ -6,10 +6,11 @@ local function clamp(value, lower, upper)
 end
 
 local function copy_endpoint(endpoint)
-  return { column = endpoint.column, line_id = endpoint.line_id }
+  return { column = endpoint.column, line_id = endpoint.line_id, row_index = endpoint.row_index }
 end
 
 local function positions_for(document)
+  if document.position then return nil end
   local positions = {}
   for index, entry in ipairs(document) do
     positions[entry.line_id] = index
@@ -17,18 +18,24 @@ local function positions_for(document)
   return positions
 end
 
-local function compare(left, right, positions)
-  local left_index = positions[left.line_id]
-  local right_index = positions[right.line_id]
+local function compare(left, right)
+  local left_index = left.row_index
+  local right_index = right.row_index
   if left_index ~= right_index then return left_index < right_index and -1 or 1 end
   if left.column == right.column then return 0 end
   return left.column < right.column and -1 or 1
 end
 
 local function clamp_endpoint(endpoint, document, positions, columns)
-  local index = positions[endpoint.line_id]
+  local index
+  if document.position then index = document:position(endpoint.line_id, endpoint.row_index)
+  else index = positions[endpoint.line_id] end
   if index == nil then return nil end
-  return { column = clamp(endpoint.column, 0, columns), line_id = document[index].line_id }
+  return { column = clamp(endpoint.column, 0, columns), line_id = endpoint.line_id, row_index = index }
+end
+
+local function row_at(document, index)
+  return (document.row and document:row(index) or document[index]).row
 end
 
 local function snap(row, column, columns, toward_end)
@@ -75,14 +82,12 @@ function Selection:reconcile(document, columns)
     self:clear()
     return false
   end
-  local anchor_index = positions[anchor.line_id]
-  local focus_index = positions[focus.line_id]
-  if compare(anchor, focus, positions) <= 0 then
-    anchor.column = snap(document[anchor_index].row, anchor.column, columns, false)
-    focus.column = snap(document[focus_index].row, focus.column, columns, true)
+  if compare(anchor, focus) <= 0 then
+    anchor.column = snap(row_at(document, anchor.row_index), anchor.column, columns, false)
+    focus.column = snap(row_at(document, focus.row_index), focus.column, columns, true)
   else
-    anchor.column = snap(document[anchor_index].row, anchor.column, columns, true)
-    focus.column = snap(document[focus_index].row, focus.column, columns, false)
+    anchor.column = snap(row_at(document, anchor.row_index), anchor.column, columns, true)
+    focus.column = snap(row_at(document, focus.row_index), focus.column, columns, false)
   end
   self.anchor = anchor
   self.focus = focus
@@ -100,9 +105,8 @@ function Selection:view(document, columns, visible_scope)
   if not self:reconcile(document, columns) then
     return { active = false, empty = true, visible = false }
   end
-  local positions = positions_for(document)
   local start, finish
-  if compare(self.anchor, self.focus, positions) <= 0 then
+  if compare(self.anchor, self.focus) <= 0 then
     start, finish = self.anchor, self.focus
   else
     start, finish = self.focus, self.anchor

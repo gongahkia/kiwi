@@ -51,11 +51,15 @@ function Selection.descriptor(model, color)
   if type(model.selection_view) ~= "function" or type(model.selection_rows) ~= "function" or type(model.visible_row) ~= "function" then return descriptor end
   local view = model:selection_view()
   if not view.active or not view.visible or view.empty then return descriptor end
-  local positions = row_positions(model, view.scope)
-  local top = model:visible_row(0)
-  local start = positions[view.start.line_id]
-  local finish = positions[view.finish.line_id]
-  local top_index = top and positions[top.line_id]
+  local start, finish, top_index
+  if model.document and view.start.row_index and view.finish.row_index then
+    start, finish = view.start.row_index - 1, view.finish.row_index - 1
+    top_index = model:document(view.scope):top() - 1
+  else
+    local positions = row_positions(model, view.scope)
+    local top = model:visible_row(0)
+    start, finish, top_index = positions[view.start.line_id], positions[view.finish.line_id], top and positions[top.line_id]
+  end
   if start == nil or finish == nil or top_index == nil then return descriptor end
   descriptor.start_column = view.start.column
   descriptor.start_row = start - top_index

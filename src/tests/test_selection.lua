@@ -1,6 +1,8 @@
 local Assert = require("tests.assert")
 local State = require("kiwi.terminal.state")
 local Utf8 = require("kiwi.terminal.utf8")
+local Terminal = require("kiwi.session.terminal")
+local Scrollback = require("kiwi.terminal.scrollback")
 
 local function write_row(state, row, codepoints)
   state:set_cursor(0, row)
@@ -10,6 +12,35 @@ local function write_row(state, row, codepoints)
 end
 
 return {
+  selection_uses_indexed_rows_without_materializing_retained_history = function()
+    local terminal = Terminal.new({ columns = 20, rows = 3, state_options = { scrollback_limit = 2000 } })
+    for index = 1, 2003 do terminal:write(string.format("row %04d\r\n", index)) end
+    local state = Terminal.state(terminal)
+    state.selection_rows = function() error("selection copied the history index") end
+    state:scroll_history(1000)
+    state:set_selection(0, 0, 1, 8)
+    local view = state:selection_view()
+    Assert.equal(view.start.row_index, state.scrollback:size() - state.history_offset + 1)
+    Assert.equal(state:selection_text(100), "row 1002\nrow 1003")
+    Assert.truthy(state:selection_precedes(0, 3, 1, 3))
+    -- Growth shifts the ring head but the selected stable row IDs survive.
+    local id = view.start.line_id
+    terminal:write("new row\r\n")
+    Assert.equal(state:selection_view().start.line_id, id)
+    Assert.equal(state:selection_text(100), "row 1002\nrow 1003")
+  end,
+  scrollback_row_lookup_tracks_eviction_clear_and_transaction_forks = function()
+    local history = Scrollback.new(3)
+    for id = 1, 5 do history:push({ line_id = id }) end
+    Assert.equal(history:position(1), nil); Assert.equal(history:position(3), 1)
+    Assert.equal(history:position(5), 3)
+    local fork = history:fork(function(row) return { line_id = row.line_id } end)
+    fork:push({ line_id = 6 })
+    Assert.equal(fork:position(3), nil); Assert.equal(fork:position(6), 3)
+    Assert.equal(history:position(3), 1); Assert.equal(history:position(6), nil)
+    fork:adopt(); fork:clear(); Assert.equal(fork:position(6), nil)
+    Assert.equal(next(fork.line_slots), nil)
+  end,
   selection_normalizes_forward_reverse_and_returns_a_detached_view = function()
     local state = State.new(6, 2)
     write_row(state, 0, { 0x61, 0x62, 0x63, 0x64, 0x65, 0x66 })
