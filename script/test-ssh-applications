@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Run Kiwi against a temporary, key-authenticated loopback OpenSSH server."""
+import os
+from pathlib import Path
+import pwd
+import shlex
+import shutil
+import socket
+import subprocess
+import tempfile
+import time
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def binary(name):
+    value = shutil.which(name)
+    if value is None and name == "sshd" and Path("/usr/sbin/sshd").is_file():
+        value = "/usr/sbin/sshd"
+    if value is None:
+        raise RuntimeError(f"required SSH test dependency is unavailable: {name}")
+    return value
+
+
+def main():
+    executables = {name: binary(name) for name in ("sshd", "ssh", "ssh-keygen", "bash", "nvim", "tmux", "luajit")}
+    artifacts = Path(os.environ.get("KIWI_INTERACTIVE_ARTIFACTS", ROOT / ".build/ssh-application-evidence")).resolve()
+    artifacts.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="kiwi-ssh-applications-") as temporary:
+        work = Path(temporary)
+        for key in ("host", "client"):
+            subprocess.run([executables["ssh-keygen"], "-q", "-t", "ed25519", "-N", "", "-f", str(work / key)], check=True)
+        with socket.socket() as allocation:
+            allocation.bind(("127.0.0.1", 0))
+            port = allocation.getsockname()[1]
+        known_hosts = work / "known_hosts"
+        known_hosts.write_text(f"[127.0.0.1]:{port} " + (work / "host.pub").read_text())
+        (work / "tmux.conf").write_text('set -g status-left ""\nset -g status-right ""\n')
+        (work / "hangup.py").write_text("""import pathlib, signal
+def closed(*args):
+    pathlib.Path('ssh-closed.txt').write_text('remote-hangup\\n')
+    raise SystemExit(0)
+signal.signal(signal.SIGHUP, closed)
+signal.signal(signal.SIGTERM, closed)
+print('KIWI-REMOTE-READY', flush=True)
+while True:
+    signal.pause()
+""")
+        q = shlex.quote
+        editor = " ".join(q(value) for value in [executables["nvim"], "-N", "-u", "NONE", "-i", "NONE", "-n", "--noplugin",
+            "-c", "set noswapfile showmode", "-c", "echo 'KIWI-READY'"])
+        child = work / "child.sh"
+        child.write_text(f"""#!/bin/sh
+set -eu
+cd {q(str(work))}
+export PS1='KIWI> '
+case "$SSH_ORIGINAL_COMMAND" in
+  shell) exec {q(executables['bash'])} --noprofile --norc -i ;;
+  nvim) exec {editor} ;;
+  tmux-nvim) exec {q(executables['tmux'])} -S {q(str(work / 'ssh-tmux.sock'))} -f {q(str(work / 'tmux.conf'))} new-session -s kiwi-ssh {editor} ;;
+  hangup) exec {q(binary('python3'))} {q(str(work / 'hangup.py'))} ;;
+  *) exit 64 ;;
+esac
+""")
+        environment = {
+            "HOME": str(work), "ZDOTDIR": str(work), "XDG_CONFIG_HOME": str(work),
+            "XDG_DATA_HOME": str(work), "XDG_STATE_HOME": str(work), "XDG_CACHE_HOME": str(work),
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HISTFILE": "/dev/null", "INPUTRC": "/dev/null",
+            "TERMINFO": str(ROOT / ".build/terminfo"), "COLORTERM": "truecolor", "PS1": "KIWI> ",
+            "LC_ALL": "en_US.UTF-8" if os.uname().sysname == "Darwin" else "C.UTF-8",
+            "BASH_SILENCE_DEPRECATION_WARNING": "1",
+        }
+        # OpenSSH uses double-quoted config arguments. Escape rather than
+        # interpolating shell syntax; these values never become a command.
+        def config_quote(value):
+            if "\n" in value or "\r" in value:
+                raise ValueError("SSH test configuration cannot contain line breaks")
+            return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        config = work / "sshd_config"
+        config.write_text(f"""AddressFamily inet
+ListenAddress 127.0.0.1
+Port {port}
+HostKey {config_quote(str(work / 'host'))}
+PidFile {config_quote(str(work / 'server.pid'))}
+AuthorizedKeysFile {config_quote(str(work / 'client.pub'))}
+AllowUsers {pwd.getpwuid(os.getuid()).pw_name}
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+UsePAM no
+DisableForwarding yes
+PermitUserRC no
+PrintMotd no
+PrintLastLog no
+LogLevel ERROR
+SetEnv {' '.join(config_quote(key + '=' + value) for key, value in environment.items())}
+ForceCommand /bin/sh {q(str(child))}
+""")
+        ssh = [executables["ssh"], "-F", "/dev/null", "-tt", "-oBatchMode=yes", "-oIdentitiesOnly=yes",
+            "-oIdentityAgent=none", "-oStrictHostKeyChecking=yes", "-oGlobalKnownHostsFile=/dev/null",
+            "-oUserKnownHostsFile=" + str(known_hosts), "-oClearAllForwardings=yes", "-oLogLevel=ERROR",
+            "-oConnectTimeout=5", "-i", str(work / "client"), "-p", str(port), "127.0.0.1"]
+        # The wrapper consists only of a fixed argv and quoted arguments.
+        wrapper = work / "ssh-client"
+        wrapper.write_text("#!/bin/sh\nexec " + " ".join(q(value) for value in ssh) + ' "$@"\n')
+        wrapper.chmod(0o700)
+        with (work / "server.log").open("w+") as log:
+            server = subprocess.Popen([executables["sshd"], "-D", "-e", "-f", str(config)], stdout=log, stderr=log)
+            try:
+                deadline = time.monotonic() + 5
+                while True:
+                    if server.poll() is not None or time.monotonic() >= deadline:
+                        log.seek(0)
+                        raise RuntimeError("isolated SSH server did not start: " + log.read()[-2000:])
+                    try:
+                        with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                            break
+                    except OSError:
+                        time.sleep(0.02)
+                version = subprocess.run([executables["ssh"], "-V"], capture_output=True, text=True, check=True)
+                env = dict(os.environ, KIWI_ROOT=str(ROOT), KIWI_INTERACTIVE_WORK=str(work),
+                    KIWI_INTERACTIVE_ARTIFACTS=str(artifacts), KIWI_INTERACTIVE_SSH=str(wrapper),
+                    KIWI_INTERACTIVE_SSH_VERSION=(version.stdout + version.stderr).strip(),
+                    KIWI_INTERACTIVE_APPS="ssh-shell,ssh-nvim,ssh-tmux-nvim,ssh-hangup",
+                    LUA_PATH=str(ROOT / "src/?.lua") + ";" + str(ROOT / "src/?/init.lua") + ";;")
+                result = subprocess.run([executables["luajit"], "src/kiwi/compatibility/interactive.lua"], cwd=ROOT, env=env, timeout=180)
+                return result.returncode
+            finally:
+                subprocess.run([executables["tmux"], "-S", str(work / "ssh-tmux.sock"), "kill-server"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                if server.poll() is None:
+                    server.terminate()
+                try:
+                    server.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    server.kill()
+                    server.wait()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
