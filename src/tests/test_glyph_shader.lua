@@ -14,6 +14,7 @@ return {
     Assert.truthy(shader:find("if (coverage <= 0.0) { discard; }", 1, true) ~= nil)
     Assert.truthy(shader:find("return vec4<f32>(color.rgb, color.a * coverage);", 1, true) ~= nil)
     Assert.truthy(shader:find("coverage < 0.30", 1, true) == nil)
+    Assert.truthy(shader:find("color.rgb * 1.16", 1, true) == nil, "bold must use glyph weight, not brighten foreground colours")
   end,
   cursor_shader_uses_the_terminal_cursor_colour_uniform = function()
     local shader = source()

@@ -88,8 +88,9 @@ end
 function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen_x)
   local cached, reason = self.font_system.glyph_cache:get_or_insert(face, shaped.glyph_id, self)
   if cached == nil then
-    local fallback_id = self.font_system.primary:glyph_index(string.byte("?"))
-    cached = self.font_system.glyph_cache:get_or_insert(self.font_system.primary, fallback_id, self)
+    local fallback_face = self.font_system:face_for_cluster({ string.byte("?") }, cell.flags) or self.font_system.primary
+    local fallback_id = fallback_face:glyph_index(string.byte("?"))
+    cached = self.font_system.glyph_cache:get_or_insert(fallback_face, fallback_id, self)
     if cached == nil then
       self.stats.missing_clusters = self.stats.missing_clusters + 1
       return
@@ -155,7 +156,7 @@ function Layout:build_runs(state, row)
     if not cell.continuation and cell.glyph ~= " " and cell.glyph ~= "" then
       self.stats.clusters_examined = self.stats.clusters_examined + 1
       local codepoints = cluster_codepoints(cell)
-      local face = self.font_system:face_for_cluster(codepoints)
+      local face = self.font_system:face_for_cluster(codepoints, cell.flags)
       local width = cell.width or 1
       if face == nil then
         flush()

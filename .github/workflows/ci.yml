@@ -33,7 +33,7 @@ jobs:
       - name: install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh fish \
+          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh fish fonts-dejavu-core fonts-noto-cjk \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
       - name: deterministic checks
         run: make check && make gtk-host-check
@@ -49,7 +49,7 @@ jobs:
       - name: install packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh fish \
+          sudo apt-get install --yes build-essential curl unzip pkg-config luajit ncurses-bin zsh fish fonts-dejavu-core fonts-noto-cjk \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
       - name: build reproducible release-mode artifact
         run: make release-check && make release

@@ -92,7 +92,9 @@ function TextStress.run(options)
   local rss_before = resident_kib()
   local peak_heap = heap_before
   local initial_failures = system.glyph_cache.stats.failures
+  local rendition = { "\27[0m", "\27[1m", "\27[22;3m", "\27[1;3m" }
   for round = 1, rounds do
+    parser:feed(rendition[(round - 1) % #rendition + 1])
     for _, codepoint in ipairs(inputs) do write(state, codepoint) end
     write(state, 0x20 + (round - 1) % 95)
     system:face_for_cluster({ 0xfdd0 + (round - 1) % 32 })
@@ -118,6 +120,7 @@ function TextStress.run(options)
   -- distinct primary glyphs than the cache can retain, after the mixed-script
   -- workload, and verify actual glyph IDs rather than merely non-crashing.
   local recovery_started = os.clock()
+  parser:feed("\27[0m")
   for round = 1, math.max(95, rounds) do
     local codepoint = 33 + (round - 1) % 94
     parser:feed("\27[2J\27[H" .. string.char(codepoint))
