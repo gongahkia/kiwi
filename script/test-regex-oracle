@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+work=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-regex-oracle.XXXXXX")
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+${CC:-cc} -std=c17 -Wall -Wextra -Werror native/test_regex_oracle.c -o "$work/oracle"
+LUA_PATH='src/?.lua;src/?/init.lua;;' "${LUAJIT:-luajit}" src/kiwi/regex_oracle.lua "$work/oracle"

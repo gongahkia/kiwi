@@ -82,6 +82,7 @@ local suites = {
   "tests.test_command_region_extension_sample",
   "tests.test_composition_spike",
   "tests.test_search",
+  "tests.test_regex",
   "tests.test_search_renderer",
   "tests.test_atlas",
   "tests.test_glyph_cache",
@@ -125,7 +126,7 @@ unicode state terminal_session text_state text_fixtures parser reflow
 fuzz poll_schedule input_correlation mouse scrollback_wheel scrollbar
 selection history_actions selection_pointer clipboard shell_integration
 command_regions command_region_retention compositor command_region_navigation
-search packing render_model gtk_native_tab_group pass_registry pass_api
+search regex packing render_model gtk_native_tab_group pass_registry pass_api
 extensions pass_metrics pass_budgets invalidation gpu_timing gpu_recovery
 color json stats atlas glyph_cache application_protocols underline decoration
 ]]
