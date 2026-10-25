@@ -2,6 +2,7 @@
 local Context = require("kiwi.gpu.context")
 local AtspiProjection = require("kiwi.accessibility.atspi")
 local ProductActions = require("kiwi.app.actions")
+local Interaction = require("kiwi.app.interaction_actions")
 local bit = require("bit")
 local Recovery = require("kiwi.gpu.recovery")
 local DeviceSoak = require("kiwi.bench.device_soak")
@@ -191,7 +192,7 @@ function Controller.run(window, host, options)
     })
   end
   local configuration, configuration_path = load_configuration()
-  local product_actions = ProductActions.new(configuration.keybindings, glfw)
+  local product_actions = ProductActions.new(configuration.keybindings, glfw, host.platform)
   local started_at = window:time()
   if geometry then window:set_position(geometry.x, geometry.y) end
   local context
@@ -545,6 +546,8 @@ function Controller.run(window, host, options)
 
     local function create_split(direction)
       if recorder then return nil, "splits are unavailable while --record is active" end
+      local fits, fit_reason = workspace:can_split(direction, workspace_columns, workspace_rows)
+      if not fits then return nil, fit_reason end
       local session = new_session(1, 1)
       local pane, reason = workspace:split(direction, session)
       if pane == nil then
@@ -698,14 +701,13 @@ function Controller.run(window, host, options)
     end
 
     local update_automation_action_handler
+    local configured_font_size = configuration.font_size
 
     local function apply_configuration(reloaded, path)
       if reloaded.ambiguous_width ~= configuration.ambiguous_width or reloaded.scrollback_limit ~= configuration.scrollback_limit then
         return nil, "ambiguous-width and scrollback-limit require a new terminal session"
       end
-      local candidate_actions = ProductActions.new(reloaded.keybindings, glfw)
-      if host.configure_host_effects then host.configure_host_effects(window, reloaded) end
-      reloaded.host_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
+      local candidate_actions = ProductActions.new(reloaded.keybindings, glfw, host.platform)
       local previous_font = font
       local font_changed = reloaded.font_size ~= configuration.font_size
         or reloaded.font_path ~= configuration.font_path
@@ -713,6 +715,16 @@ function Controller.run(window, host, options)
         or reloaded.ligatures ~= configuration.ligatures
         or reloaded.contextual_alternates ~= configuration.contextual_alternates
       local candidate_font = font_changed and new_font(window, reloaded) or font
+      if font_changed then
+        local candidate_columns, candidate_rows = dimensions(window, candidate_font)
+        local fits = candidate_columns and workspace:fits(candidate_columns, candidate_rows)
+        if not fits then
+          candidate_font:destroy()
+          return nil, "font size leaves insufficient space for the current pane layout"
+        end
+      end
+      if host.configure_host_effects then host.configure_host_effects(window, reloaded) end
+      reloaded.host_effects = require("kiwi.app.host_effects").new(reloaded, host, window)
       configuration = reloaded
       configuration_path = path
       product_actions = candidate_actions
@@ -887,6 +899,30 @@ function Controller.run(window, host, options)
       return false
     end
 
+    local function perform_workspace_action(action)
+      if action == "previous-tab" and host.native_tabs then
+        if host.select_previous_window_tab then return host.select_previous_window_tab(window) end
+        return nil, "previous native tab is unavailable"
+      end
+      local changed, reason = Interaction.workspace(action, workspace, workspace_columns, workspace_rows)
+      if changed then
+        assert(refresh_workspace_layout())
+        activate_pane(workspace:active_pane().id)
+      end
+      return changed, reason
+    end
+
+    local function perform_font_action(action)
+      local size = Interaction.font_target(action, configuration.font_size, configured_font_size)
+      if size == configuration.font_size then return false end
+      local candidate = {}
+      for key, value in pairs(configuration) do candidate[key] = value end
+      candidate.font_size = size
+      local ok, applied, reason = pcall(apply_configuration, candidate, configuration_path)
+      if not ok then return nil, tostring(applied) end
+      return applied, reason
+    end
+
     local action_dispatcher = require("kiwi.app.product_action_dispatcher").new({
       active_session = function() return active_session end,
       application = options.application,
@@ -898,6 +934,13 @@ function Controller.run(window, host, options)
       create_tab = create_tab,
       explicit_configuration_path = options.config,
       focus_next_tab = focus_next_tab,
+      perform_workspace_action = perform_workspace_action,
+      perform_font_action = perform_font_action,
+      perform_terminal_action = function(action)
+        local changed, reason = Interaction.terminal(action, state, clipboard, enqueue_input)
+        if changed then renderer:invalidate("terminal") end
+        return changed, reason
+      end,
       host = host,
       initial_working_directory = active_working_directory,
       report = function(message) io.stderr:write(message, "\n") end,
@@ -953,6 +996,44 @@ function Controller.run(window, host, options)
     end
     update_automation_action_handler()
 
+    if options.interaction_smoke then
+      local function invoke(action)
+        if host.invoke_product_action_smoke then
+          assert(host.invoke_product_action_smoke(window, action))
+        else
+          assert(handle_native_product_action(action))
+        end
+      end
+      local original_font_size = configuration.font_size
+      local first = workspace:active_pane().id
+      invoke("split-right")
+      local second = workspace:active_pane().id
+      assert(first ~= second and workspace:pane_count() == 2)
+      invoke("split-down")
+      assert(workspace:pane_count() == 3)
+      invoke("focus-pane-up")
+      assert(workspace:active_pane().id == second)
+      invoke("focus-pane-left")
+      assert(workspace:active_pane().id == first)
+      invoke("resize-pane-right")
+      assert(workspace:active_tab().root.ratio > 0.5)
+      invoke("toggle-pane-zoom")
+      assert(#pane_entries == 1 and state.columns == workspace_columns)
+      invoke("toggle-pane-zoom")
+      assert(#pane_entries == 3)
+      invoke("equalize-splits")
+      assert(workspace:active_tab().root.ratio == 0.5)
+      invoke("increase-font-size")
+      assert(configuration.font_size == original_font_size + 1)
+      invoke("reset-font-size")
+      assert(configuration.font_size == original_font_size)
+      invoke("search")
+      assert(state:search_view().editing)
+      state:clear_search()
+      invoke("close-pane")
+      assert(workspace:pane_count() == 2)
+      io.stdout:write("Kiwi interaction smoke passed: native actions changed live pane geometry, focus, font size, and search.\n")
+    end
     if options.menu_smoke then
       assert(product_action_handler_enabled and host.invoke_product_action_smoke, "--menu-smoke needs the native product-action bridge")
       local tabs_before = host.native_tabs and options.application:window_count() or workspace:tab_count()
@@ -1248,10 +1329,11 @@ function Controller.run(window, host, options)
         if not loaded then
           io.stderr:write("Kiwi configuration reload rejected: ", tostring(reloaded_or_error), "\n")
         else
-          local applied, reason = apply_configuration(reloaded_or_error, path)
-          if not applied then
-            io.stderr:write("Kiwi configuration reload rejected: ", reason, "\n")
+          local applied_ok, applied, reason = pcall(apply_configuration, reloaded_or_error, path)
+          if not applied_ok or not applied then
+            io.stderr:write("Kiwi configuration reload rejected: ", tostring(applied_ok and reason or applied), "\n")
           else
+            configured_font_size = configuration.font_size
             io.stdout:write("Kiwi configuration reloaded", configuration_path and ": " .. configuration_path or " (defaults)", "\n")
           end
         end

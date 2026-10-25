@@ -4,6 +4,7 @@
 local Actions = require("kiwi.app.actions")
 local Config = require("kiwi.config")
 local Filesystem = require("kiwi.platform.filesystem")
+local Interaction = require("kiwi.app.interaction_actions")
 
 local Dispatcher = {}
 Dispatcher.__index = Dispatcher
@@ -44,6 +45,14 @@ end
 
 function Dispatcher:handle(action)
   local context = self.context
+  local interaction_kind = Interaction.kinds[action]
+  if interaction_kind then
+    local callback = function_capability(context, action, "perform_" .. interaction_kind .. "_action")
+    if callback == nil then return true, false end
+    local changed, reason = callback(action)
+    if changed == nil then rejected(context, action, reason) end
+    return true, interaction_kind == "workspace" and changed == true and action ~= "toggle-pane-zoom"
+  end
   if action == "command-palette" then
     local host = context.host
     local configuration = function_capability(context, "command palette", "configuration")

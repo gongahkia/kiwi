@@ -153,6 +153,7 @@ local product_actions = {
   [13] = "open-configuration",
 }
 for index = 1, 15 do product_actions[13 + index] = "session-target-" .. index end
+for _, entry in ipairs(require("kiwi.app.interaction_actions").entries) do product_actions[entry.id] = entry.action end
 local product_action_ids = {}
 for identifier, name in pairs(product_actions) do product_action_ids[name] = identifier end
 
@@ -452,7 +453,7 @@ function Window:product_action_invoke_smoke(action)
 end
 
 local function command_palette_entries(entries)
-  assert(type(entries) == "table" and #entries > 0 and #entries <= 32, "GTK command palette needs one through 32 entries")
+  assert(type(entries) == "table" and #entries > 0 and #entries <= 64, "GTK command palette needs one through 64 entries")
   local values = ffi.new("KiwiGtkCommandPaletteEntry[?]", #entries)
   for index, entry in ipairs(entries) do
     assert(type(entry) == "table", "GTK command palette entry must be a table")

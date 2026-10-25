@@ -103,6 +103,28 @@ local function dispatcher(options)
 end
 
 return {
+  interaction_dispatch_preserves_transient_state_and_reports_missing_capabilities = function()
+    local calls, logs = {}, {}
+    local actions = Dispatcher.new({
+      perform_workspace_action = function(action) calls[#calls + 1] = action; return true end,
+      perform_font_action = function(action) calls[#calls + 1] = action; return true end,
+      perform_terminal_action = function(action) calls[#calls + 1] = action; return nil, "clipboard unavailable" end,
+      report = function(message) logs[#logs + 1] = message end,
+    })
+    local handled, changed = actions:handle("resize-pane-left")
+    Assert.truthy(handled and changed)
+    handled, changed = actions:handle("toggle-pane-zoom")
+    Assert.truthy(handled and not changed)
+    handled, changed = actions:handle("increase-font-size")
+    Assert.truthy(handled and not changed)
+    handled, changed = actions:handle("paste")
+    Assert.truthy(handled and not changed)
+    Assert.truthy(logs[1]:find("clipboard unavailable", 1, true))
+    Assert.equal(table.concat(calls, ","), "resize-pane-left,toggle-pane-zoom,increase-font-size,paste")
+    actions = Dispatcher.new({ report = function(message) logs[#logs + 1] = message end })
+    Assert.equal(actions:handle("focus-pane-left"), true)
+    Assert.truthy(logs[2]:find("perform_workspace_action", 1, true))
+  end,
   product_action_dispatcher_routes_workspace_and_window_intents = function()
     local actions, state = dispatcher({ initial_working_directory = "/tmp/kiwi work" })
     local handled, layout_changed = actions:handle("new-tab")

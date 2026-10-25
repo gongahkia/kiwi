@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ "$(uname -s)" != Darwin ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  echo "Interaction smoke requires a graphical session." >&2
+  exit 2
+fi
+log=$(mktemp "${TMPDIR:-/tmp}/kiwi-interactions.XXXXXX")
+trap 'rm -f "$log"' EXIT HUP INT TERM
+export LUA_PATH='src/?.lua;src/?/init.lua;;'
+KIWI_MAX_FRAMES=3 KIWI_MAX_SECONDS=10 "${LUAJIT:-luajit}" src/kiwi/app/main.lua \
+  --no-extensions --interaction-smoke -- /usr/bin/yes >"$log" 2>&1 || { cat "$log"; exit 1; }
+cat "$log"
+grep -q 'Kiwi interaction smoke passed:' "$log"

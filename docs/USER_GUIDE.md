@@ -287,15 +287,15 @@ and `Window` menus, a unified titlebar toolbar (New Tab, Split Right, Split
 Down, Commands, and Settings), and a searchable AppKit palette. On Linux,
 `KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
 resolving each `win.*` action against the active window, and opens the palette
-in a searchable GTK dialog. The palette has twelve default built-in entries,
-matches title and description text case-insensitively, and accepts up to 32
+in a searchable GTK dialog. The palette has 37 default built-in entries,
+matches title and description text case-insensitively, and accepts up to 64
 total entries after configuration. Add an entry with
 `command-palette-entry = title:<title>, action:<action>` and optionally
 `description:<description>` in any field order. Commas, quotes, and backslashes
 inside a field require a quoted value using `\"` and `\\`; title/description
 are bounded NUL-free UTF-8 (128/256 bytes), and a directive is bounded to 512
-bytes. Up to 64 directives are retained while the final catalogue is capped at
-32 entries. An empty `command-palette-entry =` clears the accumulated default
+bytes. Up to 128 directives are retained while the final catalogue is capped at
+64 entries. An empty `command-palette-entry =` clears the accumulated default
 and custom entries before later entries are applied. An entry may invoke only the
 documented workspace actions except `command-palette` itself, so it cannot
 recurse, execute a command, send text, or emit terminal control bytes. These
@@ -536,3 +536,43 @@ text indexing, command execution UI, or controlled-remote SSH qualification. The
 current, precise limits are maintained in the [conformance matrix](CONFORMANCE.md),
 [text contract](TEXT.md), [accessibility contract](ACCESSIBILITY.md), and the
 repository [README](../README.md#deliberate-limits).
+
+## Everyday pane and text controls
+
+The standard WGPU application exposes these actions through the command palette,
+configuration bindings, and native Edit/View/Window menus. The experimental GTK GL
+presenter does not yet implement the full workspace action set.
+
+| Operation | Default shortcut | Config action |
+| --- | --- | --- |
+| Previous tab | Ctrl+Shift+Tab | `previous-tab` |
+| Focus adjacent pane | Ctrl+Alt+Arrow | `focus-pane-left/right/up/down` |
+| Move nearest divider by two cells | Ctrl+Alt+Shift+Arrow | `resize-pane-left/right/up/down` |
+| Zoom active pane / restore splits | Ctrl+Shift+Z | `toggle-pane-zoom` |
+| Equalize all dividers | Command palette | `equalize-splits` |
+| Cycle panes | Command palette | `next-pane`, `previous-pane` |
+| Increase / decrease / reset font | Ctrl+Plus / Ctrl+Minus / Ctrl+0 | `increase-font-size`, `decrease-font-size`, `reset-font-size` |
+| Oldest history / live output | Ctrl+Shift+Home / End | `scroll-to-top`, `scroll-to-bottom` |
+| Clear saved history, preserve screen | Ctrl+Shift+K | `clear-scrollback` |
+| Select retained text | Ctrl+Shift+A | `select-all` |
+
+On macOS, Command+C/V/A copy, paste, and select all; Command+F starts search;
+Command+G and Command+Shift+G navigate results; Command+K clears history;
+Command+Plus/Minus/0 controls font size; Command+Comma opens configuration.
+Command+T/N/W creates a tab/window or closes the pane, Command+D splits right,
+Command+Shift+D splits down, and Command+Shift+Enter toggles pane zoom.
+Configuration bindings override these defaults, including `cmd+c=none`.
+The `copy`, `paste`, `search`, `search-next`, and `search-previous` actions can also
+be assigned to custom bindings or palette entries.
+
+Font size changes apply to the current window without editing the configuration.
+Reset restores the last successfully loaded configured size. Sizes that cannot fit
+all existing panes are rejected. Zoom is temporary and is not saved in the layout;
+opening or closing a split restores the split view. Divider ratios and focus are
+saved when layout persistence is enabled. Directional focus stops at the edge;
+cycling panes wraps within the current tab. Copying omits unused padding at line
+ends while preserving printed spaces and Unicode grapheme text.
+
+`make interaction-smoke` exercises live pane creation, focus, resizing, zoom,
+font reset, and search through the native action bridge. It requires a graphical
+session and always disables layout restore and persistence.

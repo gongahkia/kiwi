@@ -1,14 +1,16 @@
 local bit = require("bit")
 local Utf8 = require("kiwi.terminal.utf8")
 
+local Interaction = require("kiwi.app.interaction_actions")
+
 local Actions = {}
 
 Actions.maximum_bindings = 64
 Actions.maximum_binding_bytes = 128
 Actions.maximum_sequence_steps = 3
 Actions.sequence_timeout_seconds = 1
-Actions.maximum_palette_entries = 32
-Actions.maximum_palette_directives = 64
+Actions.maximum_palette_entries = 64
+Actions.maximum_palette_directives = 128
 Actions.maximum_palette_entry_bytes = 512
 Actions.maximum_palette_title_bytes = 128
 Actions.maximum_palette_description_bytes = 256
@@ -47,8 +49,31 @@ local palette_catalog = {
   { action = "reload-config", title = "Reload Configuration", description = "Reload Kiwi's configuration and trusted theme data." },
 }
 
+for _, entry in ipairs(Interaction.entries) do
+  known_actions[entry.action] = true
+  palette_catalog[#palette_catalog + 1] = entry
+end
+
 local default_specs = {
   "ctrl+tab=next-tab",
+  "ctrl+shift+tab=previous-tab",
+  "ctrl+alt+right=focus-pane-right",
+  "ctrl+alt+left=focus-pane-left",
+  "ctrl+alt+up=focus-pane-up",
+  "ctrl+alt+down=focus-pane-down",
+  "ctrl+alt+shift+right=resize-pane-right",
+  "ctrl+alt+shift+left=resize-pane-left",
+  "ctrl+alt+shift+up=resize-pane-up",
+  "ctrl+alt+shift+down=resize-pane-down",
+  "ctrl+shift+z=toggle-pane-zoom",
+  "ctrl+equal=increase-font-size",
+  "ctrl+shift+equal=increase-font-size",
+  "ctrl+minus=decrease-font-size",
+  "ctrl+0=reset-font-size",
+  "ctrl+shift+home=scroll-to-top",
+  "ctrl+shift+end=scroll-to-bottom",
+  "ctrl+shift+k=clear-scrollback",
+  "ctrl+shift+a=select-all",
   "ctrl+shift+t=new-tab",
   "ctrl+shift+n=new-window",
   "ctrl+shift+m=move-session-new-window",
@@ -72,6 +97,9 @@ local modifier_aliases = {
 }
 
 local special_keys = {
+  comma = "key_comma",
+  equal = "key_equal",
+  minus = "key_minus",
   backspace = "key_backspace",
   delete = "key_delete",
   down = "key_down",
@@ -296,6 +324,9 @@ end
 
 local function key_code(name, keymap)
   if #name == 1 then return string.byte(name:upper()) end
+  if name == "equal" then return 61 end
+  if name == "minus" then return 45 end
+  if name == "comma" then return 44 end
   if name:match("^f%d+$") then return keymap["key_" .. name] end
   return keymap[special_keys[name]]
 end
@@ -304,7 +335,7 @@ local function signature(key, modifiers)
   return tostring(key) .. ":" .. tostring(modifiers)
 end
 
-function Actions.new(configured, keymap)
+function Actions.new(configured, keymap, platform)
   assert(type(configured) == "table", "configured keybindings must be a table")
   assert(type(keymap) == "table", "keybinding map must be a table")
   local known_modifier_mask = keymap.mod_shift + keymap.mod_control + keymap.mod_alt + keymap.mod_super
@@ -361,6 +392,16 @@ function Actions.new(configured, keymap)
     end
   end
   for _, specification in ipairs(default_specs) do apply(specification, "default") end
+  if platform == "OSX" then
+    for _, specification in ipairs({
+      "cmd+t=new-tab", "cmd+n=new-window", "cmd+w=close-pane",
+      "cmd+d=split-right", "cmd+shift+d=split-down", "cmd+shift+enter=toggle-pane-zoom",
+      "cmd+c=copy", "cmd+v=paste", "cmd+a=select-all", "cmd+f=search",
+      "cmd+g=search-next", "cmd+shift+g=search-previous", "cmd+k=clear-scrollback",
+      "cmd+equal=increase-font-size", "cmd+shift+equal=increase-font-size",
+      "cmd+minus=decrease-font-size", "cmd+0=reset-font-size", "cmd+comma=open-configuration",
+    }) do apply(specification, "macOS default") end
+  end
   if #configured > Actions.maximum_bindings then error("configured keybindings exceed " .. Actions.maximum_bindings) end
   for index, specification in ipairs(configured) do apply(specification, "keybind " .. index) end
   return setmetatable({ known_modifier_mask = known_modifier_mask, root = root }, { __index = Actions })

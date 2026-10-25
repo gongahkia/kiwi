@@ -346,6 +346,28 @@ function Workspace:set_split_ratio(pane_id, ratio)
   return true
 end
 
+function Workspace:fits(width, height)
+  for _, tab in ipairs(self.tabs) do
+    local minimum_width, minimum_height = minimum_dimensions(tab.root)
+    if width < minimum_width or height < minimum_height then return false end
+  end
+  return true
+end
+
+function Workspace:can_split(direction, width, height)
+  assert(direction == "vertical" or direction == "horizontal", "invalid split direction")
+  if self:pane_count() >= self.maximum_panes then return nil, "pane-limit" end
+  local layout = self:layout(width, height, true)
+  if layout == nil then return nil, "insufficient-space" end
+  for _, pane in ipairs(layout) do
+    if pane.active then
+      if (direction == "vertical" and pane.width or pane.height) < 2 then return nil, "insufficient-space" end
+      return true
+    end
+  end
+  return nil, "no-active-pane"
+end
+
 function Workspace:layout(width, height, unzoomed)
   assert(type(width) == "number" and width >= 1 and width % 1 == 0, "workspace width must be a positive integer")
   assert(type(height) == "number" and height >= 1 and height % 1 == 0, "workspace height must be a positive integer")
