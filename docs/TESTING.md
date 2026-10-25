@@ -152,3 +152,14 @@ See the [daily-driver ledger](DAILY_DRIVER_COMPATIBILITY.md) for unresolved
 application compatibility and manual desktop requirements. These checks do not
 prove Windows support, screen-reader usability, Linux graphics qualification,
 or performance superiority to another terminal.
+
+## Incremental search regression gates
+
+`make check` includes the bounded POSIX oracle. `make search-smoke` needs a
+WGPU graphical session and checks live Find input isolation with a raw PTY,
+Unicode regex, yielding, error feedback, cancellation and held-key handling.
+Linux CI runs it with Xvfb/software Vulkan; macOS CI uses the native window.
+`make bench-search SEARCH_HISTORY=10000` checks per-slice work, temporary heap,
+result bounds and cancellation while reporting CPU/model timings. See the
+[search evidence](evidence/2026-10-25-search.md) for measured results and the
+intentional difference in oracle coverage between Linux and macOS.
