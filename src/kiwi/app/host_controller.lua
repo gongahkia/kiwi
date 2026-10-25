@@ -976,7 +976,7 @@ function Controller.run(window, host, options)
     end
 
     local function handle_workspace_key(key, action, modifiers)
-      if bit.band(state.modes.keyboard_flags, 8) ~= 0 and not state.vi.active then
+      if bit.band(state.modes.keyboard_flags, 8) ~= 0 and not state.vi.active and not state.hints.active then
         product_actions:reset_sequence()
         return false
       end

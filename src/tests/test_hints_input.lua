@@ -1,0 +1,110 @@
+local Assert = require("tests.assert")
+local Terminal = require("kiwi.session.terminal")
+local Input = require("kiwi.input.modal_input")
+local HintsInput = require("kiwi.input.hints_input")
+local Clipboard = require("kiwi.input.clipboard")
+local Hyperlink = require("kiwi.input.hyperlink")
+local Interaction = require("kiwi.app.interaction_actions")
+local keys = { press = 1, release = 0, repeat_action = 2, mod_shift = 1, mod_control = 2,
+  mod_alt = 4, mod_super = 8, key_escape = 256, key_enter = 257, key_tab = 258, key_backspace = 259,
+  key_right = 262, key_left = 263, key_down = 264, key_up = 265, key_page_up = 266, key_page_down = 267,
+  key_home = 268, key_end = 269, key_f3 = 292 }
+local function fixture(action)
+  local terminal = Terminal.new({ columns = 40, rows = 3 })
+  terminal:write("https://a.test https://b.test")
+  local state = Terminal.state(terminal)
+  state.modes.keyboard_flags = 31
+  state:hints_begin(action)
+  return state, Input.new(), terminal
+end
+return {
+  hint_labels_require_explicit_activation_and_use_the_existing_opener = function()
+    local state, input = fixture()
+    local opened = {}
+    local hyperlink = Hyperlink.new({ open_uri = function(_, uri) opened[#opened + 1] = uri; return true end })
+    Assert.equal(input:key(state, string.byte("S"), keys.press, 0, keys, nil, hyperlink).suppress_text, false)
+    Assert.truthy(Input.text(state, { string.byte("s") }, nil, hyperlink))
+    Assert.equal(#opened, 0)
+    Assert.truthy(Input.title(state, "default"):find("https://b.test", 1, true))
+    input:key(state, keys.key_enter, keys.press, 0, keys, nil, hyperlink)
+    Assert.equal(#opened, 1); Assert.equal(opened[1], "https://b.test")
+    Assert.equal(state.hints.active, false)
+    Assert.truthy(input:key(state, keys.key_enter, keys.repeat_action, 0, keys).suppress_text)
+    Assert.truthy(input:key(state, keys.key_enter, keys.release, 0, keys).handled)
+    Assert.truthy(input:key(state, string.byte("S"), keys.release, 0, keys).handled)
+    Assert.equal(Input.text(state, { 120 }), false)
+    Assert.equal(#opened, 1)
+  end,
+  hint_copy_uses_uri_byte_limits_and_never_changes_selection_or_pastes_to_child = function()
+    local state, input = fixture("copy")
+    local copied
+    local clipboard = Clipboard.new({ clipboard_read = function() error("hint paste read clipboard") end,
+      clipboard_write = function(_, value) copied = value; return true end })
+    state:set_selection(0, 0, 0, 5)
+    Input.commit(state, "a")
+    input:key(state, keys.key_enter, keys.press, 0, keys, clipboard)
+    Assert.equal(copied, "https://a.test")
+    Assert.equal(state:selection_text(100), "https")
+    state:hints_begin("open")
+    Assert.equal(select(2, Interaction.terminal("paste", state, clipboard, function() error("hint paste reached child") end)), "hints-active")
+    Input.commit(state, "s")
+    Assert.truthy(Interaction.terminal("copy", state, clipboard))
+    Assert.equal(copied, "https://b.test")
+    state:hints_begin("copy"); Input.commit(state, "a")
+    clipboard.maximum_bytes = 4
+    input:key(state, keys.key_enter, keys.press, 0, keys, clipboard)
+    Assert.truthy(state.hints.active)
+    Assert.truthy(Input.title(state, "default"):find("over limit", 1, true))
+    Assert.equal(copied, "https://b.test")
+  end,
+  hint_modes_capture_escape_controls_pointer_and_ime_without_child_encoding = function()
+    local state, input = fixture()
+    Assert.truthy(input:key(state, string.byte("X"), keys.press, keys.mod_control, keys).suppress_text)
+    Assert.truthy(Input.commit(state, "中"))
+    Assert.equal(state.hints.prefix, "")
+    Assert.truthy(Input.pointer(state, { kind = "button" }))
+    Assert.equal(require("kiwi.input.keyboard").text_sequence({ 97 }, Input.encoding_modes(state)), "a")
+    input:key(state, keys.key_escape, keys.press, 0, keys)
+    Assert.equal(state.hints.active, false)
+    Assert.truthy(input:key(state, keys.key_escape, keys.repeat_action, 0, keys).suppress_text)
+    Assert.truthy(input:key(state, keys.key_escape, keys.release, 0, keys).handled)
+    -- A new press replaces a lost-release claim.
+    Assert.equal(input:key(state, string.byte("X"), keys.press, 0, keys), nil)
+  end,
+  hint_tab_navigation_selects_first_or_last_then_wraps = function()
+    local state, input = fixture()
+    input:key(state, keys.key_tab, keys.press, keys.mod_shift, keys)
+    Assert.equal(state.hints.selected, 2)
+    input:key(state, keys.key_tab, keys.press, 0, keys)
+    Assert.equal(state.hints.selected, 1)
+    input:key(state, keys.key_backspace, keys.press, 0, keys)
+    Assert.equal(state.hints.selected, nil)
+    input:key(state, keys.key_down, keys.press, 0, keys)
+    Assert.equal(state.hints.selected, 1)
+  end,
+  hint_open_failures_and_stale_targets_remain_visible_and_cannot_activate = function()
+    local state, input, terminal = fixture()
+    local attempts = 0
+    local hyperlink = Hyperlink.new({ open_uri = function() attempts = attempts + 1; return nil, "unavailable" end })
+    Input.commit(state, "a")
+    input:key(state, keys.key_enter, keys.press, 0, keys, nil, hyperlink)
+    Assert.equal(attempts, 1)
+    Assert.truthy(Input.title(state, "default"):find("unavailable", 1, true))
+    terminal:write("x")
+    Assert.equal(HintsInput.activate(state, nil, hyperlink), nil)
+    Assert.equal(attempts, 1)
+    Assert.truthy(Input.title(state, "default"):find("output changed", 1, true))
+    input:key(state, string.byte("R"), keys.press, keys.mod_control, keys)
+    Assert.equal(state.hints.status, "ready")
+  end,
+  hint_mode_returns_to_vi_and_preserves_global_key_release_ownership = function()
+    local state, input = fixture()
+    state:vi_toggle(); state:hints_begin()
+    input:claim(string.byte("U"))
+    Assert.truthy(input:key(state, string.byte("U"), keys.release, keys.mod_control + keys.mod_shift, keys).handled)
+    input:key(state, keys.key_escape, keys.press, 0, keys)
+    Assert.truthy(state.vi.active); Assert.equal(state.hints.active, false)
+    input:key(state, keys.key_escape, keys.release, 0, keys)
+    Assert.truthy(Input.commit(state, "h"))
+  end,
+}

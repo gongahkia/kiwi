@@ -175,7 +175,7 @@ function Controller.run_native_tabs(window, host, options)
   end
 
   local function handle_product_key(session, key, action, modifiers)
-    if bit.band(session.state.modes.keyboard_flags, 8) ~= 0 and not session.state.vi.active then
+    if bit.band(session.state.modes.keyboard_flags, 8) ~= 0 and not session.state.vi.active and not session.state.hints.active then
       product_actions:reset_sequence()
       return false
     end
@@ -565,7 +565,7 @@ function Controller.run(window, host, options)
       end
       handle_committed_text(Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(state)))
     end, function(key, action, modifiers, variants)
-      if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active) then
+      if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active or state.hints.active) then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
         if product_action and Interaction.kinds[product_action] == "terminal" then
           Interaction.terminal(product_action, state, clipboard, enqueue_input)

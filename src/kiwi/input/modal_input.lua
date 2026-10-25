@@ -4,11 +4,20 @@ local ViInput = require("kiwi.input.vi_input")
 local Search = require("kiwi.input.search")
 local Vi = require("kiwi.input.vi")
 local Keyboard = require("kiwi.input.keyboard")
+local HintsInput = require("kiwi.input.hints_input")
+local Hints = require("kiwi.input.hints")
 local Input = {}
 Input.__index = Input
-function Input.new() return setmetatable({ search = SearchInput.new(), vi = ViInput.new() }, Input) end
+function Input.new() return setmetatable({ search = SearchInput.new(), vi = ViInput.new(), hints = HintsInput.new() }, Input) end
 function Input:claim(key) self.search:claim(key) end
 function Input:key(state, key, action, modifiers, keys, clipboard, hyperlink)
+  if action == keys.release then
+    local owned = self.search.held[key] or self.vi.held[key] or self.hints.held[key]
+    self.search.held[key], self.vi.held[key], self.hints.held[key] = nil, nil, nil
+    if owned then return { handled = true, suppress_text = false } end
+  end
+  local hint_input = self.hints:key(state, key, action, modifiers, keys, clipboard, hyperlink)
+  if hint_input then return hint_input end
   if state.vi and state.vi.active and key == keys.key_escape
       and not SearchInput.editing(state) and not state:search_pending() then
     return self.vi:key(state, key, action, modifiers, keys, clipboard, hyperlink)
@@ -18,9 +27,10 @@ function Input:key(state, key, action, modifiers, keys, clipboard, hyperlink)
   return self.vi:key(state, key, action, modifiers, keys, clipboard, hyperlink)
 end
 function Input.encoding_modes(state)
-  return (SearchInput.editing(state) or (state.vi and state.vi.active)) and {} or state.modes
+  return (SearchInput.editing(state) or (state.vi and state.vi.active) or (state.hints and state.hints.active)) and {} or state.modes
 end
 function Input.pointer(state, event)
+  if state.hints and state.hints.active then state.hints:reconcile(state); return true end
   if not state.vi or not state.vi:reconcile(state) then return false end
   if event.kind == "button" and event.button == 0 and event.action == "press" then
     state.vi:cancel(state)
@@ -32,6 +42,7 @@ function Input.pointer(state, event)
   return true
 end
 function Input.commit(state, text, clipboard, hyperlink)
+  if HintsInput.commit(state, text) then return true end
   if SearchInput.editing(state) then
     local _, status = state:search_append(text)
     return true, status
@@ -40,10 +51,11 @@ function Input.commit(state, text, clipboard, hyperlink)
 end
 function Input.text(state, codepoints, clipboard, hyperlink)
   local text = Keyboard.text_sequence(codepoints, {})
-  if text == nil then return SearchInput.editing(state) or (state.vi and state.vi.active) or false end
+  if text == nil then return SearchInput.editing(state) or (state.vi and state.vi.active) or (state.hints and state.hints.active) or false end
   return Input.commit(state, text, clipboard, hyperlink)
 end
 function Input.title(state, fallback)
+  if state.hints and state.hints.active then return Hints.title(state:hints_view()) end
   local search, vi = state:search_view(), state:vi_view()
   if vi.active and not search.editing and not state:search_pending() then
     local title = Vi.title(vi, fallback)

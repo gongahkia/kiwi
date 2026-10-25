@@ -17,6 +17,30 @@ local function finish(state, budget)
   end
 end
 return {
+  hints_report_match_and_scan_limits_without_truncated_targets = function()
+    local state = fixture(string.rep("https://e.test ", 300), 100, 80)
+    state:hints_begin(); finish(state)
+    Assert.equal(#state.hints.matches, Hints.maximum_matches)
+    Assert.equal(state.hints.status, "match-limit")
+    Assert.truthy(state:hints_view().truncated)
+    local maximum = Hints.maximum_cells
+    Hints.maximum_cells = 12
+    local ok, message = xpcall(function()
+      state:hints_begin()
+      Assert.equal(state.hints.status, "scan-limit")
+      Assert.equal(#state.hints.matches, 0)
+      Assert.equal(state.hints:target(state), nil)
+    end, debug.traceback)
+    Hints.maximum_cells = maximum
+    assert(ok, message)
+  end,
+  hints_do_not_extend_a_plain_url_into_an_explicit_link_or_hard_break = function()
+    local state = fixture("https://first.test\27]8;;https://actual.test\27\\/redirect\27]8;;\27\\\r\nhttps://second.test")
+    state:hints_begin(); finish(state)
+    Assert.equal(#state.hints.matches, 2)
+    Assert.equal(state.hints.matches[1].uri, "https://actual.test")
+    Assert.equal(state.hints.matches[2].uri, "https://second.test")
+  end,
   hints_detect_web_mailto_balanced_punctuation_and_preserve_source_spelling = function()
     local state = fixture('See (HTTPS://example.com/a(b)). https://[::1]:80/x?q=1&n=2; mailto:a@example.com! nopehttps://bad.test')
     state:hints_begin(); finish(state)

@@ -85,6 +85,8 @@ local default_specs = {
   "ctrl+shift+j=split-down",
   "ctrl+shift+p=command-palette",
   "ctrl+shift+space=toggle-vi-mode",
+  "ctrl+shift+u=open-url-hints",
+  "ctrl+shift+alt+u=copy-url-hints",
   "ctrl+shift+alt+f=search-regex",
   "f6=reload-config",
 }
@@ -397,6 +399,7 @@ function Actions.new(configured, keymap, platform)
   if platform == "OSX" then
     for _, specification in ipairs({
       "cmd+shift+p=command-palette", "cmd+t=new-tab", "cmd+n=new-window", "cmd+w=close-pane",
+      "cmd+shift+u=open-url-hints", "cmd+shift+alt+u=copy-url-hints",
       "cmd+d=split-right", "cmd+shift+d=split-down", "cmd+shift+enter=toggle-pane-zoom",
       "cmd+c=copy", "cmd+v=paste", "cmd+a=select-all", "cmd+f=search", "cmd+alt+f=search-regex",
       "cmd+g=search-next", "cmd+shift+g=search-previous", "cmd+k=clear-scrollback",
