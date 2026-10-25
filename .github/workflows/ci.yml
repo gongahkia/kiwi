@@ -38,6 +38,7 @@ jobs:
           sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server fonts-dejavu-core fonts-noto-cjk \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
+          sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1
           sudo install -d -m 0755 /run/sshd
       - name: build required GLFW with X11 and Wayland
         run: |
@@ -45,6 +46,18 @@ jobs:
           printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\nLD_LIBRARY_PATH=%s/lib\n' "$RUNNER_TEMP/kiwi-glfw" "$RUNNER_TEMP/kiwi-glfw" >> "$GITHUB_ENV"
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make gtk-host-check
+      - name: verify shader output and reloads with software Vulkan
+        shell: bash
+        run: |
+          mkdir -p .build/appearance-evidence
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/kiwi-vulkan-runtime"
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          for kiwi_lavapipe_icd in /usr/share/vulkan/icd.d/lvp_icd*.json; do
+            if test -f "$kiwi_lavapipe_icd"; then export VK_ICD_FILENAMES="$kiwi_lavapipe_icd"; break; fi
+          done
+          test -n "${VK_ICD_FILENAMES:-}"
+          xvfb-run -a make shader-smoke configuration-reload-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -53,6 +66,7 @@ jobs:
           path: |
             .build/application-evidence
             .build/ssh-application-evidence
+            .build/appearance-evidence
           include-hidden-files: true
           if-no-files-found: warn
 

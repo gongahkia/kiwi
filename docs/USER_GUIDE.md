@@ -619,11 +619,17 @@ backgrounds, including application colours, and to unused space around the grid.
 Saving the configuration or invoking Reload Configuration applies it to existing
 panes. It does not enable background blur or change window decorations.
 
-The GLFW/Metal and GLFW/Vulkan paths request an alpha-capable framebuffer and
-select a supported surface alpha mode. Transparency requires desktop compositing;
+The GLFW host requests an alpha-capable framebuffer and selects a supported
+surface alpha mode. macOS/Metal is verified locally. Linux/Wayland can use this
+path where the compositor and GPU expose alpha; desktop qualification is pending.
+GLFW 3.4's X11 Vulkan window path uses the default opaque visual, so background
+transparency is currently unavailable there, even with a compositor running.
+Transparency requires desktop compositing;
 an unsupported surface rejects the configuration instead of silently ignoring it.
 The experimental GTK presenters do not currently implement this setting.
 Native GPU readback is available with `make appearance-smoke`.
+[GLFW 3.4’s X11 window creation](https://github.com/glfw/glfw/blob/3.4/src/x11_window.c#L1809)
+shows the opaque default-visual path used with `GLFW_NO_API`.
 
 ## Custom shaders
 
@@ -674,6 +680,8 @@ An effect costs one window-sized RGBA texture and one additional GPU pass.
 The default opaque configuration without a shader allocates neither.
 The experimental GTK GL presenter does not implement custom shaders.
 
-`make appearance-smoke` checks GPU output, transparency, resize and invalid shader
-recovery. `make configuration-reload-smoke` checks file watching and transactional
-rollback through a live terminal process. These also run in the macOS CI workflow.
+`make shader-smoke` checks effects on opaque surfaces, including X11.
+`make appearance-smoke` additionally checks transparency. Both exercise resize
+and invalid shader recovery. `make configuration-reload-smoke` checks file watching and transactional
+rollback through a live terminal process. The macOS CI workflow runs both types of checks; Linux CI tests opaque shader
+output and live reload using Xvfb and software Vulkan.

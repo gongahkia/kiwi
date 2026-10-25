@@ -111,6 +111,8 @@ Command+1–9 now selects native macOS tabs by visible order, and
 Command+Shift+P opens the palette. `background-opacity` and `custom-shader`
 are user-facing WGPU settings, with watched WGSL files and transactional reload
 recovery. Native macOS GPU readback covers transparency, opaque text, shader
-output and resizing. Linux desktop compositor qualification remains outstanding.
+output and resizing. Linux software Vulkan also passes shader readback, resize and live reload checks.
+GLFW 3.4's X11 Vulkan window path has an opaque visual, so X11 transparency is
+currently unsupported. Wayland desktop qualification remains outstanding.
 The GTK GL prototype, window blur, shader chains and direct Ghostty GLSL shader
 compatibility remain gaps. See the [configuration guide](USER_GUIDE.md#custom-shaders).
