@@ -5,8 +5,9 @@ exercise internal models, native boundaries and user-visible behavior.
 
 | Command | Dependencies | What it verifies |
 | --- | --- | --- |
-| `make test-core` | LuaJIT, standard shell utilities | 51 core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
+| `make test-core` | LuaJIT, standard shell utilities | Headless core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
 | `make check` | Documented native build dependencies and C compiler | Complete Lua suite, seeded parser fuzzing, real PTYs, C readiness watcher, terminfo contract, CLI behavior and syntax of every Lua file. |
+| `make test-applications` | Native build, Bash, Zsh, Vim, Neovim, tmux, less, system top | Eight real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. No display is needed. |
 | `make test-pty-watch` | C17 compiler, POSIX pthreads | One-shot notifications, no byte consumption, rearm, descriptor replacement, EOF and worker shutdown. |
 | `make interaction-smoke` | Native build and a graphical desktop | Live splits, directional focus, divider resize, zoom, font reset, search and close through native action dispatch. |
 | `make pty-wake-smoke` | Native build and a graphical desktop | Readable child output wakes the host before a deliberately long event timeout. |
@@ -48,6 +49,47 @@ real WGPU window, retaining the child output across reflow.
 Linux graphical checks are in the existing self-hosted desktop qualification
 workflow. Adding those gates is not evidence that they have run. The macOS
 workflow includes interaction and host-wake gates on Intel and Apple Silicon.
+
+## Interactive application regression gate
+
+`make test-applications` starts programs in a temporary working/configuration
+directory with isolated editor settings and dedicated tmux sockets. It fails
+when a requested application is unavailable; there are no implicit skips.
+For focused debugging after building native/terminfo dependencies:
+
+```sh
+KIWI_INTERACTIVE_APPS=vim,tmux-nvim ./script/test-applications
+KIWI_INTERACTIVE_ARTIFACTS="$PWD/.build/application-trial" ./script/test-applications
+```
+
+The default eight workflows exercise Bash/Zsh line editing, Unicode paste,
+resize and foreground-job interruption; Vim/Neovim Unicode insertion and
+saved-file contents; Neovim inside tmux; tmux split/resize/zoom/close; less
+search/page navigation; and system top filtered to its own process. Special
+keys and paste pass through the application's encoders. Readiness is observed
+from terminal output, saved files and foreground process groups, with bounded
+deadlines. Vim runs in normal Vim mode (`-N`) with user configuration disabled.
+
+Each case retains bounded input/output/resize JSONL, text checkpoints and a
+machine-readable report in `.build/application-evidence`. Successful captures
+must replay identically as whole chunks, individual bytes and eight seeded
+chunkings, and match the live final state. Editor files provide an independent
+input oracle. Reports include application versions, source revision/state,
+byte counts, checkpoint counts and parser diagnostics. Elapsed time includes
+replay verification and is not a terminal latency benchmark.
+
+Vim's exact `DCS zz ST` and `CSI 0 % m` negative probes are explicitly counted
+and retained as rejected controls, with at most one of each per case. Their
+cursor/attribute preservation has deterministic split-boundary tests. Other
+parser errors, ignored strings and unknown controls fail the gate. See the
+[Vim probe source](https://github.com/vim/vim/blob/v9.1.1752/src/term.c#L4148).
+
+CI installs the applications, runs the gate on Linux and both macOS
+architectures, and uploads reports and controlled recordings even on failure.
+Captures contain only these test sessions; they may include timestamps, process
+IDs and temporary paths. This does not exercise physical keyboard layouts,
+native input routing, IME, clipboard ownership, visual rendering, SSH, fish or
+Nushell. Those remain independent qualification requirements.
 
 ## Evidence recorded during the 2026-10-25 application pass
 

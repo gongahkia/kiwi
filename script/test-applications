@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+KIWI_ROOT=$(pwd)
+export KIWI_ROOT
+KIWI_INTERACTIVE_WORK=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-applications.XXXXXX")
+export KIWI_INTERACTIVE_WORK
+cleanup() {
+  if command -v tmux >/dev/null 2>&1; then
+    tmux -S "$KIWI_INTERACTIVE_WORK/tmux.sock" kill-server >/dev/null 2>&1 || true
+    tmux -S "$KIWI_INTERACTIVE_WORK/nested.sock" kill-server >/dev/null 2>&1 || true
+  fi
+  rm -rf "$KIWI_INTERACTIVE_WORK"
+}
+trap cleanup EXIT HUP INT TERM
+KIWI_INTERACTIVE_ARTIFACTS=${KIWI_INTERACTIVE_ARTIFACTS:-"$KIWI_ROOT/.build/application-evidence"}
+mkdir -p "$KIWI_INTERACTIVE_ARTIFACTS"
+export KIWI_INTERACTIVE_ARTIFACTS
+export LUA_PATH="$KIWI_ROOT/src/?.lua;$KIWI_ROOT/src/?/init.lua;;"
+"${LUAJIT:-luajit}" src/kiwi/compatibility/interactive.lua
