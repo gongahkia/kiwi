@@ -8,6 +8,7 @@ exercise internal models, native boundaries and user-visible behavior.
 | `make test-core` | LuaJIT, standard shell utilities | Headless core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
 | `make check` | Documented native build dependencies and C compiler | Complete Lua suite, seeded parser fuzzing, real PTYs, C readiness watcher, terminfo contract, CLI behavior and syntax of every Lua file. |
 | `make test-applications` | Native build, Bash, Zsh, Vim, Neovim, tmux, less, system top | Eight real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. No display is needed. |
+| `make test-ssh-applications` | Native build, Python 3, OpenSSH client/server/keygen, Bash, Neovim, tmux | Real authenticated loopback SSH, remote shell/editor input, resize through SSH/tmux, disconnect/HUP cleanup and replay. |
 | `make test-pty-watch` | C17 compiler, POSIX pthreads | One-shot notifications, no byte consumption, rearm, descriptor replacement, EOF and worker shutdown. |
 | `make interaction-smoke` | Native build and a graphical desktop | Live splits, directional focus, divider resize, zoom, font reset, search and close through native action dispatch. |
 | `make pty-wake-smoke` | Native build and a graphical desktop | Readable child output wakes the host before a deliberately long event timeout. |
@@ -88,8 +89,25 @@ CI installs the applications, runs the gate on Linux and both macOS
 architectures, and uploads reports and controlled recordings even on failure.
 Captures contain only these test sessions; they may include timestamps, process
 IDs and temporary paths. This does not exercise physical keyboard layouts,
-native input routing, IME, clipboard ownership, visual rendering, SSH, fish or
+native input routing, IME, clipboard ownership, visual rendering, fish or
 Nushell. Those remain independent qualification requirements.
+
+`make test-ssh-applications` adds four workflows using a real OpenSSH server
+bound to `127.0.0.1` on an ephemeral port. It creates temporary host/client
+keys and a pinned known-hosts file, uses only that client identity, and leaves
+the user's SSH configuration and system SSH service unchanged. The server
+allows the current user and forces the controlled shell/editor/lifecycle
+fixtures. Test configurations and keys stay in a private temporary directory
+and are removed after child/session cleanup; they are never uploaded.
+
+The workflows edit shell commands and save Unicode text in Neovim, resize
+Neovim directly and inside remote tmux, and close the local PTY while a remote
+process waits. The last case requires that the remote process receive HUP and
+write its termination marker. `.build/ssh-application-evidence` contains the
+same bounded recordings/replay reports as the local suite. CI runs both suites
+and uploads only evidence directories. This is loopback TCP/authentication and
+remote-PTY evidence; it does not qualify high-latency networks, remote OS
+differences or the `kiwi-ssh` terminfo-transfer helper.
 
 ## Evidence recorded during the 2026-10-25 application pass
 

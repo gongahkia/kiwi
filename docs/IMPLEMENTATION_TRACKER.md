@@ -21,6 +21,8 @@ tests do not establish Linux or Windows desktop qualification.
       monitoring tools, including resize, alternate screens, queries and input.
 - [x] Automate local PTY workflows for Bash/Zsh, Vim/Neovim, tmux, nested Neovim,
       less and system top, with saved-file assertions and replay verification.
+- [x] Exercise real authenticated loopback SSH with remote shell/editing,
+      tmux/resize, saved-file assertions and disconnect/HUP cleanup.
 - [x] Preserve reproducible captures and configure regression gates in CI.
 
 ## Desktop reliability
@@ -262,3 +264,18 @@ keyboard/native presentation and long interactive sessions remain open.
 The final local report is
 `evidence/2026-10-25-macos-interactive-applications.json`. The complete check
 and native automatic-reload smoke also passed after the watcher/protocol changes.
+
+### Real SSH application sessions
+
+Added a temporary key-authenticated OpenSSH server bound only to loopback, with
+an isolated client configuration and pinned host key. Four workflows exercise
+remote Bash editing/paste/job interruption, remote Neovim, Neovim inside remote
+tmux, and local-PTY close propagating HUP to the remote application. Files are
+checked independently, resize reaches the remote editor, and captured sessions
+must reproduce live state under all ten replay chunkings.
+
+All four passed three consecutive Intel macOS runs using OpenSSH 9.9p2. Linux
+and both macOS CI jobs now run the gate and upload bounded evidence separately
+from temporary keys/configuration. The report is
+`evidence/2026-10-25-macos-ssh-applications.json`. This qualifies loopback TCP
+sessions, not heterogeneous remote hosts, adverse networks, or terminfo upload.

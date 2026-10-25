@@ -219,7 +219,7 @@ local function editor(session, name, multiplexed)
   assert(saved == "aZlpha 界 é\nsecond line\n", "editor saved unexpected text: " .. tostring(saved))
 end
 
-local function shell(session)
+local function shell(session, remote)
   session:prompt()
   session:text("printf 'KIWI-EDIT-%s\\n' abXd")
   session:key(glfw.key_left); session:key(glfw.key_backspace); session:text("c")
@@ -234,13 +234,20 @@ local function shell(session)
   session:key(glfw.key_enter)
   session:expect("KIWI-PASTE-界 é")
   session:prompt()
-  session:command("sleep 30")
-  session:wait("foreground job started", function()
-    local group = ffi.C.tcgetpgrp(session.pty.fd)
-    return group > 0 and group ~= session.pty.pid
-  end)
+  if remote then
+    session:command("sh -c 'printf ready > ssh-job-ready; exec sleep 30'")
+    session:wait("remote foreground job started", function() return read(work .. "/ssh-job-ready") == "ready" end)
+  else
+    session:command("sleep 30")
+    session:wait("foreground job started", function()
+      local group = ffi.C.tcgetpgrp(session.pty.fd)
+      return group > 0 and group ~= session.pty.pid
+    end)
+  end
   session:key(string.byte("C"), glfw.mod_control)
-  session:wait("shell regained foreground", function() return ffi.C.tcgetpgrp(session.pty.fd) == session.pty.pid end)
+  if not remote then
+    session:wait("shell regained foreground", function() return ffi.C.tcgetpgrp(session.pty.fd) == session.pty.pid end)
+  end
   session:prompt()
   session:command("printf 'KIWI-INTERRUPT-%s\\n' OK")
   session:expect("KIWI-INTERRUPT-OK")
@@ -253,9 +260,11 @@ local report = { schema_version = 1, kind = "kiwi-interactive-applications", che
   platform = ffi.os .. "-" .. ffi.arch, kernel = first_line("uname -sr"),
   revision = first_line("git rev-parse --short HEAD"), timestamp_utc = os.date("!%Y-%m-%dT%H:%M:%SZ"),
   source_state = first_line("git status --porcelain --untracked-files=no") == "unavailable" and "clean" or "dirty",
+  network = os.getenv("KIWI_INTERACTIVE_SSH") and "loopback TCP; temporary key-authenticated OpenSSH server" or "not used",
   versions = { bash = first_line("bash --version"), zsh = first_line("zsh --version"),
     vim = first_line("vim --version"), nvim = first_line("nvim --version"),
-    tmux = first_line("tmux -V"), less = first_line("less --version"), top = "platform system top" } }
+    tmux = first_line("tmux -V"), less = first_line("less --version"), top = "platform system top",
+    ssh = os.getenv("KIWI_INTERACTIVE_SSH_VERSION") or "not exercised" } }
 local failed = false
 local function run(name, command, body, cleanup)
   local session
@@ -293,11 +302,25 @@ end
 write(artifacts .. "/report.json", Json.encode(report) .. "\n")
 local applications = os.getenv("KIWI_INTERACTIVE_APPS") or "bash,zsh,vim,nvim,tmux,tmux-nvim,less,top"
 assert(applications ~= "" and not applications:find("^,") and not applications:find(",$") and not applications:find(",,"), "application list must not contain empty entries")
-local supported = { bash = true, zsh = true, vim = true, nvim = true, tmux = true, ["tmux-nvim"] = true, less = true, top = true }
+local supported = { bash = true, zsh = true, vim = true, nvim = true, tmux = true, ["tmux-nvim"] = true, less = true, top = true,
+  ["ssh-shell"] = true, ["ssh-nvim"] = true, ["ssh-tmux-nvim"] = true, ["ssh-hangup"] = true }
 for name in applications:gmatch("[^,]+") do assert(supported[name], "unknown application: " .. name) end
 for name in applications:gmatch("[^,]+") do
   if name == "bash" then run(name, { "bash", "--noprofile", "--norc", "-i" }, shell)
   elseif name == "zsh" then run(name, { "zsh", "-d", "-f", "-i" }, shell)
+  elseif name:sub(1, 4) == "ssh-" then
+    local client = assert(os.getenv("KIWI_INTERACTIVE_SSH"), "run script/test-ssh-applications for SSH cases")
+    run(name, { client, name:sub(5) }, function(s)
+      if name == "ssh-shell" then shell(s, true)
+      elseif name == "ssh-hangup" then
+        s:expect("KIWI-REMOTE-READY")
+        s.pty:shutdown()
+        local deadline = Metrics.monotonic_seconds() + 8
+        while read(work .. "/ssh-closed.txt") ~= "remote-hangup\n" and Metrics.monotonic_seconds() < deadline do ffi.C.usleep(2000) end
+        assert(read(work .. "/ssh-closed.txt") == "remote-hangup\n", "closing the local PTY did not hang up the remote application")
+        s.terminal:finish()
+      else editor(s, name, name == "ssh-tmux-nvim") end
+    end)
   elseif name == "vim" or name == "nvim" then
     run(name, { name, "-N", "-u", "NONE", "-i", "NONE", "-n", "--noplugin", "-c", "set noswapfile showmode", "-c", "echo 'KIWI-READY'" }, function(s) editor(s, name) end)
   elseif name == "tmux-nvim" then

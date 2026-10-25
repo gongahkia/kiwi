@@ -252,6 +252,10 @@ test-pty: native
 test-applications: native terminfo
 	./script/test-applications
 
+.PHONY: test-ssh-applications
+test-ssh-applications: native terminfo
+	./script/test-ssh-applications
+
 smoke: native
 	./script/smoke
 

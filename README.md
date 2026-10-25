@@ -155,6 +155,7 @@ make test-fuzz                         # bounded seed-reproducible parser/state 
 make fuzz                              # longer local parser/state fuzz run
 make test-pty                          # deterministic real-PTY integration tests
 make test-applications                 # interactive Bash/Zsh, Vim/Neovim, tmux, less and top workflows with replay evidence
+make test-ssh-applications             # loopback OpenSSH shell/editor/resize/disconnect workflows with temporary keys
 make run                               # launch the default shell
 make gtk-run                           # launch through the partial GTK4 Linux host on x86_64
 make gtk-gl-run                        # experimental GtkGLArea one-terminal default; set KIWI_GTK_NATIVE_TABS=1 for the separately gated multi-PTY tab prototype
