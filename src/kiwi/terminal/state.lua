@@ -667,6 +667,30 @@ function State:clear_selection()
   self.selection:clear()
 end
 
+function State:select_all()
+  local scope = self:selection_scope()
+  local rows = self:selection_rows(scope)
+  if #rows == 0 then return false end
+  return self.selection:set(scope, { line_id = rows[1].line_id, column = 0 },
+    { line_id = rows[#rows].line_id, column = self.columns }, rows, self.columns)
+end
+
+function State:clear_scrollback()
+  if self.active_screen ~= self.primary then return false end
+  for index = 1, self.scrollback:size() do
+    self:release_kitty_placement_row("primary", self.scrollback:get(index))
+  end
+  self.scrollback:clear()
+  self.history_offset = 0
+  self.command_region_navigation = nil
+  self:reconcile_command_regions()
+  self:reconcile_selection()
+  self:invalidate_search()
+  self:sync_cursor_visibility()
+  self:mark_all_dirty()
+  return true
+end
+
 function State:selection_view()
   local scope = self.selection.scope
   if scope == nil then return { active = false, empty = true, visible = false } end
@@ -695,6 +719,15 @@ function State:selection_text(maximum_bytes)
     local row = document[index].row
     local start = index == first and view.start.column or 0
     local finish = index == last and view.finish.column or self.columns
+    -- A selection through the right edge includes text, not unused cell padding.
+    -- Explicitly printed spaces carry codepoints and must survive copying.
+    if finish == self.columns then
+      while finish > start do
+        local cell = row.cells[finish - 1]
+        if cell and (cell.glyph ~= " " or cell.codepoints ~= nil or cell.continuation) then break end
+        finish = finish - 1
+      end
+    end
     for column = start, finish - 1 do
       local cell = row.cells[column]
       if cell and not cell.continuation and not append(cell.glyph) then return nil, "over-limit" end
@@ -1318,17 +1351,16 @@ end
 
 function State:erase_in_display(mode, selective)
   local cursor = self.active_screen.cursor
-  if mode == 2 or mode == 3 then
+  -- Xterm ED 3 erases saved lines, leaving the screen and cursor intact.
+  if mode == 3 then
+    self:clear_scrollback()
+    return
+  end
+  if mode == 2 then
     for row = 0, self.rows - 1 do
       for column = 0, self.columns - 1 do
         self:erase_cell(column, row, selective)
       end
-    end
-    if mode == 3 and self.active_screen == self.primary then
-      self.scrollback:clear()
-      self.history_offset = 0
-      self:reconcile_command_regions()
-      self:reconcile_selection()
     end
   elseif mode == 1 then
     for row = 0, cursor.row do
@@ -1345,7 +1377,7 @@ function State:erase_in_display(mode, selective)
       end
     end
   end
-  if not selective and (mode == 2 or mode == 3) then self:clear_visible_kitty_placements() end
+  if not selective and mode == 2 then self:clear_visible_kitty_placements() end
   cursor.pending_wrap = false
 end
 

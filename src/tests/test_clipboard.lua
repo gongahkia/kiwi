@@ -25,6 +25,15 @@ local function bridge(read_text, read_status)
 end
 
 return {
+  clipboard_omits_unused_padding_but_preserves_printed_trailing_spaces = function()
+    local state = State.new(8, 2)
+    write_row(state, 0, { 0x61, 0x20, 0x20 })
+    write_row(state, 1, { 0x62 })
+    state:select_all()
+    Assert.equal(state:selection_text(32), "a  \nb")
+    state:set_selection(0, 3, 0, 5)
+    Assert.equal(state:selection_text(32), "  ")
+  end,
   clipboard_copy_reconstructs_normalized_unicode_selection_text = function()
     local state = State.new(5, 2)
     write_row(state, 0, { 0x68, 0x65, 0x6c, 0x6c, 0x6f })
