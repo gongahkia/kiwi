@@ -26,6 +26,45 @@ local function new_renderer(font, state)
   return { invalidate = function() end, destroy = function() prepared:destroy() end }
 end
 
+local function palette_activation(workspace, session, state, font, current, history, iterations)
+  local phases = { activation = { cpu = {}, wall = {} }, first_history_viewport = { cpu = {}, wall = {} },
+    complete_history_read = { cpu = {}, wall = {} } }
+  local function measure(name, callback)
+    local start_wall, start_cpu = Metrics.monotonic_seconds(), os.clock()
+    callback()
+    local phase = phases[name]
+    phase.cpu[#phase.cpu + 1] = (os.clock() - start_cpu) * 1000
+    phase.wall[#phase.wall + 1] = (Metrics.monotonic_seconds() - start_wall) * 1000
+  end
+  local peak_heap_delta = 0
+  for iteration = 1, iterations do
+    state:scroll_history(-history)
+    local candidate = configuration(history, current.font_size, iteration % 2 == 1 and "#405060" or "#102030")
+    local plan = assert(Reload.prepare({ current = current, candidate = candidate, font = font, workspace = workspace,
+      dimensions = function() return state.columns, state.rows end, new_font = new_font, new_renderer = new_renderer }))
+    local heap_before = collectgarbage("count")
+    measure("activation", function() plan:activate(); assert(#plan:finish() == 0) end)
+    measure("first_history_viewport", function()
+      state:scroll_history(math.min(history, state.rows))
+      for row = 0, state.rows - 1 do
+        assert(state:visible_row(row).cells[0].bg == candidate.background, "new viewport retained the old palette")
+      end
+    end)
+    measure("complete_history_read", function()
+      for index = 1, state.scrollback:size() do
+        assert(state.scrollback:get(index).cells[0].bg == candidate.background, "history retained the old palette")
+      end
+    end)
+    peak_heap_delta = math.max(peak_heap_delta, collectgarbage("count") - heap_before)
+    assert(Terminal.state(session.terminal) == state and state.scrollback:size() == history)
+    current, plan = candidate, nil
+    collectgarbage("collect")
+  end
+  local result = { peak_heap_kib_delta_after_staging = peak_heap_delta }
+  for name, phase in pairs(phases) do result[name] = { cpu_ms = Stats.summary(phase.cpu), wall_ms = Stats.summary(phase.wall) } end
+  return result
+end
+
 function Bench.run(options)
   options = options or {}
   local history, iterations = options.history_lines or 2000, options.iterations or 5
@@ -81,6 +120,9 @@ function Bench.run(options)
           peak_heap_kib_delta = peak_heap - heap_before, retained_heap_kib_delta = retained_heap },
       }
     end
+    -- Account for work deferred by staging optimizations. Inspect a previously
+    -- unseen history viewport, then every retained row after actual activation.
+    result.palette_post_commit = palette_activation(workspace, session, state, font, current, history, iterations)
   end)
   session.renderer:destroy(); font:destroy(); terminal:close()
   assert(ok, message)
@@ -100,11 +142,15 @@ function Bench.main()
         history, sample.mode, sample.wall_ms.p95, sample.cpu_ms.p95, sample.memory.peak_heap_kib_delta / 1024,
         sample.memory.retained_heap_kib_delta, sample.memory.sampled_peak_rss_kib / 1024))
     end
+    local committed = result.palette_post_commit
+    print(string.format("reload history=%d palette activation-p95=%.1fms first-history-viewport-p95=%.1fms full-history-read-p95=%.1fms post-stage-heap-peak=%.1fKiB",
+      history, committed.activation.wall_ms.p95, committed.first_history_viewport.wall_ms.p95,
+      committed.complete_history_read.wall_ms.p95, committed.peak_heap_kib_delta_after_staging))
   end
   local output = "bench/results/" .. timestamp .. "-configuration-reload.json"
   local file = assert(io.open(output, "wb"))
-  file:write(Json.encode({ schema_version = 1, benchmark = "configuration reload staging",
-    scope = "CPU state clone/reflow, native font resolution, shaping and buffer packing; excludes GPU allocation/upload/presentation and PTY resize; sampled RSS is not OS high-water RSS",
+  file:write(Json.encode({ schema_version = 2, benchmark = "configuration reload staging and palette activation",
+    scope = "CPU state staging/reflow, native font resolution, shaping, buffer packing, palette activation and subsequent history reads; excludes GPU allocation/upload/presentation and PTY resize; sampled RSS is not OS high-water RSS",
     metadata = Environment.collect(timestamp, iterations, 1), results = results }), "\n")
   file:close()
   print("machine-readable result: " .. output)

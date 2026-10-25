@@ -391,3 +391,16 @@ poor (2,781 to 2,922 ms). These are CPU staging results, excluding GPU work and
 activation; deferred history-read costs need separate measurement. Raw reports:
 `evidence/2026-10-25-macos-reload-before-lazy-history.json` and
 `evidence/2026-10-25-macos-reload-lazy-history.json`.
+
+### Deferred palette work measurement
+
+The reload benchmark now activates replacements, opens a previously unseen
+history viewport, then reads every retained row. At 10,000 lines, the five-sample
+run measured palette staging at 10.5 ms wall p95, activation at 0.2 ms, the first
+history viewport at 0.2 ms, and a complete history read at 56.9 ms. Post-staging
+sampled additional Lua heap was 7.1 KiB. Every read asserts the new background;
+activation retains the state identity and history count. GPU work remains
+excluded. Font-change p95 varied down to 1,413 ms in this run, so individual
+timing comparisons remain machine/load-sensitive and still fail a reasonable
+interactive responsiveness target. Report:
+`evidence/2026-10-25-macos-palette-activation.json`.

@@ -14,6 +14,11 @@ return {
       Assert.truthy(sample.memory.sampled_peak_rss_kib > 0)
       Assert.truthy(sample.memory.retained_heap_kib_delta < 4 * 1024)
     end
+    for _, phase in ipairs({ "activation", "first_history_viewport", "complete_history_read" }) do
+      Assert.equal(result.palette_post_commit[phase].wall_ms.count, 2)
+      Assert.equal(result.palette_post_commit[phase].cpu_ms.count, 2)
+    end
+    Assert.truthy(result.palette_post_commit.peak_heap_kib_delta_after_staging >= 0)
     Assert.truthy(Metrics.resident_kib() > 0)
   end,
   configuration_benchmark_rejects_unbounded_workloads = function()
