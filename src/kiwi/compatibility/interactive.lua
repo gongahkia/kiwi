@@ -259,6 +259,14 @@ local function shell(session, remote)
   session:exited()
 end
 
+local vim_command = os.getenv("KIWI_INTERACTIVE_VIM") or "vim"
+local vim_version = first_line(quote(vim_command) .. " --version")
+if not os.getenv("KIWI_INTERACTIVE_VIM") and not vim_version:match("^VIM ") and ffi.os == "Linux" then
+  -- Debian alternatives may make `vim` invoke Neovim after installation.
+  -- Qualify both editors, even when that alternative is the system default.
+  local basic_version = first_line("vim.basic --version")
+  if basic_version:match("^VIM ") then vim_command, vim_version = "vim.basic", basic_version end
+end
 local revision = first_line("git rev-parse --short HEAD")
 local git_status = first_line("git status --porcelain --untracked-files=no && printf 'KIWI_GIT_CLEAN\\n'")
 local source_state = git_status == "KIWI_GIT_CLEAN" and "clean" or (git_status == "unavailable" and "unavailable" or "dirty")
@@ -270,7 +278,7 @@ local report = { schema_version = 1, kind = "kiwi-interactive-applications", che
   source_state = source_state,
   network = os.getenv("KIWI_INTERACTIVE_SSH") and "loopback TCP; temporary key-authenticated OpenSSH server" or "not used",
   versions = { bash = first_line("bash --version"), zsh = first_line("zsh --version"),
-    vim = first_line("vim --version"), nvim = first_line("nvim --version"),
+    vim = vim_version, nvim = first_line("nvim --version"),
     tmux = first_line("tmux -V"), less = first_line("less --version"), top = "platform system top",
     ssh = os.getenv("KIWI_INTERACTIVE_SSH_VERSION") or "not exercised" } }
 report.versions.fish = first_line("fish --version")
@@ -280,6 +288,7 @@ local function run(name, command, body, cleanup)
   local session
   local entry = { name = name }
   local ok, message = xpcall(function()
+    if name == "vim" then assert(vim_version:match("^VIM "), "Vim case requires Vim, not an alternative editor; set KIWI_INTERACTIVE_VIM") end
     session = Session.new(name, command)
     body(session)
     local stats = Terminal.parser(session.terminal).stats
@@ -343,7 +352,7 @@ for name in applications:gmatch("[^,]+") do
       else editor(s, name, name == "ssh-tmux-nvim") end
     end)
   elseif name == "vim" or name == "nvim" then
-    run(name, { name, "-N", "-u", "NONE", "-i", "NONE", "-n", "--noplugin", "-c", "set noswapfile showmode", "-c", "echo 'KIWI-READY'" }, function(s) editor(s, name) end)
+    run(name, { name == "vim" and vim_command or name, "-N", "-u", "NONE", "-i", "NONE", "-n", "--noplugin", "-c", "set noswapfile showmode", "-c", "echo 'KIWI-READY'" }, function(s) editor(s, name) end)
   elseif name == "tmux-nvim" then
     local socket = work .. "/nested.sock"
     run(name, { "tmux", "-S", socket, "-f", tmux_config(), "new-session", "-s", "kiwi-editor",
