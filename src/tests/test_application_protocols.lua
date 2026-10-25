@@ -14,6 +14,42 @@ local function palette(background, accent)
 end
 
 return {
+  modifier_query_reports_current_encoding_without_changing_it = function()
+    local state, parser = terminal()
+    for level = 0, 3 do
+      parser:feed("\27[>4;" .. level .. "m\27[?4m")
+      Assert.equal(table.concat(state:pop_responses()), "\27[>4;" .. level .. "m")
+      Assert.equal(state.modes.modify_other_keys, level)
+    end
+    parser:feed("\27[?m\27[?1m\27[?4;2m\27[?4$m\27[?4:2m")
+    Assert.equal(#state:pop_responses(), 0)
+    Assert.equal(state.modes.modify_other_keys, 3)
+    Assert.equal(state.stats.unknown.csi, 5)
+  end,
+  unsupported_csi_intermediates_do_not_mutate_display_or_modes = function()
+    local Snapshot = require("kiwi.terminal.snapshot")
+    local state, parser = terminal()
+    parser:feed("\27[31mabc\27[2;2H")
+    local before = Snapshot.encode(state)
+    parser:feed("\27[0%m\27[2%J\27[8%A\27[20%h\27[1;2%r")
+    Assert.equal(Snapshot.encode(state), before)
+    Assert.equal(state.stats.unknown.csi, 5)
+    Assert.equal(#state:pop_responses(), 0)
+  end,
+  vim_negative_probes_preserve_attributes_cursor_and_parser_recovery = function()
+    local sequence = "\27[31mabc\27Pzz\27\\\27[0%m\27[6nX"
+    for split = 0, #sequence do
+      local state, parser = terminal()
+      parser:feed(sequence:sub(1, split)); parser:feed(sequence:sub(split + 1)); parser:finish()
+      Assert.equal(table.concat(state:pop_responses()), "\27[1;4R")
+      Assert.equal(state:get(3, 0).glyph, "X")
+      Assert.equal(state:get(3, 0).fg, state:get(0, 0).fg)
+      Assert.equal(state.stats.unknown.csi, 1)
+      Assert.equal(state.stats.unknown.dcs, 1)
+      Assert.equal(parser.stats.ignored, 1)
+      Assert.equal(parser.stats.errors, 0)
+    end
+  end,
   version_query_identifies_kiwi_and_rejects_parameters_or_control_injection = function()
     local state, parser = terminal({ terminal_version = "0.1.0-test+12" })
     parser:feed("\27[>q\27[>0q\27[>1q\27[>0;0q\27[>0 q")

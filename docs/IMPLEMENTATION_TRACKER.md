@@ -225,3 +225,18 @@ Subscriptions are deduplicated, cycles are rejected, and file stamps are
 compared field by field instead of comparing structure padding. Native tests
 cover target recreation, alias replacement, missing target directories and
 nested links, including AddressSanitizer/UndefinedBehaviorSanitizer on macOS.
+
+### Interactive Vim protocol corrections
+
+Real Vim editing exposed an unanswered `CSI ? 4 m` query. Kiwi now reports the
+current modifyOtherKeys level using the
+[xterm XTQMODKEYS contract](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html).
+An additional dispatch bug treated unsupported CSI intermediate bytes as
+ordinary commands: for example, `CSI 0 % m` reset text attributes. Unrecognized
+intermediate forms now remain observable and leave terminal state unchanged.
+
+[Vim deliberately emits that CSI and `DCS zz ST`](https://github.com/vim/vim/blob/v9.1.1752/src/term.c#L4148)
+to check rejection behaviour. Tests verify cursor/attribute preservation,
+responses, parser recovery at every byte split, query levels and malformed
+requests. The full check passed 533 Lua tests across 115 suites, 16 PTY tests,
+native checks and the remaining gates; core passed 306 tests across 58 suites.
