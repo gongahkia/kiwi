@@ -40,7 +40,7 @@ local uninstall = {
   "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 zsh -dfic 'source integrations/v1/kiwi.zsh; kiwi_shell_integration_uninstall; (( ! $+functions[__kiwi_zsh_precmd] ))'",
   "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 fish --no-config -ic 'source integrations/v1/kiwi.fish; kiwi_shell_integration_uninstall; not functions -q __kiwi_fish_prompt'",
 }
-if has_nushell then uninstall[#uninstall + 1] = "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; kiwi_shell_integration_uninstall; if ($env.__kiwi_nu_active? | default false) { error \"integration still active\" }'" end
+if has_nushell then uninstall[#uninstall + 1] = "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; kiwi_shell_integration_uninstall; if ($env.__kiwi_nu_active? | default false) { error make {msg: \"integration still active\"} }'" end
 
 local function capture(command)
   local pipe = assert(io.popen("(" .. command .. ") 2>/dev/null; printf '\\nKIWI_TEST_EXIT=%s' \"$?\"", "r"))
