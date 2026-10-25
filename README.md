@@ -61,6 +61,23 @@ sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
 
 `make bootstrap` validates the local tools, GLFW/FreeType/HarfBuzz/Fontconfig metadata, `tic`/`infocmp`, and the pinned official wgpu-native archive.
 
+GLFW **3.4 or newer** is required at build time and runtime. Ubuntu 24.04's
+`libglfw3-dev` is too old. On that distribution, install the normal Linux
+dependencies plus `cmake libwayland-dev libxkbcommon-dev libxrandr-dev
+libxinerama-dev libxcursor-dev libxi-dev`, then build the pinned GLFW release
+in a private prefix:
+
+```sh
+./script/build-ci-glfw "$PWD/.deps/glfw-3.4"
+export PKG_CONFIG_PATH="$PWD/.deps/glfw-3.4/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+export LD_LIBRARY_PATH="$PWD/.deps/glfw-3.4/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+make check
+```
+
+The helper enables X11 and Wayland and checks the downloaded archive's SHA-256.
+It does not replace the system GLFW. Keep these environment settings when
+running Kiwi, including extracted release archives on the same machine.
+
 ## macOS prerequisites
 
 Source builds target Intel and Apple Silicon Macs. The current application pass

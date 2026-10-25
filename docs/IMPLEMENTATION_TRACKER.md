@@ -304,3 +304,18 @@ state and preserves failure snapshots for diagnosis. No snapshot fields or
 protocol failures were excluded. The default gate now requires fish; both
 macOS CI jobs additionally require Nushell. Reports from source archives use
 `BUILD_REVISION` and explicitly mark Git cleanliness as unavailable.
+
+### Ubuntu build dependency qualification
+
+A fresh Ubuntu 24.04 x86_64 container reproduced a native build failure because
+the distribution's GLFW 3.3.10 lacks `glfwGetPlatform`. Bootstrap now rejects
+GLFW older than 3.4 with an actionable message. Linux CI and release jobs build
+the checksum-pinned 3.4 release with both X11 and Wayland into a private prefix;
+the system GLFW is retained. The documented runtime requirement is also 3.4.
+
+With that dependency setup, `make check` passed in the container: 533 Lua tests
+across 115 suites, 17 real PTY checks, native readiness/file watcher/process
+metrics, terminfo, fuzz, CLI and syntax checks. The old dependency is rejected
+before compilation; macOS bootstrap and all edited workflow YAML also passed
+their checks. This is Linux headless/native-library evidence, not graphical
+desktop, physical hardware or release-package qualification.

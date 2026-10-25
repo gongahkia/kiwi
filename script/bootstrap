@@ -53,6 +53,11 @@ for package in $packages; do
   fi
 done
 
+if ! pkg-config --atleast-version=3.4 glfw3; then
+  print -u2 "Kiwi requires GLFW >= 3.4 for runtime platform selection; found $(pkg-config --modversion glfw3). See README.md for older Linux distributions."
+  exit 1
+fi
+
 if [[ "$(uname -s)" == Linux ]]; then
   if ! ldconfig -p 2>/dev/null | awk '$1 ~ /^libgif\.so/ { found = 1 } END { exit !found }'; then
     print -u2 'Missing giflib runtime. Install the Fedora package documented in README.md.'

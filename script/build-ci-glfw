@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# Ubuntu 24.04 supplies GLFW 3.3; Kiwi's native surface needs the 3.4
+# runtime platform API. Install a pinned build in an explicit private prefix.
+set -eu
+test "$(uname -s)" = Linux || { echo 'This helper targets Linux CI.' >&2; exit 1; }
+prefix=${1:?usage: script/build-ci-glfw /absolute/install/prefix}
+case "$prefix" in /*) ;; *) echo 'GLFW prefix must be absolute.' >&2; exit 1 ;; esac
+for required in cmake cc curl unzip sha256sum pkg-config; do
+  command -v "$required" >/dev/null 2>&1 || { echo "Missing GLFW build tool: $required" >&2; exit 1; }
+done
+work=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-glfw.XXXXXX")
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+curl --fail --location --retry 3 --output "$work/glfw.zip" \
+  https://github.com/glfw/glfw/releases/download/3.4/glfw-3.4.zip
+printf '%s  %s\n' b5ec004b2712fd08e8861dc271428f048775200a2df719ccf575143ba749a3e9 "$work/glfw.zip" | sha256sum --check --status
+unzip -q "$work/glfw.zip" -d "$work"
+cmake -S "$work/glfw-3.4" -B "$work/build" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_INSTALL_LIBDIR=lib \
+  -DBUILD_SHARED_LIBS=ON -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=ON \
+  -DGLFW_BUILD_DOCS=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_EXAMPLES=OFF
+cmake --build "$work/build" --parallel 2
+cmake --install "$work/build"
+PKG_CONFIG_PATH="$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
+  pkg-config --atleast-version=3.4 glfw3
