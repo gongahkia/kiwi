@@ -52,7 +52,7 @@ tests do not establish Linux or Windows desktop qualification.
 - [x] Stage and atomically commit font/renderer/configuration replacement on the
       supported WGPU application path; GTK GL prototype parity remains open.
 - [x] Debounce automatic file reload and show recoverable configuration errors
-      on WGPU; native Linux execution and GTK GL parity remain open.
+      on WGPU; Linux graphical execution and GTK GL parity remain open.
 - [x] Inject resource failures and verify the old session remains usable.
 
 ## Search and keyboard navigation
@@ -351,3 +351,16 @@ version identity, selects `vim.basic` on Linux when necessary, and permits an
 explicit executable override. Actual Vim passed on Linux and macOS; a negative
 test explicitly selecting Neovim failed before spawning the wrong editor.
 The retained Linux application evidence must come from a rerun with this fix.
+
+### Linux interactive application evidence
+
+The final Ubuntu 24.04 x86_64 run passed all nine default local application
+workflows and all four SSH workflows from source revision `b625000`, including
+actual Vim 9.1 and Neovim 0.9.5 as separate editors. The reports are
+`evidence/2026-10-25-linux-interactive-applications.json` and
+`evidence/2026-10-25-linux-ssh-applications.json`. This was an isolated Docker
+container with 2 CPUs and 4 GiB memory on the Intel macOS development machine;
+times include replay verification and are not performance baselines. The source
+was a Git archive with `BUILD_REVISION`; report cleanliness is explicitly
+unavailable because there is no `.git` directory. Nushell and native desktop
+input/presentation were not exercised in this Linux run.
