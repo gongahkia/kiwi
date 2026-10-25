@@ -1,7 +1,9 @@
 -- Synchronous configuration staging. Preserve the live State object's identity
 -- because the parser and host hold references to it. Strings/image byte buffers
--- and cluster arrays are immutable here; mutable tables (including image
--- residency) are private copies once staging returns.
+-- and cluster arrays are immutable here. Screen cells and image residency are
+-- private copies; history rows are copied on access through Scrollback:get.
+-- Neither the original nor rows returned by Scrollback:peek may be mutated
+-- during staging. Activation transfers exclusive ownership of unread history.
 local Transaction = {}
 Transaction.__index = Transaction
 
@@ -42,6 +44,7 @@ local function copy(value, seen)
 end
 
 local function bind(snapshot, owner)
+  snapshot:bind_scrollback(owner)
   snapshot.cells = setmetatable({}, { __index = function(_, index) return owner:cell_at_index(index) end })
   for _, screen in ipairs({ snapshot.primary, snapshot.alternate }) do
     screen.blank_cell = function() return owner:blank_cell() end
@@ -58,6 +61,9 @@ end
 function Transaction.new(state, dimensions)
   local seen = {}
   local resized = dimensions and (dimensions.columns ~= state.columns or dimensions.rows ~= state.rows)
+  if not resized then
+    seen[state.scrollback] = state.scrollback:fork(function(row) return copy(row, {}) end)
+  end
   local direct_reflow = resized and dimensions.columns ~= state.columns and state.reflow_on_resize
     and not state:can_keep_primary_rows_on_resize(dimensions.columns, dimensions.rows)
   if direct_reflow then
@@ -67,7 +73,10 @@ function Transaction.new(state, dimensions)
     for _, screen in ipairs({ state.primary, state.alternate }) do
       for _, row in pairs(screen.rows) do seen[row.cells] = row.cells end
     end
-    for _, row in pairs(state.scrollback.rows) do seen[row.cells] = row.cells end
+    for _, row in pairs(state.scrollback.rows) do
+      -- Resolving a pending palette must not write borrowed source cells.
+      if row.palette_generation == state.palette_generation then seen[row.cells] = row.cells end
+    end
   end
   local self = setmetatable({ original = state, state = copy(state, seen), effects = {} }, Transaction)
   bind(self.state, self.state)
@@ -90,6 +99,7 @@ end
 
 function Transaction:commit()
   assert(self.sealed and not self.committed, "state transaction must be sealed exactly once")
+  self.state.scrollback:adopt()
   for key in pairs(self.original) do self.original[key] = nil end
   for key, value in pairs(self.state) do self.original[key] = value end
   self.committed = true

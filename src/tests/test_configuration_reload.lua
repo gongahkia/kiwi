@@ -52,6 +52,67 @@ local function setup()
 end
 
 return {
+  palette_staging_copies_only_accessed_history_and_retains_selection = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2, state_options = { scrollback_limit = 32 } })
+    for line = 1, 48 do terminal:write(string.format("%04d界\r\n", line)) end
+    local state = Terminal.state(terminal)
+    state:scroll_history(8)
+    state:set_selection(0, 1, 1, 6)
+    local before = Snapshot.encode(state)
+    local transaction = StateTransaction.new(state)
+    local candidate = transaction.state
+    candidate:configure_palette(Config.parse("background = #ffffff"))
+    local view = candidate:selection_view()
+    Assert.truthy(view.active)
+    Assert.equal(view.start.line_id, state:selection_view().start.line_id)
+    -- Selection uses line identities and cluster widths, not cached colours.
+    for index = 1, state.scrollback:size() do
+      Assert.equal(candidate.scrollback:peek(index), state.scrollback:peek(index))
+    end
+    local visible = candidate:visible_row(0)
+    Assert.equal(visible.cells[0].bg, candidate.colors.background)
+    Assert.truthy(visible ~= state:visible_row(0))
+    Assert.equal(Snapshot.encode(state), before)
+    local copied = 0
+    for index = 1, state.scrollback:size() do
+      if candidate.scrollback:peek(index) ~= state.scrollback:peek(index) then copied = copied + 1 end
+    end
+    Assert.equal(copied, 1)
+    transaction:seal(); transaction:commit(); transaction:publish_effects()
+    Assert.equal(state.scrollback.borrowed, nil)
+    Assert.equal(state.scrollback:get(1).cells[0].bg, state.colors.background)
+    terminal:write("\27]11;#123456\7")
+    Assert.equal(state.scrollback:get(1).cells[0].bg, state.colors.background)
+  end,
+  palette_staging_abort_and_history_eviction_do_not_mutate_borrowed_rows = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2, state_options = { scrollback_limit = 4 } })
+    for line = 1, 12 do terminal:write(string.format("%04d\r\n", line)) end
+    local state = Terminal.state(terminal)
+    local first = state.scrollback:get(1)
+    local before, first_text = Snapshot.encode(state), first.cells[0].glyph
+    local transaction = StateTransaction.new(state)
+    transaction.state:configure_palette(Config.parse("background = #ffffff"))
+    for line = 1, 8 do transaction.state:write_codepoint("X"); transaction.state:line_feed() end
+    Assert.equal(Snapshot.encode(state), before)
+    Assert.equal(state.scrollback:get(1), first)
+    Assert.equal(first.cells[0].glyph, first_text)
+    transaction.state.scrollback:clear()
+    Assert.equal(state.scrollback:size(), 4)
+  end,
+  direct_reflow_with_pending_history_colours_keeps_original_cache_untouched = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2 })
+    terminal:write("history\r\nsecond\r\nthird")
+    local state = Terminal.state(terminal)
+    local original_row = state.scrollback:peek(1)
+    local original_background = original_row.cells[0].bg
+    state:configure_palette(Config.parse("background = #ffffff"))
+    Assert.equal(original_row.cells[0].bg, original_background)
+    local staged = StateTransaction.new(state, { columns = 4, rows = 3 })
+    Assert.equal(original_row.cells[0].bg, original_background)
+    Assert.equal(staged.state.scrollback:get(1).cells[0].bg, state.colors.background)
+    staged.state.scrollback:get(1).cells[0].glyph = "X"
+    Assert.equal(original_row.cells[0].glyph, "h")
+  end,
   state_transaction_preserves_all_cell_renditions_and_independent_blank_storage = function()
     local terminal = Terminal.new({ columns = 8, rows = 2 })
     terminal:write("\27]8;;https://example.com\7\27[1;2;3;4:3;7;8;9;58:2::1:2:3m界é\27]8;;\7\27[0m")

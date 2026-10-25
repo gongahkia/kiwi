@@ -25,7 +25,11 @@ Window.set_title = function(self, value) title = value; return set_title(self, v
 Config.load = function(...) local value, source = load(...); loaded = value; return value, source end
 local started, stage, stage_started = nil, 0, 0
 local function background(hex)
-  return Terminal.state(live).colors.background == Color.pack(tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16), 255)
+  local state = Terminal.state(live)
+  local expected = Color.pack(tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16), 255)
+  if state.colors.background ~= expected then return false end
+  assert(state:visible_row(0).cells[0].bg == expected, "visible history retained stale palette colours")
+  return true
 end
 local function next_stage(now) stage = stage + 1; stage_started = now end
 Host.await_events = function(application, window, timeout)
@@ -36,6 +40,9 @@ Host.await_events = function(application, window, timeout)
   local failed = title and title:find("Configuration error:", 1, true)
   if stage == 0 and now - started > 0.5 then
     assert(background("000000"))
+    local state = Terminal.state(live)
+    assert(state.scrollback:size() > 8, "reload fixture did not create scrollback")
+    state:scroll_history(8)
     save(path, "font-size = 999\n")
     next_stage(now)
   elseif stage == 1 and failed then
@@ -77,10 +84,11 @@ Host.await_events = function(application, window, timeout)
     window:request_close()
   end
 end
-arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/sh", "-c", "printf PTY-survives-reload; sleep 30" }
+arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/sh", "-c",
+  "printf 'PTY-survives-reload\\r\\n'; i=0; while [ $i -lt 200 ]; do printf 'retained history %03d\\r\\n' $i; i=$((i + 1)); done; sleep 30" }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Dispatcher.new, Window.set_title, Config.load, Host.await_events = terminal_new, dispatcher_new, set_title, load, await
 os.remove(path); os.remove(theme); os.remove(path .. ".new"); os.remove(theme .. ".new")
 assert(ok, message)
 assert(stage == 9, "configuration reload smoke ended before all stages completed")
-print("Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry and retained PTY output.")
+print("Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry and recoloured visible PTY history.")
