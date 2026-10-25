@@ -21,17 +21,14 @@ its SHA-256, and `make native` creates `.build/native/libkiwi_surface.dylib`.
 path, or the Codex Run action configured in `.codex/environments/`.
 
 The packaged and source launchers require the Homebrew LuaJIT, GLFW, FreeType,
-HarfBuzz, Fontconfig, giflib, and libpng runtimes. The C SDK uses
-`libkiwi_vt.dylib`; a nonstandard LuaJIT library location can be supplied with
-`KIWI_VT_LUAJIT_LIB=/absolute/path/to/libluajit-5.1.2.dylib`. The app bundle's
-in-process LuaJIT host also accepts `KIWI_LUAJIT_LIB` (and retains
-`KIWI_VT_LUAJIT_LIB` as a compatibility fallback).
+HarfBuzz, Fontconfig, giflib, and libpng runtimes. The app bundle's in-process
+LuaJIT host accepts `KIWI_LUAJIT_LIB` for a nonstandard LuaJIT library location.
 
 ## Boundaries and verification
 
-The verified local checks are `make check`, `make libkiwi-vt-check`,
+The verified local checks are `make check`,
 `make release-check`, and a bounded `make run` Metal smoke. They cover the
-native build, terminal PTY lifecycle, C SDK, artifact reproducibility, and a
+native build, terminal PTY lifecycle, artifact reproducibility, and a
 live GLFW/Cocoa/Metal render path.
 
 `make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/compatibility.json'`

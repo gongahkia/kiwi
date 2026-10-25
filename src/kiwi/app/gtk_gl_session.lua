@@ -18,8 +18,7 @@ local SelectionPointer = require("kiwi.input.selection_pointer")
 local ShellIntegration = require("kiwi.process.shell_integration")
 local TextLab = require("kiwi.text.lab")
 local Utf8 = require("kiwi.terminal.utf8")
-local VT = require("kiwi.vt")
-local VTInternal = require("kiwi.vt.internal")
+local Terminal = require("kiwi.session.terminal")
 
 local Session = {}
 Session.__index = Session
@@ -109,7 +108,7 @@ function Session.new(window, host, configuration, options)
   self.glfw = host.keymap
   self.font = new_font(window, configuration)
   self.columns, self.rows = dimensions(window, self.font)
-  self.terminal = VT.new({
+  self.terminal = Terminal.new({
     columns = self.columns,
     rows = self.rows,
     state_options = {
@@ -125,7 +124,7 @@ function Session.new(window, host, configuration, options)
         palette = configuration.palette },
     },
   })
-  self.state = VTInternal.state(self.terminal)
+  self.state = Terminal.state(self.terminal)
   local root = os.getenv("KIWI_ROOT") or "."
   local environment = {
     TERM = "xterm-kiwi",

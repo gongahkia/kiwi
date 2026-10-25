@@ -3,7 +3,7 @@ LUAJIT ?= luajit
 export LUA_PATH := src/?.lua;src/?/init.lua;;
 export KIWI_ROOT := $(CURDIR)
 
-.PHONY: bootstrap native gtk-host gtk-host-check gtk-gl-renderer-check gtk-run gtk-gl-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-x11-smoke gtk-x11-multi-window-smoke gtk-gl-wayland-smoke gtk-gl-x11-smoke gtk-gl-native-tabs-wayland-smoke gtk-gl-native-tabs-x11-smoke gtk-gl-native-tabs-close-wayland-smoke gtk-gl-native-tabs-close-x11-smoke gtk-accessibility-smoke gtk-input-smoke gtk-input-wayland-smoke gtk-input-x11-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke gtk-session-target-smoke gtk-progress-smoke terminfo release release-check libkiwi-vt libkiwi-vt-c libkiwi-vt-check compatibility daily-driver-compatibility doctor run demo vt-demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing pacing-compare pacing-budget power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
+.PHONY: bootstrap native gtk-host gtk-host-check gtk-gl-renderer-check gtk-run gtk-gl-run gtk-wayland-smoke gtk-wayland-multi-window-smoke gtk-x11-smoke gtk-x11-multi-window-smoke gtk-gl-wayland-smoke gtk-gl-x11-smoke gtk-gl-native-tabs-wayland-smoke gtk-gl-native-tabs-x11-smoke gtk-gl-native-tabs-close-wayland-smoke gtk-gl-native-tabs-close-x11-smoke gtk-accessibility-smoke gtk-input-smoke gtk-input-wayland-smoke gtk-input-x11-smoke gtk-gl-area-smoke gtk-menu-smoke gtk-palette-smoke gtk-session-target-smoke gtk-progress-smoke terminfo release release-check compatibility daily-driver-compatibility doctor run demo kiwi-ssh text-demo text-corpus-demo text-lab text-lab-demo slug-feasibility timestamp-probe gpu-timing-smoke kitty-graphics-smoke kitty-animation-smoke kitty-framebuffer-smoke truecolour-framebuffer-smoke workspace-smoke key-sequence-smoke same-process-window-smoke new-window-smoke session-move-smoke layout-restore-smoke cocoa-menu-smoke cocoa-toolbar-smoke cocoa-cwd-smoke cocoa-palette-smoke cocoa-automation-smoke budget-smoke pacing pacing-compare pacing-budget power-smoke device-soak device-soak-native device-loss-sim replay vttest conformance-evidence accessibility-smoke accessibility-provider-smoke voiceover-validation cocoa-smoke test test-fuzz fuzz test-unicode generate-unicode test-pty smoke bench bench-burst bench-text bench-longrun bench-longrun-budget bench-write profile-text bench-compare check clean
 
 bootstrap:
 	./script/bootstrap
@@ -94,15 +94,6 @@ release: native terminfo
 release-check: native terminfo
 	./script/release-check
 
-libkiwi-vt:
-	./script/package-libkiwi-vt
-
-libkiwi-vt-c:
-	./script/build-libkiwi-vt
-
-libkiwi-vt-check:
-	./script/libkiwi-vt-check
-
 compatibility:
 	$(LUAJIT) src/kiwi/terminal/compatibility.lua
 
@@ -117,9 +108,6 @@ run: native terminfo
 
 demo: native
 	KIWI_DEMO=1 $(LUAJIT) src/kiwi/app/main.lua
-
-vt-demo:
-	./script/kiwi-vt $(VT_ARGS)
 
 kiwi-ssh: terminfo
 	./script/kiwi-ssh $(SSH_ARGS)

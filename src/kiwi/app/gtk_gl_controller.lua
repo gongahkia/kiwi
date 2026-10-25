@@ -26,8 +26,7 @@ local SelectionPointer = require("kiwi.input.selection_pointer")
 local ShellIntegration = require("kiwi.process.shell_integration")
 local TextLab = require("kiwi.text.lab")
 local Utf8 = require("kiwi.terminal.utf8")
-local VT = require("kiwi.vt")
-local VTInternal = require("kiwi.vt.internal")
+local Terminal = require("kiwi.session.terminal")
 
 local Controller = {}
 
@@ -356,7 +355,7 @@ function Controller.run(window, host, options)
     local columns, rows = dimensions(window, font)
     assert(columns ~= nil, "window has no drawable size")
     local function new_terminal(child_columns, child_rows)
-      return VT.new({
+      return Terminal.new({
         columns = child_columns,
         rows = child_rows,
         state_options = {
@@ -395,7 +394,7 @@ function Controller.run(window, host, options)
     end
 
     terminal = new_terminal(columns, rows)
-    local state = VTInternal.state(terminal)
+    local state = Terminal.state(terminal)
     pty = spawn_child(options.command, columns, rows)
     local clipboard = Clipboard.new(window)
     configuration.host_effects = HostEffects.new(configuration, host, window)

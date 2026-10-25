@@ -13,7 +13,7 @@ A maintainer creates an annotated `vX.Y.Z` tag whose version exactly matches
 The workflow builds Linux x86_64 and macOS arm64 from the tagged source, runs
 the established deterministic checks, verifies reproducibility with
 `make release-check`, then creates one GitHub Release containing every file in
-`dist/`: application archives, `libkiwi-vt` archives, and their SHA-256 files.
+`dist/`: application archives and their SHA-256 files.
 GitHub also provides the tagged source archive.
 
 ## Consumer verification

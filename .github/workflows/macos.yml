@@ -19,7 +19,7 @@ jobs:
       - name: install build dependencies
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
       - name: deterministic checks
-        run: make check && make cocoa-smoke && make libkiwi-vt-check
+        run: make check && make cocoa-smoke
 
   intel-compatibility:
     name: daily-driver compatibility (Intel)
@@ -57,7 +57,7 @@ jobs:
       - name: install packaging dependencies
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
       - name: build reproducible release-mode artifact
-        run: make release-check && make release && make libkiwi-vt
+        run: make release-check && make release
       - name: upload artifact and checksum metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

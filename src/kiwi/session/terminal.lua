@@ -1,10 +1,9 @@
+-- Internal application terminal session. Owns parser, state and queued host effects.
 local Parser = require("kiwi.terminal.parser")
-local RenderState = require("kiwi.vt.render_state")
 local State = require("kiwi.terminal.state")
 
 local Terminal = {}
 Terminal.__index = Terminal
-Terminal.api_version = 2
 
 local function copy_table(value)
   local copy = {}
@@ -28,7 +27,6 @@ function Terminal.new(options)
     effect_limit = options.effect_limit or 256,
     effects = {},
     effect_handlers = options.effects or {},
-    in_update = false,
     in_write = false,
     responses = {},
   }, Terminal)
@@ -41,7 +39,6 @@ function Terminal.new(options)
   end
   self._state = State.new(options.columns, options.rows, state_options)
   self._parser = Parser.new(self._state, options.parser_options)
-  self._render_state = RenderState.new(self._state)
   return self
 end
 
@@ -65,7 +62,6 @@ end
 
 function Terminal:write(bytes)
   self:assert_open()
-  assert(not self.in_update, "cannot write terminal bytes during a render-state update")
   assert(not self.in_write, "terminal effect callbacks must not write to the same terminal")
   assert(type(bytes) == "string", "terminal input must be a byte string")
   self.in_write = true
@@ -80,7 +76,6 @@ end
 
 function Terminal:finish()
   self:assert_open()
-  assert(not self.in_update, "cannot finish terminal bytes during a render-state update")
   assert(not self.in_write, "terminal effect callbacks must not finish the same terminal")
   self.in_write = true
   local ok, result = xpcall(function()
@@ -93,7 +88,6 @@ end
 
 function Terminal:resize(columns, rows, options)
   self:assert_open()
-  assert(not self.in_update, "cannot resize terminal during a render-state update")
   validate_dimension(columns, "terminal columns")
   validate_dimension(rows, "terminal rows")
   self._state:resize(columns, rows, options)
@@ -101,23 +95,17 @@ end
 
 function Terminal:set_cell_metrics(width, height)
   self:assert_open()
-  assert(not self.in_update, "cannot change terminal cell metrics during a render-state update")
   self._state:set_cell_metrics(width, height)
 end
 
-function Terminal:begin_render_update()
-  self:assert_open()
-  assert(not self.in_write, "cannot begin a render-state update during terminal processing")
-  assert(not self.in_update, "render-state update is already active")
-  self.in_update = true
-  return self._render_state:begin_update()
+function Terminal.state(terminal)
+  terminal:assert_open()
+  return terminal._state
 end
 
-function Terminal:end_render_update(consumed)
-  self:assert_open()
-  assert(self.in_update, "render-state update is not active")
-  self._render_state:end_update(consumed == true)
-  self.in_update = false
+function Terminal.parser(terminal)
+  terminal:assert_open()
+  return terminal._parser
 end
 
 function Terminal:pop_responses()
@@ -146,7 +134,6 @@ function Terminal:diagnostics()
   local errors = {}
   for index, value in ipairs(self.effect_errors) do errors[index] = copy_table(value) end
   return {
-    api_version = Terminal.api_version,
     effect_errors = errors,
     effects_pending = #self.effects,
     parser_errors = self._parser.stats.errors,
@@ -156,7 +143,7 @@ end
 
 function Terminal:close()
   if self.closed then return end
-  assert(not self.in_write and not self.in_update, "cannot close terminal during an active operation")
+  assert(not self.in_write, "cannot close terminal during an active operation")
   self.closed = true
   self.effects = {}
   self.responses = {}
