@@ -105,6 +105,10 @@ if ffi.os == "OSX" then
     return window:cocoa_select_next_window_tab()
   end
 
+  function Host.select_previous_window_tab(window)
+    return window:cocoa_select_previous_window_tab()
+  end
+
   function Host.set_product_action_handler(window, handler)
     return window:enable_cocoa_menu(handler)
   end

@@ -141,6 +141,10 @@ truecolour-framebuffer-smoke: native terminfo
 workspace-smoke: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP workspace smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-12} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --workspace-smoke -- /usr/bin/yes; fi
 
+.PHONY: interaction-smoke
+interaction-smoke: native terminfo
+	@./script/interaction-smoke
+
 key-sequence-smoke: native terminfo
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP key-sequence smoke: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-2} KIWI_MAX_SECONDS=$${KIWI_MAX_SECONDS:-3} $(LUAJIT) src/kiwi/app/main.lua --no-extensions --config src/tests/fixtures/key-sequence.conf --key-sequence-smoke -- /usr/bin/yes; fi
 

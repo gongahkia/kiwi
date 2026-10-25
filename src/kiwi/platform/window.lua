@@ -33,6 +33,7 @@ int kiwi_cocoa_window_set_tab_grouping(void* window, int grouped);
 int kiwi_cocoa_window_tabs_round_trip(void* first, void* second);
 int kiwi_cocoa_window_is_standalone(void* window);
 int kiwi_cocoa_window_select_next_tab(void* window);
+int kiwi_cocoa_window_select_previous_tab(void* window);
 void kiwi_cocoa_window_tabs_remove_bridge(void* window);
 int kiwi_cocoa_command_palette_show(void* window, const KiwiCocoaCommandPaletteEntry* entries, size_t count, KiwiCocoaMenuCallback callback, void* userdata);
 void kiwi_cocoa_command_palette_remove(void* window);
@@ -73,6 +74,7 @@ local cocoa_menu_actions = {
   [13] = "open-configuration",
 }
 for index = 1, 15 do cocoa_menu_actions[13 + index] = "session-target-" .. index end
+for _, entry in ipairs(require("kiwi.app.interaction_actions").entries) do cocoa_menu_actions[entry.id] = entry.action end
 local cocoa_menu_action_ids = {}
 for identifier, name in pairs(cocoa_menu_actions) do cocoa_menu_action_ids[name] = identifier end
 
@@ -488,8 +490,14 @@ function Window:cocoa_select_next_window_tab()
   return false, ffi.string(native.kiwi_surface_last_error())
 end
 
+function Window:cocoa_select_previous_window_tab()
+  if ffi.os ~= "OSX" then return nil, "Cocoa window tabs are unavailable on this platform" end
+  if native.kiwi_cocoa_window_select_previous_tab(self.handle) ~= 0 then return true end
+  return false, ffi.string(native.kiwi_surface_last_error())
+end
+
 local function command_palette_entries(entries)
-  assert(type(entries) == "table" and #entries > 0 and #entries <= 32, "Cocoa command palette needs one through 32 entries")
+  assert(type(entries) == "table" and #entries > 0 and #entries <= 64, "Cocoa command palette needs one through 64 entries")
   local values = ffi.new("KiwiCocoaCommandPaletteEntry[?]", #entries)
   for index, entry in ipairs(entries) do
     assert(type(entry) == "table", "Cocoa command palette entry must be a table")

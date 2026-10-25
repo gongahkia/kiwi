@@ -86,6 +86,8 @@ function Options.parse(arguments, environment, release_mode)
       options.no_extensions = true
     elseif value == "--workspace-smoke" then
       options.workspace_smoke = true
+    elseif value == "--interaction-smoke" then
+      options.interaction_smoke = true
     elseif value == "--menu-smoke" then
       options.menu_smoke = true
     elseif value == "--toolbar-smoke" then
@@ -140,7 +142,7 @@ function Options.parse(arguments, environment, release_mode)
     options.layout_restore = false
     options.layout_persistence = false
   end
-  if options.record or options.multi_window_smoke or options.session_move_smoke then
+  if options.record or options.multi_window_smoke or options.session_move_smoke or options.interaction_smoke then
     options.layout_persistence = false
     options.layout_restore = false
   end

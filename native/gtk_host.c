@@ -222,6 +222,9 @@ static const KiwiGtkProductAction kiwi_gtk_product_actions[] = {
   { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 12, "session-target-13" },
   { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 + 13, "session-target-14" },
   { KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_15, "session-target-15" },
+#define KIWI_INTERACTION_ACTION(id, name, slug) { id, slug },
+#include "interaction_actions.def"
+#undef KIWI_INTERACTION_ACTION
 };
 
 static const KiwiGtkProductAction *kiwi_gtk_product_action(uint32_t identifier) {
@@ -625,8 +628,8 @@ int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
                                        size_t count, KiwiGtkProductActionCallback callback,
                                        void *userdata) {
   if (host == NULL || host->window == NULL || entries == NULL || callback == NULL ||
-      count == 0 || count > 32) {
-    kiwi_gtk_set_error("GTK command palette needs a host, callback, and one through 32 entries");
+      count == 0 || count > 64) {
+    kiwi_gtk_set_error("GTK command palette needs a host, callback, and one through 64 entries");
     return 0;
   }
   for (size_t index = 0; index < count; index += 1) {
@@ -758,6 +761,9 @@ static void kiwi_gtk_install_product_menu(GtkApplication *application) {
   g_menu_append(file, "Reload Configuration", "win.reload-config");
   g_menu_append_submenu(menubar, "File", G_MENU_MODEL(file));
   g_menu_append(window, "Next Tab", "win.next-tab");
+  g_menu_append(window, "Previous Tab", "win.previous-tab");
+  g_menu_append(window, "Next Pane", "win.next-pane");
+  g_menu_append(window, "Previous Pane", "win.previous-pane");
   g_menu_append(window, "Close Pane", "win.close-pane");
   g_menu_append(window, "Split Right", "win.split-right");
   g_menu_append(window, "Split Down", "win.split-down");
@@ -766,6 +772,24 @@ static void kiwi_gtk_install_product_menu(GtkApplication *application) {
   g_menu_append(window, "Duplicate Session to New Window", "win.duplicate-session-new-window");
   g_menu_append(window, "Duplicate Session to Window…", "win.duplicate-session-select-window");
   g_menu_append_submenu(menubar, "Window", G_MENU_MODEL(window));
+  GMenu *edit = g_menu_new();
+  g_menu_append(edit, "Copy", "win.copy");
+  g_menu_append(edit, "Paste", "win.paste");
+  g_menu_append(edit, "Select All", "win.select-all");
+  g_menu_append(edit, "Find…", "win.search");
+  g_menu_append_submenu(menubar, "Edit", G_MENU_MODEL(edit));
+  g_object_unref(edit);
+  GMenu *view = g_menu_new();
+  g_menu_append(view, "Increase Font Size", "win.increase-font-size");
+  g_menu_append(view, "Decrease Font Size", "win.decrease-font-size");
+  g_menu_append(view, "Reset Font Size", "win.reset-font-size");
+  g_menu_append(view, "Zoom Pane", "win.toggle-pane-zoom");
+  g_menu_append(view, "Equalize Splits", "win.equalize-splits");
+  g_menu_append(view, "Scroll to Top", "win.scroll-to-top");
+  g_menu_append(view, "Scroll to Bottom", "win.scroll-to-bottom");
+  g_menu_append(view, "Clear Scrollback", "win.clear-scrollback");
+  g_menu_append_submenu(menubar, "View", G_MENU_MODEL(view));
+  g_object_unref(view);
   gtk_application_set_menubar(application, G_MENU_MODEL(menubar));
   g_object_unref(window);
   g_object_unref(file);
@@ -779,7 +803,8 @@ static int kiwi_gtk_install_product_actions(KiwiGtkHost *host) {
   }
   GActionMap *actions = G_ACTION_MAP(host->window);
   for (size_t index = 0; index < G_N_ELEMENTS(kiwi_gtk_product_actions); index += 1) {
-    if (kiwi_gtk_product_actions[index].identifier >= KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1) continue;
+    if (kiwi_gtk_product_actions[index].identifier >= KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_1 &&
+        kiwi_gtk_product_actions[index].identifier <= KIWI_GTK_PRODUCT_ACTION_SESSION_TARGET_15) continue;
     const char *name = kiwi_gtk_product_actions[index].name;
     if (g_action_map_lookup_action(actions, name) != NULL) continue;
     GSimpleAction *action = g_simple_action_new(name, NULL);

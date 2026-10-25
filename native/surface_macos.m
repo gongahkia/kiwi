@@ -44,6 +44,9 @@ enum {
   KIWI_COCOA_MENU_OPEN_CONFIGURATION = 13,
   KIWI_COCOA_MENU_SESSION_TARGET_1 = 14,
   KIWI_COCOA_MENU_SESSION_TARGET_15 = 28,
+#define KIWI_INTERACTION_ACTION(id, name, slug) KIWI_ACTION_##name = id,
+#include "interaction_actions.def"
+#undef KIWI_INTERACTION_ACTION
 };
 
 @interface KiwiCocoaMenuRegistration : NSObject {
@@ -172,7 +175,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_COCOA_MENU_SESSION_TARGET_15;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_ACTION_SEARCH_PREVIOUS;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {
@@ -929,9 +932,38 @@ static void kiwi_cocoa_install_main_menu(void) {
   [file_menu release];
   [menu addItem:file_item];
 
+  NSMenuItem *edit_item = [[[NSMenuItem alloc] initWithTitle:@"Edit" action:nil keyEquivalent:@""] autorelease];
+  NSMenu *edit_menu = [[NSMenu alloc] initWithTitle:@"Edit"];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Copy", KIWI_ACTION_COPY)];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Paste", KIWI_ACTION_PASTE)];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Select All", KIWI_ACTION_SELECT_ALL)];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Find…", KIWI_ACTION_SEARCH)];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Find Next", KIWI_ACTION_SEARCH_NEXT)];
+  [edit_menu addItem:kiwi_cocoa_menu_item(@"Find Previous", KIWI_ACTION_SEARCH_PREVIOUS)];
+  edit_item.submenu = edit_menu;
+  [edit_menu release];
+  [menu addItem:edit_item];
+
+  NSMenuItem *view_item = [[[NSMenuItem alloc] initWithTitle:@"View" action:nil keyEquivalent:@""] autorelease];
+  NSMenu *view_menu = [[NSMenu alloc] initWithTitle:@"View"];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Increase Font Size", KIWI_ACTION_INCREASE_FONT_SIZE)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Decrease Font Size", KIWI_ACTION_DECREASE_FONT_SIZE)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Reset Font Size", KIWI_ACTION_RESET_FONT_SIZE)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Zoom Pane", KIWI_ACTION_TOGGLE_PANE_ZOOM)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Equalize Splits", KIWI_ACTION_EQUALIZE_SPLITS)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Scroll to Top", KIWI_ACTION_SCROLL_TO_TOP)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Scroll to Bottom", KIWI_ACTION_SCROLL_TO_BOTTOM)];
+  [view_menu addItem:kiwi_cocoa_menu_item(@"Clear Scrollback", KIWI_ACTION_CLEAR_SCROLLBACK)];
+  view_item.submenu = view_menu;
+  [view_menu release];
+  [menu addItem:view_item];
+
   NSMenuItem *window_item = [[[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""] autorelease];
   NSMenu *window_menu = [[NSMenu alloc] initWithTitle:@"Window"];
   [window_menu addItem:kiwi_cocoa_menu_item(@"Next Tab", KIWI_COCOA_MENU_NEXT_TAB)];
+  [window_menu addItem:kiwi_cocoa_menu_item(@"Previous Tab", KIWI_ACTION_PREVIOUS_TAB)];
+  [window_menu addItem:kiwi_cocoa_menu_item(@"Next Pane", KIWI_ACTION_NEXT_PANE)];
+  [window_menu addItem:kiwi_cocoa_menu_item(@"Previous Pane", KIWI_ACTION_PREVIOUS_PANE)];
   [window_menu addItem:kiwi_cocoa_menu_item(@"Close Pane", KIWI_COCOA_MENU_CLOSE_PANE)];
   [window_menu addItem:[NSMenuItem separatorItem]];
   [window_menu addItem:kiwi_cocoa_menu_item(@"Split Right", KIWI_COCOA_MENU_SPLIT_RIGHT)];
@@ -1092,8 +1124,8 @@ int kiwi_cocoa_command_palette_show(GLFWwindow *window,
     NSWindow *native_window = kiwi_cocoa_native_window(window);
     NSValue *key = kiwi_cocoa_menu_window_key(window);
     if (![NSThread isMainThread] || native_window == nil || key == nil || entries == NULL ||
-        callback == NULL || count == 0 || count > 32) {
-      kiwi_surface_set_error("Cocoa command palette needs a main-thread window, callback, and one through 32 entries");
+        callback == NULL || count == 0 || count > 64) {
+      kiwi_surface_set_error("Cocoa command palette needs a main-thread window, callback, and one through 64 entries");
       return 0;
     }
     for (size_t index = 0; index < count; index += 1) {
@@ -1275,6 +1307,22 @@ int kiwi_cocoa_window_select_next_tab(GLFWwindow *window) {
       return 0;
     }
     [native_window selectNextTab:nil];
+    return 1;
+  }
+}
+
+int kiwi_cocoa_window_select_previous_tab(GLFWwindow *window) {
+  @autoreleasepool {
+    if (![NSThread isMainThread]) {
+      kiwi_surface_set_error("Cocoa native-tab selection needs the main thread");
+      return 0;
+    }
+    NSWindow *native_window = kiwi_cocoa_native_window(window);
+    if (native_window == nil || native_window.tabbedWindows.count < 2) {
+      kiwi_surface_set_error("Cocoa native-tab selection needs at least two Kiwi windows");
+      return 0;
+    }
+    [native_window selectPreviousTab:nil];
     return 1;
   }
 }
