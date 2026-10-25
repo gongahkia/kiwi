@@ -10,6 +10,22 @@
 #include <webgpu/webgpu.h>
 #include "gtk_gl_renderer.h"
 #include "kiwi_render_model.h"
+#include "pty_watch.h"
+
+static gboolean kiwi_gtk_pty_ready_source(gpointer userdata) {
+  (void)userdata;
+  return G_SOURCE_REMOVE;
+}
+
+static void kiwi_gtk_pty_ready(void *userdata) {
+  (void)userdata;
+  /* A queued source survives readiness arriving just before the host waits. */
+  g_idle_add_full(G_PRIORITY_DEFAULT, kiwi_gtk_pty_ready_source, NULL, NULL);
+}
+
+KiwiPtyWatch *kiwi_gtk_host_create_pty_watch(void) {
+  return kiwi_pty_watch_create(kiwi_gtk_pty_ready, NULL);
+}
 
 #include <stdint.h>
 #include <stdio.h>
@@ -2046,10 +2062,26 @@ int kiwi_gtk_host_product_action_invoke_smoke(KiwiGtkHost *host, uint32_t identi
   return 1;
 }
 
+static gboolean kiwi_gtk_wait_timeout(gpointer userdata) {
+  (void)userdata;
+  return G_SOURCE_REMOVE;
+}
+
 void kiwi_gtk_host_pump(KiwiGtkHost *host, uint32_t timeout_milliseconds) {
   (void)host;
-  while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
-  if (timeout_milliseconds > 0) g_usleep((gulong)timeout_milliseconds * 1000U);
+  gboolean dispatched = FALSE;
+  while (g_main_context_pending(NULL)) {
+    g_main_context_iteration(NULL, FALSE);
+    dispatched = TRUE;
+  }
+  if (!dispatched && timeout_milliseconds > 0) {
+    GSource *timeout = g_timeout_source_new(timeout_milliseconds);
+    g_source_set_callback(timeout, kiwi_gtk_wait_timeout, NULL, NULL);
+    g_source_attach(timeout, NULL);
+    g_main_context_iteration(NULL, TRUE);
+    g_source_destroy(timeout);
+    g_source_unref(timeout);
+  }
   while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
 }
 

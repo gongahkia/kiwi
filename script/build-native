@@ -12,11 +12,11 @@ case "$(uname -s)-$(uname -m)" in
       exit 1
     }
     mkdir -p "${OUTPUT:h}"
-    cc -std=c17 -fPIC -shared -Wall -Wextra -Werror \
+    cc -std=c17 -pthread -fPIC -shared -Wall -Wextra -Werror \
       -I"$WGPU/include" \
       $(pkg-config --cflags glfw3) \
       $(pkg-config --cflags gio-2.0) \
-      "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" \
+      "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" "$ROOT/native/pty_watch.c" \
       -L"$WGPU/lib" -lwgpu_native \
       $(pkg-config --libs glfw3 gio-2.0) \
       -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
@@ -41,8 +41,10 @@ case "$(uname -s)-$(uname -m)" in
     cc -fPIC -Wall -Wextra -Werror -c \
       $(pkg-config --cflags glfw3) \
       "$ROOT/native/ime_macos.m" -o "$ROOT/.build/native/ime_macos.o"
-    cc -dynamiclib -Wall -Wextra -Werror -fblocks \
-      "$ROOT/.build/native/surface.o" "$ROOT/.build/native/surface_macos.o" "$ROOT/.build/native/accessibility_macos.o" "$ROOT/.build/native/ime_macos.o" \
+    cc -std=c17 -pthread -fPIC -Wall -Wextra -Werror -c \
+      "$ROOT/native/pty_watch.c" -o "$ROOT/.build/native/pty_watch.o"
+    cc -pthread -dynamiclib -Wall -Wextra -Werror -fblocks \
+      "$ROOT/.build/native/pty_watch.o" "$ROOT/.build/native/surface.o" "$ROOT/.build/native/surface_macos.o" "$ROOT/.build/native/accessibility_macos.o" "$ROOT/.build/native/ime_macos.o" \
       -L"$WGPU/lib" -lwgpu_native $(pkg-config --libs glfw3) \
       -framework AppKit -framework Carbon -framework QuartzCore -framework UserNotifications \
       -Wl,-rpath,@loader_path/../../.deps/wgpu-native-v29.0.1.1/lib -Wl,-rpath,@loader_path \

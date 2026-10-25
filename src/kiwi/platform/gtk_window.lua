@@ -1,4 +1,5 @@
 local ffi = require("ffi")
+local PtyWatch = require("kiwi.process.pty_watch")
 require("kiwi.renderer.render_model")
 
 ffi.cdef[[
@@ -741,7 +742,13 @@ function Window:poll_events() Window.pump(self, 0) end
 
 function Window:wait_events(timeout) Window.pump(self, timeout) end
 
+function Window:watch_ptys(ptys)
+  if self.pty_watch == nil then self.pty_watch = PtyWatch.new(native, native.kiwi_gtk_host_create_pty_watch) end
+  self.pty_watch:update(ptys)
+end
+
 function Window:destroy()
+  if self.pty_watch then self.pty_watch:destroy(); self.pty_watch = nil end
   if self.root ~= nil then
     local root = self.root
     if root.handle ~= nil then

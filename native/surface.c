@@ -10,6 +10,16 @@
 #endif
 #include <webgpu/webgpu.h>
 #include "kiwi_render_model.h"
+#include "pty_watch.h"
+
+static void kiwi_glfw_pty_ready(void *userdata) {
+  (void)userdata;
+  glfwPostEmptyEvent();
+}
+
+KiwiPtyWatch *kiwi_surface_create_pty_watch(void) {
+  return kiwi_pty_watch_create(kiwi_glfw_pty_ready, NULL);
+}
 
 #include <stdbool.h>
 #include <stdint.h>
