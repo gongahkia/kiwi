@@ -251,6 +251,10 @@ test-pty: native
 smoke: native
 	./script/smoke
 
+.PHONY: underline-framebuffer-smoke
+underline-framebuffer-smoke: native terminfo
+	./script/underline-framebuffer-smoke
+
 bench:
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/main.lua

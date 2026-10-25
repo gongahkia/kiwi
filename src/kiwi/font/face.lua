@@ -52,6 +52,8 @@ function Face.new(library, path, index, pixel_height, id, style)
         ascent = rounded_pixels(metrics.ascender, pixel_height),
         descent = math.abs(tonumber(metrics.descender) / 64),
         baseline = rounded_pixels(metrics.ascender, pixel_height),
+        underline_offset = -tonumber(face.underline_position) * tonumber(metrics.y_scale) / (65536 * 64),
+        underline_thickness = math.max(1, tonumber(face.underline_thickness) * tonumber(metrics.y_scale) / (65536 * 64)),
       },
     }, Face)
   end, debug.traceback)

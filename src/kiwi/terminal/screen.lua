@@ -7,6 +7,9 @@ local function copy_cell(destination, source)
   destination.bg = source.bg
   destination.fg_slot = source.fg_slot
   destination.bg_slot = source.bg_slot
+  destination.underline_style = source.underline_style
+  destination.underline_color = source.underline_color
+  destination.underline_slot = source.underline_slot
   destination.flags = source.flags
   destination.codepoints = source.codepoints
   destination.width = source.width

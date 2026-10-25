@@ -10,7 +10,7 @@ tests do not establish Linux or Windows desktop qualification.
 - [x] Recover bounded glyph storage after saturation without corrupting cached
       rows, other panes, or retained GPU frames; exercise repeated churn.
 - [x] Resolve real bold/italic faces, with an explicit synthesis policy.
-- [ ] Render underline variants and colours, including blank cells.
+- [x] Render underline variants and colours, including blank cells.
 - [ ] Improve fallback consistency and render colour emoji.
 - [ ] Add deterministic layout/bitmap/readback regressions and stress evidence.
 
@@ -118,3 +118,18 @@ plus 5,000 exact-glyph recovery rounds: 4,877 evictions, 96 retained entries,
 recovery; RSS remains unavailable. This workload differs from the preceding
 unstyled run, so its CPU result is not a performance regression comparison.
 The full report is `evidence/2026-10-25-macos-styled-text-stress.json`.
+
+### Styled and coloured underlines
+
+Five underline styles, SGR 58/59 and terminfo `Su`/`Smulx`/`Setulc` now reach
+cell-aligned atlas masks, including spaces and wide continuations. Explicit
+colour survives reverse video; indexed colours track palette updates. Strike,
+hyperlinks and IME preedit use the same cell-aligned decoration path.
+
+`make check` passed 509 deterministic Lua tests across 112 suites, 16 PTY
+tests and the remaining readiness/terminfo/CLI/fuzz/syntax checks. Core checks
+passed 284 tests across 56 suites with native loading disabled. Native Metal
+readback found 103,197 pixels near the independently selected underline RGB
+on blank cells. Both macOS CI jobs now run this bounded framebuffer gate.
+This proves that the native pipeline draws the decorations; all-style visual
+comparisons, Linux GL execution and cross-DPI qualification remain open.

@@ -170,15 +170,14 @@ fn glyph_vs(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) i
 
 @fragment
 fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
-  if (input.glyph == 0u) { discard; }
+  if (input.glyph == 0u || (input.flags & 128u) != 0u) { discard; }
   let coverage = textureSample(glyph_atlas, glyph_sampler, input.uv).r;
-  let hyperlink_underline = (input.flags & 512u) != 0u && frame.hyperlink_alpha > 0.0 && input.local_position.y > 0.91;
-  let decoration = ((input.flags & 32u) != 0u && input.local_position.y > 0.88)
-    || ((input.flags & 256u) != 0u && input.local_position.y > 0.46 && input.local_position.y < 0.54);
-  if (hyperlink_underline) { return srgb_to_surface(vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha)); }
   var color = input.fg;
+  if ((input.flags & 2048u) != 0u) {
+    if (frame.hyperlink_alpha <= 0.0) { discard; }
+    color = srgb_to_surface(vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha));
+  }
   if ((input.flags & 8u) != 0u) { color = vec4<f32>(color.rgb * 0.65, color.a); }
-  if (decoration) { return color; }
   if (coverage <= 0.0) { discard; }
   return vec4<f32>(color.rgb, color.a * coverage);
 }

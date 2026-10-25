@@ -13,6 +13,9 @@ function Snapshot.value(state)
       local cell = state:cell_at_index(state:index(column, row))
       text[#text + 1] = cell.glyph
       local snapshot_cell = { bg = cell.bg, fg = cell.fg, flags = cell.flags, glyph = cell.glyph }
+      if cell.underline_style or cell.underline_color then
+        snapshot_cell.underline = { style = cell.underline_style, color = cell.underline_color, slot = cell.underline_slot }
+      end
       if cell.hyperlink_id then snapshot_cell.hyperlink = { id = cell.hyperlink_id } end
       if cell.continuation then
         snapshot_cell.cluster = { anchor_column = cell.anchor_column, kind = "continuation" }

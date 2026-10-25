@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+# There are no foreground glyphs of the expected colour. Only the underline
+# masks can produce the green pixels counted by the compositor readback.
+printf '\033[?25l\033[0m\033[48;2;0;0;0m\033[2J\033[H\033[4:1;58:2::18:171:52m'
+printf '%*s' 12000 ''
+sleep 2

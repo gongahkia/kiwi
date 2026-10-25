@@ -1,0 +1,21 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+readonly ROOT=${0:A:h:h}
+if [[ "$(uname -s)" != Darwin && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  print 'SKIP underline framebuffer smoke: no graphical session is available.'
+  exit 0
+fi
+export LUA_PATH="$ROOT/src/?.lua;$ROOT/src/?/init.lua;;"
+export KIWI_ROOT="$ROOT"
+output=$(KIWI_FRAMEBUFFER_CAPTURE=1 KIWI_FRAMEBUFFER_CAPTURE_REPORT=1 KIWI_FRAMEBUFFER_EXPECT_RGB=18,171,52 \
+  KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_MAX_SECONDS=10 \
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- "$ROOT/script/underline-framebuffer-child" 2>&1)
+print -r -- "$output"
+maximum_pixels=0
+while read -r pixels; do
+  [[ -n "$pixels" ]] || continue
+  (( pixels > maximum_pixels )) && maximum_pixels=$pixels
+done < <(print -r -- "$output" | sed -nE 's/^Kiwi framebuffer expected RGB: frame=[0-9]+ rgb=18,171,52 tolerance=4 pixels=([0-9]+)$/\1/p')
+(( maximum_pixels >= 512 )) || { print -u2 'Underline framebuffer smoke failed: coloured blank-cell underlines were not observed.'; exit 1; }
+print "Underline framebuffer smoke passed: $maximum_pixels pixels of independently coloured underline on spaces."

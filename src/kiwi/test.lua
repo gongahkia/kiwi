@@ -84,6 +84,9 @@ local suites = {
   "tests.test_glyph_cache",
   "tests.test_freetype",
   "tests.test_font_styles",
+  "tests.test_underline",
+  "tests.test_decoration",
+  "tests.test_decoration_layout",
   "tests.test_glyph_shader",
   "tests.test_packing",
   "tests.test_render_model",
@@ -121,7 +124,7 @@ selection history_actions selection_pointer clipboard shell_integration
 command_regions command_region_retention compositor command_region_navigation
 search packing render_model gtk_native_tab_group pass_registry pass_api
 extensions pass_metrics pass_budgets invalidation gpu_timing gpu_recovery
-color json stats atlas glyph_cache application_protocols
+color json stats atlas glyph_cache application_protocols underline decoration
 ]]
 local core = {}
 for name in core_names:gmatch("%S+") do core["tests.test_" .. name] = true end

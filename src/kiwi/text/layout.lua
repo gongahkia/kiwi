@@ -1,6 +1,8 @@
 local Utf8 = require("kiwi.terminal.utf8")
 local Grapheme = require("kiwi.unicode.grapheme")
 local Width = require("kiwi.terminal.width")
+local bit = require("bit")
+local Decoration = require("kiwi.text.decoration")
 
 local Layout = {}
 Layout.__index = Layout
@@ -194,7 +196,31 @@ function Layout:shape_runs(state, runs, row)
 end
 
 function Layout:shape_row(state, row)
-  return self:shape_runs(state, self:build_runs(state, row), row)
+  local output = self:shape_runs(state, self:build_runs(state, row), row)
+  for column = 0, state.columns - 1 do self:append_decorations(state, output, column, row, cell_at(state, column, row)) end
+  return output
+end
+
+function Layout:append_decorations(state, output, column, row, cell)
+  local flags = cell.flags or 0
+  if bit.band(flags, 0x80) ~= 0 or bit.band(flags, 0x320) == 0 then return end
+  local system = self.font_system
+  if not system.decoration_face then system.decoration_face = Decoration.new(system.metrics) end
+  local foreground = state.presentation_colors and select(1, state:presentation_colors(cell)) or cell.fg
+  local function append(style, color, hyperlink)
+    local cached = system.glyph_cache:get_or_insert(system.decoration_face, style, self)
+    if not cached then return end
+    output[#output + 1] = {
+      x = column, y = row, width = 1, height = 1,
+      u0 = cached.u0, v0 = cached.v0, u1 = cached.u1, v1 = cached.v1,
+      fg = color, flags = bit.bor(bit.band(flags, 0x08), hyperlink and Decoration.hyperlink_flag or 0),
+      glyph_id = cached.glyph_id, face_id = 0, cluster_column = column,
+      atlas_page = 0, cache_entry = cached, row = row, decoration = style,
+    }
+  end
+  if bit.band(flags, 0x20) ~= 0 then append(cell.underline_style or 1, cell.underline_color or foreground) end
+  if bit.band(flags, 0x100) ~= 0 then append(Decoration.strike, foreground) end
+  if bit.band(flags, 0x200) ~= 0 then append(1, foreground, true) end
 end
 
 function Layout:append_preedit(state, output)
@@ -221,6 +247,7 @@ function Layout:append_preedit(state, output)
     end
     if row >= state.rows then break end
     local face = self.font_system:face_for_cluster(cluster)
+    local cluster_width = Width.columns(cluster, state.width_policy)
     if face ~= nil then
       local text_parts = {}
       for _, codepoint in ipairs(cluster) do text_parts[#text_parts + 1] = Utf8.encode(codepoint) end
@@ -232,7 +259,10 @@ function Layout:append_preedit(state, output)
       end
       self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped
     end
-    column = column + Width.columns(cluster, state.width_policy)
+    for offset = 0, math.min(cluster_width, state.columns - column) - 1 do
+      self:append_decorations(state, output, column + offset, row, cell)
+    end
+    column = column + cluster_width
   end
 end
 
