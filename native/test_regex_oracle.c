@@ -4,9 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
   if (argc != 2) return 2;
+  /* A broken system oracle must fail the gate, never hang CI indefinitely. */
+  alarm(60);
+  setvbuf(stdout, NULL, _IONBF, 0);
   FILE *input = fopen(argv[1], "rb");
   if (input == NULL) return 2;
   char *line = NULL;
@@ -17,27 +21,41 @@ int main(int argc, char **argv) {
     *text++ = '\0';
     text[strcspn(text, "\r\n")] = '\0';
     regex_t expression;
-    int result = regcomp(&expression, line, REG_EXTENDED);
+    int result = regcomp(&expression, line, REG_EXTENDED | REG_NOSUB);
     if (result != 0) { puts("invalid"); continue; }
     regfree(&expression);
     /* Darwin's unanchored ERE optimization can skip valid starts with bounded
-       repeats. Anchor each candidate offset and inspect the outer capture;
-       the input and its ^/$ semantics remain intact. This is deliberately an
-       independent, slow oracle, not the product's matching algorithm. */
-    size_t size = strlen(line) + 64;
+       repeats. Use capture-free existence queries at each candidate offset,
+       then constrain the suffix to find the longest end without depending on
+       libc's submatch disambiguation. Inputs with deeply nested repetition
+       use Darwin only in the generator because glibc can still stall on them.
+       The full input and ^/$ semantics remain intact. This is deliberately
+       an independent, slow oracle, not the product's matching algorithm. */
+    size_t size = strlen(line) + 128;
     char *anchored = malloc(size);
     if (anchored == NULL) return 2;
     int found = 0;
-    for (size_t offset = 0; offset <= strlen(text); offset++) {
+    size_t length = strlen(text);
+    for (size_t offset = 0; offset <= length; offset++) {
       snprintf(anchored, size, "^.{%zu}(%s)", offset, line);
-      if (regcomp(&expression, anchored, REG_EXTENDED) != 0) { free(anchored); return 2; }
-      regmatch_t matches[2];
-      result = regexec(&expression, text, 2, matches, 0);
-      if (result == 0) {
-        printf("%lld %lld\n", (long long)matches[1].rm_so + 1, (long long)matches[1].rm_eo);
-        found = 1;
-      } else if (result != REG_NOMATCH) { regfree(&expression); free(anchored); return 2; }
+      if (regcomp(&expression, anchored, REG_EXTENDED | REG_NOSUB) != 0) { free(anchored); return 2; }
+      result = regexec(&expression, text, 0, NULL, 0);
       regfree(&expression);
+      if (result == 0) {
+        for (size_t suffix = 0; suffix <= length - offset; suffix++) {
+          snprintf(anchored, size, "^.{%zu}(%s).{%zu}$", offset, line, suffix);
+          if (regcomp(&expression, anchored, REG_EXTENDED | REG_NOSUB) != 0) { free(anchored); return 2; }
+          result = regexec(&expression, text, 0, NULL, 0);
+          regfree(&expression);
+          if (result == 0) {
+            printf("%zu %zu\n", offset + 1, length - suffix);
+            found = 1;
+            break;
+          }
+          if (result != REG_NOMATCH) { free(anchored); return 2; }
+        }
+        if (!found) { free(anchored); return 2; }
+      } else if (result != REG_NOMATCH) { free(anchored); return 2; }
       if (found) break;
     }
     if (!found) puts("none");
