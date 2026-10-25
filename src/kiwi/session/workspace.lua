@@ -469,9 +469,13 @@ function Workspace:focus_direction(direction, width, height)
   return best ~= nil and self:focus_pane(best.pane_id) or false
 end
 
-function Workspace:toggle_zoom()
+function Workspace:toggle_zoom(width, height)
   local tab = self:active_tab()
   if tab == nil or pane_count(tab.root) < 2 then return false end
+  if tab.zoomed and width ~= nil then
+    local layout, reason = self:layout(width, height, true)
+    if layout == nil then return nil, reason end
+  end
   tab.zoomed = not tab.zoomed
   return true
 end
