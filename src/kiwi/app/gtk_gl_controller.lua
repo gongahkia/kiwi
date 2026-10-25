@@ -16,6 +16,9 @@ local FontSystem = require("kiwi.font.system")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
+local Search = require("kiwi.input.search")
+local SearchInput = require("kiwi.input.search_input")
+local Interaction = require("kiwi.app.interaction_actions")
 local Mouse = require("kiwi.input.mouse")
 local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
@@ -229,6 +232,13 @@ function Controller.run_native_tabs(window, host, options)
     explicit_configuration_path = options.config,
     focus_next_tab = function() return focus_next_tab() end,
     host = host,
+    perform_terminal_action = function(action)
+      local session = action_dispatcher.current_session or sessions[1]
+      local changed, reason = Interaction.terminal(action, session.state, session.clipboard,
+        function(bytes) session:_enqueue_input(bytes) end)
+      if changed then session:_invalidate("search") end
+      return changed, reason
+    end,
     initial_working_directory = active_working_directory,
     report = function(message) io.stderr:write(message, "\n") end,
     request_configuration_reload = function()
@@ -400,6 +410,8 @@ function Controller.run(window, host, options)
     local state = Terminal.state(terminal)
     pty = spawn_child(options.command, columns, rows)
     local clipboard = Clipboard.new(window)
+    local search_input = SearchInput.new()
+    local product_actions = ProductActions.new(configuration.keybindings, glfw)
     configuration.host_effects = HostEffects.new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
@@ -490,25 +502,12 @@ function Controller.run(window, host, options)
       end
     end
 
-    local function handle_search_key(key, action)
-      local search = state:search_view()
-      if not search.editing or not search.visible then return false end
-      if key == glfw.key_escape then
-        if action == glfw.press then state:clear_search() end
-        return true
+    local function handle_search_key(key, action, modifiers)
+      local input, status = search_input:key(state, key, action, modifiers, glfw, clipboard)
+      if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
+        io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
-      if key == glfw.key_backspace then
-        if action == glfw.press or action == glfw.repeat_action then state:search_backspace() end
-        return true
-      end
-      if key == glfw.key_enter then
-        if action == glfw.press then
-          local _, status = state:search_submit("forward")
-          if status ~= "matches" then io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n") end
-        end
-        return true
-      end
-      return false
+      return input
     end
 
     local function handle_local_action(encoded)
@@ -547,6 +546,13 @@ function Controller.run(window, host, options)
     end
 
     window:set_input_handlers(function(codepoints, key_event)
+      local captured, status = SearchInput.text(state, codepoints)
+      if captured then
+        apply_commit("")
+        if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
+        invalidate("search")
+        return
+      end
       if key_event then
         apply_commit("")
         local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, {
@@ -561,9 +567,15 @@ function Controller.run(window, host, options)
       end
       handle_committed_text(Keyboard.text_sequence(codepoints, state.modes))
     end, function(key, action, modifiers, variants)
-      if handle_search_key(key, action) then
-        invalidate("search")
-        return { handled = true, suppress_text = true }
+      local search_key = handle_search_key(key, action, modifiers)
+      if search_key then invalidate("search"); return search_key end
+      if action == glfw.press and bit.band(state.modes.keyboard_flags, 8) == 0 then
+        local product_action, status = product_actions:lookup(key, modifiers, window:time())
+        if product_action and Interaction.kinds[product_action] == "terminal" then
+          Interaction.terminal(product_action, state, clipboard, enqueue_input)
+          invalidate("search")
+          return { handled = true, suppress_text = true }
+        elseif status == "pending" then return { handled = true, suppress_text = true } end
       end
       if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
         return { handled = true, defer_text = true }
@@ -693,6 +705,7 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = consumer:next_render_deadline()
       local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
+      if state:search_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       if window.watch_ptys then window:watch_ptys({ pty }) end
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
@@ -764,8 +777,12 @@ function Controller.run(window, host, options)
       pty:flush()
       local child_status = pty:poll_exit()
 
+      if not window.minimized and state:search_pending() then
+        state:search_step()
+        if not state:search_pending() then invalidate("search") end
+      end
       local search = state:search_view()
-      local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
+      local title = Search.title(search, state.title or default_title)
       if title ~= last_title then
         window:set_title(title)
         last_title = title

@@ -168,13 +168,15 @@ function Window.new(width, height, title, options)
     self.modifiers = modifiers
     local variants = self:cocoa_key_variants(scancode, key)
     local input = self.on_key and self.on_key(key, action, modifiers, variants)
+    -- Suppression belongs to this physical key event, including handled
+    -- releases; a shortcut without a character callback must not eat the
+    -- next printable character.
+    self.suppress_text = action ~= glfw.constants.release and input ~= nil and input.suppress_text == true
     if input and input.defer_text then
       self.input_correlation:defer({ key = key, scancode = scancode, action = action, modifiers = modifiers, variants = variants })
       return
     end
-    if input and input.suppress_text then self.suppress_text = true end
     if input and input.handled then return end
-    if action == glfw.constants.release then self.suppress_text = false end
     if not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f2 then
       self.debug_dirty = not self.debug_dirty
     elseif not self.release_mode and action == glfw.constants.press and key == glfw.constants.key_f3 then

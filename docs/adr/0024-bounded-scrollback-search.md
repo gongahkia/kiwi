@@ -48,3 +48,26 @@ consumers. Tests cover Unicode/wide mapping, overlapping ordering, history
 reveal, empty/no-match/stale states, keyboard reservation, resource shape, and
 pass order. A real large-scrollback graphical search remains a manual
 validation requirement.
+
+## Amendment: incremental Unicode regex (2026-10-25)
+
+This amendment replaces the physical-row byte-search decision above. Find now
+supports literal Unicode-scalar KMP and a bounded Thompson NFA with
+leftmost-longest regex semantics. Soft-wrapped rows are joined into logical lines;
+results retain both endpoint row IDs and document indices, and map whole grapheme
+cells. Hard newlines terminate a search line. The [current contract](../CONFORMANCE.md#scrollback-search)
+specifies syntax, limits, partial-result statuses and remaining stored-gap behavior.
+
+A search job advances in bounded event-loop slices. It stores only plain resumable
+data so configuration transactions can copy it safely. Rows are borrowed only
+within a slice; per-line arrays and numeric NFA threads are reused to avoid
+allocation proportional to retained history. Output generation changes cancel
+pending jobs. Search text and paste bypass child keyboard encoders, and captured
+key releases remain consumed after submission or cancellation.
+
+The title remains the query/status UI. Tests now include 5,000 seeded POSIX
+oracle comparisons, resumable transaction copies, large-history allocation/work
+assertions and a native WGPU controller fixture with a raw PTY child enabling
+Kitty flags 31. That fixture verifies Unicode matching, yielding, visible errors,
+cancellation, no query bytes in child input, and subsequent terminal input.
+It does not establish physical IME or screen-reader qualification.

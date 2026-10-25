@@ -9,6 +9,8 @@ local HostEffects = require("kiwi.app.host_effects")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
+local Search = require("kiwi.input.search")
+local SearchInput = require("kiwi.input.search_input")
 local Mouse = require("kiwi.input.mouse")
 local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
@@ -144,6 +146,7 @@ function Session.new(window, host, configuration, options)
   end
   self.pty = Pty.spawn(command, self.columns, self.rows, environment, { cwd = options.initial_cwd })
   self.clipboard = Clipboard.new(window)
+  self.search_input = SearchInput.new()
   self.host_effects = HostEffects.new(configuration, host, window)
   self.hyperlink = Hyperlink.new(window)
   self.hyperlink_pointer = HyperlinkPointer.new(self.hyperlink, self.glfw)
@@ -222,25 +225,12 @@ function Session:_handle_committed_text(text)
   end
 end
 
-function Session:_handle_search_key(key, action)
-  local search = self.state:search_view()
-  if not search.editing or not search.visible then return false end
-  if key == self.glfw.key_escape then
-    if action == self.glfw.press then self.state:clear_search() end
-    return true
+function Session:_handle_search_key(key, action, modifiers)
+  local input, status = self.search_input:key(self.state, key, action, modifiers, self.glfw, self.clipboard)
+  if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
+    io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
   end
-  if key == self.glfw.key_backspace then
-    if action == self.glfw.press or action == self.glfw.repeat_action then self.state:search_backspace() end
-    return true
-  end
-  if key == self.glfw.key_enter then
-    if action == self.glfw.press then
-      local _, status = self.state:search_submit("forward")
-      if status ~= "matches" then io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n") end
-    end
-    return true
-  end
-  return false
+  return input
 end
 
 function Session:_handle_local_action(encoded)
@@ -277,6 +267,13 @@ end
 function Session:_install_input_handlers()
   self.window:set_input_handlers(function(codepoints, key_event)
     if self.closed then return end
+    local captured, status = SearchInput.text(self.state, codepoints)
+    if captured then
+      self:_apply_commit("")
+      if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
+      self:_invalidate("search")
+      return
+    end
     if key_event then
       self:_apply_commit("")
       local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers,
@@ -291,11 +288,9 @@ function Session:_install_input_handlers()
     self:_handle_committed_text(Keyboard.text_sequence(codepoints, self.state.modes))
   end, function(key, action, modifiers, variants)
     if self.closed then return { handled = true, suppress_text = true } end
+    local search_input = self:_handle_search_key(key, action, modifiers)
+    if search_input then self:_invalidate("search"); return search_input end
     if self.on_product_key and self.on_product_key(self, key, action, modifiers) then
-      return { handled = true, suppress_text = true }
-    end
-    if self:_handle_search_key(key, action) then
-      self:_invalidate("search")
       return { handled = true, suppress_text = true }
     end
     if Keyboard.should_defer_text(key, action, modifiers, self.state.modes, self.glfw, variants) then
@@ -449,7 +444,12 @@ end
 
 function Session:next_deadline()
   if self.closed then return nil end
-  return self.consumer:next_render_deadline()
+  local deadline = self.consumer:next_render_deadline()
+  if self.state:search_pending() and not self.window.minimized
+      and (self.is_selected == nil or self.is_selected(self.window)) then
+    deadline = math.min(deadline or math.huge, self.window:time() + 0.001)
+  end
+  return deadline
 end
 
 function Session:tick(now)
@@ -466,8 +466,12 @@ function Session:tick(now)
   end
   self:_resize_if_needed()
   local child_status = self:_drain_terminal(now, self.window_focused and selected)
+  if selected and not self.window.minimized and self.state:search_pending() then
+    self.state:search_step()
+    if not self.state:search_pending() then self:_invalidate("search") end
+  end
   local search = self.state:search_view()
-  local title = search.editing and search.visible and "Kiwi search: " .. search.query or self.state.title or self.default_title
+  local title = Search.title(search, self.state.title or self.default_title)
   if title ~= self.last_title then self.window:set_title(title); self.last_title = title end
   self:_sync_accessibility(); self:_sync_text_input_caret()
   if selected and not self.window.minimized and self.consumer:needs_render(now) then

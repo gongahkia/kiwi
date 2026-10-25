@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ "$(uname -s)" != Darwin ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  echo "Search smoke requires a graphical session." >&2
+  exit 2
+fi
+export LUA_PATH='src/?.lua;src/?/init.lua;;'
+KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 "${LUAJIT:-luajit}" src/kiwi/search_smoke.lua

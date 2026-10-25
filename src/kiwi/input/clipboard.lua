@@ -123,14 +123,18 @@ function Clipboard:read_osc52_reply(selection, maximum_bytes)
   return "\27]52;" .. selection .. ";" .. Base64.encode(text) .. "\27\\", "success"
 end
 
-function Clipboard:paste(state)
-  local text, status = self.bridge:clipboard_read(self.maximum_bytes)
+function Clipboard:paste(state, maximum_bytes)
+  maximum_bytes = maximum_bytes or self.maximum_bytes
+  assert(type(maximum_bytes) == "number" and maximum_bytes >= 1 and maximum_bytes % 1 == 0,
+    "paste limit must be a positive integer")
+  maximum_bytes = math.min(maximum_bytes, self.maximum_bytes)
+  local text, status = self.bridge:clipboard_read(maximum_bytes)
   if text == nil then
     status = status == "over-limit" and "over_limit" or status == "unavailable" and "unavailable" or "platform_error"
     self:record("paste", status)
     return nil, status
   end
-  if #text > self.maximum_bytes then
+  if #text > maximum_bytes then
     self:record("paste", "over_limit")
     return nil, "over_limit"
   end

@@ -12,6 +12,8 @@ local Config = require("kiwi.config")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
+local Search = require("kiwi.input.search")
+local SearchInput = require("kiwi.input.search_input")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
@@ -273,6 +275,7 @@ function Controller.run(window, host, options)
     end
     local render_options = renderer_options(options, configuration)
     local clipboard = Clipboard.new(window)
+    local search_input = SearchInput.new()
     if host.configure_host_effects then host.configure_host_effects(window, configuration) end
     configuration.host_effects = require("kiwi.app.host_effects").new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
@@ -824,7 +827,7 @@ function Controller.run(window, host, options)
     end
 
     local function report_search_status(status)
-      if status ~= "matches" and status ~= "query" and status ~= "inactive" then
+      if status ~= "matches" and status ~= "query" and status ~= "inactive" and status ~= "searching" then
         io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
     end
@@ -883,7 +886,7 @@ function Controller.run(window, host, options)
 
     local function update_search_title()
       local search = state:search_view()
-      local title = search.editing and search.visible and "Kiwi search: " .. search.query or state.title or default_title
+      local title = Search.title(search, state.title or default_title)
       title = configuration_status:title(title)
       if title ~= last_title then
         window:set_title(title)
@@ -903,25 +906,12 @@ function Controller.run(window, host, options)
       end
     end
 
-    local function handle_search_key(key, action)
-      local search = state:search_view()
-      if not search.editing or not search.visible then return false end
-      if key == glfw.key_escape then
-        if action == glfw.press then state:clear_search() end
-        return action == glfw.press or action == glfw.repeat_action
+    local function handle_search_key(key, action, modifiers)
+      local input, status = search_input:key(state, key, action, modifiers, glfw, clipboard)
+      if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
+        io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
-      if key == glfw.key_backspace then
-        if action == glfw.press or action == glfw.repeat_action then state:search_backspace() end
-        return action == glfw.press or action == glfw.repeat_action
-      end
-      if key == glfw.key_enter then
-        if action == glfw.press then
-          local _, status = state:search_submit("forward")
-          report_search_status(status)
-        end
-        return action == glfw.press or action == glfw.repeat_action
-      end
-      return false
+      return input
     end
 
     local function perform_workspace_action(action)
@@ -1170,6 +1160,13 @@ function Controller.run(window, host, options)
     end
 
     window:set_input_handlers(function(codepoints, key_event)
+      local captured, status = SearchInput.text(state, codepoints)
+      if captured then
+        apply_commit("")
+        if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
+        renderer:invalidate("search")
+        return
+      end
       if key_event then
         apply_commit("")
         local encoded = Keyboard.key(key_event.key, key_event.action, key_event.modifiers, state.modes, glfw, {
@@ -1185,12 +1182,10 @@ function Controller.run(window, host, options)
       local text = Keyboard.text_sequence(codepoints, state.modes)
       handle_committed_text(text)
     end, function(key, action, modifiers, variants)
+      local search_key = handle_search_key(key, action, modifiers)
+      if search_key then renderer:invalidate("search"); return search_key end
       if handle_workspace_key(key, action, modifiers) then
         options.application:mark_layout_dirty()
-        return { handled = true, suppress_text = true }
-      end
-      if handle_search_key(key, action) then
-        renderer:invalidate("search")
         return { handled = true, suppress_text = true }
       end
       if Keyboard.should_defer_text(key, action, modifiers, state.modes, glfw, variants) then
@@ -1359,9 +1354,10 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
       local budget_exhausted = false
-      local watched_ptys = {}
+      local watched_ptys, pending_searches = {}, {}
       for _, pane in pairs(workspace.panes) do
         watched_ptys[#watched_ptys + 1] = pane.session.pty
+        if Terminal.state(pane.session.terminal):search_pending() then pending_searches[#pending_searches + 1] = pane.session end
         if pane.session.pty.read_budget_exhausted then budget_exhausted = true end
       end
       if configuration.live_config_reload and configuration_watch then
@@ -1372,6 +1368,7 @@ function Controller.run(window, host, options)
       if configuration.live_config_reload and configuration_status.deadline then
         requested_wait = math.min(requested_wait, math.max(0, configuration_status.deadline - now))
       end
+      if #pending_searches > 0 and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)
@@ -1518,6 +1515,21 @@ function Controller.run(window, host, options)
         io.stdout:write("Kiwi native proxy-URL smoke passed: active local OSC 7 metadata reached the titlebar and remote metadata cleared it.\n")
       end
       local child_status = active_session.child_status
+      pending_searches = {}
+      for _, pane in pairs(workspace.panes) do
+        if Terminal.state(pane.session.terminal):search_pending() then pending_searches[#pending_searches + 1] = pane.session end
+      end
+      if not window.minimized and #pending_searches > 0 then
+        local budget = Search.step_budget
+        for index, session in ipairs(pending_searches) do
+          if budget == 0 then break end
+          local share = math.max(1, math.floor(budget / (#pending_searches - index + 1)))
+          local model = Terminal.state(session.terminal)
+          model:search_step(share)
+          budget = budget - share
+          if not model:search_pending() and session.renderer then session.renderer:invalidate("search") end
+        end
+      end
       update_search_title()
       sync_accessibility()
       sync_text_input_caret()

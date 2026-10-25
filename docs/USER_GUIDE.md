@@ -306,7 +306,7 @@ and `Window` menus, a unified titlebar toolbar (New Tab, Split Right, Split
 Down, Commands, and Settings), and a searchable AppKit palette. On Linux,
 `KIWI_HOST=gtk` exposes the same actions through the GTK application menu,
 resolving each `win.*` action against the active window, and opens the palette
-in a searchable GTK dialog. The palette has 37 default built-in entries,
+in a searchable GTK dialog. The palette has 38 default built-in entries,
 matches title and description text case-insensitively, and accepts up to 64
 total entries after configuration. Add an entry with
 `command-palette-entry = title:<title>, action:<action>` and optionally
@@ -550,7 +550,7 @@ Kiwi advertises 256 indexed colours and direct RGB SGR through its
 or VT certification. Its supported targets are Linux x86_64 and a verified
 macOS arm64 source path. It has a bounded Linux AT-SPI provider and macOS
 NSAccessibility element, but no validated end-to-end screen-reader result,
-primary selection, an OSC 52 prompt policy, regular-expression search, full
+primary selection, an OSC 52 prompt policy, full
 text indexing, command execution UI, or controlled-remote SSH qualification. The
 current, precise limits are maintained in the [conformance matrix](CONFORMANCE.md),
 [text contract](TEXT.md), [accessibility contract](ACCESSIBILITY.md), and the
@@ -581,8 +581,31 @@ Command+Plus/Minus/0 controls font size; Command+Comma opens configuration.
 Command+T/N/W creates a tab/window or closes the pane, Command+D splits right,
 Command+Shift+D splits down, and Command+Shift+Enter toggles pane zoom.
 Configuration bindings override these defaults, including `cmd+c=none`.
-The `copy`, `paste`, `search`, `search-next`, and `search-previous` actions can also
+The `copy`, `paste`, `search`, `search-regex`, `search-next`, and `search-previous` actions can also
 be assigned to custom bindings or palette entries.
+
+Find starts with Ctrl+Shift+F (Command+F on macOS). Use the **Find Regular
+Expression** palette action, Ctrl+Shift+Alt+F, or Command+Option+F on macOS to
+start a regex query. Alt+R toggles literal/regex mode while editing and preserves
+the query. Enter searches forward; Shift+Enter searches backward. Escape clears
+Find and cancels pending work. Clipboard paste goes into the query while editing.
+The title shows the mode, progress, result count, invalid expression, or limit
+reached. Output or resizing invalidates results; restart Find to search new text.
+
+Matching is case-sensitive over Unicode scalars, without normalization or case
+folding. Soft-wrapped rows form one logical line; hard newlines separate searches.
+Results expand to whole grapheme cells. Regex supports `.`, anchors, classes,
+groups, alternation, greedy repetition, ASCII `\d`/`\w`/`\s` and word boundaries.
+It uses leftmost-longest matching; backreferences, lookaround, lazy quantifiers
+and Unicode property escapes are rejected. Literal matches can overlap; regex
+matches do not overlap. Erased trailing cells are excluded; printed spaces remain.
+
+Limits are 1,024 query bytes, 512 compiled states, 32 group levels, repetition
+counts through 128, 65,536 scalars per logical line, 256 retained matches, and
+33,554,432 work units per search. A limit produces an explicit partial-result
+status. Work yields between event-loop slices; Escape does not wait for the
+whole history. These are bounded scans, without an index or live incremental
+updates as new terminal output arrives. See [the search contract](CONFORMANCE.md#scrollback-search).
 
 Font size changes apply to the current window without editing the configuration.
 Reset restores the last successfully loaded configured size. Sizes that cannot fit
