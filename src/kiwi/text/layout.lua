@@ -43,8 +43,14 @@ function Layout:invalidate_all()
 end
 
 function Layout:set_font_system(font_system)
+  self.font_system.glyph_cache:retain(self, {})
   self.font_system = assert(font_system, "text layout needs a font system")
   self:invalidate_all()
+end
+
+function Layout:destroy()
+  if self.font_system.glyph_cache then self.font_system.glyph_cache:retain(self, {}) end
+  self.rows = {}
 end
 
 function Layout:begin_frame()
@@ -68,6 +74,7 @@ end
 
 function Layout:row_is_dirty(state, row)
   if self.rows[row] == nil or self.rows[row].generation ~= self.generation or self.rows[row].text_generation ~= self.font_system.text_generation then return true end
+  if self.rows[row].capacity_limited and self.rows[row].availability_generation ~= self.font_system.glyph_cache.availability_generation then return true end
   local damage = state.text_damage or state.damage
   if damage.full then return true end
   for _, range in ipairs(damage:ranges()) do
@@ -79,10 +86,10 @@ function Layout:row_is_dirty(state, row)
 end
 
 function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen_x)
-  local cached, reason = self.font_system.glyph_cache:get_or_insert(face, shaped.glyph_id)
+  local cached, reason = self.font_system.glyph_cache:get_or_insert(face, shaped.glyph_id, self)
   if cached == nil then
     local fallback_id = self.font_system.primary:glyph_index(string.byte("?"))
-    cached = self.font_system.glyph_cache:get_or_insert(self.font_system.primary, fallback_id)
+    cached = self.font_system.glyph_cache:get_or_insert(self.font_system.primary, fallback_id, self)
     if cached == nil then
       self.stats.missing_clusters = self.stats.missing_clusters + 1
       return
@@ -106,6 +113,7 @@ function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen
     face_id = cached.face_id,
     cluster_column = column,
     atlas_page = 0,
+    cache_entry = cached,
     missing_reason = reason,
     row = row,
     shape_cluster = shaped.cluster,
@@ -229,18 +237,31 @@ end
 
 function Layout:update(state)
   self:begin_frame()
+  local cache = self.font_system.glyph_cache
+  local dirty, retained = {}, {}
+  for row = 0, state.rows - 1 do
+    dirty[row] = self:row_is_dirty(state, row)
+    if not dirty[row] then
+      for _, glyph in ipairs(self.rows[row].glyphs) do retained[#retained + 1] = glyph end
+    end
+  end
+  cache:retain(self, retained)
+  for row in pairs(self.rows) do if row >= state.rows then self.rows[row] = nil end end
   local glyphs = {}
   for row = 0, state.rows - 1 do
-    if self:row_is_dirty(state, row) then
+    if dirty[row] then
       self.stats.rows_invalidated = self.stats.rows_invalidated + 1
       self.stats.cache_misses = self.stats.cache_misses + 1
       local runs_before = self.stats.runs_reshaped
+      local failures_before = cache.stats.capacity_failures
       local glyphs = self:shape_row(state, row)
       self.rows[row] = {
         generation = self.generation,
         text_generation = self.font_system.text_generation,
         glyphs = glyphs,
         runs = self.stats.runs_reshaped - runs_before,
+        capacity_limited = cache.stats.capacity_failures > failures_before,
+        availability_generation = cache.availability_generation,
       }
       self.stats.rows_reshaped = self.stats.rows_reshaped + 1
     else

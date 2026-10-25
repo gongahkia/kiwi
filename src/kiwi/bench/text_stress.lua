@@ -114,12 +114,30 @@ function TextStress.run(options)
     state.damage:clear()
   end
   parser:finish()
+  -- A bounded cache must recover when old output scrolls away. Exercise more
+  -- distinct primary glyphs than the cache can retain, after the mixed-script
+  -- workload, and verify actual glyph IDs rather than merely non-crashing.
+  local recovery_started = os.clock()
+  for round = 1, math.max(95, rounds) do
+    local codepoint = 33 + (round - 1) % 94
+    parser:feed("\27[2J\27[H" .. string.char(codepoint))
+    local glyphs = layout:update(state)
+    assert(#glyphs == 1, "glyph cache did not recover after old visible text was cleared")
+    assert(glyphs[1].glyph_id == system.primary:glyph_index(codepoint) and not glyphs[1].missing_reason,
+      "recovery substituted the wrong glyph")
+    assert(system.glyph_cache.atlas:glyph_count() <= atlas_entries, "recovery exceeded the entry budget")
+    state.damage:clear()
+    peak_heap = math.max(peak_heap, collectgarbage("count"))
+  end
+  local recovery_cpu_ms = (os.clock() - recovery_started) * 1000
   local lifetime_glyphs = exercise_lifetimes(lifecycle_iterations)
   collectgarbage("collect")
   local heap_after = collectgarbage("count")
   local rss_after = resident_kib()
   local result = {
     rounds = rounds,
+    recovery_rounds = math.max(95, rounds),
+    recovery_cpu_ms = recovery_cpu_ms,
     atlas_entries_limit = atlas_entries,
     atlas_entries = system.glyph_cache.atlas:glyph_count(),
     atlas_occupancy = system.glyph_cache.atlas:occupancy(),
@@ -162,6 +180,8 @@ function TextStress.main()
     result.lifecycle_text_systems, result.lifecycle_glyphs, result.glyph_cache.failures, result.fallback.fallback_hits, result.fallback.fallback_misses, result.memory.retained_heap_kib_delta,
     result.memory.rss_kib_delta and string.format("%.1f KiB", result.memory.rss_kib_delta) or "unavailable"
   ))
+  io.stdout:write(string.format("glyph-recovery rounds=%d cpu=%.3fms evictions=%d capacity-failures=%d\n",
+    result.recovery_rounds, result.recovery_cpu_ms, result.glyph_cache.evictions, result.glyph_cache.capacity_failures))
   local timestamp = os.date("!%Y%m%dT%H%M%SZ")
   local output = "bench/results/" .. timestamp .. "-text-stress.json"
   local file, message = io.open(output, "wb")
