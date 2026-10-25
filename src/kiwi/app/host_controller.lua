@@ -13,7 +13,7 @@ local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
 local Search = require("kiwi.input.search")
-local SearchInput = require("kiwi.input.search_input")
+local ModalInput = require("kiwi.input.modal_input")
 local Metrics = require("kiwi.diagnostics.metrics")
 local Mouse = require("kiwi.input.mouse")
 local SelectionPointer = require("kiwi.input.selection_pointer")
@@ -275,7 +275,7 @@ function Controller.run(window, host, options)
     end
     local render_options = renderer_options(options, configuration)
     local clipboard = Clipboard.new(window)
-    local search_input = SearchInput.new()
+    local modal_input = ModalInput.new()
     if host.configure_host_effects then host.configure_host_effects(window, configuration) end
     configuration.host_effects = require("kiwi.app.host_effects").new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
@@ -885,8 +885,7 @@ function Controller.run(window, host, options)
     end
 
     local function update_search_title()
-      local search = state:search_view()
-      local title = Search.title(search, state.title or default_title)
+      local title = ModalInput.title(state, state.title or default_title)
       title = configuration_status:title(title)
       if title ~= last_title then
         window:set_title(title)
@@ -896,10 +895,9 @@ function Controller.run(window, host, options)
 
     local function handle_committed_text(text)
       if text == nil or #text == 0 then return end
-      local search = state:search_view()
-      if search.editing and search.visible then
-        local appended, status = state:search_append(text)
-        if not appended then report_search_status(status) end
+      local captured, status = ModalInput.commit(state, text, clipboard, hyperlink)
+      if captured then
+        if status and status ~= "query" then report_search_status(status) end
         renderer:invalidate("search")
       else
         enqueue_input(text)
@@ -907,7 +905,7 @@ function Controller.run(window, host, options)
     end
 
     local function handle_search_key(key, action, modifiers)
-      local input, status = search_input:key(state, key, action, modifiers, glfw, clipboard)
+      local input, status = modal_input:key(state, key, action, modifiers, glfw, clipboard, hyperlink)
       if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
         io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
       end
@@ -978,7 +976,7 @@ function Controller.run(window, host, options)
     end
 
     local function handle_workspace_key(key, action, modifiers)
-      if bit.band(state.modes.keyboard_flags, 8) ~= 0 then
+      if bit.band(state.modes.keyboard_flags, 8) ~= 0 and not state.vi.active then
         product_actions:reset_sequence()
         return false
       end
@@ -1160,7 +1158,7 @@ function Controller.run(window, host, options)
     end
 
     window:set_input_handlers(function(codepoints, key_event)
-      local captured, status = SearchInput.text(state, codepoints)
+      local captured, status = ModalInput.text(state, codepoints, clipboard, hyperlink)
       if captured then
         apply_commit("")
         if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
@@ -1179,11 +1177,11 @@ function Controller.run(window, host, options)
         if encoded and encoded.bytes then enqueue_input(encoded.bytes) end
         return
       end
-      local text = Keyboard.text_sequence(codepoints, state.modes)
+      local text = Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(state))
       handle_committed_text(text)
     end, function(key, action, modifiers, variants)
       if handle_workspace_key(key, action, modifiers) then
-        search_input:claim(key)
+        modal_input:claim(key)
         options.application:mark_layout_dirty()
         return { handled = true, suppress_text = true }
       end
@@ -1244,6 +1242,11 @@ function Controller.run(window, host, options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, font.content_scale or 1, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
+      if ModalInput.pointer(state, event) then
+        renderer:invalidate("selection")
+        if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
+        return
+      end
       local scrollbar_handled, scrollbar_changed = scrollback_wheel.scrollbar_pointer:handle(event, state, renderer:scrollbar_descriptor(state))
       if scrollbar_changed then renderer:invalidate("scrollbar") end
       local hyperlink_handled, hyperlink_opened, hyperlink_status = false, false, nil
@@ -1287,7 +1290,7 @@ function Controller.run(window, host, options)
       local enabled, reason = host.enable_text_input(window, apply_preedit, function(text)
         local committed = apply_commit(text)
         local codepoints = codepoints_from_utf8(committed)
-        handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, state.modes) or nil)
+        handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(state)) or nil)
       end)
       if not enabled then io.stderr:write("Kiwi IME: unavailable: ", reason, "\n") end
     end
@@ -1355,10 +1358,10 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
       local budget_exhausted = false
-      local watched_ptys, pending_searches = {}, {}
+      local watched_ptys, pending_navigation = {}, {}
       for _, pane in pairs(workspace.panes) do
         watched_ptys[#watched_ptys + 1] = pane.session.pty
-        if Terminal.state(pane.session.terminal):search_pending() then pending_searches[#pending_searches + 1] = pane.session end
+        if Terminal.state(pane.session.terminal):navigation_pending() then pending_navigation[#pending_navigation + 1] = pane.session end
         if pane.session.pty.read_budget_exhausted then budget_exhausted = true end
       end
       if configuration.live_config_reload and configuration_watch then
@@ -1369,7 +1372,7 @@ function Controller.run(window, host, options)
       if configuration.live_config_reload and configuration_status.deadline then
         requested_wait = math.min(requested_wait, math.max(0, configuration_status.deadline - now))
       end
-      if #pending_searches > 0 and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
+      if #pending_navigation > 0 and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)
@@ -1516,19 +1519,19 @@ function Controller.run(window, host, options)
         io.stdout:write("Kiwi native proxy-URL smoke passed: active local OSC 7 metadata reached the titlebar and remote metadata cleared it.\n")
       end
       local child_status = active_session.child_status
-      pending_searches = {}
+      pending_navigation = {}
       for _, pane in pairs(workspace.panes) do
-        if Terminal.state(pane.session.terminal):search_pending() then pending_searches[#pending_searches + 1] = pane.session end
+        if Terminal.state(pane.session.terminal):navigation_pending() then pending_navigation[#pending_navigation + 1] = pane.session end
       end
-      if not window.minimized and #pending_searches > 0 then
+      if not window.minimized and #pending_navigation > 0 then
         local budget = Search.step_budget
-        for index, session in ipairs(pending_searches) do
+        for index, session in ipairs(pending_navigation) do
           if budget == 0 then break end
-          local share = math.max(1, math.floor(budget / (#pending_searches - index + 1)))
+          local share = math.max(1, math.floor(budget / (#pending_navigation - index + 1)))
           local model = Terminal.state(session.terminal)
-          model:search_step(share)
+          model:navigation_step(share)
           budget = budget - share
-          if not model:search_pending() and session.renderer then session.renderer:invalidate("search") end
+          if not model:navigation_pending() and session.renderer then session.renderer:invalidate("search") end
         end
       end
       update_search_title()

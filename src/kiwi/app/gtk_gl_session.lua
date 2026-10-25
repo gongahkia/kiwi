@@ -9,8 +9,7 @@ local HostEffects = require("kiwi.app.host_effects")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
 local Keyboard = require("kiwi.input.keyboard")
-local Search = require("kiwi.input.search")
-local SearchInput = require("kiwi.input.search_input")
+local ModalInput = require("kiwi.input.modal_input")
 local Mouse = require("kiwi.input.mouse")
 local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
@@ -146,7 +145,7 @@ function Session.new(window, host, configuration, options)
   end
   self.pty = Pty.spawn(command, self.columns, self.rows, environment, { cwd = options.initial_cwd })
   self.clipboard = Clipboard.new(window)
-  self.search_input = SearchInput.new()
+  self.modal_input = ModalInput.new()
   self.host_effects = HostEffects.new(configuration, host, window)
   self.hyperlink = Hyperlink.new(window)
   self.hyperlink_pointer = HyperlinkPointer.new(self.hyperlink, self.glfw)
@@ -215,10 +214,9 @@ end
 
 function Session:_handle_committed_text(text)
   if text == nil or #text == 0 then return end
-  local search = self.state:search_view()
-  if search.editing and search.visible then
-    local appended, status = self.state:search_append(text)
-    if not appended then io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n") end
+  local captured, status = ModalInput.commit(self.state, text, self.clipboard, self.hyperlink)
+  if captured then
+    if status and status ~= "query" then io.stderr:write("Kiwi input: ", status, "\n") end
     self:_invalidate("search")
   else
     self:_enqueue_input(text)
@@ -226,7 +224,7 @@ function Session:_handle_committed_text(text)
 end
 
 function Session:_handle_search_key(key, action, modifiers)
-  local input, status = self.search_input:key(self.state, key, action, modifiers, self.glfw, self.clipboard)
+  local input, status = self.modal_input:key(self.state, key, action, modifiers, self.glfw, self.clipboard, self.hyperlink)
   if status and status ~= "matches" and status ~= "query" and status ~= "searching" then
     io.stderr:write("Kiwi search: ", status:gsub("-", " "), "\n")
   end
@@ -267,7 +265,7 @@ end
 function Session:_install_input_handlers()
   self.window:set_input_handlers(function(codepoints, key_event)
     if self.closed then return end
-    local captured, status = SearchInput.text(self.state, codepoints)
+    local captured, status = ModalInput.text(self.state, codepoints, self.clipboard, self.hyperlink)
     if captured then
       self:_apply_commit("")
       if status and status ~= "query" then io.stderr:write("Kiwi search: ", status, "\n") end
@@ -285,15 +283,15 @@ function Session:_install_input_handlers()
       if encoded then self:_handle_local_action(encoded) end
       return
     end
-    self:_handle_committed_text(Keyboard.text_sequence(codepoints, self.state.modes))
+    self:_handle_committed_text(Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(self.state)))
   end, function(key, action, modifiers, variants)
     if self.closed then return { handled = true, suppress_text = true } end
     if self.on_product_key and self.on_product_key(self, key, action, modifiers) then
-      self.search_input:claim(key)
+      self.modal_input:claim(key)
       return { handled = true, suppress_text = true }
     end
-    local search_input = self:_handle_search_key(key, action, modifiers)
-    if search_input then self:_invalidate("search"); return search_input end
+    local modal_input = self:_handle_search_key(key, action, modifiers)
+    if modal_input then self:_invalidate("search"); return modal_input end
     if Keyboard.should_defer_text(key, action, modifiers, self.state.modes, self.glfw, variants) then
       return { handled = true, defer_text = true }
     end
@@ -308,6 +306,7 @@ function Session:_install_input_handlers()
     event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale,
       self.font.cell_width, self.font.cell_height, self.state.columns, self.state.rows)
     event.column, event.row = event.selection_column + 1, event.selection_row + 1
+    if ModalInput.pointer(self.state, event) then self:_invalidate("selection"); return end
     event.pixel_width = math.max(1, math.floor(self.state.columns * self.font.cell_width))
     event.pixel_height = math.max(1, math.floor(self.state.rows * self.font.cell_height))
     event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
@@ -356,7 +355,7 @@ function Session:_install_input_handlers()
       if self.closed then return end
       local committed = self:_apply_commit(text)
       local codepoints = codepoints_from_utf8(committed)
-      self:_handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, self.state.modes) or nil)
+      self:_handle_committed_text(codepoints and Keyboard.text_sequence(codepoints, ModalInput.encoding_modes(self.state)) or nil)
     end)
   if not enabled then io.stderr:write("Kiwi IME: unavailable: ", reason, "\n") end
 end
@@ -446,7 +445,7 @@ end
 function Session:next_deadline()
   if self.closed then return nil end
   local deadline = self.consumer:next_render_deadline()
-  if self.state:search_pending() and not self.window.minimized
+  if self.state:navigation_pending() and not self.window.minimized
       and (self.is_selected == nil or self.is_selected(self.window)) then
     deadline = math.min(deadline or math.huge, self.window:time() + 0.001)
   end
@@ -467,12 +466,11 @@ function Session:tick(now)
   end
   self:_resize_if_needed()
   local child_status = self:_drain_terminal(now, self.window_focused and selected)
-  if selected and not self.window.minimized and self.state:search_pending() then
-    self.state:search_step()
-    if not self.state:search_pending() then self:_invalidate("search") end
+  if selected and not self.window.minimized and self.state:navigation_pending() then
+    self.state:navigation_step()
+    if not self.state:navigation_pending() then self:_invalidate("search") end
   end
-  local search = self.state:search_view()
-  local title = Search.title(search, self.state.title or self.default_title)
+  local title = ModalInput.title(self.state, self.state.title or self.default_title)
   if title ~= self.last_title then self.window:set_title(title); self.last_title = title end
   self:_sync_accessibility(); self:_sync_text_input_caret()
   if selected and not self.window.minimized and self.consumer:needs_render(now) then

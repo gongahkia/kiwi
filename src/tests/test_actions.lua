@@ -5,6 +5,7 @@ local glfw = require("kiwi.ffi.glfw").constants
 return {
   product_shortcuts_cover_pane_geometry_and_native_macos_conventions = function()
     local linux = Actions.new({}, glfw, "Linux")
+    Assert.equal(linux:lookup(glfw.key_space, glfw.mod_control + glfw.mod_shift), "toggle-vi-mode")
     Assert.equal(linux:lookup(glfw.key_left, glfw.mod_control + glfw.mod_alt), "focus-pane-left")
     Assert.equal(linux:lookup(glfw.key_up, glfw.mod_control + glfw.mod_alt + glfw.mod_shift), "resize-pane-up")
     Assert.equal(linux:lookup(glfw.key_tab, glfw.mod_control + glfw.mod_shift), "previous-tab")
@@ -98,7 +99,7 @@ return {
   end,
   product_action_palette_is_bounded_detached_and_excludes_the_palette_opener = function()
     local entries = Actions.palette_entries()
-    Assert.equal(#entries, 38)
+    Assert.equal(#entries, 39)
     Assert.equal(entries[1].action, "new-tab")
     Assert.truthy(entries[1].title ~= "")
     Assert.truthy(entries[1].description ~= "")
@@ -114,7 +115,7 @@ return {
   product_action_palette_accepts_bounded_custom_entries_and_clear = function()
     local custom = Actions.parse_palette_entry([[title:"Reload, safely", description:"Reload the trusted \"theme\".", action:reload-config]], "test")
     local entries = Actions.palette_entries({ custom })
-    Assert.equal(#entries, 39)
+    Assert.equal(#entries, 40)
     Assert.equal(entries[#entries].title, "Reload, safely")
     Assert.equal(entries[#entries].description, [[Reload the trusted "theme".]])
     entries = Actions.palette_entries({ Actions.parse_palette_entry("", "test"), custom })

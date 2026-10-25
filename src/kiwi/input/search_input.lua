@@ -55,7 +55,7 @@ function Input:key(state, key, action, modifiers, keys, clipboard)
   elseif key == string.byte("R") and alt and not control and not super then
     if action == keys.press then state:search_toggle_mode() end
   elseif key == keys.key_enter or key == keys.key_f3 or (key == string.byte("G") and super) then
-    if action == keys.press then ignored, status = state:search_submit(shift and "backward" or "forward") end
+    if action == keys.press then ignored, status = state:search_submit(shift and "backward" or nil) end
   elseif key == string.byte("V") and (super or (control and shift)) then
     if action == keys.press then ignored, status = Input.paste(state, clipboard) end
   else

@@ -50,6 +50,7 @@ function Search:begin(scope, direction, mode)
   assert(mode == "literal" or mode == "regex", "search mode must be literal or regex")
   self:clear()
   self.mode, self.scope, self.editing, self.status = mode, scope, true, "query"
+  self.direction = direction
 end
 local function edited(self)
   self.current, self.generation, self.matches, self.status = 0, nil, {}, "query"
@@ -86,6 +87,7 @@ function Search:start(columns, generation, scope, direction)
   assert(type(generation) == "number" and generation >= 0 and generation % 1 == 0, "search generation must be non-negative")
   assert(type(scope) == "string" and direction_valid(direction), "search needs a scope and direction")
   self.editing, self.scope, self.generation = false, scope, generation
+  self.direction = direction
   self.matches, self.current, self.error, self.truncated, self.job = {}, 0, nil, false, nil
   self.work, self.scanned_rows, self.last_step_work = 0, 0, 0
   if #self.query == 0 then self.status = "empty"; return nil, self.status end

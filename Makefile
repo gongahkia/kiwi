@@ -348,6 +348,10 @@ appearance-smoke: native
 selection-smoke: native
 	$(LUAJIT) src/kiwi/selection_smoke.lua
 
+.PHONY: vi-smoke
+vi-smoke: native terminfo
+	./script/vi-smoke
+
 .PHONY: shader-smoke
 shader-smoke: native
 	$(LUAJIT) src/kiwi/appearance_smoke.lua --opaque-only
