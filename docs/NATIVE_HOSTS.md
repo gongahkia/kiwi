@@ -10,16 +10,14 @@ the same terminal qualification gates.
 
 ## Boundary
 
-`libkiwi-vt` remains the renderer-neutral terminal kernel. A native host owns
+The internal terminal engine remains renderer-neutral. A native host owns
 only platform policy: window/tab/split chrome, menus, shortcuts, clipboard,
 IME, accessibility, launch/recovery, and the platform drawing surface. It must
 not add platform handles, process state, or UI objects to terminal state.
 
-The current public C API is not enough to replace the GLFW application: it
-does not expose shaped text, GPU presentation, selection/search views, or a
-PTY/session service. The first host work is therefore an internal host facade
-over the existing application/session and renderer seams. The C API widens
-only after a second real consumer requires a documented, testable capability.
+Native hosts use the internal application/session and renderer seams. Kiwi
+ships a terminal application; these interfaces are coordinated source-level
+implementation details, with no separately supported SDK or public C ABI.
 
 ### Host-tab contract
 

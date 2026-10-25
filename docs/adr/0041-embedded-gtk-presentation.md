@@ -59,7 +59,7 @@ properties:
 - GTK owns an embedded terminal widget per controller and its realized/unrealized
   lifecycle. The adapter presents Kiwi's existing semantic render-pass output
   into that widget on both Wayland and X11; terminal state, PTYs, and the public
-  `libkiwi-vt` surface stay platform-neutral.
+  internal terminal-session interface stay platform-neutral.
 - It must not use WGPU texture readback followed by `GdkMemoryTexture` upload
   as the ordinary frame path. That adds a CPU copy and synchronization point
   to every terminal frame, which conflicts with Kiwi's performance baseline.
@@ -161,10 +161,8 @@ At minimum, a prepared frame has to carry:
   before a backend starts encoding, while a backend may retain only the newest
   successfully uploaded generation of each resource.
 
-This is an internal application interface, not a v1 `libkiwi-vt` expansion.
-The public terminal SDK continues to expose terminal-state render updates and
-typed effects; it does not acquire fonts, GPU objects, presentation surfaces,
-or host windows. A second non-Kiwi consumer remains the gate for widening it.
+This is an internal application interface. The terminal engine remains separate
+from fonts, GPU objects, presentation surfaces, and host windows.
 
 `kiwi.renderer.prepared_images` now selects decoded image generations, bounded
 visible placement rows, active-image state, and release notifications without

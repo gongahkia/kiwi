@@ -30,7 +30,7 @@ introducing Cocoa/Metal APIs into terminal state.
   text element to the GLFW content view. It reports the active pane title and
   viewport text and posts value/focus notifications; it is not a complete text
   accessibility implementation.
-- Release and C-SDK packaging use `.dylib` on macOS, include a convenience
+- Application release packaging use `.dylib` on macOS, include a convenience
   `Kiwi.app` in macOS release archives, and use portable checksum/archive
   commands. `native/macos_app_host.c` loads the terminal application into the
   executable LaunchServices starts, and the bundle carries an action-only SDEF
@@ -48,7 +48,6 @@ On the verified Apple Silicon host:
 | Regression suite | `make check` | Passed: deterministic LuaJIT tests, parser fuzz, PTY integration tests, terminfo build, and Lua syntax checks. This does not run Linux binaries. |
 | Live window/GPU | `KIWI_MAX_FRAMES=30 make run ARGS='-- /bin/sh -c "printf kiwi-macos-smoke; sleep 2"'` | Passed: a native GLFW/Cocoa/Metal session initialized and printed the child sentinel. This is not a Retina, minimize/restore, or multi-display usability result. |
 | Native tab policy | `make cocoa-smoke`; `make cocoa-menu-smoke`; `make cocoa-toolbar-smoke`; `make cocoa-palette-smoke`; `make cocoa-automation-smoke` | Passed on 2026-08-23: direct Cocoa smoke grouped two independent GLFW/Metal controllers, invoked AppKit next-tab selection, then configured a separately registered standalone window; the action-specific smokes each routed `New Tab` to the manager, which scheduled a grouped controller. This is callback and bridge evidence, not interactive tab switching, teardown, ordering, or visual-chrome qualification. |
-| C SDK | `make libkiwi-vt-check` | Passed: reproducible macOS archive plus Lua and C consumer checks. The C consumer used the Homebrew LuaJIT library path supplied by the package launcher. |
 | Release artifact | `make release-check` | Passed: two macOS archives were byte-identical; checksum, metadata, terminfo, `Kiwi.app` layout, deterministic ad-hoc launcher signature, release-mode launcher, and extracted-app LaunchServices checks passed. |
 | App launch and bounded automation | `KIWI_MAX_FRAMES=20 ./script/build_and_run.sh --verify`; `make cocoa-automation-smoke` | Passed: the project-local app bundle staged, launched, and cleaned its tracked bundle-process PID. The dedicated smoke validates `Kiwi.sdef` and routes a bounded `New Tab` event into the live bundle controller. It does not inspect pixels, accessibility clients, or an external automation sender's consent. |
 

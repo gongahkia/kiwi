@@ -26,8 +26,7 @@ local Workspace = require("kiwi.session.workspace")
 local TextLab = require("kiwi.text.lab")
 local Replay = require("kiwi.terminal.replay")
 local Utf8 = require("kiwi.terminal.utf8")
-local VT = require("kiwi.vt")
-local VTInternal = require("kiwi.vt.internal")
+local Terminal = require("kiwi.session.terminal")
 
 local Controller = {}
 
@@ -227,7 +226,7 @@ function Controller.run(window, host, options)
     workspace_columns = columns
     workspace_rows = rows
     local function new_terminal(child_columns, child_rows)
-      return VT.new({
+      return Terminal.new({
         columns = child_columns,
         rows = child_rows,
         state_options = {
@@ -284,9 +283,9 @@ function Controller.run(window, host, options)
     if options.moved_session then
       active_session = options.moved_session
       terminal = active_session.terminal
-      state = VTInternal.state(terminal)
+      state = Terminal.state(terminal)
       pty = active_session.pty
-      parser = VTInternal.parser(terminal)
+      parser = Terminal.parser(terminal)
       recovery = active_session.recovery
       if active_session.renderer then
         active_session.renderer:destroy()
@@ -307,9 +306,9 @@ function Controller.run(window, host, options)
       selection_pointer = active_session.selection_pointer
     else
       terminal = new_terminal(columns, rows)
-      state = VTInternal.state(terminal)
+      state = Terminal.state(terminal)
       pty = spawn_child(options.command, columns, rows, options.initial_cwd)
-      parser = VTInternal.parser(terminal)
+      parser = Terminal.parser(terminal)
       recovery = Recovery.new()
       renderer = Renderer.new(context, font, state, render_options)
       metrics = Metrics.new(context, font, state, { clipboard = clipboard, pty = pty, parser = parser, recovery = recovery })
@@ -405,14 +404,14 @@ function Controller.run(window, host, options)
     end
 
     local function bind_active_session(session)
-      if composition ~= nil and state ~= nil and state ~= VTInternal.state(session.terminal) then
+      if composition ~= nil and state ~= nil and state ~= Terminal.state(session.terminal) then
         state.ime_preedit = nil
         composition:leave()
         composition:enter()
       end
       active_session = session
       terminal = session.terminal
-      state = VTInternal.state(terminal)
+      state = Terminal.state(terminal)
       pty = session.pty
       renderer = session.renderer
       metrics = session.metrics
@@ -427,7 +426,7 @@ function Controller.run(window, host, options)
 
     local function rebuild_session_renderer(session)
       if session.renderer then session.renderer:destroy() end
-      session.renderer = Renderer.new(context, font, VTInternal.state(session.terminal), render_options)
+      session.renderer = Renderer.new(context, font, Terminal.state(session.terminal), render_options)
       session.renderer:invalidate("configuration")
       if session == active_session then renderer = session.renderer end
     end
@@ -444,7 +443,7 @@ function Controller.run(window, host, options)
       for _, placement in ipairs(layout) do
         local pane = assert(workspace.panes[placement.pane_id], "workspace layout references an unknown pane")
         local session = pane.session
-        local session_state = VTInternal.state(session.terminal)
+        local session_state = Terminal.state(session.terminal)
         local metrics_changed = session_state.cell_width ~= font.cell_width or session_state.cell_height ~= font.cell_height
         session.terminal:set_cell_metrics(font.cell_width, font.cell_height)
         if session_state.columns ~= placement.width or session_state.rows ~= placement.height then
@@ -461,7 +460,7 @@ function Controller.run(window, host, options)
         if session.renderer == nil then rebuild_session_renderer(session) end
         local viewport = Compositor.viewport(placement, font.cell_width, font.cell_height)
         pane_layouts[pane.id] = { grid = placement, viewport = viewport }
-        pane_entries[#pane_entries + 1] = { model = VTInternal.state(session.terminal), renderer = session.renderer, viewport = viewport }
+        pane_entries[#pane_entries + 1] = { model = Terminal.state(session.terminal), renderer = session.renderer, viewport = viewport }
       end
       local active_pane = assert(workspace:active_pane(), "workspace has no active pane")
       bind_active_session(active_pane.session)
@@ -480,11 +479,11 @@ function Controller.run(window, host, options)
 
     local function new_session(columns, rows, command, cwd)
       local session_terminal = new_terminal(columns, rows)
-      local new_state = VTInternal.state(session_terminal)
+      local new_state = Terminal.state(session_terminal)
       local new_pty = spawn_child(command == false and nil or command or options.command, columns, rows, cwd or (command ~= false and active_working_directory() or nil))
       local new_recovery = Recovery.new()
       return {
-        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = VTInternal.parser(session_terminal), recovery = new_recovery }),
+        metrics = Metrics.new(context, font, new_state, { clipboard = clipboard, pty = new_pty, parser = Terminal.parser(session_terminal), recovery = new_recovery }),
         mouse = Mouse.new(),
         mouse_generation = new_state.modes.mouse_generation,
         pty = new_pty,
@@ -595,11 +594,11 @@ function Controller.run(window, host, options)
         session.renderer:destroy()
         session.renderer = nil
       end
-      local session_state = VTInternal.state(session.terminal)
+      local session_state = Terminal.state(session.terminal)
       session.metrics.context = context
       session.metrics.font = font
       session.metrics.model = session_state
-      session.metrics:set_runtime({ clipboard = clipboard, pty = session.pty, parser = VTInternal.parser(session.terminal), recovery = session.recovery })
+      session.metrics:set_runtime({ clipboard = clipboard, pty = session.pty, parser = Terminal.parser(session.terminal), recovery = session.recovery })
       session.mouse_generation = session_state.modes.mouse_generation
       session_state:mark_all_dirty()
     end
@@ -685,7 +684,7 @@ function Controller.run(window, host, options)
 
     local function sync_accessibility()
       if accessibility == nil then return end
-      local projection = accessibility_projection:project(VTInternal.state(active_session.terminal))
+      local projection = accessibility_projection:project(Terminal.state(active_session.terminal))
       local updated, reason = accessibility:update(projection, last_title or default_title, window_focused)
       if updated then
         accessibility:poll()
@@ -719,13 +718,13 @@ function Controller.run(window, host, options)
       product_actions = candidate_actions
       render_options = renderer_options(options, configuration)
       for _, pane in pairs(workspace.panes) do
-        VTInternal.state(pane.session.terminal):configure_palette({
+        Terminal.state(pane.session.terminal):configure_palette({
           foreground = configuration.foreground,
           background = configuration.background,
           palette = configuration.palette,
         })
-        VTInternal.state(pane.session.terminal):configure_osc52_read(configuration.osc52_read == "allow")
-        VTInternal.state(pane.session.terminal):configure_osc52_write(configuration.osc52_write)
+        Terminal.state(pane.session.terminal):configure_osc52_read(configuration.osc52_read == "allow")
+        Terminal.state(pane.session.terminal):configure_osc52_write(configuration.osc52_write)
       end
       if font_changed then
         font = candidate_font
@@ -737,7 +736,7 @@ function Controller.run(window, host, options)
           session.renderer:destroy()
           session.renderer = nil
         end
-        VTInternal.state(session.terminal):mark_all_dirty()
+        Terminal.state(session.terminal):mark_all_dirty()
       end
       local refreshed, reason = refresh_workspace_layout()
       if not refreshed then return nil, reason end
@@ -1220,7 +1219,7 @@ function Controller.run(window, host, options)
       local deadline = compositor:next_render_deadline(pane_entries)
       local maximum_wait = window.minimized and 0.250 or 0.050
       for _, pane in pairs(workspace.panes) do
-        if VTInternal.state(pane.session.terminal).kitty_graphics.transfer ~= nil then
+        if Terminal.state(pane.session.terminal).kitty_graphics.transfer ~= nil then
           maximum_wait = math.min(maximum_wait, 0.001)
           break
         end
@@ -1274,11 +1273,11 @@ function Controller.run(window, host, options)
           if power then power:output() end
           if recorder then recorder:output(output) end
         end
-        local session_state = VTInternal.state(session.terminal)
+        local session_state = Terminal.state(session.terminal)
         local image_count = session_state.kitty_graphics:image_count()
         local placement_count = #session_state.kitty_placements.placements
         session.terminal:write(output)
-        session_state = VTInternal.state(session.terminal)
+        session_state = Terminal.state(session.terminal)
         if kitty_graphics_report and kitty_transfer_started_at == nil and session_state.kitty_graphics.transfer ~= nil then
           kitty_transfer_started_at = now
         end
@@ -1306,7 +1305,7 @@ function Controller.run(window, host, options)
       local per_session_kitty_transfer_budget = math.max(1, math.floor(kitty_transfer_read_budget / math.max(1, #panes)))
       for _, pane in ipairs(panes) do
         local session = pane.session
-        if VTInternal.state(session.terminal).kitty_graphics.transfer ~= nil then
+        if Terminal.state(session.terminal).kitty_graphics.transfer ~= nil then
           consume_session_output(session, session.pty:read_available(per_session_kitty_transfer_budget))
         end
       end

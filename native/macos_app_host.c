@@ -158,7 +158,6 @@ static int kiwi_configure_environment(const char *root, const char *bundle) {
 
 static void *kiwi_load_luajit(void) {
   const char *const configured = getenv("KIWI_LUAJIT_LIB");
-  const char *const compatibility_configured = getenv("KIWI_VT_LUAJIT_LIB");
   static const char *const names[] = {
       "/opt/homebrew/opt/luajit/lib/libluajit-5.1.2.dylib",
       "/usr/local/opt/luajit/lib/libluajit-5.1.2.dylib",

@@ -27,7 +27,7 @@ M4 selection and clipboard work preserve grapheme ownership when reconstructing 
 
 Diagnostics may count local copy/paste outcomes and OSC 52 allow/deny/invalid/over-limit results, but must never retain or print clipboard text, base64 payloads, or OSC content. An invalid `osc52-read` setting is rejected rather than broadened; a reload keeps its prior configuration. There is no prompt implementation. Parser rejection and platform failure must not enqueue partial PTY data or emit an OSC reply.
 
-The policy does not add a terminfo capability, environment advertisement, remote deployment claim, or a generic permission service. The implementation has deterministic selection/copy, paste framing, OSC 52 query, limit, unavailable, UTF-8, NUL, and public SDK tests. A developer still needs a real focused Linux clipboard session to verify compositor behavior; unavailable bridges remain explicit no-PTY-write failures.
+The policy does not add a terminfo capability, environment advertisement, remote deployment claim, or a generic permission service. The implementation has deterministic selection/copy, paste framing, OSC 52 query, limit, unavailable, UTF-8, NUL, and terminal-session tests. A developer still needs a real focused Linux clipboard session to verify compositor behavior; unavailable bridges remain explicit no-PTY-write failures.
 
 ## References
 

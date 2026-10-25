@@ -34,14 +34,11 @@ workspace layout -> one shared frame compositor -> pane viewport/scissor -> rend
 
 The parser recognizes syntax only. Callback mode emits semantic print, execute, ESC, CSI, OSC, and ignored-string action tables; it remains the conformance and syntax-test boundary. The production state sink receives print codepoints directly while all non-print semantics remain actions, avoiding one transient action table per glyph without allowing the renderer to depend on parser state. `terminal/state.lua` is the only component that mutates screen cells or decides sequence semantics. The renderer consumes the same renderer-facing interface as M0: `columns`, `rows`, `cells`, `cursor`, `damage`, `position`, and `mark_all_dirty`.
 
-`kiwi.vt` is the experimental, host-neutral Lua facade over that kernel. It
-owns incremental writes, bounded terminal effects and responses, and an
-explicit begin/end render-update transaction. `kiwi.vt.headless` is a second,
-renderer-free consumer that projects the public render view into logical text.
-Neither module imports PTY, GLFW, WGPU, fonts, clipboard bridges, or network
-code. The API remains single-threaded and experimental under a pre-1.0
-stability policy; its current API version is v2 and its full contract
-and non-goals are in [LIBKIWI.md](LIBKIWI.md).
+`session/terminal.lua` is an internal application module. It owns incremental
+parser writes, terminal state, queued responses, and host effects. It does not
+import PTY, window, GPU, font, clipboard, or network implementations. The app
+consumes its state through the existing renderer and input boundaries. There
+is no standalone terminal SDK, public Lua facade, or C terminal ABI.
 
 ## PTY and process boundary
 
@@ -61,10 +58,7 @@ per-user cache, and never becomes a parser or PTY dependency.
 LuaJIT owns the application lifecycle policy and terminal logic. The app's
 small C bridge wraps ABI-sensitive `TIOCSWINSZ` and nonblocking-fd operations,
 alongside the GLFW/wgpu surface bridge; it contains no parser or terminal
-state. Separately, the experimental Linux x86_64 and macOS arm64 `libkiwi-vt` SDK has a narrow
-C shim that creates one private LuaJIT state per opaque terminal handle. Its
-documented experimental C v2 boundary is byte input, resize, logical-text projection, and
-queued terminal responses; it is not used as a native renderer or PTY bridge.
+state.
 
 `session/workspace.lua` is host-neutral topology state: a bounded ordered tab
 set whose active tab is a binary vertical/horizontal split tree of pane IDs. A
@@ -201,8 +195,7 @@ The legacy `KiwiGlyphInstance` remains a 40-byte cell/background record for M0/M
 `native/kiwi_render_model.h` and `renderer/render_model.lua` define the v2
 byte layout for those packed records. WGPU and the experimental GTK
 `GtkGLArea` consumer use the same layout. The header is internal and versioned
-for coordinated source changes; it is not a public `libkiwi-vt` ABI or a
-guarantee of binary compatibility.
+for coordinated source changes; it does not guarantee binary compatibility.
 
 M3's versioned semantic pass/resource ABI is recorded in [ADR 0016](adr/0016-semantic-render-pass-resource-abi.md). The built-in order is background, optional images, selection, search, optional command regions, glyphs, optional images, cursor, then the alpha-blended scrollbar overlay. The overlay reads only `terminal.scrollbar`, `frame.viewport`, and `frame.timing`; it does not expose native WGPU handles to Lua passes.
 

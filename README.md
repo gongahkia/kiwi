@@ -1,6 +1,15 @@
 # Kiwi
 
-Kiwi is a rendering-first terminal research platform. M2 adds Unicode 17 extended grapheme clusters, deterministic terminal width, HarfBuzz shaping, Fontconfig fallback, and a bounded glyph-ID atlas to M1's interactive Linux and macOS terminal; M2.5 adds measured write-path attribution and local performance hardening. Kiwi now has an explicit daily-driver compatibility goal for its documented targets, but it is still experimental and does not claim full VT/xterm or Ghostty parity; see [KIWI-TO-GHOSTTY.md](KIWI-TO-GHOSTTY.md) and the [daily-driver compatibility ledger](docs/DAILY_DRIVER_COMPATIBILITY.md).
+Kiwi is an experimental GPU-accelerated terminal application for Linux and macOS.
+It runs your shell in a native desktop window with tabs, split panes, Unicode
+text, scrollback search, shell integration, and inline images. Its LuaJIT
+terminal engine, HarfBuzz/FreeType text stack, and wgpu-native renderer are
+internal parts of the application.
+
+The product goal is a responsive, dependable everyday terminal. Windows is not
+yet supported, and Kiwi does not claim full VT/xterm or Ghostty parity. See the
+[daily-driver compatibility ledger](docs/DAILY_DRIVER_COMPATIBILITY.md) and
+[product roadmap](docs/ROADMAP.md) for implementation and qualification limits.
 
 ## Current scope
 
@@ -100,14 +109,6 @@ renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
 publish a GitHub release or claim portability beyond the documented Linux and
 macOS environments.
 
-`make libkiwi-vt` separately produces the reproducible, renderer-free
-`libkiwi-vt` SDK described in [docs/LIBKIWI.md](docs/LIBKIWI.md). It contains
-the experimental LuaJIT core and a narrow Linux x86_64 or macOS arm64 C shared library for
-byte input, resize, logical-text projection, logical cell/grid render updates,
-terminal-mode-aware text/key/mouse/focus/paste encoding, and queued terminal
-responses/effects. It is pre-1.0 and makes no ABI-stability claim.
-Nix users can build the same SDK surface with `nix build .#libkiwi-vt`.
-
 Nix users can build the pinned Linux x86_64 package with `nix build .#kiwi`,
 enter the matching development environment with `nix develop`, and run the
 flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
@@ -155,9 +156,6 @@ make gtk-input-x11-smoke               # force that GTK input smoke through X11
 make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
 make gtk-gl-area-smoke                  # GTK GL native snapshot/render lifecycle probe; separate from the PTY application smokes (requires graphical Linux)
 make demo                              # retain the M0 synthetic renderer mode
-make vt-demo                           # renderer-free libkiwi-vt projection; reads terminal bytes from stdin
-make libkiwi-vt-c                      # build the unpackaged experimental libkiwi-vt C SDK
-make libkiwi-vt-check                  # reproducible core SDK archive, Lua/C consumer, and media-boundary check
 make compatibility                     # machine-readable versioned terminal compatibility manifest
 make daily-driver-compatibility        # bounded cross-platform compatibility evidence; skips unavailable desktop/remote checks
 make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/compatibility.json' # dedicated desktop qualification report
@@ -342,12 +340,6 @@ Kiwi is licensed under the [MIT License](LICENSE).
 ## Replay
 
 `--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
-
-The experimental, renderer-neutral Lua terminal boundary is documented in
-[LIBKIWI.md](docs/LIBKIWI.md). `make vt-demo` consumes terminal bytes from
-standard input and emits a logical text projection without starting a PTY,
-window, GPU, or font system; it is useful for integration and contract checks,
-not visual rendering.
 
 Kiwi automatically injects its reversible Bash, Zsh, fish, or Nushell integration only
 for its initial default shell; it never edits a dotfile. Set
