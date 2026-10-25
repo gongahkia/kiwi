@@ -72,6 +72,13 @@ function Clipboard:copy(state)
     self:record("copy", status)
     return false, status
   end
+  return self:copy_text(text)
+end
+
+function Clipboard:copy_text(text)
+  if #text > self.maximum_bytes then self:record("copy", "over_limit"); return false, "over-limit" end
+  if not valid_utf8(text) then self:record("copy", "platform_error"); return false, "invalid-utf8" end
+  local status
   local written, write_status = self.bridge:clipboard_write(text)
   if not written then
     status = write_status == "unavailable" and "unavailable" or "platform_error"

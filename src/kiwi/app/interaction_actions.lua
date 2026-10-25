@@ -1,6 +1,7 @@
 -- Internal product-action catalogue shared by shortcuts, palettes and host adapters.
 local Interaction = {}
 local SearchInput = require("kiwi.input.search_input")
+local HintsInput = require("kiwi.input.hints_input")
 Interaction.entries = {
   { id = 29, action = "previous-tab", kind = "workspace", title = "Previous Tab", description = "Focus the previous terminal tab." },
   { id = 30, action = "next-pane", kind = "workspace", title = "Next Pane", description = "Focus the next pane in layout order." },
@@ -43,6 +44,14 @@ Interaction.entries[#Interaction.entries + 1] = {
   description = "Navigate and select retained text with the keyboard.",
 }
 Interaction.kinds = {}
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 65, action = "open-url-hints", kind = "terminal", title = "Open URL Hints",
+  description = "Choose a visible link with the keyboard, then open it.",
+}
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 66, action = "copy-url-hints", kind = "terminal", title = "Copy URL Hints",
+  description = "Choose a visible link with the keyboard, then copy its URL.",
+}
 for _, entry in ipairs(Interaction.entries) do Interaction.kinds[entry.action] = entry.kind end
 
 function Interaction.font_target(action, current, configured)
@@ -76,9 +85,16 @@ function Interaction.workspace(action, workspace, columns, rows)
 end
 
 function Interaction.terminal(action, state, clipboard, enqueue)
+  if action == "open-url-hints" or action == "copy-url-hints" then
+    state:hints_begin(action == "copy-url-hints" and "copy" or "open"); return true
+  end
   if action == "toggle-vi-mode" then return state:vi_toggle() end
-  if action == "copy" then return clipboard:copy(state) end
+  if action == "copy" then
+    if state.hints and state.hints.active then return HintsInput.activate(state, clipboard, nil, "copy") end
+    return clipboard:copy(state)
+  end
   if action == "paste" then
+    if state.hints and state.hints.active then return nil, "hints-active" end
     if SearchInput.editing(state) then return SearchInput.paste(state, clipboard) end
     if state.vi and state.vi.active then return nil, "vi-active" end
     local bytes, reason = clipboard:paste(state)

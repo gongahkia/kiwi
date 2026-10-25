@@ -19,6 +19,7 @@ function Hints:changed() self.revision = self.revision + 1 end
 function Hints:clear(status)
   self.active, self.job, self.selected = false, nil, nil
   self.matches, self.prefix, self.page, self.status = {}, "", 1, status or "inactive"
+  self.truncated, self.paged = false, false
   self:changed()
 end
 function Hints:reconcile(state)
@@ -31,6 +32,7 @@ function Hints:reconcile(state)
   elseif self.top ~= document:top() then reason = "viewport-changed" end
   if reason and self.status ~= reason then
     self.matches, self.job, self.selected, self.prefix, self.status = {}, nil, nil, "", reason
+    self.page, self.paged = 1, false
     self:changed()
   end
   return reason == nil
@@ -211,6 +213,19 @@ function Hints:target(state)
   local index = self.selected or (#self.matches == 1 and 1)
   if not index then return nil, "choose-label" end
   return { uri = self.matches[index].uri }, self.action
+end
+function Hints.title(view)
+  local verb = view.action == "copy" and "copies" or "opens"
+  local title = "Kiwi URLs [" .. (view.action or "open") .. "] "
+  if view.selected_uri then
+    local status = view.status ~= "ready" and ("; " .. (view.truncated and "Partial: " or "") .. view.status:gsub("[-_]", " ")) or ""
+    return title .. view.selected_uri .. status .. " — Enter " .. verb .. "; Esc cancels"
+  end
+  if view.pending then return title .. "scanning; Esc cancels" end
+  title = title .. view.count .. " links"
+  if view.pages > 1 then title = title .. "; page " .. view.page .. "/" .. view.pages .. " (PgUp/PgDn)" end
+  if view.status ~= "ready" then title = title .. " — " .. (view.truncated and "Partial: " or "") .. view.status:gsub("-", " ") end
+  return title .. " — type label; Enter " .. verb .. "; Esc cancels"
 end
 function Hints:view(state)
   self:reconcile(state)
