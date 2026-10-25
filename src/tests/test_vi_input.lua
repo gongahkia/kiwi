@@ -22,6 +22,18 @@ local function finish(state)
   while state:navigation_pending() do state:navigation_step(23); ticks = ticks + 1; assert(ticks < 10000) end
 end
 return {
+  vi_keeps_find_no_match_partial_and_stale_status_visible = function()
+    local state, input, terminal = fixture()
+    Input.commit(state, "/missing")
+    input:key(state, keys.key_enter, keys.press, 0, keys); finish(state)
+    Assert.truthy(Input.title(state, "fallback"):find("no match", 1, true))
+    state.search.maximum_matches = 1
+    Input.commit(state, "/one")
+    input:key(state, keys.key_enter, keys.press, 0, keys); finish(state)
+    Assert.truthy(Input.title(state, "fallback"):find("Partial Find", 1, true))
+    terminal:write("x")
+    Assert.truthy(Input.title(state, "fallback"):find("output changed", 1, true))
+  end,
   vi_pointer_and_ime_commits_are_local_even_with_child_mouse_and_keyboard_protocols = function()
     local state = fixture()
     state.modes.mouse_tracking, state.modes.mouse_sgr = "any", true
