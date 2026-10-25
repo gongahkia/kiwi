@@ -79,6 +79,7 @@ typedef struct {
   float command_region_green;
   float command_region_blue;
   float command_region_alpha;
+  /* [0] sRGB surface, [1] background opacity, [2] rectangular selection. */
   float command_region_padding[5];
   float command_region_boundaries[128];
   float scrollbar_visible;

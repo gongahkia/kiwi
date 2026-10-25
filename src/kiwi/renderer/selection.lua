@@ -65,9 +65,14 @@ function Selection.descriptor(model, color)
   descriptor.start_row = start - top_index
   descriptor.finish_column = view.finish.column
   descriptor.finish_row = finish - top_index
+  descriptor.block = view.mode == "block"
   local first = descriptor.start_row * model.columns + descriptor.start_column
   local last = descriptor.finish_row * model.columns + descriptor.finish_column
   descriptor.active = descriptor.color.alpha > 0 and first < model.columns * model.rows and last > 0
+  if descriptor.block then
+    descriptor.active = descriptor.color.alpha > 0 and descriptor.start_column < descriptor.finish_column
+      and descriptor.finish_row >= 0 and descriptor.start_row < model.rows
+  end
   return descriptor
 end
 

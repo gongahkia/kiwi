@@ -147,6 +147,8 @@ static const char kiwi_gtk_gl_glyph_fragment_source[] =
 
 static const char kiwi_gtk_gl_overlay_vertex_source[] =
     "#version 330 core\n"
+    "layout(location = 0) in uint cell_flags;\n"
+    "flat out uint flags;\n"
     "uniform vec2 grid;\n"
     "out vec2 cell_position;\n"
     "out vec2 local_position;\n"
@@ -162,18 +164,25 @@ static const char kiwi_gtk_gl_overlay_vertex_source[] =
     "  gl_Position = vec4(point.x * 2.0 - 1.0, 1.0 - point.y * 2.0, 0.0, 1.0);\n"
     "  cell_position = vec2(column, row);\n"
     "  local_position = local;\n"
+    "  flags = cell_flags;\n"
     "}\n";
 
 static const char kiwi_gtk_gl_overlay_fragment_source[] =
     "#version 330 core\n"
+    "flat in uint flags;\n"
     "in vec2 cell_position;\n"
+    "uniform int rectangular;\n"
     "uniform vec4 range;\n"
     "uniform vec4 overlay_color;\n"
     "out vec4 color;\n"
     "void main() {\n"
     "  bool after_start = cell_position.y > range.y || (cell_position.y == range.y && cell_position.x >= range.x);\n"
     "  bool before_finish = cell_position.y < range.w || (cell_position.y == range.w && cell_position.x < range.z);\n"
-    "  if (!after_start || !before_finish) discard;\n"
+    "  if (rectangular != 0) {\n"
+    "    float anchor = cell_position.x - ((flags & 0x02000000u) != 0u ? 1.0 : 0.0);\n"
+    "    float width = (flags & 0x03000000u) != 0u ? 2.0 : 1.0;\n"
+    "    if (cell_position.y < range.y || cell_position.y > range.w || anchor >= range.z || anchor + width <= range.x) discard;\n"
+    "  } else if (!after_start || !before_finish) discard;\n"
     "  color = overlay_color;\n"
     "}\n";
 
@@ -431,6 +440,14 @@ static int kiwi_gtk_gl_create_resources(KiwiGtkGlRenderer *renderer) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glBindTexture(GL_TEXTURE_2D, 0);
   glGenVertexArrays(1, &renderer->overlay_vertex_array);
+  glBindVertexArray(renderer->overlay_vertex_array);
+  glBindBuffer(GL_ARRAY_BUFFER, renderer->cell_buffer);
+  glEnableVertexAttribArray(0);
+  glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(KiwiGlyphInstance),
+                         (const void *)offsetof(KiwiGlyphInstance, flags));
+  glVertexAttribDivisor(0, 1);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
   glGenVertexArrays(1, &renderer->cursor_vertex_array);
   glGenVertexArrays(1, &renderer->scrollbar_vertex_array);
   return 1;
@@ -559,9 +576,11 @@ static void kiwi_gtk_gl_draw_range(KiwiGtkGlRenderer *renderer,
                                    const KiwiGtkGlSnapshot *snapshot,
                                    float start_column, float start_row,
                                    float finish_column, float finish_row,
-                                   float red, float green, float blue, float alpha) {
+                                   float red, float green, float blue, float alpha,
+                                   int rectangular) {
   if (!kiwi_gtk_gl_range_active(start_column, start_row, finish_column, finish_row, alpha)) return;
   glUseProgram(renderer->overlay_program);
+  glUniform1i(glGetUniformLocation(renderer->overlay_program, "rectangular"), rectangular);
   glUniform2f(glGetUniformLocation(renderer->overlay_program, "grid"),
               snapshot->frame.columns, snapshot->frame.rows);
   glUniform4f(glGetUniformLocation(renderer->overlay_program, "range"),
@@ -704,7 +723,8 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
                          snapshot->frame.selection_red,
                          snapshot->frame.selection_green,
                          snapshot->frame.selection_blue,
-                         snapshot->frame.selection_alpha);
+                         snapshot->frame.selection_alpha,
+                         snapshot->frame.command_region_padding[2] > 0.5f);
   kiwi_gtk_gl_draw_range(renderer, snapshot,
                          snapshot->frame.search_start_column,
                          snapshot->frame.search_start_row,
@@ -713,7 +733,7 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
                          snapshot->frame.search_red,
                          snapshot->frame.search_green,
                          snapshot->frame.search_blue,
-                         snapshot->frame.search_alpha);
+                         snapshot->frame.search_alpha, 0);
   kiwi_gtk_gl_draw_command_regions(renderer, snapshot);
   if (snapshot->glyph_count > 0 && snapshot->atlas_bytes > 0) {
     glActiveTexture(GL_TEXTURE0);

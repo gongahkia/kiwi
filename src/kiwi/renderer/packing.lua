@@ -2,6 +2,9 @@ local ffi = require("ffi")
 local RenderModel = require("kiwi.renderer.render_model")
 
 local Packing = {
+  -- Renderer-only geometry bits, above terminal SGR attributes.
+  wide_cell = 0x01000000,
+  continuation_cell = 0x02000000,
   glyph_instance_size = ffi.sizeof("KiwiGlyphInstance"),
   glyph_instance_alignment = ffi.alignof("KiwiGlyphInstance"),
   text_glyph_instance_size = ffi.sizeof("KiwiTextGlyphInstance"),

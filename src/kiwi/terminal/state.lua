@@ -14,6 +14,7 @@ local Scrollback = require("kiwi.terminal.scrollback")
 local Search = require("kiwi.input.search")
 local Selection = require("kiwi.input.selection")
 local Document = require("kiwi.terminal.document")
+local Vi = require("kiwi.input.vi")
 local ShellIntegration = require("kiwi.terminal.shell_integration")
 local Utf8 = require("kiwi.terminal.utf8")
 local Width = require("kiwi.terminal.width")
@@ -197,6 +198,7 @@ function State.new(columns, rows, options)
     search = Search.new(),
     search_generation = 0,
     selection = Selection.new(),
+    vi = Vi.new(),
     shell = ShellIntegration.new(options.shell_integration),
     command_regions = CommandRegions.new(options.command_regions),
     command_region_navigation = nil,
@@ -408,6 +410,14 @@ function State:selection_scope()
 end
 
 function State:document(scope) return Document.new(self, scope or self:selection_scope()) end
+
+function State:vi_toggle()
+  if self.vi.active then self.vi:leave(self, true) else self.vi:enter(self) end
+  return true
+end
+function State:vi_view() return self.vi:view(self) end
+function State:vi_pending() return self.vi.active and self.vi.job ~= nil end
+function State:vi_step(budget) return self.vi:step(self, budget) end
 
 function State:shell_position()
   local cursor = self.active_screen.cursor
@@ -744,11 +754,16 @@ function State:selection_text(maximum_bytes)
   end
   for index = first, last do
     local row = document:row(index).row
-    local start = index == first and view.start.column or 0
-    local finish = index == last and view.finish.column or self.columns
+    local block = view.mode == "block"
+    local start = (block or index == first) and view.start.column or 0
+    local finish = (block or index == last) and view.finish.column or self.columns
+    if block then
+      start = Selection.snap(row, start, self.columns, false)
+      finish = Selection.snap(row, finish, self.columns, true)
+    end
     -- A selection through the right edge includes text, not unused cell padding.
     -- Explicitly printed spaces carry codepoints and must survive copying.
-    if finish == self.columns then
+    if not block and finish == self.columns then
       while finish > start do
         local cell = row.cells[finish - 1]
         if cell and (cell.glyph ~= " " or cell.codepoints ~= nil or cell.continuation) then break end
@@ -759,7 +774,7 @@ function State:selection_text(maximum_bytes)
       local cell = row.cells[column]
       if cell and not cell.continuation and not append(cell.glyph) then return nil, "over-limit" end
     end
-    if index < last and not row.wrapped and not append("\n") then return nil, "over-limit" end
+    if index < last and (block or not row.wrapped) and not append("\n") then return nil, "over-limit" end
   end
   return table.concat(text)
 end
@@ -2044,6 +2059,7 @@ function State:reflow_primary(columns, rows)
     return remapped
   end
   self.selection:remap("primary", remap)
+  self.vi:remap("primary", remap)
   self.command_regions:remap_positions("primary", remap)
   self.shell:remap_positions("primary", remap)
   local mapped_cursor = remap(cursor_position)
