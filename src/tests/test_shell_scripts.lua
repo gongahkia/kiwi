@@ -9,7 +9,15 @@ local function shell_available(name)
   return #path > 0
 end
 
-local has_nushell = shell_available("nu")
+local available = {}
+for _, shell in ipairs({ "bash", "zsh", "fish", "nu" }) do
+  available[shell] = shell_available(shell)
+  if not available[shell] then io.stdout:write("SKIP shell integration: ", shell, " is not installed\n") end
+end
+for shell in (os.getenv("KIWI_REQUIRE_SHELLS") or ""):gmatch("[^,]+") do
+  assert(available[shell], "required shell is unavailable: " .. shell)
+end
+local has_nushell = available.nu
 
 local scripts = {
   bash = "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 HOSTNAME=host.example bash --noprofile --norc -ic 'source integrations/v1/kiwi.bash; PWD=\"/tmp/kiwi work\"; __kiwi_bash_prompt; printf prompt; __kiwi_bash_marker B; __kiwi_bash_marker C; printf run; __kiwi_bash_prompt; [[ -n $PS0 ]]'",
@@ -35,10 +43,12 @@ local uninstall = {
 if has_nushell then uninstall[#uninstall + 1] = "TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; kiwi_shell_integration_uninstall; if ($env.__kiwi_nu_active? | default false) { error \"integration still active\" }'" end
 
 local function capture(command)
-  local pipe = assert(io.popen(command .. " 2>/dev/null", "r"))
+  local pipe = assert(io.popen("(" .. command .. ") 2>/dev/null; printf '\\nKIWI_TEST_EXIT=%s' \"$?\"", "r"))
   local output = pipe:read("*a")
-  assert(pipe:close(), "shell integration command failed")
-  return output
+  pipe:close()
+  local status = output:match("\nKIWI_TEST_EXIT=(%d+)$")
+  assert(status == "0", "shell integration command failed with status " .. tostring(status))
+  return (output:gsub("\nKIWI_TEST_EXIT=%d+$", ""))
 end
 
 local function assert_capture(output, expected_path)
@@ -59,31 +69,37 @@ end
 
 return {
   shell_integration_scripts_emit_the_documented_bounded_event_shape = function()
-    assert_capture(capture(scripts.bash), "/tmp/kiwi%20work")
-    assert_capture(capture(scripts.zsh), "/tmp/kiwi%20work")
-    assert_capture(capture(scripts.fish), "/tmp")
+    if available.bash then assert_capture(capture(scripts.bash), "/tmp/kiwi%20work") end
+    if available.zsh then assert_capture(capture(scripts.zsh), "/tmp/kiwi%20work") end
+    if available.fish then assert_capture(capture(scripts.fish), "/tmp") end
     if has_nushell then assert_capture(capture(scripts.nu), "/tmp") end
   end,
 
   shell_integration_scripts_are_silent_outside_kiwi = function()
-    for _, command in ipairs(disabled) do Assert.equal(capture(command), "") end
+    for index, command in ipairs(disabled) do if available[({ "bash", "zsh", "fish", "nu" })[index]] then Assert.equal(capture(command), "") end end
   end,
 
   shell_integration_scripts_are_reversible_and_preserve_bash_prompt_status = function()
-    for _, command in ipairs(uninstall) do capture(command) end
+    for index, command in ipairs(uninstall) do if available[({ "bash", "zsh", "fish", "nu" })[index]] then capture(command) end end
     local output = capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -ic 'PROMPT_COMMAND=\"printf original:\\$?\"; source integrations/v1/kiwi.bash; false; eval \"$PROMPT_COMMAND\"'")
     Assert.truthy(output:find("original:1", 1, true) ~= nil)
   end,
 
   shell_integration_launchers_source_the_supported_initial_shells = function()
+    if available.bash then
     local bash = capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.bash KIWI_SHELL_INTEGRATION_ORIGINAL_BASHRC=/dev/null bash --noprofile --rcfile integrations/v1/inject/kiwi.bashrc -ic '__kiwi_bash_prompt'")
     Assert.truthy(bash:find("\27]133;A\7", 1, true) ~= nil)
+    end
 
+    if available.zsh then
     local zsh = capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.zsh KIWI_SHELL_INTEGRATION_ORIGINAL_ZDOTDIR=/dev/null KIWI_SHELL_INTEGRATION_INJECT_DIR=integrations/v1/inject/zsh ZDOTDIR=integrations/v1/inject/zsh zsh -i -c '__kiwi_zsh_precmd'")
     Assert.truthy(zsh:find("\27]133;A\7", 1, true) ~= nil)
+    end
 
+    if available.fish then
     local fish = capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 KIWI_SHELL_INTEGRATION_SCRIPT=integrations/v1/kiwi.fish fish --no-config --init-command 'source $KIWI_SHELL_INTEGRATION_SCRIPT' -ic 'emit fish_prompt'")
     Assert.truthy(fish:find("\27]133;A\7", 1, true) ~= nil)
+    end
 
     if has_nushell then
       local nu = capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 nu --no-config-file -i -c 'source integrations/v1/kiwi.nu; __kiwi_nu_prompt'")

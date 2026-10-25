@@ -228,6 +228,11 @@ cocoa-smoke: native terminfo
 test: native
 	$(LUAJIT) src/kiwi/test.lua
 
+.PHONY: test-core
+test-core:
+	$(LUAJIT) src/kiwi/test.lua --core
+	LUAJIT="$(LUAJIT)" ./script/test-cli
+
 test-fuzz:
 	$(LUAJIT) src/kiwi/test_fuzz.lua
 
@@ -299,6 +304,7 @@ test-pty-watch:
 	./script/test-pty-watch
 
 check: test test-fuzz test-pty test-pty-watch terminfo
+	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 
 clean:

@@ -1,5 +1,10 @@
 local Assert = require("tests.assert")
 local root = os.getenv("KIWI_ROOT") or "."
+if root:sub(1, 1) ~= "/" then
+  local pipe = assert(io.popen("pwd -P", "r"))
+  local directory = assert(pipe:read("*l")); pipe:close()
+  root = directory .. "/" .. root
+end
 
 local function shell_quote(value)
   return "'" .. value:gsub("'", "'\\''") .. "'"
@@ -29,7 +34,7 @@ return {
     local setup = "ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/ssh") .. " && ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/scp")
     assert(execute(setup), "could not prepare SSH client stubs")
 
-    local command = "PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " -- user@example.test"
+    local command = "KIWI_SSH_BIN=" .. shell_quote(temporary .. "/ssh") .. " KIWI_SCP_BIN=" .. shell_quote(temporary .. "/scp") .. " PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " -- user@example.test"
     local ok = execute(command)
     local handle = assert(io.open(log, "rb"))
     local calls = handle:read("*a")
@@ -51,7 +56,7 @@ return {
     local setup = "ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/ssh") .. " && ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/scp")
     assert(execute(setup), "could not prepare SSH client stubs")
 
-    local command = "PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo-x") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " -- user@example.test"
+    local command = "KIWI_SSH_BIN=" .. shell_quote(temporary .. "/ssh") .. " KIWI_SCP_BIN=" .. shell_quote(temporary .. "/scp") .. " PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo-x") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " -- user@example.test"
     local ok = execute(command)
     local handle = assert(io.open(log, "rb"))
     local calls = handle:read("*a")
@@ -75,7 +80,7 @@ return {
     local setup = "ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/ssh") .. " && ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/scp")
     assert(execute(setup), "could not prepare SSH client stubs")
 
-    local command = "PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " --ssh-option Port=2201 -- user@example.test"
+    local command = "KIWI_SSH_BIN=" .. shell_quote(temporary .. "/ssh") .. " KIWI_SCP_BIN=" .. shell_quote(temporary .. "/scp") .. " PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " --ssh-option Port=2201 -- user@example.test"
     local ok = execute(command)
     local handle = assert(io.open(log, "rb"))
     local calls = handle:read("*a")
@@ -101,7 +106,7 @@ return {
     local setup = "ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/ssh") .. " && ln -s " .. shell_quote(stub) .. " " .. shell_quote(temporary .. "/scp")
     assert(execute(setup), "could not prepare SSH client stubs")
 
-    local command = "PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " --probe -- user@example.test"
+    local command = "KIWI_SSH_BIN=" .. shell_quote(temporary .. "/ssh") .. " KIWI_SCP_BIN=" .. shell_quote(temporary .. "/scp") .. " PATH=" .. shell_quote(temporary) .. ":$PATH KIWI_SSH_TEST_LOG=" .. shell_quote(log) .. " KIWI_TERMINFO=" .. shell_quote(root .. "/src/tests/fixtures/terminfo") .. " " .. shell_quote(root .. "/script/kiwi-ssh") .. " --probe -- user@example.test"
     local ok = execute(command)
     local handle = assert(io.open(log, "rb"))
     local calls = handle:read("*a")
