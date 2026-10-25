@@ -404,3 +404,25 @@ excluded. Font-change p95 varied down to 1,413 ms in this run, so individual
 timing comparisons remain machine/load-sensitive and still fail a reasonable
 interactive responsiveness target. Report:
 `evidence/2026-10-25-macos-palette-activation.json`.
+
+### Streaming reflow and sparse destination rows
+
+Reflow emits retained characters directly into destination rows instead of
+building temporary anchor/item tables for the entire logical line. The state
+path supplies sparse rows, allocating blanks only for uncovered cells. Mapping
+still preserves wide-cell gaps, soft wrapping, line identities and row metadata.
+A new golden test checks exact gap positions, styled wide continuations, source
+isolation and the blank-allocation bound. A one-off deterministic differential
+run matched 2,000 randomized documents against the pre-change implementation.
+
+`make check` passed 539 tests across 115 suites, 17 PTY tests and all remaining
+gates; core passed 312 tests across 58 suites. Native Metal configuration reload
+with visible history and the multi-pane rollback/interaction smokes passed,
+followed by all ten local application workflows and four loopback SSH workflows.
+
+In the same five-sample benchmark, 10,000-line font-change staging wall p95 fell
+from the preceding run's 1,413 to 695 ms; additional sampled Lua heap fell from
+393.2 to 341.1 MiB and sampled process RSS from 1,196.1 to 843.7 MiB. Palette
+staging remained 9.6 ms. Large-history font changes are still a noticeable pause,
+and these CPU measurements exclude GPU allocation/presentation. Report:
+`evidence/2026-10-25-macos-streaming-reflow.json`.

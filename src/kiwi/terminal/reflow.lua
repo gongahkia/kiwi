@@ -16,41 +16,13 @@ local function default_blank(cell)
     and (cell.flags == nil or cell.flags == 0)
 end
 
-local function source_items(source, old_columns, new_columns, is_blank)
-  local anchors = {}
-  local last = nil
+local function last_content_column(source, old_columns, is_blank)
+  local last
   for column = 0, old_columns - 1 do
     local cell = source.cells[column]
-    if cell and not cell.continuation then
-      local width = math.max(1, cell.width or 1)
-      width = math.min(width, old_columns - column)
-      anchors[#anchors + 1] = { cell = cell, column = column, width = width }
-      if not is_blank(cell) then last = #anchors end
-    end
+    if cell and not cell.continuation and not is_blank(cell) then last = column end
   end
-
-  local offsets = {}
-  local items = {}
-  local offset = 0
-  for index, anchor in ipairs(anchors) do
-    local retained = last ~= nil and index <= last
-    local width = retained and (anchor.width > new_columns and 1 or anchor.width) or 0
-    for column = anchor.column, math.min(old_columns, anchor.column + anchor.width) do
-      offsets[column] = offset + math.min(column - anchor.column, width)
-    end
-    if retained then
-      local cell = copy_cell(anchor.cell)
-      cell.width = width
-      cell.continuation = nil
-      cell.anchor_column = nil
-      items[#items + 1] = { cell = cell, column = anchor.column, source_line_id = source.line_id, width = width }
-      offset = offset + width
-    end
-  end
-  for column = 0, old_columns do
-    if offsets[column] == nil then offsets[column] = offset end
-  end
-  return items, offsets, offset
+  return last
 end
 
 local function append_source(row, source_line_id)
@@ -78,7 +50,7 @@ local function position_for(segments, offset, columns)
 end
 
 -- Rewrap physical rows joined by their wrapped flag. `new_row` supplies a
--- blank row with a fresh line_id; the first resulting segment retains the
+-- row with a fresh line_id; the first resulting segment retains the
 -- first source line_id. The returned map translates every old cell-gap
 -- coordinate, including blank trailing cells. The membership table maps each
 -- source row to the first output row that represents it, for row metadata.
@@ -87,22 +59,14 @@ function Reflow.transform(rows, old_columns, new_columns, new_row, is_blank, opt
   assert(type(new_row) == "function", "reflow requires a row factory")
   is_blank = is_blank or default_blank
   local compact_map = options and options.compact_map == true
+  local blank_cell = options and options.blank_cell
+  assert(blank_cell == nil or type(blank_cell) == "function", "reflow blank-cell factory must be a function")
 
   local output, map, membership, logical = {}, {}, {}, {}
   local function flush()
     if #logical == 0 then return end
 
-    local items, offsets, length = {}, {}, 0
-    for _, source in ipairs(logical) do
-      local source_items_value, source_offsets, source_length = source_items(source, old_columns, new_columns, is_blank)
-      offsets[source.line_id] = { base = length, gaps = source_offsets }
-      for _, item in ipairs(source_items_value) do
-        item.offset = length + (source_offsets[item.column] or 0)
-        items[#items + 1] = item
-      end
-      length = length + source_length
-    end
-
+    local offsets, length = {}, 0
     local segments = {}
     local segment, column
     local first_segment = true
@@ -119,18 +83,46 @@ function Reflow.transform(rows, old_columns, new_columns, new_row, is_blank, opt
     end
 
     start(0)
-    for _, item in ipairs(items) do
-      if column > 0 and column + item.width > new_columns then
-        segment.row.wrapped = true
-        start(item.offset)
+    for _, source in ipairs(logical) do
+      local last = last_content_column(source, old_columns, is_blank)
+      local gaps, base = {}, length
+      -- Emit directly into destination rows. The old implementation allocated
+      -- both an anchor and an item table for every retained source character.
+      for source_column = 0, old_columns - 1 do
+        local original = source.cells[source_column]
+        if original and not original.continuation then
+          local source_width = math.min(math.max(1, original.width or 1), old_columns - source_column)
+          local retained = last ~= nil and source_column <= last
+          local width = retained and (source_width > new_columns and 1 or source_width) or 0
+          for gap = source_column, math.min(old_columns, source_column + source_width) do
+            gaps[gap] = length - base + math.min(gap - source_column, width)
+          end
+          if retained then
+            if column > 0 and column + width > new_columns then
+              segment.row.wrapped = true
+              start(length)
+            end
+            local cell = copy_cell(original)
+            cell.width, cell.continuation, cell.anchor_column = width, nil, nil
+            segment.row.cells[column] = cell
+            if width == 2 and column + 1 < new_columns then
+              local continuation = copy_cell(cell)
+              continuation.glyph, continuation.width, continuation.continuation, continuation.anchor_column = "", 0, true, column
+              segment.row.cells[column + 1] = continuation
+            end
+            column, length = column + width, length + width
+          end
+        end
       end
-      segment.row.cells[column] = item.cell
-      if item.width == 2 and column + 1 < new_columns then
-        local continuation = copy_cell(item.cell)
-        continuation.glyph, continuation.width, continuation.continuation, continuation.anchor_column = "", 0, true, column
-        segment.row.cells[column + 1] = continuation
+      for gap = 0, old_columns do if gaps[gap] == nil then gaps[gap] = length - base end end
+      offsets[source.line_id] = { base = base, gaps = gaps }
+    end
+    if blank_cell then
+      for _, destination in ipairs(segments) do
+        for gap = 0, new_columns - 1 do
+          if destination.row.cells[gap] == nil then destination.row.cells[gap] = blank_cell() end
+        end
       end
-      column = column + item.width
     end
 
     for _, source in ipairs(logical) do

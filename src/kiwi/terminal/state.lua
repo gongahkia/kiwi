@@ -2002,10 +2002,12 @@ function State:reflow_primary(columns, rows)
   for index, flags in ipairs(old_primary.keyboard_stack) do primary.keyboard_stack[index] = flags end
 
   local reflowed, map, membership = Reflow.transform(source_document, old_columns, columns, function()
-    return primary:new_row()
+    local row = primary:new_sparse_row()
+    row.palette_generation = self.palette_generation
+    return row
   end, function(cell)
     return self:is_reflow_blank(cell)
-  end, { compact_map = true })
+  end, { compact_map = true, blank_cell = blank })
   local rows_by_line_id = {}
   for _, row in ipairs(reflowed) do rows_by_line_id[row.line_id] = row end
   for _, entry in ipairs(document) do
