@@ -444,12 +444,14 @@ remain open; the container result does not establish any of those claims.
 - [x] Command+1–9 selects the corresponding native macOS tab; custom bindings
       support workspace tabs. Command+Shift+P opens the default palette.
 - [x] Background opacity with opaque foreground text and native surface alpha
-      negotiation on GLFW/Metal and GLFW/Vulkan.
+      negotiation; verified on GLFW/Metal. GLFW 3.4 X11 is unsupported.
 - [x] User-configured WGSL postprocessing, watched shader files, transactional
       failure recovery, static/animated scheduling and two sample effects.
 - [x] Native macOS GPU readback for opacity, shader output, resize and recovery;
       live config/shader file edits with a retained PTY and scrollback.
-- [ ] Qualify transparency on physical X11 and Wayland compositors; implement
+- [x] Linux software Vulkan readback for effects, split panes, resize and invalid
+      shader recovery; automated opaque-surface GPU checks in Linux CI.
+- [ ] Implement an alpha-capable X11 window path and qualify Wayland; implement
       appearance controls in the experimental GTK GL presenter.
 
 Custom shaders use Kiwi's WGSL function interface, not Ghostty's GLSL interface.

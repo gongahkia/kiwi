@@ -343,3 +343,7 @@ clean:
 .PHONY: appearance-smoke
 appearance-smoke: native
 	$(LUAJIT) src/kiwi/appearance_smoke.lua
+
+.PHONY: shader-smoke
+shader-smoke: native
+	$(LUAJIT) src/kiwi/appearance_smoke.lua --opaque-only

@@ -6,11 +6,13 @@ local Font = require("kiwi.font.system")
 local Renderer = require("kiwi.renderer.renderer")
 local Compositor = require("kiwi.renderer.compositor")
 local Terminal = require("kiwi.session.terminal")
+assert(#arg == 0 or (#arg == 1 and arg[1] == "--opaque-only"), "usage: appearance_smoke.lua [--opaque-only]")
+local check_transparency = arg[1] ~= "--opaque-only"
 local window, context, font, renderer, second_renderer
 local ok, message = xpcall(function()
   window = Window.new(320, 180, "Kiwi appearance verification")
-  context = Context.new(Host, window, { framebuffer_capture = true, background_opacity = 0.5 })
-  assert(context.transparency_supported, "native host has no transparent surface")
+  context = Context.new(Host, window, { framebuffer_capture = true, background_opacity = check_transparency and 0.5 or 1 })
+  if check_transparency then assert(context.transparency_supported, "native host has no transparent surface") end
   font = Font.new({ pixel_height = 18 })
   local terminal = Terminal.new({ columns = 20, rows = 4 })
   terminal:write("\27[?25l\27[97m████ Kiwi opacity")
@@ -49,18 +51,20 @@ local ok, message = xpcall(function()
   end
   local opaque = capture(1)
   assert(opaque.fully_opaque_pixels == context.width * context.height, "opaque configuration left transparent pixels")
+  if check_transparency then
   local translucent = capture(0.5)
   assert(translucent.fully_opaque_pixels > 50, "text lost its opaque foreground")
   assert(translucent.fully_opaque_pixels < opaque.fully_opaque_pixels / 2, "terminal background did not become translucent")
   local transparent = capture(0)
   assert(transparent.transparent_pixels > context.width * context.height / 2, "zero opacity left a visible background")
   assert(transparent.fully_opaque_pixels > 50, "zero background opacity made text disappear")
+  end
   local restored = capture(1)
   assert(restored.fully_opaque_pixels == opaque.fully_opaque_pixels, "opacity did not return to fully opaque")
   local red = "fn kiwi_effect(color: vec4<f32>, uv: vec2<f32>, time: f32, resolution: vec2<f32>) -> vec4<f32> { return vec4<f32>(1.0, 0.0, 0.0, color.a); }"
-  local red_frame = capture(0.5, red)
+  local red_frame = capture(check_transparency and 0.5 or 1, red)
   assert(red_frame.red_dominant_pixels == context.width * context.height, "custom shader did not cover the complete window")
-  assert(red_frame.fully_opaque_pixels < context.width * context.height / 2, "custom shader lost background transparency")
+  if check_transparency then assert(red_frame.fully_opaque_pixels < context.width * context.height / 2, "custom shader lost background transparency") end
   local working = context.effect
   local valid = pcall(context.prepare_effects, context, { custom_shader_source = "invalid WGSL" })
   assert(not valid and context.effect == working, "invalid shader replaced the working pipeline")
@@ -75,7 +79,7 @@ local ok, message = xpcall(function()
     local file = assert(io.open(path, "rb")); local source = file:read("*a"); file:close()
     assert(capture(1, source).fully_opaque_pixels == context.width * context.height, "sample shader changed opaque alpha")
   end
-  print("Appearance GPU smoke passed: background alpha 1/0.5/0/1, opaque text, split panes, gutters, custom shader output, invalid-shader recovery, resize and sample effects.")
+  print("Appearance GPU smoke passed: " .. (check_transparency and "background alpha 1/0.5/0/1, " or "opaque-only (transparency not tested), ") .. "opaque text, split panes, gutters, custom shader output, invalid-shader recovery, resize and sample effects.")
 end, debug.traceback)
 if renderer then renderer:destroy() end
 if second_renderer then second_renderer:destroy() end
