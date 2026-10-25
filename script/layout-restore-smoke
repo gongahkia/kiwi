@@ -13,12 +13,21 @@ layout_root=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-layout.XXXXXX")
 readonly layout_path="$layout_root/workspace-v2.json"
 trap 'rm -rf "$layout_root"' EXIT
 
+# Use a controlled default shell. Explicit commands intentionally bypass saved
+# layouts, so passing `-- yes` would no longer exercise restoration.
+cat > "$layout_root/shell" <<'SH'
+#!/bin/sh
+exec /usr/bin/yes
+SH
+chmod 700 "$layout_root/shell"
+export SHELL="$layout_root/shell"
+
 KIWI_LAYOUT_PATH="$layout_path" \
   KIWI_LAYOUT_PERSISTENCE=1 \
   KIWI_LAYOUT_RESTORE=0 \
   KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
   KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
-  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --workspace-smoke -- /usr/bin/yes
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions --workspace-smoke
 test -s "$layout_path"
 KIWI_LAYOUT_PATH="$layout_path" "${LUAJIT:-luajit}" -e '
   local layout = assert(require("kiwi.session.layout_store").load(assert(os.getenv("KIWI_LAYOUT_PATH"))))
@@ -34,6 +43,6 @@ KIWI_LAYOUT_PATH="$layout_path" \
   KIWI_LAYOUT_RESTORE=1 \
   KIWI_MAX_FRAMES="${KIWI_MAX_FRAMES:-2}" \
   KIWI_MAX_SECONDS="${KIWI_MAX_SECONDS:-3}" \
-  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions -- /usr/bin/yes | tee "$log"
+  "${LUAJIT:-luajit}" "$ROOT/src/kiwi/app/main.lua" --no-extensions | tee "$log"
 rg -q "Kiwi layout restored: tabs=1 panes=2; each pane received a fresh shell session\." "$log"
 print "Kiwi layout-restore smoke passed: bounded window geometry and tab/split topology restored with fresh shells."

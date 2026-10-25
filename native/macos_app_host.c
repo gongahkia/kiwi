@@ -172,18 +172,15 @@ static void *kiwi_load_luajit(void) {
     void *library = dlopen(configured, RTLD_NOW | RTLD_GLOBAL);
     if (library != NULL) return library;
   }
-  if (compatibility_configured != NULL && compatibility_configured[0] != '\0') {
-    void *library = dlopen(compatibility_configured, RTLD_NOW | RTLD_GLOBAL);
-    if (library != NULL) return library;
-  }
   for (size_t index = 0; names[index] != NULL; index += 1) {
     void *library = dlopen(names[index], RTLD_NOW | RTLD_GLOBAL);
     if (library != NULL) return library;
   }
+  const char *const reason = dlerror();
   fprintf(stderr, "Kiwi app host: LuaJIT runtime unavailable%s%s: %s\n",
           configured == NULL || configured[0] == '\0' ? "" : " at ",
           configured == NULL || configured[0] == '\0' ? "" : configured,
-          dlerror() == NULL ? "dlopen failed" : dlerror());
+          reason == NULL ? "dlopen failed" : reason);
   return NULL;
 }
 

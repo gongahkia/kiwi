@@ -11,3 +11,16 @@ for file in $lua_files; do
 done
 
 print "Lua syntax check passed for ${#lua_files} files."
+
+if [[ "$(uname -s)" == Darwin ]]; then
+  cc -std=c17 -Wall -Wextra -Werror -fsyntax-only \
+    -DKIWI_APP_LUA_ROOT_RELATIVE='"src"' \
+    -DKIWI_APP_TERMINFO_RELATIVE='".build/terminfo"' \
+    -DKIWI_APP_WGPU_LIBRARY_RELATIVE='".deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.dylib"' \
+    -DKIWI_APP_SURFACE_LIBRARY_RELATIVE='".build/native/libkiwi_surface.dylib"' \
+    -DKIWI_APP_INTEGRATION_RELATIVE='"integrations/v1"' \
+    -DKIWI_APP_RELEASE=0 -DKIWI_APP_PID_FILE_RELATIVE='""' \
+    -DKIWI_APP_ROOT_PARENT_COMPONENTS=1 \
+    native/macos_app_host.c native/macos_macho_uuid.c
+  print "macOS application launcher syntax check passed."
+fi
