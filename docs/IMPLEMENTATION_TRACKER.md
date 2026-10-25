@@ -329,3 +329,16 @@ prompt on the resized last row before navigating. This passed three consecutive
 Ubuntu runs and two macOS runs. Search, resize, page navigation, exit, parser
 diagnostics and live/replay comparisons remain asserted. Archive report commands
 now suppress Git errors for the whole command group, not just its final command.
+
+### OpenSSH strict ownership on Linux
+
+Ubuntu OpenSSH rejected the fixture's authorized key because its ancestor `/tmp`
+is world-writable. The test now creates its private temporary directory beneath
+the real account home, explicitly retains `StrictModes yes`, and prints bounded
+server diagnostics on failure. It does not change the user's SSH configuration
+or relax authentication. All four authenticated SSH workflows passed on Ubuntu
+and macOS after the correction; each still checks live/replay equivalence.
+
+The Linux readiness watcher, inotify file watcher and process metrics also
+passed AddressSanitizer/UndefinedBehaviorSanitizer. The GTK native host compiled
+and passed its ABI check. These checks do not exercise a graphical compositor.
