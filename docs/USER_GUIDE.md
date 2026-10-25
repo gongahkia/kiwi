@@ -626,7 +626,7 @@ and pointer events. Clipboard paste is disabled unless editing a Find query.
 | `H M L`, `zz` | Top / middle / bottom of viewport; center cursor |
 | Ctrl+B/F, Page Up/Down; Ctrl+U/D | Page; half page |
 | Ctrl+Y/E | Scroll one row |
-| `v V`, Ctrl+V, Alt+V | Character, physical-row, rectangular, word selection |
+| `v V`, Ctrl+V, Alt+V | Character, logical-line, rectangular, word selection |
 | `y` | Copy selection and clear it after a successful clipboard write |
 | `f F t T`, `; ,` | Find a character forward/backward, stop on/before it, repeat/reverse |
 | `%` | Find matching bracket, including nested brackets |
@@ -635,7 +635,8 @@ and pointer events. Clipboard paste is disabled unless editing a Find query.
 
 Numeric prefixes are bounded at 9,999. Scanning motions yield after at most
 4,096 work units per slice and stop at 8,388,608 total units with a visible limit
-status. Output changes cancel pending scans; history eviction clamps the cursor
+status. Line and word selections expand across soft wraps with the same limits;
+incomplete selections cannot be copied. Output changes cancel pending scans; history eviction clamps the cursor
 and clears selections whose anchor was removed. Resize remaps the cursor and
 ordinary selection; rectangular selections clear because their geometry changes.
 Rectangular copy includes spaces and separates physical rows with newlines.

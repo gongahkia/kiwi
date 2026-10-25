@@ -37,6 +37,7 @@ function Vi:leave(state, live)
   self.active, self.cursor, self.anchor, self.visual, self.job = false, nil, nil, nil, nil
   self.prefix, self.count, self.status, self.awaiting = nil, "", "inactive", nil
   self.last_inline = nil
+  self.selection_job = nil
   if live and state.history_offset ~= 0 then state:scroll_history(-state.history_offset) end
 end
 
@@ -53,10 +54,17 @@ function Vi:reconcile(state)
     if at then
       self.anchor.row_index = at
       self.anchor.column = anchor(document:row(at).row, self.anchor.column, state.columns)
-    else self.anchor, self.visual = nil, nil; state:clear_selection(); self.status = "selection-evicted" end
+    else
+      self.anchor, self.visual, self.selection_job = nil, nil, nil
+      state:clear_selection(); self.status = "selection-evicted"
+    end
   end
   if self.job and self.job.generation ~= state.search_generation then
     self.job, self.status = nil, "output-changed"
+  end
+  if self.selection_job and self.selection_job.generation ~= state.search_generation then
+    self.selection_job, self.status = nil, "output-changed"
+    state:clear_selection()
   end
   return true
 end
@@ -78,7 +86,8 @@ function Vi:reveal(state, center)
   elseif row >= top + state.rows then viewport(state, row - state.rows + 1) end
 end
 
-function Vi:update_selection(state)
+function Vi:update_selection(state, defer)
+  self.selection_job = nil
   if not self.visual or not self.anchor then return end
   local document = state:document(self.scope)
   local a, b = copy(self.anchor), copy(self.cursor)
@@ -91,42 +100,85 @@ function Vi:update_selection(state)
     return
   end
   if a.row_index > b.row_index or (a.row_index == b.row_index and a.column > b.column) then a, b, arow, brow = b, a, brow, arow end
-  if self.visual == "line" then a.column, b.column = 0, state.columns
-  elseif self.visual == "word" then
-    local category = class(arow.cells[a.column])
-    while a.column > 0 do
-      local previous = anchor(arow, a.column - 1, state.columns)
-      if class(arow.cells[previous]) ~= category then break end
-      a.column = previous
-    end
-    category = class(brow.cells[b.column])
-    local finish = b.column + width(brow, b.column)
-    while finish < state.columns and class(brow.cells[finish]) == category do finish = finish + width(brow, finish) end
-    b.column = math.min(state.columns, finish)
-  else b.column = math.min(state.columns, b.column + width(brow, b.column)) end
+  if self.visual == "line" or self.visual == "word" then
+    self.selection_job = { first = a, last = b, phase = "first", mode = self.visual,
+      first_class = class(arow.cells[a.column]), last_class = class(brow.cells[b.column]),
+      generation = state.search_generation, work = 0 }
+    if self.visual == "line" then a.column, b.column = 0, state.columns
+    else b.column = math.min(state.columns, b.column + width(brow, b.column)) end
+    self.status = "selecting"
+    state:clear_selection()
+    if not defer then self:step_selection(state, 256) end
+    return
+  end
+  b.column = math.min(state.columns, b.column + width(brow, b.column))
   state.selection:set(self.scope, a, b, document, state.columns)
 end
 
-function Vi:set_position(state, row, column, preserve_column)
+function Vi:step_selection(state, budget)
+  self.last_step_work = 0
+  if not self:reconcile(state) or not self.selection_job then return false end
+  local job, document = self.selection_job, state:document(self.scope)
+  while self.selection_job and self.last_step_work < budget do
+    if job.work >= Vi.maximum_work then self.selection_job, self.status = nil, "selection-limit"; break end
+    self.last_step_work, job.work = self.last_step_work + 1, job.work + 1
+    local first = job.phase == "first"
+    local endpoint = first and job.first or job.last
+    local index, column = endpoint.row_index, endpoint.column
+    local current = document:row(index).row
+    local entry
+    if job.mode == "line" then
+      entry = document:row(index + (first and -1 or 1))
+      if entry and (first and entry.row.wrapped or not first and current.wrapped) then
+        endpoint.row_index, endpoint.line_id = index + (first and -1 or 1), entry.line_id
+      else entry = nil end
+    else
+      if first then
+        if column > 0 then column = anchor(current, column - 1, state.columns); entry = document:row(index)
+        else
+          index = index - 1; entry = document:row(index)
+          if entry and entry.row.wrapped then column = anchor(entry.row, state.columns - 1, state.columns)
+          else entry = nil end
+        end
+      elseif column < state.columns then entry = document:row(index)
+      elseif current.wrapped then index, column = index + 1, 0; entry = document:row(index) end
+      if entry and class(entry.row.cells[column]) == (first and job.first_class or job.last_class) then
+        endpoint.row_index, endpoint.line_id = index, entry.line_id
+        endpoint.column = first and column or math.min(state.columns, column + width(entry.row, column))
+      else entry = nil end
+    end
+    if not entry then
+      if first then job.phase = "last"
+      else
+        self.selection_job, self.status = nil, "normal"
+        state.selection:set(self.scope, job.first, job.last, document, state.columns)
+      end
+    end
+  end
+  return self.selection_job == nil
+end
+
+function Vi:set_position(state, row, column, preserve_column, defer_selection)
   local document = state:document(self.scope)
   row = clamp(row, 1, document:count())
   local entry = document:row(row)
   self.cursor = position(row, anchor(entry.row, column, state.columns), entry.line_id)
   if not preserve_column then self.preferred_column = self.cursor.column end
-  self:reveal(state); self:update_selection(state)
+  self:reveal(state); self:update_selection(state, defer_selection)
 end
 
 function Vi:enter(state)
   state:clear_search(); state:clear_selection()
   self.active, self.scope, self.status, self.count = true, state:selection_scope(), "normal", ""
   self.anchor, self.visual, self.job, self.prefix, self.awaiting = nil, nil, nil, nil, nil
+  self.selection_job = nil
   self:set_position(state, state:document():top() + state.cursor.row, state.cursor.column)
 end
 
 function Vi:toggle_selection(state, mode)
   assert(mode == "character" or mode == "line" or mode == "block" or mode == "word")
   if not self:reconcile(state) then return false end
-  self.job = nil
+  self.job, self.selection_job = nil, nil
   if self.visual == mode then self.visual, self.anchor = nil, nil; state:clear_selection()
   else
     self.anchor = self.anchor or copy(self.cursor)
@@ -137,6 +189,7 @@ end
 
 function Vi:cancel(state)
   self.job, self.awaiting, self.prefix, self.count = nil, nil, nil, ""
+  self.selection_job = nil
   self.visual, self.anchor, self.status = nil, nil, "normal"
   state:clear_selection()
 end
@@ -149,6 +202,7 @@ function Vi:remap(scope, mapper)
   if self.visual == "block" or not self.anchor then self.visual, self.anchor = nil, nil end
   self.preferred_column = self.cursor and self.cursor.column or 0
   self.job, self.status = nil, "resized"
+  self.selection_job = nil
 end
 
 local direct = {
@@ -161,7 +215,7 @@ function Vi:motion(state, name, count, argument)
   if not self:reconcile(state) then return false end
   assert(count == nil or (type(count) == "number" and count >= 1 and count <= Vi.maximum_count and count % 1 == 0), "invalid vi count")
   local amount, document = count or 1, state:document(self.scope)
-  self.job, self.status = nil, "normal"
+  self.job, self.selection_job, self.status = nil, nil, "normal"
   if direct[name] then
     local row, column, preserve = self.cursor.row_index, self.cursor.column, true
     if name == "up" then row = row - amount
@@ -200,7 +254,8 @@ function Vi:step(state, budget)
   budget = budget or Vi.step_budget
   assert(type(budget) == "number" and budget >= 1 and budget <= Vi.step_budget and budget % 1 == 0)
   self.last_step_work = 0
-  if not self:reconcile(state) or not self.job then return false end
+  if not self:reconcile(state) then return false end
+  if not self.job then return self:step_selection(state, budget) end
   local document, job = state:document(self.scope), self.job
   local cached_index, cached_row
   local function row(index)
@@ -224,7 +279,7 @@ function Vi:step(state, budget)
     job.remaining = job.remaining - 1
     if job.remaining > 0 then job.phase = "start"; return end
     self.job, self.status = nil, "normal"
-    self:set_position(state, job.row, job.column)
+    self:set_position(state, job.row, job.column, false, true)
   end
   while self.job and self.last_step_work < budget do
     if job.work >= Vi.maximum_work then self.job, self.status = nil, "motion-limit"; break end
@@ -315,14 +370,14 @@ function Vi:view(state)
   local top = state:document(self.scope):top()
   return { active = true, column = self.cursor.column, row = self.cursor.row_index - top,
     row_index = self.cursor.row_index, line_id = self.cursor.line_id, scope = self.scope,
-    visual = self.visual, status = self.status, pending = self.job ~= nil,
+    visual = self.visual, status = self.status, pending = self.job ~= nil or self.selection_job ~= nil,
     count = self.count, prefix = self.prefix, awaiting = self.awaiting ~= nil }
 end
 
 function Vi.title(view, fallback)
   if not view.active then return fallback end
   local mode = view.visual and ("Visual " .. view.visual) or "Vi"
-  local pending = view.awaiting and "find character" or view.pending and "moving; Esc cancels"
+  local pending = view.awaiting and "find character" or view.pending and (view.status .. "; Esc cancels")
     or view.status ~= "normal" and view.status or "i exits; v selects; y copies"
   return "Kiwi [" .. mode .. "] " .. (view.count or "") .. (view.prefix or "") .. " — " .. pending
 end

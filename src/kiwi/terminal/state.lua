@@ -416,7 +416,7 @@ function State:vi_toggle()
   return true
 end
 function State:vi_view() return self.vi:view(self) end
-function State:vi_pending() return self.vi.active and self.vi.job ~= nil end
+function State:vi_pending() return self.vi.active and (self.vi.job ~= nil or self.vi.selection_job ~= nil) end
 function State:vi_step(budget) return self.vi:step(self, budget) end
 
 function State:navigation_pending() return self:search_pending() or self:vi_pending() end
@@ -860,7 +860,7 @@ function State:search_step(budget)
       end
       self.search.current, self.vi.search_direction = chosen, direction
       match = self.search.matches[chosen]
-      self.vi:set_position(self, match.row_index, match.start_column)
+      self.vi:set_position(self, match.row_index, match.start_column, false, true)
     else self:reveal_search_match(match) end
   end
   return match, status
