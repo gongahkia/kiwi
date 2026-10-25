@@ -52,6 +52,81 @@ local function setup()
 end
 
 return {
+  state_transaction_preserves_all_cell_renditions_and_independent_blank_storage = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2 })
+    terminal:write("\27]8;;https://example.com\7\27[1;2;3;4:3;7;8;9;58:2::1:2:3m界é\27]8;;\7\27[0m")
+    local state = Terminal.state(terminal)
+    local transaction = StateTransaction.new(state)
+    Assert.equal(Snapshot.encode(transaction.state), Snapshot.encode(state))
+    for row = 0, state.rows - 1 do
+      for column = 0, state.columns - 1 do
+        local source, candidate = state:get(column, row), transaction.state:get(column, row)
+        Assert.truthy(source ~= candidate)
+        for key, value in pairs(source) do Assert.equal(candidate[key], value) end
+      end
+    end
+    transaction.state:get(7, 1).fg = 123
+    Assert.truthy(state:get(7, 1).fg ~= 123)
+  end,
+  direct_reflow_failure_leaves_original_image_anchors_and_line_ids_unchanged = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2 })
+    terminal:write("source\r\nhistory\r\nend")
+    upload_image(terminal)
+    local state = Terminal.state(terminal)
+    local before, line_id = Snapshot.encode(state), state.next_line_id
+    local transform = state.reflow.transform
+    state.reflow.transform = function() error("injected reflow failure") end
+    local ok = pcall(StateTransaction.new, state, { columns = 4, rows = 3 })
+    state.reflow.transform = transform
+    Assert.equal(ok, false)
+    Assert.equal(Snapshot.encode(state), before)
+    Assert.equal(state.next_line_id, line_id)
+    Assert.truthy(#state.kitty_placements.placements > 0)
+  end,
+  direct_reflow_staging_matches_full_clone_and_keeps_source_cells_private = function()
+    for _, size in ipairs({ {4, 3}, {8, 4}, {10, 2}, {1, 3} }) do
+      local terminal = Terminal.new({ columns = 8, rows = 2 })
+      terminal:write("\27[4:3;58:5:1mA界é\r\nsecond\r\nthird\r\nfourth\27[0m")
+      upload_image(terminal)
+      terminal:write("\27[?1049hALT")
+      local state = Terminal.state(terminal)
+      local before = Snapshot.encode(state)
+      local original_history_color = state.scrollback:get(1).cells[0].bg
+      local expected = StateTransaction.new(state)
+      expected.state:resize(size[1], size[2])
+      local staged = StateTransaction.new(state, { columns = size[1], rows = size[2] })
+      Assert.equal(Snapshot.encode(staged.state), Snapshot.encode(expected.state))
+      Assert.equal(staged.state.scrollback:size(), expected.state.scrollback:size())
+      for index = 1, staged.state.scrollback:size() do
+        local a, b = staged.state.scrollback:get(index), expected.state.scrollback:get(index)
+        for column = 0, size[1] - 1 do
+          Assert.equal(a.cells[column].glyph, b.cells[column].glyph)
+          Assert.equal(a.cells[column].underline_style, b.cells[column].underline_style)
+        end
+      end
+      staged.state:configure_palette(Config.parse("background = #ffffff"))
+      Assert.equal(Snapshot.encode(state), before)
+      Assert.equal(state.scrollback:get(1).cells[0].bg, original_history_color)
+      staged:seal(); staged:commit(); staged:publish_effects()
+      terminal:write("\27[?1049l\27[HOK")
+      Assert.equal(state.cells[0].glyph, "O")
+    end
+  end,
+  state_transaction_shares_immutable_clusters_but_isolates_grapheme_extension = function()
+    local terminal = Terminal.new({ columns = 8, rows = 2 })
+    terminal:write("A界e")
+    local state = Terminal.state(terminal)
+    local transaction = StateTransaction.new(state)
+    Assert.equal(transaction.state:get(0, 0).codepoints, state:get(0, 0).codepoints)
+    Assert.equal(transaction.state:get(1, 0).codepoints, state:get(1, 0).codepoints)
+    transaction.state:write_codepoint("́", 0x301)
+    Assert.equal(transaction.state:get(3, 0).glyph, "é")
+    Assert.equal(state:get(3, 0).glyph, "e")
+    Assert.equal(#state:get(3, 0).codepoints, 1)
+    transaction:seal(); transaction:commit(); transaction:publish_effects()
+    terminal:write("̂")
+    Assert.equal(state:get(3, 0).glyph, "é̂")
+  end,
   reload_resource_failures_leave_all_panes_and_effects_untouched = function()
     for fail_at = 1, 3 do
       local options, sessions, created = setup()

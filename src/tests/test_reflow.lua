@@ -8,6 +8,35 @@ local function row(id, text, wrapped)
 end
 
 return {
+  compact_reflow_mapping_matches_every_dense_gap_across_wide_and_wrapped_lines = function()
+    local sources = { row(1, "abcd", true), row(2, "ef", false), row(3, "  ", false), row(4, "ghi", true) }
+    sources[2].cells[0] = { glyph = "界", width = 2 }
+    sources[2].cells[1] = { glyph = "", continuation = true, width = 0, anchor_column = 0 }
+    for columns = 1, 8 do
+      local function transform(compact)
+        local next_id = 10
+        return Reflow.transform(sources, 4, columns, function()
+          next_id = next_id + 1
+          local value = row(next_id, "", false)
+          for column = 4, columns - 1 do value.cells[column] = { glyph = " ", width = 1 } end
+          return value
+        end, nil, { compact_map = compact })
+      end
+      local dense_rows, dense, dense_members = transform(false)
+      local compact_rows, compact, compact_members = transform(true)
+      Assert.equal(#compact_rows, #dense_rows)
+      for _, source in ipairs(sources) do
+        Assert.equal(compact_members[source.line_id], dense_members[source.line_id])
+        for column = -1, 6, 0.5 do
+          local expected = Reflow.remap_position(dense, source.line_id, column)
+          local actual = Reflow.remap_position(compact, source.line_id, column)
+          Assert.equal(actual.column, expected.column)
+          Assert.equal(actual.line_id, expected.line_id)
+        end
+      end
+      Assert.equal(Reflow.remap_position(compact, 999, 0, "missing"), "missing")
+    end
+  end,
   reflow_joins_soft_wrapped_rows_and_returns_coordinate_mappings = function()
     local next_id = 10
     local rows, map = Reflow.transform({ row(1, "abcd", true), row(2, "ef", false) }, 4, 3, function()
