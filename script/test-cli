@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+export LUA_PATH='src/?.lua;src/?/init.lua;;'
+log=$(mktemp "${TMPDIR:-/tmp}/kiwi-cli.XXXXXX")
+trap 'rm -f "$log"' EXIT HUP INT TERM
+# Missing native libraries and an invalid host must not prevent informational
+# commands or argument errors from working on headless machines.
+export KIWI_HOST=invalid KIWI_SURFACE_LIB=/kiwi-missing-native-library
+"${LUAJIT:-luajit}" src/kiwi/app/main.lua --help >"$log"
+grep -q '^Usage: kiwi' "$log"
+"${LUAJIT:-luajit}" src/kiwi/app/main.lua --version >"$log"
+grep -q '^Kiwi ' "$log"
+status=0
+"${LUAJIT:-luajit}" src/kiwi/app/main.lua --unknown >"$log" 2>&1 || status=$?
+test "$status" = 2
+grep -q 'unknown option: --unknown; use --help' "$log"
+if grep -q 'stack traceback' "$log"; then cat "$log"; exit 1; fi
+status=0
+"${LUAJIT:-luajit}" src/kiwi/app/main.lua -- >"$log" 2>&1 || status=$?
+test "$status" = 2
+grep -q -- '-- needs a command' "$log"
+echo 'CLI tests passed: help, version, argument validation without native loading.'

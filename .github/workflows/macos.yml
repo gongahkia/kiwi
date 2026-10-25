@@ -12,14 +12,16 @@ jobs:
   check:
     name: check (Apple Silicon)
     runs-on: macos-15
+    env:
+      KIWI_REQUIRE_SHELLS: bash,zsh,fish
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: verify runner architecture
         run: test "$(uname -m)" = arm64
       - name: install build dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish
       - name: deterministic checks
-        run: make check && make cocoa-smoke
+        run: make check && make cocoa-smoke && make interaction-smoke
 
   intel-compatibility:
     name: daily-driver compatibility (Intel)
@@ -35,6 +37,7 @@ jobs:
           mkdir -p artifacts
           make check
           make cocoa-smoke
+          make interaction-smoke
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
       - name: upload compatibility report
         if: always()
