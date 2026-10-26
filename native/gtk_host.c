@@ -146,6 +146,12 @@ struct KiwiGtkTerminalPresentation {
   KiwiGtkTerminal *terminal;
   KiwiGtkCallbacks callbacks;
   GtkIMContext *im_context;
+  gboolean filtering_key;
+  gboolean preedit_active;
+  GString *filtered_commit;
+  GHashTable *reported_keys;
+  GQueue key_events;
+  gboolean processing_keys;
   KiwiGtkGlPresentation *gl_presentation;
   AdwTabPage *tab_page;
 };
@@ -1018,7 +1024,7 @@ static void kiwi_gtk_key_variants(KiwiGtkTerminalPresentation *presentation,
 }
 
 static uint32_t kiwi_gtk_dispatch_key(KiwiGtkTerminalPresentation *presentation,
-                                      GtkEventControllerKey *controller,
+                                      int group,
                                       guint keyval, guint keycode,
                                       GdkModifierType state, int action) {
   if (presentation == NULL || presentation->callbacks.key == NULL) return 0;
@@ -1030,7 +1036,6 @@ static uint32_t kiwi_gtk_dispatch_key(KiwiGtkTerminalPresentation *presentation,
     .modifiers = kiwi_gtk_modifiers(state),
     .action = action,
   };
-  int group = controller == NULL ? 0 : gtk_event_controller_key_get_group(controller);
   kiwi_gtk_key_variants(presentation, group, keycode, &event);
   return presentation->callbacks.key(presentation->callbacks.userdata, &event);
 }
@@ -1062,18 +1067,76 @@ static void kiwi_gtk_resize_property(GObject *object, GParamSpec *parameter,
                   userdata);
 }
 
-static gboolean kiwi_gtk_key_pressed(GtkEventControllerKey *controller, guint keyval, guint keycode, GdkModifierType state, gpointer userdata) {
-  KiwiGtkTerminalPresentation *presentation = userdata;
-  uint32_t result = kiwi_gtk_dispatch_key(presentation, controller, keyval, keycode, state,
-                                          KIWI_GTK_ACTION_PRESS);
-  return (result & KIWI_GTK_INPUT_HANDLED) != 0 &&
-         (result & KIWI_GTK_INPUT_DEFER_TEXT) == 0;
+static void kiwi_gtk_key_pressed(KiwiGtkTerminalPresentation *presentation, GdkEvent *event) {
+  guint keyval = gdk_key_event_get_keyval(event);
+  guint keycode = gdk_key_event_get_keycode(event);
+  GdkModifierType state = gdk_event_get_modifier_state(event);
+  int group = (int)gdk_key_event_get_layout(event);
+  gboolean composing = presentation->preedit_active;
+  g_string_truncate(presentation->filtered_commit, 0);
+  presentation->filtering_key = TRUE;
+  gboolean filtered = gtk_im_context_filter_keypress(presentation->im_context, event);
+  presentation->filtering_key = FALSE;
+  /* Simple text commits synchronously and can retain the physical key for
+   * Kitty associated text. An engine that consumes a key without committing
+   * owns it: neither its press nor its eventual release belongs to the PTY.
+   * Asynchronous/composed commits remain independent Unicode text. */
+  gboolean report_key = !filtered || (!composing && presentation->filtered_commit->len != 0);
+  uint32_t result = 0;
+  if (report_key) {
+    if (g_hash_table_size(presentation->reported_keys) < 256)
+      g_hash_table_add(presentation->reported_keys, GUINT_TO_POINTER(keycode));
+    result = kiwi_gtk_dispatch_key(presentation, group, keyval, keycode, state,
+                                   KIWI_GTK_ACTION_PRESS);
+  } else {
+    g_hash_table_remove(presentation->reported_keys, GUINT_TO_POINTER(keycode));
+  }
+  if (presentation->filtered_commit->len != 0 && presentation->callbacks.text != NULL &&
+      (!report_key || (result & KIWI_GTK_INPUT_HANDLED) == 0 ||
+       (result & KIWI_GTK_INPUT_DEFER_TEXT) != 0)) {
+    presentation->callbacks.text(presentation->callbacks.userdata,
+        presentation->filtered_commit->str, presentation->filtered_commit->len);
+  }
+  g_string_truncate(presentation->filtered_commit, 0);
 }
 
-static void kiwi_gtk_key_released(GtkEventControllerKey *controller, guint keyval, guint keycode, GdkModifierType state, gpointer userdata) {
+static void kiwi_gtk_key_released(KiwiGtkTerminalPresentation *presentation, GdkEvent *event) {
+  guint keyval = gdk_key_event_get_keyval(event);
+  guint keycode = gdk_key_event_get_keycode(event);
+  GdkModifierType state = gdk_event_get_modifier_state(event);
+  int group = (int)gdk_key_event_get_layout(event);
+  gboolean filtered = gtk_im_context_filter_keypress(presentation->im_context, event);
+  gboolean reported = g_hash_table_remove(presentation->reported_keys, GUINT_TO_POINTER(keycode));
+  if (!filtered && reported)
+    kiwi_gtk_dispatch_key(presentation, group, keyval, keycode, state,
+                          KIWI_GTK_ACTION_RELEASE);
+}
+
+static gboolean kiwi_gtk_key_event(GtkEventControllerLegacy *controller,
+                                  GdkEvent *event, gpointer userdata) {
+  (void)controller;
+  GdkEventType type = gdk_event_get_event_type(event);
+  if (type != GDK_KEY_PRESS && type != GDK_KEY_RELEASE) return FALSE;
   KiwiGtkTerminalPresentation *presentation = userdata;
-  kiwi_gtk_dispatch_key(presentation, controller, keyval, keycode, state,
-                        KIWI_GTK_ACTION_RELEASE);
+  /* Some IM modules run a nested main loop while filtering. Retain subsequent
+   * events in order so a release cannot overtake its still-filtering press. */
+  if (g_queue_get_length(&presentation->key_events) >= 256) {
+    kiwi_gtk_set_error("GTK input method exceeded the pending key limit");
+    return TRUE;
+  }
+  g_queue_push_tail(&presentation->key_events, gdk_event_ref(event));
+  if (presentation->processing_keys) return TRUE;
+  presentation->processing_keys = TRUE;
+  while ((event = g_queue_pop_head(&presentation->key_events)) != NULL) {
+    if (gdk_event_get_event_type(event) == GDK_KEY_PRESS)
+      kiwi_gtk_key_pressed(presentation, event);
+    else
+      kiwi_gtk_key_released(presentation, event);
+    gdk_event_unref(event);
+  }
+  presentation->processing_keys = FALSE;
+  /* The event has already been filtered. Do not filter it again in bubbling. */
+  return TRUE;
 }
 
 static void kiwi_gtk_im_commit(GtkIMContext *context, const char *text, gpointer userdata) {
@@ -1087,17 +1150,24 @@ static void kiwi_gtk_im_commit(GtkIMContext *context, const char *text, gpointer
     kiwi_gtk_set_error("GTK input method committed invalid or oversized UTF-8");
     return;
   }
+  if (presentation->filtering_key) {
+    if (text_bytes <= KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES - presentation->filtered_commit->len)
+      g_string_append_len(presentation->filtered_commit, text, (gssize)text_bytes);
+    else
+      kiwi_gtk_set_error("GTK input method committed too much text for one key");
+    return;
+  }
   presentation->callbacks.text(presentation->callbacks.userdata, text, text_bytes);
 }
 
 static void kiwi_gtk_im_preedit_changed(GtkIMContext *context, gpointer userdata) {
   KiwiGtkTerminalPresentation *presentation = userdata;
-  if (presentation->callbacks.preedit == NULL) return;
   char *text = NULL;
   PangoAttrList *attributes = NULL;
   int cursor = 0;
   gtk_im_context_get_preedit_string(context, &text, &attributes, &cursor);
   size_t text_bytes = text == NULL ? 0 : strlen(text);
+  presentation->preedit_active = text_bytes != 0;
   if (text == NULL || text_bytes > KIWI_GTK_TEXT_INPUT_MAXIMUM_BYTES ||
       !g_utf8_validate(text, (gssize)text_bytes, NULL)) {
     kiwi_gtk_set_error("GTK input method preedit is invalid or oversized UTF-8");
@@ -1105,8 +1175,9 @@ static void kiwi_gtk_im_preedit_changed(GtkIMContext *context, gpointer userdata
     glong characters = g_utf8_strlen(text, (gssize)text_bytes);
     glong clamped_cursor = CLAMP((glong)cursor, 0, characters);
     uint32_t cursor_offset = (uint32_t)(g_utf8_offset_to_pointer(text, clamped_cursor) - text);
-    presentation->callbacks.preedit(presentation->callbacks.userdata, text, text_bytes,
-                                    cursor_offset, cursor_offset);
+    if (presentation->callbacks.preedit != NULL)
+      presentation->callbacks.preedit(presentation->callbacks.userdata, text, text_bytes,
+                                      cursor_offset, cursor_offset);
   }
   if (attributes != NULL) pango_attr_list_unref(attributes);
   g_free(text);
@@ -1124,6 +1195,7 @@ static void kiwi_gtk_focus_leave(GtkEventControllerFocus *controller, gpointer u
   (void)controller;
   KiwiGtkTerminalPresentation *presentation = userdata;
   if (presentation->im_context != NULL) gtk_im_context_reset(presentation->im_context);
+  g_hash_table_remove_all(presentation->reported_keys);
   if (presentation->callbacks.focus != NULL) {
     presentation->callbacks.focus(presentation->callbacks.userdata, 0);
   }
@@ -1485,6 +1557,9 @@ static void kiwi_gtk_terminal_presentation_destroy(
   if (presentation == NULL) return;
   kiwi_gtk_gl_presentation_destroy(presentation->gl_presentation);
   presentation->gl_presentation = NULL;
+  g_string_free(presentation->filtered_commit, TRUE);
+  g_hash_table_unref(presentation->reported_keys);
+  g_queue_clear_full(&presentation->key_events, (GDestroyNotify)gdk_event_unref);
   g_free(presentation);
 }
 
@@ -1494,6 +1569,8 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   KiwiGtkTerminalPresentation *presentation = g_new0(KiwiGtkTerminalPresentation, 1);
   presentation->host = host;
   presentation->callbacks = *callbacks;
+  presentation->filtered_commit = g_string_new(NULL);
+  presentation->reported_keys = g_hash_table_new(g_direct_hash, g_direct_equal);
   presentation->content = gtk_overlay_new();
   presentation->progress = GTK_PROGRESS_BAR(gtk_progress_bar_new());
   presentation->terminal = KIWI_GTK_TERMINAL(
@@ -1520,10 +1597,9 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   g_signal_connect(presentation->terminal, "notify::height",
                    G_CALLBACK(kiwi_gtk_resize_property), presentation);
 
-  GtkEventControllerKey *key = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
+  GtkEventController *key = gtk_event_controller_legacy_new();
   gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(key), GTK_PHASE_CAPTURE);
-  g_signal_connect(key, "key-pressed", G_CALLBACK(kiwi_gtk_key_pressed), presentation);
-  g_signal_connect(key, "key-released", G_CALLBACK(kiwi_gtk_key_released), presentation);
+  g_signal_connect(key, "event", G_CALLBACK(kiwi_gtk_key_event), presentation);
   gtk_widget_add_controller(GTK_WIDGET(presentation->terminal),
                             GTK_EVENT_CONTROLLER(key));
 
@@ -2361,12 +2437,13 @@ int kiwi_gtk_host_key_text_inject_smoke(KiwiGtkHost *host) {
     kiwi_gtk_set_error("GTK key/text smoke needs installed key and text callbacks");
     return 0;
   }
-  if (kiwi_gtk_key_pressed(NULL, 'a', 0, 0, terminal)) {
+  uint32_t result = kiwi_gtk_dispatch_key(terminal, 0, 'a', 0, 0, KIWI_GTK_ACTION_PRESS);
+  if ((result & KIWI_GTK_INPUT_HANDLED) != 0 && (result & KIWI_GTK_INPUT_DEFER_TEXT) == 0) {
     kiwi_gtk_set_error("GTK key/text smoke expected the deferred key to reach the input method");
     return 0;
   }
   kiwi_gtk_im_commit(NULL, text, terminal);
-  kiwi_gtk_key_released(NULL, 'a', 0, 0, terminal);
+  kiwi_gtk_dispatch_key(terminal, 0, 'a', 0, 0, KIWI_GTK_ACTION_RELEASE);
   return 1;
 }
 
@@ -2391,9 +2468,9 @@ int kiwi_gtk_host_key_variants_inject_smoke(KiwiGtkHost *host) {
     kiwi_gtk_set_error("GTK PC-101 keycode table is invalid");
     return 0;
   }
-  kiwi_gtk_dispatch_key(terminal, NULL, 'A', 38, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  kiwi_gtk_dispatch_key(terminal, 0, 'A', 38, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
                         KIWI_GTK_ACTION_PRESS);
-  kiwi_gtk_dispatch_key(terminal, NULL, 'A', 38, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  kiwi_gtk_dispatch_key(terminal, 0, 'A', 38, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
                         KIWI_GTK_ACTION_RELEASE);
   return 1;
 }

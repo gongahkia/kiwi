@@ -248,6 +248,10 @@ test-gtk-primary:
 gtk-primary-wayland-smoke: native gtk-host terminfo
 	LUAJIT="$(LUAJIT)" ./script/gtk-primary-wayland-smoke
 
+.PHONY: gtk-ime-wayland-smoke
+gtk-ime-wayland-smoke: native gtk-host terminfo
+	LUAJIT="$(LUAJIT)" ./script/gtk-ime-wayland-smoke
+
 .PHONY: primary-selection-smoke
 primary-selection-smoke: native terminfo
 	./script/primary-selection-smoke
