@@ -592,7 +592,8 @@ initial native allocation must not leave the fixture waiting for displaced text.
 The load sanity check reserves 256 bytes per acknowledgment for protocol
 overhead and requires at least another 4 KiB of output. It does not require
 4 KiB per input: a quicker acknowledgment can complete before that much output
-is consumed. The producer remains continuously writable after the first input.
+is consumed. After the first input, the producer continues generating traffic
+whenever the PTY is writable.
 
 Reports preserve per-process startup samples, raw bounded input distributions,
 parser/presentation phase splits, sampled peak RSS, output-byte counts, actual
