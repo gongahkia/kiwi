@@ -427,6 +427,24 @@ are recorded in [URL hint qualification](evidence/2026-10-26-hints.md).
 There is no arbitrary-regex hint configuration, custom command execution,
 Unicode URI support or file/custom-scheme activation.
 
+## X11 primary selection
+
+With `primary-selection = true`, completing a local pointer selection publishes
+a UTF-8 snapshot to X11 PRIMARY without writing CLIPBOARD. Middle click requests
+PRIMARY asynchronously unless application mouse reporting owns the event;
+configured Shift override and product input modes retain precedence. Reads accept
+at most 1 MiB, use UTF8_STRING/STRING and direct/INCR transfers, and have a
+one-second owner-response deadline. Empty, malformed or oversized data never
+enqueues partial input. Accepted text follows ordinary bracketed-paste framing.
+
+Focus/pane/input-mode changes cancel delivery; outstanding conversions drain
+before their windows are released. Closed requesters retire into a process pool
+capped at 16 read buffers, serviced by surviving native host event loops.
+Selection highlights are independent of native ownership, and clearing them
+does not revoke an existing snapshot. Keyboard-primary conveniences, Wayland and
+actual-desktop qualification remain open. See [ADR 0043](adr/0043-x11-primary-selection.md)
+and [native evidence](evidence/2026-10-26-primary-selection.md).
+
 ## Truecolour decision
 
 Kiwi advertises direct RGB deliberately: the terminfo entry has `Tc`, `RGB`,

@@ -550,7 +550,7 @@ Kiwi advertises 256 indexed colours and direct RGB SGR through its
 or VT certification. Its supported targets are Linux x86_64 and a verified
 macOS arm64 source path. It has a bounded Linux AT-SPI provider and macOS
 NSAccessibility element, but no validated end-to-end screen-reader result,
-primary selection, an OSC 52 prompt policy, full
+Wayland primary-selection qualification, an OSC 52 prompt policy, full
 text indexing, command execution UI, or controlled-remote SSH qualification. The
 current, precise limits are maintained in the [conformance matrix](CONFORMANCE.md),
 [text contract](TEXT.md), [accessibility contract](ACCESSIBILITY.md), and the
@@ -642,7 +642,7 @@ ordinary selection; rectangular selections clear because their geometry changes.
 Rectangular copy includes spaces and separates physical rows with newlines.
 Both copying and highlighting expand a cut wide character to its full cell span.
 This is terminal navigation, without Vim editing, registers, or macros.
-X11 primary selection remains unimplemented.
+X11 primary selection is described below.
 
 `make vi-smoke` checks live host input against a raw PTY receiver and a private
 clipboard bridge. `make selection-smoke` checks rectangular and linear highlight
@@ -679,6 +679,27 @@ opener/clipboard substitutes. `make hints-framebuffer-smoke` verifies badge pixe
 even with a saturated glyph cache. `make bench-hints HINT_HISTORY=10000` measures
 bounded model work with retained history and dense OSC 8 targets; it does not
 measure input-to-display latency.
+
+On Linux **X11**, completing a mouse selection makes a snapshot available for
+middle-click paste. This is separate from the ordinary clipboard: Ctrl+Shift+C/V
+still use CLIPBOARD. Double/triple-click word/line selections publish on release.
+Empty or oversized selections leave the previous primary snapshot intact; merely
+clearing the highlight does not erase it. Automatic vi-selection publication and
+a keyboard paste-primary action are not implemented in this increment.
+
+Set `primary-selection = false` (or `KIWI_PRIMARY_SELECTION=false`) to disable new
+primary-selection operations. This does not revoke an existing native snapshot.
+When a terminal program captures mouse input, middle click belongs to that
+program; Shift+middle-click uses the existing `mouse-shift-capture` policy.
+Vi/hints/Find input ownership takes precedence. Reads are asynchronous with a
+one-second owner-response deadline and a 1 MiB UTF-8 limit. Failed reads send no
+partial input; accepted text uses bracketed-paste framing when enabled. Changing
+focus, pane or input mode cancels pending delivery. macOS and Wayland do not use
+this X11 path. See [the ownership and lifetime contract](adr/0043-x11-primary-selection.md).
+
+`make test-primary-selection` tests native transfers and limits.
+`make primary-selection-smoke` checks host input against a raw PTY; it creates a
+private Xvfb server so its clipboard writes cannot affect the user's desktop.
 
 Font size changes apply to the current window without editing the configuration.
 Reset restores the last successfully loaded configured size. Sizes that cannot fit

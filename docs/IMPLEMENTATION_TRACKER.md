@@ -60,7 +60,8 @@ tests do not establish Linux or Windows desktop qualification.
 - [x] Bounded regex search with cancellation and Unicode-aware results.
 - [x] Bounded vi-style navigation and character/line/word/rectangular selection.
 - [x] Keyboard URL hints with bounded discovery, explicit preview/open/copy and native regression gates.
-- [ ] X11 primary selection with explicit ownership and clipboard policy.
+- [x] X11 pointer-primary selection with explicit ownership and clipboard policy.
+- [ ] Extend primary selection to keyboard publication/paste and qualify actual desktops.
 
 ## Distribution
 
@@ -511,3 +512,24 @@ respects the 4,096-unit slice and 262,144-unit job caps. Raw data, methodology,
 qualification boundaries and remaining URI-policy limits are in
 [URL hint evidence](evidence/2026-10-26-hints.md). X11 primary selection and all
 other unchecked workstreams remain required.
+
+## X11 pointer-primary selection (2026-10-26)
+
+Completing a local mouse selection now publishes a bounded UTF-8 snapshot to
+PRIMARY without changing CLIPBOARD. Middle click reads it asynchronously with
+application mouse/Shift policy, bracketed-paste framing and cancellation on
+focus/pane/input-mode changes. Direct and INCR reads have byte/event/slice limits
+and an owner deadline. Cancelled and closing-window conversions drain safely;
+one latest click is queued and total process read buffers are capped at 16.
+
+Native checks pass on GLFW/WGPU, GTK/WGPU, GTK GL and GTK GL native-tab routes
+under isolated Xvfb. Transfer tests include 1 MiB INCR, malformed/stalled owners,
+Latin-1 fallback and sanitizers. Full Lua checks pass 617 tests on Linux/macOS.
+This work also fixes an existing GLFW error ABI mismatch and GTK's swapped
+middle/right buttons and missing pointer modifiers. See the
+[complete evidence](evidence/2026-10-26-primary-selection.md) and
+[ownership policy](adr/0043-x11-primary-selection.md).
+
+Keyboard-primary conveniences and actual X11/Wayland desktop qualification remain
+open, alongside the other unchecked workstreams. These are bounded transfer/load
+checks, not a displayed-latency or performance comparison.
