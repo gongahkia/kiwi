@@ -308,13 +308,14 @@ function Controller.run_native_tabs(window, host, options)
     while not window:should_close() and #sessions > 0 do
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
-      local timeout = 0.050
+      local timeout = max_seconds > 0 and math.max(0, started_at + max_seconds - now) or math.huge
       local watched_ptys = {}
       for _, session in ipairs(sessions) do
         watched_ptys[#watched_ptys + 1] = session.pty
         local deadline = session:next_deadline()
         timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted, window.minimized))
       end
+      timeout = math.min(timeout, PollSchedule.child_timeout(watched_ptys, window.minimized))
       if window.watch_ptys then window:watch_ptys(watched_ptys) end
       if host.await_events and options.application then
         host.await_events(options.application, window, math.max(0, timeout))
@@ -714,7 +715,13 @@ function Controller.run(window, host, options)
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = consumer:next_render_deadline()
+      local can_present = not window.minimized and not state.modes.synchronized_output
+      if not can_present then deadline = nil
+      elseif consumer:needs_render(now) then deadline = now end
       local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
+      requested_wait = math.min(requested_wait, PollSchedule.child_timeout({ pty }, window.minimized))
+      if max_seconds > 0 then requested_wait = math.min(requested_wait, math.max(0, started_at + max_seconds - now)) end
+      if render_target_revision ~= nil then requested_wait = math.min(requested_wait, 0.01) end
       if state:navigation_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       if primary_selection.request then requested_wait = math.min(requested_wait, 0.001) end
       if window.watch_ptys then window:watch_ptys({ pty }) end

@@ -19,6 +19,7 @@ struct KiwiPtyWatch {
   uint64_t generation;
   int armed;
   int stopping;
+  int failed;
   void (*notify)(void *);
   void *userdata;
 };
@@ -42,7 +43,16 @@ static void *watch_main(void *argument) {
     pthread_mutex_unlock(&watch->mutex);
 
     int result = poll(fds, (nfds_t)count + 1, -1);
-    if (result < 0) { if (errno == EINTR) continue; return NULL; }
+    if (result < 0) {
+      if (errno == EINTR) continue;
+      pthread_mutex_lock(&watch->mutex);
+      watch->failed = 1;
+      pthread_mutex_unlock(&watch->mutex);
+      /* Report a failed worker on the next UI-thread update, rather than
+       * silently stranding a host in an indefinite wait. */
+      watch->notify(watch->userdata);
+      return NULL;
+    }
     if (fds[0].revents) {
       char bytes[128];
       while (read(watch->signal[0], bytes, sizeof(bytes)) > 0) {}
@@ -95,6 +105,7 @@ int kiwi_pty_watch_update_events(KiwiPtyWatch *watch, const int *fds,
     if (fds[i] < 0 || interests[i] == 0 || (interests[i] & ~(KIWI_WATCH_READ | KIWI_WATCH_WRITE))) return 0;
   }
   pthread_mutex_lock(&watch->mutex);
+  if (watch->failed) { pthread_mutex_unlock(&watch->mutex); return 0; }
   for (size_t i = 0; i < count; ++i) {
     watch->fds[i] = fds[i];
     watch->events[i] = ((interests[i] & KIWI_WATCH_READ) ? POLLIN : 0) |

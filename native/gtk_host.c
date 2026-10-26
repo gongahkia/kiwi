@@ -2080,19 +2080,25 @@ static gboolean kiwi_gtk_wait_timeout(gpointer userdata) {
 void kiwi_gtk_host_pump(KiwiGtkHost *host, uint32_t timeout_milliseconds) {
   (void)host;
   gboolean dispatched = FALSE;
-  while (g_main_context_pending(NULL)) {
+  for (unsigned int iteration = 0; iteration < 32 && g_main_context_pending(NULL); ++iteration) {
     g_main_context_iteration(NULL, FALSE);
     dispatched = TRUE;
   }
   if (!dispatched && timeout_milliseconds > 0) {
-    GSource *timeout = g_timeout_source_new(timeout_milliseconds);
-    g_source_set_callback(timeout, kiwi_gtk_wait_timeout, NULL, NULL);
-    g_source_attach(timeout, NULL);
+    GSource *timeout = timeout_milliseconds == UINT32_MAX ? NULL : g_timeout_source_new(timeout_milliseconds);
+    if (timeout != NULL) {
+      g_source_set_callback(timeout, kiwi_gtk_wait_timeout, NULL, NULL);
+      g_source_attach(timeout, NULL);
+    }
     g_main_context_iteration(NULL, TRUE);
-    g_source_destroy(timeout);
-    g_source_unref(timeout);
+    if (timeout != NULL) {
+      g_source_destroy(timeout);
+      g_source_unref(timeout);
+    }
   }
-  while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
+  for (unsigned int iteration = 0; iteration < 32 && g_main_context_pending(NULL); ++iteration) {
+    g_main_context_iteration(NULL, FALSE);
+  }
 }
 
 int kiwi_gtk_host_should_close(const KiwiGtkHost *host) { return host != NULL && host->should_close; }

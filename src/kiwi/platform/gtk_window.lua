@@ -827,7 +827,11 @@ function Window.live_count() return live_windows end
 function Window.pump(window, timeout)
   local primary_reads = package.loaded["kiwi.platform.primary_read"]
   if primary_reads then timeout = primary_reads.wait_timeout(timeout) end
-  native.kiwi_gtk_host_pump(window.handle, math.max(0, math.floor(timeout * 1000 + 0.5)))
+  assert(type(timeout) == "number" and timeout >= 0, "event wait timeout must be non-negative")
+  -- UINT32_MAX means no timer; finite waits must not round into the sentinel.
+  local milliseconds = timeout == math.huge and 4294967295
+    or math.min(4294967294, math.max(0, math.ceil(timeout * 1000)))
+  native.kiwi_gtk_host_pump(window.handle, milliseconds)
   if primary_reads then primary_reads.reap() end
 end
 

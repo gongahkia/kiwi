@@ -702,6 +702,7 @@ function Window.wait_events_for(timeout, windows)
   if primary_reads then timeout = primary_reads.wait_timeout(timeout) end
   if ffi.os == "Linux" then timeout = native.kiwi_surface_prepare_events(timeout) end
   if timeout == 0 then glfw.lib.glfwPollEvents()
+  elseif timeout == math.huge then glfw.lib.glfwWaitEvents()
   else glfw.lib.glfwWaitEventsTimeout(timeout) end
   if ffi.os == "Linux" then native.kiwi_surface_dispatch_events() end
   flush_input_correlations(windows)
