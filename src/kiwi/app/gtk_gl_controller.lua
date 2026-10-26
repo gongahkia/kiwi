@@ -12,7 +12,8 @@ local HostEffects = require("kiwi.app.host_effects")
 local Clipboard = require("kiwi.input.clipboard")
 local PrimarySelection = require("kiwi.input.primary_selection")
 local Composition = require("kiwi.input.composition")
-local Config = require("kiwi.config")
+local ConfigurationRuntime = require("kiwi.app.configuration_runtime")
+local ConfigurationReload = require("kiwi.app.gtk_configuration_reload")
 local FontSystem = require("kiwi.font.system")
 local Hyperlink = require("kiwi.input.hyperlink")
 local HyperlinkPointer = require("kiwi.input.hyperlink_pointer")
@@ -95,8 +96,9 @@ local function new_font(window, configuration)
   return font
 end
 
-local function consumer_options(configuration)
+local function consumer_options(configuration, next_revision)
   return {
+    next_revision = next_revision,
     command_region_color = configuration.command_region_color,
     command_region_visual_enabled = configuration.command_regions,
     hyperlink_color = configuration.hyperlink_color,
@@ -156,11 +158,8 @@ function Controller.run_native_tabs(window, host, options)
   local supported, reason = Controller.validate_options(options)
   assert(supported, reason)
   assert(host.platform == "GTK", "GtkGLArea native tabs need the GTK host")
-  local system_appearance = host.system_appearance and host.system_appearance(window) or nil
-  local configuration, configuration_path = Config.load(options.config, nil, {
-    appearance = system_appearance,
-    command_line_overrides = options.configuration_overrides,
-  })
+  local configuration_runtime = ConfigurationRuntime.new(window, host, options)
+  local configuration, configuration_path = configuration_runtime.configuration, configuration_runtime.path
   assert(configuration.background_opacity == 1 and configuration.custom_shader == nil, "background-opacity and custom-shader are unavailable in the experimental GTK GL presenter")
   local enabled, enable_reason = window:enable_native_tabs()
   assert(enabled, "GTK native tabs could not be enabled: " .. tostring(enable_reason))
@@ -197,6 +196,7 @@ function Controller.run_native_tabs(window, host, options)
       initial_cwd = initial_cwd,
       is_selected = function(page) return window:selected_native_tab() == page end,
       on_product_key = handle_product_key,
+      configuration_status = configuration_runtime.status,
     })
     return tab_group:add(session)
   end
@@ -215,6 +215,25 @@ function Controller.run_native_tabs(window, host, options)
   local function focus_next_tab()
     local selected, selected_reason = window:select_next_native_tab()
     return selected == true, selected_reason
+  end
+
+  local function apply_configuration(candidate, path)
+    local actions = ProductActions.new(candidate.keybindings, host.keymap, host.platform)
+    local plan, reason = ConfigurationReload.prepare({
+      current = configuration, candidate = candidate, sessions = sessions,
+      new_font = new_font, dimensions = dimensions,
+      new_consumer = function(page, font, state, config, revision)
+        return GtkGLConsumer.new(page, font, state, consumer_options(config, revision))
+      end,
+      new_host_effects = function(config, page) return HostEffects.new(config, host, page) end,
+    })
+    if not plan then return nil, reason end
+    plan:activate()
+    configuration, configuration_path, product_actions = candidate, path, actions
+    for _, message in ipairs(plan:finish()) do
+      io.stderr:write("Kiwi configuration applied with cleanup/resize error: ", message, "\n")
+    end
+    return true
   end
 
   action_dispatcher = ProductActionDispatcher.new({
@@ -242,7 +261,7 @@ function Controller.run_native_tabs(window, host, options)
     initial_working_directory = active_working_directory,
     report = function(message) io.stderr:write(message, "\n") end,
     request_configuration_reload = function()
-      io.stderr:write("Kiwi configuration reload is unavailable with GTK native tabs; restart the terminal.\n")
+      configuration_runtime:request()
     end,
     set_configuration_path = function(path) configuration_path = path; configuration.path = path end,
     window = window,
@@ -316,6 +335,8 @@ function Controller.run_native_tabs(window, host, options)
         timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted, window.minimized))
       end
       timeout = math.min(timeout, PollSchedule.child_timeout(watched_ptys, window.minimized))
+      configuration_runtime:append_watch(watched_ptys)
+      timeout = configuration_runtime:timeout(now, timeout)
       if window.watch_ptys then window:watch_ptys(watched_ptys) end
       if host.await_events and options.application then
         host.await_events(options.application, window, math.max(0, timeout))
@@ -323,6 +344,7 @@ function Controller.run_native_tabs(window, host, options)
         window:wait_events(math.max(0, timeout))
       end
       if window:should_close() then break end
+      configuration_runtime:poll(window:time(), apply_configuration)
       local all_complete = true
       for index = #sessions, 1, -1 do
         local session = sessions[index]
@@ -363,11 +385,8 @@ function Controller.run(window, host, options)
   local ok, result = xpcall(function()
     local default_title = "Kiwi GTK GL terminal"
     local glfw = host.keymap
-    local system_appearance = host.system_appearance and host.system_appearance(window) or nil
-    local configuration, configuration_path = Config.load(options.config, nil, {
-      appearance = system_appearance,
-      command_line_overrides = options.configuration_overrides,
-    })
+    local configuration_runtime = ConfigurationRuntime.new(window, host, options)
+    local configuration, configuration_path = configuration_runtime.configuration, configuration_runtime.path
     assert(configuration.background_opacity == 1 and configuration.custom_shader == nil, "background-opacity and custom-shader are unavailable in the experimental GTK GL presenter")
     font = new_font(window, configuration)
     local columns, rows = dimensions(window, font)
@@ -450,6 +469,29 @@ function Controller.run(window, host, options)
 
     local function invalidate(reason_name)
       consumer:invalidate(reason_name or "terminal")
+    end
+
+    local function apply_configuration(candidate, path)
+      local actions = ProductActions.new(candidate.keybindings, glfw, host.platform)
+      local page = { terminal = terminal, state = state, window = window, font = font,
+        consumer = consumer, pty = pty, configuration = configuration }
+      local plan, reason = ConfigurationReload.prepare({
+        current = configuration, candidate = candidate, sessions = { page },
+        new_font = new_font, dimensions = dimensions,
+        new_consumer = function(target, next_font, model, config, revision)
+          return GtkGLConsumer.new(target, next_font, model, consumer_options(config, revision))
+        end,
+        new_host_effects = function(config, target) return HostEffects.new(config, host, target) end,
+      })
+      if not plan then return nil, reason end
+      plan:activate()
+      configuration, configuration_path, product_actions = candidate, path, actions
+      configuration.host_effects = page.host_effects
+      font, consumer, columns, rows = page.font, page.consumer, page.columns, page.rows
+      for _, message in ipairs(plan:finish()) do
+        io.stderr:write("Kiwi configuration applied with cleanup/resize error: ", message, "\n")
+      end
+      return true
     end
 
     local function update_preedit_overlay(update)
@@ -571,7 +613,11 @@ function Controller.run(window, host, options)
     end, function(key, action, modifiers, variants)
       if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active or state.hints.active) then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
-        if product_action and Interaction.kinds[product_action] == "terminal" then
+        if product_action == "reload-config" then
+          configuration_runtime:request()
+          modal_input:claim(key)
+          return { handled = true, suppress_text = true }
+        elseif product_action and Interaction.kinds[product_action] == "terminal" then
           Interaction.terminal(product_action, state, clipboard, enqueue_input, primary_selection, configuration.primary_selection)
           modal_input:claim(key)
           invalidate("search")
@@ -724,13 +770,18 @@ function Controller.run(window, host, options)
       if render_target_revision ~= nil then requested_wait = math.min(requested_wait, 0.01) end
       if state:navigation_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       if primary_selection.request then requested_wait = math.min(requested_wait, 0.001) end
-      if window.watch_ptys then window:watch_ptys({ pty }) end
+      local watched_ptys = { pty }
+      configuration_runtime:append_watch(watched_ptys)
+      requested_wait = configuration_runtime:timeout(now, requested_wait)
+      if window.watch_ptys then window:watch_ptys(watched_ptys) end
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
       else
         window:wait_events(requested_wait)
       end
       if window:should_close() then break end
+
+      configuration_runtime:poll(window:time(), apply_configuration)
 
       local primary_bytes, _, primary_query_changed = primary_selection:poll(state, configuration.primary_selection)
       if primary_bytes then enqueue_input(primary_bytes) end
@@ -804,6 +855,7 @@ function Controller.run(window, host, options)
       end
       if window_focused then primary_selection:sync_keyboard(state, configuration.primary_selection) end
       local title = ModalInput.title(state, state.title or default_title)
+      title = configuration_runtime.status:title(title)
       if title ~= last_title then
         window:set_title(title)
         last_title = title
