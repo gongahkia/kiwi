@@ -75,6 +75,7 @@ double kiwi_gtk_host_content_scale(const KiwiGtkHost* host);
 void kiwi_gtk_host_set_size(KiwiGtkHost* host, int width, int height);
 int kiwi_gtk_host_clipboard_write(KiwiGtkHost* host, const char* text);
 const char* kiwi_gtk_host_primary_display(KiwiGtkHost* host);
+int kiwi_gtk_host_primary_supported(KiwiGtkHost* host);
 int kiwi_gtk_host_primary_write(KiwiGtkHost* host, const char* text);
 int kiwi_gtk_host_clipboard_read(KiwiGtkHost* host, char* destination, size_t capacity, size_t* text_bytes);
 int kiwi_gtk_host_notify(KiwiGtkHost* host, const char* title, const char* body);
@@ -126,8 +127,8 @@ const char* kiwi_gtk_host_last_error(void);
 local root = os.getenv("KIWI_ROOT") or "."
 local loaded, native = pcall(ffi.load, os.getenv("KIWI_GTK_HOST_LIB") or root .. "/.build/native/libkiwi_gtk_host.so")
 if not loaded then error("Unable to load the Kiwi GTK host bridge; run make gtk-host: " .. tostring(native)) end
-if tonumber(native.kiwi_gtk_host_abi_version()) ~= 4 then
-  error("Kiwi GTK host bridge has an incompatible input ABI; run make gtk-host")
+if tonumber(native.kiwi_gtk_host_abi_version()) ~= 5 then
+  error("Kiwi GTK host bridge has an incompatible ABI; run make gtk-host")
 end
 if tonumber(native.kiwi_gtk_gl_renderer_abi_version()) ~= 4 then
   error("Kiwi GTK host bridge has an incompatible GL snapshot ABI; run make gtk-host")
@@ -680,15 +681,16 @@ function Window:clipboard_write(text)
   return native.kiwi_gtk_host_clipboard_write(self.handle, text) ~= 0 and true or false, "platform-error"
 end
 
-function Window:primary_supported() return native.kiwi_gtk_host_primary_display(self.handle) ~= nil end
+function Window:primary_supported() return native.kiwi_gtk_host_primary_supported(self.handle) ~= 0 end
 function Window:primary_write(text)
   if not self:primary_supported() then return false, "unavailable" end
   return native.kiwi_gtk_host_primary_write(self.handle, text) ~= 0, "platform-error"
 end
 function Window:primary_read(maximum_bytes)
   local display = native.kiwi_gtk_host_primary_display(self.handle)
-  if display == nil then return nil, "unavailable" end
-  return require("kiwi.platform.primary_read").new(display, maximum_bytes)
+  if display ~= nil then return require("kiwi.platform.primary_read").new(display, maximum_bytes) end
+  if not self:primary_supported() then return nil, "unavailable" end
+  return require("kiwi.platform.gtk_primary_read").new(native, self.handle, maximum_bytes)
 end
 
 function Window:notify(title, body)

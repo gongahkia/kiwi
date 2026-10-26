@@ -11,6 +11,7 @@
 #include "gtk_gl_renderer.h"
 #include "kiwi_render_model.h"
 #include "pty_watch.h"
+#include "gtk_primary.h"
 
 static gboolean kiwi_gtk_pty_ready_source(gpointer userdata) {
   (void)userdata;
@@ -48,7 +49,7 @@ typedef struct KiwiGtkGlPresentation {
 } KiwiGtkGlPresentation;
 
 enum {
-  KIWI_GTK_HOST_ABI_VERSION = 4,
+  KIWI_GTK_HOST_ABI_VERSION = 5,
 };
 
 typedef struct KiwiGtkKeyEvent {
@@ -2135,11 +2136,31 @@ const char *kiwi_gtk_host_primary_display(KiwiGtkHost *host) {
 #endif
   return NULL;
 }
+int kiwi_gtk_host_primary_supported(KiwiGtkHost *host) {
+  if (host == NULL || host->surface == NULL) return 0;
+  if (kiwi_gtk_host_primary_display(host) != NULL) return 1;
+#ifdef GDK_WINDOWING_WAYLAND
+  GdkDisplay *display = gdk_surface_get_display(host->surface);
+  if (GDK_IS_WAYLAND_DISPLAY(display)) {
+    /* GDK otherwise emulates PRIMARY locally, which is not desktop support. */
+    return gdk_wayland_display_query_registry(display, "zwp_primary_selection_device_manager_v1") ||
+      gdk_wayland_display_query_registry(display, "gtk_primary_selection_device_manager");
+  }
+#endif
+  return 0;
+}
+
 int kiwi_gtk_host_primary_write(KiwiGtkHost *host, const char *text) {
-  if (kiwi_gtk_host_primary_display(host) == NULL || text == NULL ||
+  if (!kiwi_gtk_host_primary_supported(host) || text == NULL ||
       strlen(text) > 1024 * 1024 || !g_utf8_validate(text, -1, NULL)) return 0;
   gdk_clipboard_set_text(gdk_display_get_primary_clipboard(gdk_surface_get_display(host->surface)), text);
   return 1;
+}
+
+KiwiGtkPrimaryRead *kiwi_gtk_host_primary_read_new(KiwiGtkHost *host, size_t maximum_bytes) {
+  if (!kiwi_gtk_host_primary_supported(host)) return NULL;
+  return kiwi_gtk_primary_read_new(
+    gdk_display_get_primary_clipboard(gdk_surface_get_display(host->surface)), maximum_bytes, 1000);
 }
 
 int kiwi_gtk_host_notify(KiwiGtkHost *host, const char *title, const char *body) {

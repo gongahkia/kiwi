@@ -1,7 +1,7 @@
 local GtkWindow = require("kiwi.platform.gtk_window")
 
 assert(GtkWindow.bridge ~= nil, "GTK host bridge was not loaded")
-assert(GtkWindow.bridge.kiwi_gtk_host_abi_version() == 4, "GTK host input ABI is unavailable or incompatible")
+assert(GtkWindow.bridge.kiwi_gtk_host_abi_version() == 5, "GTK host ABI is unavailable or incompatible")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_new) == "cdata", "GTK host constructor ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_keyboard_supported_flags) == "cdata", "GTK keyboard-capability ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_key_variants_inject_smoke) == "cdata", "GTK key-variant smoke ABI is unavailable")
