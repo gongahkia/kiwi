@@ -600,3 +600,21 @@ The 50 ms application fallback timer is **still present**. Its remaining users
 include Linux GLFW's GLib/AT-SPI dispatch, delayed child reaping after PTY EOF,
 and periodic development shader checks. Those must be serviced explicitly
 before claiming event-driven idle behavior or lower idle power.
+
+### Linux GLFW accessibility readiness
+
+`39838f3` and `828aab3` bridge the default GLib context into GLFW waits.
+Descriptor readiness wakes the host; GLib callbacks remain on the UI thread.
+Context ownership spans the wait so cross-thread source attachment also wakes
+the host. GLib timer deadlines shorten the wait. Unsupported or excessive
+descriptor sets retain a bounded 50 ms fallback.
+
+The isolated native fixture passes ASan/UBSan on Linux, including source
+attachment, real descriptor readiness, timer deadlines, quiet idle, descriptor
+overflow and 100 teardown cycles. A private D-Bus/AT-SPI fixture serves five
+actual text queries without provider polling: the slowest completed in 10.4 ms
+with a two-second host wait. A quiet-period check also passes. This qualifies
+request dispatch, not screen-reader usability or actual-desktop accessibility.
+Both macOS and Linux pass `make check test-core` (635 full / 398 core tests).
+The application fallback timer remains pending child-exit and other deadline
+work; this increment alone does not establish idle-power improvements.
