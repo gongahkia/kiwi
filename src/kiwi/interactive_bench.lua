@@ -4,9 +4,13 @@ local Interactive = require("kiwi.bench.interactive")
 local Json = require("kiwi.bench.json")
 local Sustained = require("kiwi.bench.sustained")
 local Terminal = require("kiwi.session.terminal")
+local Scrollback = require("kiwi.terminal.scrollback")
 local Pty = require("kiwi.process.pty")
 local Compositor = require("kiwi.renderer.compositor")
 local gtk = os.getenv("KIWI_HOST") == "gtk"
+local scroll_mode = os.getenv("KIWI_INTERACTIVE_BENCH_SCROLL_MODE") or "region"
+assert(scroll_mode == "region" or scroll_mode == "history")
+local history = { pushed = 0, evicted = 0, peak_retained = 0 }
 local keep_visible = os.getenv("KIWI_INTERACTIVE_BENCH_KEEP_VISIBLE") == "1"
 local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
 local Window = require(gtk and "kiwi.platform.gtk_window" or "kiwi.platform.window")
@@ -23,7 +27,7 @@ local soak_seconds = tonumber(os.getenv("KIWI_INTERACTIVE_BENCH_SOAK")) or 0
 assert(trial_timeout >= 30 and trial_timeout <= 3600 and interval >= 0 and interval <= 120)
 assert((measurement.samples + measurement.warmup - 1) * interval <= trial_timeout - 10, "interactive intervals exceed the trial budget")
 local sustained = soak_seconds > 0 and Sustained.new(trial_timeout) or nil
-local originals = { new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available,
+local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
@@ -33,6 +37,20 @@ local presentation = { attempts = 0, successful = 0, failures = {} }
 local last_compositor, last_entries
 local deadline = measurement.launched_at + trial_timeout
 assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement requires warmup")
+
+if scroll_mode == "history" then
+  Scrollback.push = function(self, row)
+    local evicted = originals.history_push(self, row)
+    if live and self == Terminal.state(live).scrollback then
+      history.pushed = history.pushed + 1
+      if evicted then history.evicted = history.evicted + 1 end
+      history.limit, history.retained = self.limit, self:size()
+      history.peak_retained = math.max(history.peak_retained, history.retained)
+      assert(history.retained <= self.limit, "scrollback exceeded its configured capacity")
+    end
+    return evicted
+  end
+end
 
 Terminal.new = function(...) live = originals.new_terminal(...); return live end
 Window.new = function(_, _, title, options)
@@ -82,6 +100,10 @@ Compositor.render = function(self, entries, ...)
     presentation.successful = presentation.successful + 1
     assert(#entries == 1, "interactive benchmark requires one pane")
     local state = entries[1].model
+    if state.history_offset ~= 0 then
+      invalid_measurement = "visible-window measurement interrupted: viewport left live output"
+      error(invalid_measurement)
+    end
     local acknowledged = sequence(state)
     local completed = measurement:present(now, acknowledged)
     local rss = assert(Metrics.resident_kib())
@@ -161,6 +183,7 @@ arg = { "--config", assert(os.getenv("KIWI_INTERACTIVE_BENCH_CONFIG")), "--no-re
   "--", assert(os.getenv("KIWI_INTERACTIVE_BENCH_PYTHON")), "script/interactive-bench-child", mode }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, originals.write, originals.read
+Scrollback.push = originals.history_push
 Window.new, Compositor.render, Host.await_events = originals.new_window, originals.render, originals.await
 if not ok or not report then
   report = measurement:observations()
@@ -169,12 +192,14 @@ if not ok or not report then
   report.failure_state = failure_state
   if sustained and #sustained.values >= 5 then report.sustained = sustained:snapshot() end
 end
+if scroll_mode == "history" then report.history = history end
 local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M%SZ"), measurement.samples, measurement.warmup)
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")), requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
   traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout,
-  floating_window = keep_visible }
+  floating_window = keep_visible, scroll_mode = scroll_mode,
+  scrollback_limit = tonumber(os.getenv("KIWI_INTERACTIVE_BENCH_SCROLLBACK_LIMIT")) or 2000 }
 metadata.methodology = nil -- The enclosing report specifies this fixture's clocks and boundaries.
 metadata.native_adapter = adapter
 local result = { schema_version = 1, metadata = metadata, measurement = report,

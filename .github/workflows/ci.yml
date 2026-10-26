@@ -77,8 +77,8 @@ jobs:
           xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-unicode-glfw.json
           KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-unicode-gtk.json
           # Duration/resource gates, not cross-machine latency comparisons.
-          xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --report .build/appearance-evidence/soak-glfw.json
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --report .build/appearance-evidence/soak-gtk.json
+          xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --report .build/appearance-evidence/soak-glfw.json
+          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --report .build/appearance-evidence/soak-gtk.json
           ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
