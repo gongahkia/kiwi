@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""GTK scaling and virtual output changes on a private Sway desktop."""
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--report", type=Path, required=True)
+parser.add_argument("--presenter", choices=("wgpu", "gl"), default="wgpu")
+args = parser.parse_args()
+if os.environ.get("KIWI_TRANSITION_PRIVATE_BUS") != "1":
+    raise SystemExit(subprocess.call(["dbus-run-session", "--", sys.executable, __file__, *sys.argv[1:]],
+                                    env=dict(os.environ, KIWI_TRANSITION_PRIVATE_BUS="1")))
+root = Path(__file__).resolve().parent.parent
+args.report = args.report.resolve()
+args.report.parent.mkdir(parents=True, exist_ok=True)
+report = {"timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "status": "running", "presenter": args.presenter, "scope": "GTK on isolated headless Sway; virtual outputs and process pause, not physical hotplug or system sleep", "steps": []}
+
+
+def version(command):
+    result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=5)
+    return result.stdout.strip() if result.returncode == 0 else "unavailable"
+
+
+revision = version(["git", "rev-parse", "HEAD"])
+report["revision"] = revision if revision != "unavailable" else (root / "BUILD_REVISION").read_text().strip() if (root / "BUILD_REVISION").exists() else "unavailable"
+report["source_state"] = "archive; working tree not verified" if revision == "unavailable" else (
+    "clean" if version(["git", "status", "--porcelain"]) == "" else "dirty")
+report["versions"] = {"gtk": version(["pkg-config", "--modversion", "gtk4"]), "sway": version(["sway", "--version"])}
+
+
+def save():
+    temporary = args.report.with_suffix(".new")
+    temporary.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    temporary.replace(args.report)
+
+
+save()
+with tempfile.TemporaryDirectory(prefix="kiwi-desktop-transitions-") as directory:
+    directory = Path(directory)
+    runtime, home = directory / "runtime", directory / "home"
+    runtime.mkdir(mode=0o700); home.mkdir(mode=0o700)
+    config = directory / "sway.conf"
+    config.write_text("xwayland disable\nseat seat0 fallback true\noutput HEADLESS-1 mode 1280x900 pos 0 0 scale 1\noutput HEADLESS-2 mode 1600x1000 pos 1280 0 scale 2\n")
+    (directory / "kiwi.conf").write_text("live-config-reload = false\nfont-size = 18\n")
+    env = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_")}
+    env.update(HOME=str(home), XDG_CONFIG_HOME=str(home), XDG_CACHE_HOME=str(home / "cache"),
+               XDG_DATA_HOME=str(home / "data"), XDG_RUNTIME_DIR=str(runtime),
+               WLR_BACKENDS="headless", WLR_HEADLESS_OUTPUTS="2", WLR_RENDERER="pixman", WLR_LIBINPUT_NO_DEVICES="1",
+               GDK_BACKEND="wayland", GSK_RENDERER="cairo", GTK_A11Y="none", GTK_IM_MODULE="simple",
+               KIWI_HOST="gtk", KIWI_GTK_PRESENTER=args.presenter, KIWI_LAYOUT_RESTORE="0", KIWI_LAYOUT_PERSISTENCE="0",
+               KIWI_MAX_FRAMES="0", KIWI_MAX_SECONDS="0", KIWI_TRANSITION_ISOLATED="1",
+               KIWI_TRANSITION_DIRECTORY=str(directory), LUA_PATH="src/?.lua;src/?/init.lua;;")
+    env.pop("DISPLAY", None); env.pop("WAYLAND_DISPLAY", None); env.pop("SWAYSOCK", None)
+    processes, logs = [], []
+
+    def start(command, name):
+        stream = (directory / (name + ".log")).open("w+b")
+        logs.append((name, stream))
+        process = subprocess.Popen(command, cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT)
+        processes.append(process)
+        return process
+
+    def wait_for(predicate):
+        deadline = time.monotonic() + 8
+        while True:
+            assert all(p.poll() is None for p in processes), "fixture process exited early"
+            result = predicate()
+            if result:
+                return result
+            assert time.monotonic() < deadline, "desktop transition handshake timed out"
+            time.sleep(.02)
+
+    def command(value):
+        result = subprocess.run(["swaymsg", "-r", value], env=env, capture_output=True, check=True, timeout=5)
+        reply = json.loads(result.stdout)
+        assert all(item.get("success") for item in reply), reply
+
+    def outputs():
+        result = subprocess.run(["swaymsg", "-r", "-t", "get_outputs"], env=env, capture_output=True, check=True, timeout=5)
+        return [{key: item.get(key) for key in ("name", "active", "scale", "rect", "current_mode", "power")}
+                for item in json.loads(result.stdout)]
+
+    def client():
+        result = subprocess.run(["swaymsg", "-r", "-t", "get_tree"], env=env, capture_output=True, check=True, timeout=5)
+        def find(node, output=None):
+            if node.get("type") == "output":
+                output = node["name"]
+            if node.get("app_id") == "org.gongahkia.kiwi":
+                return {"output": output, "rect": node["rect"], "focused": node.get("focused")}
+            for child in node.get("nodes", []) + node.get("floating_nodes", []):
+                found = find(child, output)
+                if found:
+                    return found
+        return find(json.loads(result.stdout))
+
+    def snapshot(token):
+        path = directory / "snapshot.json"
+        if not path.exists():
+            return None
+        state = json.loads(path.read_text())
+        if state["token"] != token or state["columns"] != state["child_columns"] or state["rows"] != state["child_rows"]:
+            return None
+        if state["surface_width"] != state["drawable_width"] or state["surface_height"] != state["drawable_height"]:
+            return None
+        assert state["drawable_width"] == math.floor(state["logical_width"] * state["scale"] + .5), state
+        assert state["drawable_height"] == math.floor(state["logical_height"] * state["scale"] + .5), state
+        assert state["columns"] > 10 and state["rows"] > 5
+        assert abs(state["font_scale"] - state["scale"]) < .001, state
+        return state
+
+    def checkpoint(token, scale_check=lambda scale: True):
+        if token != "ready":
+            subprocess.run(["wtype", token], env=env, check=True, timeout=5)
+            subprocess.run(["wtype", "-k", "Return"], env=env, check=True, timeout=5)
+        def settled():
+            state = snapshot(token)
+            return state if state and scale_check(state["scale"]) else None
+        state = wait_for(settled)
+        report["steps"].append({"name": token, "presentation": state, "outputs": outputs(), "window": client()})
+        save()
+        return state
+
+    compositor = None
+    try:
+        compositor = start(["sway", "--unsupported-gpu", "-c", str(config)], "sway")
+        wait_for(lambda: list(runtime.glob("wayland-*")) and list(runtime.glob("sway-ipc*.sock")))
+        env["WAYLAND_DISPLAY"] = next(path.name for path in runtime.glob("wayland-*") if path.is_socket())
+        env["SWAYSOCK"] = str(next(runtime.glob("sway-ipc*.sock")))
+        command("focus output HEADLESS-1")
+        start(["wtype", "-s", "90000"], "keyboard")
+        app = start([env.get("LUAJIT", "luajit"), "src/kiwi/desktop_transition_smoke.lua"], "kiwi")
+        initial = checkpoint("ready")
+        subprocess.run(["wtype", "-k", "Shift_L"], env=env, check=True, timeout=5)
+        command("output HEADLESS-1 scale 1.25")
+        fractional = checkpoint("fractional", lambda scale: scale == (1.25 if args.presenter == "wgpu" else 2))
+        assert fractional["scale"] > initial["scale"], "fractional output change did not reach the window"
+        command("move container to output HEADLESS-2")
+        command("focus output HEADLESS-2")
+        doubled = checkpoint("doubled", lambda scale: scale == 2)
+        assert doubled["scale"] == 2, doubled
+        command("output HEADLESS-2 disable")
+        command("focus output HEADLESS-1")
+        # GDK may retain a higher buffer scale after output removal. The
+        # viewport still maps those pixels to the correct logical allocation.
+        checkpoint("removed")
+        assert report["steps"][-1]["window"]["output"] == "HEADLESS-1"
+        command("output HEADLESS-2 enable")
+        command("move container to output HEADLESS-2")
+        command("focus output HEADLESS-2")
+        checkpoint("returned", lambda scale: scale == 2)
+        command("output HEADLESS-2 power off")
+        time.sleep(.25)
+        assert any(item["name"] == "HEADLESS-2" and item["power"] is False for item in outputs())
+        command("output HEADLESS-2 power on")
+        checkpoint("powered")
+        app.send_signal(signal.SIGSTOP)
+        time.sleep(.5)
+        app.send_signal(signal.SIGCONT)
+        checkpoint("resumed")
+        command("output HEADLESS-1 enable")
+        command("output HEADLESS-1 scale 1")
+        command("move container to output HEADLESS-1")
+        command("focus output HEADLESS-1")
+        restored = checkpoint("restored", lambda scale: scale == initial["scale"])
+        assert restored["scale"] == initial["scale"], restored
+        assert restored["frames"] > initial["frames"]
+        (directory / "quit").write_text("quit")
+        assert app.wait(timeout=5) == 0
+        report["status"] = "passed"
+    except Exception as error:
+        report["status"], report["failure"] = "failed", str(error)
+        path = directory / "snapshot.json"
+        if path.exists():
+            report["last_presentation"] = json.loads(path.read_text())
+        input_path = directory / "input"
+        if input_path.exists():
+            report["input_hex"] = input_path.read_bytes().hex()
+        if compositor is not None and compositor.poll() is None:
+            report["last_outputs"] = outputs()
+        raise
+    finally:
+        for process in reversed(processes):
+            if process.poll() is None:
+                process.send_signal(signal.SIGCONT)
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill(); process.wait(timeout=5)
+        for name, stream in logs:
+            stream.seek(0, 2)
+            stream.seek(max(0, stream.tell() - 16000))
+            text = stream.read().decode("utf-8", errors="replace")
+            args.report.with_name(args.report.stem + "-" + name + ".log").write_text(text)
+            if report["status"] != "passed":
+                print(name + ":\n" + text, file=sys.stderr)
+            stream.close()
+        save()
+print("Desktop transition checks passed; virtual outputs only:", args.report)

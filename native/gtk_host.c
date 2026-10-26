@@ -441,10 +441,24 @@ static void kiwi_gtk_terminal_finalize(GObject *object) {
   G_OBJECT_CLASS(kiwi_gtk_terminal_parent_class)->finalize(object);
 }
 
+static guint kiwi_gtk_terminal_resize_signal;
+
+static void kiwi_gtk_terminal_size_allocate(GtkWidget *widget, int width,
+                                            int height, int baseline) {
+  GtkWidgetClass *parent = GTK_WIDGET_CLASS(kiwi_gtk_terminal_parent_class);
+  if (parent->size_allocate != NULL)
+    parent->size_allocate(widget, width, height, baseline);
+  g_signal_emit(widget, kiwi_gtk_terminal_resize_signal, 0, width, height);
+}
+
 static void kiwi_gtk_terminal_class_init(KiwiGtkTerminalClass *klass) {
   GObjectClass *object_class = G_OBJECT_CLASS(klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
   object_class->finalize = kiwi_gtk_terminal_finalize;
+  widget_class->size_allocate = kiwi_gtk_terminal_size_allocate;
+  kiwi_gtk_terminal_resize_signal = g_signal_new("terminal-resized",
+      G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_INT);
   gtk_widget_class_set_accessible_role(widget_class, GTK_ACCESSIBLE_ROLE_TEXT_BOX);
 }
 
@@ -1060,14 +1074,6 @@ static void kiwi_gtk_resize(GtkWidget *widget, int width, int height, gpointer u
   (void)widget;
 }
 
-static void kiwi_gtk_resize_property(GObject *object, GParamSpec *parameter,
-                                     gpointer userdata) {
-  (void)parameter;
-  GtkWidget *widget = GTK_WIDGET(object);
-  kiwi_gtk_resize(widget, gtk_widget_get_width(widget), gtk_widget_get_height(widget),
-                  userdata);
-}
-
 static void kiwi_gtk_key_pressed(KiwiGtkTerminalPresentation *presentation, GdkEvent *event) {
   guint keyval = gdk_key_event_get_keyval(event);
   guint keycode = gdk_key_event_get_keycode(event);
@@ -1603,10 +1609,10 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   gtk_widget_set_visible(GTK_WIDGET(presentation->progress), FALSE);
   gtk_overlay_add_overlay(GTK_OVERLAY(presentation->content),
                           GTK_WIDGET(presentation->progress));
-  g_signal_connect(presentation->terminal, "notify::width",
-                   G_CALLBACK(kiwi_gtk_resize_property), presentation);
-  g_signal_connect(presentation->terminal, "notify::height",
-                   G_CALLBACK(kiwi_gtk_resize_property), presentation);
+  /* GtkWidget has no width/height GObject properties. Observe its actual
+   * allocation virtual method instead of notifications that never arrive. */
+  g_signal_connect(presentation->terminal, "terminal-resized",
+                   G_CALLBACK(kiwi_gtk_resize), presentation);
 
   GtkEventController *key = gtk_event_controller_legacy_new();
   gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(key), GTK_PHASE_CAPTURE);
@@ -1988,18 +1994,27 @@ int kiwi_gtk_terminal_presentation_gl_area_submit_snapshot(
   return 0;
 }
 
-void kiwi_gtk_terminal_presentation_drawable_size(
-    const KiwiGtkTerminalPresentation *presentation, int *width, int *height) {
-  if (width != NULL) *width = presentation == NULL || presentation->content == NULL ? 0 :
-      gtk_widget_get_width(presentation->content);
-  if (height != NULL) *height = presentation == NULL || presentation->content == NULL ? 0 :
-      gtk_widget_get_height(presentation->content);
-}
-
 double kiwi_gtk_terminal_presentation_content_scale(
     const KiwiGtkTerminalPresentation *presentation) {
-  return presentation == NULL || presentation->content == NULL ? 1.0 :
-      gtk_widget_get_scale_factor(presentation->content);
+  if (presentation == NULL || presentation->content == NULL) return 1.0;
+  /* GtkGLArea's viewport uses the widget's integer buffer scale. WGPU owns
+   * its buffer and viewport and can use GDK's fractional surface scale. */
+  double scale = presentation->gl_presentation != NULL
+      ? gtk_widget_get_scale_factor(presentation->content)
+      : presentation->host->surface == NULL ? 1.0
+          : gdk_surface_get_scale(presentation->host->surface);
+  return scale > 0.0 ? scale : 1.0;
+}
+
+void kiwi_gtk_terminal_presentation_drawable_size(
+    const KiwiGtkTerminalPresentation *presentation, int *width, int *height) {
+  double scale = kiwi_gtk_terminal_presentation_content_scale(presentation);
+  /* Renderer cell metrics are pixels, so the grid must use buffer pixels too.
+   * GTK allocation and input/caret coordinates remain logical units. */
+  if (width != NULL) *width = presentation == NULL || presentation->content == NULL ? 0 :
+      (int)(gtk_widget_get_width(presentation->content) * scale + 0.5);
+  if (height != NULL) *height = presentation == NULL || presentation->content == NULL ? 0 :
+      (int)(gtk_widget_get_height(presentation->content) * scale + 0.5);
 }
 
 int kiwi_gtk_terminal_presentation_set_text_input_caret(

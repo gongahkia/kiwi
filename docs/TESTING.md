@@ -7,6 +7,7 @@ exercise internal models, native boundaries and user-visible behavior.
 | --- | --- | --- |
 | `make test-core` | LuaJIT, standard shell utilities | Headless core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
 | `make check` | Documented native build dependencies and C compiler | Complete Lua suite, seeded parser fuzzing, real PTYs, C readiness watcher, terminfo contract, CLI behavior and syntax of every Lua file. |
+| `make desktop-transition-smoke` | Linux GTK, Sway, wtype, D-Bus, Vulkan/GL drivers | Isolated virtual-output scaling/movement/removal/power and process-resume checks on WGPU and GL, with real keyboard/PTY and acknowledged frame geometry. Does not simulate physical hotplug or system sleep. |
 | `make test-applications` | Native build, Python 3, Bash, Zsh, fish, Vim, Neovim, tmux, less, system top | Eleven real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. Optional explicit Nushell case; no display is needed. |
 | `make test-ssh-applications` | Native build, Python 3, OpenSSH client/server/keygen, Bash, Neovim, tmux, less | Real authenticated loopback SSH, remote shell/editor input, resize through SSH/tmux, disconnect/HUP cleanup and replay. |
 | `make test-pty-watch` | C17 compiler, POSIX pthreads | One-shot notifications, no byte consumption, rearm, descriptor replacement, EOF and worker shutdown. |
