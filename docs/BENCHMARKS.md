@@ -10,6 +10,8 @@ KIWI_WRITE_BENCH_ITERATIONS=500 KIWI_WRITE_BENCH_WARMUP=100 make bench-write
 make bench-burst
 KIWI_BURST_10MB=1 make bench-burst
 make pacing
+make bench-interactive
+make bench-interactive ARGS='--trials 5 --samples 40 --report bench/results/interactive-candidate.json'
 KIWI_PACING_SAMPLES=120 KIWI_PACING_WARMUP_FRAMES=20 make pacing
 make pacing-compare BASELINE=/stable/runner/pacing.json CANDIDATE=bench/results/<timestamp>-pacing.json
 make pacing-budget BASELINE=/stable/runner/pacing.json CANDIDATE=bench/results/<timestamp>-pacing.json
@@ -90,6 +92,10 @@ The four metric fields are intentionally distinct:
 | `frame_interval_ms` | interval between successful render returns; standard deviation is the report's pacing variance | monitor refresh accuracy or missed-vblank count |
 | `output_to_present_ms` | coalesced PTY output through the following successful render return | photons reaching the display |
 | `input_to_present_ms` | coalesced bytes sent to the PTY, then a later readable output, through that render return | local actions, input with no observed output, and a universal input-latency figure |
+
+For input responsiveness during concurrent output, use the acknowledged
+interactive benchmark below. This older pacing counter does not establish
+that the later output was caused by the input being timed.
 
 `display_scanout_latency` is always explicitly unavailable without external
 display/compositor measurement such as presentation feedback or a photodiode.
@@ -550,3 +556,65 @@ slow. Palette wall time increased despite lower CPU time; these short runs do
 not establish a consistent latency improvement. Neither report measures GPU
 staging, displayed latency or competitor performance. Incremental replacement
 and cheaper retained-history storage remain performance work.
+
+## Fresh-process startup and acknowledged interaction
+
+`make bench-interactive` runs three fresh processes per mode, with five warmup
+inputs and 20 measured inputs in each process. Modes are idle and saturated
+background output. It uses the real WGPU controller, synthetic text callbacks,
+a raw PTY child, production parser/model/packing and successful compositor
+presentation returns. Both GLFW and GTK WGPU hosts are supported; GTK GL is
+explicitly rejected. Python 3 and a graphical session are required.
+
+```sh
+make bench-interactive
+make bench-interactive ARGS='--trials 5 --samples 40 --report bench/results/interactive-candidate.json'
+KIWI_HOST=gtk xvfb-run -a ./script/bench-interactive --report bench/results/interactive-gtk.json
+make test-interactive-bench
+```
+
+The parent records `CLOCK_MONOTONIC` immediately before creating each process.
+The child-side native clock uses the same clock domain. Startup ends at the
+first successful presentation return; a second marker requires the controlled
+child's readiness text in the visible model. This measures a fresh application
+process with normal filesystem/driver caches and a fixed Python child, not a
+cold-cache launch or the user's login-shell startup.
+
+Only one numbered input may be outstanding. Its acknowledgment requires a
+matching title header and complete visible model text, including across split
+PTY reads. Unrelated output, old acknowledgments and unrelated presentations
+cannot finish a sample. The header precedes the text so completing the text
+causes normal render damage. Saturated output starts after the first warmup
+input, preserving the startup handshake; its nonblocking queue is bounded to
+8 KiB and it scrolls below the reserved acknowledgment row.
+
+Reports preserve per-process startup samples, raw bounded input distributions,
+parser/presentation phase splits, sampled peak RSS, output-byte counts, actual
+cell/grid/font geometry and environment/revision metadata. Geometry changes
+invalidate a trial. The window requests 800×480 logical points, uses 18-pixel
+font settings and a 4 KiB PTY read budget; actual metrics depend on host scale
+and installed fonts and are recorded. The 20 ms inter-input interval is test
+scheduling, not a production timer. Initial source/OS startup, input encoding,
+child scheduling, PTY transit and rendering CPU work are included within their
+named boundaries. Physical input delivery, IME, GPU completion, compositor
+feedback and panel scan-out are not measured.
+
+The output defaults to ignored `bench/results/interactive.json`; companion
+`*-logs/` folders retain trial diagnostics. Reports are atomically updated with
+`running`, `failed` or `complete` status. A failed run retains completed trials
+and a failure record and replaces any previous report; only `complete` is a
+usable baseline. Defaults produce three independent startup observations and
+60 measured input observations per mode. Pooled input percentiles are
+correlated within processes, not 60 independent process-level observations.
+Do not infer statistical confidence or competitor performance from them.
+
+Every acknowledgment, including warmup, must complete within two seconds.
+Trials also have 30-second internal and 40-second external watchdogs. These
+are gross failure gates, not latency targets or a relative performance-regression
+budget. The CLI caps trials, samples, warmup and scheduled intervals; invalid
+arguments leave an existing report untouched. Core tests verify partial-message
+handling, stale/unrelated acknowledgments, clock/order errors and incomplete
+measurements. `make test-interactive-bench` checks CLI bounds and failed-report
+replacement without a graphical host. CI exercises one short trial per mode on
+macOS and Linux GLFW/GTK WGPU, retaining reports and logs; GitHub execution is
+separate from local qualification.
