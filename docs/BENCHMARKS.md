@@ -631,3 +631,51 @@ measurements. `make test-interactive-bench` checks CLI bounds and failed-report
 replacement without a graphical host. CI exercises one short trial per mode on
 macOS and Linux GLFW/GTK WGPU, retaining reports and logs; GitHub execution is
 separate from local qualification.
+
+### Sustained runs and regression budgets
+
+`script/bench-interactive --mode saturated --traffic styled-unicode --trials 1
+--samples 120 --warmup 6 --soak-seconds 600 --report /tmp/kiwi-soak.json`
+spreads measured inputs over at least ten minutes. Use a single shell line.
+The interval replaces `--interval-ms`; warmup adds time before measurement.
+Durations are bounded to 60–1800 seconds, with at least 20 measured inputs.
+The two-second response ceiling remains unchanged; total watchdogs expand to
+cover the requested schedule. CI runs a 60-second version on both Linux hosts
+and both macOS architectures. CI configuration is not evidence of a remote pass.
+
+Post-warmup resource observations include process RSS, Lua heap and process CPU
+without forcing garbage collection. At most 256 observations are retained.
+Growth is the difference between the medians of the final and initial quarters,
+not a single noisy allocation. Default gates are 64 MiB RSS growth, 16 MiB Lua
+heap growth and 1 GiB peak RSS. These conservative ceilings catch substantial
+regressions; they do not prove leak freedom or acceptable idle power. This
+workload scrolls a region below the acknowledgment row and does not qualify
+full scrollback retention. Partial samples, resource observations and surface
+failure diagnostics survive a failed child process.
+
+Visible-window measurements become `invalid` (nonzero exit) when minimized,
+zero-sized or reported occluded by Metal. `--keep-visible` floats only the test
+window on macOS GLFW; it cannot guarantee visibility across spaces, system UI
+or display changes. Never count an invalid run as a performance pass. The pinned
+[wgpu-hal 29.0.3 Metal source](https://docs.rs/crate/wgpu-hal/29.0.3/source/src/metal/surface.rs)
+returns Occluded from AppKit's window occlusion state before drawable acquisition;
+a failed drawable acquisition instead returns Timeout. No recovery or latency
+threshold is relaxed to accommodate occlusion.
+
+For comparable clean revisions, collect at least three independent trials per
+mode with at least twenty inputs each, then run:
+
+```sh
+./script/check-interactive-budget baseline.json candidate.json
+```
+
+The checker validates raw measurements and requires matching recorded system,
+runtime, actual GPU/driver/backend, container limits, font, geometry and workload.
+It refuses dirty, failed, invalid, incomplete or incompatible evidence. It compares
+medians of independent trial metrics, not pooled inputs. Allowed increases are
+25% or 10 ms for input p95, 25% or 50 ms for ready startup, and 10% or 32 MiB for
+peak RSS (whichever allowance is larger). Exit 1 means regression; exit 2 means
+comparison refused. These are initial engineering budgets, not statistical
+confidence bounds. Run on an otherwise quiet, thermally stable machine; metadata
+cannot establish those conditions. Shared CI runners use absolute correctness
+and resource gates, not relative comparisons across unrelated machines.
