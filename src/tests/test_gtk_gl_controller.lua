@@ -1,7 +1,22 @@
 local Assert = require("tests.assert")
 local Controller = require("kiwi.app.gtk_gl_controller")
+local Session = require("kiwi.app.gtk_gl_session")
 
 return {
+  gtk_gl_hidden_page_keeps_its_grid_and_resources_until_allocated = function()
+    local font = { content_scale = 1 }
+    local session = {
+      font = font, columns = 80, rows = 24,
+      consumer = { destroy = function() error("hidden page resources must be retained") end },
+      window = { resized = true, drawable_size = function() return 0, 0 end,
+        content_scale = function() return 2, 2 end },
+    }
+    Session._resize_if_needed(session)
+    Assert.equal(session.font, font)
+    Assert.equal(session.columns, 80)
+    Assert.equal(session.rows, 24)
+    Assert.equal(session.window.resized, true)
+  end,
   gtk_gl_controller_rejects_workspace_features_before_opening_a_terminal = function()
     local accepted, reason = Controller.validate_options({ workspace_smoke = true })
     Assert.equal(accepted, nil)
