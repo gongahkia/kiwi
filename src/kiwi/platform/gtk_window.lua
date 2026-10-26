@@ -843,4 +843,7 @@ function Window.wait_events_for(timeout, windows)
   if windows[1] then Window.pump(windows[1], timeout) end
 end
 
+-- GTK may invoke a Lua input/window callback after many callback-free turns.
+require("jit").off(Window.pump, true)
+
 return Window

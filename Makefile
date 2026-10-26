@@ -343,7 +343,7 @@ configuration-reload-smoke: native terminfo
 	./script/configuration-reload-smoke
 
 pty-wake-smoke: native
-	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
+	LUAJIT="$(LUAJIT)" ./script/pty-wake-smoke
 
 check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli

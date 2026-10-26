@@ -2,6 +2,15 @@ local Assert = require("tests.assert")
 local Power = require("kiwi.bench.power")
 
 return {
+  power_host_waits_are_attributed_to_the_state_before_waiting = function()
+    local power = Power.new({ event_driven = true })
+    power:observe(1, "active", 0, 1)
+    power:observe(4, "idle", math.huge, 2)
+    local snapshot = power:snapshot(5)
+    Assert.equal(snapshot.measurement.state_seconds.idle, 2)
+    Assert.equal(snapshot.measurement.state_seconds.active, 0)
+    Assert.equal(snapshot.measurement.elapsed_seconds, 2)
+  end,
   power_observation_counts_indefinite_waits_without_nonfinite_json_values = function()
     local power = Power.new({ event_driven = true })
     power:observe(0, "idle", math.huge)
