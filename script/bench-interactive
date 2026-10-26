@@ -24,7 +24,7 @@ def summary(values):
 
 def write_report(path, result):
     encoded = json.dumps(result, indent=2, allow_nan=False) + "\n"
-    assert len(encoded) <= 2 * 1024 * 1024
+    assert len(encoded) <= 4 * 1024 * 1024
     temporary = path.with_suffix(path.suffix + ".new")
     temporary.write_text(encoded)
     temporary.replace(path)
@@ -40,14 +40,29 @@ parser.add_argument("--interval-ms", type=float, default=20)
 parser.add_argument("--mode", choices=("idle", "saturated", "both"), default="both")
 parser.add_argument("--read-budget", type=int, default=4096, help="maximum ordinary PTY bytes per application turn")
 parser.add_argument("--traffic", choices=("ascii", "styled-unicode"), default="ascii")
+parser.add_argument("--soak-seconds", type=float, default=0,
+                    help="60–1800 seconds between first/last measured inputs; overrides --interval-ms")
+parser.add_argument("--max-rss-growth-mib", type=float, default=64)
+parser.add_argument("--max-heap-growth-mib", type=float, default=16)
+parser.add_argument("--max-rss-mib", type=float, default=1024)
 args = parser.parse_args()
 if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup <= 32
         and 0 <= args.interval_ms <= 1000 and 1 <= args.read_budget <= 1024 * 1024):
     parser.error("counts/interval exceed supported bounds")
-if (args.samples + args.warmup - 1) * args.interval_ms > 20000:
+if not (args.soak_seconds == 0 or 60 <= args.soak_seconds <= 1800):
+    parser.error("soak duration must be zero or 60–1800 seconds")
+if any(not math.isfinite(value) or not 0 <= value <= 4096 for value in
+       (args.max_rss_growth_mib, args.max_heap_growth_mib, args.max_rss_mib)):
+    parser.error("memory budgets must be finite values between 0 and 4096 MiB")
+if args.soak_seconds and args.samples < 20:
+    parser.error("sustained qualification requires at least 20 measured inputs")
+if not args.soak_seconds and (args.samples + args.warmup - 1) * args.interval_ms > 20000:
     parser.error("requested intervals consume more than 20 seconds of the 30-second trial budget")
 if args.mode != "idle" and args.warmup < 1:
     parser.error("saturated trials require a warmup input to start background output after startup")
+interval = args.soak_seconds / (args.samples - 1) if args.soak_seconds else args.interval_ms / 1000
+trial_timeout = math.ceil(30 + (args.samples + args.warmup - 1) * (interval + 2)) if args.soak_seconds else 30
+assert trial_timeout <= 3600
 root, report_path = args.root.resolve(), args.report.resolve()
 report_path.parent.mkdir(parents=True, exist_ok=True)
 logs = report_path.parent / (report_path.stem + "-logs")
@@ -65,7 +80,12 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
               "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
               "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
               "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
-              "bounds": "30-second internal and 40-second external trial deadlines; two-second acknowledgment ceiling; at most 256 measured inputs and 32 warmup inputs per trial"}}
+              "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"},
+          "trial_timeout_seconds": trial_timeout,
+          "soak_policy": {"minimum_seconds": args.soak_seconds, "max_rss_growth_mib": args.max_rss_growth_mib,
+                          "max_heap_growth_mib": args.max_heap_growth_mib, "max_rss_mib": args.max_rss_mib,
+                          "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+                          "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"}}
 write_report(report_path, result)
 with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
     temporary = Path(temporary)
@@ -79,7 +99,8 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic,
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
-                KIWI_INTERACTIVE_BENCH_INTERVAL=str(args.interval_ms / 1000))
+                KIWI_INTERACTIVE_BENCH_INTERVAL=str(interval), KIWI_INTERACTIVE_BENCH_TIMEOUT=str(trial_timeout),
+                KIWI_INTERACTIVE_BENCH_SOAK=str(args.soak_seconds))
     for mode in modes:
         for trial in range(1, args.trials + 1):
             output = temporary / "trial.json"
@@ -90,17 +111,25 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(time.CLOCK_MONOTONIC))
                 try:
                     subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
-                                   env=environment, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=40)
+                                   env=environment, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=trial_timeout + 10)
                     item = json.loads(output.read_text())
+                    item["trial"], item["mode"] = trial, mode
+                    result["trials"].append(item)
                     assert item["measurement"]["samples"] == args.samples
+                    if args.soak_seconds:
+                        sustained = item["measurement"]["sustained"]
+                        assert sustained["duration_seconds"] >= args.soak_seconds, "sustained duration was shorter than requested"
+                        assert len(sustained["samples"]) >= 5, "insufficient resource observations"
+                        for name, maximum in (("rss_kib", args.max_rss_growth_mib), ("heap_kib", args.max_heap_growth_mib)):
+                            growth = sustained[name]["growth"]
+                            assert math.isfinite(growth) and growth <= maximum * 1024, f"{name} growth {growth / 1024:.1f} MiB exceeds {maximum} MiB"
+                        assert item["measurement"]["sampled_peak_rss_kib"] <= args.max_rss_mib * 1024, "sampled peak RSS exceeded its budget"
                 except Exception as error:
                     result["status"] = "failed"
                     result["failure"] = dict(mode=mode, trial=trial, log=str(log), reason=str(error)[:1024])
                     write_report(report_path, result)
                     print(f"Interactive trial failed; log: {log}", file=sys.stderr)
                     raise
-            item["trial"], item["mode"] = trial, mode
-            result["trials"].append(item)
             write_report(report_path, result)
             timing = item["measurement"]
             print(f"{mode} trial={trial} startup-ready={timing['launch_to_child_ready_present_return_ms']:.1f}ms "

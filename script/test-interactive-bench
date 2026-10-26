@@ -29,10 +29,49 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
     previous = report.read_bytes()
     for arguments in (["--trials", "0"], ["--samples", "257"], ["--warmup", "0", "--mode", "saturated"],
                       ["--samples", "256", "--interval-ms", "1000"], ["--interval-ms", "nan"],
-                      ["--read-budget", "0"], ["--read-budget", "1048577"], ["--traffic", "invalid"]):
+                      ["--read-budget", "0"], ["--read-budget", "1048577"], ["--traffic", "invalid"],
+                      ["--soak-seconds", "59"], ["--soak-seconds", "1801"], ["--soak-seconds", "nan"],
+                      ["--soak-seconds", "60", "--samples", "19"], ["--max-rss-growth-mib", "nan"],
+                      ["--max-heap-growth-mib", "-1"], ["--max-rss-mib", "4097"]):
         invalid = subprocess.run(command + arguments, capture_output=True, timeout=5)
         assert invalid.returncode == 2, arguments
         assert report.read_bytes() == previous, "invalid arguments modified an existing report"
+
+    # Exercise the real parent report/gate path without waiting for a desktop
+    # soak: a controlled child supplies complete, deliberately varied evidence.
+    fake = Path(temporary) / "fake-luajit"
+    payload = Path(temporary) / "payload.json"
+    fake.write_text("#!" + sys.executable + "\n" + '''import json, os
+from pathlib import Path
+item = json.loads(Path(os.environ["TEST_BENCH_PAYLOAD"]).read_text())
+item["test_environment"] = {"timeout": float(os.environ["KIWI_INTERACTIVE_BENCH_TIMEOUT"]),
+                            "interval": float(os.environ["KIWI_INTERACTIVE_BENCH_INTERVAL"])}
+Path(os.environ["KIWI_INTERACTIVE_BENCH_TRIAL_REPORT"]).write_text(json.dumps(item))
+''')
+    fake.chmod(0o755)
+    timing = {"samples": 20, "launch_to_first_present_return_ms": 10,
+              "launch_to_child_ready_present_return_ms": 20, "sampled_peak_rss_kib": 128 * 1024,
+              "sustained": {"duration_seconds": 60, "samples": [{}] * 5,
+                            "rss_kib": {"growth": 2048}, "heap_kib": {"growth": 1024}}}
+    for name in ("callback_to_parse_ms", "parse_to_present_return_ms", "callback_to_present_return_ms"):
+        timing[name] = {"values": [1] * 20, "p95": 1}
+    payload.write_text(json.dumps({"measurement": timing}))
+    soak_command = command + ["--mode", "saturated", "--trials", "1", "--samples", "20", "--soak-seconds", "60"]
+    environment = dict(os.environ, LUAJIT=str(fake), TEST_BENCH_PAYLOAD=str(payload))
+    passed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
+    assert passed.returncode == 0, passed.stderr
+    evidence = json.loads(report.read_text())
+    assert evidence["status"] == "complete" and evidence["trial_timeout_seconds"] > 60
+    assert evidence["trials"][0]["test_environment"]["interval"] == 60 / 19
+    for arguments in (["--max-rss-growth-mib", "1"], ["--max-heap-growth-mib", "0"], ["--max-rss-mib", "64"]):
+        failed = subprocess.run(soak_command + arguments, env=environment, capture_output=True, timeout=5)
+        evidence = json.loads(report.read_text())
+        assert failed.returncode != 0 and evidence["status"] == "failed"
+        assert len(evidence["trials"]) == 1, "budget failure discarded measured evidence"
+    timing["sustained"]["duration_seconds"] = 59
+    payload.write_text(json.dumps({"measurement": timing}))
+    failed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
+    assert failed.returncode != 0 and "shorter than requested" in json.loads(report.read_text())["failure"]["reason"]
 
 # Reproduce an allocation change after readiness, before the first input.
 # The child must repaint without polling or needing a synthetic user input.
@@ -66,4 +105,4 @@ for traffic in ("ascii", "styled-unicode"):
         child.communicate(timeout=3)
         os.close(master)
         os.close(slave)
-print("Interactive benchmark passed: report lifecycle, CLI bounds, resize readiness and both PTY workloads.")
+print("Interactive benchmark passed: report lifecycle, CLI bounds, sustained evidence/budgets, resize readiness and both PTY workloads.")
