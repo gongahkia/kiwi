@@ -40,15 +40,20 @@ local function jit_features()
 end
 
 function Environment.collect(timestamp, iterations, warmup)
-  local dirty = command_output("git diff --quiet --ignore-submodules --; printf '%s' $?")
+  local commit = command_output("git rev-parse --verify HEAD 2>/dev/null")
+  local archived = commit == "unavailable"
+  local revision = {
+    branch = archived and "archive" or command_output("git branch --show-current"),
+    commit = archived and file_text("BUILD_REVISION") or commit,
+    source = archived and "BUILD_REVISION" or "git",
+  }
+  if not archived then
+    revision.dirty = command_output("git diff --quiet --ignore-submodules --; printf '%s' $?") == "1"
+  end
   local macos = jit.os == "OSX"
   return {
     timestamp_utc = timestamp,
-    revision = {
-      branch = command_output("git branch --show-current"),
-      commit = command_output("git rev-parse --verify --short HEAD"),
-      dirty = dirty == "1",
-    },
+    revision = revision,
     system = {
       architecture = jit.arch,
       cpu_model = macos and command_output("sysctl -n machdep.cpu.brand_string 2>/dev/null") or command_output("sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo | head -n 1"),
