@@ -14,7 +14,7 @@ jobs:
     runs-on: macos-15
     env:
       KIWI_REQUIRE_SHELLS: bash,zsh,fish,nu
-      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top
+      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top,workflow,tmux-workflow
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: verify runner architecture
@@ -45,7 +45,7 @@ jobs:
     runs-on: macos-15-intel
     env:
       KIWI_REQUIRE_SHELLS: bash,zsh,fish,nu
-      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top
+      KIWI_INTERACTIVE_APPS: bash,zsh,fish,nu,vim,nvim,tmux,tmux-nvim,less,top,workflow,tmux-workflow
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: verify runner architecture

@@ -52,13 +52,14 @@ function Session.new(name, command)
   terminal:resize(80, 24)
   terminal:set_cell_metrics(8, 16)
   local negative_probes = { dcs = 0, csi = 0 }
+  local active_application = { name = name }
   local state = Terminal.state(terminal)
   local record_unknown = state.record_unknown
   state.record_unknown = function(self, family, detail)
-    if name == "vim" and family == "dcs" and detail == "unsupported"
+    if active_application.name == "vim" and family == "dcs" and detail == "unsupported"
       and table.concat(Terminal.parser(terminal).string_chunks) == "zz" then
       negative_probes.dcs = negative_probes.dcs + 1
-    elseif name == "vim" and family == "csi" and type(detail) == "table"
+    elseif active_application.name == "vim" and family == "csi" and type(detail) == "table"
       and detail.private == "" and detail.intermediates == "%" and detail.final == "m"
       and not detail.colon and #detail.parameters == 1 and detail.parameters[1] == 0 then
       negative_probes.csi = negative_probes.csi + 1
@@ -80,7 +81,7 @@ function Session.new(name, command)
   if not ok then recorder:close(); error(pty) end
   return setmetatable({ name = name, terminal = terminal, state = Terminal.state(terminal),
     pty = pty, recorder = recorder, checkpoints = {}, output_bytes = 0, input_bytes = 0,
-    response_bytes = 0, resize_count = 0, negative_probes = negative_probes, started = Metrics.monotonic_seconds() }, Session)
+    response_bytes = 0, resize_count = 0, negative_probes = negative_probes, active_application = active_application, started = Metrics.monotonic_seconds() }, Session)
 end
 
 function Session:screen()
@@ -193,7 +194,7 @@ function Session:close()
   self.pty:shutdown()
 end
 
-local function editor(session, name, multiplexed)
+local function editor(session, name, multiplexed, return_to_shell)
   session:expect("KIWI-READY")
   assert(session.state.active_screen == session.state.alternate, "editor did not enter alternate screen")
   session:text("i")
@@ -217,10 +218,91 @@ local function editor(session, name, multiplexed)
   session:text("Z")
   session:key(glfw.key_escape)
   session:command(":wq")
-  session:exited()
+  if return_to_shell then session:prompt() else session:exited() end
   local saved = read(work .. "/" .. name .. ".txt")
   write(artifacts .. "/" .. name .. "-saved.txt", saved or "missing")
   assert(saved == "aZlpha 界 é\nsecond line\n", "editor saved unexpected text: " .. tostring(saved))
+end
+
+local function prepare_pager()
+  local lines = {}
+  for line = 1, 120 do lines[#lines + 1] = string.format("KIWI-LINE-%03d 界 é", line) end
+  write(work .. "/pager.txt", table.concat(lines, "\n") .. "\n")
+end
+
+local function pager(s, multiplexed, return_to_shell)
+  s:expect("KIWI-LINE-001")
+  assert(s.state.active_screen == s.state.alternate)
+  s:command("/KIWI-LINE-077")
+  s:expect("KIWI-LINE-077")
+  s:resize(47, multiplexed and 14 or 13)
+  -- less can discard pending input while handling SIGWINCH. Wait for the
+  -- resized content prompt (above tmux's status line) before navigation.
+  s:wait("pager resized prompt", function()
+    return s.state.cursor.row == 12 and s.state:get(0, 12).glyph == ":"
+  end)
+  s:text("g"); s:expect("KIWI-LINE-001")
+  s:key(glfw.key_page_down)
+  s:wait("pager advanced", function() return s:screen():find("KIWI-LINE-023", 1, true) and not s:screen():find("KIWI-LINE-001", 1, true) end)
+  s:text("q")
+  if return_to_shell then s:prompt() else s:exited() end
+end
+
+local vim_command = os.getenv("KIWI_INTERACTIVE_VIM") or "vim"
+local vim_version = first_line(quote(vim_command) .. " --version")
+if not os.getenv("KIWI_INTERACTIVE_VIM") and not vim_version:match("^VIM ") and ffi.os == "Linux" then
+  -- Debian alternatives may make `vim` invoke Neovim after installation.
+  -- Qualify both editors, even when that alternative is the system default.
+  local basic_version = first_line("vim.basic --version")
+  if basic_version:match("^VIM ") then vim_command, vim_version = "vim.basic", basic_version end
+end
+
+local function workflow(s, multiplexed, include_vim)
+  if include_vim then assert(vim_version:match("^VIM "), "workflow requires actual Vim") end
+  write(work .. "/workflow-probe.py", assert(read(root .. "/script/application-workflow-probe.py")))
+  s:prompt()
+  local alternate = s.state.active_screen == s.state.alternate
+  local modes = {}
+  for _, key in ipairs({ "keyboard_flags", "modify_other_keys", "application_cursor", "application_keypad",
+    "mouse_tracking", "mouse_protocol", "bracketed_paste", "focus_reporting", "synchronized_output" }) do
+    modes[key] = s.state.modes[key]
+  end
+  local function restored(label)
+    s:wait(label, function()
+      if (s.state.active_screen == s.state.alternate) ~= alternate then return false end
+      for key, value in pairs(modes) do if s.state.modes[key] ~= value then return false end end
+      return true
+    end)
+    -- Execute a fresh command after each full-screen application. A visible
+    -- stale prompt alone must not qualify restored keyboard/paste behaviour.
+    s:paste("printf 'KIWI-RETURN-%s\\n' '" .. label .. "'")
+    s:key(glfw.key_enter)
+    s:expect("KIWI-RETURN-" .. label)
+    s:prompt()
+    local probe = s.name .. "-" .. label
+    s:command("python3 workflow-probe.py " .. (multiplexed and "legacy" or "kitty") .. " " .. probe)
+    s:expect("KIWI-PROBE-READY-" .. probe)
+    s:text("x")
+    s:expect("KIWI-PROBE-DONE-" .. probe)
+    s:prompt()
+    write(artifacts .. "/probe-" .. probe .. ".json", assert(read(work .. "/probe-" .. probe .. ".json")))
+    assert(s.state.modes.keyboard_flags == modes.keyboard_flags, "query probe leaked keyboard mode")
+  end
+  for _, application in ipairs(include_vim and { "nvim", "vim" } or { "nvim" }) do
+    s:resize(80, 24)
+    s.active_application.name = application
+    s:command(quote(application == "vim" and vim_command or application)
+      .. " -N -u NONE -i NONE -n --noplugin -c 'set noswapfile showmode' -c \"echo join(['KIWI', 'READY'], '-')\"")
+    editor(s, s.name .. "-" .. application, multiplexed, true)
+    s.active_application.name = s.name
+    restored(application)
+    s:resize(80, 24)
+    prepare_pager()
+    s:command("less -R -S pager.txt")
+    pager(s, multiplexed, true)
+    restored(application .. "-pager")
+  end
+  s:command("exit"); s:exited()
 end
 
 local function shell(session, remote)
@@ -259,14 +341,6 @@ local function shell(session, remote)
   session:exited()
 end
 
-local vim_command = os.getenv("KIWI_INTERACTIVE_VIM") or "vim"
-local vim_version = first_line(quote(vim_command) .. " --version")
-if not os.getenv("KIWI_INTERACTIVE_VIM") and not vim_version:match("^VIM ") and ffi.os == "Linux" then
-  -- Debian alternatives may make `vim` invoke Neovim after installation.
-  -- Qualify both editors, even when that alternative is the system default.
-  local basic_version = first_line("vim.basic --version")
-  if basic_version:match("^VIM ") then vim_command, vim_version = "vim.basic", basic_version end
-end
 local revision = first_line("git rev-parse --short HEAD")
 local git_status = first_line("git status --porcelain --untracked-files=no && printf 'KIWI_GIT_CLEAN\\n'")
 local source_state = git_status == "KIWI_GIT_CLEAN" and "clean" or (git_status == "unavailable" and "unavailable" or "dirty")
@@ -324,9 +398,10 @@ local function run(name, command, body, cleanup)
 end
 
 write(artifacts .. "/report.json", Json.encode(report) .. "\n")
-local applications = os.getenv("KIWI_INTERACTIVE_APPS") or "bash,zsh,fish,vim,nvim,tmux,tmux-nvim,less,top"
+local applications = os.getenv("KIWI_INTERACTIVE_APPS") or "bash,zsh,fish,vim,nvim,tmux,tmux-nvim,less,top,workflow,tmux-workflow"
 assert(applications ~= "" and not applications:find("^,") and not applications:find(",$") and not applications:find(",,"), "application list must not contain empty entries")
 local supported = { bash = true, zsh = true, vim = true, nvim = true, tmux = true, ["tmux-nvim"] = true, less = true, top = true,
+  workflow = true, ["tmux-workflow"] = true, ["ssh-workflow"] = true, ["ssh-tmux-workflow"] = true,
   fish = true, nu = true, ["ssh-shell"] = true, ["ssh-nvim"] = true, ["ssh-tmux-nvim"] = true, ["ssh-hangup"] = true }
 for name in applications:gmatch("[^,]+") do assert(supported[name], "unknown application: " .. name) end
 for name in applications:gmatch("[^,]+") do
@@ -342,6 +417,7 @@ for name in applications:gmatch("[^,]+") do
     local client = assert(os.getenv("KIWI_INTERACTIVE_SSH"), "run script/test-ssh-applications for SSH cases")
     run(name, { client, name:sub(5) }, function(s)
       if name == "ssh-shell" then shell(s, true)
+      elseif name == "ssh-workflow" or name == "ssh-tmux-workflow" then workflow(s, name == "ssh-tmux-workflow")
       elseif name == "ssh-hangup" then
         s:expect("KIWI-REMOTE-READY")
         s.pty:shutdown()
@@ -351,6 +427,13 @@ for name in applications:gmatch("[^,]+") do
         s.terminal:finish()
       else editor(s, name, name == "ssh-tmux-nvim") end
     end)
+  elseif name == "workflow" then
+    run(name, { "bash", "--noprofile", "--norc", "-i" }, function(s) workflow(s, false, true) end)
+  elseif name == "tmux-workflow" then
+    local socket = work .. "/workflow.sock"
+    run(name, { "tmux", "-S", socket, "-f", tmux_config(), "new-session", "-s", "kiwi-workflow",
+      "bash", "--noprofile", "--norc", "-i" }, function(s) workflow(s, true) end,
+      function() os.execute("tmux -S " .. quote(socket) .. " kill-server >/dev/null 2>&1") end)
   elseif name == "vim" or name == "nvim" then
     run(name, { name == "vim" and vim_command or name, "-N", "-u", "NONE", "-i", "NONE", "-n", "--noplugin", "-c", "set noswapfile showmode", "-c", "echo 'KIWI-READY'" }, function(s) editor(s, name) end)
   elseif name == "tmux-nvim" then
@@ -360,25 +443,8 @@ for name in applications:gmatch("[^,]+") do
       function(s) editor(s, name, true) end,
       function() os.execute("tmux -S " .. quote(socket) .. " kill-server >/dev/null 2>&1") end)
   elseif name == "less" then
-    local lines = {}
-    for line = 1, 120 do lines[#lines + 1] = string.format("KIWI-LINE-%03d 界 é", line) end
-    write(work .. "/pager.txt", table.concat(lines, "\n") .. "\n")
-    run(name, { "less", "-R", "-S", "pager.txt" }, function(s)
-      s:expect("KIWI-LINE-001")
-      assert(s.state.active_screen == s.state.alternate)
-      s:command("/KIWI-LINE-077")
-      s:expect("KIWI-LINE-077")
-      s:resize(47, 13)
-      -- less can discard pending input while handling SIGWINCH. Wait for its
-      -- prompt on the new last row before sending the next navigation key.
-      s:wait("pager resized prompt", function()
-        return s.state.cursor.row == 12 and s.state:get(0, 12).glyph == ":"
-      end)
-      s:text("g"); s:expect("KIWI-LINE-001")
-      s:key(glfw.key_page_down)
-      s:wait("pager advanced", function() return s:screen():find("KIWI-LINE-023", 1, true) and not s:screen():find("KIWI-LINE-001", 1, true) end)
-      s:text("q"); s:exited()
-    end)
+    prepare_pager()
+    run(name, { "less", "-R", "-S", "pager.txt" }, pager)
   elseif name == "tmux" then
     local socket = work .. "/tmux.sock"
     run(name, { "tmux", "-S", socket, "-f", tmux_config(), "new-session", "-s", "kiwi", "/bin/sh", "-i" }, function(s)

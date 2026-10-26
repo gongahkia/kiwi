@@ -9,6 +9,7 @@ cleanup() {
   if command -v tmux >/dev/null 2>&1; then
     tmux -S "$KIWI_INTERACTIVE_WORK/tmux.sock" kill-server >/dev/null 2>&1 || true
     tmux -S "$KIWI_INTERACTIVE_WORK/nested.sock" kill-server >/dev/null 2>&1 || true
+    tmux -S "$KIWI_INTERACTIVE_WORK/workflow.sock" kill-server >/dev/null 2>&1 || true
   fi
   rm -rf "$KIWI_INTERACTIVE_WORK"
 }

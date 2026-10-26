@@ -7,8 +7,8 @@ exercise internal models, native boundaries and user-visible behavior.
 | --- | --- | --- |
 | `make test-core` | LuaJIT, standard shell utilities | Headless core suites plus CLI help/version/error paths. The runner disables `ffi.load` so installed graphics libraries cannot hide an accidental dependency. |
 | `make check` | Documented native build dependencies and C compiler | Complete Lua suite, seeded parser fuzzing, real PTYs, C readiness watcher, terminfo contract, CLI behavior and syntax of every Lua file. |
-| `make test-applications` | Native build, Bash, Zsh, fish, Vim, Neovim, tmux, less, system top | Nine real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. Optional explicit Nushell case; no display is needed. |
-| `make test-ssh-applications` | Native build, Python 3, OpenSSH client/server/keygen, Bash, Neovim, tmux | Real authenticated loopback SSH, remote shell/editor input, resize through SSH/tmux, disconnect/HUP cleanup and replay. |
+| `make test-applications` | Native build, Python 3, Bash, Zsh, fish, Vim, Neovim, tmux, less, system top | Eleven real-program workflows, independent saved-file assertions, job control, resize, parser diagnostics and chunk-invariant replay. Optional explicit Nushell case; no display is needed. |
+| `make test-ssh-applications` | Native build, Python 3, OpenSSH client/server/keygen, Bash, Neovim, tmux, less | Real authenticated loopback SSH, remote shell/editor input, resize through SSH/tmux, disconnect/HUP cleanup and replay. |
 | `make test-pty-watch` | C17 compiler, POSIX pthreads | One-shot notifications, no byte consumption, rearm, descriptor replacement, EOF and worker shutdown. |
 | `make interaction-smoke` | Native build and a graphical desktop | Live splits, directional focus, divider resize, zoom, font reset, search and close through native action dispatch. |
 | `make pty-wake-smoke` | Native build and a graphical desktop | Readable child output wakes the host before a deliberately long event timeout. |
@@ -70,7 +70,7 @@ KIWI_INTERACTIVE_APPS=fish,nu ./script/test-applications
 KIWI_INTERACTIVE_ARTIFACTS="$PWD/.build/application-trial" ./script/test-applications
 ```
 
-The default nine workflows exercise Bash/Zsh/fish line editing, Unicode paste,
+The default eleven workflows exercise Bash/Zsh/fish line editing, Unicode paste,
 resize and foreground-job interruption; Vim/Neovim Unicode insertion and
 saved-file contents; Neovim inside tmux; tmux split/resize/zoom/close; less
 search/page navigation; and system top filtered to its own process. Special
@@ -83,6 +83,23 @@ an explicit executable when needed. Substituting Neovim fails the Vim case.
 The explicit `nu` case exercises the same shell workflow with Nushell. The
 foreground job uses `/bin/sleep` so shells with different builtin sleep syntax
 all exercise external process-group interruption.
+
+The `workflow` case keeps one Bash PTY alive through Neovim, less, Vim and
+less again; `tmux-workflow` runs the Neovim/pager sequence inside a persistent
+tmux shell. Each editor saves exact Unicode text and observes SIGWINCH, and each
+pager searches, resizes and pages before returning to the shell. After each
+application the test checks screen selection and keyboard, mouse, focus,
+synchronized-output and bracketed-paste modes against the initial shell state,
+then executes a fresh pasted shell command. Screen selection is compared
+semantically because resize may replace its backing storage. Readiness markers
+are assembled by the editor, so echoed shell commands cannot satisfy them.
+
+A bounded Python child then queries cursor position and device attributes through
+the same PTY. Direct sessions push/query Kitty flags 1/2/8/16, receive encoded
+committed text, and pop back to the shell's mode. tmux sessions use legacy text
+and tmux's query responses; they do not claim Kitty passthrough. Probe JSON is an
+independent child-side oracle, retained with the terminal recordings. Vim's two
+known negative probes are permitted only while that editor is active.
 
 Each case retains bounded input/output/resize JSONL, text checkpoints and a
 machine-readable report in `.build/application-evidence`. Successful captures
@@ -106,7 +123,7 @@ native input routing, IME, clipboard ownership or visual rendering. Those remain
 independent qualification requirements. Nushell is required in macOS CI; it
 must be explicitly selected and installed for a local or Linux run.
 
-`make test-ssh-applications` adds four workflows using a real OpenSSH server
+`make test-ssh-applications` adds six workflows using a real OpenSSH server
 bound to `127.0.0.1` on an ephemeral port. It creates temporary host/client
 keys and a pinned known-hosts file in a private temporary directory under the
 account's real home (required by OpenSSH `StrictModes`), uses only that client identity, and leaves
@@ -116,7 +133,8 @@ fixtures. Test configurations and keys stay in a private temporary directory
 and are removed after child/session cleanup; they are never uploaded. Failures
 print the bounded tail of the isolated server's authentication/session log.
 
-The workflows edit shell commands and save Unicode text in Neovim, resize
+The two `ssh-workflow` and `ssh-tmux-workflow` cases also run the combined
+editor/pager/query sequence across SSH. The workflows edit shell commands and save Unicode text in Neovim, resize
 Neovim directly and inside remote tmux, and close the local PTY while a remote
 process waits. The last case requires that the remote process receive HUP and
 write its termination marker. `.build/ssh-application-evidence` contains the
