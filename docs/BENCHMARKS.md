@@ -286,16 +286,30 @@ zero `minimized` duration means that the platform did not deliver an iconify
 state during that particular run; it is not evidence that the window was not
 occluded or that the minimized branch ran.
 
-Policy is intentionally conservative: visible sessions wait at most 50 ms so
-the single Lua thread can service the nonblocking PTY and GLFW; pending output,
-input, resize, local actions, or configuration each coalesce into the next
-render. A visible blinking cursor schedules one 0.5-second deadline. Iconified
-windows retain terminal state and invalidation but avoid surface acquire/present
-and use a 250 ms maximum wait; restoration reconfigures then presents the latest
+Live sessions now wait for host/PTY/process/configuration events or an explicit
+deadline. A quiet session can wait indefinitely. A visible blinking cursor
+schedules one 0.5-second deadline. Iconified windows retain terminal state and
+invalidation but avoid surface acquire/present; restoration presents the latest
 state. DEC synchronized output has the same defer-without-drop behavior.
+Only children without native exit-watch support retain the 50 ms visible /
+250 ms minimized reaping fallback. Linux GLFW may also use a 50 ms fallback for
+unsupported GLib descriptor sets; see [ADR 0045](adr/0045-event-driven-host-waits.md).
 Extension animation deadlines remain bounded by
 `KIWI_EXTENSION_MAX_ANIMATION_HZ` (1/60 through 60 Hz) and do not run while a
 window is minimized.
+
+`make idle-wake-smoke` uses a synthetic-input handshake, hides the cursor and
+keeps the child quiet for three seconds before exit. An external 30-second
+watchdog catches hangs. The gate allows at most 30 host-loop wakes and requires
+an indefinite wait. This is a regression budget for a quiet test desktop, not
+a promise about arbitrary desktop activity. `--report PATH` preserves JSON;
+`--root PATH --record-only` records a historical checkout without enforcing
+the new budget. Current power reports count indefinite waits separately, and
+state durations measure time inside host waits using the state before the wait;
+they exclude parsing/rendering CPU time. Historical reports used intervals
+between observations, so those duration fields are not directly comparable.
+Measured results and an unresolved desktop outlier are recorded in
+[the event-wait evidence](evidence/2026-10-26-event-waits.md).
 
 On the Fedora 43 Wayland host, the initial six-second `make power-smoke` report
 observed 130 GLFW-loop wakeups (21.56 Hz), 26 successful renderer returns, three

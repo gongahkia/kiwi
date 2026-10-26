@@ -49,7 +49,8 @@ for the current non-Windows scope. All other unchecked work remains in scope.
 ## Performance and power
 
 - [ ] Measure startup, input latency, throughput, memory and idle wakeups.
-- [ ] Remove unnecessary polling while preserving output and input readiness.
+- [x] Remove the blanket application timer while preserving output, buffered
+      input and child-exit readiness; retain explicit unsupported-platform fallbacks.
 - [ ] Run representative load/soak workloads with bounded resource assertions.
 - [ ] Record reproducible baselines and regression thresholds; distinguish CPU
       microbenchmarks from displayed latency and same-machine comparisons.
@@ -618,3 +619,21 @@ request dispatch, not screen-reader usability or actual-desktop accessibility.
 Both macOS and Linux pass `make check test-core` (635 full / 398 core tests).
 The application fallback timer remains pending child-exit and other deadline
 work; this increment alone does not establish idle-power improvements.
+
+### Event-driven application waits
+
+The preceding timer-status notes are superseded by `768f7f2`. Live windows now
+wait for readiness or explicit deadlines, including indefinitely when quiet.
+Buffered input, child exits after EOF and Linux GLib/AT-SPI dispatch have native
+wake paths. Unsupported child watches and GLib descriptor sets keep explicit
+fallbacks. Rendering, configuration debounce, development shaders, navigation,
+PRIMARY transfers and diagnostic runtime limits retain their own deadlines.
+
+Both hosts pass 639 full / 400 core tests. Finite/indefinite readiness tests,
+configuration reload, Linux interaction fixtures and all four PRIMARY host
+paths pass. The quiet gate observes five wakes in each of three clean macOS
+runs, versus 58 in the controlled historical baseline; Linux GLFW/GTK observe
+four/five. An earlier macOS 87-wake outlier remains unexplained and is preserved.
+This closes the blanket-timer implementation gate, not the remaining performance
+measurement, desktop reliability or distribution gates. See
+[event-wait evidence](evidence/2026-10-26-event-waits.md) for raw reports and limits.
