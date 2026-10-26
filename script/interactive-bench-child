@@ -35,9 +35,14 @@ while True:
             assert data == b"x", "benchmark requires exactly one outstanding input"
             sequence += 1
             assert sequence <= 288
+            if sequence == 1:
+                rows = os.get_terminal_size(0).lines
+                pending += f"\x1b[2;{rows}r".encode()
             pending += (f"\x1b]2;kiwi-bench-ack:{sequence}\x07"
                         f"\x1b[1;1HACK{sequence:04d}  \x1b[2;1H").encode()
-    if not pending and mode == "saturated":
+    # Let the parent observe startup before background output can scroll or
+    # race the initial native allocation. The first warmup input starts load.
+    if not pending and mode == "saturated" and sequence > 0:
         pending = traffic
     assert len(pending) <= 8192, "child output queue exceeded its bound"
     if pending and not writing:
@@ -49,6 +54,6 @@ while True:
             pending = pending[count:]
         except BlockingIOError:
             pass
-        if not pending and mode == "idle":
+        if not pending and (mode == "idle" or sequence == 0):
             selector.unregister(1)
             writing = False

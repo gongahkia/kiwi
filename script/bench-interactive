@@ -22,6 +22,14 @@ def summary(values):
                 mean=statistics.mean(values), p50=percentile(.5), p95=percentile(.95), p99=percentile(.99))
 
 
+def write_report(path, result):
+    encoded = json.dumps(result, indent=2, allow_nan=False) + "\n"
+    assert len(encoded) <= 2 * 1024 * 1024
+    temporary = path.with_suffix(path.suffix + ".new")
+    temporary.write_text(encoded)
+    temporary.replace(path)
+
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
 parser.add_argument("--report", type=Path, required=True)
@@ -36,12 +44,14 @@ if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup
     parser.error("counts/interval exceed supported bounds")
 if (args.samples + args.warmup - 1) * args.interval_ms > 20000:
     parser.error("requested intervals consume more than 20 seconds of the 30-second trial budget")
+if args.mode != "idle" and args.warmup < 1:
+    parser.error("saturated trials require a warmup input to start background output after startup")
 root, report_path = args.root.resolve(), args.report.resolve()
 report_path.parent.mkdir(parents=True, exist_ok=True)
 logs = report_path.parent / (report_path.stem + "-logs")
 logs.mkdir(exist_ok=True)
 modes = ("idle", "saturated") if args.mode == "both" else (args.mode,)
-result = {"schema_version": 1, "benchmark": "acknowledged interactive application timing", "trials": [],
+result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged interactive application timing", "trials": [],
           "methodology": {
               "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
               "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
@@ -49,11 +59,12 @@ result = {"schema_version": 1, "benchmark": "acknowledged interactive applicatio
               "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
               "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
               "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
-              "load": "bounded nonblocking child output below a reserved acknowledgment row; idle and saturated trials use identical geometry/configuration",
+              "load": "bounded nonblocking child output below a reserved acknowledgment row, started by the first warmup input; idle and saturated trials use identical geometry/configuration",
               "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
               "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
               "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
               "bounds": "30-second internal and 40-second external trial deadlines; two-second acknowledgment ceiling; at most 256 measured inputs and 32 warmup inputs per trial"}}
+write_report(report_path, result)
 with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
     temporary = Path(temporary)
     config = temporary / "config"
@@ -77,13 +88,17 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 try:
                     subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
                                    env=environment, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=40)
-                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    item = json.loads(output.read_text())
+                    assert item["measurement"]["samples"] == args.samples
+                except Exception as error:
+                    result["status"] = "failed"
+                    result["failure"] = dict(mode=mode, trial=trial, log=str(log), reason=str(error)[:1024])
+                    write_report(report_path, result)
                     print(f"Interactive trial failed; log: {log}", file=sys.stderr)
                     raise
-            item = json.loads(output.read_text())
-            assert item["measurement"]["samples"] == args.samples
             item["trial"], item["mode"] = trial, mode
             result["trials"].append(item)
+            write_report(report_path, result)
             timing = item["measurement"]
             print(f"{mode} trial={trial} startup-ready={timing['launch_to_child_ready_present_return_ms']:.1f}ms "
                   f"ack-p95={timing['callback_to_present_return_ms']['p95']:.2f}ms "
@@ -97,9 +112,6 @@ for mode in modes:
     for name in ("callback_to_parse_ms", "parse_to_present_return_ms", "callback_to_present_return_ms"):
         aggregate[name] = summary([value for observation in observations for value in observation[name]["values"]])
     result["summary"][mode] = aggregate
-encoded = json.dumps(result, indent=2, allow_nan=False) + "\n"
-assert len(encoded) <= 2 * 1024 * 1024
-temporary_report = report_path.with_suffix(report_path.suffix + ".new")
-temporary_report.write_text(encoded)
-temporary_report.replace(report_path)
+result["status"] = "complete"
+write_report(report_path, result)
 print(f"Report: {report_path}; excludes physical keyboard/display latency.")
