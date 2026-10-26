@@ -31,6 +31,11 @@ local function shift_override(event, modes, policy)
     and not mouse_captures_shift(modes, policy)
 end
 
+function SelectionPointer.application_captures(event, modes, policy)
+  return application_mouse_enabled(modes) and not
+    (bit.band(event.modifiers or 0, 0x0001) ~= 0 and not mouse_captures_shift(modes, policy))
+end
+
 function SelectionPointer.new()
   return setmetatable({ drag = nil, last_click = nil }, SelectionPointer)
 end

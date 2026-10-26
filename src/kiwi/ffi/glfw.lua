@@ -48,6 +48,7 @@ void glfwSetClipboardString(GLFWwindow* window, const char* string);
 const char* glfwGetClipboardString(GLFWwindow* window);
 double glfwGetTime(void);
 int glfwGetPlatform(void);
+void glfwSetX11SelectionString(const char* text);
 int glfwGetError(const char** description);
 ]]
 

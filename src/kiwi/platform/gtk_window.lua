@@ -74,6 +74,8 @@ void kiwi_gtk_host_drawable_size(const KiwiGtkHost* host, int* width, int* heigh
 double kiwi_gtk_host_content_scale(const KiwiGtkHost* host);
 void kiwi_gtk_host_set_size(KiwiGtkHost* host, int width, int height);
 int kiwi_gtk_host_clipboard_write(KiwiGtkHost* host, const char* text);
+const char* kiwi_gtk_host_primary_display(KiwiGtkHost* host);
+int kiwi_gtk_host_primary_write(KiwiGtkHost* host, const char* text);
 int kiwi_gtk_host_clipboard_read(KiwiGtkHost* host, char* destination, size_t capacity, size_t* text_bytes);
 int kiwi_gtk_host_notify(KiwiGtkHost* host, const char* title, const char* body);
 int kiwi_gtk_host_open_uri(KiwiGtkHost* host, const char* uri);
@@ -265,7 +267,10 @@ function Window:_new_input_callbacks()
     if kind == 1 then
       self.on_pointer({ kind = "motion", x = x, y = y, modifiers = tonumber(modifiers) })
     elseif kind == 2 then
-      self.on_pointer({ kind = "button", x = x, y = y, button = math.max(0, tonumber(button) - 1), action = tonumber(action) == 1 and "press" or "release", modifiers = tonumber(modifiers) })
+      local number = tonumber(button)
+      -- GDK left/middle/right = 1/2/3; the shared input contract uses 0/2/1.
+      local mapped = number == 2 and 2 or number == 3 and 1 or number - 1
+      self.on_pointer({ kind = "button", x = x, y = y, button = mapped, action = tonumber(action) == 1 and "press" or "release", modifiers = tonumber(modifiers) })
     elseif kind == 3 then
       self.on_pointer({ kind = "wheel", x = x, y = y, horizontal_delta = dx, delta = dy, modifiers = tonumber(modifiers) })
     end
@@ -659,6 +664,17 @@ end
 
 function Window:clipboard_write(text)
   return native.kiwi_gtk_host_clipboard_write(self.handle, text) ~= 0 and true or false, "platform-error"
+end
+
+function Window:primary_supported() return native.kiwi_gtk_host_primary_display(self.handle) ~= nil end
+function Window:primary_write(text)
+  if not self:primary_supported() then return false, "unavailable" end
+  return native.kiwi_gtk_host_primary_write(self.handle, text) ~= 0, "platform-error"
+end
+function Window:primary_read(maximum_bytes)
+  local display = native.kiwi_gtk_host_primary_display(self.handle)
+  if display == nil then return nil, "unavailable" end
+  return require("kiwi.platform.primary_read").new(display, maximum_bytes)
 end
 
 function Window:notify(title, body)

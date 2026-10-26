@@ -34,6 +34,13 @@ KiwiPtyWatch *kiwi_surface_create_pty_watch(void) {
 #include <time.h>
 #include <unistd.h>
 
+const char *kiwi_surface_primary_display(void) {
+#if defined(__linux__)
+  if (glfwGetPlatform() == GLFW_PLATFORM_X11) return DisplayString(glfwGetX11Display());
+#endif
+  return NULL;
+}
+
 static char kiwi_surface_error[2048];
 
 void kiwi_surface_set_error(const char *message) {

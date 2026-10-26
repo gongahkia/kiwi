@@ -27,6 +27,7 @@ Config.edit_template = [[# Kiwi configuration
 # scrollback-limit = 2000
 # scrollbar = always
 # mouse-shift-capture = false
+# primary-selection = true
 # osc52-read = deny
 # osc52-write = false
 # shell-integration = auto
@@ -227,6 +228,7 @@ local function defaults()
     keybindings = {},
     command_palette_entries = {},
     mouse_shift_capture = false,
+    primary_selection = true,
     osc52_read = "deny",
     osc52_write = false,
     osc9_notifications = "off",
@@ -438,6 +440,8 @@ local function apply_value(config, key, raw, line)
     config.color_overrides.command_region_color = config.command_region_color
   elseif key == "command-regions" then
     config.command_regions = parse_boolean(raw, line)
+  elseif key == "primary-selection" then
+    config.primary_selection = parse_boolean(raw, line)
   elseif key == "mouse-shift-capture" then
     config.mouse_shift_capture = parse_mouse_shift_capture(raw, line)
   elseif key == "keybind" then
@@ -614,6 +618,7 @@ function Config.apply_environment(config, environment)
     ["command-region-color"] = environment("KIWI_COMMAND_REGION_COLOR"),
     ["command-regions"] = environment("KIWI_COMMAND_REGIONS") == "1" and "true" or environment("KIWI_COMMAND_REGIONS") == "0" and "false" or nil,
     ["mouse-shift-capture"] = environment("KIWI_MOUSE_SHIFT_CAPTURE"),
+    ["primary-selection"] = environment("KIWI_PRIMARY_SELECTION"),
     ["osc52-read"] = environment("KIWI_OSC52_READ"),
     ["osc52-write"] = environment("KIWI_OSC52_WRITE") == "1" and "true" or environment("KIWI_OSC52_WRITE") == "0" and "false" or nil,
     ["notify-on-command-finish"] = environment("KIWI_NOTIFY_ON_COMMAND_FINISH"),
