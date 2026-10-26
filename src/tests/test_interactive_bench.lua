@@ -1,0 +1,68 @@
+local Assert = require("tests.assert")
+local Interactive = require("kiwi.bench.interactive")
+local Terminal = require("kiwi.session.terminal")
+
+return {
+  acknowledged_timing_excludes_warmup_and_unrelated_frames = function()
+    local recorder = Interactive.new({ launched_at = 10, samples = 1, warmup = 1 })
+    recorder:present(10.1)
+    Assert.equal(pcall(recorder.input, recorder, 10.2), false)
+    recorder:present(10.3, 0)
+    Assert.equal(recorder:input(10.4), 1)
+    recorder:present(10.5)
+    Assert.equal(recorder.completed, 0)
+    recorder:parsed(1, 10.6)
+    Assert.equal(recorder:parsed(1, 10.7), false)
+    recorder:present(10.8, 1)
+    Assert.equal(#recorder.callback_to_present_return_ms, 0)
+    recorder:input(11)
+    Assert.equal(recorder:parsed(1, 11.1), false)
+    recorder:present(11.2, 1)
+    Assert.equal(recorder.completed, 1)
+    recorder:parsed(2, 11.3)
+    recorder:present(11.4, 2)
+    local result = recorder:snapshot()
+    Assert.near(result.launch_to_first_present_return_ms, 100, 0.001)
+    Assert.near(result.launch_to_child_ready_present_return_ms, 300, 0.001)
+    Assert.near(result.callback_to_parse_ms.mean, 300, 0.001)
+    Assert.near(result.parse_to_present_return_ms.mean, 100, 0.001)
+    Assert.near(result.callback_to_present_return_ms.maximum, 400, 0.001)
+    Assert.equal(result.callback_to_present_return_ms.count, 1)
+    Assert.equal(pcall(recorder.input, recorder, 12), false)
+  end,
+  acknowledged_timing_rejects_false_associations_and_unbounded_or_incomplete_runs = function()
+    for _, samples in ipairs({ 0, 257, 1.5 }) do
+      Assert.equal(pcall(Interactive.new, { launched_at = 0, samples = samples, warmup = 0 }), false)
+    end
+    Assert.equal(pcall(Interactive.new, { launched_at = math.huge, samples = 1, warmup = 0 }), false)
+    Assert.equal(pcall(Interactive.new, { launched_at = 0, samples = 1, warmup = 33 }), false)
+    local recorder = Interactive.new({ launched_at = 1, samples = 1, warmup = 0 })
+    Assert.equal(pcall(recorder.snapshot, recorder), false)
+    Assert.equal(pcall(recorder.present, recorder, 0), false)
+    recorder:present(2, 0); recorder:input(3)
+    Assert.equal(pcall(recorder.input, recorder, 3), false)
+    Assert.equal(pcall(recorder.parsed, recorder, 2, 3.1), false)
+    Assert.equal(pcall(recorder.parsed, recorder, 1, 2.9), false)
+    Assert.equal(pcall(recorder.present, recorder, 3.2, 1), false)
+    recorder:parsed(1, 3.3)
+    Assert.equal(pcall(recorder.present, recorder, 5, 1), false)
+  end,
+  acknowledgment_requires_matching_visible_text_across_arbitrary_pty_splits = function()
+    local terminal = Terminal.new({ columns = 20, rows = 3 })
+    local state = Terminal.state(terminal)
+    terminal:write("\27]2;kiwi-bench-ready\7\27[HREADY0000")
+    Assert.equal(Interactive.visible_sequence(state), 0)
+    local bytes = "\27]2;kiwi-bench-ack:1\7\27[1;1HACK0001"
+    for index = 1, #bytes do
+      terminal:write(bytes:sub(index, index))
+      local sequence = Interactive.visible_sequence(state)
+      if index == #bytes then Assert.equal(sequence, 1)
+      else Assert.truthy(sequence == nil or sequence == 0) end
+    end
+    terminal:write("\27[2;3r\27[2;1H" .. string.rep("background\r\n", 12))
+    Assert.equal(Interactive.visible_sequence(state), 1)
+    terminal:write("\27]2;kiwi-bench-ack:99999\7")
+    Assert.equal(Interactive.visible_sequence(state), nil)
+    terminal:close()
+  end,
+}
