@@ -26,6 +26,22 @@ local function fixture()
 end
 local function middle(action, modifiers) return { kind = "button", button = 2, action = action or "press", modifiers = modifiers or 0 } end
 return {
+  primary_repeated_clicks_keep_one_conversion_and_only_the_latest_target = function()
+    local primary, state, _, requests = fixture()
+    for _ = 1, 100 do primary:button(middle(), state, true) end
+    Assert.equal(#requests, 1)
+    Assert.equal(primary:poll(state, true), nil)
+    Assert.equal(primary:poll(state, true), nil)
+    Assert.equal(#requests, 2)
+    Assert.equal(primary:poll(state, true), nil)
+    Assert.equal(primary:poll(state, true), "paste")
+    primary:button(middle(), state, true)
+    state.modes.mouse_tracking = "normal"
+    -- A fresh application-owned press replaces a lost local release claim.
+    Assert.equal(primary:button(middle(), state, true), false)
+    Assert.equal(primary:button(middle("release"), state, true), false)
+    primary:destroy()
+  end,
   primary_selection_publishes_completed_pointer_selection_without_clipboard_sync = function()
     local primary, state, writes = fixture()
     local pointer = Pointer.new()
