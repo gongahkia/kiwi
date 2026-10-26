@@ -1715,7 +1715,7 @@ function Controller.run(window, host, options)
   if renderer then renderer:destroy() end
   if font then font:destroy() end
   if context then context:destroy() end
-  primary_selection:cancel()
+  primary_selection:destroy()
   window:destroy()
   if not ok then error(result) end
 end

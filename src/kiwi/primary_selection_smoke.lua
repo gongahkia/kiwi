@@ -73,12 +73,12 @@ Host.await_events = function(application, window, timeout)
     pointer(window, 2, "press", 0, true)
     assert(primary.request)
     window.on_focus(false)
-    assert(primary.request == nil, "focus loss retained an asynchronous paste")
+    assert(primary.cancelled and primary.target == nil, "focus loss retained a paste target")
     pointer(window, 2, "release", 0, true)
     window.on_focus(true)
     assert(window:clipboard_read(1024) == "ordinary clipboard")
     stage = 5
-  elseif stage == 5 then
+  elseif stage == 5 and primary.request == nil then
     assert(received() == expected, "cancelled paste reached the child")
     stage = 6; window:request_close()
   end

@@ -88,6 +88,7 @@ return {
       elseif kind == "search" then state:search_begin()
       else primary:cancel() end
       Assert.equal(primary:poll(state, enabled), nil)
+      Assert.equal(primary:poll(state, enabled), nil)
       Assert.truthy(requests[1].closed)
       Assert.equal(primary.request, nil)
     end
@@ -113,8 +114,10 @@ return {
     local primary, state, _, requests = fixture()
     primary:button(middle(), state, true)
     primary:button(middle(), state, true)
+    Assert.equal(#requests, 1)
+    primary:poll(state, true); primary:poll(state, true)
     Assert.truthy(requests[1].closed); Assert.equal(#requests, 2)
-    primary:cancel(); Assert.truthy(requests[2].closed)
+    primary:destroy(); Assert.truthy(requests[2].closed)
     primary.bridge.primary_supported = nil
     Assert.equal(primary:button(middle(), state, true), false)
     Assert.equal(primary:publish(state, true), false)
