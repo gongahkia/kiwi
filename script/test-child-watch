@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+binary=$(mktemp "${TMPDIR:-/tmp}/kiwi-child-watch.XXXXXX")
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c17 -Wall -Wextra -Werror ${CFLAGS:-} -Inative \
+  native/child_watch.c src/tests/fixtures/child_watch_test.c -o "$binary"
+"$binary"

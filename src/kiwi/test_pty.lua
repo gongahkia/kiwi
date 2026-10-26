@@ -24,6 +24,7 @@ local function pump(command, columns, rows, on_responses, environment, options)
     end
     local status = pty:poll_exit()
     if status and pty.eof then
+      Assert.equal(pty.exit_fd, nil)
       parser:finish()
       pty:shutdown()
       return table.concat(transcript), state, status
@@ -245,6 +246,7 @@ test("pty_shutdown_reaps_a_hup_and_term_resistant_child", function()
   Assert.equal(pty.exit_status.kind, "signal")
   Assert.equal(pty.exit_status.signal, 9)
   Assert.equal(pty.fd, nil)
+  Assert.equal(pty.exit_fd, nil)
 end)
 
 test("pty_sessions_keep_input_output_and_lifecycle_isolated", function()

@@ -331,6 +331,10 @@ bench-compare:
 test-pty-watch:
 	./script/test-pty-watch
 
+.PHONY: test-child-watch
+test-child-watch:
+	./script/test-child-watch
+
 test-file-watch:
 	./script/test-file-watch
 
@@ -341,7 +345,7 @@ configuration-reload-smoke: native terminfo
 pty-wake-smoke: native
 	$(LUAJIT) src/kiwi/pty_wake_smoke.lua
 
-check: test test-fuzz test-pty test-pty-watch test-main-context-watch test-file-watch test-process-metrics test-regex-oracle terminfo
+check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 

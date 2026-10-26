@@ -20,7 +20,7 @@ jobs:
         run: make test-core test-regex-oracle
       - name: check readiness watcher memory and concurrency
         run: |
-          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch
+          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch test-child-watch
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-file-watch
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-process-metrics
           CFLAGS='-fsanitize=thread -fno-omit-frame-pointer' make test-pty-watch
