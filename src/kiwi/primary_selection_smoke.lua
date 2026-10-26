@@ -80,7 +80,17 @@ Host.await_events = function(application, window, timeout)
     stage = 5
   elseif stage == 5 and primary.request == nil then
     assert(received() == expected, "cancelled paste reached the child")
-    stage = 6; window:request_close()
+    -- Closing a requester must not crash the still-running selection owner.
+    local other = Window.new(200, 100, "Primary closing requester")
+    local closing = Primary.new(other)
+    primary = closing -- restored below; constructor interception is intentional
+    assert(closing:button({ kind = "button", button = 2, action = "press" }, state, true))
+    closing:destroy(); other:destroy()
+    assert(require("kiwi.platform.primary_read").retired_count() == 1)
+    stage = 6
+  elseif stage == 6 and require("kiwi.platform.primary_read").retired_count() == 0 then
+    assert(received() == expected)
+    stage = 7; window:request_close()
   end
 end
 arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/primary_input_child.py", capture }
@@ -88,5 +98,5 @@ local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceb
 if probe then probe:destroy() end
 Terminal.new, Primary.new, Font.new, Host.await_events = terminal_new, primary_new, font_new, await
 os.remove(capture); os.remove(config)
-assert(ok, message); assert(stage == 6)
+assert(ok, message); assert(stage == 7)
 print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle paste, native button mapping, mouse capture/Shift override, replacement and focus cancellation.")

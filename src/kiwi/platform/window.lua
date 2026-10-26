@@ -681,6 +681,8 @@ local function flush_input_correlations(windows)
   for _, window in ipairs(windows) do
     if window.handle ~= nil then window.input_correlation:flush() end
   end
+  local primary_reads = package.loaded["kiwi.platform.primary_read"]
+  if primary_reads then primary_reads.reap() end
 end
 
 function Window.poll_events_for(windows)
@@ -692,6 +694,8 @@ end
 function Window.wait_events_for(timeout, windows)
   assert(type(timeout) == "number" and timeout >= 0, "event wait timeout must be non-negative")
   assert(type(windows) == "table", "event waiting needs a window list")
+  local primary_reads = package.loaded["kiwi.platform.primary_read"]
+  if primary_reads then timeout = primary_reads.wait_timeout(timeout) end
   if timeout == 0 then glfw.lib.glfwPollEvents()
   else glfw.lib.glfwWaitEventsTimeout(timeout) end
   flush_input_correlations(windows)

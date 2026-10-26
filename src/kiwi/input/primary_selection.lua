@@ -17,7 +17,10 @@ function Primary:cancel()
 end
 function Primary:destroy()
   self:cancel()
-  if self.request then self.request:destroy(); self.request = nil end
+  if self.request then
+    if self.request.retire then self.request:retire() else self.request:destroy() end
+    self.request = nil
+  end
 end
 function Primary:start(state)
   self.request, self.status = self.bridge:primary_read(self.maximum_bytes)
