@@ -1,0 +1,10 @@
+FAIL adopted_snapshots_are_collectible_while_live_state_keeps_working
+src/tests/test_configuration_retention.lua:56: discarded configuration snapshot retained at iteration 1
+stack traceback:
+	[C]: in function 'error'
+	src/tests/assert.lua:5: in function 'equal'
+	src/tests/test_configuration_retention.lua:56: in function 'check'
+	src/tests/test_configuration_retention.lua:65: in function <src/tests/test_configuration_retention.lua:65>
+	[C]: in function 'xpcall'
+	src/kiwi/test.lua:173: in main chunk
+	[C]: at 0x01016d0deb

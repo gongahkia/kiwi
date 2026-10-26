@@ -656,3 +656,24 @@ tests. The remaining GTK rendering capabilities,
 actual-desktop qualification and large-history performance are separate gates;
 the configuration implementation gap is closed within GTK GL's supported
 settings. [Evidence and limits](evidence/2026-10-26-gtk-configuration.md).
+
+### Configuration snapshot lifetime regression
+
+`ed32438` removes hot per-operation closures that retained discarded candidate
+states through compiled callbacks. The original 10,000-line rejected-font test
+retained approximately 325 MiB past its warmed baseline and failed the existing
+4 MiB limit. The current combined benchmark passes on both hosts, retaining
+51.4 KiB on macOS and 71.8 KiB on Linux in that case, without disabling or
+flushing JIT. Five collection regressions cover palette changes, full reflow,
+height/fast-width resizing and successful adoption.
+
+Both hosts pass 652 full / 412 core tests and the broader check gates. Native
+reload fixtures pass on macOS WGPU, Linux WGPU and both GTK GL routes.
+`9767936` also replaces a flaky half-second child-start assumption with a PTY
+readiness marker; both hosts pass with the child delayed by two seconds.
+
+Large-history font staging still takes approximately 672 ms wall p95 on macOS
+and reaches 839 MiB sampled process RSS in the combined benchmark. This closes
+the observed snapshot-retention defect, not the broader performance, actual
+desktop, Linux rendering parity or distribution gates. See the
+[raw reports, reproduction and limits](evidence/2026-10-26-reload-retention.md).

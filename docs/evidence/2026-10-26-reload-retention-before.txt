@@ -1,0 +1,17 @@
+reload sample history=10000 mode=palette iteration=1 retained-heap=1732.5KiB
+reload sample history=10000 mode=palette iteration=2 retained-heap=1749.2KiB
+reload sample history=10000 mode=palette iteration=3 retained-heap=1754.0KiB
+reload sample history=10000 mode=palette iteration=4 retained-heap=1772.2KiB
+reload sample history=10000 mode=palette iteration=5 retained-heap=1773.7KiB
+reload sample history=10000 mode=font_resize iteration=1 retained-heap=332793.1KiB
+reload sample history=10000 mode=font_resize iteration=2 retained-heap=332843.8KiB
+reload sample history=10000 mode=font_resize iteration=3 retained-heap=332856.3KiB
+reload sample history=10000 mode=font_resize iteration=4 retained-heap=332862.6KiB
+reload sample history=10000 mode=font_resize iteration=5 retained-heap=332865.9KiB
+luajit: src/kiwi/bench/configuration_reload.lua:134: src/kiwi/bench/configuration_reload.lua:119: repeated rejected reloads retained 332866.1 KiB of Lua state (limit 4096 KiB; history=10000 mode=font_resize)
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/bench/configuration_reload.lua:134: in function 'run'
+	src/kiwi/bench/configuration_reload.lua:144: in function 'main'
+	src/kiwi/bench/configuration_reload.lua:165: in main chunk
+	[C]: at 0x0109deadeb
