@@ -140,8 +140,15 @@ Host.await_events = function(application, window, timeout)
       probe = nil
       assert(window:clipboard_read(1024) == "ordinary clipboard")
       assert(received() == expected, "vi primary selection reached the child")
-      stage = 12; window:request_close()
+      window.on_text({ 47 }) -- Vi Find; primary paste belongs to this query.
+      assert(state.search.editing)
+      shortcut(window, Host.keymap.key_insert, Host.keymap.mod_shift)
+      assert(primary.request)
+      stage = 12
     end
+  elseif stage == 12 and state.search.query == "pri" then
+    assert(received() == expected, "Find primary paste reached the child")
+    stage = 13; window:request_close()
   end
 end
 arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/primary_input_child.py", capture }
@@ -149,5 +156,5 @@ local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceb
 if probe then probe:destroy() end
 Terminal.new, Primary.new, Font.new, Host.await_events = terminal_new, primary_new, font_new, await
 os.remove(capture); os.remove(config)
-assert(ok, message); assert(stage == 12)
+assert(ok, message); assert(stage == 13)
 print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.")
