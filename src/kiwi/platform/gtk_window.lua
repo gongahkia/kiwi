@@ -128,7 +128,7 @@ if not loaded then error("Unable to load the Kiwi GTK host bridge; run make gtk-
 if tonumber(native.kiwi_gtk_host_abi_version()) ~= 4 then
   error("Kiwi GTK host bridge has an incompatible input ABI; run make gtk-host")
 end
-if tonumber(native.kiwi_gtk_gl_renderer_abi_version()) ~= 3 then
+if tonumber(native.kiwi_gtk_gl_renderer_abi_version()) ~= 4 then
   error("Kiwi GTK host bridge has an incompatible GL snapshot ABI; run make gtk-host")
 end
 
@@ -601,7 +601,7 @@ function Window:submit_gl_area_snapshot(snapshot)
     updates[index - 1].first_cell = update.first
     updates[index - 1].cell_count = update.cell_count
   end
-  frame.render_model_version = 2
+  frame.render_model_version = 3
   frame.revision = snapshot.revision
   frame.cell_updates = updates
   frame.cell_update_count = #snapshot.cell_updates

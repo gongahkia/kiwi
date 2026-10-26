@@ -23,8 +23,8 @@ return {
     Assert.equal(cache.entries[b.key], nil)
     Assert.equal(c.x, b.x)
     Assert.equal(cache.atlas:glyph_count(), 2)
-    Assert.equal(tonumber(cache.pixels[c.y * cache.atlas.width + c.x]), 3)
-    Assert.equal(tonumber(cache.pixels[(c.y - 1) * cache.atlas.width + c.x - 1]), 0)
+    Assert.equal(tonumber(cache.pixels[(c.y * cache.atlas.width + c.x) * 4]), 3)
+    Assert.equal(tonumber(cache.pixels[((c.y - 1) * cache.atlas.width + c.x - 1) * 4]), 0)
     Assert.equal(cache.stats.evictions, 1)
   end,
   capacity_failure_recovers_after_owner_releases_and_never_poisoned_negative_cache = function()
@@ -53,10 +53,10 @@ return {
       cache:retain(right, {})
       Assert.truthy(cache:get_or_insert(face, id, right))
       Assert.equal(cache.entries[a.key], a)
-      Assert.equal(tonumber(cache.pixels[a.y * cache.atlas.width + a.x]), 1)
+      Assert.equal(tonumber(cache.pixels[(a.y * cache.atlas.width + a.x) * 4]), 1)
     end
     Assert.equal(cache.atlas:glyph_count(), 2)
-    Assert.equal(cache.pixel_bytes, 72)
+    Assert.equal(cache.pixel_bytes, 288)
     Assert.equal(cache.failure_count, 0)
   end,
   unreachable_layout_owners_do_not_pin_glyphs_forever = function()

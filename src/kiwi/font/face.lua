@@ -60,6 +60,7 @@ function Face.new(library, path, index, pixel_height, id, style)
       family = face.family_name ~= nil and ffi.string(face.family_name) or nil,
       bold = bit.band(tonumber(face.style_flags), native.style_bold) ~= 0,
       italic = bit.band(tonumber(face.style_flags), native.style_italic) ~= 0,
+      color = bit.band(tonumber(face.face_flags), 0x4000) ~= 0,
       synthetic_bold = style.bold == true and bit.band(tonumber(face.style_flags), native.style_bold) == 0,
       synthetic_italic = style.italic == true and bit.band(tonumber(face.style_flags), native.style_italic) == 0,
       pixel_height = pixel_height,
@@ -95,7 +96,7 @@ function Face:supports(codepoints)
 end
 
 function Face:rasterize(glyph_id)
-  local synthetic = self.synthetic_bold or self.synthetic_italic
+  local synthetic = (self.synthetic_bold or self.synthetic_italic) and not self.color
   local flags = self.native.load_color + (synthetic and 0 or self.native.load_render)
   require_success(self.native.lib.FT_Load_Glyph(self.face, glyph_id, flags), "glyph loading for " .. glyph_id)
   local slot = self.face.glyph

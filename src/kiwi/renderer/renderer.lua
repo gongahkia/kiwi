@@ -179,7 +179,7 @@ function Renderer:create_resources(model)
   texture_descriptor.size.width = atlas.width
   texture_descriptor.size.height = atlas.height
   texture_descriptor.size.depthOrArrayLayers = 1
-  texture_descriptor.format = c.texture_format_r8_unorm
+  texture_descriptor.format = c.texture_format_rgba8_unorm
   texture_descriptor.mipLevelCount = 1
   texture_descriptor.sampleCount = 1
   self.atlas_texture = assert_handle(api.wgpuDeviceCreateTexture(self.context.device, texture_descriptor), "glyph atlas texture creation")
@@ -445,7 +445,7 @@ function Renderer:register_semantic_resources(model)
   register("text.alpha_atlas", "read", {
     width = atlas.width,
     height = atlas.height,
-    format = "r8unorm",
+    format = "rgba8unorm",
     generation = self.atlas_generation or 0,
   })
   register("surface.color", "write", { format = self.context.surface_format })
@@ -494,7 +494,7 @@ function Renderer:refresh_semantic_resources(model, time, delta, selection, sear
   registry:update(handles["text.alpha_atlas"], self:resource_descriptor("text.alpha_atlas", "read", {
     width = atlas.width,
     height = atlas.height,
-    format = "r8unorm",
+    format = "rgba8unorm",
     generation = self.atlas_generation or 0,
   }))
   registry:update(handles["surface.color"], self:resource_descriptor("surface.color", "write", { format = self.context.surface_format }))
@@ -519,7 +519,7 @@ function Renderer:upload_atlas(update)
   texture_destination.texture = self.atlas_texture
   texture_destination.aspect = c.texture_aspect_all
   local texture_layout = ffi.new("WGPUTexelCopyBufferLayout")
-  texture_layout.bytesPerRow = update.width
+  texture_layout.bytesPerRow = update.width * 4
   texture_layout.rowsPerImage = update.height
   local texture_extent = ffi.new("WGPUExtent3D")
   texture_extent.width = update.width

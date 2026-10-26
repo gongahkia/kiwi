@@ -15,6 +15,53 @@ local function signature(bitmap)
 end
 
 return {
+  color_emoji_layout_fits_cells_and_preserves_following_text_columns = function()
+    local system = System.new({ pixel_height = 23 })
+    local layout, state = Layout.new(system), State.new(20, 1)
+    Parser.new(state):feed("😀😀❤️👩‍💻🇸🇬👍🏽X")
+    local glyphs = layout:update(state)
+    Assert.equal(#glyphs, 7)
+    for index = 1, 6 do
+      local glyph = glyphs[index]
+      Assert.truthy(glyph.cache_entry.bitmap.color)
+      Assert.equal(glyph.missing_reason, nil)
+      Assert.equal(glyph.cluster_column, (index - 1) * 2)
+      Assert.truthy(glyph.x >= glyph.cluster_column and glyph.x + glyph.width <= glyph.cluster_column + 2.001)
+      Assert.truthy(glyph.y >= 0 and glyph.y + glyph.height <= 1.001)
+      Assert.truthy(require("bit").band(glyph.flags, 0x20000000) ~= 0)
+    end
+    Assert.equal(glyphs[7].cluster_column, 12)
+    Assert.truthy(not glyphs[7].cache_entry.bitmap.color)
+    Assert.equal(system.glyph_cache.pixel_bytes, 4 * 1024 * 1024)
+    layout:destroy(); system:destroy()
+  end,
+  fallback_advance_does_not_accumulate_across_terminal_cells = function()
+    local system = System.new({ pixel_height = 23 })
+    local face = assert(system:face_for_cluster({ 0x4e2d }))
+    local shape = face.shape
+    face.shape = function(self, text, options)
+      local glyphs = shape(self, text, options)
+      for _, glyph in ipairs(glyphs) do glyph.x_advance = glyph.x_advance * 3 end
+      return glyphs
+    end
+    local layout, state = Layout.new(system), State.new(8, 1)
+    Parser.new(state):feed("中中中")
+    local glyphs = layout:update(state)
+    Assert.equal(#glyphs, 3)
+    Assert.truthy(math.abs(glyphs[2].x - glyphs[1].x - 2) < 1e-6)
+    Assert.truthy(math.abs(glyphs[3].x - glyphs[2].x - 2) < 1e-6)
+    layout:destroy(); system:destroy()
+  end,
+  unresolved_fallback_shows_a_placeholder_without_changing_terminal_text = function()
+    local system = System.new({ pixel_height = 23, face_cache_limit = 1 })
+    local layout, state = Layout.new(system), State.new(4, 1)
+    Parser.new(state):feed("中")
+    local glyphs = layout:update(state)
+    Assert.equal(#glyphs, 1)
+    Assert.equal(glyphs[1].glyph_id, system.primary:glyph_index(63))
+    Assert.equal(state:get(0, 0).glyph, "中")
+    layout:destroy(); system:destroy()
+  end,
   emoji_faces_load_at_arbitrary_sizes_and_shape_joiners_and_variation_selectors = function()
     for _, size in ipairs({ 17, 23, 37 }) do
       local system = System.new({ pixel_height = size })

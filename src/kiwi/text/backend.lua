@@ -40,7 +40,7 @@ function Atlas:descriptor()
       terminal_layout_authority = "kiwi",
       glyph_output = "text.shaped_glyphs",
       gpu_resource = "text.alpha_atlas",
-      rasterization = "grayscale-alpha-atlas",
+      rasterization = "grayscale-and-color-rgba-atlas",
     },
   }
 end

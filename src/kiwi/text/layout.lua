@@ -89,6 +89,7 @@ end
 
 function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen_x)
   local cached, reason = self.font_system.glyph_cache:get_or_insert(face, shaped.glyph_id, self)
+  if reason == "empty-bitmap" then return end
   if cached == nil then
     local fallback_face = self.font_system:face_for_cluster({ string.byte("?") }, cell.flags) or self.font_system.primary
     local fallback_id = fallback_face:glyph_index(string.byte("?"))
@@ -101,17 +102,22 @@ function Layout:append_glyph(state, output, face, shaped, column, row, cell, pen
   end
   local bitmap = cached.bitmap
   local metrics = self.font_system.metrics
+  local x = (pen_x + shaped.x_offset / 64 + bitmap.left) / metrics.cell_width
+  local y = row + (metrics.baseline - bitmap.top - shaped.y_offset / 64) / metrics.cell_height
+  local width, height = bitmap.width / metrics.cell_width, bitmap.height / metrics.cell_height
+  if bitmap.color then
+    local fit = math.min(1, (cell.width or 1) / width, 1 / height)
+    width, height = width * fit, height * fit
+    x, y = column + ((cell.width or 1) - width) / 2, row + (1 - height) / 2
+  end
   output[#output + 1] = {
-    x = (pen_x + shaped.x_offset / 64 + bitmap.left) / metrics.cell_width,
-    y = row + (metrics.baseline - bitmap.top - shaped.y_offset / 64) / metrics.cell_height,
-    width = bitmap.width / metrics.cell_width,
-    height = bitmap.height / metrics.cell_height,
+    x = x, y = y, width = width, height = height,
     u0 = cached.u0,
     v0 = cached.v0,
     u1 = cached.u1,
     v1 = cached.v1,
     fg = rgba(state.presentation_colors and select(1, state:presentation_colors(cell)) or cell.fg),
-    flags = cell.flags,
+    flags = bit.bor(cell.flags or 0, bitmap.color and 0x20000000 or 0),
     glyph_id = cached.glyph_id,
     face_id = cached.face_id,
     cluster_column = column,
@@ -135,8 +141,14 @@ function Layout:shape_run(state, run, row, output)
   self.stats.codepoints_shaped = self.stats.codepoints_shaped + #run.codepoints
   self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped
   local pen_x = run.column * self.font_system.metrics.cell_width
+  local previous_column
   for _, glyph in ipairs(shaped) do
     local column = run.offset_columns[glyph.cluster] or run.column
+    -- A fallback font's advance is not the terminal grid's cell width.
+    -- Keep marks in their shaped cluster, but anchor each new cluster to its
+    -- terminal column. This also preserves the columns following ligatures.
+    if column ~= previous_column then pen_x = column * self.font_system.metrics.cell_width end
+    previous_column = column
     local cell = run.cells[column]
     if cell then self:append_glyph(state, output, run.face, glyph, column, row, cell, pen_x) end
     pen_x = pen_x + glyph.x_advance / 64
@@ -159,10 +171,12 @@ function Layout:build_runs(state, row)
       self.stats.clusters_examined = self.stats.clusters_examined + 1
       local codepoints = cluster_codepoints(cell)
       local face = self.font_system:face_for_cluster(codepoints, cell.flags)
+      local missing = face == nil
       local width = cell.width or 1
       if face == nil then
         flush()
         self.stats.missing_clusters = self.stats.missing_clusters + 1
+        face = self.font_system.primary
       elseif run and (run.face ~= face or run.next_column ~= column) then
         flush()
       end
@@ -170,7 +184,7 @@ function Layout:build_runs(state, row)
         if run == nil then
           run = { face = face, text_parts = {}, byte_length = 0, offset_columns = {}, cells = {}, column = column, next_column = column, codepoints = {} }
         end
-        local display_text = cell.display_text or cell.glyph
+        local display_text = missing and "?" or cell.display_text or cell.glyph
         local byte_offset = run.byte_length
         run.text_parts[#run.text_parts + 1] = display_text
         run.byte_length = run.byte_length + #display_text
@@ -248,6 +262,7 @@ function Layout:append_preedit(state, output)
     if row >= state.rows then break end
     local face = self.font_system:face_for_cluster(cluster)
     local cluster_width = Width.columns(cluster, state.width_policy)
+    cell.width = cluster_width
     if face ~= nil then
       local text_parts = {}
       for _, codepoint in ipairs(cluster) do text_parts[#text_parts + 1] = Utf8.encode(codepoint) end

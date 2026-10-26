@@ -412,7 +412,7 @@ end
 function PreparedFrame:atlas_descriptor()
   local atlas = self.font.glyph_cache.atlas
   return {
-    format = "r8unorm",
+    format = "rgba8unorm",
     generation = self.atlas_generation,
     height = atlas.height,
     width = atlas.width,
