@@ -23,6 +23,8 @@ jobs:
         run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish nushell tmux neovim
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke appearance-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke
+      - name: exercise acknowledged input while output is saturated
+        run: ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing.json
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -31,6 +33,7 @@ jobs:
           path: |
             .build/application-evidence
             .build/ssh-application-evidence
+            .build/interactive-evidence
           include-hidden-files: true
           if-no-files-found: warn
 
@@ -53,6 +56,8 @@ jobs:
           make cocoa-smoke
           make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke appearance-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke
           make daily-driver-compatibility COMPAT_ARGS='--require-desktop --report artifacts/macos-intel-compatibility.json'
+      - name: exercise acknowledged input while output is saturated
+        run: ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing.json
       - name: upload compatibility report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -62,6 +67,7 @@ jobs:
             artifacts/macos-intel-compatibility.json
             .build/application-evidence
             .build/ssh-application-evidence
+            .build/interactive-evidence
           include-hidden-files: true
           if-no-files-found: warn
 

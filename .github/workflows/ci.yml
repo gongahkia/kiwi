@@ -15,9 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: install minimal test dependencies
-        run: sudo apt-get update && sudo apt-get install --yes luajit build-essential
+        run: sudo apt-get update && sudo apt-get install --yes luajit build-essential python3
       - name: test without native graphics libraries
-        run: make test-core test-regex-oracle
+        run: make test-core test-regex-oracle test-interactive-bench
       - name: check readiness watcher memory and concurrency
         run: |
           CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch test-child-watch
@@ -68,6 +68,8 @@ jobs:
           KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/pty-wake-smoke 2>&1 | tee .build/appearance-evidence/readiness-gtk.log
           xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-glfw.json
           KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-gtk.json
+          xvfb-run -a ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-glfw.json
+          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-gtk.json
           ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
