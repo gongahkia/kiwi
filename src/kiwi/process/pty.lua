@@ -17,6 +17,7 @@ extern char **environ;
 int usleep(unsigned int usec);
 int kiwi_pty_resize(int fd, unsigned short columns, unsigned short rows);
 int kiwi_pty_set_nonblocking(int fd);
+int kiwi_child_watch_open(int pid);
 int kiwi_execvpe(const char* file, char* const argv[], char* const envp[]);
 ]]
 
@@ -166,8 +167,10 @@ function Pty.spawn(command, columns, rows, environment, options)
     ffi.C.kill(-pid, constants.sighup)
     error(message)
   end
+  local exit_fd = native.kiwi_child_watch_open(pid)
   return setmetatable({
     fd = master[0],
+    exit_fd = exit_fd >= 0 and exit_fd or nil,
     pid = pid,
     read_buffer = ffi.new("uint8_t[8192]"),
     pending = "",
@@ -308,6 +311,13 @@ function Pty:resize(columns, rows)
   return true
 end
 
+local function close_exit_watch(pty)
+  if pty.exit_fd ~= nil then
+    ffi.C.close(pty.exit_fd)
+    pty.exit_fd = nil
+  end
+end
+
 function Pty:poll_exit()
   if self.exited or self.pid == nil then
     return self.exit_status
@@ -321,12 +331,14 @@ function Pty:poll_exit()
     local error_code = ffi.errno()
     if error_code == 10 then
       self.exited = true
+      close_exit_watch(self)
       self.exit_status = { kind = "unknown" }
       return self.exit_status
     end
     error(string.format("waitpid failed: errno %d", error_code))
   end
   self.exited = true
+  close_exit_watch(self)
   if bit.band(status[0], 0x7f) == 0 then
     self.exit_status = { kind = "exit", code = bit.band(bit.rshift(status[0], 8), 0xff) }
   else
@@ -370,6 +382,7 @@ function Pty:shutdown()
       self.exit_status = { kind = "unknown" }
     end
   end
+  close_exit_watch(self)
   if self.fd ~= nil then
     ffi.C.close(self.fd)
     self.fd = nil

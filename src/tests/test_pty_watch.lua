@@ -38,10 +38,32 @@ return {
     local calls = 0
     local watch = Watch.new({ kiwi_pty_watch_update_events = function() calls = calls + 1; return 1 end }, function() return {} end)
     local descriptors = {}
-    for fd = 1, 65 do descriptors[#descriptors + 1] = { fd = fd } end
+    for fd = 1, 64 do descriptors[#descriptors + 1] = { fd = fd, exit_fd = fd + 64 } end
+    descriptors[65] = { fd = 129 }
     watch:update(descriptors)
-    descriptors[66] = { fd = 66 }
+    descriptors[66] = { fd = 130 }
     Assert.equal(pcall(watch.update, watch, descriptors), false)
     Assert.equal(calls, 1)
+  end,
+  readiness_keeps_exit_notifications_after_terminal_eof_and_removes_reaped_children = function()
+    local snapshot
+    local watch = Watch.new({ kiwi_pty_watch_update_events = function(_, fds, interests, count)
+      snapshot = {}
+      for i = 0, count - 1 do snapshot[#snapshot + 1] = { tonumber(fds[i]), tonumber(interests[i]) } end
+      return 1
+    end }, function() return {} end)
+    local child = { fd = 10, exit_fd = 11, eof = true }
+    watch:update({ child })
+    Assert.equal(#snapshot, 1)
+    Assert.equal(snapshot[1][1], 11)
+    Assert.equal(snapshot[1][2], 1)
+    child.exited = true
+    watch:update({ child })
+    Assert.equal(#snapshot, 0)
+    watch:update({ { fd = 12, exit_fd = 13, pending = "x" } })
+    Assert.equal(#snapshot, 2)
+    Assert.equal(snapshot[1][2], 3)
+    Assert.equal(snapshot[2][1], 13)
+    Assert.equal(snapshot[2][2], 1)
   end,
 }
