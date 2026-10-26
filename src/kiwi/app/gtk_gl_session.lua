@@ -450,8 +450,13 @@ function Session:_drain_terminal(now, focused)
 end
 
 function Session:next_deadline()
-  if self.closed then return nil end
-  local deadline = self.consumer:next_render_deadline()
+  if self.closed or self.complete then return nil end
+  local now = self.window:time()
+  local selected = self.is_selected == nil or self.is_selected(self.window)
+  if self.render_target_revision ~= nil then return selected and now + 0.01 or nil end
+  local can_present = selected and not self.window.minimized and not self.state.modes.synchronized_output
+  local deadline = can_present and self.consumer:next_render_deadline() or nil
+  if can_present and self.consumer:needs_render(now) then deadline = now end
   if self.state:navigation_pending() and not self.window.minimized
       and (self.is_selected == nil or self.is_selected(self.window)) then
     deadline = math.min(deadline or math.huge, self.window:time() + 0.001)

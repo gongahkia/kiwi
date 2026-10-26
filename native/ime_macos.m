@@ -90,6 +90,12 @@ static void kiwi_emit_text(KiwiCocoaTextInputCallback callback, void *userdata, 
 
 - (BOOL)acceptsFirstResponder { return YES; }
 
+- (void)viewDidChangeEffectiveAppearance {
+  [super viewDidChangeEffectiveAppearance];
+  /* AppKit can deliver this through its run loop without a GLFW input event. */
+  glfwPostEmptyEvent();
+}
+
 - (NSView *)hitTest:(NSPoint)point {
   (void)point;
   return nil;

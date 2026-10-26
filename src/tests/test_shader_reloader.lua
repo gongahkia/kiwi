@@ -122,6 +122,7 @@ return {
     local events = {}
     local loader = new_loader({ ["development.wgsl"] = "edited" })
     local reloader = Reloader.new({ enabled = false, paths = { "development.wgsl" }, loader = loader })
+    Assert.equal(reloader:next_deadline(), nil)
     local pass = new_pass("terminal/background", "baseline", events)
     local owner = new_owner(events)
 
@@ -137,6 +138,7 @@ return {
     local events = {}
     local loader = new_loader({ ["development.wgsl"] = "baseline", ["production.wgsl"] = "other" })
     local reloader = Reloader.new({ enabled = true, paths = { "development.wgsl" }, loader = loader, poll_interval = 1 })
+    Assert.equal(reloader:next_deadline(), 0)
     local development = new_pass("terminal/background", "baseline", events)
     local production = new_pass("terminal/extension", "other", events, "production.wgsl")
     local owner = new_owner(events)
@@ -145,6 +147,7 @@ return {
 
     local reloaded = reloader:poll(owner, { development, production }, 0)
     local skipped = reloader:poll(owner, { development, production }, 0.5)
+    Assert.equal(reloader:next_deadline(), 1)
 
     Assert.equal(reloaded, true)
     Assert.equal(skipped, nil)

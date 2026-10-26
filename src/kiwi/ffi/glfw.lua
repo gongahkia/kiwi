@@ -22,6 +22,7 @@ void glfwDestroyCursor(GLFWcursor* cursor);
 void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor);
 void glfwPollEvents(void);
 void glfwWaitEventsTimeout(double timeout);
+void glfwWaitEvents(void);
 int glfwGetWindowAttrib(GLFWwindow* window, int attrib);
 int glfwWindowShouldClose(GLFWwindow* window);
 void glfwSetWindowShouldClose(GLFWwindow* window, int value);

@@ -74,6 +74,10 @@ function Reloader:is_enabled()
   return self.enabled
 end
 
+function Reloader:next_deadline()
+  return self.enabled and self.next_poll or nil
+end
+
 function Reloader:record(level, message)
   message = compact(message)
   local previous = self.diagnostics[#self.diagnostics]

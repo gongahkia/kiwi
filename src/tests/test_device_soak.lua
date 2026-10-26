@@ -17,7 +17,9 @@ return {
       restore = function() events[#events + 1] = "restore" end,
       set_size = function(_, width, height) events[#events + 1] = width .. "x" .. height end,
     }, { seconds = 0.7, interval = 0.2 })
+    Assert.equal(lifecycle:next_deadline(3.0), 3.0)
     Assert.equal(lifecycle:step(3.0), false)
+    Assert.near(lifecycle:next_deadline(3.0), 3.2, 1e-9)
     Assert.equal(lifecycle:step(3.2), false)
     Assert.equal(lifecycle:step(3.41), false)
     Assert.equal(lifecycle:step(3.71), true)

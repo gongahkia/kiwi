@@ -2,6 +2,18 @@ local Assert = require("tests.assert")
 local Power = require("kiwi.bench.power")
 
 return {
+  power_observation_counts_indefinite_waits_without_nonfinite_json_values = function()
+    local power = Power.new({ event_driven = true })
+    power:observe(0, "idle", math.huge)
+    power:observe(1, "idle", 0.25)
+    local snapshot = power:snapshot(2)
+    Assert.equal(snapshot.measurement.indefinite_waits, 1)
+    Assert.equal(snapshot.measurement.requested_wait_seconds, 0.25)
+    Assert.equal(snapshot.policy.scheduling, "events-and-explicit-deadlines")
+    Assert.equal(snapshot.policy.active_poll_seconds, nil)
+    Assert.equal(snapshot.policy.child_exit_fallback_seconds, 0.05)
+    Assert.truthy(require("kiwi.bench.json").encode(snapshot))
+  end,
   power_observation_bounds_states_and_counts_only_aggregate_events = function()
     local power = Power.new({ active_poll_seconds = 0.05, minimized_poll_seconds = 0.25 })
     power:observe(0, "idle", 0.05)

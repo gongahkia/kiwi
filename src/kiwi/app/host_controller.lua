@@ -364,7 +364,7 @@ function Controller.run(window, host, options)
       pty_read_budget = pty_read_budget,
     }) or nil
     local power_report = os.getenv("KIWI_POWER_REPORT")
-    local power = power_report and Power.new({ active_poll_seconds = 0.050, minimized_poll_seconds = 0.250 }) or nil
+    local power = power_report and Power.new({ event_driven = true, active_poll_seconds = 0.050, minimized_poll_seconds = 0.250 }) or nil
     local power_synthetic_input = power and os.getenv("KIWI_POWER_SYNTHETIC_INPUT") == "1"
     local synthetic_input_sent = false
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
@@ -1369,6 +1369,7 @@ function Controller.run(window, host, options)
       local now = window:time()
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
+      if compositor:can_present(pane_entries) and compositor:needs_render(pane_entries, now) then deadline = now end
       local budget_exhausted = false
       local watched_ptys, pending_navigation = {}, {}
       for _, pane in pairs(workspace.panes) do
@@ -1381,6 +1382,15 @@ function Controller.run(window, host, options)
       end
       if window.watch_ptys then window:watch_ptys(watched_ptys) end
       local requested_wait = PollSchedule.timeout(now, deadline, budget_exhausted, window.minimized)
+      requested_wait = math.min(requested_wait, PollSchedule.child_timeout(watched_ptys, window.minimized))
+      if max_seconds > 0 then requested_wait = math.min(requested_wait, math.max(0, started_at + max_seconds - now)) end
+      if soak then requested_wait = math.min(requested_wait, math.max(0, soak:next_deadline(now) - now)) end
+      if not window.minimized then
+        for _, entry in ipairs(pane_entries) do
+          local shader_deadline = entry.renderer:next_shader_reload_deadline()
+          if shader_deadline then requested_wait = math.min(requested_wait, math.max(0, shader_deadline - now)) end
+        end
+      end
       if configuration.live_config_reload and configuration_status.deadline then
         requested_wait = math.min(requested_wait, math.max(0, configuration_status.deadline - now))
       end

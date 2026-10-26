@@ -113,6 +113,11 @@ function Lifecycle.new(window, options)
   }, Lifecycle)
 end
 
+function Lifecycle:next_deadline(now)
+  if self.started == nil then return now end
+  return self.started + math.min(self.duration_seconds, self.next_step * self.interval)
+end
+
 function Lifecycle:step(now)
   if self.started == nil then self.started = now end
   local elapsed = now - self.started

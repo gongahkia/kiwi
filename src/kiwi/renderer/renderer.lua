@@ -316,6 +316,10 @@ function Renderer:poll_shader_reload(time)
   return self.shader_reloader:poll(self, self.pass_registry.passes, time)
 end
 
+function Renderer:next_shader_reload_deadline()
+  return self.shader_reloader:next_deadline()
+end
+
 function Renderer:resize(previous, current)
   assert(type(previous) == "table" and type(current) == "table", "renderer resize needs previous and current descriptors")
   self.pass_registry:resize(self, previous, current)

@@ -16,6 +16,8 @@ function Power.new(options)
   assert(type(active_poll_seconds) == "number" and active_poll_seconds > 0, "power active poll interval must be positive")
   assert(type(minimized_poll_seconds) == "number" and minimized_poll_seconds >= active_poll_seconds, "power minimized poll interval must not be below the active interval")
   return setmetatable({
+    event_driven = options.event_driven == true,
+    indefinite_waits = 0,
     active_poll_seconds = active_poll_seconds,
     deferred = {},
     extension_animation_frames = 0,
@@ -44,7 +46,11 @@ function Power:observe(now, state, requested_wait)
   self.last_time = now
   self.wakes = self.wakes + 1
   self.state_wakes[state] = self.state_wakes[state] + 1
-  self.requested_wait_seconds = self.requested_wait_seconds + math.max(0, requested_wait or 0)
+  if requested_wait == math.huge then
+    self.indefinite_waits = self.indefinite_waits + 1
+  else
+    self.requested_wait_seconds = self.requested_wait_seconds + math.max(0, requested_wait or 0)
+  end
 end
 
 function Power:input(synthetic)
@@ -85,8 +91,11 @@ function Power:snapshot(now)
       wakeup = "a wakeup is one return from Kiwi's GLFW wait loop; it is not an operating-system wakeup attribution",
     },
     policy = {
-      active_poll_seconds = self.active_poll_seconds,
-      minimized_poll_seconds = self.minimized_poll_seconds,
+      scheduling = self.event_driven and "events-and-explicit-deadlines" or "periodic-fallback",
+      active_poll_seconds = not self.event_driven and self.active_poll_seconds or nil,
+      minimized_poll_seconds = not self.event_driven and self.minimized_poll_seconds or nil,
+      child_exit_fallback_seconds = self.event_driven and self.active_poll_seconds or nil,
+      minimized_child_exit_fallback_seconds = self.event_driven and self.minimized_poll_seconds or nil,
       extension_animation_hz = "bounded by KIWI_EXTENSION_MAX_ANIMATION_HZ from 1/60 through 60",
     },
     measurement = {
@@ -98,6 +107,7 @@ function Power:snapshot(now)
       presented = self.presented,
       present_reasons = self.present_reasons,
       requested_wait_seconds = self.requested_wait_seconds,
+      indefinite_waits = self.indefinite_waits,
       state_seconds = self.state_seconds,
       state_wakes = self.state_wakes,
       synthetic_input_events = self.synthetic_input_events,
