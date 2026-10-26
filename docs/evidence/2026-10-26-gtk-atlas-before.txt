@@ -1,0 +1,13 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+luajit: src/kiwi/gtk_gl_area_smoke.lua:138: src/kiwi/gtk_gl_area_smoke.lua:112: replacement font atlas reused the old texture when its generation matched
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/gtk_gl_area_smoke.lua:112: in function <src/kiwi/gtk_gl_area_smoke.lua:5>
+	[C]: in function 'xpcall'
+	src/kiwi/gtk_gl_area_smoke.lua:5: in main chunk
+	[C]: at 0x55b2d033e120
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/gtk_gl_area_smoke.lua:138: in main chunk
+	[C]: at 0x55b2d033e120
