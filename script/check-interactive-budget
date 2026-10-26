@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Compare fresh-process trials only when their recorded execution conditions match."""
+import argparse
+import json
+import math
+from pathlib import Path
+import re
+import statistics
+
+
+def finite(value):
+    assert isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0, "invalid metric"
+    return value
+
+
+def load(path):
+    assert path.stat().st_size <= 4 * 1024 * 1024, "report exceeds size limit"
+    report = json.loads(path.read_text())
+    assert report["schema_version"] == 1 and report["status"] == "complete", "report is not complete"
+    assert 3 <= len(report["trials"]) <= 20, "comparison requires at least three fresh-process trials"
+    groups, conditions, identifiers = {}, {}, set()
+    for trial in report["trials"]:
+        mode, metadata, measurement = trial["mode"], trial["metadata"], trial["measurement"]
+        assert mode in ("idle", "saturated") and (mode, trial["trial"]) not in identifiers, "invalid or duplicate trial"
+        identifiers.add((mode, trial["trial"]))
+        assert re.fullmatch(r"[0-9a-f]{40}", metadata["revision"]["commit"]), "missing source revision"
+        assert not metadata["revision"].get("dirty", False), "uncommitted source cannot establish a comparison"
+        adapter = metadata["native_adapter"]
+        assert adapter["device"] and adapter["backend_name"], "missing actual WGPU adapter identity"
+        configuration = metadata["configuration"]
+        assert configuration["workload"] == mode and configuration["presenter"] == "wgpu"
+        assert 1 <= measurement["samples"] <= 256 and measurement["samples"] == configuration["samples"]
+        # Revision and timestamp deliberately differ; hardware/driver, runtime,
+        # container limits, geometry, workload and sample schedule must agree.
+        condition = {"system": metadata["system"], "runtime": metadata["runtime"],
+                     "adapter": adapter, "configuration": configuration}
+        if mode in conditions:
+            assert conditions[mode] == condition, "conditions changed between trials"
+        conditions[mode] = condition
+        values = measurement["callback_to_present_return_ms"]["values"]
+        assert len(values) == measurement["samples"] and len(values) >= 4, "insufficient or incomplete input samples"
+        values = sorted(finite(value) for value in values)
+        position = .95 * (len(values) - 1)
+        low, high = math.floor(position), math.ceil(position)
+        p95 = values[low] + (values[high] - values[low]) * (position - low)
+        assert values[-1] < 2000, "response exceeded the two-second ceiling"
+        groups.setdefault(mode, []).append({
+            "input_p95_ms": p95,
+            "startup_ready_ms": finite(measurement["launch_to_child_ready_present_return_ms"]),
+            "peak_rss_kib": finite(measurement["sampled_peak_rss_kib"]),
+        })
+    assert all(len(values) >= 3 for values in groups.values()), "each mode requires three independent trials"
+    return groups, conditions
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("baseline", type=Path)
+parser.add_argument("candidate", type=Path)
+args = parser.parse_args()
+try:
+    baseline, before = load(args.baseline)
+    candidate, after = load(args.candidate)
+    assert before == after, "recorded environments/configurations differ; comparison refused"
+    assert {mode: len(values) for mode, values in baseline.items()} == {mode: len(values) for mode, values in candidate.items()}, "trial counts differ"
+    # Floors avoid treating tiny absolute changes as meaningful regressions.
+    budgets = {"input_p95_ms": (1.25, 10), "startup_ready_ms": (1.25, 50), "peak_rss_kib": (1.10, 32 * 1024)}
+    checks = []
+    for mode in sorted(baseline):
+        for name, (ratio, floor) in budgets.items():
+            old = statistics.median(value[name] for value in baseline[mode])
+            new = statistics.median(value[name] for value in candidate[mode])
+            limit = max(old * ratio, old + floor)
+            checks.append(dict(mode=mode, metric=name, baseline=old, candidate=new, limit=limit, passed=new <= limit))
+    passed = all(check["passed"] for check in checks)
+    print(json.dumps({"status": "passed" if passed else "regression", "aggregation": "median of independent trial metrics", "checks": checks}, indent=2, allow_nan=False))
+    raise SystemExit(0 if passed else 1)
+except (AssertionError, KeyError, TypeError, ValueError, OSError) as error:
+    parser.exit(2, "Interactive comparison rejected: " + str(error) + "\n")
