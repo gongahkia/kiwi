@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+# Ubuntu 24.04's IBus 1.5.29 client drops hide-preedit replies in GTK4's
+# synchronous mode (ibus/ibus#2596). Build the upstream fixed client library
+# privately for qualification; do not replace the desktop daemon or engines.
+set -eu
+test "$(uname -s)" = Linux || { echo 'This helper targets Linux CI.' >&2; exit 1; }
+prefix=${1:?usage: script/build-ci-ibus-client /absolute/install/prefix}
+case "$prefix" in /*) ;; *) echo 'IBus prefix must be absolute.' >&2; exit 1 ;; esac
+for required in cc make curl tar sha256sum pkg-config; do
+  command -v "$required" >/dev/null 2>&1 || { echo "Missing IBus build tool: $required" >&2; exit 1; }
+done
+pkg-config --exists glib-2.0 gio-2.0 dbus-1
+work=$(mktemp -d "${TMPDIR:-/tmp}/kiwi-ibus.XXXXXX")
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+curl --fail --location --retry 3 --output "$work/ibus.tar.gz" \
+  https://github.com/ibus/ibus/releases/download/1.5.31/ibus-1.5.31.tar.gz
+printf '%s  %s\n' 5093994c8342551134c81f2d271575efbc459bb756cef1173c22430c8601a1e1 "$work/ibus.tar.gz" | sha256sum --check --status
+tar -xf "$work/ibus.tar.gz" -C "$work"
+cd "$work/ibus-1.5.31"
+./configure --prefix="$prefix" --libdir="$prefix/lib" \
+  --disable-gtk2 --disable-gtk3 --disable-xim --disable-ui --disable-setup \
+  --disable-engine --disable-dconf --disable-dbus-python-check --disable-python2 \
+  --enable-introspection=no --enable-vala=no --disable-libnotify \
+  --disable-emoji-dict --disable-unicode-dict --disable-systemd-services \
+  --disable-appindicator
+make -C src -j2
+make -C src install
+test -f "$prefix/lib/libibus-1.0.so.5.0.531"
+printf 'IBus 1.5.31 client library installed in %s/lib\n' "$prefix"

@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Exercise the real IBus/libpinyin GTK module in a private Wayland session."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+
+if os.environ.get("KIWI_IME_PRIVATE_BUS") != "1":
+    raise SystemExit(subprocess.call(["dbus-run-session", "--", sys.executable, __file__],
+                                    env=dict(os.environ, KIWI_IME_PRIVATE_BUS="1")))
+
+root = Path(__file__).resolve().parent.parent
+with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
+    temporary = Path(temporary)
+    runtime, home = temporary / "runtime", temporary / "home"
+    runtime.mkdir(mode=0o700); home.mkdir(mode=0o700)
+    config = temporary / "sway.conf"
+    config.write_text("xwayland disable\noutput * mode 800x600\nseat seat0 fallback true\n")
+    env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"),
+               XDG_CACHE_HOME=str(home / ".cache"), XDG_DATA_HOME=str(home / ".local/share"),
+               XDG_RUNTIME_DIR=str(runtime), WLR_BACKENDS="headless", WLR_HEADLESS_OUTPUTS="1",
+               WLR_RENDERER="pixman", WLR_LIBINPUT_NO_DEVICES="1", GDK_BACKEND="wayland",
+               GSK_RENDERER="cairo", GTK_A11Y="none", GTK_IM_MODULE="ibus", GSETTINGS_BACKEND="dconf",
+               IBUS_ADDRESS="unix:path=" + str(runtime / "ibus.socket"),
+               KIWI_IME_SMOKE_ISOLATED="1", KIWI_IME_SMOKE_DIRECTORY=str(temporary),
+               KIWI_HOST="gtk", KIWI_LAYOUT_RESTORE="0", KIWI_LAYOUT_PERSISTENCE="0",
+               LUA_PATH="src/?.lua;src/?/init.lua;;", KIWI_MAX_FRAMES="0", KIWI_MAX_SECONDS="0")
+    env.pop("DISPLAY", None); env.pop("WAYLAND_DISPLAY", None)
+    processes, logs = [], []
+    def start(args, name, critical=True, extra_env=None):
+        log = (temporary / (name + ".log")).open("w+")
+        logs.append((name, log))
+        process = subprocess.Popen(args, cwd=root, env=dict(env, **(extra_env or {})), stdout=log, stderr=subprocess.STDOUT)
+        processes.append(process)
+        process.kiwi_critical = critical
+        return process
+    def run(args):
+        result = subprocess.run(args, env=env, capture_output=True, timeout=5)
+        assert result.returncode == 0, (args, result.stdout.decode(errors="replace"), result.stderr.decode(errors="replace"))
+        return result
+    def wait_for(predicate, message):
+        deadline = time.monotonic() + 7
+        while True:
+            value = predicate()
+            if value:
+                return value
+            assert all(process.poll() is None for process in processes if process.kiwi_critical), "fixture process exited: " + message
+            assert time.monotonic() < deadline, message
+            time.sleep(.01)
+    def snapshot():
+        path = temporary / "snapshot.json"
+        return json.loads(path.read_text()) if path.exists() else {}
+    def received():
+        path = temporary / "input"
+        return path.read_bytes() if path.exists() else b""
+    try:
+        start(["sway", "--unsupported-gpu", "-c", str(config)], "compositor")
+        sockets = lambda: [path for path in runtime.glob("wayland-*") if path.is_socket()]
+        env["WAYLAND_DISPLAY"] = wait_for(sockets, "Wayland socket missing")[0].name
+        run(["dbus-update-activation-environment", "HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+             "XDG_DATA_HOME", "XDG_RUNTIME_DIR", "WAYLAND_DISPLAY", "IBUS_ADDRESS", "GTK_IM_MODULE",
+             "GSETTINGS_BACKEND"])
+        # The virtual Wayland keyboard supplies its own keymap; IBus's CLI must
+        # not try to invoke X11 setxkbmap after selecting an engine.
+        run(["gsettings", "set", "org.freedesktop.ibus.general", "use-system-keyboard-layout", "true"])
+        start(["ibus-daemon", "--panel=disable", "--emoji-extension=disable",
+               "--verbose", "--cache=none", "--address=" + env["IBUS_ADDRESS"]], "ibus")
+        wait_for(lambda: (runtime / "ibus.socket").exists(), "IBus socket missing")
+        client_library = env.get("KIWI_IME_CLIENT_LIBRARY")
+        client_env = {"LD_LIBRARY_PATH": client_library + ":" + env.get("LD_LIBRARY_PATH", "")} if client_library else {}
+        print("IME qualification: daemon/module=system, client library=" + (client_library or "system") +
+              ", IBUS_ENABLE_SYNC_MODE=" + env.get("IBUS_ENABLE_SYNC_MODE", "default"), flush=True)
+        app = start([env.get("LUAJIT", "luajit"), "src/kiwi/gtk_ime_smoke.lua"], "kiwi", extra_env=client_env)
+        wait_for(lambda: snapshot().get("title") == "ime-fixture-ready", "PTY child not ready")
+        # Retain a keyboard capability between individual typing commands.
+        start(["wtype", "-s", "60000"], "keyboard")
+        run(["wtype", "-k", "Shift_L"])
+        assert b"libpinyin" in run(["ibus", "list-engine", "--name-only"]).stdout
+        run(["ibus", "engine", "libpinyin"])
+        keyboard = start(["wtype", "-d", "60", "nihao", "-s", "1500", "-k", "space", "-s", "500"], "typing", False)
+        wait_for(lambda: snapshot().get("preedit"), "real engine did not produce preedit")
+        assert received() == b"", ("preedit leaked into PTY", received())
+        wait_for(lambda: received() == "你好".encode(), "committed input did not reach PTY exactly")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        assert not snapshot().get("preedit"), "commit retained preedit"
+        print("IBus/libpinyin composed and committed Unicode through real GTK input and PTY.", flush=True)
+        keyboard = start(["wtype", "-d", "60", "ni", "-s", "1000", "-k", "Escape", "-s", "500"], "cancel", False)
+        wait_for(lambda: snapshot().get("preedit"), "cancellation phase produced no preedit")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        wait_for(lambda: not snapshot().get("preedit"), "Escape did not cancel preedit")
+        assert received() == "你好".encode(), ("Escape leaked into PTY during composition", received())
+        print("Escape cancels engine preedit without reaching the PTY.", flush=True)
+        (temporary / "command").write_text("kitty")
+        wait_for(lambda: snapshot().get("flags") == 31, "Kitty keyboard mode did not activate")
+        keyboard = start(["wtype", "-d", "60", "nihao", "-s", "1500", "-k", "space", "-s", "500"], "kitty", False)
+        wait_for(lambda: snapshot().get("preedit"), "Kitty mode blocked engine preedit")
+        assert received() == "你好".encode(), ("physical composition keys leaked in Kitty mode", received())
+        expected = "你好".encode() + b"\x1b[0;;20320:22909u"
+        wait_for(lambda: received() == expected, "Kitty mode did not encode composed text exactly")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        assert received() == expected, ("composition key release leaked", received())
+        print("Kitty all-key/event/associated-text mode emits only composed Unicode.", flush=True)
+        keyboard = start(["wtype", "-d", "60", "ni", "-s", "1000", "-k", "Escape", "-s", "500"], "kitty-cancel", False)
+        wait_for(lambda: snapshot().get("preedit"), "Kitty cancellation produced no preedit")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        wait_for(lambda: not snapshot().get("preedit"), "Kitty mode blocked composition cancellation")
+        assert received() == expected, "Kitty cancellation leaked press or release bytes"
+        run(["ibus", "engine", "xkb:us::eng"])
+        run(["wtype", "a"])
+        expected += b"\x1b[97;1:1;97u\x1b[97;1:3u"
+        wait_for(lambda: received() == expected, "plain associated text and release did not reach PTY exactly")
+        print("Ordinary typing retains associated text and a matching release after engine switch.", flush=True)
+        (temporary / "command").write_text("legacy")
+        wait_for(lambda: snapshot().get("flags") == 0, "legacy keyboard mode did not restore")
+        run(["wtype", "-M", "ctrl", "-M", "shift", "-k", "F", "-m", "shift", "-m", "ctrl"])
+        wait_for(lambda: snapshot().get("editing"), "Find shortcut did not open local search")
+        run(["ibus", "engine", "libpinyin"])
+        keyboard = start(["wtype", "-d", "60", "nihao", "-s", "1000", "-k", "space", "-s", "500"], "find", False)
+        wait_for(lambda: snapshot().get("preedit"), "Find composition produced no preedit")
+        assert received() == expected, "Find preedit reached PTY"
+        wait_for(lambda: snapshot().get("query") == "你好", "Find did not receive composed Unicode")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        assert received() == expected, "Find commit or shortcut reached PTY"
+        keyboard = start(["wtype", "-d", "60", "ni", "-s", "1000", "-k", "Escape", "-s", "500"], "find-cancel", False)
+        wait_for(lambda: snapshot().get("preedit"), "Find cancellation produced no preedit")
+        keyboard.wait(timeout=5); processes.remove(keyboard)
+        wait_for(lambda: not snapshot().get("preedit"), "Find composition did not cancel")
+        assert snapshot().get("editing") and snapshot().get("query") == "你好", "IME Escape closed Find or changed its query"
+        run(["wtype", "-k", "Escape"])
+        wait_for(lambda: not snapshot().get("editing"), "Find did not close")
+        print("Real IME composition edits Find locally without sending bytes to the PTY.", flush=True)
+        run(["ibus", "engine", "xkb:us::eng"])
+        run(["wtype", "-M", "ctrl", "-k", "c", "-m", "ctrl"])
+        expected += b"\x03"
+        wait_for(lambda: received() == expected, "Ctrl-C did not reach the PTY exactly")
+        run(["ibus", "engine", "libpinyin"])
+        run(["wtype", "-d", "60", "ni"])
+        wait_for(lambda: snapshot().get("preedit"), "focus transition produced no preedit")
+        sway_socket = next(runtime.glob("sway-ipc.*.sock"))
+        run(["swaymsg", "-s", str(sway_socket), "workspace", "2"])
+        wait_for(lambda: not snapshot().get("preedit"), "focus loss retained preedit")
+        assert received() == expected, ("focus loss committed unfinished composition", received())
+        run(["swaymsg", "-s", str(sway_socket), "workspace", "1"])
+        run(["wtype", "-d", "60", "nihao", "-k", "space"])
+        expected += "你好".encode()
+        wait_for(lambda: received() == expected, "composition did not recover after focus return")
+        print("Ctrl-C works; focus loss cancels preedit and composition recovers after focus return.", flush=True)
+        (temporary / "command").write_text("quit")
+        app.wait(timeout=5)
+        assert app.returncode == 0
+        for name, log in logs:
+            if name == "kiwi":
+                log.flush(); log.seek(0)
+                assert "CRITICAL **" not in log.read(), "GTK reported a critical error during input qualification"
+    except BaseException:
+        print("Snapshot:", snapshot(), "PTY:", repr(received()), flush=True)
+        for name, log in logs:
+            log.flush(); log.seek(0)
+            print(name + " log:\n" + log.read()[-12000:], flush=True)
+        raise
+    finally:
+        for process in reversed(processes):
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill(); process.wait(timeout=3)
+        for _, log in logs:
+            log.close()
