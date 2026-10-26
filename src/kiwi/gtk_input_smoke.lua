@@ -18,7 +18,7 @@ local ok, message = xpcall(function()
       local encoded = Keyboard.key(key, action, modifiers, { keyboard_flags = 5 }, glfw, key_variants)
       alternate_key_sequence = encoded and encoded.bytes
     end
-    if key == string.byte("a") and action == 1 then
+    if key == string.byte("A") and action == 1 then
       return { defer_text = true, handled = true }
     end
   end)
@@ -35,7 +35,7 @@ local ok, message = xpcall(function()
   assert(committed == "✓", "GTK text-input commit did not preserve Unicode text")
   injected, reason = window:key_text_inject_smoke()
   assert(injected, "GTK key/text smoke injection failed: " .. tostring(reason))
-  assert(correlated and correlated.event.key == string.byte("a") and correlated.codepoints[1] == string.byte("a"),
+  assert(correlated and correlated.event.key == string.byte("A") and correlated.codepoints[1] == string.byte("a"),
     "GTK key/text correlation did not retain the deferred key and committed text")
   assert(window.keyboard_supported_flags == 0x1f,
     "GTK key capability probe did not qualify Kitty alternate-key reporting")
@@ -47,6 +47,16 @@ local ok, message = xpcall(function()
     variants.layout_key, variants.shifted_key, variants.base_key)
   assert(alternate_key_sequence == expected_alternate_key_sequence,
     "GTK key-variant bridge did not encode the active-layout Kitty flag-4 tuple")
+  local control_key
+  window.on_key = function(key, action, modifiers, key_variants)
+    control_key = Keyboard.key(key, action, modifiers, {}, glfw, key_variants)
+  end
+  local event = require("ffi").new("KiwiGtkKeyEvent", {
+    keyval = string.byte("c"), unicode_key = string.byte("c"),
+    modifiers = glfw.mod_control, action = 1,
+  })
+  window.callbacks.key(nil, event)
+  assert(control_key and control_key.bytes == "\3", "GTK lowercase key identity lost Ctrl-C")
   local pointer
   window.on_pointer = function(event) pointer = event end
   for gdk_button, shared_button in ipairs({ 0, 2, 1 }) do

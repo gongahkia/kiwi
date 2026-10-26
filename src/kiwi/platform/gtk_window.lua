@@ -190,6 +190,9 @@ for offset = 0, 11 do special_keys[0xffbe + offset] = glfw.key_f1 + offset end
 for offset = 0, 9 do special_keys[0xffb0 + offset] = glfw.key_kp_0 + offset end
 
 local function key_from_gdk(keyval, unicode_key)
+  -- Shared shortcuts use GLFW's uppercase ASCII key identities. Preserve the
+  -- actual layout/text scalars separately in the Kitty variant tuple.
+  if unicode_key >= 0x61 and unicode_key <= 0x7a then return unicode_key - 0x20 end
   return special_keys[keyval] or (unicode_key ~= 0 and unicode_key or keyval)
 end
 
