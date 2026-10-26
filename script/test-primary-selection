@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+binary=$(mktemp "${TMPDIR:-/tmp}/kiwi-primary-selection.XXXXXX")
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+primary_flags=
+if [ "$(uname -s)" = Linux ]; then primary_flags=$(pkg-config --cflags --libs x11); fi
+${CC:-cc} -std=c17 -Wall -Wextra -Werror ${CFLAGS:-} -Inative \
+  native/primary_selection.c src/tests/fixtures/primary_selection_test.c $primary_flags -o "$binary"
+if [ "$(uname -s)" = Linux ]; then xvfb-run -a "$binary"; else "$binary"; fi
