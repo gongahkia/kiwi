@@ -15,6 +15,24 @@ local function signature(bitmap)
 end
 
 return {
+  emoji_reuses_the_resolved_color_face_without_rescanning_fonts_per_character = function()
+    local system = System.new({ pixel_height = 23, fallback_cache_limit = 2 })
+    local expected = assert(system:face_for_cluster({ 0x1f600 }))
+    local original, calls = system.resolver.fallback, 0
+    system.resolver.fallback = function(...)
+      calls = calls + 1
+      return original(...)
+    end
+    for codepoint = 0x1f601, 0x1f63f do
+      Assert.equal(system:face_for_cluster({ codepoint }), expected)
+    end
+    Assert.equal(calls, 0)
+    Assert.equal(system.fallback_cache_count, 1)
+    system:clear_fallback_cache()
+    Assert.equal(system:face_for_cluster({ 0x1f601 }), expected)
+    Assert.equal(calls, 1)
+    system:destroy()
+  end,
   color_emoji_layout_fits_cells_and_preserves_following_text_columns = function()
     local system = System.new({ pixel_height = 23 })
     local layout, state = Layout.new(system), State.new(20, 1)

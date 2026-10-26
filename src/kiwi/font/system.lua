@@ -39,6 +39,7 @@ function System.new(options)
     face_cache_limit = options.face_cache_limit or 32,
     next_face_id = 1,
     fallback_cache = {},
+    emoji_faces = {},
     fallback_cache_count = 0,
     fallback_cache_limit = options.fallback_cache_limit or 1024,
     primary_ascii_coverage = {},
@@ -88,6 +89,7 @@ end
 
 function System:clear_fallback_cache()
   self.fallback_cache = {}
+  self.emoji_faces = {}
   self.fallback_cache_count = 0
   self.text_generation = self.text_generation + 1
 end
@@ -155,6 +157,13 @@ function System:face_for_cluster(codepoints, flags)
     self.stats.primary_hits = self.stats.primary_hits + 1
     return primary, "primary"
   end
+  -- Keep one resolved colour face per rendition. Ordinary emoji output should
+  -- not rescan the installed font collection for every new emoji sequence.
+  local emoji_face = prefer_color and self.emoji_faces[style]
+  if emoji_face and emoji_face:supports(codepoints) then
+    self.stats.fallback_hits = self.stats.fallback_hits + 1
+    return emoji_face, "emoji-cache"
+  end
   local key = style .. ":" .. sequence_key(codepoints)
   local cached = self.fallback_cache[key]
   if cached ~= nil then
@@ -184,6 +193,7 @@ function System:face_for_cluster(codepoints, flags)
     return nil, "missing"
   end
   self.fallback_cache[key] = face
+  if prefer_color and face.color then self.emoji_faces[style] = face end
   self.fallback_cache_count = self.fallback_cache_count + 1
   self.stats.fallback_hits = self.stats.fallback_hits + 1
   return face, "fallback"
