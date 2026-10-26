@@ -1056,6 +1056,10 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
     snapshot->atlas_width = frame->atlas_width;
     snapshot->atlas_height = frame->atlas_height;
     snapshot->atlas_generation = frame->atlas_generation;
+    /* Generations belong to a font cache, not to the native renderer. A new
+     * font/consumer may supply different pixels with the same dimensions and
+     * generation. The explicit atlas update is authoritative. */
+    renderer->atlas_uploaded = 0;
     replacement_atlas = NULL;
   }
   snapshot->frame = *frame->frame;
