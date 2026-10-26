@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Bound quiet application wakeups; this is not an energy/latency benchmark."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
+parser.add_argument("--report", type=Path)
+parser.add_argument("--record-only", action="store_true", help="record a historical baseline without enforcing the new budget")
+args = parser.parse_args()
+root = args.root.resolve()
+with tempfile.TemporaryDirectory(prefix="kiwi-idle-wake-") as temporary:
+    config = Path(temporary) / "config"
+    config.write_text("theme = kiwi\nlive-config-reload = false\n")
+    report = args.report.resolve() if args.report else Path(temporary) / "power.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    environment = dict(os.environ, KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;",
+                       KIWI_LAYOUT_PERSISTENCE="0", KIWI_LAYOUT_RESTORE="0",
+                       KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0",
+                       KIWI_POWER_REPORT=str(report), KIWI_POWER_SYNTHETIC_INPUT="1")
+    # Wait for the host's synthetic input before the quiet interval, excluding
+    # font/GPU startup. Hide the cursor so blinking is not a scheduled wake.
+    command = [environment.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(config),
+               "--", "/bin/sh", "-c", "read unused; printf '\\033[?25l'; sleep 3"]
+    subprocess.run(command, cwd=root, env=environment, check=True, timeout=30)
+    result = json.loads(report.read_text())
+    measurement = result["measurement"]
+    seconds, wakes = measurement["elapsed_seconds"], measurement["wakes"]
+    assert seconds >= 2.8, f"quiet interval was not observed: {seconds:.3f}s"
+    assert seconds < 8, f"child exit was not serviced promptly: {seconds:.3f}s"
+    if not args.record_only:
+        assert wakes <= 30, f"quiet-window wake budget exceeded: {wakes} wakes in {seconds:.3f}s"
+        assert measurement["indefinite_waits"] > 0, "fixture never entered an event-only wait"
+    print(f"Idle wake {'recording' if args.record_only else 'gate'} passed: {wakes} host-loop wakes, "
+          f"{seconds:.3f}s observed, {measurement.get('indefinite_waits', 0)} indefinite waits. "
+          "No energy or keyboard-to-display latency claim.")
