@@ -677,3 +677,24 @@ and reaches 839 MiB sampled process RSS in the combined benchmark. This closes
 the observed snapshot-retention defect, not the broader performance, actual
 desktop, Linux rendering parity or distribution gates. See the
 [raw reports, reproduction and limits](evidence/2026-10-26-reload-retention.md).
+
+### Compact plain-cell storage
+
+`4678c89` avoids redundant ASCII display strings and insertion of absent
+optional fields. Shared copying preserves compact storage through overwrites,
+screen resizing and transactional staging; actual optional attributes are
+preserved and cleared correctly. A memory-budget regression fails on the old
+implementation, while combining/wide text and rendition regressions pass.
+
+The 10,000-line font-reload benchmark's additional peak Lua heap falls from
+about 341 to 231 MiB on both hosts. Sampled process RSS falls from 839 to 563 MiB
+on macOS and from 749 to 503 MiB on Linux. Timing remains variable: the recorded
+macOS candidate is slower than its predecessor, so this is a memory improvement
+without a claimed reload-latency improvement. Controlled sequential write-path
+samples are preserved, including the slightly worse Unicode parser p95.
+
+Both hosts pass 655 full / 415 core tests, local application and loopback SSH
+workflows, native reload and color-glyph checks. macOS additionally qualifies
+Fish 4.9.3 using the official app's project-local binary after the initial test
+found Fish missing. Actual-desktop, broader performance and distribution gates
+remain open. [Reports and limits](evidence/2026-10-26-compact-cells.md).

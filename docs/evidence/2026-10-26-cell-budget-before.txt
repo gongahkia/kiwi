@@ -1,0 +1,7 @@
+luajit: src/tests/test_cell.lua:57: plain history exceeded its Lua heap budget
+stack traceback:
+	[C]: in function 'error'
+	src/tests/assert.lua:11: in function 'truthy'
+	src/tests/test_cell.lua:57: in function 'plain_history_and_staged_reflow_remain_within_cell_memory_budget'
+	(command line):1: in main chunk
+	[C]: at 0x010a6a7deb
