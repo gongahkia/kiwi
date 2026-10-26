@@ -106,7 +106,8 @@ function GlyphCache:get_or_insert(face, glyph_id, owner)
     return nil, failed
   end
   self.stats.misses = self.stats.misses + 1
-  local source = face:rasterize(glyph_id)
+  local rasterized, source = pcall(face.rasterize, face, glyph_id)
+  if not rasterized then return self:remember_failure(key, "rasterization-failed") end
   local bitmap, bitmap_error = Bitmap.describe(source, self.max_bitmap_dimension)
   if not bitmap then return self:remember_failure(key, bitmap_error) end
   if bitmap.width + self.atlas.padding * 2 > self.atlas.width or bitmap.height + self.atlas.padding * 2 > self.atlas.height then

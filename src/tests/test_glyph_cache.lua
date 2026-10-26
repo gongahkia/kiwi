@@ -13,6 +13,20 @@ local function fixture(options)
 end
 
 return {
+  failed_native_rasterization_uses_a_bounded_negative_cache_without_evicting_live_ink = function()
+    local cache, face = fixture()
+    local good = assert(cache:get_or_insert(face, 1))
+    local calls = 0
+    face.rasterize = function() calls = calls + 1; error("unsupported font paint format") end
+    for _ = 1, 10 do
+      local glyph, reason = cache:get_or_insert(face, 2)
+      Assert.equal(glyph, nil)
+      Assert.equal(reason, "rasterization-failed")
+    end
+    Assert.equal(calls, 1)
+    Assert.equal(cache.entries[good.key], good)
+    Assert.equal(cache.stats.evictions, 0)
+  end,
   cache_evicts_least_recently_used_unpinned_glyph_and_clears_padding = function()
     local cache, face = fixture()
     local a = assert(cache:get_or_insert(face, 1))
