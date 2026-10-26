@@ -233,6 +233,10 @@ test: native
 test-primary-selection:
 	./script/test-primary-selection
 
+.PHONY: primary-selection-smoke
+primary-selection-smoke: native terminfo
+	./script/primary-selection-smoke
+
 test-core:
 	$(LUAJIT) src/kiwi/test.lua --core
 	LUAJIT="$(LUAJIT)" ./script/test-cli
