@@ -49,6 +49,9 @@ for the current non-Windows scope. All other unchecked work remains in scope.
 ## Performance and power
 
 - [ ] Measure startup, input latency, throughput, memory and idle wakeups.
+- [x] Establish fresh-process startup and numbered callback/PTY/presentation
+      baselines under idle and saturated output on macOS and Linux WGPU hosts;
+      keep physical-input/display and cold-cache exclusions explicit.
 - [x] Remove the blanket application timer while preserving output, buffered
       input and child-exit readiness; retain explicit unsupported-platform fallbacks.
 - [ ] Run representative load/soak workloads with bounded resource assertions.
@@ -698,3 +701,23 @@ workflows, native reload and color-glyph checks. macOS additionally qualifies
 Fish 4.9.3 using the official app's project-local binary after the initial test
 found Fish missing. Actual-desktop, broader performance and distribution gates
 remain open. [Reports and limits](evidence/2026-10-26-compact-cells.md).
+
+### Acknowledged interactive measurement
+
+`56f5284` and `0372a39` add bounded fresh-process startup and numbered-input
+measurement through real callbacks, PTYs, parsing and WGPU presentation return.
+The fixture handles split acknowledgment messages, distinguishes unrelated
+output, waits for startup before generating load and writes explicit failed
+reports. Three new model tests and CLI failure/bounds tests cover those rules.
+`e15eb9f` adds short native CI gates and retains their reports/logs.
+
+Both hosts pass 658 full / 418 core tests. The full local matrix includes three
+processes and 60 measured inputs per mode on macOS, Linux GLFW and Linux GTK
+WGPU. Idle/loaded pooled callback-to-presentation p95 is 9.4/84.1 ms on macOS,
+17.2/142.9 ms on Linux GLFW and 16.1/129.0 ms on Linux GTK, using software Vulkan
+for Linux. The native CI recipes pass locally; hosted CI has not been run here.
+These are controlled acknowledgment timings, not physical keyboard/display
+latencies or cross-platform speed comparisons. Most loaded time precedes
+completion of acknowledgment parsing, motivating a read/render-scheduling
+investigation. Broader performance and actual-desktop gates remain open.
+[Method, raw samples and qualification limits](evidence/2026-10-26-interactive-timing.md).

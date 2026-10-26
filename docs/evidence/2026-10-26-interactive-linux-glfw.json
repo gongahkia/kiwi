@@ -1,0 +1,1190 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 4.36237099,
+          "mean": 3.4398464,
+          "minimum": 2.04959401,
+          "p50": 3.44332602,
+          "p95": 4.28600711,
+          "p99": 4.34709822,
+          "total": 68.796928,
+          "values": [
+            4.24402597,
+            4.28198796,
+            2.921657,
+            3.25806101,
+            2.498293,
+            3.80921998,
+            4.27210901,
+            3.58891604,
+            4.03670402,
+            4.23018401,
+            4.26194299,
+            4.27197298,
+            4.36237099,
+            2.78353598,
+            2.04959401,
+            2.05514603,
+            2.08417804,
+            3.297736,
+            3.27674299,
+            3.21255001
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 17.459375,
+          "mean": 14.5712661,
+          "minimum": 11.582122,
+          "p50": 13.9878975,
+          "p95": 17.335228,
+          "p99": 17.4345456,
+          "total": 291.425322,
+          "values": [
+            16.728966,
+            17.229326,
+            13.424105,
+            17.159912,
+            11.582122,
+            13.882296,
+            17.459375,
+            13.591677,
+            14.093499,
+            14.458186,
+            16.815131,
+            17.328694,
+            14.798598,
+            13.201018,
+            13.504226,
+            13.31022,
+            11.642172,
+            14.172744,
+            13.827962,
+            13.215093
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 337.842588,
+        "launch_to_first_present_return_ms": 337.842588,
+        "output_bytes_after_ready": 1073,
+        "output_bytes_observed": 1129,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 13.901851,
+          "mean": 11.1314197,
+          "minimum": 9.08382901,
+          "p50": 10.5268335,
+          "p95": 13.2229952,
+          "p99": 13.7660799,
+          "total": 222.628394,
+          "values": [
+            12.48494,
+            12.9473381,
+            10.502448,
+            13.901851,
+            9.08382901,
+            10.073076,
+            13.187266,
+            10.002761,
+            10.056795,
+            10.228002,
+            12.553188,
+            13.056721,
+            10.436227,
+            10.417482,
+            11.454632,
+            11.255074,
+            9.55799397,
+            10.875008,
+            10.551219,
+            10.002543
+          ]
+        },
+        "process_cpu_seconds": 1.30172,
+        "ready_to_last_present_seconds": 0.986363777,
+        "sampled_peak_rss_kib": 173268,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "idle"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042837Z"
+      },
+      "schema_version": 1,
+      "trial": 1,
+      "mode": "idle"
+    },
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 5.34320099,
+          "mean": 3.47440675,
+          "minimum": 1.680316,
+          "p50": 3.45357801,
+          "p95": 4.52763548,
+          "p99": 5.18008789,
+          "total": 69.488135,
+          "values": [
+            3.42909899,
+            3.36886401,
+            4.32069896,
+            2.79310602,
+            4.48471098,
+            1.680316,
+            3.48240498,
+            3.695686,
+            1.94639404,
+            3.115714,
+            3.81026795,
+            3.09996598,
+            5.34320099,
+            3.724373,
+            3.47805704,
+            3.88600596,
+            3.39316204,
+            3.09981703,
+            4.09469905,
+            3.24159197
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 16.13983,
+          "mean": 13.8764926,
+          "minimum": 9.33783897,
+          "p50": 14.3579885,
+          "p95": 15.7821084,
+          "p99": 16.0682857,
+          "total": 277.529853,
+          "values": [
+            15.07617,
+            13.929669,
+            16.13983,
+            14.135397,
+            15.090624,
+            9.33783897,
+            13.541733,
+            14.715316,
+            10.437342,
+            14.198839,
+            15.763281,
+            14.517138,
+            15.042538,
+            14.726071,
+            13.219666,
+            14.829375,
+            12.606448,
+            12.901412,
+            14.7642251,
+            12.55694
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 238.724737,
+        "launch_to_first_present_return_ms": 238.724737,
+        "output_bytes_after_ready": 1073,
+        "output_bytes_observed": 1129,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 11.953013,
+          "mean": 10.4020859,
+          "minimum": 7.65752298,
+          "p50": 10.6377195,
+          "p95": 11.8258251,
+          "p99": 11.9275754,
+          "total": 208.041718,
+          "values": [
+            11.647071,
+            10.560805,
+            11.819131,
+            11.342291,
+            10.605913,
+            7.65752298,
+            10.059328,
+            11.01963,
+            8.49094795,
+            11.083125,
+            11.953013,
+            11.417172,
+            9.69933701,
+            11.001698,
+            9.74160898,
+            10.943369,
+            9.21328599,
+            9.80159495,
+            10.669526,
+            9.315348
+          ]
+        },
+        "process_cpu_seconds": 1.141206,
+        "ready_to_last_present_seconds": 0.929961276,
+        "sampled_peak_rss_kib": 174184,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "idle"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042838Z"
+      },
+      "schema_version": 1,
+      "trial": 2,
+      "mode": "idle"
+    },
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 5.94713801,
+          "mean": 3.16472721,
+          "minimum": 1.52248202,
+          "p50": 3.09852802,
+          "p95": 5.62643984,
+          "p99": 5.88299837,
+          "total": 63.2945441,
+          "values": [
+            3.69177898,
+            3.32621398,
+            1.70347799,
+            2.67233502,
+            3.54636298,
+            3.24183604,
+            2.54957605,
+            3.314481,
+            3.52316798,
+            2.95167003,
+            3.83950002,
+            2.76971702,
+            5.60956099,
+            3.95612704,
+            2.02788896,
+            2.95522,
+            1.76693499,
+            2.37907504,
+            5.94713801,
+            1.52248202
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 17.368024,
+          "mean": 13.271478,
+          "minimum": 9.48565098,
+          "p50": 13.3574855,
+          "p95": 16.1687373,
+          "p99": 17.1281667,
+          "total": 265.42956,
+          "values": [
+            14.778486,
+            14.885465,
+            12.210059,
+            14.025196,
+            13.790211,
+            15.569078,
+            11.68787,
+            14.863218,
+            13.309827,
+            12.429991,
+            13.405144,
+            12.455816,
+            16.105617,
+            14.577625,
+            10.064755,
+            13.187719,
+            9.52791097,
+            11.701897,
+            17.368024,
+            9.48565098
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 241.579015,
+        "launch_to_first_present_return_ms": 241.579015,
+        "output_bytes_after_ready": 1073,
+        "output_bytes_observed": 1129,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 12.3272419,
+          "mean": 10.1067508,
+          "minimum": 7.76097598,
+          "p50": 10.2381735,
+          "p95": 11.5976505,
+          "p99": 12.1813237,
+          "total": 202.135016,
+          "values": [
+            11.086707,
+            11.559251,
+            10.506581,
+            11.352861,
+            10.243848,
+            12.3272419,
+            9.13829397,
+            11.548737,
+            9.78665904,
+            9.47832101,
+            9.56564402,
+            9.68609896,
+            10.496056,
+            10.621498,
+            8.03686603,
+            10.232499,
+            7.76097598,
+            9.32282198,
+            11.420886,
+            7.96316896
+          ]
+        },
+        "process_cpu_seconds": 1.218487,
+        "ready_to_last_present_seconds": 0.921653818,
+        "sampled_peak_rss_kib": 175344,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "idle"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042839Z"
+      },
+      "schema_version": 1,
+      "trial": 3,
+      "mode": "idle"
+    },
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 151.014332,
+          "mean": 105.584256,
+          "minimum": 81.4184,
+          "p50": 104.206833,
+          "p95": 130.017118,
+          "p99": 146.814889,
+          "total": 2111.68511,
+          "values": [
+            113.36703,
+            128.912001,
+            102.538793,
+            104.528097,
+            97.228219,
+            100.818881,
+            85.067593,
+            110.940074,
+            88.812912,
+            108.052383,
+            102.961668,
+            102.113107,
+            98.077212,
+            81.4184,
+            105.398241,
+            106.392109,
+            103.885568,
+            105.678055,
+            114.480438,
+            151.014332
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 164.478573,
+          "mean": 118.976674,
+          "minimum": 94.19696,
+          "p50": 116.247162,
+          "p95": 143.950977,
+          "p99": 160.373054,
+          "total": 2379.53349,
+          "values": [
+            128.151407,
+            142.870577,
+            115.477947,
+            118.118595,
+            109.330863,
+            114.57908,
+            97.915713,
+            123.560907,
+            101.159274,
+            120.273181,
+            115.336553,
+            115.080195,
+            111.713146,
+            94.19696,
+            116.708398,
+            119.490951,
+            115.785926,
+            126.978623,
+            128.326617,
+            164.478573
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 231.659385,
+        "launch_to_first_present_return_ms": 231.659385,
+        "output_bytes_after_ready": 753664,
+        "output_bytes_observed": 753720,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 21.300568,
+          "mean": 13.3924187,
+          "minimum": 11.310157,
+          "p50": 12.953121,
+          "p95": 15.1101866,
+          "p99": 20.0624917,
+          "total": 267.848373,
+          "values": [
+            14.784377,
+            13.958576,
+            12.939154,
+            13.590498,
+            12.102644,
+            13.760199,
+            12.8481199,
+            12.620833,
+            12.3463621,
+            12.220798,
+            12.374885,
+            12.967088,
+            13.635934,
+            12.77856,
+            11.310157,
+            13.098842,
+            11.900358,
+            21.300568,
+            13.846179,
+            13.4642411
+          ]
+        },
+        "process_cpu_seconds": 7.293774,
+        "ready_to_last_present_seconds": 3.85954894,
+        "sampled_peak_rss_kib": 177052,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "saturated"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042844Z"
+      },
+      "schema_version": 1,
+      "trial": 1,
+      "mode": "saturated"
+    },
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 134.240056,
+          "mean": 101.57454,
+          "minimum": 80.858102,
+          "p50": 101.371777,
+          "p95": 121.241397,
+          "p99": 131.640324,
+          "total": 2031.49081,
+          "values": [
+            98.817436,
+            134.240056,
+            101.288887,
+            97.43015,
+            104.812942,
+            104.026263,
+            110.186342,
+            82.282934,
+            109.857591,
+            80.98839,
+            95.395719,
+            120.557257,
+            98.707334,
+            101.454667,
+            97.765393,
+            103.55002,
+            80.858102,
+            102.457051,
+            107.361298,
+            99.452977
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 146.350192,
+          "mean": 114.920214,
+          "minimum": 93.837813,
+          "p50": 114.464014,
+          "p95": 134.232071,
+          "p99": 143.926568,
+          "total": 2298.40427,
+          "values": [
+            110.987933,
+            146.350192,
+            113.87206,
+            109.842305,
+            117.638062,
+            116.98402,
+            122.773668,
+            102.937577,
+            124.840824,
+            94.29745,
+            107.666548,
+            133.594275,
+            111.317191,
+            116.090737,
+            110.212603,
+            116.658028,
+            93.837813,
+            115.055968,
+            120.789824,
+            112.657193
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 286.589237,
+        "launch_to_first_present_return_ms": 286.589237,
+        "output_bytes_after_ready": 737280,
+        "output_bytes_observed": 737336,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 20.654643,
+          "mean": 13.3456731,
+          "minimum": 12.110136,
+          "p50": 12.8914385,
+          "p95": 15.2668035,
+          "p99": 19.5770751,
+          "total": 266.913462,
+          "values": [
+            12.170497,
+            12.110136,
+            12.583173,
+            12.412155,
+            12.82512,
+            12.957757,
+            12.587326,
+            20.654643,
+            14.983233,
+            13.30906,
+            12.270829,
+            13.037018,
+            12.609857,
+            14.63607,
+            12.44721,
+            13.108008,
+            12.979711,
+            12.598917,
+            13.428526,
+            13.204216
+          ]
+        },
+        "process_cpu_seconds": 6.96669,
+        "ready_to_last_present_seconds": 3.62318456,
+        "sampled_peak_rss_kib": 178568,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "saturated"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042848Z"
+      },
+      "schema_version": 1,
+      "trial": 2,
+      "mode": "saturated"
+    },
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 128.948064,
+          "mean": 106.093877,
+          "minimum": 94.817112,
+          "p50": 106.098216,
+          "p95": 118.824557,
+          "p99": 126.923363,
+          "total": 2121.87755,
+          "values": [
+            105.968007,
+            109.335239,
+            109.417125,
+            107.974079,
+            106.228424,
+            94.817112,
+            100.490356,
+            102.35923,
+            101.955047,
+            114.152592,
+            128.948064,
+            107.471157,
+            118.291741,
+            104.342375,
+            106.444367,
+            97.033771,
+            99.189696,
+            97.299656,
+            101.909863,
+            108.249645
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 144.336586,
+          "mean": 121.231063,
+          "minimum": 109.122918,
+          "p50": 119.423468,
+          "p95": 142.827706,
+          "p99": 144.03481,
+          "total": 2424.62125,
+          "values": [
+            119.370421,
+            122.163495,
+            122.598447,
+            120.998303,
+            126.57006,
+            115.202057,
+            119.975325,
+            115.507405,
+            115.168699,
+            144.336586,
+            142.748291,
+            119.435559,
+            132.720261,
+            116.386171,
+            118.958153,
+            109.122918,
+            112.585784,
+            110.452617,
+            119.411377,
+            120.909323
+          ]
+        },
+        "completed": 25,
+        "launch_to_child_ready_present_return_ms": 241.054081,
+        "launch_to_first_present_return_ms": 241.054081,
+        "output_bytes_after_ready": 753664,
+        "output_bytes_observed": 753720,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 30.183994,
+          "mean": 15.1371853,
+          "minimum": 11.964402,
+          "p50": 13.197487,
+          "p95": 20.8748974,
+          "p99": 28.3221747,
+          "total": 302.743706,
+          "values": [
+            13.402414,
+            12.828256,
+            13.181322,
+            13.024224,
+            20.341636,
+            20.384945,
+            19.484969,
+            13.148175,
+            13.213652,
+            30.183994,
+            13.800227,
+            11.964402,
+            14.42852,
+            12.043796,
+            12.513786,
+            12.089147,
+            13.396088,
+            13.152961,
+            17.501514,
+            12.659678
+          ]
+        },
+        "process_cpu_seconds": 7.131209,
+        "ready_to_last_present_seconds": 3.77280636,
+        "sampled_peak_rss_kib": 179412,
+        "samples": 20,
+        "warmup": 5
+      },
+      "metadata": {
+        "configuration": {
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "glfw",
+          "interval_seconds": 0.02,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "warmup_inputs": 5,
+          "workload": "saturated"
+        },
+        "revision": {
+          "branch": "archive",
+          "commit": "0372a3919da433f29d8c95dd20a5fe600c6378ad",
+          "source": "BUILD_REVISION"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261026T042852Z"
+      },
+      "schema_version": 1,
+      "trial": 3,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "load": "bounded nonblocking child output below a reserved acknowledgment row, started by the first warmup input; idle and saturated trials use identical geometry/configuration",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "30-second internal and 40-second external trial deadlines; two-second acknowledgment ceiling; at most 256 measured inputs and 32 warmup inputs per trial"
+  },
+  "summary": {
+    "idle": {
+      "launch_to_first_present_return_ms": {
+        "count": 3,
+        "minimum": 238.724737,
+        "maximum": 337.842588,
+        "mean": 272.71544666666665,
+        "p50": 241.579015,
+        "p95": 328.2162307,
+        "p99": 335.91731654
+      },
+      "launch_to_child_ready_present_return_ms": {
+        "count": 3,
+        "minimum": 238.724737,
+        "maximum": 337.842588,
+        "mean": 272.71544666666665,
+        "p50": 241.579015,
+        "p95": 328.2162307,
+        "p99": 335.91731654
+      },
+      "sampled_peak_rss_kib": {
+        "count": 3,
+        "minimum": 173268,
+        "maximum": 175344,
+        "mean": 174265.33333333334,
+        "p50": 174184.0,
+        "p95": 175228.0,
+        "p99": 175320.8
+      },
+      "callback_to_parse_ms": {
+        "count": 60,
+        "minimum": 1.52248202,
+        "maximum": 5.94713801,
+        "mean": 3.3596601191666666,
+        "p50": 3.347538995,
+        "p95": 4.527635480499997,
+        "p99": 5.747967568199999
+      },
+      "parse_to_present_return_ms": {
+        "count": 60,
+        "minimum": 7.65752298,
+        "maximum": 13.901851,
+        "mean": 10.546752129833333,
+        "p50": 10.504514499999999,
+        "p95": 12.952807244999999,
+        "p99": 13.480245849999998
+      },
+      "callback_to_present_return_ms": {
+        "count": 60,
+        "minimum": 9.33783897,
+        "maximum": 17.459375,
+        "mean": 13.906412250333334,
+        "p50": 13.977432499999999,
+        "p95": 17.2342944,
+        "p99": 17.40547791
+      }
+    },
+    "saturated": {
+      "launch_to_first_present_return_ms": {
+        "count": 3,
+        "minimum": 231.659385,
+        "maximum": 286.589237,
+        "mean": 253.100901,
+        "p50": 241.054081,
+        "p95": 282.0357214,
+        "p99": 285.67853388000003
+      },
+      "launch_to_child_ready_present_return_ms": {
+        "count": 3,
+        "minimum": 231.659385,
+        "maximum": 286.589237,
+        "mean": 253.100901,
+        "p50": 241.054081,
+        "p95": 282.0357214,
+        "p99": 285.67853388000003
+      },
+      "sampled_peak_rss_kib": {
+        "count": 3,
+        "minimum": 177052,
+        "maximum": 179412,
+        "mean": 178344,
+        "p50": 178568.0,
+        "p95": 179327.6,
+        "p99": 179395.12
+      },
+      "callback_to_parse_ms": {
+        "count": 60,
+        "minimum": 80.858102,
+        "maximum": 151.014332,
+        "mean": 104.4175578,
+        "p50": 103.717794,
+        "p95": 128.91380415,
+        "p99": 141.11750915999994
+      },
+      "parse_to_present_return_ms": {
+        "count": 60,
+        "minimum": 11.310157,
+        "maximum": 30.183994,
+        "mean": 13.958425685,
+        "p50": 13.030621,
+        "p95": 20.398429899999996,
+        "p99": 24.942772659999967
+      },
+      "callback_to_present_return_ms": {
+        "count": 60,
+        "minimum": 93.837813,
+        "maximum": 164.478573,
+        "mean": 118.37598348333333,
+        "p50": 116.683213,
+        "p95": 142.94387745,
+        "p99": 153.78282820999993
+      }
+    }
+  }
+}
