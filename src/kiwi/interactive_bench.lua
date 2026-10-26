@@ -27,6 +27,8 @@ local originals = { new_terminal = Terminal.new, write = Terminal.write, read = 
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local failure_state
+local presentation = { attempts = 0, successful = 0, failures = {} }
+local last_compositor, last_entries
 local deadline = measurement.launched_at + trial_timeout
 assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement requires warmup")
 
@@ -51,9 +53,18 @@ Terminal.write = function(self, bytes)
   return result
 end
 Compositor.render = function(self, entries, ...)
+  last_compositor, last_entries = self, entries
+  presentation.attempts = presentation.attempts + 1
   local rendered, reason = originals.render(self, entries, ...)
   local now = Metrics.monotonic_seconds()
+  presentation.last_attempt_at = now
+  if not rendered then
+    local label = tostring(reason or "unspecified"):sub(1, 128)
+    presentation.failures[label] = (presentation.failures[label] or 0) + 1
+    presentation.last_failure_reason, presentation.last_failure_at = label, now
+  end
   if rendered then
+    presentation.successful = presentation.successful + 1
     assert(#entries == 1, "interactive benchmark requires one pane")
     local state = entries[1].model
     local acknowledged = sequence(state)
@@ -104,7 +115,14 @@ Host.await_events = function(application, current_window, timeout)
       parsed = pending.parsed_at ~= nil, minimized = current_window.minimized == true,
       present_age_seconds = measurement.last_present and now - measurement.last_present,
       visible_sequence = sequence(Terminal.state(live)), output_bytes = output_bytes }
-    assert(now - pending.input_at < Interactive.maximum_response_seconds, "acknowledgment exceeded the two-second responsiveness ceiling")
+    if now - pending.input_at >= Interactive.maximum_response_seconds then
+      if last_compositor then
+        failure_state.can_present = last_compositor:can_present(last_entries)
+        failure_state.needs_render = last_compositor:needs_render(last_entries, current_window:time())
+        failure_state.retry_delay_seconds = last_compositor.retry_at and last_compositor.retry_at - current_window:time()
+      end
+      error("acknowledgment exceeded the two-second responsiveness ceiling")
+    end
     timeout = math.min(timeout, pending.input_at + Interactive.maximum_response_seconds - now)
   elseif measurement.ready_at and not measurement:done() then
     next_input = next_input or now
@@ -141,6 +159,7 @@ metadata.methodology = nil -- The enclosing report specifies this fixture's cloc
 metadata.native_adapter = adapter
 local result = { schema_version = 1, metadata = metadata, measurement = report,
   status = ok and measurement:done() and "complete" or "failed", failure = not ok and tostring(message):sub(1, 4096) or nil }
+result.presentation = presentation
 local encoded = Json.encode(result)
 assert(#encoded <= 128 * 1024, "interactive trial report exceeded 128 KiB")
 local file = assert(io.open(assert(os.getenv("KIWI_INTERACTIVE_BENCH_TRIAL_REPORT")), "wb"))
