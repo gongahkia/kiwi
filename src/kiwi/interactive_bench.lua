@@ -111,7 +111,8 @@ assert(report, "interactive benchmark closed before completion")
 local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M%SZ"), measurement.samples, measurement.warmup)
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")), requested_window_points = { width = 800, height = 480 },
-  geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode }
+  geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
+  traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii" }
 metadata.methodology = nil -- The enclosing report specifies this fixture's clocks and boundaries.
 local result = { schema_version = 1, metadata = metadata, measurement = report }
 local encoded = Json.encode(result)

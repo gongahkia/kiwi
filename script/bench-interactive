@@ -38,9 +38,11 @@ parser.add_argument("--samples", type=int, default=20)
 parser.add_argument("--warmup", type=int, default=5)
 parser.add_argument("--interval-ms", type=float, default=20)
 parser.add_argument("--mode", choices=("idle", "saturated", "both"), default="both")
+parser.add_argument("--read-budget", type=int, default=4096, help="maximum ordinary PTY bytes per application turn")
+parser.add_argument("--traffic", choices=("ascii", "styled-unicode"), default="ascii")
 args = parser.parse_args()
 if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup <= 32
-        and 0 <= args.interval_ms <= 1000):
+        and 0 <= args.interval_ms <= 1000 and 1 <= args.read_budget <= 1024 * 1024):
     parser.error("counts/interval exceed supported bounds")
 if (args.samples + args.warmup - 1) * args.interval_ms > 20000:
     parser.error("requested intervals consume more than 20 seconds of the 30-second trial budget")
@@ -73,7 +75,8 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
     keep = {"KIWI_HOST", "KIWI_GTK_PRESENTER", "KIWI_SURFACE_LIB", "KIWI_WGPU_LIB"}
     base = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_") or key in keep}
     base.update(KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;", KIWI_LAYOUT_PERSISTENCE="0",
-                KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET="4096",
+                KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET=str(args.read_budget),
+                KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic,
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
                 KIWI_INTERACTIVE_BENCH_INTERVAL=str(args.interval_ms / 1000))

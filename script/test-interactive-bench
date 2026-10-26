@@ -2,9 +2,17 @@
 """Check report lifecycle/CLI bounds without starting a graphical host."""
 import json
 import os
+import fcntl
+import pty
+import select
+import signal
+import struct
 from pathlib import Path
 import subprocess
 import tempfile
+import termios
+import time
+import sys
 
 root = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temporary:
@@ -20,8 +28,42 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
     assert Path(value["failure"]["log"]).is_file()
     previous = report.read_bytes()
     for arguments in (["--trials", "0"], ["--samples", "257"], ["--warmup", "0", "--mode", "saturated"],
-                      ["--samples", "256", "--interval-ms", "1000"], ["--interval-ms", "nan"]):
+                      ["--samples", "256", "--interval-ms", "1000"], ["--interval-ms", "nan"],
+                      ["--read-budget", "0"], ["--read-budget", "1048577"], ["--traffic", "invalid"]):
         invalid = subprocess.run(command + arguments, capture_output=True, timeout=5)
         assert invalid.returncode == 2, arguments
         assert report.read_bytes() == previous, "invalid arguments modified an existing report"
-print("Interactive benchmark CLI passed: stale-report replacement, explicit failure, bounded counts and intervals.")
+
+# Reproduce an allocation change after readiness, before the first input.
+# The child must repaint without polling or needing a synthetic user input.
+for traffic in ("ascii", "styled-unicode"):
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+    child = subprocess.Popen([sys.executable, str(root / "script/interactive-bench-child"), "saturated"],
+                             stdin=slave, stdout=slave, stderr=subprocess.PIPE,
+                             env=dict(os.environ, KIWI_INTERACTIVE_BENCH_TRAFFIC=traffic))
+    def receive(marker):
+        data, deadline = b"", time.monotonic() + 3
+        while marker not in data:
+            assert time.monotonic() < deadline, (traffic, marker, data[-256:])
+            if select.select([master], [], [], max(0, deadline - time.monotonic()))[0]:
+                data += os.read(master, 8192)
+                assert len(data) < 65536
+        return data
+    try:
+        receive(b"\x1b[2;24r\x1b[2;1H")
+        assert not select.select([master], [], [], .05)[0], "traffic started before warmup"
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 18, 72, 0, 0))
+        child.send_signal(signal.SIGWINCH)
+        resized = receive(b"\x1b[2;18r\x1b[2;1H")
+        assert b"READY0000" in resized
+        os.write(master, b"x")
+        receive(b"ACK0001")
+        # Exercise real UTF-8 and SGR bytes, not just CLI acceptance.
+        receive("背景".encode() if traffic == "styled-unicode" else b"background output")
+    finally:
+        child.terminate()
+        child.communicate(timeout=3)
+        os.close(master)
+        os.close(slave)
+print("Interactive benchmark passed: report lifecycle, CLI bounds, resize readiness and both PTY workloads.")
