@@ -721,3 +721,25 @@ latencies or cross-platform speed comparisons. Most loaded time precedes
 completion of acknowledgment parsing, motivating a read/render-scheduling
 investigation. Broader performance and actual-desktop gates remain open.
 [Method, raw samples and qualification limits](evidence/2026-10-26-interactive-timing.md).
+
+### Deliver input before processing output
+
+`590ac8c` flushes already queued PTY input before consuming output on WGPU and
+GTK GL; generated responses still flush afterwards in FIFO order. `606aa2f`
+preserves unread final output if that write fails with EIO. The latter regression
+uses a real PTY and injected write failure and fails against the old handler.
+Benchmark controls now include styled Unicode and explicit read budgets, and
+the fixture repaints readiness on PTY resize. The 4 KiB product budget is retained.
+
+Sequential Mac ASCII loaded-input p95 falls from 84.8 to 34.4 ms; styled Unicode
+falls from 84.6 to 68.2 ms, but its maximum worsens. Linux GTK p95 is lower in this
+run; Linux GLFW varies substantially and its maximum worsens, so no general
+Linux speedup is claimed. Candidate Linux styled output still takes roughly
+463–465 ms at p95 under software Vulkan. Shared-workstation and physical-display
+limitations remain explicit in the [comparison and raw reports](evidence/2026-10-26-early-input.md).
+
+Both hosts pass `make check` with 659 Lua tests and 18 PTY integration tests.
+Native readiness, GTK GL single-page/native-tab reload checks and idle-wake gates
+pass. Short native ASCII/styled-Unicode recipes pass locally; `2d3a100` adds the
+styled workload to Linux and both Mac CI jobs. Hosted CI has not been run here.
+The broader performance and desktop qualification gates remain open.
