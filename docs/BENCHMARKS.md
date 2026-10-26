@@ -586,7 +586,9 @@ PTY reads. Unrelated output, old acknowledgments and unrelated presentations
 cannot finish a sample. The header precedes the text so completing the text
 causes normal render damage. Saturated output starts after the first warmup
 input, preserving the startup handshake; its nonblocking queue is bounded to
-8 KiB and it scrolls below the reserved acknowledgment row.
+8 KiB and it scrolls below the reserved acknowledgment row. Before the first
+input it repaints readiness on PTY resize, using SIGWINCH and a wakeup pipe;
+initial native allocation must not leave the fixture waiting for displaced text.
 
 Reports preserve per-process startup samples, raw bounded input distributions,
 parser/presentation phase splits, sampled peak RSS, output-byte counts, actual
@@ -598,6 +600,12 @@ scheduling, not a production timer. Initial source/OS startup, input encoding,
 child scheduling, PTY transit and rendering CPU work are included within their
 named boundaries. Physical input delivery, IME, GPU completion, compositor
 feedback and panel scan-out are not measured.
+
+Use `--read-budget BYTES` (1–1048576, default 4096) for controlled output
+scheduling experiments, and `--traffic styled-unicode` for coloured, bold,
+italic, underlined, combining and wide-character output. ASCII is the default.
+The chosen traffic and byte budget are recorded in each trial's configuration;
+compare like workloads and geometry. These options do not change product defaults.
 
 The output defaults to ignored `bench/results/interactive.json`; companion
 `*-logs/` folders retain trial diagnostics. Reports are atomically updated with
