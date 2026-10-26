@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+binary=$(mktemp "${TMPDIR:-/tmp}/kiwi-gtk-primary.XXXXXX")
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c17 -Wall -Wextra -Werror ${CFLAGS:-} -Inative \
+  native/gtk_primary.c src/tests/fixtures/gtk_primary_test.c \
+  $(pkg-config --cflags --libs gtk4) -o "$binary"
+# Isolate all clipboard ownership from the user's desktop.
+GDK_BACKEND=x11 GTK_A11Y=none xvfb-run -a "$binary"
