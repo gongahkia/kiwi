@@ -147,6 +147,7 @@ function Session.new(window, host, configuration, options)
   self.pty = Pty.spawn(command, self.columns, self.rows, environment, { cwd = options.initial_cwd })
   self.clipboard = Clipboard.new(window)
   self.primary_selection = PrimarySelection.new(window)
+  self.primary_selection:focus(self.state)
   self.modal_input = ModalInput.new()
   self.host_effects = HostEffects.new(configuration, host, window)
   self.hyperlink = Hyperlink.new(window)
@@ -342,6 +343,7 @@ function Session:_install_input_handlers()
   end, function(focused)
     if self.closed then return end
     self.window_focused = focused
+    if focused then self.primary_selection:focus(self.state) end
     if focused then
       self.composition:enter()
     else
@@ -461,7 +463,7 @@ end
 function Session:tick(now)
   if self.closed then return "complete" end
   local selected = self.is_selected == nil or self.is_selected(self.window)
-  if not selected then self.primary_selection:cancel() end
+  if not selected then self.primary_selection:cancel(); self.primary_selection:focus(self.state) end
   local primary_bytes = self.primary_selection:poll(self.state, self.configuration.primary_selection)
   if primary_bytes then self:_enqueue_input(primary_bytes) end
   if self.render_target_revision ~= nil then
@@ -479,6 +481,7 @@ function Session:tick(now)
     self.state:navigation_step()
     if not self.state:navigation_pending() then self:_invalidate("search") end
   end
+  if selected and self.window_focused then self.primary_selection:sync_keyboard(self.state, self.configuration.primary_selection) end
   local title = ModalInput.title(self.state, self.state.title or self.default_title)
   if title ~= self.last_title then self.window:set_title(title); self.last_title = title end
   self:_sync_accessibility(); self:_sync_text_input_caret()

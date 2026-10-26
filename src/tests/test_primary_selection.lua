@@ -3,6 +3,7 @@ local Terminal = require("kiwi.session.terminal")
 local Primary = require("kiwi.input.primary_selection")
 local Pointer = require("kiwi.input.selection_pointer")
 local Config = require("kiwi.config")
+local Interaction = require("kiwi.app.interaction_actions")
 local function fixture()
   local terminal = Terminal.new({ columns = 12, rows = 2 })
   terminal:write("a中b hello")
@@ -26,6 +27,53 @@ local function fixture()
 end
 local function middle(action, modifiers) return { kind = "button", button = 2, action = action or "press", modifiers = modifiers or 0 } end
 return {
+  primary_product_actions_publish_vi_text_and_request_paste_without_immediate_pty_input = function()
+    local primary, state, writes, requests = fixture()
+    local function enqueue() error("primary action bypassed asynchronous delivery") end
+    state:vi_toggle(); state.vi:toggle_selection(state, "character")
+    Assert.truthy(Interaction.terminal("copy-primary", state, nil, enqueue, primary, true))
+    Assert.equal(#writes, 1)
+    Assert.equal(Interaction.terminal("paste-primary", state, nil, enqueue, primary, true), nil)
+    Assert.equal(#requests, 0)
+    state:vi_toggle()
+    Assert.truthy(Interaction.terminal("paste-primary", state, nil, enqueue, primary, true))
+    Assert.equal(primary:poll(state, true), nil)
+    Assert.equal(primary:poll(state, true), "paste")
+    Assert.equal(Interaction.terminal("paste-primary", state, nil, enqueue, primary, false), nil)
+    Assert.equal(Interaction.terminal("copy-primary", state, nil, enqueue), nil)
+  end,
+  primary_auto_publication_tracks_only_completed_fresh_vi_selections = function()
+    local primary, state, writes, _, terminal = fixture()
+    primary:focus(state)
+    state:vi_toggle(); state.vi:toggle_selection(state, "character")
+    primary:sync_keyboard(state, true)
+    Assert.equal(#writes, 1)
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 1)
+    state.vi:motion(state, "left")
+    terminal:write("output")
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 1)
+    state.vi:motion(state, "left")
+    primary:focus(state) -- Focusing an existing selection must not reclaim PRIMARY.
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 1)
+    state.vi:motion(state, "left")
+    primary:sync_keyboard(state, false); Assert.equal(#writes, 1)
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 1)
+    state.vi:motion(state, "left")
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 2)
+  end,
+  primary_auto_publication_waits_for_bounded_word_expansion = function()
+    local terminal = Terminal.new({ columns = 100, rows = 40 })
+    terminal:write(string.rep("x", 3500))
+    local state, writes = Terminal.state(terminal), {}
+    local primary = Primary.new({ primary_supported = function() return true end,
+      primary_write = function(_, text) writes[#writes + 1] = text; return true end })
+    primary:focus(state)
+    state:vi_toggle(); state.vi:motion(state, "top"); state.vi:toggle_selection(state, "word")
+    Assert.truthy(state:vi_pending())
+    primary:sync_keyboard(state, true); Assert.equal(#writes, 0)
+    while state:vi_pending() do state:vi_step(31); primary:sync_keyboard(state, true) end
+    Assert.equal(#writes, 1); Assert.equal(#writes[1], 3500)
+  end,
   primary_repeated_clicks_keep_one_conversion_and_only_the_latest_target = function()
     local primary, state, _, requests = fixture()
     for _ = 1, 100 do primary:button(middle(), state, true) end

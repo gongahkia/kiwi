@@ -441,6 +441,7 @@ function Controller.run(window, host, options)
       active_session = session
       terminal = session.terminal
       state = Terminal.state(terminal)
+      primary_selection:focus(state)
       pty = session.pty
       renderer = session.renderer
       metrics = session.metrics
@@ -958,7 +959,7 @@ function Controller.run(window, host, options)
       perform_workspace_action = perform_workspace_action,
       perform_font_action = perform_font_action,
       perform_terminal_action = function(action)
-        local changed, reason = Interaction.terminal(action, state, clipboard, enqueue_input)
+        local changed, reason = Interaction.terminal(action, state, clipboard, enqueue_input, primary_selection, configuration.primary_selection)
         if changed then renderer:invalidate("terminal") end
         return changed, reason
       end,
@@ -1282,6 +1283,7 @@ function Controller.run(window, host, options)
       if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
     end, function(focused)
       window_focused = focused
+      if focused then primary_selection:focus(state) end
       if not focused then
         primary_selection:cancel()
         product_actions:reset_sequence()
@@ -1547,6 +1549,7 @@ function Controller.run(window, host, options)
           if not model:navigation_pending() and session.renderer then session.renderer:invalidate("search") end
         end
       end
+      if window_focused then primary_selection:sync_keyboard(state, configuration.primary_selection) end
       update_search_title()
       sync_accessibility()
       sync_text_input_caret()

@@ -31,6 +31,32 @@ function Primary:start(state)
     self.status = "pending"
   end
 end
+function Primary:paste(state, enabled)
+  if not self:supported(enabled) then return nil, "unavailable" end
+  if state.hints.active or state.vi.active or state:search_view().editing then return nil, "input-mode-active" end
+  self:queue_paste(state)
+  return self.request ~= nil, self.status
+end
+function Primary:queue_paste(state)
+  self:cancel()
+  if self.request then
+    self.next_target = { state = state, scope = state:selection_scope(), bracketed = state.modes.bracketed_paste }
+  else self:start(state) end
+end
+function Primary:focus(state)
+  self.keyboard_state = state
+  self.keyboard_revision = state.vi.primary_revision or 0
+end
+function Primary:sync_keyboard(state, enabled)
+  if self.keyboard_state ~= state then self:focus(state); return end
+  local vi = state.vi
+  local revision = vi.primary_revision or 0
+  if revision == self.keyboard_revision then return end
+  self.keyboard_revision = revision
+  if vi.active and vi.visual and not state:vi_pending() and vi.primary_generation == state.search_generation then
+    return self:publish(state, enabled)
+  end
+end
 function Primary:publish(state, enabled)
   if not self:supported(enabled) then return false, "unavailable" end
   local text, status = state:selection_text(self.maximum_bytes)
@@ -57,10 +83,7 @@ function Primary:button(event, state, enabled, mouse_shift_capture)
   if event.action ~= "press" or not self:supported(enabled)
       or Pointer.application_captures(event, state:input_modes(), mouse_shift_capture) then return false end
   self.middle_owned = true
-  self:cancel()
-  if self.request then
-    self.next_target = { state = state, scope = state:selection_scope(), bracketed = state.modes.bracketed_paste }
-  else self:start(state) end
+  self:queue_paste(state)
   return true
 end
 function Primary:poll(state, enabled)

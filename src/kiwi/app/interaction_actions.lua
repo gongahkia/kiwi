@@ -52,6 +52,14 @@ Interaction.entries[#Interaction.entries + 1] = {
   id = 66, action = "copy-url-hints", kind = "terminal", title = "Copy URL Hints",
   description = "Choose a visible link with the keyboard, then copy its URL.",
 }
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 67, action = "copy-primary", kind = "terminal", title = "Copy to Primary Selection",
+  description = "Publish selected text to X11 PRIMARY without changing the clipboard.",
+}
+Interaction.entries[#Interaction.entries + 1] = {
+  id = 68, action = "paste-primary", kind = "terminal", title = "Paste Primary Selection",
+  description = "Paste X11 PRIMARY asynchronously into the active terminal.",
+}
 for _, entry in ipairs(Interaction.entries) do Interaction.kinds[entry.action] = entry.kind end
 
 function Interaction.font_target(action, current, configured)
@@ -84,7 +92,12 @@ function Interaction.workspace(action, workspace, columns, rows)
   return nil, "unknown workspace action"
 end
 
-function Interaction.terminal(action, state, clipboard, enqueue)
+function Interaction.terminal(action, state, clipboard, enqueue, primary, primary_enabled)
+  if action == "copy-primary" or action == "paste-primary" then
+    if not primary then return nil, "unavailable" end
+    if action == "copy-primary" then return primary:publish(state, primary_enabled) end
+    return primary:paste(state, primary_enabled)
+  end
   if action == "open-url-hints" or action == "copy-url-hints" then
     state:hints_begin(action == "copy-url-hints" and "copy" or "open"); return true
   end
