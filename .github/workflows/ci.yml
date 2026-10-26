@@ -60,6 +60,10 @@ jobs:
           done
           test -n "${VK_ICD_FILENAMES:-}"
           xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
+          ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
+          KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
+          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
+          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl-tabs.log
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
