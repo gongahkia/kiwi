@@ -50,6 +50,7 @@ end
 function Primary:button(event, state, enabled, mouse_shift_capture)
   if event.kind ~= "button" or event.button ~= 2 then return false end
   if event.action == "release" and self.middle_owned then self.middle_owned = nil; return true end
+  if event.action == "press" then self.middle_owned = nil end
   if event.action ~= "press" or not self:supported(enabled)
       or Pointer.application_captures(event, state:input_modes(), mouse_shift_capture) then return false end
   self.middle_owned = true
