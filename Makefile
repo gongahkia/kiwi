@@ -182,6 +182,10 @@ pacing: native terminfo
 	mkdir -p bench/results
 	@if [ "$$(uname -s)" != Darwin ] && [ -z "$$DISPLAY" ] && [ -z "$$WAYLAND_DISPLAY" ]; then echo "SKIP pacing measurement: neither DISPLAY nor WAYLAND_DISPLAY is available."; else KIWI_LAYOUT_PERSISTENCE=0 KIWI_LAYOUT_RESTORE=0 KIWI_PACING_REPORT=1 KIWI_PACING_SAMPLES=$${KIWI_PACING_SAMPLES:-240} KIWI_PACING_WARMUP_FRAMES=$${KIWI_PACING_WARMUP_FRAMES:-30} KIWI_MAX_FRAMES=$${KIWI_MAX_FRAMES:-150} $(LUAJIT) src/kiwi/app/main.lua -- ./script/pacing-child; fi
 
+.PHONY: bench-interactive
+bench-interactive: native terminfo
+	LUAJIT="$(LUAJIT)" ./script/bench-interactive --report bench/results/interactive.json $(ARGS)
+
 pacing-compare:
 	@test -n "$(BASELINE)" && test -n "$(CANDIDATE)" || { echo "BASELINE and CANDIDATE pacing reports are required." >&2; exit 2; }
 	./script/compare-pacing "$(BASELINE)" "$(CANDIDATE)"

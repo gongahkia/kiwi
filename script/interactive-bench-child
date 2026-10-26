@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Raw PTY acknowledgment producer; only the benchmark launches this child."""
+import os
+import selectors
+import sys
+import tty
+
+mode = sys.argv[1]
+assert mode in ("idle", "saturated")
+tty.setraw(0)
+os.set_blocking(0, False)
+os.set_blocking(1, False)
+rows = os.get_terminal_size(0).lines
+assert rows >= 3
+sequence = 0
+ready = b"\x1b[?25l\x1b[2J\x1b]2;kiwi-bench-ready\x07\x1b[HREADY0000"
+pending = ready + f"\x1b[2;{rows}r\x1b[2;1H".encode()
+# Keep row one for acknowledgments. Background traffic scrolls below it.
+traffic = (b"background output 0123456789 abcdefghijklmnopqrstuvwxyz\r\n" * 64)
+selector = selectors.DefaultSelector()
+selector.register(0, selectors.EVENT_READ)
+selector.register(1, selectors.EVENT_WRITE)
+writing = True
+while True:
+    events = selector.select()
+    # Read first even when the PTY is continuously writable.
+    for key, _ in events:
+        if key.fd == 0:
+            try:
+                data = os.read(0, 256)
+            except BlockingIOError:
+                continue
+            if not data:
+                sys.exit(0)
+            assert data == b"x", "benchmark requires exactly one outstanding input"
+            sequence += 1
+            assert sequence <= 288
+            pending += (f"\x1b]2;kiwi-bench-ack:{sequence}\x07"
+                        f"\x1b[1;1HACK{sequence:04d}  \x1b[2;1H").encode()
+    if not pending and mode == "saturated":
+        pending = traffic
+    assert len(pending) <= 8192, "child output queue exceeded its bound"
+    if pending and not writing:
+        selector.register(1, selectors.EVENT_WRITE)
+        writing = True
+    if writing and any(key.fd == 1 for key, _ in events):
+        try:
+            count = os.write(1, pending)
+            pending = pending[count:]
+        except BlockingIOError:
+            pass
+        if not pending and mode == "idle":
+            selector.unregister(1)
+            writing = False

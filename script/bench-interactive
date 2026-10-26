@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Fresh-process startup and acknowledged callback-to-presentation timing."""
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import statistics
+import subprocess
+import sys
+import tempfile
+import time
+
+
+def summary(values):
+    ordered = sorted(values)
+    def percentile(fraction):
+        position = fraction * (len(ordered) - 1)
+        lo, hi = math.floor(position), math.ceil(position)
+        return ordered[lo] + (ordered[hi] - ordered[lo]) * (position - lo)
+    return dict(count=len(values), minimum=min(values), maximum=max(values),
+                mean=statistics.mean(values), p50=percentile(.5), p95=percentile(.95), p99=percentile(.99))
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
+parser.add_argument("--report", type=Path, required=True)
+parser.add_argument("--trials", type=int, default=3)
+parser.add_argument("--samples", type=int, default=20)
+parser.add_argument("--warmup", type=int, default=5)
+parser.add_argument("--interval-ms", type=float, default=20)
+parser.add_argument("--mode", choices=("idle", "saturated", "both"), default="both")
+args = parser.parse_args()
+if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup <= 32
+        and 0 <= args.interval_ms <= 1000):
+    parser.error("counts/interval exceed supported bounds")
+if (args.samples + args.warmup - 1) * args.interval_ms > 20000:
+    parser.error("requested intervals consume more than 20 seconds of the 30-second trial budget")
+root, report_path = args.root.resolve(), args.report.resolve()
+report_path.parent.mkdir(parents=True, exist_ok=True)
+logs = report_path.parent / (report_path.stem + "-logs")
+logs.mkdir(exist_ok=True)
+modes = ("idle", "saturated") if args.mode == "both" else (args.mode,)
+result = {"schema_version": 1, "benchmark": "acknowledged interactive application timing", "trials": [],
+          "methodology": {
+              "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+              "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+              "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+              "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+              "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+              "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+              "load": "bounded nonblocking child output below a reserved acknowledgment row; idle and saturated trials use identical geometry/configuration",
+              "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+              "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+              "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+              "bounds": "30-second internal and 40-second external trial deadlines; two-second acknowledgment ceiling; at most 256 measured inputs and 32 warmup inputs per trial"}}
+with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
+    temporary = Path(temporary)
+    config = temporary / "config"
+    config.write_text("theme = kiwi\nfont-size = 18\nscrollback-limit = 2000\nlive-config-reload = false\n")
+    # Prevent unrelated diagnostic knobs from contaminating a comparison.
+    keep = {"KIWI_HOST", "KIWI_GTK_PRESENTER", "KIWI_SURFACE_LIB", "KIWI_WGPU_LIB"}
+    base = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_") or key in keep}
+    base.update(KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;", KIWI_LAYOUT_PERSISTENCE="0",
+                KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET="4096",
+                KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
+                KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
+                KIWI_INTERACTIVE_BENCH_INTERVAL=str(args.interval_ms / 1000))
+    for mode in modes:
+        for trial in range(1, args.trials + 1):
+            output = temporary / "trial.json"
+            output.unlink(missing_ok=True)
+            environment = dict(base, KIWI_INTERACTIVE_BENCH_MODE=mode, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(output))
+            log = logs / f"{mode}-{trial}.log"
+            with log.open("w") as stream:
+                environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(time.CLOCK_MONOTONIC))
+                try:
+                    subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
+                                   env=environment, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=40)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    print(f"Interactive trial failed; log: {log}", file=sys.stderr)
+                    raise
+            item = json.loads(output.read_text())
+            assert item["measurement"]["samples"] == args.samples
+            item["trial"], item["mode"] = trial, mode
+            result["trials"].append(item)
+            timing = item["measurement"]
+            print(f"{mode} trial={trial} startup-ready={timing['launch_to_child_ready_present_return_ms']:.1f}ms "
+                  f"ack-p95={timing['callback_to_present_return_ms']['p95']:.2f}ms "
+                  f"rss={timing['sampled_peak_rss_kib']/1024:.1f}MiB", flush=True)
+result["summary"] = {}
+for mode in modes:
+    observations = [trial["measurement"] for trial in result["trials"] if trial["mode"] == mode]
+    aggregate = {}
+    for name in ("launch_to_first_present_return_ms", "launch_to_child_ready_present_return_ms", "sampled_peak_rss_kib"):
+        aggregate[name] = summary([observation[name] for observation in observations])
+    for name in ("callback_to_parse_ms", "parse_to_present_return_ms", "callback_to_present_return_ms"):
+        aggregate[name] = summary([value for observation in observations for value in observation[name]["values"]])
+    result["summary"][mode] = aggregate
+encoded = json.dumps(result, indent=2, allow_nan=False) + "\n"
+assert len(encoded) <= 2 * 1024 * 1024
+temporary_report = report_path.with_suffix(report_path.suffix + ".new")
+temporary_report.write_text(encoded)
+temporary_report.replace(report_path)
+print(f"Report: {report_path}; excludes physical keyboard/display latency.")
