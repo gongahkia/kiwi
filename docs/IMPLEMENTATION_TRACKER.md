@@ -44,6 +44,9 @@ do not let signing qualification interrupt progress on these priorities.
 - [x] Implement bounded GTK/Wayland PRIMARY transfers and qualify independent
       clients plus real PTY paste on isolated Sway across WGPU/GL/native tabs.
 - [ ] Qualify IME composition and accessibility with native consumers.
+- [x] Exercise real IBus/libpinyin composition, cancellation, Kitty keyboard
+      reporting, Find and focus changes on isolated GTK/Wayland; record the
+      stock IBus 1.5.29 dependency failure separately.
 - [ ] Exercise fractional DPI, monitor transitions, suspend/resume and recovery.
 - [ ] Resolve differences between Linux presentation paths; document and test
       the supported application path without claiming prototype equivalence.
@@ -774,3 +777,25 @@ matrix passes repeatedly, and existing X11 application checks remain passing.
 Hosted CI, physical desktop, other compositor, IME/accessibility, scaling and
 suspend qualification remain open. [Contract](adr/0048-gtk-wayland-primary-selection.md)
 and [execution evidence](evidence/2026-10-26-gtk-wayland-primary.md).
+
+### Real GTK input-method workflows
+
+`528680b` fixes GTK ASCII key identity normalization for shared shortcuts.
+`2f53f9b` filters IME-owned keys before terminal encoding and orders nested
+input-method dispatch so releases cannot overtake their presses. Real
+IBus/libpinyin tests cover composition, cancellation, Kitty associated text,
+Find, Ctrl-C and focus changes. `e29e7a3` fixes initial/selected native-tab focus
+when the terminal page maps; its complete workflow passes three repeated runs.
+
+WGPU, GL, native tabs and IBus hybrid mode pass in isolated Sway. Stock Ubuntu
+24.04 IBus 1.5.29 synchronous mode has a separately reproduced upstream
+hide-preedit bug. CI explicitly supplies a pinned 1.5.31 client library to Kiwi
+for synchronous tests; it does not change application defaults. Both hosts pass
+659 Lua tests and 18 PTY tests, and existing native clipboard/input regressions
+remain passing. [Contract](adr/0049-gtk-input-method-key-ownership.md) and
+[evidence with dependency limits](evidence/2026-10-26-gtk-ime.md).
+
+The broader desktop gate remains open: other engines and compositors, Cocoa
+IME, actual screen readers, monitor/scaling transitions and suspend/resume.
+Longer load/soak qualification and remaining combined application workflows
+also remain required. macOS signing remains last; Windows remains deferred.

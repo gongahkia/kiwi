@@ -825,6 +825,21 @@ An effect costs one window-sized RGBA texture and one additional GPU pass.
 The default opaque configuration without a shader allocates neither.
 The experimental GTK GL presenter does not implement custom shaders.
 
+## Linux input methods
+
+Use `KIWI_HOST=gtk` for GTK input-method integration. Composition stays local
+until committed, including when an application enables Kitty keyboard reporting.
+Composed text can also edit Find without reaching the terminal process. Escape
+first belongs to an active composition; after cancellation, another Escape can
+close Find. The default GLFW/Wayland host does not provide this composition bridge.
+
+Real IBus/libpinyin workflows are tested on isolated Wayland across GTK WGPU,
+GL and native tabs. Ubuntu 24.04's IBus 1.5.29 client has an upstream GTK4
+hide-preedit bug that can leave composition visible after cancellation. Use an
+IBus version containing that fix; Kiwi does not override your input-method
+configuration. The [qualification report](evidence/2026-10-26-gtk-ime.md)
+records the exact library/module combinations tested and remaining limits.
+
 `make shader-smoke` checks effects on opaque surfaces, including X11.
 `make appearance-smoke` additionally checks transparency. Both exercise resize
 and invalid shader recovery. `make configuration-reload-smoke` checks file watching and transactional

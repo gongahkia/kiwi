@@ -1,0 +1,39 @@
+dbus-daemon[22113]: [session uid=1001 pid=22113] Activating service name='ca.desrt.dconf' requested by ':1.1' (uid=1001 pid=22120 comm="gsettings set org.freedesktop.ibus.general use-sys")
+dbus-daemon[22113]: [session uid=1001 pid=22113] Successfully activated service 'ca.desrt.dconf'
+IME qualification: daemon/module=system, client library=/opt/kiwi-ibus-verified/lib, IBUS_ENABLE_SYNC_MODE=1
+dbus-daemon[22113]: [session uid=1001 pid=22113] Activating service name='org.freedesktop.portal.IBus' requested by ':1.3' (uid=1001 pid=22130 comm="ibus-daemon --panel=disable --emoji-extension=disa")
+dbus-daemon[22113]: [session uid=1001 pid=22113] Successfully activated service 'org.freedesktop.portal.IBus'
+Focus before engine: focus=AdwTab terminal=0 mapped=1 focusable=1 canfocus=1 sensitive=1 active=1
+Snapshot: {'commits': {}, 'editing': False, 'flags': 0, 'focus': 'focus=AdwTab terminal=0 mapped=1 focusable=1 canfocus=1 sensitive=1 active=1', 'keys': {}, 'preedit': '', 'preedits': {}, 'query': '', 'row': 'IME fixture          ', 'title': 'ime-fixture-ready'} PTY: b''
+compositor log:
+
+ibus log:
+
+(ibus-daemon:22130): IBUS-WARNING **: 05:56:45.123: 05:56:45.123140: Failed to unlink /tmp/kiwi-ime-wayland-btjeidqh/home/.config/ibus/bus/1bef029564764a4dacd5f5cbdbd33fe8-unix-wayland-1: No such file or directory
+
+(ibus-daemon:22130): IBUS-WARNING **: 05:56:45.123: 05:56:45.123236: Failed to unlink /tmp/kiwi-ime-wayland-btjeidqh/home/.config/ibus/bus/1bef029564764a4dacd5f5cbdbd33fe8-unix-wayland-1: No such file or directory
+cannot open ../lua/base.lua: No such file or directory
+lua script loaded.
+cannot open /tmp/kiwi-ime-wayland-btjeidqh/home/.config/ibus/libpinyin/user.lua: No such file or directory
+open /tmp/kiwi-ime-wayland-btjeidqh/home/.cache/ibus/libpinyin/user.conf failed.
+kiwi log:
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+
+keyboard log:
+
+typing log:
+
+Traceback (most recent call last):
+  File "/work/./script/gtk-ime-wayland-smoke", line 85, in <module>
+    wait_for(lambda: snapshot().get("preedit"), "real engine did not produce preedit")
+  File "/work/./script/gtk-ime-wayland-smoke", line 51, in wait_for
+    assert time.monotonic() < deadline, message
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: real engine did not produce preedit

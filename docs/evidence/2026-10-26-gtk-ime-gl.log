@@ -1,0 +1,11 @@
+dbus-daemon[21799]: [session uid=1001 pid=21799] Activating service name='ca.desrt.dconf' requested by ':1.1' (uid=1001 pid=21806 comm="gsettings set org.freedesktop.ibus.general use-sys")
+dbus-daemon[21799]: [session uid=1001 pid=21799] Successfully activated service 'ca.desrt.dconf'
+dbus-daemon[21799]: [session uid=1001 pid=21799] Activating service name='org.freedesktop.portal.IBus' requested by ':1.3' (uid=1001 pid=21816 comm="ibus-daemon --panel=disable --emoji-extension=disa")
+IME qualification: daemon/module=system, client library=/opt/kiwi-ibus-verified/lib, IBUS_ENABLE_SYNC_MODE=1
+dbus-daemon[21799]: [session uid=1001 pid=21799] Successfully activated service 'org.freedesktop.portal.IBus'
+IBus/libpinyin composed and committed Unicode through real GTK input and PTY.
+Escape cancels engine preedit without reaching the PTY.
+Kitty all-key/event/associated-text mode emits only composed Unicode.
+Ordinary typing retains associated text and a matching release after engine switch.
+Real IME composition edits Find locally without sending bytes to the PTY.
+Ctrl-C works; focus loss cancels preedit and composition recovers after focus return.
