@@ -725,8 +725,9 @@ function Controller.run(window, host, options)
       end
       if window:should_close() then break end
 
-      local primary_bytes = primary_selection:poll(state, configuration.primary_selection)
+      local primary_bytes, _, primary_query_changed = primary_selection:poll(state, configuration.primary_selection)
       if primary_bytes then enqueue_input(primary_bytes) end
+      if primary_query_changed then invalidate("search") end
       local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
       local grid = next_grid(window, font, columns, rows)
       if scale_changed and grid ~= nil then

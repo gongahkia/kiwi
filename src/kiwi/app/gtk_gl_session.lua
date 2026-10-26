@@ -464,8 +464,9 @@ function Session:tick(now)
   if self.closed then return "complete" end
   local selected = self.is_selected == nil or self.is_selected(self.window)
   if not selected then self.primary_selection:cancel(); self.primary_selection:focus(self.state) end
-  local primary_bytes = self.primary_selection:poll(self.state, self.configuration.primary_selection)
+  local primary_bytes, _, primary_query_changed = self.primary_selection:poll(self.state, self.configuration.primary_selection)
   if primary_bytes then self:_enqueue_input(primary_bytes) end
+  if primary_query_changed then self:_invalidate("search") end
   if self.render_target_revision ~= nil then
     if not selected then return end
     local state, reason = self.window:gl_area_state()
