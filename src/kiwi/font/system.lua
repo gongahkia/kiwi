@@ -167,6 +167,7 @@ function System:face_for_cluster(codepoints, flags)
   end
   if self.fallback_cache_count >= self.fallback_cache_limit then
     self.stats.fallback_misses = self.stats.fallback_misses + 1
+    if primary_supported then return primary, "primary" end
     return nil, "fallback-cache-limit"
   end
   local description, candidates = self.resolver:fallback(codepoints, styles[style], prefer_color)

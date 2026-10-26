@@ -7,7 +7,7 @@
 
 typedef struct KiwiGtkGlRenderer KiwiGtkGlRenderer;
 
-#define KIWI_GTK_GL_RENDERER_ABI_VERSION 3u
+#define KIWI_GTK_GL_RENDERER_ABI_VERSION 4u
 
 enum {
   /* The first frame for a grid, and every resize, replaces all cell data. */

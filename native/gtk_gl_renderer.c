@@ -151,9 +151,11 @@ static const char kiwi_gtk_gl_glyph_fragment_source[] =
     "  }\n"
     "  if (glyph_id == 0u || (glyph_flags & 128u) != 0u) discard;\n"
     "  vec4 value = foreground_color;\n"
+    "  vec4 texel = texture(alpha_atlas, atlas_uv);\n"
+    "  float coverage = texel.r;\n"
+    "  if ((glyph_flags & 0x20000000u) != 0u) { coverage = texel.a; value = vec4(texel.rgb / max(texel.a, 1.0 / 255.0), 1.0); }\n"
     "  if ((glyph_flags & 2048u) != 0u) { if (hyperlink_color.a <= 0.0) discard; value = hyperlink_color; }\n"
     "  if ((glyph_flags & 8u) != 0u) value.rgb *= 0.65;\n"
-    "  float coverage = texture(alpha_atlas, atlas_uv).r;\n"
     "  if (coverage <= 0.0) discard;\n"
     "  color = vec4(value.rgb, value.a * coverage);\n"
     "}\n";
@@ -756,8 +758,8 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
         renderer->uploaded_atlas_width != snapshot->atlas_width ||
         renderer->uploaded_atlas_height != snapshot->atlas_height) {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, snapshot->atlas_width, snapshot->atlas_height,
-                   0, GL_RED, GL_UNSIGNED_BYTE, snapshot->atlas_pixels);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, snapshot->atlas_width, snapshot->atlas_height,
+                   0, GL_RGBA, GL_UNSIGNED_BYTE, snapshot->atlas_pixels);
       renderer->uploaded_atlas_generation = snapshot->atlas_generation;
       renderer->uploaded_atlas_width = snapshot->atlas_width;
       renderer->uploaded_atlas_height = snapshot->atlas_height;
@@ -870,7 +872,7 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
   uint32_t rows = (uint32_t)frame->frame->rows;
   if (frame->frame->columns != (float)columns || frame->frame->rows != (float)rows ||
       (uint64_t)columns * rows != frame->cell_count ||
-      (frame->atlas_bytes > 0 && (uint64_t)frame->atlas_width * frame->atlas_height != frame->atlas_bytes)) {
+      (frame->atlas_bytes > 0 && (uint64_t)frame->atlas_width * frame->atlas_height * 4 != frame->atlas_bytes)) {
     kiwi_gtk_gl_set_error(renderer, "GTK GL frame is not a complete bounded grid/atlas snapshot");
     return 0;
   }

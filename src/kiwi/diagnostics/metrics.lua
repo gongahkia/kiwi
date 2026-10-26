@@ -92,6 +92,7 @@ function Metrics:snapshot()
     atlas_failures = glyph_cache_stats.failures or 0,
     atlas_negative_hits = glyph_cache_stats.negative_hits or 0,
     color_glyphs_unsupported = glyph_cache_stats.color_unsupported or 0,
+    color_glyphs_rasterized = glyph_cache_stats.color_glyphs or 0,
     atlas_pages = self.font.glyph_cache and 1 or 0,
     fallback_hits = font_stats.fallback_hits or 0,
     fallback_misses = font_stats.fallback_misses or 0,

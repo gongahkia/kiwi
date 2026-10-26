@@ -1,4 +1,4 @@
--- ABI v2 shared by renderer-neutral LuaJIT producers and native presentation
+-- ABI v3 shared by renderer-neutral LuaJIT producers and native presentation
 -- consumers. Keep this definition identical to native/kiwi_render_model.h.
 local ffi = require("ffi")
 
@@ -97,7 +97,7 @@ typedef struct {
 
 local RenderModel = {
   command_region_limit = 32,
-  version = 2,
+  version = 3,
 }
 
 function RenderModel.assert_layout()

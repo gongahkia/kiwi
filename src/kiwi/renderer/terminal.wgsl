@@ -185,8 +185,15 @@ fn glyph_fs(input: RasterOut) -> @location(0) vec4<f32> {
     return select(srgb_to_surface(background), input.fg, ink);
   }
   if (input.glyph == 0u || (input.flags & 128u) != 0u) { discard; }
-  let coverage = textureSample(glyph_atlas, glyph_sampler, input.uv).r;
+  let texel = textureSample(glyph_atlas, glyph_sampler, input.uv);
+  var coverage = texel.r;
   var color = input.fg;
+  if ((input.flags & 0x20000000u) != 0u) {
+    coverage = texel.a;
+    // FreeType supplies premultiplied sRGB. Unpremultiply before decoding
+    // sRGB; the glyph pipeline applies straight-alpha blending once.
+    color = srgb_to_surface(vec4<f32>(texel.rgb / max(texel.a, 1.0 / 255.0), 1.0));
+  }
   if ((input.flags & 2048u) != 0u) {
     if (frame.hyperlink_alpha <= 0.0) { discard; }
     color = srgb_to_surface(vec4<f32>(frame.hyperlink_red, frame.hyperlink_green, frame.hyperlink_blue, frame.hyperlink_alpha));

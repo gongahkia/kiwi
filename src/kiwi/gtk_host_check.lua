@@ -11,7 +11,7 @@ assert(GtkWindow.bridge.kiwi_gtk_host_pc101_base_key(0) == 0, "GTK PC-101 mappin
 assert(type(GtkWindow.bridge.kiwi_gtk_host_create_surface) == "cdata", "GTK host surface ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_set_text_input_caret) == "cdata", "GTK text-input caret ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_terminal_presentation_set_pointer_shape) == "cdata", "GTK pointer-shape ABI is unavailable")
-assert(GtkWindow.bridge.kiwi_gtk_gl_renderer_abi_version() == 3, "GTK GL renderer ABI is unavailable or incompatible")
+assert(GtkWindow.bridge.kiwi_gtk_gl_renderer_abi_version() == 4, "GTK GL renderer ABI is unavailable or incompatible")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_enable_gl_area_probe) == "cdata", "GTK GL area probe ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_native_tab_probe) == "cdata", "GTK native-tab probe ABI is unavailable")
 assert(type(GtkWindow.bridge.kiwi_gtk_host_native_tab_count) == "cdata", "GTK native-tab count ABI is unavailable")
