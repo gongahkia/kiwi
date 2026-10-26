@@ -36,10 +36,13 @@ function Power.new(options)
   }, Power)
 end
 
-function Power:observe(now, state, requested_wait)
+function Power:observe(now, state, requested_wait, wait_started)
   assert(type(now) == "number", "power observation time must be numeric")
   assert(self.state_seconds[state] ~= nil, "unknown power state " .. tostring(state))
-  if self.last_time ~= nil then
+  if wait_started ~= nil then
+    self.wait_observations = true
+    self.state_seconds[state] = self.state_seconds[state] + math.max(0, now - wait_started)
+  elseif self.last_time ~= nil then
     self.state_seconds[self.last_state] = self.state_seconds[self.last_state] + math.max(0, now - self.last_time)
   end
   self.last_state = state
@@ -74,7 +77,9 @@ end
 
 function Power:finish(now)
   if self.finished or self.last_time == nil or now == nil then return end
-  self.state_seconds[self.last_state] = self.state_seconds[self.last_state] + math.max(0, now - self.last_time)
+  if not self.wait_observations then
+    self.state_seconds[self.last_state] = self.state_seconds[self.last_state] + math.max(0, now - self.last_time)
+  end
   self.last_time = now
   self.finished = true
 end
@@ -89,6 +94,8 @@ function Power:snapshot(now)
       power = "not measured: the report counts Kiwi loop wakeups and successful renderer returns, not battery discharge, package energy, GPU energy, compositor work, or scan-out",
       privacy = "counts and reason categories only; no terminal output, input bytes, clipboard, command, window title, or display identifier is retained",
       wakeup = "a wakeup is one return from Kiwi's GLFW wait loop; it is not an operating-system wakeup attribution",
+      state_time = self.wait_observations and "time inside host waits, classified immediately before each wait; excludes rendering/parsing CPU time"
+        or "intervals between observations, attributed to the previous observed state",
     },
     policy = {
       scheduling = self.event_driven and "events-and-explicit-deadlines" or "periodic-fallback",

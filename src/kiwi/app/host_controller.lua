@@ -1396,6 +1396,8 @@ function Controller.run(window, host, options)
       end
       if #pending_navigation > 0 and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
       if primary_selection.request then requested_wait = math.min(requested_wait, 0.001) end
+      local power_wait_started = power and window:time() or nil
+      local power_wait_state = power and (window.minimized and "minimized" or compositor:needs_render(pane_entries, now) and "active" or "idle") or nil
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)
@@ -1448,8 +1450,7 @@ function Controller.run(window, host, options)
         sync_configuration_watch()
       end
       if power then
-        local power_state = window.minimized and "minimized" or compositor:needs_render(pane_entries, now) and "active" or "idle"
-        power:observe(now, power_state, requested_wait)
+        power:observe(now, power_wait_state, requested_wait, power_wait_started)
       end
       if soak and soak:step(now) then window:request_close() end
       if power_synthetic_input and not synthetic_input_sent then

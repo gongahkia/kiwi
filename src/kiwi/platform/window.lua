@@ -774,4 +774,9 @@ function Window.live_count()
   return live_windows
 end
 
+-- A quiet event pump can become hot before it ever invokes a Lua callback.
+-- LuaJIT cannot safely re-enter Lua through FFI from a compiled trace.
+require("jit").off(Window.poll_events_for, true)
+require("jit").off(Window.wait_events_for, true)
+
 return Window

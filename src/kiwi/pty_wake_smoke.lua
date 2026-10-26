@@ -1,5 +1,7 @@
 local Window = require(os.getenv("KIWI_HOST") == "gtk" and "kiwi.platform.gtk_window" or "kiwi.platform.window")
 local Pty = require("kiwi.process.pty")
+local wait_seconds = os.getenv("KIWI_WAKE_WAIT") == "indefinite" and math.huge or 2
+local wait_description = wait_seconds == math.huge and "an indefinite host wait" or "a 2000 ms host timeout"
 
 local window = Window.new(320, 240, "Kiwi PTY readiness smoke")
 local pty
@@ -9,11 +11,11 @@ local ok, message = xpcall(function()
   local started, output = window:time(), ""
   repeat
     window:watch_ptys({ pty })
-    window:wait_events(2)
+    window:wait_events(wait_seconds)
     output = output .. pty:read_available(4096)
     assert(window:time() - started < 1.5, "PTY output waited for the host's two-second timeout")
   until output == "kiwi-ready"
-  print(string.format("PTY host wake smoke passed: output observed in %.1f ms with a 2000 ms host timeout.", (window:time() - started) * 1000))
+  print(string.format("PTY host wake smoke passed: output observed in %.1f ms with %s.", (window:time() - started) * 1000, wait_description))
   pty:shutdown()
   pty = Pty.spawn({ "/usr/bin/env", "python3", "-c", [[
 import os, time, tty
@@ -30,7 +32,7 @@ os.write(1, b"received:262144")
   output, started = "", window:time()
   repeat
     window:watch_ptys({ pty })
-    window:wait_events(2)
+    window:wait_events(wait_seconds)
     output = output .. pty:read_available(4096)
     assert(window:time() - started < 1.5, "backpressure child did not become ready")
   until output == "ready"
@@ -40,13 +42,13 @@ os.write(1, b"received:262144")
   output, started = "", window:time()
   repeat
     window:watch_ptys({ pty })
-    window:wait_events(2)
+    window:wait_events(wait_seconds)
     pty:flush()
     output = output .. pty:read_available(4096)
     assert(window:time() - started < 1.5, "buffered input waited for the host's two-second fallback timeout")
   until output == "received:262144"
   assert(pty.bytes_written == 262144, "input readiness lost or duplicated bytes")
-  print(string.format("PTY input wake smoke passed: 256 KiB delivered in %.1f ms under backpressure with a 2000 ms host timeout.", (window:time() - started) * 1000))
+  print(string.format("PTY input wake smoke passed: 256 KiB delivered in %.1f ms under backpressure with %s.", (window:time() - started) * 1000, wait_description))
   window:watch_ptys({})
   pty:shutdown()
   pty = Pty.spawn({ "/usr/bin/env", "python3", "-c", [[
@@ -61,7 +63,7 @@ os._exit(7)
   started = window:time()
   repeat
     window:watch_ptys({ pty })
-    window:wait_events(2)
+    window:wait_events(wait_seconds)
     pty:read_available(4096)
     assert(window:time() - started < 1.5, "closed streams did not report EOF")
   until pty.eof
@@ -69,13 +71,13 @@ os._exit(7)
   local status
   repeat
     window:watch_ptys({ pty })
-    window:wait_events(2)
+    window:wait_events(wait_seconds)
     status = pty:poll_exit()
     assert(window:time() - started < 1.5, "child exit waited for the host's two-second fallback timeout")
   until status
   assert(status.kind == "exit" and status.code == 7, "child readiness changed exit status")
   assert(pty.exit_fd == nil, "reaping leaked the child-exit descriptor")
-  print(string.format("Child exit wake smoke passed: exit after closed streams observed in %.1f ms with a 2000 ms host timeout.", (window:time() - started) * 1000))
+  print(string.format("Child exit wake smoke passed: exit after closed streams observed in %.1f ms with %s.", (window:time() - started) * 1000, wait_description))
 end, debug.traceback)
 window:watch_ptys({})
 if pty then pty:shutdown() end
