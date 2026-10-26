@@ -576,3 +576,27 @@ Evidence and the qualified font-format/host limits are in
 [evidence/2026-10-26-color-glyphs.md](evidence/2026-10-26-color-glyphs.md).
 Desktop integration, performance/power and distribution gates remain open;
 this text increment does not qualify those workstreams.
+
+### Buffered-input readiness before idle-timer removal
+
+`cb09dac` adds one-shot write readiness when a live PTY has queued input, while
+ordinary PTYs and the configuration watcher retain read-only interest. The
+worker never reads/writes terminal data; all I/O stays on the UI thread. Interest
+masks and descriptor counts are validated before replacing a live watch.
+
+macOS and Linux pass 635 full tests / 125 suites and 398 core tests / 67 suites,
+plus the `make check` gates. The native readiness fixture passes ASan/UBSan on
+both hosts, covering saturated pipes, drain-triggered wakeups, disarming write
+interest, one-shot notification, read/EOF behavior and repeated teardown.
+
+The expanded `make pty-wake-smoke` first observes child output, then saturates a
+PTY with 256 KiB of input while a raw-mode child deliberately waits 200 ms before
+reading. It uses a two-second host wait and fails if delivery takes 1.5 seconds
+or bytes are lost/duplicated. Delivery completed in 267.3 ms on macOS GLFW,
+210.8 ms on Linux GLFW, and 214.3 ms on Linux GTK/Xvfb. These are synthetic
+readiness checks, not keyboard-to-display latency measurements.
+
+The 50 ms application fallback timer is **still present**. Its remaining users
+include Linux GLFW's GLib/AT-SPI dispatch, delayed child reaping after PTY EOF,
+and periodic development shader checks. Those must be serviced explicitly
+before claiming event-driven idle behavior or lower idle power.
