@@ -30,3 +30,31 @@ This confirms the status distinction; it does not identify why the workstation
 changed the window's visibility. No production GPU recovery changes or relaxed
 latency thresholds were made. macOS long-duration visible qualification remains
 open and needs an uninterrupted graphical session.
+
+## Linux software Vulkan: bounded sustained runs passed
+
+Both trials ran sequentially in Ubuntu 24.04 x86_64, using Xvfb and the actual
+llvmpipe Vulkan adapter in the owned container (two CPUs, 4 GiB memory limit).
+No application-test/build workload ran concurrently with either measurement.
+The shared host was not a controlled thermal/performance laboratory.
+
+| Host | Measured inputs | Post-warmup duration | RSS growth | Peak RSS | Input p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| GLFW | 120 | 642.62 s | 4,992 KiB | 199,716 KiB | 520.91 ms |
+| GTK WGPU | 20 | 73.03 s | 162 KiB | 284,592 KiB | 646.26 ms |
+
+[GLFW report](2026-10-26-soak-linux-glfw.json),
+[GTK report](2026-10-26-soak-linux-gtk.json). Both completed every acknowledgment
+within two seconds and passed the default RSS/heap-growth/peak budgets. Lua heap
+quarter-median growth was negative in both. GLFW process CPU averaged 153.7%
+across cores; software rasterization under sustained load is not an idle-power
+measurement. These relatively high response times are not competitive GPU
+latency evidence, and these different-duration/host trials are not a relative
+performance comparison.
+
+GLFW used source archive `9b2f126`; GTK used `a82c51f`. The reports identify the
+archive revision from `BUILD_REVISION` and do not attest Git cleanliness. The
+strict relative-budget checker correctly requires stronger clean-source evidence.
+This qualifies one bounded scrolling-region workload, not full scrollback,
+hour-long sessions, hardware GPU drivers, physical display latency or all memory
+retention patterns. The longer macOS gate remains incomplete as described above.
