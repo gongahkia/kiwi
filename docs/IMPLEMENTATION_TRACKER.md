@@ -48,6 +48,9 @@ do not let signing qualification interrupt progress on these priorities.
       reporting, Find and focus changes on isolated GTK/Wayland; record the
       stock IBus 1.5.29 dependency failure separately.
 - [ ] Exercise fractional DPI, monitor transitions, suspend/resume and recovery.
+- [x] Fix GTK drawable/allocation scaling and qualify both presenters through
+      fractional scale, virtual-output moves/removal/power and process pause;
+      retain physical hotplug/system sleep as separate open gates.
 - [ ] Resolve differences between Linux presentation paths; document and test
       the supported application path without claiming prototype equivalence.
 
@@ -816,3 +819,17 @@ runs and a strict comparable-evidence budget checker is implemented. The broader
 performance gate stays open: full scrollback/longer retention, controlled relative
 measurements, hardware drivers and uninterrupted macOS visibility still need
 qualification. [Results and failures](evidence/2026-10-26-sustained-load.md).
+
+
+### 2026-10-26 GTK scaling and virtual desktop transitions
+
+GTK now consistently reports drawable pixels and observes real widget
+allocation changes. Both WGPU and GL passed eight isolated Sway transition
+checkpoints with actual keyboard/PTY delivery and acknowledged rendered geometry.
+The regression reproduces the original fractional-scale failure. Existing input,
+GL, native-tab reload and real IME checks passed after the correction.
+[Contract](adr/0050-gtk-drawable-scaling.md) and
+[evidence/limits](evidence/2026-10-26-desktop-transitions.md).
+
+Physical monitor changes, system sleep, screen readers and macOS qualification
+remain open; simulated output power and process pause are not substitutes.
