@@ -31,6 +31,11 @@ The policy does not add a terminfo capability, environment advertisement, remote
 
 ## References
 
+X11 pointer selection and asynchronous middle-button paste were subsequently
+added under [ADR 0043](0043-x11-primary-selection.md). They keep PRIMARY separate
+from this ADR's ordinary clipboard/OSC 52 policy; OSC 52 selector aliases are
+unchanged. The earlier M4 scope statement above records the original increment.
+
 - [XTerm Control Sequences: OSC 52 selection data](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)
 - [GLFW clipboard input and output](https://www.glfw.org/docs/latest/input)
 - [Kitty clipboard protocol permission model](https://sw.kovidgoyal.net/kitty/clipboard/)
