@@ -41,6 +41,8 @@ do not let signing qualification interrupt progress on these priorities.
 ## Desktop reliability
 
 - [ ] Qualify clipboard and primary selection on X11 and Wayland.
+- [x] Implement bounded GTK/Wayland PRIMARY transfers and qualify independent
+      clients plus real PTY paste on isolated Sway across WGPU/GL/native tabs.
 - [ ] Qualify IME composition and accessibility with native consumers.
 - [ ] Exercise fractional DPI, monitor transitions, suspend/resume and recovery.
 - [ ] Resolve differences between Linux presentation paths; document and test
@@ -749,3 +751,26 @@ Native readiness, GTK GL single-page/native-tab reload checks and idle-wake gate
 pass. Short native ASCII/styled-Unicode recipes pass locally; `2d3a100` adds the
 styled workload to Linux and both Mac CI jobs. Hosted CI has not been run here.
 The broader performance and desktop qualification gates remain open.
+
+### GTK Wayland PRIMARY and first presentation
+
+`d0cc1c0` adds a bounded asynchronous GDK reader and GTK/Wayland PRIMARY support,
+with one-second deadlines, a 1 MiB transfer limit and sixteen live requests.
+Invalid text, excess data, stale destinations and cancellation deliver no partial
+paste. Native callback ownership survives requester/window destruction.
+
+The full Wayland test exposed a first-frame WGPU hang in Vulkan presentation.
+`2809741` commits the new subsurface relationship on its parent before Vulkan
+waits for a frame callback. `ee88a6a` adds isolated Sway checks to CI: independent
+clipboard clients plus real PTY pointer/keyboard/vi paste on WGPU, GTK GL and
+native tabs. The fixture explicitly handles initial focus, native-tab blank
+history and asynchronous vi publication; its temporary requester floats to
+avoid unrelated tiling resizes during selection.
+
+Both hosts pass `make check` (659 Lua tests, 18 PTY tests, 372-file syntax check).
+Native GTK transfer tests pass with AddressSanitizer/UndefinedBehaviorSanitizer;
+stalled providers, limits and cancellation are covered. The headless Wayland
+matrix passes repeatedly, and existing X11 application checks remain passing.
+Hosted CI, physical desktop, other compositor, IME/accessibility, scaling and
+suspend qualification remain open. [Contract](adr/0048-gtk-wayland-primary-selection.md)
+and [execution evidence](evidence/2026-10-26-gtk-wayland-primary.md).

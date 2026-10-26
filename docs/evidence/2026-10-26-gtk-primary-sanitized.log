@@ -1,0 +1,3 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+GTK PRIMARY passed: exact limits, multichunk UTF-8, invalid data, cancellation before/after stream open, stalled-owner deadlines and request capacity.

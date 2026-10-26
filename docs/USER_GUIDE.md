@@ -697,7 +697,8 @@ even with a saturated glyph cache. `make bench-hints HINT_HISTORY=10000` measure
 bounded model work with retained history and dense OSC 8 targets; it does not
 measure input-to-display latency.
 
-On Linux **X11**, completing a mouse selection makes a snapshot available for
+On Linux **X11**, and on **GTK/Wayland** when the compositor supports PRIMARY,
+completing a mouse selection makes a snapshot available for
 middle-click paste. This is separate from the ordinary clipboard: Ctrl+Shift+C/V
 still use CLIPBOARD. Double/triple-click word/line selections publish on release.
 Empty or oversized selections leave the previous primary snapshot intact; merely
@@ -715,12 +716,18 @@ program; Shift+middle-click uses the existing `mouse-shift-capture` policy.
 Vi/hints/Find input ownership takes precedence. Reads are asynchronous with a
 one-second owner-response deadline and a 1 MiB UTF-8 limit. Failed reads send no
 partial input; accepted text uses bracketed-paste framing when enabled. Changing
-focus, pane or input mode cancels pending delivery. macOS and Wayland do not use
-this X11 path. See [the ownership and lifetime contract](adr/0043-x11-primary-selection.md).
+focus, pane or input mode cancels pending delivery. macOS and GLFW/Wayland do not
+provide this feature. See the [X11 ownership contract](adr/0043-x11-primary-selection.md)
+and [GTK Wayland transfer contract](adr/0048-gtk-wayland-primary-selection.md).
 
 `make test-primary-selection` tests native transfers and limits.
 `make primary-selection-smoke` checks host input against a raw PTY; it creates a
 private Xvfb server so its clipboard writes cannot affect the user's desktop.
+On Linux, `make test-gtk-primary` checks the GDK reader, and
+`make gtk-primary-wayland-smoke` exercises external transfers and real PTY paste
+on an isolated Sway compositor. The latter needs Sway, wl-clipboard and wtype;
+it covers WGPU, GTK GL and native GTK tabs. Physical-desktop qualification remains
+open even when these headless checks pass.
 
 Font size changes apply to the current window without editing the configuration.
 Reset restores the last successfully loaded configured size. Sizes that cannot fit

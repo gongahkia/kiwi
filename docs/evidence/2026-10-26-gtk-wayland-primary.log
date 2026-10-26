@@ -1,0 +1,62 @@
+GTK Wayland PRIMARY passed: external owner/requester, Unicode, clipboard isolation, bounds, replacement, cancellation and window destruction.
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+Wayland PRIMARY controller stage 0
+Wayland PRIMARY controller stage 1
+Wayland PRIMARY controller stage 2
+Wayland PRIMARY controller stage 3
+Wayland PRIMARY controller stage 4
+Wayland PRIMARY controller stage 5
+Wayland PRIMARY controller stage 6
+Wayland PRIMARY controller stage 7
+Wayland PRIMARY controller stage 8
+Wayland PRIMARY controller stage 9
+Wayland PRIMARY controller stage 10
+Wayland PRIMARY controller stage 11
+Wayland PRIMARY controller stage 12
+Kiwi GTK GL experimental: TERM=xterm-kiwi child=python3 grid=66x24 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.
+libEGL warning: failed to get driver name for fd -1
+
+libEGL warning: MESA-LOADER: failed to retrieve device information
+
+libEGL warning: failed to get driver name for fd -1
+
+MESA: error: ZINK: failed to choose pdev
+libEGL warning: egl: failed to create dri2 screen
+Wayland PRIMARY controller stage 0
+Wayland PRIMARY controller stage 1
+Wayland PRIMARY controller stage 2
+Wayland PRIMARY controller stage 3
+Wayland PRIMARY controller stage 4
+Wayland PRIMARY controller stage 5
+Wayland PRIMARY controller stage 6
+Wayland PRIMARY controller stage 7
+Wayland PRIMARY controller stage 8
+Wayland PRIMARY controller stage 9
+Wayland PRIMARY controller stage 10
+Wayland PRIMARY controller stage 11
+Wayland PRIMARY controller stage 12
+Kiwi GTK GL native-tabs experimental: TERM=xterm-kiwi child=python3 tabs=1
+Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.
+Wayland PRIMARY controller stage 0
+Wayland PRIMARY controller stage 1
+Wayland PRIMARY controller stage 2
+Wayland PRIMARY controller stage 3
+Wayland PRIMARY controller stage 4
+Wayland PRIMARY controller stage 5
+Wayland PRIMARY controller stage 6
+Wayland PRIMARY controller stage 7
+Wayland PRIMARY controller stage 8
+Wayland PRIMARY controller stage 9
+Wayland PRIMARY controller stage 10
+Wayland PRIMARY controller stage 11
+Wayland PRIMARY controller stage 12
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=python3 grid=66x24 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.
