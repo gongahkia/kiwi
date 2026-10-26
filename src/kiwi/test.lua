@@ -2,6 +2,7 @@ local suites = {
   "tests.test_configuration_retention",
   "tests.test_cell",
   "tests.test_interactive_bench",
+  "tests.test_sustained",
   "tests.test_damage",
   "tests.test_build",
   "tests.test_glfw_errors",
