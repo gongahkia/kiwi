@@ -1,6 +1,7 @@
 -- Exercise real GTK GL resources and both controller routes in an isolated
 -- test process. The driver owns its temporary config, PTYs and native pages.
 local Runtime = require("kiwi.app.configuration_runtime")
+local Reload = require("kiwi.app.gtk_configuration_reload")
 local Consumer = require("kiwi.renderer.gtk_gl_consumer")
 local Dispatcher = require("kiwi.app.product_action_dispatcher")
 local Host = require("kiwi.app.gtk_host")
@@ -20,7 +21,9 @@ save("theme = kiwi\nfont-size = 16\nbackground = #000000\n")
 local runtime, dispatcher
 local terminals, ptys, pages, states = {}, {}, {}, {}
 local originals = { runtime = Runtime.new, consumer = Consumer.new, dispatcher = Dispatcher.new,
-  terminal = Terminal.new, pty = Pty.spawn, session = Session.new, await = Host.await_events }
+  terminal = Terminal.new, pty = Pty.spawn, session = Session.new, await = Host.await_events, prepare = Reload.prepare }
+local staging_calls, comment_configuration = 0, nil
+Reload.prepare = function(...) staging_calls = staging_calls + 1; return originals.prepare(...) end
 Runtime.new = function(...) runtime = originals.runtime(...); return runtime end
 Dispatcher.new = function(...) dispatcher = originals.dispatcher(...); return dispatcher end
 Terminal.new = function(...)
@@ -75,9 +78,15 @@ Host.await_events = function(application, window, timeout)
     advance(now)
   elseif stage == 1 and #terminals == expected_pages and ready() then
     assert(backgrounds("000000"))
-    for i, terminal in ipairs(terminals) do states[i] = Terminal.state(terminal); states[i]:scroll_history(8) end
-    save("font-size = 999\n")
-    advance(now)
+    if comment_configuration == nil then
+      comment_configuration = runtime.configuration
+      save("theme = kiwi\nfont-size = 16\nbackground = #000000\n# comment-only save\n")
+    elseif runtime.configuration ~= comment_configuration then
+      assert(staging_calls == 0, "comment-only save rebuilt GTK resources")
+      for i, terminal in ipairs(terminals) do states[i] = Terminal.state(terminal); states[i]:scroll_history(8) end
+      save("font-size = 999\n")
+      advance(now)
+    end
   elseif stage == 2 and failed then
     assert(backgrounds("000000"), "invalid source changed a live page")
     save("font-size = 18\nbackground = #123456\n")
@@ -141,6 +150,7 @@ arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/
   "i=0; while [ $i -lt 200 ]; do printf 'retained %03d\\r\\n' $i; i=$((i+1)); done; printf '\\033]2;gtk-reload-ready\\007'; IFS= read -r value; printf 'PTY-survives:%s\\r\\n' \"$value\"; sleep 30" }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Runtime.new, Consumer.new, Dispatcher.new = originals.runtime, originals.consumer, originals.dispatcher
+Reload.prepare = originals.prepare
 Terminal.new, Pty.spawn, Session.new, Host.await_events = originals.terminal, originals.pty, originals.session, originals.await
 os.remove(path); os.remove(path .. ".new")
 assert(ok, message)
