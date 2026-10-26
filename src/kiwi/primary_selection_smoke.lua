@@ -126,6 +126,9 @@ Host.await_events = function(application, window, timeout)
     end
   elseif stage == 9 and #received() >= #expected then
     assert(received() == expected, "keyboard primary paste repeated or leaked release bytes")
+    -- Xvfb has no window manager to return focus after the temporary requester
+    -- closes. Establish focus before injecting keyboard-driven selection.
+    window.on_focus(true)
     shortcut(window, Host.keymap.key_space, Host.keymap.mod_control + Host.keymap.mod_shift)
     assert(state.vi.active)
     window.on_text({ 103, 103, 48, 118, 108, 108 }) -- gg0vll selects "pri".
