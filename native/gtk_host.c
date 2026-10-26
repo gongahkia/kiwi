@@ -152,6 +152,7 @@ struct KiwiGtkTerminalPresentation {
   GHashTable *reported_keys;
   GQueue key_events;
   gboolean processing_keys;
+  gboolean focus_when_mapped;
   KiwiGtkGlPresentation *gl_presentation;
   AdwTabPage *tab_page;
 };
@@ -1563,6 +1564,14 @@ static void kiwi_gtk_terminal_presentation_destroy(
   g_free(presentation);
 }
 
+static void kiwi_gtk_terminal_mapped(GtkWidget *widget, gpointer userdata) {
+  KiwiGtkTerminalPresentation *presentation = userdata;
+  if (presentation->focus_when_mapped && presentation->tab_page != NULL &&
+      adw_tab_page_get_selected(presentation->tab_page) && gtk_widget_get_mapped(widget)) {
+    presentation->focus_when_mapped = !gtk_widget_grab_focus(widget);
+  }
+}
+
 static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
     KiwiGtkHost *host, const KiwiGtkCallbacks *callbacks) {
   if (host == NULL || callbacks == NULL) return NULL;
@@ -1575,6 +1584,8 @@ static KiwiGtkTerminalPresentation *kiwi_gtk_terminal_presentation_new(
   presentation->progress = GTK_PROGRESS_BAR(gtk_progress_bar_new());
   presentation->terminal = KIWI_GTK_TERMINAL(
       g_object_new(KIWI_TYPE_GTK_TERMINAL, NULL));
+  g_signal_connect(presentation->terminal, "map",
+                   G_CALLBACK(kiwi_gtk_terminal_mapped), presentation);
   gtk_widget_set_hexpand(presentation->content, TRUE);
   gtk_widget_set_vexpand(presentation->content, TRUE);
   gtk_widget_set_hexpand(GTK_WIDGET(presentation->terminal), TRUE);
@@ -1645,7 +1656,10 @@ static void kiwi_gtk_native_tab_selected(GObject *object, GParamSpec *parameter,
         title != NULL) {
       gtk_window_set_title(GTK_WINDOW(presentation->host->window), title);
     }
-    gtk_widget_grab_focus(GTK_WIDGET(presentation->terminal));
+    presentation->focus_when_mapped = TRUE;
+    kiwi_gtk_terminal_mapped(GTK_WIDGET(presentation->terminal), presentation);
+  } else if (presentation != NULL) {
+    presentation->focus_when_mapped = FALSE;
   }
 }
 
@@ -1739,8 +1753,14 @@ static int kiwi_gtk_host_enable_native_tab_container(KiwiGtkHost *host,
     host->tab_bar = NULL;
     return 0;
   }
+  /* The first page becomes selected during append, before our selected
+   * notification is connected. Reparenting cleared its previous focus; the
+   * selected page may not be mapped until GTK's next allocation. */
+  host->primary_presentation->focus_when_mapped = TRUE;
   gtk_window_set_child(GTK_WINDOW(host->window), host->tab_root);
   g_object_unref(host->primary_presentation->content);
+  kiwi_gtk_terminal_mapped(GTK_WIDGET(host->primary_presentation->terminal),
+                           host->primary_presentation);
   return 1;
 }
 

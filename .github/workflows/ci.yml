@@ -86,6 +86,7 @@ jobs:
           for kiwi_presenter in wgpu gl; do
             KIWI_IME_CLIENT_LIBRARY="$RUNNER_TEMP/kiwi-ibus/lib" IBUS_ENABLE_SYNC_MODE=1 KIWI_GTK_PRESENTER="$kiwi_presenter" ./script/gtk-ime-wayland-smoke 2>&1 | tee ".build/appearance-evidence/ime-$kiwi_presenter.log"
           done
+          KIWI_IME_CLIENT_LIBRARY="$RUNNER_TEMP/kiwi-ibus/lib" IBUS_ENABLE_SYNC_MODE=1 KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/gtk-ime-wayland-smoke 2>&1 | tee .build/appearance-evidence/ime-gl-tabs.log
           # Exercise IBus's nested-loop mode too, including key release order.
           IBUS_ENABLE_SYNC_MODE=2 ./script/gtk-ime-wayland-smoke 2>&1 | tee .build/appearance-evidence/ime-hybrid.log
       - name: upload interactive application evidence
