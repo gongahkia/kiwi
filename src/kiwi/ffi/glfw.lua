@@ -48,7 +48,7 @@ void glfwSetClipboardString(GLFWwindow* window, const char* string);
 const char* glfwGetClipboardString(GLFWwindow* window);
 double glfwGetTime(void);
 int glfwGetPlatform(void);
-const char* glfwGetError(int* code);
+int glfwGetError(const char** description);
 ]]
 
 local ok, glfw = pcall(require("kiwi.ffi.library").load, "glfw", "glfw")
