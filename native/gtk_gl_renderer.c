@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 enum {
@@ -789,6 +790,38 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
 }
 
 uint32_t kiwi_gtk_gl_renderer_abi_version(void) { return KIWI_GTK_GL_RENDERER_ABI_VERSION; }
+
+int kiwi_gtk_gl_renderer_count_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
+                                  uint8_t green, uint8_t blue, uint8_t tolerance,
+                                  uint64_t *matching) {
+  if (renderer == NULL || matching == NULL || renderer->rendered_revision == 0 ||
+      !gtk_widget_get_realized(GTK_WIDGET(renderer->area))) return 0;
+  gtk_gl_area_make_current(renderer->area);
+  if (gtk_gl_area_get_error(renderer->area) != NULL) return 0;
+  gtk_gl_area_attach_buffers(renderer->area);
+  int scale = gtk_widget_get_scale_factor(GTK_WIDGET(renderer->area));
+  int width = gtk_widget_get_width(GTK_WIDGET(renderer->area));
+  int height = gtk_widget_get_height(GTK_WIDGET(renderer->area));
+  if (width < 1 || height < 1 || scale < 1 || scale > 8 ||
+      (uint64_t)width * height * scale * scale > 16 * 1024 * 1024) return 0;
+  size_t count = (size_t)width * height * scale * scale;
+  uint8_t *pixels = g_try_malloc_n(count, 4);
+  if (pixels == NULL) return 0;
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, width * scale, height * scale, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  int success = glGetError() == GL_NO_ERROR;
+  *matching = 0;
+  if (success) {
+    for (size_t index = 0; index < count; ++index) {
+      const uint8_t *pixel = pixels + index * 4;
+      if (abs((int)pixel[0] - red) <= tolerance &&
+          abs((int)pixel[1] - green) <= tolerance &&
+          abs((int)pixel[2] - blue) <= tolerance) ++*matching;
+    }
+  }
+  g_free(pixels);
+  return success;
+}
 
 int kiwi_gtk_gl_renderer_configure_area(GtkGLArea *area) {
   if (area == NULL || gtk_widget_get_realized(GTK_WIDGET(area))) return 0;
