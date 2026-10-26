@@ -169,7 +169,7 @@ notify-on-command-finish-after = 5
 ```
 
 `F6` is the default binding for `reload-config`; it can be remapped or removed.
-On the WGPU application path, saving a configuration or referenced theme file
+On the WGPU and GTK GL application paths, saving a configuration or referenced theme file
 also reloads it after 200 ms without another observed edit. Native kqueue
 (macOS) or inotify (Linux) events wake the existing host readiness worker;
 there is no periodic configuration-file scan. Atomic editor saves and later
@@ -177,16 +177,20 @@ creation of missing files are watched too. `live-config-reload = false`
 disables automatic reload; F6 still works and can re-enable it. An invalid
 save leaves a bounded error in the window title until a successful reload;
 the full diagnostic is also written to stderr. Saving comments alone does not
-rebuild resources. The GTK GL prototype retains manual reload only.
+rebuild resources. GTK GL supports the same reload policy for a single page
+and for the experimental native-tab group.
 Kiwi validates the full replacement, including its action map and theme, before
 changing live resources; an invalid file leaves the current configuration
 active. Theme, renderer colors, font settings, host-effect policy, local
 actions, and the `scrollbar` policy reload in the same session.
-On the WGPU application path, Kiwi stages every pane's state, font and renderer
-before replacing live resources. Failed font, layout or GPU allocation keeps
-the existing session usable; terminal replies and child resize happen only
-after activation. Staging temporarily duplicates retained state and GPU
-resources, so large histories can increase reload time and peak memory.
+Kiwi stages every WGPU pane's state, font and renderer before replacing live
+resources. GTK GL similarly stages every page's state, font and prepared-frame
+consumer, including hidden tabs. A failure constructing a later page aborts
+all staged pages. Terminal replies, child resize and disposal of old resources
+follow activation. GTK GL submits its new native frame during presentation;
+this does not preallocate every future GL driver resource. Staging temporarily
+duplicates retained state and resources, so large histories can increase reload
+time and peak memory. GTK GL still rejects opacity and custom-shader settings.
 `ambiguous-width` and `scrollback-limit`
 remain startup-only, because changing either would require semantic grid reflow
 or history retention changes; Kiwi reports that limitation instead of partially

@@ -57,10 +57,10 @@ for the current non-Windows scope. All other unchecked work remains in scope.
 
 ## Configuration
 
-- [x] Stage and atomically commit font/renderer/configuration replacement on the
-      supported WGPU application path; GTK GL prototype parity remains open.
+- [x] Stage and atomically commit font/renderer/configuration replacement on
+      WGPU and GTK GL, including multi-page rollback before activation.
 - [x] Debounce automatic file reload and show recoverable configuration errors
-      on WGPU; Linux graphical execution and GTK GL parity remain open.
+      on WGPU and GTK GL; native Linux Xvfb tests cover both paths.
 - [x] Inject resource failures and verify the old session remains usable.
 
 ## Search and keyboard navigation
@@ -637,3 +637,22 @@ four/five. An earlier macOS 87-wake outlier remains unexplained and is preserved
 This closes the blanket-timer implementation gate, not the remaining performance
 measurement, desktop reliability or distribution gates. See
 [event-wait evidence](evidence/2026-10-26-event-waits.md) for raw reports and limits.
+
+### GTK GL transactional configuration
+
+`574c5e6` adds staged configuration replacement for the GTK GL single-page and
+native-tab controllers. A later page's font/consumer failure aborts all staged
+pages. Both routes share automatic file watching, debounce, manual F6, opt-out,
+recoverable title errors and missing-dependency recovery. Equivalent saves keep
+their resources. Hidden pages retain their grid until GTK allocates space.
+`9dab072` also fixes equal-generation replacement atlases retaining old glyph
+pixels, with a failing-before/passing-after native readback regression.
+
+Native Xvfb tests pass with one and two pages, including an injected last-page
+failure, retained state/history/running children, manual recovery and native
+palette readback on each page. Linux checks, GTK GL lifecycle/colour readback
+and PRIMARY on both GL routes pass. Both hosts pass 647 full tests and 407 core
+tests. The remaining GTK rendering capabilities,
+actual-desktop qualification and large-history performance are separate gates;
+the configuration implementation gap is closed within GTK GL's supported
+settings. [Evidence and limits](evidence/2026-10-26-gtk-configuration.md).
