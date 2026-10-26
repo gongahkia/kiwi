@@ -42,7 +42,7 @@ Host.await_events = function(application, window, timeout)
   started = started or now
   assert(now - started < 30, "configuration reload smoke timed out at stage " .. stage)
   local failed = title and title:find("Configuration error:", 1, true)
-  if stage == 0 and now - started > 0.5 then
+  if stage == 0 and Terminal.state(live).title == "reload-child-ready" then
     assert(background("000000"))
     local state = Terminal.state(live)
     assert(state.scrollback:size() > 8, "reload fixture did not create scrollback")
@@ -119,12 +119,15 @@ Host.await_events = function(application, window, timeout)
   -- opt-out/manual-retry interval needs its own deadline, not an app timer.
   timeout = math.min(timeout, math.max(0, started + 30 - now))
   if stage ~= previous_stage then timeout = 0
-  elseif stage == 0 then timeout = math.min(timeout, math.max(0, started + 0.501 - now))
   elseif stage == 7 then timeout = math.min(timeout, math.max(0, stage_started + 0.601 - now)) end
   await(application, window, timeout)
 end
+-- A slow child must not turn scheduler/load variation into a reload failure.
+local child_delay = tonumber(os.getenv("KIWI_RELOAD_CHILD_DELAY") or "0")
+assert(child_delay and child_delay >= 0 and child_delay <= 5, "reload fixture child delay must be 0 through 5 seconds")
 arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/sh", "-c",
-  "printf 'PTY-survives-reload\\r\\n'; i=0; while [ $i -lt 200 ]; do printf 'retained history %03d\\r\\n' $i; i=$((i + 1)); done; sleep 30" }
+  string.format("sleep %.3f; ", child_delay) ..
+  "printf 'PTY-survives-reload\\r\\n'; i=0; while [ $i -lt 200 ]; do printf 'retained history %03d\\r\\n' $i; i=$((i + 1)); done; printf '\\033]2;reload-child-ready\\007'; sleep 30" }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Dispatcher.new, Window.set_title, Config.load, Host.await_events = terminal_new, dispatcher_new, set_title, load, await
 Context.new = context_new
