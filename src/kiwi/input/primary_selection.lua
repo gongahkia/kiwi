@@ -1,7 +1,14 @@
 local Clipboard = require("kiwi.input.clipboard")
 local Pointer = require("kiwi.input.selection_pointer")
+local SearchInput = require("kiwi.input.search_input")
 local Primary = {}
 Primary.__index = Primary
+local function destination(state) return SearchInput.editing(state) and "search" or "terminal" end
+local function same_input(state, kind, query, bracketed)
+  if state.hints.active then return false end
+  if SearchInput.editing(state) then return kind == "search" and query == state.search.query end
+  return kind == "terminal" and not state.vi.active and bracketed == state.modes.bracketed_paste
+end
 function Primary.new(bridge)
   return setmetatable({ bridge = bridge, maximum_bytes = Clipboard.maximum_bytes, status = "inactive" }, Primary)
 end
@@ -23,7 +30,10 @@ function Primary:destroy()
   end
 end
 function Primary:start(state)
-  self.request, self.status = self.bridge:primary_read(self.maximum_bytes)
+  self.destination, self.query = destination(state), state.search.query
+  self.read_limit = self.destination == "search" and math.min(self.maximum_bytes, state.search.maximum_query_bytes - #self.query) or self.maximum_bytes
+  if self.read_limit <= 0 then self.status = "over-limit"; return end
+  self.request, self.status = self.bridge:primary_read(self.read_limit)
   self.cancelled = false
   if self.request then
     self.target, self.scope = state, state:selection_scope()
@@ -33,14 +43,15 @@ function Primary:start(state)
 end
 function Primary:paste(state, enabled)
   if not self:supported(enabled) then return nil, "unavailable" end
-  if state.hints.active or state.vi.active or state:search_view().editing then return nil, "input-mode-active" end
+  if state.hints.active or (state.vi.active and not SearchInput.editing(state)) then return nil, "input-mode-active" end
   self:queue_paste(state)
   return self.request ~= nil, self.status
 end
 function Primary:queue_paste(state)
   self:cancel()
   if self.request then
-    self.next_target = { state = state, scope = state:selection_scope(), bracketed = state.modes.bracketed_paste }
+    self.next_target = { state = state, scope = state:selection_scope(), bracketed = state.modes.bracketed_paste,
+      destination = destination(state), query = state.search.query }
   else self:start(state) end
 end
 function Primary:focus(state)
@@ -89,8 +100,7 @@ end
 function Primary:poll(state, enabled)
   if not self.request then return nil end
   if not self.cancelled and (not self:supported(enabled) or self.target ~= state or self.scope ~= state:selection_scope()
-      or self.bracketed ~= state.modes.bracketed_paste
-      or state.vi.active or state.hints.active or state:search_view().editing) then
+      or not same_input(state, self.destination, self.query, self.bracketed)) then
     self:cancel()
   end
   local text, status = self.request:poll()
@@ -101,11 +111,17 @@ function Primary:poll(state, enabled)
   if cancelled then
     self.status = "cancelled"
     if next_target and next_target.state == state and next_target.scope == state:selection_scope()
-        and next_target.bracketed == state.modes.bracketed_paste and self:supported(enabled)
-        and not state.vi.active and not state.hints.active and not state:search_view().editing then self:start(state) end
+        and same_input(state, next_target.destination, next_target.query, next_target.bracketed)
+        and self:supported(enabled) then self:start(state) end
     return nil
   end
-  if text ~= nil then text, status = Clipboard.prepare_paste(text, state.modes, self.maximum_bytes) end
+  if text ~= nil then text, status = Clipboard.prepare_paste(text, self.destination == "search" and {} or state.modes, self.read_limit) end
+  if text and self.destination == "search" then
+    local changed
+    changed, status = state:search_append(text)
+    self.status = status
+    return nil, status, changed
+  end
   self.status = status
   return text, status
 end

@@ -27,6 +27,29 @@ local function fixture()
 end
 local function middle(action, modifiers) return { kind = "button", button = 2, action = action or "press", modifiers = modifiers or 0 } end
 return {
+  primary_keyboard_paste_targets_find_and_cancels_if_its_query_changes = function()
+    local primary, state, _, requests = fixture()
+    state:vi_toggle(); state:search_begin()
+    Assert.truthy(primary:paste(state, true))
+    primary:poll(state, true)
+    local bytes, status, changed = primary:poll(state, true)
+    Assert.equal(bytes, nil); Assert.equal(status, "query"); Assert.truthy(changed)
+    Assert.equal(state.search.query, "paste")
+    primary:paste(state, true)
+    state:search_append("x")
+    primary:poll(state, true); primary:poll(state, true)
+    Assert.equal(state.search.query, "pastex")
+    Assert.truthy(requests[2].closed)
+    state.search.query = string.rep("x", state.search.maximum_query_bytes - 1)
+    primary:paste(state, true)
+    Assert.equal(primary.read_limit, 1)
+    primary:poll(state, true); primary:poll(state, true)
+    Assert.equal(#state.search.query, state.search.maximum_query_bytes - 1)
+    Assert.equal(primary.status, "over-limit")
+    state.search.query = state.search.query .. "x"
+    Assert.equal(primary:paste(state, true), false)
+    Assert.equal(#requests, 3)
+  end,
   primary_product_actions_publish_vi_text_and_request_paste_without_immediate_pty_input = function()
     local primary, state, writes, requests = fixture()
     local function enqueue() error("primary action bypassed asynchronous delivery") end

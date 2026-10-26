@@ -1391,8 +1391,9 @@ function Controller.run(window, host, options)
         host.await_events(options.application, window, 0)
       end
       if window:should_close() then break end
-      local primary_bytes = primary_selection:poll(state, configuration.primary_selection)
+      local primary_bytes, _, primary_query_changed = primary_selection:poll(state, configuration.primary_selection)
       if primary_bytes then enqueue_input(primary_bytes) end
+      if primary_query_changed then renderer:invalidate("search") end
       capture_geometry_change()
       if options.multi_window_smoke and not options.application.multi_window_smoke_reported then
         assert(host.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
