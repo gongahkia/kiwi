@@ -18,6 +18,25 @@ local function fixture(action)
   return state, Input.new(), terminal
 end
 return {
+  rejected_hint_letters_preserve_the_preview_and_activation_target = function()
+    local state, input = fixture()
+    input:key(state, keys.key_tab, keys.press, 0, keys)
+    local revision = state.hints.revision
+    Assert.equal(state.hints.selected, 1)
+    Assert.equal(state.hints:append(state, "z"), false)
+    Assert.equal(state.hints.prefix, "")
+    Assert.equal(state.hints.selected, 1)
+    Assert.equal(state.hints.revision, revision)
+    Assert.equal(state.hints:target(state).uri, "https://a.test")
+    Assert.truthy(Input.title(state, "default"):find("https://a.test", 1, true))
+    Assert.truthy(state.hints:append(state, "s"))
+    revision = state.hints.revision
+    Assert.equal(state.hints:append(state, "a"), false)
+    Assert.equal(state.hints.prefix, "s")
+    Assert.equal(state.hints.selected, 2)
+    Assert.equal(state.hints.revision, revision)
+    Assert.equal(state.hints:target(state).uri, "https://b.test")
+  end,
   hint_labels_require_explicit_activation_and_use_the_existing_opener = function()
     local state, input = fixture()
     local opened = {}
