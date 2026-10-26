@@ -17,10 +17,13 @@ def load(path):
     assert path.stat().st_size <= 4 * 1024 * 1024, "report exceeds size limit"
     report = json.loads(path.read_text())
     assert report["schema_version"] == 1 and report["status"] == "complete", "report is not complete"
+    assert report["benchmark"] == "acknowledged interactive application timing", "unrecognized benchmark"
     assert 3 <= len(report["trials"]) <= 20, "comparison requires at least three fresh-process trials"
     groups, conditions, identifiers = {}, {}, set()
     for trial in report["trials"]:
         mode, metadata, measurement = trial["mode"], trial["metadata"], trial["measurement"]
+        assert trial.get("status", "complete") == "complete", "trial is incomplete"
+        assert type(trial["trial"]) is int and 1 <= trial["trial"] <= 10, "invalid trial identifier"
         assert mode in ("idle", "saturated") and (mode, trial["trial"]) not in identifiers, "invalid or duplicate trial"
         identifiers.add((mode, trial["trial"]))
         assert re.fullmatch(r"[0-9a-f]{40}", metadata["revision"]["commit"]), "missing source revision"
@@ -38,7 +41,7 @@ def load(path):
             assert conditions[mode] == condition, "conditions changed between trials"
         conditions[mode] = condition
         values = measurement["callback_to_present_return_ms"]["values"]
-        assert len(values) == measurement["samples"] and len(values) >= 4, "insufficient or incomplete input samples"
+        assert len(values) == measurement["samples"] and len(values) >= 20, "comparison requires twenty measured inputs per trial"
         values = sorted(finite(value) for value in values)
         position = .95 * (len(values) - 1)
         low, high = math.floor(position), math.ceil(position)

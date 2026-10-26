@@ -75,18 +75,24 @@ end
 
 function Interactive:done() return self.completed == self.warmup + self.samples end
 
-function Interactive:snapshot()
-  assert(self:done() and self.ready_at, "interactive measurement is incomplete")
-  local result = { samples = self.samples, warmup = self.warmup, completed = self.completed,
-    launch_to_first_present_return_ms = (self.first_present_at - self.launched_at) * 1000,
-    launch_to_child_ready_present_return_ms = (self.ready_at - self.launched_at) * 1000 }
+function Interactive:observations()
+  local result = { samples = #self.callback_to_present_return_ms, requested_samples = self.samples,
+    warmup = self.warmup, completed = self.completed, sent = self.sent,
+    launch_to_first_present_return_ms = self.first_present_at and (self.first_present_at - self.launched_at) * 1000,
+    launch_to_child_ready_present_return_ms = self.ready_at and (self.ready_at - self.launched_at) * 1000 }
   for _, name in ipairs({ "callback_to_parse_ms", "parse_to_present_return_ms", "callback_to_present_return_ms" }) do
     local values = self[name]
-    local value = Stats.summary(values)
-    value.maximum, value.minimum, value.values = math.max(unpack(values)), math.min(unpack(values)), values
+    local value = #values > 0 and Stats.summary(values) or { count = 0 }
+    if #values > 0 then value.maximum, value.minimum = math.max(unpack(values)), math.min(unpack(values)) end
+    value.values = values
     result[name] = value
   end
   return result
+end
+
+function Interactive:snapshot()
+  assert(self:done() and self.ready_at, "interactive measurement is incomplete")
+  return self:observations()
 end
 
 return Interactive
