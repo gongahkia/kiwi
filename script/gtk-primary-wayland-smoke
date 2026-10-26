@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""Confine real Wayland clipboard transfers to an owned headless Sway session."""
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+
+root = Path(__file__).resolve().parent.parent
+with tempfile.TemporaryDirectory(prefix="kiwi-primary-wayland-") as temporary:
+    temporary = Path(temporary)
+    runtime = temporary / "runtime"
+    runtime.mkdir(mode=0o700)
+    config = temporary / "sway.conf"
+    # The temporary requester tests cancellation on close. Keep its creation
+    # from tiling/resizing the terminal during the subsequent vi selection.
+    config.write_text('xwayland disable\noutput * mode 800x600\nseat seat0 fallback true\n'
+                      'for_window [title="Primary closing requester"] floating enable\n')
+    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WLR_BACKENDS="headless",
+               WLR_HEADLESS_OUTPUTS="1", WLR_RENDERER="pixman", WLR_LIBINPUT_NO_DEVICES="1",
+               GDK_BACKEND="wayland", GSK_RENDERER="cairo", GTK_A11Y="none", KIWI_PRIMARY_SMOKE_ISOLATED="1",
+               KIWI_PRIMARY_SMOKE_DIRECTORY=str(temporary), LUA_PATH="src/?.lua;src/?/init.lua;;")
+    env.pop("WAYLAND_DISPLAY", None)
+    env.pop("DISPLAY", None)
+    processes = []
+    def run(args, **kwargs):
+        return subprocess.run(args, env=env, check=True, timeout=4, capture_output=True, **kwargs)
+    def copy(text, primary=False):
+        args = ["wl-copy", "--foreground", "--type", "text/plain;charset=utf-8"]
+        if primary:
+            args.append("--primary")
+        owner = subprocess.Popen(args, env=env, stdin=subprocess.PIPE,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        processes.append(owner)
+        owner.stdin.write(text)
+        owner.stdin.close()
+        paste = ["wl-paste", "--no-newline", "--type", "text/plain;charset=utf-8"]
+        if primary:
+            paste.append("--primary")
+        def offered():
+            result = subprocess.run(paste, env=env, timeout=2, capture_output=True)
+            return result.returncode == 0 and result.stdout == text
+        wait_for(offered)
+    def wait_for(predicate):
+        deadline = time.monotonic() + 5
+        while not predicate():
+            for process in processes[:2]:
+                assert process.poll() is None, f"fixture exited early: {process.args}"
+            assert time.monotonic() < deadline, "Wayland probe handshake timed out"
+            time.sleep(.01)
+    def command(value):
+        reply = temporary / "reply"
+        reply.unlink(missing_ok=True)
+        request = temporary / "command.new"
+        request.write_text(value)
+        request.replace(temporary / "command")
+        wait_for(reply.exists)
+        return reply.read_bytes()
+    with (temporary / "sway.log").open("w+") as compositor_log, (temporary / "probe.log").open("w+") as probe_log:
+        try:
+            compositor = subprocess.Popen(["sway", "--unsupported-gpu", "-c", str(config)], env=env,
+                                          stdout=compositor_log, stderr=subprocess.STDOUT)
+            processes.append(compositor)
+            sockets = lambda: [path for path in runtime.glob("wayland-*") if path.is_socket()]
+            wait_for(lambda: bool(sockets()))
+            env["WAYLAND_DISPLAY"] = sockets()[0].name
+            probe = subprocess.Popen([env.get("LUAJIT", "luajit"), "src/kiwi/gtk_primary_smoke.lua"], cwd=root,
+                                     env=env, stdout=probe_log, stderr=subprocess.STDOUT)
+            processes.append(probe)
+            wait_for((temporary / "ready").exists)
+            # Establish a real focused keyboard seat/serial for GDK ownership.
+            run(["wtype", "-k", "Shift_L"])
+            copy(b"ordinary clipboard")
+            assert command("publish") == b"published"
+            assert run(["wl-paste", "--primary", "--no-newline"]).stdout == "Kiwi primary 中".encode()
+            assert run(["wl-paste", "--no-newline"]).stdout == b"ordinary clipboard"
+            for text, action, expected in [
+                ("external 中".encode(), "read", "success:external 中".encode()),
+                (b"12345", "limit", b"success:12345"),
+                (b"123456", "limit", b"over-limit"),
+                (b"a\0b", "read", b"invalid-data"),
+                (b"\xc3", "read", b"invalid-data"),
+                (b"replacement", "read", b"success:replacement"),
+            ]:
+                copy(text, primary=True)
+                assert command(action) == expected, (text, action)
+            assert command("cancel") == b"cancelled"
+            assert command("read") == b"success:replacement"
+            assert command("close") == b"closed"
+            probe.wait(timeout=3)
+            assert probe.returncode == 0
+            probe_log.seek(0)
+            print(probe_log.read(), end="", flush=True)
+            # Exercise the production controllers and raw PTY, in addition to
+            # the independent clipboard owner/requester above.
+            for presenter, tabs in (("gl", "0"), ("gl", "1"), ("wgpu", "0")):
+                for name in ("ready", "go"):
+                    (temporary / name).unlink(missing_ok=True)
+                env.update(KIWI_HOST="gtk", KIWI_GTK_PRESENTER=presenter, KIWI_GTK_NATIVE_TABS=tabs,
+                           KIWI_LAYOUT_RESTORE="0", KIWI_LAYOUT_PERSISTENCE="0")
+                probe_log.seek(0); probe_log.truncate()
+                probe = subprocess.Popen([env.get("LUAJIT", "luajit"), "src/kiwi/primary_selection_smoke.lua"],
+                                         cwd=root, env=env, stdout=probe_log, stderr=subprocess.STDOUT)
+                processes[1] = probe
+                wait_for((temporary / "ready").exists)
+                run(["wtype", "-k", "Shift_L"])
+                (temporary / "go").write_text("go")
+                probe.wait(timeout=30)
+                assert probe.returncode == 0, (presenter, tabs)
+                probe_log.seek(0)
+                print(probe_log.read(), end="", flush=True)
+        except BaseException:
+            for name, log in (("compositor", compositor_log), ("probe", probe_log)):
+                log.flush(); log.seek(0)
+                print(f"{name} log:\n{log.read()[-16000:]}")
+            raise
+        finally:
+            for process in reversed(processes):
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.kill(); process.wait(timeout=3)

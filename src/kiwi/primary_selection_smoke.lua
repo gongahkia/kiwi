@@ -1,10 +1,35 @@
-assert(os.getenv("KIWI_PRIMARY_SMOKE_ISOLATED") == "1", "primary smoke must use its private Xvfb server")
+assert(os.getenv("KIWI_PRIMARY_SMOKE_ISOLATED") == "1", "primary smoke must use its private display server")
 local Terminal = require("kiwi.session.terminal")
 local Primary = require("kiwi.input.primary_selection")
 local Font = require("kiwi.font.system")
 local gtk = os.getenv("KIWI_HOST") == "gtk"
 local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
 local Window = require(gtk and "kiwi.platform.gtk_window" or "kiwi.platform.window")
+local gdk_primary = gtk and os.getenv("GDK_BACKEND") == "wayland"
+local window_new = Window.new
+local handshake = os.getenv("KIWI_PRIMARY_SMOKE_DIRECTORY")
+if gdk_primary then
+  assert(handshake, "Wayland primary smoke needs its focus handshake")
+  local first = true
+  Window.new = function(...)
+    local window = window_new(...)
+    if first then
+      first = false
+      local file = assert(io.open(handshake .. "/ready", "w")); file:write("ready"); file:close()
+      local deadline = window:time() + 5
+      while true do
+        Window.pump(window, 0.01)
+        file = io.open(handshake .. "/go", "r")
+        if file then file:close(); break end
+        assert(window:time() < deadline, "Wayland focus handshake timed out")
+      end
+    end
+    return window
+  end
+end
+local function retired_count()
+  return gdk_primary and 0 or require("kiwi.platform.primary_read").retired_count()
+end
 local terminal_new, primary_new, font_new, await = Terminal.new, Primary.new, Font.new, Host.await_events
 local live, primary, font, probe
 Terminal.new = function(...) live = terminal_new(...); return live end
@@ -12,7 +37,7 @@ Primary.new = function(...) primary = primary_new(...); return primary end
 Font.new = function(...) font = font_new(...); return font end
 local capture, config = os.tmpname(), os.tmpname()
 local stream = assert(io.open(config, "w")); stream:write("primary-selection = true\nlive-config-reload = false\n"); stream:close()
-local expected, stage, started = "", 0, nil
+local expected, stage, started, reported_stage = "", 0, nil, nil
 local function received()
   local file = assert(io.open(capture, "rb")); local value = file:read("*a"); file:close(); return value
 end
@@ -39,13 +64,19 @@ local function pointer(window, button, action, column, shift)
   end
 end
 Host.await_events = function(application, window, timeout)
+  if gdk_primary and stage ~= reported_stage then
+    io.stderr:write("Wayland PRIMARY controller stage ", stage, "\n")
+    reported_stage = stage
+  end
   -- The test driver polls a private capture file and a separate selection
   -- requester. Those are not application event sources; give the fixture its
   -- own bounded tick instead of relying on a production fallback timer.
   await(application, window, math.min(timeout, 0.01))
   local state, now = Terminal.state(live), window:time()
   started = started or now
-  assert(now - started < 25, "primary smoke timed out at stage " .. stage .. ", status=" .. primary.status)
+  assert(now - started < 25, "primary smoke timed out at stage " .. stage .. ", status=" .. primary.status
+    .. ", vi=" .. tostring(state.vi.primary_revision) .. "/" .. tostring(primary.keyboard_revision)
+    .. ", generation=" .. tostring(state.vi.primary_generation) .. "/" .. tostring(state.search_generation))
   if stage == 0 and state.title == "primary-fixture-ready" then
     assert(window:primary_supported())
     assert(window:clipboard_write("ordinary clipboard"))
@@ -99,18 +130,18 @@ Host.await_events = function(application, window, timeout)
     primary = original_primary
     assert(closing:button({ kind = "button", button = 2, action = "press", modifiers = 1 }, state, true))
     closing:destroy(); other:destroy()
-    assert(require("kiwi.platform.primary_read").retired_count() == 1)
+    assert(retired_count() == (gdk_primary and 0 or 1))
     stage = 6
-  elseif stage == 6 and require("kiwi.platform.primary_read").retired_count() == 0 then
+  elseif stage == 6 and retired_count() == 0 then
     assert(received() == expected)
     local reads = {}
     for index = 1, 16 do reads[index] = assert(window:primary_read(1024)) end
     local overflow, reason = window:primary_read(1024)
     assert(overflow == nil and reason == "busy", "process read limit was not enforced")
     for _, read in ipairs(reads) do read:retire() end
-    assert(require("kiwi.platform.primary_read").retired_count() == 16)
+    assert(retired_count() == (gdk_primary and 0 or 16))
     stage = 7
-  elseif stage == 7 and require("kiwi.platform.primary_read").retired_count() == 0 then
+  elseif stage == 7 and retired_count() == 0 then
     assert(received() == expected)
     state:set_selection(0, 0, 0, 7)
     shortcut(window, Host.keymap.key_insert, Host.keymap.mod_control + Host.keymap.mod_shift)
@@ -132,6 +163,10 @@ Host.await_events = function(application, window, timeout)
     -- Xvfb has no window manager to return focus after the temporary requester
     -- closes. Establish focus before injecting keyboard-driven selection.
     window.on_focus(true)
+    primary.status = "awaiting-vi-publication"
+    -- Initial native-tab allocation can retain blank rows in history. This
+    -- fixture tests publication of the visible first row, not startup reflow.
+    state:clear_scrollback()
     shortcut(window, Host.keymap.key_space, Host.keymap.mod_control + Host.keymap.mod_shift)
     assert(state.vi.active)
     window.on_text({ 103, 103, 48, 118, 108, 108 }) -- gg0vll selects "pri".
@@ -142,7 +177,7 @@ Host.await_events = function(application, window, timeout)
   elseif stage == 11 then
     local text, status = probe:poll()
     if status ~= "pending" then
-      assert(text == "pri", "completed vi selection was not published")
+      assert(text == "pri", "completed vi selection was not published: " .. tostring(text) .. "/" .. tostring(status))
       probe = nil
       assert(window:clipboard_read(1024) == "ordinary clipboard")
       assert(received() == expected, "vi primary selection reached the child")
@@ -161,6 +196,7 @@ arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "pyt
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 if probe then probe:destroy() end
 Terminal.new, Primary.new, Font.new, Host.await_events = terminal_new, primary_new, font_new, await
+Window.new = window_new
 os.remove(capture); os.remove(config)
 assert(ok, message); assert(stage == 13)
 print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.")
