@@ -32,7 +32,10 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
                       ["--read-budget", "0"], ["--read-budget", "1048577"], ["--traffic", "invalid"],
                       ["--soak-seconds", "59"], ["--soak-seconds", "1801"], ["--soak-seconds", "nan"],
                       ["--soak-seconds", "60", "--samples", "19"], ["--max-rss-growth-mib", "nan"],
-                      ["--max-heap-growth-mib", "-1"], ["--max-rss-mib", "4097"]):
+                      ["--max-heap-growth-mib", "-1"], ["--max-rss-mib", "4097"],
+                      ["--scroll-mode", "invalid"], ["--scrollback-limit", "-1"], ["--scrollback-limit", "100001"],
+                      ["--scroll-mode", "history"], ["--scroll-mode", "history", "--mode", "saturated"],
+                      ["--scroll-mode", "history", "--mode", "saturated", "--soak-seconds", "60", "--scrollback-limit", "0"]):
         invalid = subprocess.run(command + arguments, capture_output=True, timeout=5)
         assert invalid.returncode == 2, arguments
         assert report.read_bytes() == previous, "invalid arguments modified an existing report"
@@ -69,6 +72,20 @@ raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
         evidence = json.loads(report.read_text())
         assert failed.returncode != 0 and evidence["status"] == "failed"
         assert len(evidence["trials"]) == 1, "budget failure discarded measured evidence"
+    timing["history"] = {"limit": 2000, "retained": 2000, "peak_retained": 2000, "pushed": 4000, "evicted": 2000}
+    payload.write_text(json.dumps({"measurement": timing}))
+    history_command = soak_command + ["--scroll-mode", "history"]
+    passed = subprocess.run(history_command, env=environment, capture_output=True, timeout=5)
+    assert passed.returncode == 0, passed.stderr
+    for key, value in (("limit", 1999), ("retained", 1999), ("peak_retained", 2001), ("pushed", 3999), ("evicted", 1999)):
+        original = timing["history"][key]
+        timing["history"][key] = value
+        payload.write_text(json.dumps({"measurement": timing}))
+        rejected = subprocess.run(history_command, env=environment, capture_output=True, timeout=5)
+        evidence = json.loads(report.read_text())
+        assert rejected.returncode != 0 and evidence["status"] == "failed", (key, value)
+        assert evidence["trials"][0]["measurement"]["history"][key] == value
+        timing["history"][key] = original
     timing["sustained"]["duration_seconds"] = 59
     payload.write_text(json.dumps({"measurement": timing}))
     failed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
@@ -87,34 +104,77 @@ raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
 
 # Reproduce an allocation change after readiness, before the first input.
 # The child must repaint without polling or needing a synthetic user input.
-for traffic in ("ascii", "styled-unicode"):
+for traffic, scroll_mode in (("ascii", "region"), ("styled-unicode", "region"), ("ascii", "history"), ("styled-unicode", "history")):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
     child = subprocess.Popen([sys.executable, str(root / "script/interactive-bench-child"), "saturated"],
                              stdin=slave, stdout=slave, stderr=subprocess.PIPE,
-                             env=dict(os.environ, KIWI_INTERACTIVE_BENCH_TRAFFIC=traffic))
+                             env=dict(os.environ, KIWI_INTERACTIVE_BENCH_TRAFFIC=traffic, KIWI_INTERACTIVE_BENCH_SCROLL_MODE=scroll_mode))
+    packets = []
     def receive(marker):
         data, deadline = b"", time.monotonic() + 3
         while marker not in data:
             assert time.monotonic() < deadline, (traffic, marker, data[-256:])
             if select.select([master], [], [], max(0, deadline - time.monotonic()))[0]:
-                data += os.read(master, 8192)
+                chunk = os.read(master, 8192)
+                packets.append(chunk)
+                data += chunk
+                assert sum(map(len, packets)) < 256 * 1024
                 assert len(data) < 65536
         return data
     try:
-        receive(b"\x1b[2;24r\x1b[2;1H")
+        receive(b"\x1b[r\x1b[24;1H" if scroll_mode == "history" else b"\x1b[2;24r\x1b[2;1H")
         assert not select.select([master], [], [], .05)[0], "traffic started before warmup"
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 18, 72, 0, 0))
         child.send_signal(signal.SIGWINCH)
-        resized = receive(b"\x1b[2;18r\x1b[2;1H")
+        resized = receive(b"\x1b[r\x1b[18;1H" if scroll_mode == "history" else b"\x1b[2;18r\x1b[2;1H")
+        packets = [resized]
         assert b"READY0000" in resized
         os.write(master, b"x")
         receive(b"ACK0001")
         # Exercise real UTF-8 and SGR bytes, not just CLI acceptance.
         receive("背景".encode() if traffic == "styled-unicode" else b"background output")
+        marker = b"ACK0001  \x1b[18;1H" if scroll_mode == "history" else b"\r\n"
+        while b"".join(packets).count(marker) < (5 if scroll_mode == "history" else 1):
+            receive(marker)
+        capture = b"".join(packets)
+        capture = capture[:capture.rfind(marker) + len(marker)]
+        with tempfile.TemporaryDirectory(prefix="kiwi-history-capture-") as fixture:
+            path = Path(fixture) / "output"
+            path.write_bytes(capture)
+            # Feed the real child's bytes through the real parser/model one
+            # byte at a time. Region scrolling must not create history; full
+            # primary scrolling must fill and replace the bounded ring.
+            code = r'''local State = require("kiwi.terminal.state")
+local Parser = require("kiwi.terminal.parser")
+local state = State.new(72, 18, { scrollback_limit = 64 })
+local pushed, evicted = 0, 0
+local push = state.scrollback.push
+state.scrollback.push = function(self, row)
+  local discarded = push(self, row)
+  pushed = pushed + 1
+  if discarded then evicted = evicted + 1 end
+  assert(self:size() <= 64)
+  return discarded
+end
+local file = assert(io.open(os.getenv("KIWI_CAPTURE_PATH"), "rb"))
+local bytes = file:read("*a"); file:close()
+local parser = Parser.new(state)
+for index = 1, #bytes do parser:feed(bytes:sub(index, index)) end
+parser:finish()
+assert(parser.stats.errors == 0)
+assert(require("kiwi.bench.interactive").visible_sequence(state) == 1)
+if os.getenv("KIWI_CAPTURE_SCROLL") == "history" then
+  assert(state.scrollback:size() == 64 and evicted >= 64)
+  assert(pushed == state.scrollback:size() + evicted)
+else assert(state.scrollback:size() == 0 and pushed == 0) end
+'''
+            subprocess.run([os.environ.get("LUAJIT", "luajit"), "-e", code], check=True, timeout=5,
+                env=dict(os.environ, LUA_PATH=str(root / "src/?.lua") + ";;",
+                         KIWI_CAPTURE_PATH=str(path), KIWI_CAPTURE_SCROLL=scroll_mode))
     finally:
         child.terminate()
         child.communicate(timeout=3)
         os.close(master)
         os.close(slave)
-print("Interactive benchmark passed: report lifecycle, CLI bounds, sustained evidence/budgets, resize readiness and both PTY workloads.")
+print("Interactive benchmark passed: report lifecycle, CLI bounds, sustained evidence/budgets, resize readiness and real PTY region/history retention and eviction.")

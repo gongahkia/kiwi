@@ -679,3 +679,39 @@ comparison refused. These are initial engineering budgets, not statistical
 confidence bounds. Run on an otherwise quiet, thermally stable machine; metadata
 cannot establish those conditions. Shared CI runners use absolute correctness
 and resource gates, not relative comparisons across unrelated machines.
+
+
+### Full primary-screen history retention
+
+The default `--scroll-mode region` leaves scrollback untouched. To qualify the
+history ring and row eviction under native rendering, use:
+
+```sh
+./script/bench-interactive --mode saturated --traffic styled-unicode \
+  --scroll-mode history --scrollback-limit 10000 --trials 1 \
+  --samples 120 --warmup 6 --soak-seconds 600 --report /tmp/kiwi-history.json
+```
+
+History mode scrolls the full primary screen from the bottom, then repaints the
+current numbered acknowledgment at the top after each bounded output batch.
+This intentionally puts occasional acknowledgment rows into history alongside
+styled Unicode output. It requires saturated mode, a sustained duration and a
+positive history capacity. The benchmark accepts capacities up to 100,000 rows;
+this is an experiment bound, not the product configuration maximum. CI's
+one-minute soaks use the default 2,000-row history capacity on each host.
+
+Test-process instrumentation counts actual history pushes, returned evictions
+and peak retained rows. Completion requires exactly the configured retained
+capacity, at least one full capacity of evictions and consistent push accounting.
+A run with insufficient output fails even if its latency samples completed.
+Counters survive failed trials. The hook adds work to history-mode measurements;
+compare only matching recorded scroll mode/capacity and instrumentation. Existing
+resource-growth, peak-RSS, visibility and two-second response gates still apply.
+Leaving the live-output viewport invalidates the measurement: matching text in
+the underlying grid cannot acknowledge a frame that displays older history.
+
+The harness regression tests drive both ASCII and styled-Unicode children through
+real PTYs and replay their captured output byte by byte through the actual parser
+and state. They require region scrolling to leave history empty and full-screen
+scrolling to fill and replace a small bounded ring, while preserving the visible
+numbered acknowledgment. They also reject incomplete/incorrect history accounting.

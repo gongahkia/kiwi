@@ -15,6 +15,7 @@ local function time(value)
 end
 
 function Interactive.visible_sequence(state)
+  if (state.history_offset or 0) ~= 0 then return nil end
   local sequence = state.title == "kiwi-bench-ready" and 0
     or tonumber((state.title or ""):match("^kiwi%-bench%-ack:(%d+)$"))
   if not integer(sequence, 0, 288) then return nil end

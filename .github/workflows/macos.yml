@@ -27,7 +27,7 @@ jobs:
         run: |
           ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing.json
           ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing-unicode.json
-          ./script/bench-interactive --keep-visible --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --report .build/interactive-evidence/soak.json
+          ./script/bench-interactive --keep-visible --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --report .build/interactive-evidence/soak.json
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -63,7 +63,7 @@ jobs:
         run: |
           ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing.json
           ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/interactive-evidence/timing-unicode.json
-          ./script/bench-interactive --keep-visible --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --report .build/interactive-evidence/soak.json
+          ./script/bench-interactive --keep-visible --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --report .build/interactive-evidence/soak.json
       - name: upload compatibility report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

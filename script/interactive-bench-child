@@ -8,6 +8,8 @@ import tty
 
 mode = sys.argv[1]
 assert mode in ("idle", "saturated")
+scroll_mode = os.environ.get("KIWI_INTERACTIVE_BENCH_SCROLL_MODE", "region")
+assert scroll_mode in ("region", "history")
 tty.setraw(0)
 os.set_blocking(0, False)
 os.set_blocking(1, False)
@@ -23,8 +25,22 @@ rows = os.get_terminal_size(0).lines
 assert rows >= 3
 sequence = 0
 ready = b"\x1b[?25l\x1b[2J\x1b]2;kiwi-bench-ready\x07\x1b[HREADY0000"
-pending = ready + f"\x1b[2;{rows}r\x1b[2;1H".encode()
-# Keep row one for acknowledgments. Background traffic scrolls below it.
+def position():
+    return f"\x1b[{rows if scroll_mode == 'history' else 2};1H".encode()
+
+
+def margins():
+    return b"\x1b[r" if scroll_mode == "history" else f"\x1b[2;{rows}r".encode()
+
+
+def acknowledgment():
+    return f"\x1b[1;1HACK{sequence:04d}  ".encode() + position()
+
+
+pending = ready + margins() + position()
+# Region mode reserves row one. History mode scrolls the whole primary screen
+# and repaints the acknowledgment after each bounded batch; full-screen scroll
+# must reach the real history ring and evict old rows once it fills.
 traffic = (b"background output 0123456789 abcdefghijklmnopqrstuvwxyz\r\n" * 64)
 if os.environ.get("KIWI_INTERACTIVE_BENCH_TRAFFIC", "ascii") == "styled-unicode":
     traffic = ("\x1b[1;38;2;90;180;230m背景 café e\u0301 Ελληνικά\x1b[0m "
@@ -41,7 +57,7 @@ while True:
         if sequence == 0:
             rows = os.get_terminal_size(0).lines
             # Append to preserve escape sequences if an earlier write split.
-            pending += ready + f"\x1b[2;{rows}r\x1b[2;1H".encode()
+            pending += ready + margins() + position()
     # Read first even when the PTY is continuously writable.
     for key, _ in events:
         if key.fd == 0:
@@ -56,13 +72,12 @@ while True:
             assert sequence <= 288
             if sequence == 1:
                 rows = os.get_terminal_size(0).lines
-                pending += f"\x1b[2;{rows}r".encode()
-            pending += (f"\x1b]2;kiwi-bench-ack:{sequence}\x07"
-                        f"\x1b[1;1HACK{sequence:04d}  \x1b[2;1H").encode()
+                pending += margins()
+            pending += f"\x1b]2;kiwi-bench-ack:{sequence}\x07".encode() + acknowledgment()
     # Let the parent observe startup before background output can scroll or
     # race the initial native allocation. The first warmup input starts load.
     if not pending and mode == "saturated" and sequence > 0:
-        pending = traffic
+        pending = traffic + (acknowledgment() if scroll_mode == "history" else b"")
     assert len(pending) <= 8192, "child output queue exceeded its bound"
     if pending and not writing:
         selector.register(1, selectors.EVENT_WRITE)

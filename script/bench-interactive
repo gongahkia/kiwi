@@ -40,6 +40,8 @@ parser.add_argument("--interval-ms", type=float, default=20)
 parser.add_argument("--mode", choices=("idle", "saturated", "both"), default="both")
 parser.add_argument("--read-budget", type=int, default=4096, help="maximum ordinary PTY bytes per application turn")
 parser.add_argument("--traffic", choices=("ascii", "styled-unicode"), default="ascii")
+parser.add_argument("--scroll-mode", choices=("region", "history"), default="region")
+parser.add_argument("--scrollback-limit", type=int, default=2000, help="retained history rows, 0–100000")
 parser.add_argument("--soak-seconds", type=float, default=0,
                     help="60–1800 seconds between first/last measured inputs; overrides --interval-ms")
 parser.add_argument("--max-rss-growth-mib", type=float, default=64)
@@ -61,6 +63,10 @@ if args.soak_seconds and args.samples < 20:
     parser.error("sustained qualification requires at least 20 measured inputs")
 if not args.soak_seconds and (args.samples + args.warmup - 1) * args.interval_ms > 20000:
     parser.error("requested intervals consume more than 20 seconds of the 30-second trial budget")
+if not 0 <= args.scrollback_limit <= 100000:
+    parser.error("scrollback limit must be between 0 and 100000 rows")
+if args.scroll_mode == "history" and (args.mode != "saturated" or not args.soak_seconds or not args.scrollback_limit):
+    parser.error("history qualification requires saturated mode, a sustained duration and a positive scrollback limit")
 if args.mode != "idle" and args.warmup < 1:
     parser.error("saturated trials require a warmup input to start background output after startup")
 interval = args.soak_seconds / (args.samples - 1) if args.soak_seconds else args.interval_ms / 1000
@@ -79,7 +85,7 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
               "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
               "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
               "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
-              "load": "bounded nonblocking child output below a reserved acknowledgment row, started by the first warmup input; idle and saturated trials use identical geometry/configuration",
+              "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints the acknowledgment after each batch",
               "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
               "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
               "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
@@ -93,13 +99,14 @@ write_report(report_path, result)
 with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
     temporary = Path(temporary)
     config = temporary / "config"
-    config.write_text("theme = kiwi\nfont-size = 18\nscrollback-limit = 2000\nlive-config-reload = false\n")
+    config.write_text(f"theme = kiwi\nfont-size = 18\nscrollback-limit = {args.scrollback_limit}\nlive-config-reload = false\n")
     # Prevent unrelated diagnostic knobs from contaminating a comparison.
     keep = {"KIWI_HOST", "KIWI_GTK_PRESENTER", "KIWI_SURFACE_LIB", "KIWI_WGPU_LIB"}
     base = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_") or key in keep}
     base.update(KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;", KIWI_LAYOUT_PERSISTENCE="0",
                 KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET=str(args.read_budget),
-                KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic,
+                KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic, KIWI_INTERACTIVE_BENCH_SCROLL_MODE=args.scroll_mode,
+                KIWI_INTERACTIVE_BENCH_SCROLLBACK_LIMIT=str(args.scrollback_limit),
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
                 KIWI_INTERACTIVE_BENCH_INTERVAL=str(interval), KIWI_INTERACTIVE_BENCH_TIMEOUT=str(trial_timeout),
@@ -125,6 +132,12 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                     process.check_returncode()
                     assert item.get("status", "complete") == "complete", "trial reported incomplete measurements"
                     assert item["measurement"]["samples"] == args.samples
+                    if args.scroll_mode == "history":
+                        history = item["measurement"]["history"]
+                        assert history["limit"] == args.scrollback_limit, "history capacity differs from configuration"
+                        assert history["retained"] == history["peak_retained"] == args.scrollback_limit, "history did not reach its configured capacity"
+                        assert history["evicted"] >= args.scrollback_limit, "history did not replace one complete capacity of rows"
+                        assert history["pushed"] == history["retained"] + history["evicted"], "history retention accounting differs from actual pushes"
                     if args.soak_seconds:
                         sustained = item["measurement"]["sustained"]
                         assert sustained["duration_seconds"] >= args.soak_seconds, "sustained duration was shorter than requested"

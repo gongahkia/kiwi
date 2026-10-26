@@ -62,6 +62,17 @@ return {
     Assert.equal(partial.completed, 1)
     Assert.equal(pcall(recorder.snapshot, recorder), false)
   end,
+  acknowledgment_rejects_live_grid_text_while_viewing_history = function()
+    local terminal = Terminal.new({ columns = 20, rows = 3 })
+    local state = Terminal.state(terminal)
+    terminal:write(string.rep("history\r\n", 8) .. "\27]2;kiwi-bench-ack:1\7\27[1;1HACK0001")
+    Assert.equal(Interactive.visible_sequence(state), 1)
+    state:scroll_history(1)
+    Assert.equal(Interactive.visible_sequence(state), nil)
+    state:scroll_history(-1)
+    Assert.equal(Interactive.visible_sequence(state), 1)
+    terminal:close()
+  end,
   acknowledgment_requires_matching_visible_text_across_arbitrary_pty_splits = function()
     local terminal = Terminal.new({ columns = 20, rows = 3 })
     local state = Terminal.state(terminal)
