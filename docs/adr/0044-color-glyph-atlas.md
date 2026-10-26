@@ -33,6 +33,11 @@ Bitmap-only faces select the nearest strike if pixel-size selection fails.
 Shaping advances and bitmap metrics scale together. Colour artwork fits the
 cluster's cells; each new shaping cluster is anchored to its terminal column.
 
+One resolved colour face per rendition is reused for subsequent emoji whenever
+it covers the cluster. Clearing fallback decisions also clears this four-entry
+preference cache. This avoids repeated installed-font scans without retaining
+an unbounded map of emoji sequences.
+
 ## Bounds and limits
 
 Input bitmaps must be grayscale or BGRA, non-null, at most 2,048 pixels per

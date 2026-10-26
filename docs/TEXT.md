@@ -182,10 +182,10 @@ unavailable rather than treated as a candidate result. See
 
 The native smoke target and a windowed `make text-demo` exercise shader compilation and the GPU path; they are not pixel-comparison or color-emoji conformance tests. See [BENCHMARKS.md](BENCHMARKS.md) for output semantics and [CONFORMANCE.md](CONFORMANCE.md) for deterministic test coverage.
 
-## Explicit M2 boundaries
+## Current text boundaries
 
 - Logical LTR shaping only; no bidi, Arabic joining/reordering policy, or Unicode line-break algorithm.
-- No color emoji atlas, COLR/CBDT/SVG compositor, variable-font UI, font hot reload, or multipage growth.
-- No runtime width-policy switch or grid reflow; choose the width convention at terminal startup.
+- No COLRv1 paint interpreter, OpenType SVG renderer, variable-font UI, or multipage atlas growth. Bitmap colour fonts and transactional font reload on WGPU are implemented.
+- No runtime width-policy switch; choose the width convention at terminal startup. Primary-screen text does reflow on width changes.
 - No proof that a particular installed Nerd Font covers a private-use code point; missing coverage uses normal fallback behavior.
 - No visual equality claim against other terminal emulators. Deterministic state and HarfBuzz differential tests cover the bounded behavior implemented here.
