@@ -63,10 +63,19 @@ struct KiwiGtkGlRenderer {
   uint32_t uploaded_atlas_height;
   int atlas_uploaded;
   uint64_t rendered_revision;
+  uint64_t readback_revision;
+  uint64_t readback_matching;
+  uint8_t readback_rgb[4];
+  int readback_pending;
+  int readback_success;
   gulong realize_handler;
   gulong render_handler;
   gulong unrealize_handler;
 };
+
+static int kiwi_gtk_gl_read_current_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
+                                       uint8_t green, uint8_t blue, uint8_t tolerance,
+                                       uint64_t *matching);
 
 static const char kiwi_gtk_gl_vertex_source[] =
     "#version 330 core\n"
@@ -505,6 +514,8 @@ static void kiwi_gtk_gl_destroy_resources(KiwiGtkGlRenderer *renderer) {
   renderer->uploaded_atlas_height = 0;
   renderer->atlas_uploaded = 0;
   renderer->rendered_revision = 0;
+  renderer->readback_revision = 0;
+  renderer->readback_pending = 0;
   if (renderer->pending.cells != NULL) renderer->pending.cells_full_upload = 1;
   if (renderer->pending.glyphs != NULL || renderer->pending.glyph_count == 0)
     renderer->pending.glyphs_dirty = 1;
@@ -786,6 +797,13 @@ static gboolean kiwi_gtk_gl_render(GtkGLArea *area, GdkGLContext *context,
   kiwi_gtk_gl_draw_cursor(renderer, snapshot);
   kiwi_gtk_gl_draw_scrollbar(renderer, snapshot);
   renderer->rendered_revision = snapshot->revision;
+  if (renderer->readback_pending) {
+    renderer->readback_success = kiwi_gtk_gl_read_current_rgb(renderer,
+        renderer->readback_rgb[0], renderer->readback_rgb[1], renderer->readback_rgb[2],
+        renderer->readback_rgb[3], &renderer->readback_matching);
+    renderer->readback_revision = snapshot->revision;
+    renderer->readback_pending = 0;
+  }
   return TRUE;
 }
 
@@ -796,9 +814,21 @@ int kiwi_gtk_gl_renderer_count_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
                                   uint64_t *matching) {
   if (renderer == NULL || matching == NULL || renderer->rendered_revision == 0 ||
       !gtk_widget_get_realized(GTK_WIDGET(renderer->area))) return 0;
-  gtk_gl_area_make_current(renderer->area);
-  if (gtk_gl_area_get_error(renderer->area) != NULL) return 0;
-  gtk_gl_area_attach_buffers(renderer->area);
+  const uint8_t expected[4] = { red, green, blue, tolerance };
+  if (!renderer->readback_pending && renderer->readback_revision == renderer->pending.revision &&
+      memcmp(expected, renderer->readback_rgb, sizeof(expected)) == 0) {
+    *matching = renderer->readback_matching;
+    return renderer->readback_success;
+  }
+  memcpy(renderer->readback_rgb, expected, sizeof(expected));
+  renderer->readback_pending = 1;
+  gtk_gl_area_queue_render(renderer->area);
+  return -1;
+}
+
+static int kiwi_gtk_gl_read_current_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
+                                       uint8_t green, uint8_t blue, uint8_t tolerance,
+                                       uint64_t *matching) {
   int scale = gtk_widget_get_scale_factor(GTK_WIDGET(renderer->area));
   int width = gtk_widget_get_width(GTK_WIDGET(renderer->area));
   int height = gtk_widget_get_height(GTK_WIDGET(renderer->area));
@@ -807,9 +837,29 @@ int kiwi_gtk_gl_renderer_count_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
   size_t count = (size_t)width * height * scale * scale;
   uint8_t *pixels = g_try_malloc_n(count, 4);
   if (pixels == NULL) return 0;
+  GLint draw_framebuffer = 0, read_framebuffer = 0, pack_buffer = 0;
+  GLint pack_alignment = 0, pack_row_length = 0, pack_skip_rows = 0, pack_skip_pixels = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_framebuffer);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_framebuffer);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &pack_buffer);
+  glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+  glGetIntegerv(GL_PACK_ROW_LENGTH, &pack_row_length);
+  glGetIntegerv(GL_PACK_SKIP_ROWS, &pack_skip_rows);
+  glGetIntegerv(GL_PACK_SKIP_PIXELS, &pack_skip_pixels);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+  glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+  glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)draw_framebuffer);
   glReadPixels(0, 0, width * scale, height * scale, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
   int success = glGetError() == GL_NO_ERROR;
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)read_framebuffer);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER, (GLuint)pack_buffer);
+  glPixelStorei(GL_PACK_ALIGNMENT, pack_alignment);
+  glPixelStorei(GL_PACK_ROW_LENGTH, pack_row_length);
+  glPixelStorei(GL_PACK_SKIP_ROWS, pack_skip_rows);
+  glPixelStorei(GL_PACK_SKIP_PIXELS, pack_skip_pixels);
   *matching = 0;
   if (success) {
     for (size_t index = 0; index < count; ++index) {

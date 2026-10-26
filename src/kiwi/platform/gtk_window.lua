@@ -586,7 +586,9 @@ function Window:gl_area_count_rgb(red, green, blue, tolerance)
     assert(type(value) == "number" and value >= 0 and value <= 255 and value % 1 == 0, "RGB readback needs byte channels")
   end
   local count = ffi.new("uint64_t[1]")
-  if native.kiwi_gtk_terminal_presentation_gl_area_count_rgb(native_presentation(self), red, green, blue, tolerance, count) == 0 then
+  local status = native.kiwi_gtk_terminal_presentation_gl_area_count_rgb(native_presentation(self), red, green, blue, tolerance, count)
+  if status < 0 then return nil, "pending" end
+  if status == 0 then
     return nil, "GTK GL framebuffer readback failed"
   end
   return tonumber(count[0])

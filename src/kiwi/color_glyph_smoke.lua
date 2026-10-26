@@ -65,7 +65,11 @@ local ok, message = xpcall(function()
       window:wait_events(0.01)
       if gl then
         local status = assert(window:gl_area_state())
-        if status.rendered_revision == revision then return assert(window:gl_area_count_rgb(red, green, blue, 4)) end
+        if status.rendered_revision == revision then
+          local count, reason = window:gl_area_count_rgb(red, green, blue, 4)
+          if count then return count end
+          assert(reason == "pending", reason)
+        end
       else
         context:poll_framebuffer_capture()
         local sample = context.framebuffer_samples[#context.framebuffer_samples]

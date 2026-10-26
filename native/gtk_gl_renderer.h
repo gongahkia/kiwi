@@ -49,7 +49,8 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
                                 const KiwiGtkGlFrame *frame);
 const char *kiwi_gtk_gl_renderer_last_error(const KiwiGtkGlRenderer *renderer);
 uint64_t kiwi_gtk_gl_renderer_rendered_revision(const KiwiGtkGlRenderer *renderer);
-/* Explicit diagnostic readback; never called by the presentation loop. */
+/* Explicit diagnostic readback: -1 queues a sample in the next render callback,
+ * 0 fails, 1 returns a sample for the current revision and expected colour. */
 int kiwi_gtk_gl_renderer_count_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
                                   uint8_t green, uint8_t blue, uint8_t tolerance,
                                   uint64_t *matching);
