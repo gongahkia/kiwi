@@ -91,7 +91,16 @@ Host.await_events = function(application, window, timeout)
     stage = 6
   elseif stage == 6 and require("kiwi.platform.primary_read").retired_count() == 0 then
     assert(received() == expected)
-    stage = 7; window:request_close()
+    local reads = {}
+    for index = 1, 16 do reads[index] = assert(window:primary_read(1024)) end
+    local overflow, reason = window:primary_read(1024)
+    assert(overflow == nil and reason == "busy", "process read limit was not enforced")
+    for _, read in ipairs(reads) do read:retire() end
+    assert(require("kiwi.platform.primary_read").retired_count() == 16)
+    stage = 7
+  elseif stage == 7 and require("kiwi.platform.primary_read").retired_count() == 0 then
+    assert(received() == expected)
+    stage = 8; window:request_close()
   end
 end
 arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/primary_input_child.py", capture }
@@ -99,5 +108,5 @@ local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceb
 if probe then probe:destroy() end
 Terminal.new, Primary.new, Font.new, Host.await_events = terminal_new, primary_new, font_new, await
 os.remove(capture); os.remove(config)
-assert(ok, message); assert(stage == 7)
-print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle paste, native button mapping, mouse capture/Shift override, replacement and focus cancellation.")
+assert(ok, message); assert(stage == 8)
+print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation and bounded retirement.")
