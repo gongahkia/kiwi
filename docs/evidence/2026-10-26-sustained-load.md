@@ -58,3 +58,36 @@ strict relative-budget checker correctly requires stronger clean-source evidence
 This qualifies one bounded scrolling-region workload, not full scrollback,
 hour-long sessions, hardware GPU drivers, physical display latency or all memory
 retention patterns. The longer macOS gate remains incomplete as described above.
+
+## Clean-source same-revision repeatability: thresholds crossed
+
+Two sequential groups at Git revision `b378ecf` each ran three fresh processes
+per mode, twenty measured inputs and five warmup inputs. Both reports completed
+all samples and attest clean source, with matching recorded system, actual GPU,
+runtime, geometry and workload. These were software Vulkan/GLFW measurements on
+the same shared container/host described above.
+
+The [first group](2026-10-26-repeatability-baseline.json) and
+[second group](2026-10-26-repeatability-candidate.json) crossed the initial budgets
+without any source change. The [comparison](2026-10-26-repeatability-comparison.json)
+returned exit 1:
+
+| Median of trial metrics | First group | Second group | Allowed maximum | Result |
+| --- | ---: | ---: | ---: | --- |
+| Idle input p95 | 16.08 ms | 68.58 ms | 26.08 ms | exceeded |
+| Idle ready startup | 246.57 ms | 308.44 ms | 308.21 ms | exceeded |
+| Saturated input p95 | 363.72 ms | 458.41 ms | 454.65 ms | exceeded |
+| Saturated ready startup | 235.91 ms | 271.46 ms | 294.88 ms | passed |
+
+Both RSS comparisons passed. The result demonstrates repeatability variation;
+it cannot establish a code regression or identify its cause. No thresholds were
+relaxed and no repeat-until-pass result replaced this pair. These reports are
+not an approved fixed-runner baseline. Relative gating needs a controlled host
+and enough repeated measurements to characterize its normal variation; shared
+CI continues to enforce absolute response and resource gates only.
+
+A preceding pair was refused with exit 2 because the isolated checkout contained
+generated untracked files. Those timings were not used as clean-source evidence.
+The source-provenance code now tests real clean, unstaged, staged and untracked
+Git states, and ignores explicitly ignored measurement artifacts. This closes a
+metadata bug that previously treated staged changes as clean.
