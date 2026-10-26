@@ -589,6 +589,10 @@ input, preserving the startup handshake; its nonblocking queue is bounded to
 8 KiB and it scrolls below the reserved acknowledgment row. Before the first
 input it repaints readiness on PTY resize, using SIGWINCH and a wakeup pipe;
 initial native allocation must not leave the fixture waiting for displaced text.
+The load sanity check reserves 256 bytes per acknowledgment for protocol
+overhead and requires at least another 4 KiB of output. It does not require
+4 KiB per input: a quicker acknowledgment can complete before that much output
+is consumed. The producer remains continuously writable after the first input.
 
 Reports preserve per-process startup samples, raw bounded input distributions,
 parser/presentation phase splits, sampled peak RSS, output-byte counts, actual
