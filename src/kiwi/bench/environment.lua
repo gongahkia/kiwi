@@ -59,6 +59,8 @@ function Environment.collect(timestamp, iterations, warmup)
       cpu_model = macos and command_output("sysctl -n machdep.cpu.brand_string 2>/dev/null") or command_output("sed -n 's/^model name[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo | head -n 1"),
       cpu_affinity = macos and "unavailable" or command_output("taskset -pc $$ | sed 's/.*: //'"),
       cpu_governor = macos and "unavailable" or file_text("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+      cgroup_cpu_limit = macos and "not applicable" or file_text("/sys/fs/cgroup/cpu.max"),
+      cgroup_memory_limit = macos and "not applicable" or file_text("/sys/fs/cgroup/memory.max"),
       gl_renderer = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL renderer string: //p' | head -n 1"),
       gl_version = command_output("glxinfo -B 2>/dev/null | sed -n 's/^OpenGL core profile version string: //p' | head -n 1"),
       kernel = command_output("uname -srm"),

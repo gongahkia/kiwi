@@ -190,6 +190,10 @@ bench-interactive: native terminfo
 test-interactive-bench:
 	./script/test-interactive-bench
 
+.PHONY: test-interactive-budget
+test-interactive-budget:
+	./script/test-interactive-budget
+
 pacing-compare:
 	@test -n "$(BASELINE)" && test -n "$(CANDIDATE)" || { echo "BASELINE and CANDIDATE pacing reports are required." >&2; exit 2; }
 	./script/compare-pacing "$(BASELINE)" "$(CANDIDATE)"
@@ -372,7 +376,7 @@ pty-wake-smoke: native
 idle-wake-smoke: native terminfo
 	LUAJIT="$(LUAJIT)" ./script/idle-wake-smoke
 
-check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-regex-oracle terminfo
+check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-interactive-budget test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 
