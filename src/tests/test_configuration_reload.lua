@@ -288,7 +288,7 @@ return {
     -- Fresh row factories and cell projection must refer to the adopted state.
     sessions[1].terminal:write("\27[999;1H\r\nAFTER")
     Assert.equal(states[1].cells[states[1]:index(0, states[1].rows - 1)].glyph, "A")
-    Assert.equal(states[1].primary.blank_cell().bg, options.candidate.background)
+    Assert.equal(states[1].primary.blank_cell(states[1]).bg, options.candidate.background)
   end,
   reload_contains_cleanup_and_pty_errors_after_a_successful_commit = function()
     local options, sessions = setup()

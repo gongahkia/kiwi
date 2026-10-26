@@ -19,19 +19,20 @@ local function copy_cell(destination, source)
   destination.hyperlink_id = source.hyperlink_id
 end
 
-local function new_row(columns, blank_cell, line_id_factory)
+local function new_row(columns, blank_cell, line_id_factory, owner)
   local cells = {}
   for column = 0, columns - 1 do
-    cells[column] = blank_cell()
+    cells[column] = blank_cell(owner)
   end
-  return { cells = cells, command_region_ids = nil, command_regions_truncated = false, line_id = line_id_factory and line_id_factory() or nil, wrapped = false }
+  return { cells = cells, command_region_ids = nil, command_regions_truncated = false, line_id = line_id_factory and line_id_factory(owner) or nil, wrapped = false }
 end
 
-function Screen.new(columns, rows, blank_cell, line_id_factory)
+function Screen.new(columns, rows, blank_cell, line_id_factory, owner)
   local self = setmetatable({
     columns = columns,
     rows_count = rows,
     blank_cell = blank_cell,
+    owner = owner,
     line_id_factory = line_id_factory,
     rows = {},
     cursor = { column = 0, row = 0, visible = true, pending_wrap = false },
@@ -46,18 +47,18 @@ function Screen.new(columns, rows, blank_cell, line_id_factory)
     right_margin = columns - 1,
   }, Screen)
   for row = 0, rows - 1 do
-    self.rows[row] = new_row(columns, blank_cell, line_id_factory)
+    self.rows[row] = new_row(columns, blank_cell, line_id_factory, owner)
   end
   return self
 end
 
 function Screen:new_row()
-  return new_row(self.columns, self.blank_cell, self.line_id_factory)
+  return new_row(self.columns, self.blank_cell, self.line_id_factory, self.owner)
 end
 
 -- Reflow fills text first and allocates only the remaining blank cells.
 function Screen:new_sparse_row()
-  return new_row(0, self.blank_cell, self.line_id_factory)
+  return new_row(0, self.blank_cell, self.line_id_factory, self.owner)
 end
 
 function Screen:get(column, row)
@@ -73,7 +74,7 @@ function Screen:clear_row(row, cell_factory)
 end
 
 function Screen:resize(columns, rows, blank_cell)
-  local resized = Screen.new(columns, rows, blank_cell, self.line_id_factory)
+  local resized = Screen.new(columns, rows, blank_cell, self.line_id_factory, self.owner)
   local rows_to_copy = math.min(self.rows_count, rows)
   local columns_to_copy = math.min(self.columns, columns)
   for row = 0, rows_to_copy - 1 do
