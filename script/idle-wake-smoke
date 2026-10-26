@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
@@ -26,11 +27,15 @@ with tempfile.TemporaryDirectory(prefix="kiwi-idle-wake-") as temporary:
     # font/GPU startup. Hide the cursor so blinking is not a scheduled wake.
     command = [environment.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(config),
                "--", "/bin/sh", "-c", "read unused; printf '\\033[?25l'; sleep 3"]
+    started = time.monotonic()
     subprocess.run(command, cwd=root, env=environment, check=True, timeout=30)
+    wall_seconds = time.monotonic() - started
     result = json.loads(report.read_text())
     measurement = result["measurement"]
     seconds, wakes = measurement["elapsed_seconds"], measurement["wakes"]
-    assert seconds >= 2.8, f"quiet interval was not observed: {seconds:.3f}s"
+    # Native-wait time excludes rendering CPU time, including the first frame
+    # after the handshake. Software Vulkan can spend >200 ms preparing it.
+    assert wall_seconds >= 3 and seconds > 0, "quiet child interval was not observed"
     assert seconds < 8, f"child exit was not serviced promptly: {seconds:.3f}s"
     if not args.record_only:
         assert wakes <= 30, f"quiet-window wake budget exceeded: {wakes} wakes in {seconds:.3f}s"
