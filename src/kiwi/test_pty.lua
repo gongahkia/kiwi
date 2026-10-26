@@ -217,6 +217,43 @@ test("pty_discards_a_terminal_response_after_the_master_observes_slave_close", f
   pty:shutdown()
 end)
 
+test("pty_preserves_unread_final_output_after_an_injected_write_EIO", function()
+  -- Different kernels report slave closure differently. Inject EIO only into
+  -- write(), while retaining a real PTY and its unread output for the regression.
+  local fake_ffi = setmetatable({
+    C = setmetatable({ write = function() return -1 end }, { __index = ffi.C }),
+    errno = function() return 5 end,
+  }, { __index = ffi })
+  local loader = assert(loadfile("src/kiwi/process/pty.lua"))
+  setfenv(loader, setmetatable({ require = function(name)
+    if name == "ffi" then return fake_ffi end
+    return require(name)
+  end }, { __index = _G }))
+  local fault_pty = loader()
+  local pty = Pty.spawn({ "/bin/sh", "-c", "stty -echo; printf final-child-output" }, 32, 2, { TERM = "xterm-kiwi" })
+  local transcript = ""
+  for _ = 1, 400 do
+    transcript = pty:read_available(1)
+    if #transcript > 0 then break end
+    ffi.C.usleep(5000)
+  end
+  Assert.equal(transcript, "f")
+  pty:enqueue("pending-input")
+  Assert.equal(fault_pty.flush(pty), false)
+  Assert.equal(pty.pending, "")
+  Assert.equal(pty.eof, false)
+  local status
+  for _ = 1, 400 do
+    transcript = transcript .. pty:read_available()
+    status = pty:poll_exit()
+    if status and pty.eof then break end
+    ffi.C.usleep(5000)
+  end
+  Assert.equal(transcript, "final-child-output")
+  Assert.truthy(status and pty.eof)
+  pty:shutdown()
+end)
+
 test("pty_ctrl_c_reaches_the_foreground_process_group", function()
   local pty = Pty.spawn({ "/bin/sh", "-c", "trap 'printf caught-int; exit 0' INT; while :; do sleep 1; done" }, 20, 4, { TERM = "xterm-kiwi" })
   ffi.C.usleep(20000)
