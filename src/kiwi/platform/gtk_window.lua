@@ -85,6 +85,7 @@ int kiwi_gtk_host_set_drawable_size(KiwiGtkHost* host, uint32_t width, uint32_t 
 int kiwi_gtk_host_set_text_input_caret(KiwiGtkHost* host, int x, int y, int width, int height);
 int kiwi_gtk_host_system_appearance(const KiwiGtkHost* host);
 uint32_t kiwi_gtk_gl_renderer_abi_version(void);
+int kiwi_gtk_terminal_presentation_gl_area_count_rgb(KiwiGtkTerminalPresentation* presentation, uint8_t red, uint8_t green, uint8_t blue, uint8_t tolerance, uint64_t* matching);
 int kiwi_gtk_host_enable_gl_area_probe(KiwiGtkHost* host);
 int kiwi_gtk_host_native_tab_probe(KiwiGtkHost* host);
 uint32_t kiwi_gtk_host_native_tab_count(const KiwiGtkHost* host);
@@ -578,6 +579,17 @@ function Window:gl_area_state()
     rendered_revision = tonumber(native.kiwi_gtk_terminal_presentation_gl_area_rendered_revision(presentation)),
     rendered_frames = tonumber(rendered_frames[0]),
   }
+end
+
+function Window:gl_area_count_rgb(red, green, blue, tolerance)
+  for _, value in ipairs({ red, green, blue, tolerance }) do
+    assert(type(value) == "number" and value >= 0 and value <= 255 and value % 1 == 0, "RGB readback needs byte channels")
+  end
+  local count = ffi.new("uint64_t[1]")
+  if native.kiwi_gtk_terminal_presentation_gl_area_count_rgb(native_presentation(self), red, green, blue, tolerance, count) == 0 then
+    return nil, "GTK GL framebuffer readback failed"
+  end
+  return tonumber(count[0])
 end
 
 function Window:submit_gl_area_snapshot(snapshot)

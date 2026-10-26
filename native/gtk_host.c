@@ -1849,6 +1849,14 @@ uint64_t kiwi_gtk_terminal_presentation_gl_area_rendered_revision(
       kiwi_gtk_gl_renderer_rendered_revision(presentation->gl_presentation->renderer);
 }
 
+int kiwi_gtk_terminal_presentation_gl_area_count_rgb(
+    KiwiGtkTerminalPresentation *presentation, uint8_t red, uint8_t green,
+    uint8_t blue, uint8_t tolerance, uint64_t *matching) {
+  if (presentation == NULL || presentation->gl_presentation == NULL) return 0;
+  return kiwi_gtk_gl_renderer_count_rgb(presentation->gl_presentation->renderer,
+                                       red, green, blue, tolerance, matching);
+}
+
 int kiwi_gtk_terminal_presentation_gl_area_upload_metrics(
     const KiwiGtkTerminalPresentation *presentation, uint64_t *cell_full_uploads,
     uint64_t *cell_subrange_uploads, uint64_t *cell_subrange_bytes,

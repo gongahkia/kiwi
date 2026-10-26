@@ -360,6 +360,10 @@ selection-smoke: native
 hints-framebuffer-smoke: native
 	$(LUAJIT) src/kiwi/hints_framebuffer_smoke.lua
 
+.PHONY: color-glyph-smoke
+color-glyph-smoke: native
+	$(LUAJIT) src/kiwi/color_glyph_smoke.lua
+
 .PHONY: hints-smoke
 hints-smoke: native terminfo
 	./script/hints-smoke

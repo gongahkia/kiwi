@@ -49,6 +49,10 @@ int kiwi_gtk_gl_renderer_submit(KiwiGtkGlRenderer *renderer,
                                 const KiwiGtkGlFrame *frame);
 const char *kiwi_gtk_gl_renderer_last_error(const KiwiGtkGlRenderer *renderer);
 uint64_t kiwi_gtk_gl_renderer_rendered_revision(const KiwiGtkGlRenderer *renderer);
+/* Explicit diagnostic readback; never called by the presentation loop. */
+int kiwi_gtk_gl_renderer_count_rgb(KiwiGtkGlRenderer *renderer, uint8_t red,
+                                  uint8_t green, uint8_t blue, uint8_t tolerance,
+                                  uint64_t *matching);
 void kiwi_gtk_gl_renderer_upload_metrics(const KiwiGtkGlRenderer *renderer,
                                          uint64_t *cell_full_uploads,
                                          uint64_t *cell_subrange_uploads,
