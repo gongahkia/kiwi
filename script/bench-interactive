@@ -110,11 +110,16 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
             with log.open("w") as stream:
                 environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(time.CLOCK_MONOTONIC))
                 try:
-                    subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
-                                   env=environment, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=trial_timeout + 10)
+                    process = subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
+                                             env=environment, stdout=stream, stderr=subprocess.STDOUT, timeout=trial_timeout + 10)
+                    if not output.exists():
+                        process.check_returncode()
+                        raise RuntimeError("trial produced no report")
                     item = json.loads(output.read_text())
                     item["trial"], item["mode"] = trial, mode
                     result["trials"].append(item)
+                    process.check_returncode()
+                    assert item.get("status", "complete") == "complete", "trial reported incomplete measurements"
                     assert item["measurement"]["samples"] == args.samples
                     if args.soak_seconds:
                         sustained = item["measurement"]["sustained"]

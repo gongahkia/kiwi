@@ -26,6 +26,7 @@ local originals = { new_terminal = Terminal.new, write = Terminal.write, read = 
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
+local failure_state
 local deadline = measurement.launched_at + trial_timeout
 assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement requires warmup")
 
@@ -99,6 +100,10 @@ Host.await_events = function(application, current_window, timeout)
   end
   local pending = measurement.pending
   if pending then
+    failure_state = { sequence = pending.sequence, elapsed_seconds = now - pending.input_at,
+      parsed = pending.parsed_at ~= nil, minimized = current_window.minimized == true,
+      present_age_seconds = measurement.last_present and now - measurement.last_present,
+      visible_sequence = sequence(Terminal.state(live)), output_bytes = output_bytes }
     assert(now - pending.input_at < Interactive.maximum_response_seconds, "acknowledgment exceeded the two-second responsiveness ceiling")
     timeout = math.min(timeout, pending.input_at + Interactive.maximum_response_seconds - now)
   elseif measurement.ready_at and not measurement:done() then
@@ -120,8 +125,13 @@ arg = { "--config", assert(os.getenv("KIWI_INTERACTIVE_BENCH_CONFIG")), "--no-re
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, originals.write, originals.read
 Window.new, Compositor.render, Host.await_events = originals.new_window, originals.render, originals.await
-assert(ok, message)
-assert(report, "interactive benchmark closed before completion")
+if not ok or not report then
+  report = measurement:observations()
+  report.output_bytes_observed = output_bytes
+  report.sampled_peak_rss_kib = peak_rss
+  report.failure_state = failure_state
+  if sustained and #sustained.values >= 5 then report.sustained = sustained:snapshot() end
+end
 local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M%SZ"), measurement.samples, measurement.warmup)
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")), requested_window_points = { width = 800, height = 480 },
@@ -129,8 +139,11 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout }
 metadata.methodology = nil -- The enclosing report specifies this fixture's clocks and boundaries.
 metadata.native_adapter = adapter
-local result = { schema_version = 1, metadata = metadata, measurement = report }
+local result = { schema_version = 1, metadata = metadata, measurement = report,
+  status = ok and measurement:done() and "complete" or "failed", failure = not ok and tostring(message):sub(1, 4096) or nil }
 local encoded = Json.encode(result)
 assert(#encoded <= 128 * 1024, "interactive trial report exceeded 128 KiB")
 local file = assert(io.open(assert(os.getenv("KIWI_INTERACTIVE_BENCH_TRIAL_REPORT")), "wb"))
 assert(file:write(encoded, "\n")); assert(file:close())
+assert(ok, message)
+assert(measurement:done(), "interactive benchmark closed before completion")

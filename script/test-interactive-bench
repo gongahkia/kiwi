@@ -47,6 +47,7 @@ item = json.loads(Path(os.environ["TEST_BENCH_PAYLOAD"]).read_text())
 item["test_environment"] = {"timeout": float(os.environ["KIWI_INTERACTIVE_BENCH_TIMEOUT"]),
                             "interval": float(os.environ["KIWI_INTERACTIVE_BENCH_INTERVAL"])}
 Path(os.environ["KIWI_INTERACTIVE_BENCH_TRIAL_REPORT"]).write_text(json.dumps(item))
+raise SystemExit(1 if item.get("status") == "failed" else 0)
 ''')
     fake.chmod(0o755)
     timing = {"samples": 20, "launch_to_first_present_return_ms": 10,
@@ -72,6 +73,12 @@ Path(os.environ["KIWI_INTERACTIVE_BENCH_TRIAL_REPORT"]).write_text(json.dumps(it
     payload.write_text(json.dumps({"measurement": timing}))
     failed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
     assert failed.returncode != 0 and "shorter than requested" in json.loads(report.read_text())["failure"]["reason"]
+    payload.write_text(json.dumps({"status": "failed", "measurement": {"samples": 1}, "failure": "input stalled"}))
+    failed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
+    evidence = json.loads(report.read_text())
+    assert failed.returncode != 0 and evidence["status"] == "failed"
+    assert evidence["trials"][0]["measurement"]["samples"] == 1
+    assert evidence["trials"][0]["failure"] == "input stalled", "child failure discarded partial evidence"
 
 # Reproduce an allocation change after readiness, before the first input.
 # The child must repaint without polling or needing a synthetic user input.
