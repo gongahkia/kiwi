@@ -425,6 +425,7 @@ function Session:_resize_if_needed()
 end
 
 function Session:_drain_terminal(now, focused)
+  self.pty:flush()
   local output = self.pty:read_available(self.read_budget)
   if #output > 0 then self.terminal:write(output); self:_invalidate("terminal") end
   local responses = self.terminal:pop_responses()

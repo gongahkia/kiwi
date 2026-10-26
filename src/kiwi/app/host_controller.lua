@@ -1488,6 +1488,9 @@ function Controller.run(window, host, options)
 
       local panes = {}
       for _, pane in pairs(workspace.panes) do panes[#panes + 1] = pane end
+      -- Deliver keyboard/paste input before spending this turn on child output.
+      -- Protocol responses produced below are flushed after parsing as usual.
+      for _, pane in ipairs(panes) do pane.session.pty:flush() end
       local per_session_read_budget = math.max(1, math.floor(pty_read_budget / math.max(1, #panes)))
       for _, pane in ipairs(panes) do
         local session = pane.session

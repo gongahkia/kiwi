@@ -3,6 +3,31 @@ local Controller = require("kiwi.app.gtk_gl_controller")
 local Session = require("kiwi.app.gtk_gl_session")
 
 return {
+  gtk_gl_processes_child_acknowledgment_after_delivering_queued_input = function()
+    local queued, delivered, available, parsed = "key", "", "", ""
+    local session = {
+      read_budget = 4096,
+      pty = {
+        flush = function()
+          if queued == "key" then available = "ack" end
+          delivered, queued = delivered .. queued, ""
+        end,
+        read_available = function() local result = available; available = ""; return result end,
+        enqueue = function(_, bytes) queued = queued .. bytes end,
+        poll_exit = function() return nil end,
+      },
+      terminal = {
+        write = function(_, bytes) parsed = parsed .. bytes end,
+        pop_responses = function() return { "reply" } end,
+        pop_effects = function() return {} end,
+      },
+      _invalidate = function() end,
+    }
+    Session._drain_terminal(session, 0, true)
+    Assert.equal(parsed, "ack")
+    Assert.equal(delivered, "keyreply")
+    Assert.equal(queued, "")
+  end,
   gtk_gl_hidden_page_keeps_its_grid_and_resources_until_allocated = function()
     local font = { content_scale = 1 }
     local session = {
