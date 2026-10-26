@@ -39,7 +39,7 @@ local function jit_features()
   }
 end
 
-function Environment.collect(timestamp, iterations, warmup)
+function Environment.revision()
   local commit = command_output("git rev-parse --verify HEAD 2>/dev/null")
   local archived = commit == "unavailable"
   local revision = {
@@ -48,8 +48,15 @@ function Environment.collect(timestamp, iterations, warmup)
     source = archived and "BUILD_REVISION" or "git",
   }
   if not archived then
-    revision.dirty = command_output("git diff --quiet --ignore-submodules --; printf '%s' $?") == "1"
+    -- Include staged and untracked sources. A failed status command must not
+    -- attest a clean tree and admit misleading baseline comparisons.
+    revision.dirty = command_output("git status --porcelain=v1 --untracked-files=normal && printf 'KIWI_SOURCE_STATUS_OK\\n'") ~= "KIWI_SOURCE_STATUS_OK"
   end
+  return revision
+end
+
+function Environment.collect(timestamp, iterations, warmup)
+  local revision = Environment.revision()
   local macos = jit.os == "OSX"
   return {
     timestamp_utc = timestamp,
