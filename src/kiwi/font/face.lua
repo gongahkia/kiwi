@@ -2,6 +2,7 @@ local ffi = require("ffi")
 local bit = require("bit")
 local HarfBuzz = require("kiwi.text.harfbuzz")
 local native = require("kiwi.ffi.freetype")
+local Coverage = require("kiwi.font.coverage")
 
 local Face = {}
 Face.__index = Face
@@ -27,11 +28,27 @@ function Face.new(library, path, index, pixel_height, id, style)
   local face = output[0]
   local hb_font
   local ok, result = xpcall(function()
-    require_success(native.lib.FT_Set_Pixel_Sizes(face, 0, pixel_height), "pixel-size selection")
+    local size_error = native.lib.FT_Set_Pixel_Sizes(face, 0, pixel_height)
+    local raster_scale = 1
+    if size_error ~= 0 and face.num_fixed_sizes > 0 then
+      local best, distance
+      for strike = 0, tonumber(face.num_fixed_sizes) - 1 do
+        local ppem = tonumber(face.available_sizes[strike].y_ppem) / 64
+        local difference = math.abs(ppem - pixel_height)
+        if ppem > 0 and (distance == nil or difference < distance) then
+          best, distance = strike, difference
+        end
+      end
+      if best then
+        size_error = native.lib.FT_Select_Size(face, best)
+        raster_scale = pixel_height / (tonumber(face.available_sizes[best].y_ppem) / 64)
+      end
+    end
+    require_success(size_error, "pixel-size selection")
     hb_font = HarfBuzz.new_font(face)
     local metrics = face.size.metrics
-    require_success(native.lib.FT_Load_Char(face, string.byte("M"), native.load_render), "cell-width measurement")
-    local cell_width = math.max(1, math.floor(tonumber(face.glyph.advance.x) / 64 + 0.5))
+    require_success(native.lib.FT_Load_Char(face, string.byte("M"), native.load_color), "cell-width measurement")
+    local cell_width = math.max(1, math.floor(tonumber(face.glyph.advance.x) * raster_scale / 64 + 0.5))
     return setmetatable({
       native = native,
       library = library,
@@ -46,12 +63,13 @@ function Face.new(library, path, index, pixel_height, id, style)
       synthetic_bold = style.bold == true and bit.band(tonumber(face.style_flags), native.style_bold) == 0,
       synthetic_italic = style.italic == true and bit.band(tonumber(face.style_flags), native.style_italic) == 0,
       pixel_height = pixel_height,
+      raster_scale = raster_scale,
       metrics = {
         cell_width = cell_width,
-        cell_height = rounded_pixels(metrics.height, pixel_height + 4),
-        ascent = rounded_pixels(metrics.ascender, pixel_height),
-        descent = math.abs(tonumber(metrics.descender) / 64),
-        baseline = rounded_pixels(metrics.ascender, pixel_height),
+        cell_height = rounded_pixels(tonumber(metrics.height) * raster_scale, pixel_height + 4),
+        ascent = rounded_pixels(tonumber(metrics.ascender) * raster_scale, pixel_height),
+        descent = math.abs(tonumber(metrics.descender) * raster_scale / 64),
+        baseline = rounded_pixels(tonumber(metrics.ascender) * raster_scale, pixel_height),
         underline_offset = -tonumber(face.underline_position) * tonumber(metrics.y_scale) / (65536 * 64),
         underline_thickness = math.max(1, tonumber(face.underline_thickness) * tonumber(metrics.y_scale) / (65536 * 64)),
       },
@@ -71,7 +89,7 @@ end
 
 function Face:supports(codepoints)
   for _, codepoint in ipairs(codepoints) do
-    if self:glyph_index(codepoint) == 0 then return false end
+    if not Coverage.ignorable(codepoint) and self:glyph_index(codepoint) == 0 then return false end
   end
   return true
 end
@@ -81,7 +99,9 @@ function Face:rasterize(glyph_id)
   local flags = self.native.load_color + (synthetic and 0 or self.native.load_render)
   require_success(self.native.lib.FT_Load_Glyph(self.face, glyph_id, flags), "glyph loading for " .. glyph_id)
   local slot = self.face.glyph
-  if synthetic then
+  -- Colour bitmaps have their own artwork; outline synthesis must not alter
+  -- their channels or fail on bitmap-only emoji fonts.
+  if synthetic and tonumber(slot.bitmap.pixel_mode) ~= self.native.pixel_mode_bgra then
     if self.synthetic_italic then self.native.lib.FT_GlyphSlot_Oblique(slot) end
     if self.synthetic_bold then self.native.lib.FT_GlyphSlot_Embolden(slot) end
     require_success(self.native.lib.FT_Render_Glyph(slot, self.native.render_normal), "synthetic glyph rendering for " .. glyph_id)
@@ -96,11 +116,20 @@ function Face:rasterize(glyph_id)
     left = tonumber(slot.bitmap_left),
     top = tonumber(slot.bitmap_top),
     advance = tonumber(slot.advance.x) / 64,
+    scale = self.raster_scale,
   }
 end
 
 function Face:shape(text, options)
-  return HarfBuzz.shape(self.hb_font, text, options)
+  local glyphs = HarfBuzz.shape(self.hb_font, text, options)
+  if self.raster_scale ~= 1 then
+    for _, glyph in ipairs(glyphs) do
+      for _, field in ipairs({ "x_advance", "y_advance", "x_offset", "y_offset" }) do
+        glyph[field] = glyph[field] * self.raster_scale
+      end
+    end
+  end
+  return glyphs
 end
 
 function Face:destroy()

@@ -4,6 +4,7 @@ local Face = require("kiwi.font.face")
 local GlyphCache = require("kiwi.font.glyph_cache")
 local native = require("kiwi.ffi.freetype")
 local Resolver = require("kiwi.font.resolver")
+local Width = require("kiwi.terminal.width")
 
 local System = {}
 System.__index = System
@@ -149,7 +150,8 @@ function System:face_for_cluster(codepoints, flags)
   else
     primary_supported = primary:supports(codepoints)
   end
-  if primary_supported then
+  local prefer_color = Width.emoji_presentation(codepoints)
+  if primary_supported and not prefer_color then
     self.stats.primary_hits = self.stats.primary_hits + 1
     return primary, "primary"
   end
@@ -167,9 +169,14 @@ function System:face_for_cluster(codepoints, flags)
     self.stats.fallback_misses = self.stats.fallback_misses + 1
     return nil, "fallback-cache-limit"
   end
-  local description = self.resolver:fallback(codepoints, styles[style])
-  local face = description and self:load_face(description, false, style) or nil
-  if face == nil or not face:supports(codepoints) then
+  local description, candidates = self.resolver:fallback(codepoints, styles[style], prefer_color)
+  local face
+  for _, candidate in ipairs(candidates or (description and { description } or {})) do
+    local loaded = self:load_face(candidate, false, style)
+    if loaded and loaded:supports(codepoints) then face = loaded; break end
+  end
+  if not face and primary_supported then face = primary end
+  if face == nil then
     self.fallback_cache[key] = false
     self.fallback_cache_count = self.fallback_cache_count + 1
     self.stats.fallback_misses = self.stats.fallback_misses + 1

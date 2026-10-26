@@ -35,7 +35,7 @@ jobs:
       - name: install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server fonts-dejavu-core fonts-noto-cjk \
+          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
           sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1
@@ -87,7 +87,7 @@ jobs:
       - name: install packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish fonts-dejavu-core fonts-noto-cjk \
+          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
       - name: build required GLFW with X11 and Wayland
