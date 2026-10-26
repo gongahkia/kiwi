@@ -365,6 +365,11 @@ NAVIGATION_HISTORY ?= 10000
 bench-navigation: native
 	$(LUAJIT) src/kiwi/bench/navigation.lua $(NAVIGATION_HISTORY)
 
+HINT_HISTORY ?= 10000
+.PHONY: bench-hints
+bench-hints: native
+	$(LUAJIT) src/kiwi/bench/hints.lua $(HINT_HISTORY)
+
 .PHONY: shader-smoke
 shader-smoke: native
 	$(LUAJIT) src/kiwi/appearance_smoke.lua --opaque-only
