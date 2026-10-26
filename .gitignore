@@ -14,6 +14,7 @@ htmlcov/
 .build/
 dist/
 bench/results/*.json
+bench/results/*-logs/
 !bench/results/example.json
 bench/profiles/
 AGENTS.md

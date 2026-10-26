@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Check report lifecycle/CLI bounds without starting a graphical host."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+root = Path(__file__).resolve().parent.parent
+with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temporary:
+    report = Path(temporary) / "report.json"
+    command = [str(root / "script/bench-interactive"), "--report", str(report)]
+    report.write_text('{"status":"complete","stale":true}')
+    result = subprocess.run(command + ["--mode", "idle", "--trials", "1", "--samples", "1", "--warmup", "0"],
+                            env=dict(os.environ, LUAJIT="/usr/bin/false"), capture_output=True, timeout=5)
+    value = json.loads(report.read_text())
+    assert result.returncode != 0 and value["status"] == "failed"
+    assert value["trials"] == [] and "stale" not in value
+    assert value["failure"]["mode"] == "idle" and value["failure"]["trial"] == 1
+    assert Path(value["failure"]["log"]).is_file()
+    previous = report.read_bytes()
+    for arguments in (["--trials", "0"], ["--samples", "257"], ["--warmup", "0", "--mode", "saturated"],
+                      ["--samples", "256", "--interval-ms", "1000"], ["--interval-ms", "nan"]):
+        invalid = subprocess.run(command + arguments, capture_output=True, timeout=5)
+        assert invalid.returncode == 2, arguments
+        assert report.read_bytes() == previous, "invalid arguments modified an existing report"
+print("Interactive benchmark CLI passed: stale-report replacement, explicit failure, bounded counts and intervals.")

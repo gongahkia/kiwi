@@ -20,9 +20,10 @@ assert(interval >= 0 and interval <= 1)
 assert((measurement.samples + measurement.warmup - 1) * interval <= 20, "interactive intervals exceed the trial budget")
 local originals = { new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
-local live, window, geometry, font_path, next_input, report
+local live, window, geometry, stable_geometry, font_path, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local deadline = measurement.launched_at + 30
+assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement requires warmup")
 
 Terminal.new = function(...) live = originals.new_terminal(...); return live end
 Window.new = function(_, _, title, options)
@@ -54,6 +55,11 @@ Compositor.render = function(self, entries, ...)
     local completed = measurement:present(now, acknowledged)
     peak_rss = math.max(peak_rss, assert(Metrics.resident_kib()))
     geometry = { columns = state.columns, rows = state.rows, cell_width = state.cell_width, cell_height = state.cell_height }
+    if measurement.ready_at then
+      if stable_geometry then
+        for name, value in pairs(stable_geometry) do assert(geometry[name] == value, "terminal geometry changed during measurement") end
+      else stable_geometry = geometry end
+    end
     font_path = entries[1].renderer.font.font_path
     if completed then next_input = now + interval end
     if measurement:done() then
@@ -73,7 +79,10 @@ Compositor.render = function(self, entries, ...)
 end
 Host.await_events = function(application, current_window, timeout)
   local now = Metrics.monotonic_seconds()
-  assert(now < deadline, "interactive fixture exceeded its 30-second deadline")
+  if now >= deadline then
+    error(string.format("interactive fixture exceeded its 30-second deadline: ready=%s sent=%d completed=%d output=%d title=%s",
+      tostring(measurement.ready_at), measurement.sent, measurement.completed, output_bytes, tostring(Terminal.state(live).title)))
+  end
   local pending = measurement.pending
   if pending then
     assert(now - pending.input_at < Interactive.maximum_response_seconds, "acknowledgment exceeded the two-second responsiveness ceiling")
