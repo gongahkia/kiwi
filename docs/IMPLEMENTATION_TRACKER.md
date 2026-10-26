@@ -17,8 +17,9 @@ for the current non-Windows scope. All other unchecked work remains in scope.
       rows, other panes, or retained GPU frames; exercise repeated churn.
 - [x] Resolve real bold/italic faces, with an explicit synthesis policy.
 - [x] Render underline variants and colours, including blank cells.
-- [ ] Improve fallback consistency and render colour emoji.
-- [ ] Add deterministic layout/bitmap/readback regressions and stress evidence.
+- [x] Improve fallback consistency and render bitmap colour emoji; COLRv1/SVG
+      remain outside the implemented font-format subset.
+- [x] Add deterministic layout/bitmap/readback regressions and stress evidence.
 
 ## Common applications
 
@@ -553,3 +554,25 @@ The extended native fixture passes all four Linux host routes. Full/core suites
 pass 621/390 tests on Linux and macOS; the preceding pointer-only statement about
 missing keyboard conveniences is superseded. Actual-desktop/Wayland qualification
 and the other unchecked non-Windows workstreams remain open.
+
+### Colour emoji and fallback placement
+
+Implemented a fixed RGBA atlas, bitmap-strike scaling, emoji presentation
+preference, bounded candidate retries, one reusable colour face per rendition,
+and cluster placement anchored to terminal columns. Native BGRA pixels retain
+colour and alpha; grayscale masks and decoration coverage remain intact.
+Missing clusters preserve their original text and display a placeholder.
+
+Both hosts pass 633 full deterministic tests; 396 core tests pass with native
+loading disabled. Native readback passes on macOS Metal and Linux software
+Vulkan through GLFW and GTK, plus GTK GL. Readback checks known half-transparent
+colour, foreground independence, grayscale coverage, concealment and actual
+Apple/Noto emoji. GTK GL lifecycle also passes. Two 5,000-round stress runs
+completed mixed text, ASCII recovery and colour recovery with no glyph failures,
+bounded 256 KiB test atlases and RSS growth below the 96 MiB ceiling. The normal
+application atlas is now 4 MiB, and full-page uploads remain a performance cost.
+
+Evidence and the qualified font-format/host limits are in
+[evidence/2026-10-26-color-glyphs.md](evidence/2026-10-26-color-glyphs.md).
+Desktop integration, performance/power and distribution gates remain open;
+this text increment does not qualify those workstreams.
