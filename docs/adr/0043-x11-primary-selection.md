@@ -1,6 +1,6 @@
 # ADR 0043: X11 primary selection
 
-Status: implemented for X11 pointer selection; actual-desktop qualification remains open.
+Status: implemented for X11 pointer/keyboard selection; actual-desktop qualification remains open.
 
 ## User and ownership contract
 
@@ -8,9 +8,12 @@ Status: implemented for X11 pointer selection; actual-desktop qualification rema
 left-button selection publishes an immutable UTF-8 snapshot to PRIMARY. Word and
 line clicks publish on release. Empty, invalid or oversized selections leave the
 previous primary snapshot intact. Ordinary clipboard copy/paste and OSC 52 keep
-their existing policy; selecting text never overwrites CLIPBOARD. This increment
-does not automatically publish vi selections or implement a keyboard paste-primary
-action. Those keyboard conveniences remain open.
+their existing policy; selecting text never overwrites CLIPBOARD. Completed vi selections publish while the window is focused, once per completed
+selection revision and only while the content generation still matches. Switching
+panes or refocusing an existing selection does not reclaim PRIMARY. Explicit
+`copy-primary` and `paste-primary` actions are available in the palette. Linux
+defaults are Ctrl+Shift+Insert and Shift+Insert, respectively. Custom bindings
+override these defaults; unsupported platforms report unavailable.
 
 Middle-button press requests PRIMARY. With application mouse reporting active,
 the application receives the button unless Shift invokes the configured
@@ -38,8 +41,11 @@ Xlib; this does not guarantee responsiveness to a hung X server.
 
 The app loop polls only while work is pending. A target captures its State,
 screen scope and bracketed-paste mode. Focus/pane changes, disabled policy or
-entry into another product input mode cancels delivery. Accepted bytes pass
-through the existing paste framing policy. There is one active conversion and
+entry into another product input mode cancels delivery. When explicitly started
+in Find, the request captures the current query and remaining query-byte budget;
+changed queries cancel delivery and successful text is appended without PTY
+framing. Terminal paste uses the existing bracketed-paste policy. Vi mode outside
+Find and URL hints reject primary paste. There is one active conversion and
 one replaceable latest queued target per controller, never an unbounded click
 queue. Native read buffers are capped at 16 process-wide (at most 16 MiB).
 

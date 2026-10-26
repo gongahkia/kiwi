@@ -441,7 +441,9 @@ Focus/pane/input-mode changes cancel delivery; outstanding conversions drain
 before their windows are released. Closed requesters retire into a process pool
 capped at 16 read buffers, serviced by surviving native host event loops.
 Selection highlights are independent of native ownership, and clearing them
-does not revoke an existing snapshot. Keyboard-primary conveniences, Wayland and
+does not revoke an existing snapshot. Explicit keyboard copy/paste actions and completed vi-selection publication are
+implemented. An asynchronous paste into Find captures the unchanged query and
+never routes to the PTY if the query or input mode changes. Wayland and
 actual-desktop qualification remain open. See [ADR 0043](adr/0043-x11-primary-selection.md)
 and [native evidence](evidence/2026-10-26-primary-selection.md).
 
