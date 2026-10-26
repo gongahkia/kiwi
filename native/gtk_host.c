@@ -920,6 +920,12 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
   wl_subsurface_set_position(host->presentation_subsurface, 0, 0);
   wl_subsurface_place_above(host->presentation_subsurface, parent);
   wl_surface_set_buffer_scale(host->presentation_surface, 1);
+  /* The child relationship/stacking is parent-commit state, even for a
+   * desynchronized child. GTK may have finished painting its unchanged parent
+   * already. Apply the new relationship before Vulkan waits for a child frame
+   * callback, otherwise the first FIFO presentation can wait on an unmapped
+   * subsurface forever. This runs between GTK dispatches on the owning thread. */
+  wl_surface_commit(parent);
   return 1;
 }
 
