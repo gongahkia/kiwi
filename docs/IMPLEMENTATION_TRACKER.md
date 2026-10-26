@@ -67,7 +67,8 @@ for the current non-Windows scope. All other unchecked work remains in scope.
 - [x] Bounded vi-style navigation and character/line/word/rectangular selection.
 - [x] Keyboard URL hints with bounded discovery, explicit preview/open/copy and native regression gates.
 - [x] X11 pointer-primary selection with explicit ownership and clipboard policy.
-- [ ] Extend primary selection to keyboard publication/paste and qualify actual desktops.
+- [x] Extend primary selection to keyboard copy/paste, Find paste and completed vi publication.
+- [ ] Qualify primary selection on actual desktops.
 
 ## Distribution
 
@@ -539,3 +540,16 @@ middle/right buttons and missing pointer modifiers. See the
 Keyboard-primary conveniences and actual X11/Wayland desktop qualification remain
 open, alongside the other unchecked workstreams. These are bounded transfer/load
 checks, not a displayed-latency or performance comparison.
+
+### Keyboard-primary extension
+
+Linux Shift+Insert / Ctrl+Shift+Insert and palette/custom actions now expose
+asynchronous primary paste and explicit primary copy. Completed vi selections
+publish automatically when focused and generation-valid; refocusing an existing
+selection does not reclaim ownership. Find paste captures the query and remaining
+byte budget and cancels if the query changes, without PTY fallback.
+
+The extended native fixture passes all four Linux host routes. Full/core suites
+pass 621/390 tests on Linux and macOS; the preceding pointer-only statement about
+missing keyboard conveniences is superseded. Actual-desktop/Wayland qualification
+and the other unchecked non-Windows workstreams remain open.

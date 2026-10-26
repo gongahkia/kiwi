@@ -94,3 +94,30 @@ destroying a conversion window before its owner replied.
   Disabling new primary operations does not revoke a previously-published snapshot.
 - Windows, colour emoji/fallback consistency, actual-desktop qualification,
   configuration/performance limits and the other unchecked ledger items remain.
+
+## Keyboard extension qualification
+
+`b64c7cd` adds `copy-primary` / `paste-primary`, Linux Ctrl+Shift+Insert /
+Shift+Insert defaults, and completed vi-selection publication. `e32dde4` routes
+primary paste into an unchanged Find query with its remaining byte budget;
+otherwise it cancels rather than falling through to the child. `6dc5e4a`,
+`42ba30f` and `2f12171` extend the raw-PTY native fixture. The earlier limitations
+about absent keyboard conveniences describe the pointer-only increment above.
+
+Final Lua checks pass **621 tests / 123 suites**, and core checks pass **390 tests /
+65 suites**, on both macOS Intel and Linux x86_64. `make check` also passed on
+both platforms before the final Find-query test was added (620 tests). Focused
+tests cover bounded word-selection completion, stale output, focus changes,
+disabled policy, explicit vi copy, asynchronous action dispatch, query changes
+and full/remaining query limits. No incomplete visual selection is published.
+
+The extended native fixture passed with GLFW/WGPU, GTK/WGPU, GTK GL and GTK GL
+native tabs. It verifies actual keyboard publication/readback, one bracketed paste
+despite repeat/release events, automatic vi publication, and a primary paste into
+vi Find with no extra PTY bytes. The GTK runs explicitly restore fixture focus
+after the temporary requester closes: Xvfb has no window manager to do that, and
+unfocused vi publication is correctly suppressed. This does not replace a real
+desktop focus or physical-keyboard qualification.
+
+The user subsequently deferred Windows to their Windows laptop. The current task
+must finish the non-Windows scope and then stop with a Windows handoff.

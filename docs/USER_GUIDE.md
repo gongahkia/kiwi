@@ -684,8 +684,12 @@ On Linux **X11**, completing a mouse selection makes a snapshot available for
 middle-click paste. This is separate from the ordinary clipboard: Ctrl+Shift+C/V
 still use CLIPBOARD. Double/triple-click word/line selections publish on release.
 Empty or oversized selections leave the previous primary snapshot intact; merely
-clearing the highlight does not erase it. Automatic vi-selection publication and
-a keyboard paste-primary action are not implemented in this increment.
+clearing the highlight does not erase it. Completed vi selections also publish automatically while their window is focused.
+Shift+Insert pastes PRIMARY on Linux; Ctrl+Shift+Insert explicitly copies the
+current selection to PRIMARY. The palette exposes **Copy to Primary Selection**
+and **Paste Primary Selection**, and both actions accept custom bindings.
+Primary paste goes into an active Find query; editing that query while the read
+is pending cancels delivery. Vi mode outside Find and URL hints reject paste.
 
 Set `primary-selection = false` (or `KIWI_PRIMARY_SELECTION=false`) to disable new
 primary-selection operations. This does not revoke an existing native snapshot.
