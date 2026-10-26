@@ -19,7 +19,7 @@ function Snapshot.value(state)
       if cell.hyperlink_id then snapshot_cell.hyperlink = { id = cell.hyperlink_id } end
       if cell.continuation then
         snapshot_cell.cluster = { anchor_column = cell.anchor_column, kind = "continuation" }
-      elseif cell.codepoints and (#cell.codepoints > 1 or cell.width == 2 or cell.display_text ~= cell.glyph) then
+      elseif cell.codepoints and (#cell.codepoints > 1 or cell.width == 2 or (cell.display_text or cell.glyph) ~= cell.glyph) then
         local codepoints = {}
         for index, codepoint in ipairs(cell.codepoints) do codepoints[index] = codepoint end
         snapshot_cell.cluster = { codepoints = codepoints, width = cell.width }

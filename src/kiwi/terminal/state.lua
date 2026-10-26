@@ -1,6 +1,7 @@
 local Attributes = require("kiwi.terminal.attributes")
 local Base64 = require("kiwi.terminal.base64")
 local bit = require("bit")
+local Cell = require("kiwi.terminal.cell")
 local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
@@ -77,23 +78,7 @@ local function copy_character_sets(character_sets)
   return { g0 = character_sets.g0, g1 = character_sets.g1, gl = character_sets.gl }
 end
 
-local function copy_cell(destination, source)
-  destination.glyph = source.glyph
-  destination.fg = source.fg
-  destination.bg = source.bg
-  destination.fg_slot = source.fg_slot
-  destination.bg_slot = source.bg_slot
-  destination.underline_style = source.underline_style
-  destination.underline_color = source.underline_color
-  destination.underline_slot = source.underline_slot
-  destination.flags = source.flags
-  destination.codepoints = source.codepoints
-  destination.width = source.width
-  destination.continuation = source.continuation
-  destination.anchor_column = source.anchor_column
-  destination.display_text = source.display_text
-  destination.hyperlink_id = source.hyperlink_id
-end
+local copy_cell = Cell.copy_into
 
 local function same_codepoints(left, right)
   if left == right then return true end
@@ -319,21 +304,21 @@ function State:ascii_cell(glyph, codepoints)
   local foreground, background, flags, foreground_slot, background_slot, underline_style, underline_color, underline_slot = Attributes.resolve(self.active_screen.attributes, self.colors)
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
-  return {
+  local cell = {
     glyph = glyph,
     fg = foreground,
     bg = background,
     fg_slot = foreground_slot,
     bg_slot = background_slot,
-    underline_style = underline_style,
-    underline_color = underline_color,
-    underline_slot = underline_slot,
     flags = flags,
     codepoints = codepoints,
     width = 1,
-    display_text = glyph,
-    hyperlink_id = hyperlink_id,
   }
+  if underline_style ~= nil then cell.underline_style = underline_style end
+  if underline_color ~= nil then cell.underline_color = underline_color end
+  if underline_slot ~= nil then cell.underline_slot = underline_slot end
+  if hyperlink_id ~= nil then cell.hyperlink_id = hyperlink_id end
+  return cell
 end
 
 function State:set_ascii_cell(column, row, glyph, codepoints)
@@ -354,7 +339,7 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
     and target.width == 1
     and not target.continuation
     and target.anchor_column == nil
-    and target.display_text == glyph
+    and target.display_text == nil
     and target.hyperlink_id == hyperlink_id then
     return false
   end
@@ -363,16 +348,18 @@ function State:set_ascii_cell(column, row, glyph, codepoints)
   target.bg = background
   target.fg_slot = foreground_slot
   target.bg_slot = background_slot
-  target.underline_style = underline_style
-  target.underline_color = underline_color
-  target.underline_slot = underline_slot
+  -- Keep ordinary ASCII at eight fields. The glyph is already its display
+  -- text; absent optional keys must not be inserted merely to store nil.
+  if target.underline_style ~= nil or underline_style ~= nil then target.underline_style = underline_style end
+  if target.underline_color ~= nil or underline_color ~= nil then target.underline_color = underline_color end
+  if target.underline_slot ~= nil or underline_slot ~= nil then target.underline_slot = underline_slot end
   target.flags = flags
   target.codepoints = codepoints
   target.width = 1
-  target.continuation = nil
-  target.anchor_column = nil
-  target.display_text = glyph
-  target.hyperlink_id = hyperlink_id
+  if target.continuation ~= nil then target.continuation = nil end
+  if target.anchor_column ~= nil then target.anchor_column = nil end
+  if target.display_text ~= nil then target.display_text = nil end
+  if target.hyperlink_id ~= nil or hyperlink_id ~= nil then target.hyperlink_id = hyperlink_id end
   self:mark_changed(column, row)
   local counters = self.text_counters
   if counters then counters.cells_changed = (counters.cells_changed or 0) + 1 end

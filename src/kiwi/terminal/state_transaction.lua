@@ -4,6 +4,7 @@
 -- private copies; history rows are copied on access through Scrollback:get.
 -- Neither the original nor rows returned by Scrollback:peek may be mutated
 -- during staging. Activation transfers exclusive ownership of unread history.
+local Cell = require("kiwi.terminal.cell")
 local Transaction = {}
 Transaction.__index = Transaction
 
@@ -11,24 +12,8 @@ local function copy(value, seen)
   if type(value) ~= "table" then return value end
   if seen[value] then return seen[value] end
   if rawget(value, "glyph") ~= nil and rawget(value, "fg") ~= nil and rawget(value, "flags") ~= nil then
-    if value.glyph == " " and value.flags == 0 and value.width == 1 and value.codepoints == nil
-      and value.underline_color == nil and value.underline_style == nil and value.underline_slot == nil
-      and value.hyperlink_id == nil and value.display_text == nil and not value.continuation then
-      local blank = { glyph = " ", fg = value.fg, bg = value.bg, flags = 0, width = 1,
-        fg_slot = value.fg_slot, bg_slot = value.bg_slot }
-      seen[value] = blank
-      return blank
-    end
-    -- Fixed terminal cell record, matching Screen.copy_cell. Preallocate its
-    -- fields instead of growing a hash table and recursively copying scalars.
-    local cell = {
-      glyph = value.glyph, fg = value.fg, bg = value.bg,
-      fg_slot = value.fg_slot, bg_slot = value.bg_slot, flags = value.flags,
-      codepoints = value.codepoints, width = value.width, continuation = value.continuation,
-      anchor_column = value.anchor_column, display_text = value.display_text,
-      hyperlink_id = value.hyperlink_id, underline_style = value.underline_style,
-      underline_color = value.underline_color, underline_slot = value.underline_slot,
-    }
+    -- Cluster arrays are immutable; optional fields stay absent on plain cells.
+    local cell = Cell.clone(value)
     seen[value] = cell
     return cell
   end

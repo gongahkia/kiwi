@@ -1,23 +1,8 @@
+local Cell = require("kiwi.terminal.cell")
 local Screen = {}
 Screen.__index = Screen
 
-local function copy_cell(destination, source)
-  destination.glyph = source.glyph
-  destination.fg = source.fg
-  destination.bg = source.bg
-  destination.fg_slot = source.fg_slot
-  destination.bg_slot = source.bg_slot
-  destination.underline_style = source.underline_style
-  destination.underline_color = source.underline_color
-  destination.underline_slot = source.underline_slot
-  destination.flags = source.flags
-  destination.codepoints = source.codepoints
-  destination.width = source.width
-  destination.continuation = source.continuation
-  destination.anchor_column = source.anchor_column
-  destination.display_text = source.display_text
-  destination.hyperlink_id = source.hyperlink_id
-end
+local copy_cell = Cell.copy_into
 
 local function new_row(columns, blank_cell, line_id_factory, owner)
   local cells = {}
