@@ -826,6 +826,7 @@ function Controller.run(window, host, options)
 
       if grid ~= nil and await_rendered_target(window:time()) then break end
 
+      pty:flush()
       local output = pty:read_available(read_budget)
       if #output > 0 then
         terminal:write(output)
