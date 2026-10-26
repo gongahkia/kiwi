@@ -14,6 +14,7 @@ struct KiwiPtyWatch {
   pthread_mutex_t mutex;
   int signal[2];
   int fds[KIWI_WATCH_MAX_FDS];
+  short events[KIWI_WATCH_MAX_FDS];
   size_t count;
   uint64_t generation;
   int armed;
@@ -37,7 +38,7 @@ static void *watch_main(void *argument) {
     size_t count = watch->armed ? watch->count : 0;
     uint64_t generation = watch->generation;
     fds[0] = (struct pollfd){ .fd = watch->signal[0], .events = POLLIN };
-    for (size_t i = 0; i < count; ++i) fds[i + 1] = (struct pollfd){ .fd = watch->fds[i], .events = POLLIN };
+    for (size_t i = 0; i < count; ++i) fds[i + 1] = (struct pollfd){ .fd = watch->fds[i], .events = watch->events[i] };
     pthread_mutex_unlock(&watch->mutex);
 
     int result = poll(fds, (nfds_t)count + 1, -1);
@@ -81,10 +82,24 @@ fail_pipe:
 }
 
 int kiwi_pty_watch_update(KiwiPtyWatch *watch, const int *fds, size_t count) {
-  if (!watch || count > KIWI_WATCH_MAX_FDS || (count && !fds)) return 0;
-  for (size_t i = 0; i < count; ++i) if (fds[i] < 0) return 0;
+  if (count > KIWI_WATCH_MAX_FDS) return 0;
+  uint8_t interests[KIWI_WATCH_MAX_FDS];
+  for (size_t i = 0; i < count; ++i) interests[i] = KIWI_WATCH_READ;
+  return kiwi_pty_watch_update_events(watch, fds, interests, count);
+}
+
+int kiwi_pty_watch_update_events(KiwiPtyWatch *watch, const int *fds,
+                                  const uint8_t *interests, size_t count) {
+  if (!watch || count > KIWI_WATCH_MAX_FDS || (count && (!fds || !interests))) return 0;
+  for (size_t i = 0; i < count; ++i) {
+    if (fds[i] < 0 || interests[i] == 0 || (interests[i] & ~(KIWI_WATCH_READ | KIWI_WATCH_WRITE))) return 0;
+  }
   pthread_mutex_lock(&watch->mutex);
-  for (size_t i = 0; i < count; ++i) watch->fds[i] = fds[i];
+  for (size_t i = 0; i < count; ++i) {
+    watch->fds[i] = fds[i];
+    watch->events[i] = ((interests[i] & KIWI_WATCH_READ) ? POLLIN : 0) |
+                       ((interests[i] & KIWI_WATCH_WRITE) ? POLLOUT : 0);
+  }
   watch->count = count;
   watch->generation++;
   watch->armed = count > 0;
