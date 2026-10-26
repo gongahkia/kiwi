@@ -57,7 +57,7 @@ jobs:
             if test -f "$kiwi_lavapipe_icd"; then export VK_ICD_FILENAMES="$kiwi_lavapipe_icd"; break; fi
           done
           test -n "${VK_ICD_FILENAMES:-}"
-          xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
+          xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
