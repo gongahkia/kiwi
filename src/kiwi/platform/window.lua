@@ -6,6 +6,9 @@ local PtyWatch = require("kiwi.process.pty_watch")
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
 const char* kiwi_surface_primary_display(void);
+double kiwi_surface_prepare_events(double timeout);
+void kiwi_surface_dispatch_events(void);
+void kiwi_surface_destroy_event_watch(void);
 int kiwi_open_uri(const char* uri);
 int kiwi_open_text_file(const char* path);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
@@ -688,6 +691,7 @@ end
 function Window.poll_events_for(windows)
   assert(type(windows) == "table", "event polling needs a window list")
   glfw.lib.glfwPollEvents()
+  if ffi.os == "Linux" then native.kiwi_surface_dispatch_events() end
   flush_input_correlations(windows)
 end
 
@@ -696,8 +700,10 @@ function Window.wait_events_for(timeout, windows)
   assert(type(windows) == "table", "event waiting needs a window list")
   local primary_reads = package.loaded["kiwi.platform.primary_read"]
   if primary_reads then timeout = primary_reads.wait_timeout(timeout) end
+  if ffi.os == "Linux" then timeout = native.kiwi_surface_prepare_events(timeout) end
   if timeout == 0 then glfw.lib.glfwPollEvents()
   else glfw.lib.glfwWaitEventsTimeout(timeout) end
+  if ffi.os == "Linux" then native.kiwi_surface_dispatch_events() end
   flush_input_correlations(windows)
 end
 
@@ -750,7 +756,10 @@ function Window:destroy()
     self.handle = nil
     live_windows = live_windows - 1
     assert(live_windows >= 0, "GLFW window lifetime underflow")
-    if live_windows == 0 then glfw.lib.glfwTerminate() end
+    if live_windows == 0 then
+      if ffi.os == "Linux" then native.kiwi_surface_destroy_event_watch() end
+      glfw.lib.glfwTerminate()
+    end
   end
   local callback_names = {}
   for name in pairs(self.callbacks) do callback_names[#callback_names + 1] = name end

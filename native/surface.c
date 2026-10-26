@@ -11,6 +11,9 @@
 #include <webgpu/webgpu.h>
 #include "kiwi_render_model.h"
 #include "pty_watch.h"
+#if defined(__linux__)
+#include "main_context_watch.h"
+#endif
 
 static void kiwi_glfw_pty_ready(void *userdata) {
   (void)userdata;
@@ -20,6 +23,25 @@ static void kiwi_glfw_pty_ready(void *userdata) {
 KiwiPtyWatch *kiwi_surface_create_pty_watch(void) {
   return kiwi_pty_watch_create(kiwi_glfw_pty_ready, NULL);
 }
+
+#if defined(__linux__)
+static KiwiMainContextWatch *kiwi_glfw_main_context;
+
+double kiwi_surface_prepare_events(double timeout) {
+  if (kiwi_glfw_main_context == NULL)
+    kiwi_glfw_main_context = kiwi_main_context_watch_new(g_main_context_default(), kiwi_glfw_pty_ready, NULL);
+  return kiwi_main_context_watch_prepare(kiwi_glfw_main_context, timeout);
+}
+
+void kiwi_surface_dispatch_events(void) {
+  kiwi_main_context_watch_dispatch(kiwi_glfw_main_context);
+}
+
+void kiwi_surface_destroy_event_watch(void) {
+  kiwi_main_context_watch_destroy(kiwi_glfw_main_context);
+  kiwi_glfw_main_context = NULL;
+}
+#endif
 
 #include <stdbool.h>
 #include <stdint.h>

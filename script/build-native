@@ -17,7 +17,7 @@ case "$(uname -s)-$(uname -m)" in
       -I"$WGPU/include" \
       $(pkg-config --cflags glfw3) \
       $(pkg-config --cflags gio-2.0 x11) \
-      "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" "$ROOT/native/pty_watch.c" "$ROOT/native/file_watch.c" "$ROOT/native/process_metrics.c" "$ROOT/native/primary_selection.c" \
+      "$ROOT/native/surface.c" "$ROOT/native/accessibility.c" "$ROOT/native/main_context_watch.c" "$ROOT/native/pty_watch.c" "$ROOT/native/file_watch.c" "$ROOT/native/process_metrics.c" "$ROOT/native/primary_selection.c" \
       -L"$WGPU/lib" -lwgpu_native \
       $(pkg-config --libs glfw3 gio-2.0 x11) \
       -Wl,-rpath,'$ORIGIN/../../.deps/wgpu-native-v29.0.1.1/lib' -Wl,-rpath,'$ORIGIN' \
