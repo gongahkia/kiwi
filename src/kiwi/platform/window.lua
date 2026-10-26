@@ -81,12 +81,12 @@ local cocoa_menu_action_ids = {}
 for identifier, name in pairs(cocoa_menu_actions) do cocoa_menu_action_ids[name] = identifier end
 
 local function glfw_error()
-  local code = ffi.new("int[1]")
-  local message = glfw.lib.glfwGetError(code)
-  if message == nil then
-    return string.format("GLFW error %d", code[0])
+  local description = ffi.new("const char*[1]")
+  local code = glfw.lib.glfwGetError(description)
+  if description[0] == nil then
+    return string.format("GLFW error %d", code)
   end
-  return string.format("GLFW error %d: %s", code[0], ffi.string(message))
+  return string.format("GLFW error %d: %s", code, ffi.string(description[0]))
 end
 
 local function pc101_base_key(key)
@@ -273,12 +273,11 @@ end
 
 function Window:clipboard_read(maximum_bytes)
   assert(type(maximum_bytes) == "number" and maximum_bytes >= 1 and maximum_bytes % 1 == 0, "clipboard read limit must be a positive integer")
-  local code = ffi.new("int[1]")
-  glfw.lib.glfwGetError(code)
+  glfw.lib.glfwGetError(nil)
   local value = glfw.lib.glfwGetClipboardString(self.handle)
-  local message = glfw.lib.glfwGetError(code)
+  local code = glfw.lib.glfwGetError(nil)
   if value == nil then return nil, "unavailable" end
-  if message ~= nil or code[0] ~= 0 then return nil, "platform-error" end
+  if code ~= 0 then return nil, "platform-error" end
   local length = tonumber(ffi.C.strnlen(value, maximum_bytes + 1))
   if length > maximum_bytes then return nil, "over-limit" end
   return ffi.string(value, length)
@@ -286,11 +285,9 @@ end
 
 function Window:clipboard_write(text)
   assert(type(text) == "string" and not text:find("\0", 1, true), "clipboard text must be a NUL-free string")
-  local code = ffi.new("int[1]")
-  glfw.lib.glfwGetError(code)
+  glfw.lib.glfwGetError(nil)
   glfw.lib.glfwSetClipboardString(self.handle, text)
-  local message = glfw.lib.glfwGetError(code)
-  if message ~= nil or code[0] ~= 0 then return false, "platform-error" end
+  if glfw.lib.glfwGetError(nil) ~= 0 then return false, "platform-error" end
   return true
 end
 
