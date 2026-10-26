@@ -345,6 +345,10 @@ configuration-reload-smoke: native terminfo
 pty-wake-smoke: native
 	LUAJIT="$(LUAJIT)" ./script/pty-wake-smoke
 
+.PHONY: idle-wake-smoke
+idle-wake-smoke: native terminfo
+	LUAJIT="$(LUAJIT)" ./script/idle-wake-smoke
+
 check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check

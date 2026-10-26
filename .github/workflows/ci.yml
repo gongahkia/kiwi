@@ -63,6 +63,10 @@ jobs:
           KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a make color-glyph-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-wgpu.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl xvfb-run -a make color-glyph-smoke gtk-gl-area-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-gl.log
           ./script/main-context-wake-smoke 2>&1 | tee .build/appearance-evidence/glib-atspi-readiness.log
+          xvfb-run -a ./script/pty-wake-smoke 2>&1 | tee .build/appearance-evidence/readiness-glfw.log
+          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/pty-wake-smoke 2>&1 | tee .build/appearance-evidence/readiness-gtk.log
+          xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-glfw.json
+          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-gtk.json
           ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
