@@ -5,6 +5,12 @@ work from the preceding assessment. This ledger records implementation and
 verification separately. An unchecked item is still required; local macOS
 tests do not establish Linux or Windows desktop qualification.
 
+**User scope update — 2026-10-26:** finish and verify the remaining non-Windows
+work first, then stop this task and provide a Windows handoff. The user will
+continue Windows work on their Windows laptop. Do not implement Windows during
+this task; its unchecked items below are deferred and are not completion gates
+for the current non-Windows scope. All other unchecked work remains in scope.
+
 ## Text rendering
 
 - [x] Recover bounded glyph storage after saturation without corrupting cached
@@ -33,7 +39,7 @@ tests do not establish Linux or Windows desktop qualification.
 - [ ] Resolve differences between Linux presentation paths; document and test
       the supported application path without claiming prototype equivalence.
 
-## Windows
+## Windows — deferred to the user's Windows laptop
 
 - [ ] ConPTY creation, resize, I/O, cancellation and child lifecycle.
 - [ ] Window/GPU integration, input, fonts, clipboard, IME and accessibility.
