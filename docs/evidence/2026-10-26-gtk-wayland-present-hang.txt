@@ -1,0 +1,11 @@
+Thread 1 (Thread 0x7fc249665b80 (LWP 2481) "luajit"):
+#0  0x00007fc24978279d in __GI___poll (fds=0x7ffe1cec9310, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+#1  0x00007fc2471792ec in wl_display_dispatch_queue () at /lib/x86_64-linux-gnu/libwayland-client.so.0
+#2  0x00007fc22b324b97 in ??? () at /lib/x86_64-linux-gnu/libvulkan_lvp.so
+#3  0x00007fc22b318dd2 in ??? () at /lib/x86_64-linux-gnu/libvulkan_lvp.so
+#4  0x00007fc248d2fb2e in <wgpu_hal::vulkan::swapchain::native::NativeSwapchain as wgpu_hal::vulkan::swapchain::Swapchain>::present () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
+#5  0x00007fc248cbcd76 in <wgpu_hal::vulkan::Queue as wgpu_hal::Queue>::present () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
+#6  0x00007fc248bee0df in <Q as wgpu_hal::dynamic::queue::DynQueue>::present () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
+#7  0x00007fc248ca5cc8 in wgpu_core::present::<impl wgpu_core::instance::Surface>::present () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
+#8  0x00007fc248bcc2c7 in wgpu_core::present::<impl wgpu_core::global::Global>::surface_present () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
+#9  0x00007fc248af7cda in wgpuSurfacePresent () at /work/./.build/native/../../.deps/wgpu-native-v29.0.1.1/lib/libwgpu_native.so
