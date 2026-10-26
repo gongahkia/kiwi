@@ -37,8 +37,8 @@ local function background(hex)
 end
 local function next_stage(now) stage = stage + 1; stage_started = now end
 Host.await_events = function(application, window, timeout)
-  await(application, window, timeout)
   local now = window:time()
+  local previous_stage = stage
   started = started or now
   assert(now - started < 30, "configuration reload smoke timed out at stage " .. stage)
   local failed = title and title:find("Configuration error:", 1, true)
@@ -114,6 +114,14 @@ Host.await_events = function(application, window, timeout)
     next_stage(now)
     window:request_close()
   end
+  -- Drive the fixture before yielding: the previous application turn may
+  -- already have applied a reload and removed its file watch. Its test-only
+  -- opt-out/manual-retry interval needs its own deadline, not an app timer.
+  timeout = math.min(timeout, math.max(0, started + 30 - now))
+  if stage ~= previous_stage then timeout = 0
+  elseif stage == 0 then timeout = math.min(timeout, math.max(0, started + 0.501 - now))
+  elseif stage == 7 then timeout = math.min(timeout, math.max(0, stage_started + 0.601 - now)) end
+  await(application, window, timeout)
 end
 arg = { "--config", path, "--no-restore-layout", "--no-extensions", "--", "/bin/sh", "-c",
   "printf 'PTY-survives-reload\\r\\n'; i=0; while [ $i -lt 200 ]; do printf 'retained history %03d\\r\\n' $i; i=$((i + 1)); done; sleep 30" }
@@ -123,5 +131,5 @@ Context.new = context_new
 os.remove(shader); os.remove(shader .. ".new")
 os.remove(path); os.remove(theme); os.remove(path .. ".new"); os.remove(theme .. ".new")
 assert(ok, message)
-assert(stage == 15, "configuration reload smoke ended before all stages completed")
+assert(stage == 15, "configuration reload smoke ended at stage " .. stage .. " before all stages completed")
 print("Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry, recoloured visible PTY history, opacity, shader file edits, invalid/missing shader rollback and recovery.")
