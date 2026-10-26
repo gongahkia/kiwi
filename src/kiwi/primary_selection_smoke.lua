@@ -82,9 +82,10 @@ Host.await_events = function(application, window, timeout)
     assert(received() == expected, "cancelled paste reached the child")
     -- Closing a requester must not crash the still-running selection owner.
     local other = Window.new(200, 100, "Primary closing requester")
+    local original_primary = primary
     local closing = Primary.new(other)
-    primary = closing -- restored below; constructor interception is intentional
-    assert(closing:button({ kind = "button", button = 2, action = "press" }, state, true))
+    primary = original_primary
+    assert(closing:button({ kind = "button", button = 2, action = "press", modifiers = 1 }, state, true))
     closing:destroy(); other:destroy()
     assert(require("kiwi.platform.primary_read").retired_count() == 1)
     stage = 6
