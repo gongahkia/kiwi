@@ -16,6 +16,15 @@ local expected, stage, started = "", 0, nil
 local function received()
   local file = assert(io.open(capture, "rb")); local value = file:read("*a"); file:close(); return value
 end
+local function key(window, value, action, modifiers)
+  if gtk then window.on_key(value, action, modifiers or 0)
+  else window.callbacks.key(window.handle, value, 0, action, modifiers or 0) end
+end
+local function shortcut(window, value, modifiers)
+  key(window, value, Host.keymap.press, modifiers)
+  key(window, value, Host.keymap.repeat_action, modifiers)
+  key(window, value, Host.keymap.release, modifiers)
+end
 local function pointer(window, button, action, column, shift)
   local scale = font.content_scale or 1
   local x, y = (column + 0.2) * font.cell_width / scale, 0.2 * font.cell_height / scale
@@ -100,7 +109,39 @@ Host.await_events = function(application, window, timeout)
     stage = 7
   elseif stage == 7 and require("kiwi.platform.primary_read").retired_count() == 0 then
     assert(received() == expected)
-    stage = 8; window:request_close()
+    state:set_selection(0, 0, 0, 7)
+    shortcut(window, Host.keymap.key_insert, Host.keymap.mod_control + Host.keymap.mod_shift)
+    assert(primary.status == "published", "default keyboard primary copy did not dispatch")
+    probe = assert(window:primary_read(1024))
+    stage = 8
+  elseif stage == 8 then
+    local text, status = probe:poll()
+    if status ~= "pending" then
+      assert(text == "primary", "keyboard copy did not publish selected text")
+      probe = nil
+      shortcut(window, Host.keymap.key_insert, Host.keymap.mod_shift)
+      assert(primary.request, "default keyboard primary paste did not dispatch")
+      expected = expected .. "\27[200~primary\27[201~"
+      stage = 9
+    end
+  elseif stage == 9 and #received() >= #expected then
+    assert(received() == expected, "keyboard primary paste repeated or leaked release bytes")
+    shortcut(window, Host.keymap.key_space, Host.keymap.mod_control + Host.keymap.mod_shift)
+    assert(state.vi.active)
+    window.on_text({ 103, 103, 48, 118, 108, 108 }) -- gg0vll selects "pri".
+    stage = 10
+  elseif stage == 10 and primary.status == "published" then
+    probe = assert(window:primary_read(1024))
+    stage = 11
+  elseif stage == 11 then
+    local text, status = probe:poll()
+    if status ~= "pending" then
+      assert(text == "pri", "completed vi selection was not published")
+      probe = nil
+      assert(window:clipboard_read(1024) == "ordinary clipboard")
+      assert(received() == expected, "vi primary selection reached the child")
+      stage = 12; window:request_close()
+    end
   end
 end
 arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/primary_input_child.py", capture }
@@ -108,5 +149,5 @@ local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceb
 if probe then probe:destroy() end
 Terminal.new, Primary.new, Font.new, Host.await_events = terminal_new, primary_new, font_new, await
 os.remove(capture); os.remove(config)
-assert(ok, message); assert(stage == 8)
-print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation and bounded retirement.")
+assert(ok, message); assert(stage == 12)
+print("Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.")
