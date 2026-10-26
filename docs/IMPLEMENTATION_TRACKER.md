@@ -59,7 +59,7 @@ tests do not establish Linux or Windows desktop qualification.
 
 - [x] Bounded regex search with cancellation and Unicode-aware results.
 - [x] Bounded vi-style navigation and character/line/word/rectangular selection.
-- [ ] Keyboard URL hints.
+- [x] Keyboard URL hints with bounded discovery, explicit preview/open/copy and native regression gates.
 - [ ] X11 primary selection with explicit ownership and clipboard policy.
 
 ## Distribution
@@ -491,6 +491,23 @@ benchmark uses less than 1.5 MiB temporary heap during scanning, but retains abo
 357 MiB for the terminal itself; this does not close the general memory/performance
 workstream. See [vi evidence and limits](evidence/2026-10-25-vi.md).
 
-URL hints, primary selection, actual-desktop/Wayland validation, Windows and the
-other unchecked workstreams remain required. Paragraph motions, vi-specific
+At that increment, URL hints, primary selection, actual-desktop/Wayland validation,
+Windows and the other unchecked workstreams remained required. Paragraph motions, vi-specific
 keymap customization and full Vim behavior are not implemented.
+
+## Keyboard URL hints (2026-10-26)
+
+Open/copy hint actions now discover visible ASCII HTTP(S)/mailto text and OSC 8
+destinations, preview the selected target, and require explicit activation.
+Discovery and URI validation yield under a shared work budget, report limits,
+and discard stale targets. Dense one-cell links use paged labels; badges remain
+available when the font cache is full. Global shortcuts and vi return preserve
+child-input isolation and ordinary selection.
+
+The final Lua suite passes 608 tests on macOS and Linux. Native GLFW/GTK WGPU
+input fixtures and Metal/software-Vulkan framebuffer readbacks pass. The
+10,000-row workload scans only viewport/context cells; long-target validation
+respects the 4,096-unit slice and 262,144-unit job caps. Raw data, methodology,
+qualification boundaries and remaining URI-policy limits are in
+[URL hint evidence](evidence/2026-10-26-hints.md). X11 primary selection and all
+other unchecked workstreams remain required.
