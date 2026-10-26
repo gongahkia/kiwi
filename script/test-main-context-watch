@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ "$(uname -s)" != Linux ]; then
+  echo "SKIP GLib readiness fixture: Linux GLFW integration only."
+  exit 0
+fi
+binary=$(mktemp "${TMPDIR:-/tmp}/kiwi-main-context-watch.XXXXXX")
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c17 -pthread -Wall -Wextra -Werror ${CFLAGS:-} -Inative \
+  $(pkg-config --cflags glib-2.0) native/main_context_watch.c native/pty_watch.c \
+  src/tests/fixtures/main_context_watch_test.c $(pkg-config --libs glib-2.0) -lm -o "$binary"
+"$binary"

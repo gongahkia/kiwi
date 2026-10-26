@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ "$(uname -s)" != Linux ]; then
+  echo "SKIP GLib/AT-SPI readiness smoke: Linux GLFW integration only."
+  exit 0
+fi
+if [ "${KIWI_MAIN_CONTEXT_ISOLATED:-}" != 1 ]; then
+  exec dbus-run-session -- xvfb-run -a env KIWI_MAIN_CONTEXT_ISOLATED=1 ./script/main-context-wake-smoke
+fi
+unset WAYLAND_DISPLAY
+export LUA_PATH='src/?.lua;src/?/init.lua;;'
+KIWI_TEST_ATSPI_ADDRESS=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+  --method org.a11y.Bus.GetAddress | sed -n "s/^('\([^']*\)',)$/\1/p")
+test -n "$KIWI_TEST_ATSPI_ADDRESS"
+export KIWI_TEST_ATSPI_ADDRESS
+exec "${LUAJIT:-luajit}" src/kiwi/main_context_wake_smoke.lua
