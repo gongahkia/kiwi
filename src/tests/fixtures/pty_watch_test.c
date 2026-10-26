@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "pty_watch.h"
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
@@ -58,7 +59,41 @@ int main(void) {
   receive(events[0]); /* EOF wakes the host so it can reap the child. */
   assert(!readable(events[0], 30));
   assert(kiwi_pty_watch_update(watch, NULL, 0));
+
+  /* Writable readiness is opt-in: full input buffers must wake after their
+   * reader drains, without waiting for terminal output or a fallback timer. */
+  int blocked[2];
+  assert(pipe(blocked) == 0);
+  for (int i = 0; i < 2; ++i) {
+    int flags = fcntl(blocked[i], F_GETFL);
+    assert(flags >= 0 && fcntl(blocked[i], F_SETFL, flags | O_NONBLOCK) == 0);
+  }
+  char buffer[4096] = {0};
+  size_t filled = 0;
+  ssize_t written;
+  while ((written = write(blocked[1], buffer, sizeof(buffer))) > 0) {
+    filled += (size_t)written;
+    assert(filled <= 1024 * 1024);
+  }
+  assert(errno == EAGAIN && filled > 0);
+  uint8_t interest = 0;
+  assert(!kiwi_pty_watch_update_events(watch, &blocked[1], &interest, 1));
+  interest = 4;
+  assert(!kiwi_pty_watch_update_events(watch, &blocked[1], &interest, 1));
+  assert(!kiwi_pty_watch_update_events(watch, &blocked[1], NULL, 1));
+  interest = KIWI_WATCH_WRITE;
+  assert(kiwi_pty_watch_update_events(watch, &blocked[1], &interest, 1));
+  assert(!readable(events[0], 30));
+  while (read(blocked[0], buffer, sizeof(buffer)) > 0) {}
+  assert(errno == EAGAIN);
+  receive(events[0]);
+  assert(!readable(events[0], 30));
+  interest = KIWI_WATCH_READ;
+  assert(kiwi_pty_watch_update_events(watch, &blocked[1], &interest, 1));
+  assert(!readable(events[0], 30));
+  assert(kiwi_pty_watch_update(watch, NULL, 0));
   kiwi_pty_watch_destroy(watch);
+  close(blocked[0]); close(blocked[1]);
 
   /* Exercise repeated creation, arming and teardown while worker polls. */
   for (int i = 0; i < 100; ++i) {
@@ -68,6 +103,6 @@ int main(void) {
   }
   close(terminal[0]); close(terminal[1]); close(other[0]);
   close(events[0]); close(events[1]);
-  puts("PTY readiness tests passed: one-shot wake, rearm, replacement, EOF, bounded input, shutdown.");
+  puts("PTY readiness tests passed: one-shot read/write wake, backpressure, rearm, replacement, EOF, bounded input, shutdown.");
   return 0;
 }
