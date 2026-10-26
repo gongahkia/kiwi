@@ -47,6 +47,13 @@ local ok, message = xpcall(function()
     variants.layout_key, variants.shifted_key, variants.base_key)
   assert(alternate_key_sequence == expected_alternate_key_sequence,
     "GTK key-variant bridge did not encode the active-layout Kitty flag-4 tuple")
+  local pointer
+  window.on_pointer = function(event) pointer = event end
+  for gdk_button, shared_button in ipairs({ 0, 2, 1 }) do
+    window.callbacks.pointer(nil, 2, 10, 20, 0, 0, gdk_button, 1, 3)
+    assert(pointer.button == shared_button and pointer.modifiers == 3 and pointer.action == "press",
+      "GTK pointer bridge swapped middle/right or lost modifiers")
+  end
 end, debug.traceback)
 
 if window then window:destroy() end

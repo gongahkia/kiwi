@@ -1123,11 +1123,11 @@ static void kiwi_gtk_focus_leave(GtkEventControllerFocus *controller, gpointer u
 }
 
 static void kiwi_gtk_motion(GtkEventControllerMotion *controller, double x, double y, gpointer userdata) {
-  (void)controller;
   KiwiGtkTerminalPresentation *presentation = userdata;
   if (presentation->callbacks.pointer != NULL) {
     presentation->callbacks.pointer(presentation->callbacks.userdata,
-                                    KIWI_GTK_POINTER_MOTION, x, y, 0.0, 0.0, 0, 0, 0);
+                                    KIWI_GTK_POINTER_MOTION, x, y, 0.0, 0.0, 0, 0,
+                                    kiwi_gtk_modifiers(gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(controller))));
   }
 }
 
@@ -1138,7 +1138,8 @@ static void kiwi_gtk_click_pressed(GtkGestureClick *gesture, int presses, double
     presentation->callbacks.pointer(presentation->callbacks.userdata,
                                     KIWI_GTK_POINTER_BUTTON, x, y, 0.0, 0.0,
                                     gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture)),
-                                    KIWI_GTK_ACTION_PRESS, 0);
+                                    KIWI_GTK_ACTION_PRESS,
+                                    kiwi_gtk_modifiers(gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(gesture))));
   }
 }
 
@@ -1149,16 +1150,17 @@ static void kiwi_gtk_click_released(GtkGestureClick *gesture, int presses, doubl
     presentation->callbacks.pointer(presentation->callbacks.userdata,
                                     KIWI_GTK_POINTER_BUTTON, x, y, 0.0, 0.0,
                                     gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture)),
-                                    KIWI_GTK_ACTION_RELEASE, 0);
+                                    KIWI_GTK_ACTION_RELEASE,
+                                    kiwi_gtk_modifiers(gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(gesture))));
   }
 }
 
 static gboolean kiwi_gtk_scroll(GtkEventControllerScroll *controller, double dx, double dy, gpointer userdata) {
-  (void)controller;
   KiwiGtkTerminalPresentation *presentation = userdata;
   if (presentation->callbacks.pointer != NULL) {
     presentation->callbacks.pointer(presentation->callbacks.userdata,
-                                    KIWI_GTK_POINTER_SCROLL, 0.0, 0.0, dx, dy, 0, 0, 0);
+                                    KIWI_GTK_POINTER_SCROLL, 0.0, 0.0, dx, dy, 0, 0,
+                                    kiwi_gtk_modifiers(gtk_event_controller_get_current_event_state(GTK_EVENT_CONTROLLER(controller))));
   }
   return TRUE;
 }
@@ -2108,6 +2110,21 @@ void kiwi_gtk_host_set_size(KiwiGtkHost *host, int width, int height) { if (host
 int kiwi_gtk_host_clipboard_write(KiwiGtkHost *host, const char *text) {
   if (host == NULL || host->surface == NULL || text == NULL) return 0;
   gdk_clipboard_set_text(gdk_display_get_clipboard(gdk_surface_get_display(host->surface)), text);
+  return 1;
+}
+
+const char *kiwi_gtk_host_primary_display(KiwiGtkHost *host) {
+  if (host == NULL || host->surface == NULL) return NULL;
+#ifdef GDK_WINDOWING_X11
+  GdkDisplay *display = gdk_surface_get_display(host->surface);
+  if (GDK_IS_X11_DISPLAY(display)) return gdk_display_get_name(display);
+#endif
+  return NULL;
+}
+int kiwi_gtk_host_primary_write(KiwiGtkHost *host, const char *text) {
+  if (kiwi_gtk_host_primary_display(host) == NULL || text == NULL ||
+      strlen(text) > 1024 * 1024 || !g_utf8_validate(text, -1, NULL)) return 0;
+  gdk_clipboard_set_text(gdk_display_get_primary_clipboard(gdk_surface_get_display(host->surface)), text);
   return 1;
 }
 

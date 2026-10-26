@@ -1,6 +1,7 @@
 local suites = {
   "tests.test_damage",
   "tests.test_build",
+  "tests.test_glfw_errors",
   "tests.test_doctor",
   "tests.test_paths",
   "tests.test_library",
@@ -69,6 +70,7 @@ local suites = {
   "tests.test_selection_pointer",
   "tests.test_selection_renderer",
   "tests.test_clipboard",
+  "tests.test_primary_selection",
   "tests.test_hyperlink",
   "tests.test_shell_integration",
   "tests.test_shell_scripts",
@@ -129,7 +131,7 @@ damage paths library config configuration_reload configuration_watch app_options
 host_effects compatibility workspace window_manager layout_store terminal utf8
 unicode state terminal_session text_state text_fixtures parser reflow
 fuzz poll_schedule input_correlation mouse scrollback_wheel scrollbar
-selection history_actions selection_pointer clipboard shell_integration
+selection history_actions selection_pointer clipboard primary_selection shell_integration
 command_regions command_region_retention compositor command_region_navigation
 search search_input vi vi_input hints hints_input regex packing render_model gtk_native_tab_group pass_registry pass_api
 extensions pass_metrics pass_budgets invalidation gpu_timing gpu_recovery

@@ -10,6 +10,7 @@ local ProductActions = require("kiwi.app.actions")
 local ProductActionDispatcher = require("kiwi.app.product_action_dispatcher")
 local HostEffects = require("kiwi.app.host_effects")
 local Clipboard = require("kiwi.input.clipboard")
+local PrimarySelection = require("kiwi.input.primary_selection")
 local Composition = require("kiwi.input.composition")
 local Config = require("kiwi.config")
 local FontSystem = require("kiwi.font.system")
@@ -356,6 +357,7 @@ function Controller.run(window, host, options)
   local terminal
   local pty
   local consumer
+  local primary_selection = PrimarySelection.new(window)
   local accessibility
   local ok, result = xpcall(function()
     local default_title = "Kiwi GTK GL terminal"
@@ -592,7 +594,8 @@ function Controller.run(window, host, options)
       event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale, font.cell_width, font.cell_height, state.columns, state.rows)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
-      if ModalInput.pointer(state, event) then invalidate("selection"); return end
+      if ModalInput.pointer(state, event) then primary_selection:cancel(); invalidate("selection"); return end
+      if primary_selection:button(event, state, configuration.primary_selection, configuration.mouse_shift_capture) then return end
       event.pixel_width = math.max(1, math.floor(state.columns * font.cell_width))
       event.pixel_height = math.max(1, math.floor(state.rows * font.cell_height))
       event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
@@ -606,6 +609,7 @@ function Controller.run(window, host, options)
       local selection_handled, selection_changed = false, false
       if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
       if selection_changed then invalidate("selection") end
+      primary_selection:selection(event, state, selection_handled, configuration.primary_selection)
       if not scrollbar_handled and not hyperlink_handled and not selection_handled then
         local encoded
         if event.kind == "button" then encoded = mouse:button(event, state:input_modes())
@@ -626,6 +630,7 @@ function Controller.run(window, host, options)
       if focused then
         composition:enter()
       else
+        primary_selection:cancel()
         selection_pointer:reset()
         scrollbar_pointer:reset()
         state.ime_preedit = nil
@@ -709,6 +714,7 @@ function Controller.run(window, host, options)
       local deadline = consumer:next_render_deadline()
       local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
       if state:navigation_pending() and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
+      if primary_selection.request then requested_wait = math.min(requested_wait, 0.001) end
       if window.watch_ptys then window:watch_ptys({ pty }) end
       if host.await_events and options.application then
         host.await_events(options.application, window, requested_wait)
@@ -717,6 +723,8 @@ function Controller.run(window, host, options)
       end
       if window:should_close() then break end
 
+      local primary_bytes = primary_selection:poll(state, configuration.primary_selection)
+      if primary_bytes then enqueue_input(primary_bytes) end
       local scale_changed = math.abs(content_scale(window) - font.content_scale) > 0.001
       local grid = next_grid(window, font, columns, rows)
       if scale_changed and grid ~= nil then
@@ -818,6 +826,7 @@ function Controller.run(window, host, options)
   if pty then pty:shutdown() end
   if terminal then terminal:close() end
   if font then font:destroy() end
+  primary_selection:cancel()
   window:destroy()
   if not ok then error(result) end
 end

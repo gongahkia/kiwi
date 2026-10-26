@@ -7,6 +7,7 @@ local bit = require("bit")
 local Recovery = require("kiwi.gpu.recovery")
 local FontSystem = require("kiwi.font.system")
 local Clipboard = require("kiwi.input.clipboard")
+local PrimarySelection = require("kiwi.input.primary_selection")
 local Composition = require("kiwi.input.composition")
 local Config = require("kiwi.config")
 local Hyperlink = require("kiwi.input.hyperlink")
@@ -211,6 +212,7 @@ function Controller.run(window, host, options)
   local workspace_columns
   local workspace_rows
   local destroy_session
+  local primary_selection = PrimarySelection.new(window)
   local ok, result = xpcall(function()
     local DeviceSoak = require("kiwi.bench.device_soak")
     local Pacing = require("kiwi.bench.pacing")
@@ -430,6 +432,7 @@ function Controller.run(window, host, options)
     end
 
     local function bind_active_session(session)
+      if active_session ~= session then primary_selection:cancel() end
       if composition ~= nil and state ~= nil and state ~= Terminal.state(session.terminal) then
         state.ime_preedit = nil
         composition:leave()
@@ -1243,8 +1246,13 @@ function Controller.run(window, host, options)
       event.column = event.selection_column + 1
       event.row = event.selection_row + 1
       if ModalInput.pointer(state, event) then
+        primary_selection:cancel()
         renderer:invalidate("selection")
         if event.kind == "button" and event.action == "release" then pointer_pane_id = nil end
+        return
+      end
+      if primary_selection:button(event, state, configuration.primary_selection, configuration.mouse_shift_capture) then
+        if event.action == "release" then pointer_pane_id = nil end
         return
       end
       local scrollbar_handled, scrollbar_changed = scrollback_wheel.scrollbar_pointer:handle(event, state, renderer:scrollbar_descriptor(state))
@@ -1255,6 +1263,7 @@ function Controller.run(window, host, options)
       local selection_handled, selection_changed = false, false
       if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = selection_pointer:handle(event, state, state.modes, configuration.mouse_shift_capture) end
       if selection_changed then renderer:invalidate("selection") end
+      primary_selection:selection(event, state, selection_handled, configuration.primary_selection)
       local encoded
       if not scrollbar_handled and not hyperlink_handled and not selection_handled and event.kind == "button" then
         encoded = mouse:button(event, state:input_modes())
@@ -1274,6 +1283,7 @@ function Controller.run(window, host, options)
     end, function(focused)
       window_focused = focused
       if not focused then
+        primary_selection:cancel()
         product_actions:reset_sequence()
         selection_pointer:reset()
         scrollback_wheel.scrollbar_pointer:reset()
@@ -1373,11 +1383,14 @@ function Controller.run(window, host, options)
         requested_wait = math.min(requested_wait, math.max(0, configuration_status.deadline - now))
       end
       if #pending_navigation > 0 and not window.minimized then requested_wait = math.min(requested_wait, 0.001) end
+      if primary_selection.request then requested_wait = math.min(requested_wait, 0.001) end
       host.await_events(options.application, window, requested_wait)
       while pending_transfer and not window:should_close() do
         host.await_events(options.application, window, 0)
       end
       if window:should_close() then break end
+      local primary_bytes = primary_selection:poll(state, configuration.primary_selection)
+      if primary_bytes then enqueue_input(primary_bytes) end
       capture_geometry_change()
       if options.multi_window_smoke and not options.application.multi_window_smoke_reported then
         assert(host.live_count() == 2, "same-process multi-window smoke did not retain two native windows")
@@ -1702,6 +1715,7 @@ function Controller.run(window, host, options)
   if renderer then renderer:destroy() end
   if font then font:destroy() end
   if context then context:destroy() end
+  primary_selection:cancel()
   window:destroy()
   if not ok then error(result) end
 end

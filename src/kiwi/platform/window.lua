@@ -5,6 +5,7 @@ local PtyWatch = require("kiwi.process.pty_watch")
 
 ffi.cdef[[
 size_t strnlen(const char* text, size_t maximum);
+const char* kiwi_surface_primary_display(void);
 int kiwi_open_uri(const char* uri);
 int kiwi_open_text_file(const char* path);
 int kiwi_cocoa_private_pasteboard_round_trip(const char* text, size_t text_bytes);
@@ -289,6 +290,21 @@ function Window:clipboard_write(text)
   glfw.lib.glfwSetClipboardString(self.handle, text)
   if glfw.lib.glfwGetError(nil) ~= 0 then return false, "platform-error" end
   return true
+end
+
+function Window:primary_supported()
+  return ffi.os == "Linux" and glfw.lib.glfwGetPlatform() == 0x00060004
+end
+function Window:primary_write(text)
+  if not self:primary_supported() then return false, "unavailable" end
+  assert(type(text) == "string" and #text <= 1024 * 1024 and not text:find("\0", 1, true))
+  glfw.lib.glfwGetError(nil)
+  glfw.lib.glfwSetX11SelectionString(text)
+  return glfw.lib.glfwGetError(nil) == 0, "platform-error"
+end
+function Window:primary_read(maximum_bytes)
+  if not self:primary_supported() then return nil, "unavailable" end
+  return require("kiwi.platform.primary_read").new(native.kiwi_surface_primary_display(), maximum_bytes)
 end
 
 function Window:cocoa_private_clipboard_round_trip(text)

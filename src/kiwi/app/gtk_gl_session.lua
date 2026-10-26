@@ -3,6 +3,7 @@
 -- terminal, PTY, input, renderer, and accessibility state for that page.
 local AtspiProjection = require("kiwi.accessibility.atspi")
 local Clipboard = require("kiwi.input.clipboard")
+local PrimarySelection = require("kiwi.input.primary_selection")
 local Composition = require("kiwi.input.composition")
 local FontSystem = require("kiwi.font.system")
 local HostEffects = require("kiwi.app.host_effects")
@@ -145,6 +146,7 @@ function Session.new(window, host, configuration, options)
   end
   self.pty = Pty.spawn(command, self.columns, self.rows, environment, { cwd = options.initial_cwd })
   self.clipboard = Clipboard.new(window)
+  self.primary_selection = PrimarySelection.new(window)
   self.modal_input = ModalInput.new()
   self.host_effects = HostEffects.new(configuration, host, window)
   self.hyperlink = Hyperlink.new(window)
@@ -306,7 +308,8 @@ function Session:_install_input_handlers()
     event.selection_column, event.selection_row = SelectionPointer.cell_position(event.x, event.y, scale,
       self.font.cell_width, self.font.cell_height, self.state.columns, self.state.rows)
     event.column, event.row = event.selection_column + 1, event.selection_row + 1
-    if ModalInput.pointer(self.state, event) then self:_invalidate("selection"); return end
+    if ModalInput.pointer(self.state, event) then self.primary_selection:cancel(); self:_invalidate("selection"); return end
+    if self.primary_selection:button(event, self.state, self.configuration.primary_selection, self.configuration.mouse_shift_capture) then return end
     event.pixel_width = math.max(1, math.floor(self.state.columns * self.font.cell_width))
     event.pixel_height = math.max(1, math.floor(self.state.rows * self.font.cell_height))
     event.pixel_x = math.max(1, math.min(event.pixel_width, math.floor(event.x * scale) + 1))
@@ -320,6 +323,7 @@ function Session:_install_input_handlers()
     local selection_handled, selection_changed = false, false
     if not scrollbar_handled and not hyperlink_handled then selection_handled, selection_changed = self.selection_pointer:handle(event, self.state, self.state.modes, self.configuration.mouse_shift_capture) end
     if selection_changed then self:_invalidate("selection") end
+    self.primary_selection:selection(event, self.state, selection_handled, self.configuration.primary_selection)
     if not scrollbar_handled and not hyperlink_handled and not selection_handled then
       local encoded
       if event.kind == "button" then encoded = self.mouse:button(event, self.state:input_modes())
@@ -341,6 +345,7 @@ function Session:_install_input_handlers()
     if focused then
       self.composition:enter()
     else
+      self.primary_selection:cancel()
       self.selection_pointer:reset(); self.scrollbar_pointer:reset(); self.state.ime_preedit = nil
       self.composition:leave(); self:_invalidate("terminal")
     end
@@ -449,12 +454,16 @@ function Session:next_deadline()
       and (self.is_selected == nil or self.is_selected(self.window)) then
     deadline = math.min(deadline or math.huge, self.window:time() + 0.001)
   end
+  if self.primary_selection.request then deadline = math.min(deadline or math.huge, self.window:time() + 0.001) end
   return deadline
 end
 
 function Session:tick(now)
   if self.closed then return "complete" end
   local selected = self.is_selected == nil or self.is_selected(self.window)
+  if not selected then self.primary_selection:cancel() end
+  local primary_bytes = self.primary_selection:poll(self.state, self.configuration.primary_selection)
+  if primary_bytes then self:_enqueue_input(primary_bytes) end
   if self.render_target_revision ~= nil then
     if not selected then return end
     local state, reason = self.window:gl_area_state()
@@ -494,6 +503,7 @@ end
 function Session:shutdown()
   if self.closed then return end
   self.closed = true
+  if self.primary_selection then self.primary_selection:cancel() end
   if self.accessibility then self.accessibility:destroy(); self.accessibility = nil end
   if self.consumer then self.consumer:destroy(); self.consumer = nil end
   if self.pty then self.pty:shutdown(); self.pty = nil end

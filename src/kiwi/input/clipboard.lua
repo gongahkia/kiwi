@@ -20,6 +20,15 @@ local function valid_utf8(text)
   return valid
 end
 
+function Clipboard.prepare_paste(text, modes, maximum_bytes)
+  if type(text) ~= "string" then return nil, "unavailable" end
+  if #text > maximum_bytes then return nil, "over-limit" end
+  if not valid_utf8(text) then return nil, "invalid-utf8" end
+  if #text == 0 then return nil, "empty" end
+  return modes.bracketed_paste and opening .. text .. closing or text, "success"
+end
+Clipboard.valid_utf8 = valid_utf8
+
 local function copy_counters(counters)
   local copy = {}
   for key, value in pairs(counters) do copy[key] = value end
