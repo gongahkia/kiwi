@@ -45,13 +45,11 @@ end
 
 local function bind(snapshot, owner)
   snapshot:bind_scrollback(owner)
-  snapshot.cells = setmetatable({}, { __index = function(_, index) return owner:cell_at_index(index) end })
+  snapshot:bind_cells(owner)
   for _, screen in ipairs({ snapshot.primary, snapshot.alternate }) do
-    screen.blank_cell = function() return owner:blank_cell() end
-    screen.line_id_factory = function()
-      owner.next_line_id = owner.next_line_id + 1
-      return owner.next_line_id
-    end
+    screen.owner = owner
+    screen.blank_cell = owner.blank_cell
+    screen.line_id_factory = owner.allocate_line_id
   end
   snapshot.kitty_graphics.on_image_release = function(id)
     owner:detach_kitty_placement_records(owner.kitty_placements:remove_image(id))

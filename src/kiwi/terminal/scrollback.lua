@@ -59,7 +59,7 @@ function Scrollback:get(index)
     row = self.copy_row(row)
     self.rows[physical], self.borrowed[physical] = row, nil
   end
-  if self.resolve_row then self.resolve_row(row) end
+  if self.resolve_row then self.resolve_row(self.owner, row) end
   return row
 end
 

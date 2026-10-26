@@ -130,6 +130,12 @@ local function valid_cell_metric(value)
   return type(value) == "number" and value % 1 == 0 and value > 0 and value <= 65535
 end
 
+local cell_projection = { __index = function(proxy, index) return proxy.owner:cell_at_index(index) end }
+
+function State:bind_cells(owner)
+  self.cells = setmetatable({ owner = owner or self }, cell_projection)
+end
+
 function State.new(columns, rows, options)
   assert(columns > 0 and rows > 0, "terminal dimensions must be positive")
   options = options or {}
@@ -256,11 +262,7 @@ function State.new(columns, rows, options)
   self.alternate.attributes = Attributes.default()
   self.active_screen = self.primary
   self.cursor = self.active_screen.cursor
-  self.cells = setmetatable({}, {
-    __index = function(_, index)
-      return self:cell_at_index(index)
-    end,
-  })
+  self:bind_cells()
   self:reset_tab_stops()
   self:bind_scrollback()
   self.damage:mark_all()
@@ -280,13 +282,13 @@ function State:blank_cell()
   }
 end
 
+function State:allocate_line_id()
+  self.next_line_id = self.next_line_id + 1
+  return self.next_line_id
+end
+
 function State:new_screen()
-  return Screen.new(self.columns, self.rows, function()
-    return self:blank_cell()
-  end, function()
-    self.next_line_id = self.next_line_id + 1
-    return self.next_line_id
-  end)
+  return Screen.new(self.columns, self.rows, State.blank_cell, State.allocate_line_id, self)
 end
 
 function State:cell_from_attributes(glyph, metadata)
@@ -2013,25 +2015,26 @@ function State:merge_reflow_row_metadata(target, source)
   end
 end
 
+local function row_fits(self, row, columns)
+  if row.wrapped then return false end
+  if columns < self.columns then
+    for column = columns, self.columns - 1 do
+      if not self:is_reflow_blank(row.cells[column]) then return false end
+    end
+  end
+  return true
+end
+
 function State:can_keep_primary_rows_on_resize(columns, rows)
   if rows ~= self.rows then return false end
   local primary = self.primary
   if primary.cursor.pending_wrap or primary.cursor.column >= columns or primary.saved_cursor.column >= columns then return false end
   if self.selection.scope == "primary" or #self.command_regions.regions > 0 or #self.shell.events > 0 or #self.kitty_placements.placements > 0 then return false end
-  local function fits(row)
-    if row.wrapped then return false end
-    if columns < self.columns then
-      for column = columns, self.columns - 1 do
-        if not self:is_reflow_blank(row.cells[column]) then return false end
-      end
-    end
-    return true
-  end
   for index = 1, self.scrollback:size() do
-    if not fits(self.scrollback:peek(index)) then return false end
+    if not row_fits(self, self.scrollback:peek(index), columns) then return false end
   end
   for row = 0, self.rows - 1 do
-    if not fits(primary.rows[row]) then return false end
+    if not row_fits(self, primary.rows[row], columns) then return false end
   end
   return true
 end
@@ -2043,9 +2046,23 @@ function State:resize_primary_without_reflow(columns, rows, blank)
   for index = 1, self.scrollback:size() do
     local row = self.scrollback:get(index)
     for column = previous_columns, columns - 1 do
-      if row.cells[column] == nil then row.cells[column] = blank() end
+      if row.cells[column] == nil then row.cells[column] = blank(self) end
     end
   end
+end
+
+local function reflow_row(context)
+  local row = context.primary:new_sparse_row()
+  row.palette_generation = context.state.palette_generation
+  return row
+end
+
+local function reflow_blank(cell, context)
+  return context.state:is_reflow_blank(cell)
+end
+
+local function reflow_blank_cell(context)
+  return context.state:blank_cell()
 end
 
 function State:reflow_primary(columns, rows)
@@ -2082,25 +2099,15 @@ function State:reflow_primary(columns, rows)
   -- image cache but release the primary-screen placement records.
   self:clear_kitty_placement_scope("primary")
 
-  local blank = function()
-    return self:blank_cell()
-  end
-  local primary = Screen.new(columns, rows, blank, function()
-    self.next_line_id = self.next_line_id + 1
-    return self.next_line_id
-  end)
+  local primary = Screen.new(columns, rows, State.blank_cell, State.allocate_line_id, self)
   primary.attributes = Attributes.copy(old_primary.attributes)
   primary.hyperlink_id = old_primary.hyperlink_id
   primary.keyboard_flags = old_primary.keyboard_flags
   for index, flags in ipairs(old_primary.keyboard_stack) do primary.keyboard_stack[index] = flags end
 
-  local reflowed, map, membership = Reflow.transform(source_document, old_columns, columns, function()
-    local row = primary:new_sparse_row()
-    row.palette_generation = self.palette_generation
-    return row
-  end, function(cell)
-    return self:is_reflow_blank(cell)
-  end, { compact_map = true, blank_cell = blank })
+  local reflowed, map, membership = Reflow.transform(source_document, old_columns, columns,
+    reflow_row, reflow_blank, { compact_map = true, blank_cell = reflow_blank_cell,
+      context = { state = self, primary = primary } })
   local rows_by_line_id = {}
   for _, row in ipairs(reflowed) do rows_by_line_id[row.line_id] = row end
   for _, entry in ipairs(document) do
@@ -2184,9 +2191,7 @@ function State:resize(columns, rows, options)
     end
   end
   local was_primary = self.active_screen == self.primary
-  local blank = function()
-    return self:blank_cell()
-  end
+  local blank = State.blank_cell
   if reflow_primary then
     if self:can_keep_primary_rows_on_resize(columns, rows) then
       self:resize_primary_without_reflow(columns, rows, blank)
@@ -3220,7 +3225,52 @@ end
 
 function State:bind_scrollback(owner)
   owner = owner or self
-  self.scrollback.resolve_row = function(row) owner:resolve_history_row(row) end
+  self.scrollback.owner = owner
+  self.scrollback.resolve_row = State.resolve_history_row
+end
+
+local function refresh_palette_cell(self, cell, change, changed_indexes, refresh_foreground, refresh_background)
+  local changed = false
+  if changed_indexes ~= nil then
+    local foreground_index = cell.fg_slot and cell.fg_slot - 1
+    local background_index = cell.bg_slot and cell.bg_slot - 1
+    if foreground_index ~= nil and changed_indexes[foreground_index] then
+      cell.fg = self.colors:indexed(foreground_index)
+      changed = true
+    end
+    if background_index ~= nil and changed_indexes[background_index] then
+      cell.bg = self.colors:indexed(background_index)
+      changed = true
+    end
+    local underline_index = cell.underline_slot and cell.underline_slot - 1
+    if underline_index ~= nil and changed_indexes[underline_index] then
+      cell.underline_color = self.colors:indexed(underline_index)
+      changed = true
+    end
+  end
+  if refresh_foreground and cell.fg_slot == 0 then
+    cell.fg = self.colors.foreground
+    changed = true
+  end
+  if refresh_background and cell.bg_slot == 0 then
+    cell.bg = self.colors.background
+    changed = true
+  end
+  if change.all_indexed then
+    if cell.fg_slot and cell.fg_slot > 0 then
+      cell.fg = self.colors:indexed(cell.fg_slot - 1)
+      changed = true
+    end
+    if cell.bg_slot and cell.bg_slot > 0 then
+      cell.bg = self.colors:indexed(cell.bg_slot - 1)
+      changed = true
+    end
+    if cell.underline_slot and cell.underline_slot > 0 then
+      cell.underline_color = self.colors:indexed(cell.underline_slot - 1)
+      changed = true
+    end
+  end
+  return changed
 end
 
 function State:refresh_palette_slots(change)
@@ -3228,56 +3278,14 @@ function State:refresh_palette_slots(change)
   if change.index ~= nil then changed_indexes = { [change.index] = true } end
   local refresh_foreground = change.channel == "foreground" or change.channels and change.channels.foreground == true
   local refresh_background = change.channel == "background" or change.channels and change.channels.background == true
-  local function refresh(cell)
-    local changed = false
-    if changed_indexes ~= nil then
-      local foreground_index = cell.fg_slot and cell.fg_slot - 1
-      local background_index = cell.bg_slot and cell.bg_slot - 1
-      if foreground_index ~= nil and changed_indexes[foreground_index] then
-        cell.fg = self.colors:indexed(foreground_index)
-        changed = true
+  for _, screen in ipairs({ self.primary, self.alternate }) do
+    for row = 0, self.rows - 1 do
+      for column = 0, self.columns - 1 do
+        refresh_palette_cell(self, screen.rows[row].cells[column], change, changed_indexes,
+          refresh_foreground, refresh_background)
       end
-      if background_index ~= nil and changed_indexes[background_index] then
-        cell.bg = self.colors:indexed(background_index)
-        changed = true
-      end
-      local underline_index = cell.underline_slot and cell.underline_slot - 1
-      if underline_index ~= nil and changed_indexes[underline_index] then
-        cell.underline_color = self.colors:indexed(underline_index)
-        changed = true
-      end
-    end
-    if refresh_foreground and cell.fg_slot == 0 then
-      cell.fg = self.colors.foreground
-      changed = true
-    end
-    if refresh_background and cell.bg_slot == 0 then
-      cell.bg = self.colors.background
-      changed = true
-    end
-    if change.all_indexed then
-      if cell.fg_slot and cell.fg_slot > 0 then
-        cell.fg = self.colors:indexed(cell.fg_slot - 1)
-        changed = true
-      end
-      if cell.bg_slot and cell.bg_slot > 0 then
-        cell.bg = self.colors:indexed(cell.bg_slot - 1)
-        changed = true
-      end
-      if cell.underline_slot and cell.underline_slot > 0 then
-        cell.underline_color = self.colors:indexed(cell.underline_slot - 1)
-        changed = true
-      end
-    end
-    return changed
-  end
-  local function refresh_rows(rows, count)
-    for row = 0, count - 1 do
-      for column = 0, self.columns - 1 do refresh(rows[row].cells[column]) end
     end
   end
-  refresh_rows(self.primary.rows, self.rows)
-  refresh_rows(self.alternate.rows, self.rows)
   -- History is recoloured when read, using semantic palette slots. Retain
   -- only the latest generation, regardless of how many OSC updates arrive.
   self.palette_generation = self.palette_generation + 1
