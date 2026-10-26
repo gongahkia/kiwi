@@ -84,6 +84,8 @@ jobs:
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl-tabs.log
           ./script/gtk-primary-wayland-smoke 2>&1 | tee .build/appearance-evidence/primary-wayland.log
+          ./script/desktop-transition-smoke --report .build/appearance-evidence/transitions-wgpu.json
+          ./script/desktop-transition-smoke --presenter gl --report .build/appearance-evidence/transitions-gl.json
           # Only Kiwi loads the fixed client library. Daemon, GTK module and
           # libpinyin remain Ubuntu packages; no user desktop is involved.
           for kiwi_presenter in wgpu gl; do

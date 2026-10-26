@@ -440,3 +440,8 @@ search-smoke: native terminfo
 .PHONY: bench-search
 bench-search: native
 	@$(LUAJIT) src/kiwi/bench/search.lua $(SEARCH_HISTORY)
+
+.PHONY: desktop-transition-smoke
+desktop-transition-smoke: gtk-host native terminfo
+	./script/desktop-transition-smoke --report .build/desktop-transition-evidence/wgpu.json
+	./script/desktop-transition-smoke --presenter gl --report .build/desktop-transition-evidence/gl.json
