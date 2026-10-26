@@ -135,7 +135,7 @@ for traffic, scroll_mode in (("ascii", "region"), ("styled-unicode", "region"), 
         # Exercise real UTF-8 and SGR bytes, not just CLI acceptance.
         receive("背景".encode() if traffic == "styled-unicode" else b"background output")
         marker = b"ACK0001  \x1b[18;1H" if scroll_mode == "history" else b"\r\n"
-        while b"".join(packets).count(marker) < (5 if scroll_mode == "history" else 1):
+        while b"".join(packets).count(marker) < (129 if scroll_mode == "history" else 1):
             receive(marker)
         capture = b"".join(packets)
         capture = capture[:capture.rfind(marker) + len(marker)]
@@ -163,7 +163,7 @@ local parser = Parser.new(state)
 for index = 1, #bytes do parser:feed(bytes:sub(index, index)) end
 parser:finish()
 assert(parser.stats.errors == 0)
-assert(require("kiwi.bench.interactive").visible_sequence(state) == 1)
+assert(require("kiwi.bench.interactive").visible_sequence(state, os.getenv("KIWI_CAPTURE_SCROLL") == "history" and state.columns - 9 or 0) == 1)
 if os.getenv("KIWI_CAPTURE_SCROLL") == "history" then
   assert(state.scrollback:size() == 64 and evicted >= 64)
   assert(pushed == state.scrollback:size() + evicted)

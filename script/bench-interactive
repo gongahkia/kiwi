@@ -85,7 +85,7 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
               "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
               "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
               "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
-              "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints the acknowledgment after each batch",
+              "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
               "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
               "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
               "memory": "sampled process RSS after successful presentations; not OS high-water RSS",

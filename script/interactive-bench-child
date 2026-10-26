@@ -21,10 +21,18 @@ os.set_blocking(resize_read, False)
 os.set_blocking(resize_write, False)
 signal.set_wakeup_fd(resize_write)
 signal.signal(signal.SIGWINCH, lambda *_: None)
-rows = os.get_terminal_size(0).lines
-assert rows >= 3
+size = os.get_terminal_size(0)
+rows, columns = size.lines, size.columns
+assert rows >= 3 and columns >= 9
 sequence = 0
-ready = b"\x1b[?25l\x1b[2J\x1b]2;kiwi-bench-ready\x07\x1b[HREADY0000"
+def marker_position():
+    return f"\x1b[1;{columns - 8 if scroll_mode == 'history' else 1}H".encode()
+
+
+def readiness():
+    return b"\x1b[?25l\x1b[2J\x1b]2;kiwi-bench-ready\x07" + marker_position() + b"READY0000"
+
+
 def position():
     return f"\x1b[{rows if scroll_mode == 'history' else 2};1H".encode()
 
@@ -34,17 +42,20 @@ def margins():
 
 
 def acknowledgment():
-    return f"\x1b[1;1HACK{sequence:04d}  ".encode() + position()
+    return marker_position() + f"ACK{sequence:04d}  ".encode() + position()
 
 
-pending = ready + margins() + position()
+pending = readiness() + margins() + position()
 # Region mode reserves row one. History mode scrolls the whole primary screen
-# and repaints the acknowledgment after each bounded batch; full-screen scroll
-# must reach the real history ring and evict old rows once it fills.
-traffic = (b"background output 0123456789 abcdefghijklmnopqrstuvwxyz\r\n" * 64)
+# and repaints the acknowledgment between lines at the top right. A batch-end
+# marker can scroll away within one PTY read before the parent can observe it.
+# Full-screen scroll still retains the background text and evicts real rows.
+traffic_line = b"background output 0123456789 abcdefghijklmnopqrstuvwxyz\r\n"
+traffic_lines = 64
 if os.environ.get("KIWI_INTERACTIVE_BENCH_TRAFFIC", "ascii") == "styled-unicode":
-    traffic = ("\x1b[1;38;2;90;180;230m背景 café e\u0301 Ελληνικά\x1b[0m "
-               "\x1b[3m日本語\x1b[0m \x1b[4:3munderlined\x1b[0m\r\n").encode() * 32
+    traffic_line = ("\x1b[1;38;2;90;180;230m背景 café e\u0301 Ελληνικά\x1b[0m "
+               "\x1b[3m日本語\x1b[0m \x1b[4:3munderlined\x1b[0m\r\n").encode()
+    traffic_lines = 32
 selector = selectors.DefaultSelector()
 selector.register(0, selectors.EVENT_READ)
 selector.register(1, selectors.EVENT_WRITE)
@@ -55,9 +66,10 @@ while True:
     if any(key.fd == resize_read for key, _ in events):
         os.read(resize_read, 4096)
         if sequence == 0:
-            rows = os.get_terminal_size(0).lines
+            size = os.get_terminal_size(0)
+            rows, columns = size.lines, size.columns
             # Append to preserve escape sequences if an earlier write split.
-            pending += ready + margins() + position()
+            pending += readiness() + margins() + position()
     # Read first even when the PTY is continuously writable.
     for key, _ in events:
         if key.fd == 0:
@@ -71,13 +83,14 @@ while True:
             sequence += 1
             assert sequence <= 288
             if sequence == 1:
-                rows = os.get_terminal_size(0).lines
+                size = os.get_terminal_size(0)
+                rows, columns = size.lines, size.columns
                 pending += margins()
             pending += f"\x1b]2;kiwi-bench-ack:{sequence}\x07".encode() + acknowledgment()
     # Let the parent observe startup before background output can scroll or
     # race the initial native allocation. The first warmup input starts load.
     if not pending and mode == "saturated" and sequence > 0:
-        pending = traffic + (acknowledgment() if scroll_mode == "history" else b"")
+        pending = (traffic_line + (acknowledgment() if scroll_mode == "history" else b"")) * traffic_lines
     assert len(pending) <= 8192, "child output queue exceeded its bound"
     if pending and not writing:
         selector.register(1, selectors.EVENT_WRITE)
