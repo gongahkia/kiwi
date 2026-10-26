@@ -2,6 +2,7 @@
 """Check regression detection and refusal of misleading timing comparisons."""
 import copy
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -65,3 +66,34 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-budget-") as temporary
     changed = copy.deepcopy(report); del changed["trials"][0]["metadata"]["native_adapter"]; check(changed, 2)
     changed = copy.deepcopy(report); changed["trials"][0]["measurement"]["callback_to_present_return_ms"]["values"][0] = float("nan"); check(changed, 2)
 print("Interactive regression budgets passed: real samples, independent trials, limits and incompatible-evidence rejection.")
+
+# Exercise actual Git metadata, including staged changes missed by git diff.
+with tempfile.TemporaryDirectory(prefix="kiwi-revision-budget-") as temporary:
+    directory = Path(temporary)
+    def git(*arguments):
+        return subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false",
+                               "-c", "user.name=Kiwi test", "-c", "user.email=kiwi-test@example.invalid", *arguments],
+                              cwd=directory, check=True, capture_output=True, timeout=5)
+    git("init", "--quiet", "--template=")
+    (directory / "source").write_text("original")
+    (directory / ".gitignore").write_text("ignored-output\n")
+    git("add", "source", ".gitignore")
+    git("commit", "--quiet", "-m", "fixture")
+    def revision():
+        result = subprocess.run([os.environ.get("LUAJIT", "luajit"), "-e",
+            'print(require("kiwi.bench.json").encode(require("kiwi.bench.environment").revision()))'],
+            cwd=directory, env=dict(os.environ, LUA_PATH=str(root / "src/?.lua") + ";;"),
+            check=True, capture_output=True, text=True, timeout=5)
+        return json.loads(result.stdout)
+    assert revision()["dirty"] is False
+    (directory / "source").write_text("changed")
+    assert revision()["dirty"] is True
+    git("add", "source")
+    assert revision()["dirty"] is True, "staged changes were reported clean"
+    git("restore", "--source=HEAD", "--staged", "--worktree", "source")
+    (directory / "new-source").write_text("untracked")
+    assert revision()["dirty"] is True, "untracked sources were reported clean"
+    (directory / "new-source").unlink()
+    (directory / "ignored-output").write_text("measurement")
+    assert revision()["dirty"] is False, "ignored measurement output dirtied sources"
+print("Source provenance passed: unstaged, staged and untracked edits reject clean-baseline status.")
