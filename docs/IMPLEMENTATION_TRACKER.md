@@ -833,3 +833,11 @@ GL, native-tab reload and real IME checks passed after the correction.
 
 Physical monitor changes, system sleep, screen readers and macOS qualification
 remain open; simulated output power and process pause are not substitutes.
+
+The strict relative budget checker was exercised on two clean, same-revision
+six-trial groups. It flagged latency variation beyond the initial thresholds;
+RSS stayed within budget. This shared software-rendered environment is not an
+accepted fixed-runner baseline. Thresholds were retained and the failure evidence
+was preserved rather than rerun until passing. Staged/untracked source detection
+now has real Git regression tests. See the repeatability section of the
+[sustained-load evidence](evidence/2026-10-26-sustained-load.md).
