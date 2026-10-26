@@ -53,13 +53,13 @@ The native path is FreeType + HarfBuzz + Fontconfig through narrow LuaJIT FFI de
 
 For a contiguous same-face run, the layout concatenates its cluster display text and shapes it with `hb_ft_font_create_referenced`, a fresh HarfBuzz buffer, `HB_BUFFER_CLUSTER_LEVEL_MONOTONE_GRAPHEMES`, and explicit LTR direction. Glyph cluster byte offsets are mapped back to terminal columns. `liga` and `calt` are disabled by default to preserve terminal-cell behavior; `KIWI_LIGATURES=1` and `KIWI_CALT=1` enable them at startup. These options change glyph placement only; they never change terminal cell width.
 
-Fontconfig chooses the configured primary family (`KIWI_FONT_FAMILY`, default `monospace`) or `KIWI_FONT` path. Singleton printable ASCII primary-coverage results are cached after the first FreeType probe in a bounded 95-entry table; a negative result still proceeds to normal fallback rather than assuming ASCII coverage. Missing clusters are otherwise matched by their full code-point set, then cached. The primary face is required; fallback face loading, face-cache exhaustion (default 32 faces), unavailable code points, and negative matches degrade to the missing-glyph path instead of expanding unboundedly or crashing the rendering path. The sequence fallback cache is capped at 1024 entries, including negative entries.
+Fontconfig chooses the configured primary family (`KIWI_FONT_FAMILY`, default `monospace`) or `KIWI_FONT` path. Singleton printable ASCII primary-coverage results are cached after the first FreeType probe in a bounded 95-entry table; a negative result still proceeds to normal fallback rather than assuming ASCII coverage. Missing clusters are matched against at most 16 Fontconfig candidates, then cached. Joiners, variation selectors and emoji tag scalars remain in the shaping input but do not require independent glyph coverage. Emoji-presentation clusters prefer the platform emoji family and colour faces; text presentation keeps normal primary/fallback selection. The primary face is required; fallback face loading, face-cache exhaustion (default 32 faces), unavailable code points, and negative matches degrade to the missing-glyph path instead of expanding unboundedly or crashing the rendering path. The sequence fallback cache is capped at 1024 entries, including negative entries.
 
 Bold and italic SGR select separate styled faces before shaping. Fontconfig
 matches weight/slant in the primary family and in fallback fonts; regular,
 bold, italic and bold-italic decisions have separate coverage and fallback
 cache keys. When the family lacks a style, FreeType emboldens or obliques the
-glyph before rasterization. Synthetic slant applies to outline fonts. Styled
+glyph before rasterization. Synthetic slant applies to outline fonts. Colour fonts retain their artwork without synthetic weight or slant. Styled
 faces have independent native handles and glyph IDs remain keyed by face, so
 synthesis never modifies cached regular glyphs. The primary's cell dimensions
 remain authoritative. The GPU uses the requested foreground colour without
@@ -79,13 +79,37 @@ Deterministic tests cover styles, palette changes, reflow and mask geometry.
 on spaces through native readback; visual qualification of every style and
 scale across hosts remains required.
 
-Rasterization is by **glyph ID**, not the first Unicode scalar. The dynamic grayscale atlas has one 1024×1024 `r8unorm` page, a default 8,192-entry bound, and a 512-pixel bitmap-dimension bound. It keys entries by face ID, glyph ID, size, and raster mode. Least-recently-used unpinned glyphs are evicted under pressure. A coalescing rectangle allocator reuses space without moving live glyph coordinates. Each layout pins its unchanged rows before shaping changed rows, and other panes retain independent pins. Destroying a layout or replacing its font releases its pins; weak owner references also protect against abandoned layouts. An atlas generation upload currently sends the whole alpha page; this is simple and bounded but is an acknowledged performance limitation.
+Rasterization is by **glyph ID**, not the first Unicode scalar. The shared grayscale/colour atlas has one 1024×1024 `rgba8unorm` page (4 MiB), a default 8,192-entry bound, and a 512-pixel bitmap-dimension bound. It keys entries by face ID, glyph ID, size, and raster mode. Least-recently-used unpinned glyphs are evicted under pressure. A coalescing rectangle allocator reuses space without moving live glyph coordinates. Each layout pins its unchanged rows before shaping changed rows, and other panes retain independent pins. Destroying a layout or replacing its font releases its pins; weak owner references also protect against abandoned layouts. An atlas generation upload currently sends the whole RGBA page; this is simple and bounded but is an acknowledged performance limitation.
 
 The cache remembers bounded permanent rasterization failures. Capacity failures are temporary and never enter that negative cache. If the simultaneous pinned working set exceeds available space, Kiwi uses the existing `?` fallback or omits the glyph and records a capacity failure. Affected rows retry after space is released. Unsupported bitmap formats, missing fonts and glyph-instance overflow also retain bounded fallback behavior. Tests cover entry/page exhaustion, stable pixels across panes, released owners, repeated churn and recovery after clearing a large output stream.
 
-The GPU has separate cell/background, shaped-glyph, dynamic alpha-atlas, sampler, and frame bindings. `KiwiGlyphInstance` remains the 40-byte legacy cell record for M0/M1.5 measurements. `KiwiTextGlyphInstance` is a separate, asserted 48-byte record carrying float glyph geometry, UVs, color/flags, glyph ID, and terminal cluster column. A fixed selection range in the frame uniform clips stable row-ID endpoints to the current viewport; it is alpha-blended after background and before glyphs, so it does not change shaping or cluster ownership. A primary-history scrollbar descriptor adds only normalized thumb geometry and RGBA colour to that fixed uniform; WGPU and the experimental GTK GL consumer render it after the cursor. The terminal is not a precomposed bitmap.
+The GPU has separate cell/background, shaped-glyph, dynamic RGBA-atlas, sampler, and frame bindings. `KiwiGlyphInstance` remains the 40-byte legacy cell record for M0/M1.5 measurements. `KiwiTextGlyphInstance` is a separate, asserted 48-byte record carrying float glyph geometry, UVs, color/flags, glyph ID, and terminal cluster column. A fixed selection range in the frame uniform clips stable row-ID endpoints to the current viewport; it is alpha-blended after background and before glyphs, so it does not change shaping or cluster ownership. A primary-history scrollbar descriptor adds only normalized thumb geometry and RGBA colour to that fixed uniform; WGPU and the experimental GTK GL consumer render it after the cursor. The terminal is not a precomposed bitmap.
 
-FreeType BGRA/color glyph bitmaps are rejected safely by the grayscale atlas. On the verified Fedora host, Fontconfig selected a monochrome fallback for the default emoji case and direct Noto Color Emoji COLRv1 rasterization did not yield a usable grayscale bitmap. Therefore M2 provides semantic emoji clustering, width, fallback selection, and monochrome glyph rendering where a usable face exists; it does **not** claim color emoji rendering. Private-use/Nerd Font characters use ordinary Fontconfig fallback and the same glyph-ID path; the optional `MartianMono Nerd Font` test exercises U+E0B0 when that host font is installed. Ligatures are opt-in and are not treated as terminal-width features.
+FreeType BGRA bitmaps now render through both WGPU and GTK GL. This covers
+bitmap colour emoji, including Apple Color Emoji's sbix and Noto Color Emoji's
+CBDT/CBLC fonts. Bitmap-only faces select their nearest available strike when
+the requested size is unavailable, then bilinearly resample the premultiplied
+channels. Emoji fit inside their terminal cells; fallback advances cannot move
+following clusters away from their terminal columns. Empty shaping glyphs do
+not produce spurious question marks. Missing clusters display `?` while the
+original terminal text remains available for selection and copying.
+
+The atlas keeps grayscale coverage in R and premultiplied sRGB RGBA for colour
+ink. Glyph flag `0x20000000` selects colour sampling; colour artwork ignores the
+foreground tint and reverse-video colour swap, but respects concealment and dim.
+WGPU unpremultiplies before its surface-dependent sRGB conversion and applies
+alpha blending once. GTK GL uses its existing encoded-colour target. The
+renderer-neutral model is version 3; GTK GL's bridge ABI is version 4. The
+historical semantic resource name `text.alpha_atlas` remains, with its descriptor
+now reporting `rgba8unorm`. No native pointers are exposed to extensions.
+
+This does not add a COLRv1 paint interpreter or OpenType SVG renderer; a font
+must produce a supported FreeType grayscale or BGRA bitmap. Private-use/Nerd
+Font characters use ordinary Fontconfig fallback; the optional
+`MartianMono Nerd Font` test exercises U+E0B0 when installed. Ligatures remain
+opt-in and never change terminal widths. See [ADR 0044](adr/0044-color-glyph-atlas.md)
+for bounds and regression gates.
+
 
 ## Text backend boundary
 

@@ -80,7 +80,7 @@ an error at the nearest registration/lifecycle boundary.
 | `terminal.damage` | coalesced logical-damage summary/ranges for the current update | read-only; may be empty |
 | `frame.viewport` | logical columns/rows, drawable pixels, and content scale | read-only; always present for a drawable frame |
 | `frame.timing` | monotonic frame time and non-negative frame delta | read-only; always present; timing does not imply redraw permission |
-| `text.alpha_atlas` | Kiwi-owned current grayscale atlas description/content | read-only; unavailable only when the text system is unavailable during rebuild |
+| `text.alpha_atlas` | Kiwi-owned current glyph atlas description (`rgba8unorm` since ADR 0044) | read-only; unavailable only when the text system is unavailable during rebuild |
 | `surface.color` | configured frame presentation target | Kiwi-owned output; passes may declare a write but never own, retain, or destroy it |
 
 `terminal.cells`, `text.shaped_glyphs`, and `text.alpha_atlas` expose their
