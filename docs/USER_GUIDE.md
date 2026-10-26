@@ -641,12 +641,44 @@ and clears selections whose anchor was removed. Resize remaps the cursor and
 ordinary selection; rectangular selections clear because their geometry changes.
 Rectangular copy includes spaces and separates physical rows with newlines.
 Both copying and highlighting expand a cut wide character to its full cell span.
-This is terminal navigation, without Vim editing, registers, or macros. Plain-text
-URL hints and X11 primary selection remain unimplemented.
+This is terminal navigation, without Vim editing, registers, or macros.
+X11 primary selection remains unimplemented.
 
 `make vi-smoke` checks live host input against a raw PTY receiver and a private
 clipboard bridge. `make selection-smoke` checks rectangular and linear highlight
 coverage through native GPU framebuffer readback; both require a graphical session.
+
+**Open URL Hints** in the palette, Ctrl+Shift+U, or Command+Shift+U on macOS labels
+links in the current viewport. **Copy URL Hints** uses Ctrl+Shift+Alt+U or
+Command+Shift+Option+U. Type a displayed label to preview its destination in the
+window title, then press Enter to open or copy it. Tab/Shift+Tab and Up/Down cycle
+the remaining labels. Backspace removes a typed letter; Escape or Ctrl+C cancels;
+Ctrl+R rescans. Ctrl+Shift+C or Command+C copies the selected destination in either
+mode. Typing a label never opens a link by itself. With only one result, Enter
+activates it directly. Paste and pointer input are captured while hints are active.
+
+Discovery recognizes ASCII `http://`, `https://`, and `mailto:` text and eligible
+OSC 8 links. An OSC 8 link's actual destination takes precedence over displayed
+text. URLs can cross soft wraps and viewport edges; only intersecting links get
+labels. Trailing sentence punctuation and unmatched closing brackets are trimmed
+from plain-text URLs. Unicode URLs, file/custom schemes, configurable hint regexes
+and arbitrary hint commands are not supported. Existing Ctrl+Shift+O opens the
+explicit link under the application cursor without entering hints mode.
+
+Hints retain at most 256 links with destinations up to 2,048 bytes. Discovery yields
+after 4,096 work units and stops at 262,144 units with a visible partial-result
+status. Most labels have one or two letters; densely packed one-cell links use
+pages of single letters, navigated with Page Up/Down. Output, scrolling, resizing
+or changing screens invalidates the targets; Ctrl+R restarts from the new view.
+Applications requesting all Kitty keys own the activation shortcut; use the
+palette in that case. Once active, hints capture text, repeats and releases before
+child protocol encoding and preserve ordinary text selection and vi mode.
+
+`make hints-smoke` checks native host input against a raw PTY receiver with private
+opener/clipboard substitutes. `make hints-framebuffer-smoke` verifies badge pixels
+even with a saturated glyph cache. `make bench-hints HINT_HISTORY=10000` measures
+bounded model work with retained history and dense OSC 8 targets; it does not
+measure input-to-display latency.
 
 Font size changes apply to the current window without editing the configuration.
 Reset restores the last successfully loaded configured size. Sizes that cannot fit

@@ -357,7 +357,7 @@ Literal matches may overlap; regex advances past each match, including zero-widt
 progress. A reached bound is a visible partial-result status, never a silent
 complete-result claim. Zero-width matches highlight one boundary cell.
 
-WGPU shares a 4,096-operation background budget between pending Find and vi work
+WGPU shares a 4,096-operation background budget between pending Find, vi and URL hint work
 across its panes; GTK GL advances the selected session. Input may start an initial
 bounded slice before that background work. Minimized windows suspend pending
 work. Jobs contain copyable resumable data and bounded scratch buffers, without
@@ -394,12 +394,38 @@ active Find query. `/` and `?` start relative regex Find; `n`/`N` wrap among the
 bounded retained results. Partial, stale and no-match statuses remain visible.
 Enter reveals the retained vi cursor and activates only its explicit OSC 8 link.
 
-There are no vi editing commands, registers, macros, custom vi keymaps, paragraph
-motions, or plain-text URL hints. This increment establishes a bounded navigation
+There are no vi editing commands, registers, macros, custom vi keymaps or paragraph
+motions. This increment establishes a bounded navigation
 subset, not complete Alacritty/Vim feature parity. Native WGPU input/readback and
 model/load evidence are recorded in [the vi qualification](evidence/2026-10-25-vi.md).
 GTK GL compiles and passes its renderer lifecycle test; its rectangular overlay
 has not received a separate pixel-readback qualification.
+
+## Keyboard URL hints
+
+The `open-url-hints` and `copy-url-hints` actions discover viewport-intersecting
+ASCII HTTP(S)/mailto text and eligible OSC 8 targets. The scan includes at most
+2,056 context cells on either side to recover complete, soft-wrapped destinations.
+Hard breaks separate matches. OSC 8 metadata takes precedence over displayed text;
+opening still uses the existing bounded URI policy and explicit host opener.
+The selected target is previewed in the title and Enter activates it; labels alone
+never launch anything. Ordinary selection and the application cursor are unchanged.
+
+Jobs contain resumable, transaction-copyable data and validate each distinct OSC 8
+URI incrementally. Limits are 256 matches, 2,048 URI bytes, 262,144 total work units
+and 4,096 per slice. Work/match limits expose partial status; overlong plain tokens
+are rejected rather than opening their truncated prefix. Changed content, viewport,
+dimensions or screen scope cancels the scan and removes every activatable target.
+The UI offers explicit restart. One/two-letter labels are deterministic; one-cell
+targets use paged single-letter labels when two-cell labels would overlap.
+
+Opaque 5×7 letter badges use the glyph stream without allocating atlas entries.
+WGPU draws them after images and scrollbar; the cursor and scrollbar are hidden
+while hints are active. GTK GL understands the same masks, but has no separate
+badge pixel-readback qualification. Native input and WGPU readback/load evidence
+are recorded in [URL hint qualification](evidence/2026-10-26-hints.md).
+There is no arbitrary-regex hint configuration, custom command execution,
+Unicode URI support or file/custom-scheme activation.
 
 ## Truecolour decision
 
