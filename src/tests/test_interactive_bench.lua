@@ -87,6 +87,11 @@ return {
     end
     terminal:write("\27[2;3r\27[2;1H" .. string.rep("background\r\n", 12))
     Assert.equal(Interactive.visible_sequence(state), 1)
+    terminal:write("\27[1;1H\27[2K\27[1;12HACK0001")
+    Assert.equal(Interactive.visible_sequence(state), nil)
+    Assert.equal(Interactive.visible_sequence(state, 11), 1)
+    Assert.equal(Interactive.visible_sequence(state, -1), nil)
+    Assert.equal(Interactive.visible_sequence(state, 19), nil)
     terminal:write("\27]2;kiwi-bench-ack:99999\7")
     Assert.equal(Interactive.visible_sequence(state), nil)
     terminal:close()

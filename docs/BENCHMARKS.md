@@ -693,9 +693,10 @@ history ring and row eviction under native rendering, use:
 ```
 
 History mode scrolls the full primary screen from the bottom, then repaints the
-current numbered acknowledgment at the top after each bounded output batch.
-This intentionally puts occasional acknowledgment rows into history alongside
-styled Unicode output. It requires saturated mode, a sustained duration and a
+current numbered acknowledgment at the top right between lines. Repainting only
+at batch boundaries can lose the marker within one PTY read, before the parent
+can observe it. Retained rows include the marker in the final nine columns
+alongside the background text; this is controlled fixture output. It requires saturated mode, a sustained duration and a
 positive history capacity. The benchmark accepts capacities up to 100,000 rows;
 this is an experiment bound, not the product configuration maximum. CI's
 one-minute soaks use the default 2,000-row history capacity on each host.

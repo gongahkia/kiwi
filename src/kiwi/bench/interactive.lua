@@ -14,15 +14,17 @@ local function time(value)
   return value
 end
 
-function Interactive.visible_sequence(state)
+function Interactive.visible_sequence(state, column)
   if (state.history_offset or 0) ~= 0 then return nil end
+  column = column or 0
+  if not integer(column, 0, state.columns - 1) then return nil end
   local sequence = state.title == "kiwi-bench-ready" and 0
     or tonumber((state.title or ""):match("^kiwi%-bench%-ack:(%d+)$"))
   if not integer(sequence, 0, 288) then return nil end
   local expected = sequence == 0 and "READY0000" or string.format("ACK%04d", sequence)
-  if state.columns < #expected then return nil end
-  for column = 0, #expected - 1 do
-    if state:get(column, 0).glyph ~= expected:sub(column + 1, column + 1) then return nil end
+  if state.columns < column + #expected then return nil end
+  for offset = 0, #expected - 1 do
+    if state:get(column + offset, 0).glyph ~= expected:sub(offset + 1, offset + 1) then return nil end
   end
   return sequence
 end

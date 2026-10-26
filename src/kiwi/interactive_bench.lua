@@ -74,7 +74,9 @@ Pty.read_available = function(self, ...)
 end
 -- A PTY read may split the header/text. Only complete matching visible text
 -- acknowledges input; the header precedes it so its last byte causes damage.
-local sequence = Interactive.visible_sequence
+local function sequence(state)
+  return Interactive.visible_sequence(state, scroll_mode == "history" and state.columns - 9 or 0)
+end
 Terminal.write = function(self, bytes)
   local result = originals.write(self, bytes)
   local acknowledged = sequence(Terminal.state(self))
