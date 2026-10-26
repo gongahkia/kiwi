@@ -11,6 +11,12 @@ continue Windows work on their Windows laptop. Do not implement Windows during
 this task; its unchecked items below are deferred and are not completion gates
 for the current non-Windows scope. All other unchecked work remains in scope.
 
+**User priority update — 2026-10-26:** prioritize desktop reliability (Wayland
+selection, real IME/accessibility, scaling, monitor transitions and suspend),
+longer load/soak tests with useful regression thresholds, and the remaining
+combined application workflows. macOS signing comes last, after those areas;
+do not let signing qualification interrupt progress on these priorities.
+
 ## Text rendering
 
 - [x] Recover bounded glyph storage after saturation without corrupting cached
