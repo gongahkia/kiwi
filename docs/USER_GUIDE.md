@@ -543,6 +543,19 @@ for the current renderer lifetime; built-in passes remain separate. See
 [RENDERER_API.md](RENDERER_API.md) for validation, lifecycle, diagnostics, and
 the complete API v1 capability boundary.
 
+## Colour emoji and fallback fonts
+
+Kiwi renders bitmap colour emoji on macOS and Linux. It uses Apple Color Emoji
+on macOS and the installed Fontconfig emoji family on Linux; install a bitmap
+font such as Ubuntu's `fonts-noto-color-emoji` package if no suitable font is
+available. Flags, skin tones and joined emoji use the font's shaping support.
+Emoji keep their artwork colours and fit within their terminal cells.
+
+Font size changes work with bitmap-only strikes. Bold and italic do not distort
+colour artwork. A missing character displays `?` without changing the text you
+copy. COLRv1 paint graphs and OpenType SVG fonts are not implemented. Details
+and limits are in [TEXT.md](TEXT.md).
+
 ## Current limits
 
 Kiwi advertises 256 indexed colours and direct RGB SGR through its
