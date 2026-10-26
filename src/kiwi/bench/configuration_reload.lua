@@ -108,11 +108,17 @@ function Bench.run(options)
         assert(#plan:abort() == 0)
         plan = nil
         collectgarbage("collect")
+        if os.getenv("KIWI_RELOAD_DIAGNOSTICS") == "1" then
+          io.stderr:write(string.format("reload sample history=%d mode=%s iteration=%d retained-heap=%.1fKiB\n",
+            history, mode, iteration, collectgarbage("count") - heap_before))
+        end
         assert(Terminal.state(terminal) == state and state.columns == 80 and state.rows == 24)
         assert(state.scrollback:size() == history, "rejected reload changed retained history")
       end
       local retained_heap = collectgarbage("count") - heap_before
-      assert(retained_heap < 4 * 1024, "repeated rejected reloads retained more than 4 MiB of Lua state")
+      assert(retained_heap < 4 * 1024, string.format(
+        "repeated rejected reloads retained %.1f KiB of Lua state (limit 4096 KiB; history=%d mode=%s)",
+        retained_heap, history, mode))
       result.cases[#result.cases + 1] = {
         mode = mode, cpu_ms = Stats.summary(cpu), wall_ms = Stats.summary(wall),
         memory = { baseline_rss_kib = baseline_rss, sampled_peak_rss_kib = peak_rss,
