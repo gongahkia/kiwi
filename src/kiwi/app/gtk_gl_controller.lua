@@ -12,6 +12,7 @@ local HostEffects = require("kiwi.app.host_effects")
 local Clipboard = require("kiwi.input.clipboard")
 local PrimarySelection = require("kiwi.input.primary_selection")
 local Composition = require("kiwi.input.composition")
+local Config = require("kiwi.config")
 local ConfigurationRuntime = require("kiwi.app.configuration_runtime")
 local ConfigurationReload = require("kiwi.app.gtk_configuration_reload")
 local FontSystem = require("kiwi.font.system")
@@ -218,6 +219,10 @@ function Controller.run_native_tabs(window, host, options)
   end
 
   local function apply_configuration(candidate, path)
+    if Config.equivalent(configuration, candidate) then
+      configuration_path, configuration.path = path, path
+      return true
+    end
     local actions = ProductActions.new(candidate.keybindings, host.keymap, host.platform)
     local plan, reason = ConfigurationReload.prepare({
       current = configuration, candidate = candidate, sessions = sessions,
@@ -472,6 +477,10 @@ function Controller.run(window, host, options)
     end
 
     local function apply_configuration(candidate, path)
+      if Config.equivalent(configuration, candidate) then
+        configuration_path, configuration.path = path, path
+        return true
+      end
       local actions = ProductActions.new(candidate.keybindings, glfw, host.platform)
       local page = { terminal = terminal, state = state, window = window, font = font,
         consumer = consumer, pty = pty, configuration = configuration }
