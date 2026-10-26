@@ -46,6 +46,8 @@ jobs:
           printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\nLD_LIBRARY_PATH=%s/lib\n' "$RUNNER_TEMP/kiwi-glfw" "$RUNNER_TEMP/kiwi-glfw" >> "$GITHUB_ENV"
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make gtk-host-check
+      - name: bound X11 primary selection transfers
+        run: CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-primary-selection
       - name: verify shader output and reloads with software Vulkan
         shell: bash
         run: |

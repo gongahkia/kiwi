@@ -229,6 +229,10 @@ test: native
 	$(LUAJIT) src/kiwi/test.lua
 
 .PHONY: test-core
+.PHONY: test-primary-selection
+test-primary-selection:
+	./script/test-primary-selection
+
 test-core:
 	$(LUAJIT) src/kiwi/test.lua --core
 	LUAJIT="$(LUAJIT)" ./script/test-cli
