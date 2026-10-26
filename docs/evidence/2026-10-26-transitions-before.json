@@ -1,0 +1,115 @@
+{
+  "status": "failed",
+  "scope": "GTK WGPU on isolated headless Sway; virtual outputs and process pause, not physical hotplug or system sleep",
+  "steps": [
+    {
+      "name": "ready",
+      "presentation": {
+        "cell_height": 21,
+        "cell_width": 11,
+        "child_columns": 116,
+        "child_rows": 41,
+        "columns": 116,
+        "drawable_height": 873,
+        "drawable_width": 1276,
+        "font_scale": 1,
+        "frames": 1,
+        "rows": 41,
+        "scale": 1,
+        "surface_height": 873,
+        "surface_width": 1276,
+        "token": "ready"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.0,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ]
+    }
+  ],
+  "failure": "desktop transition handshake timed out",
+  "last_presentation": {
+    "cell_height": 42,
+    "cell_width": 22,
+    "child_columns": 46,
+    "child_rows": 16,
+    "columns": 46,
+    "drawable_height": 693,
+    "drawable_width": 1020,
+    "font_scale": 2,
+    "frames": 21,
+    "rows": 16,
+    "scale": 2,
+    "surface_height": 693,
+    "surface_width": 1020,
+    "token": "fractional"
+  },
+  "input_hex": "6672616374696f6e616c0d",
+  "last_outputs": [
+    {
+      "name": "HEADLESS-1",
+      "active": true,
+      "scale": 1.25,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1024,
+        "height": 720
+      },
+      "current_mode": {
+        "width": 1280,
+        "height": 900,
+        "refresh": 0
+      },
+      "power": true
+    },
+    {
+      "name": "HEADLESS-2",
+      "active": true,
+      "scale": 2.0,
+      "rect": {
+        "x": 1280,
+        "y": 0,
+        "width": 800,
+        "height": 500
+      },
+      "current_mode": {
+        "width": 1600,
+        "height": 1000,
+        "refresh": 0
+      },
+      "power": true
+    }
+  ]
+}
