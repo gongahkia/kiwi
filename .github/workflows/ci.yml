@@ -38,7 +38,7 @@ jobs:
           sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server at-spi2-core dbus-daemon fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
-          sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1
+          sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1 sway wl-clipboard wtype
           sudo install -d -m 0755 /run/sshd
       - name: build required GLFW with X11 and Wayland
         run: |
@@ -48,6 +48,8 @@ jobs:
         run: make check test-applications test-ssh-applications && make gtk-host-check
       - name: bound X11 primary selection transfers
         run: CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-primary-selection test-main-context-watch
+      - name: bound asynchronous GTK primary selection transfers
+        run: ASAN_OPTIONS=detect_leaks=0 CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-gtk-primary
       - name: verify shader output and reloads with software Vulkan
         shell: bash
         run: |
@@ -76,6 +78,7 @@ jobs:
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl-tabs.log
+          ./script/gtk-primary-wayland-smoke 2>&1 | tee .build/appearance-evidence/primary-wayland.log
       - name: upload interactive application evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
