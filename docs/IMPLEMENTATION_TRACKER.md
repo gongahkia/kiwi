@@ -30,7 +30,7 @@ do not let signing qualification interrupt progress on these priorities.
 ## Common applications
 
 - [x] Reproduce and close the recorded tmux protocol qualification failures.
-- [ ] Exercise real tmux, Neovim, Vim, shells, SSH, pagers, and full-screen
+- [x] Exercise real tmux, Neovim, Vim, shells, SSH, pagers, and full-screen
       monitoring tools, including resize, alternate screens, queries and input.
 - [x] Automate local PTY workflows for Bash/Zsh, Vim/Neovim, tmux, nested Neovim,
       less and system top, with saved-file assertions and replay verification.
@@ -799,3 +799,20 @@ The broader desktop gate remains open: other engines and compositors, Cocoa
 IME, actual screen readers, monitor/scaling transitions and suspend/resume.
 Longer load/soak qualification and remaining combined application workflows
 also remain required. macOS signing remains last; Windows remains deferred.
+
+
+### 2026-10-26 combined applications and sustained load
+
+Combined shell/editor/pager/query workflows now pass locally and through tmux
+and authenticated loopback SSH. Linux passed all 11 local and six SSH cases;
+macOS passed the ten installed local applications/cases and all six SSH cases,
+with missing fish recorded as a failure rather than skipped. See
+[combined evidence](evidence/2026-10-26-combined-workflows.md).
+
+Saturated styled-Unicode native presentation passed a ten-minute GLFW run and
+a one-minute GTK run on Linux software Vulkan, with bounded post-warmup resource
+observations and unchanged two-second response ceilings. CI now includes sustained
+runs and a strict comparable-evidence budget checker is implemented. The broader
+performance gate stays open: full scrollback/longer retention, controlled relative
+measurements, hardware drivers and uninterrupted macOS visibility still need
+qualification. [Results and failures](evidence/2026-10-26-sustained-load.md).

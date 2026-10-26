@@ -155,10 +155,13 @@ The repository has an Intel macOS GitHub Actions qualification job on
 `macos-15-intel` and a manually dispatched self-hosted `kiwi-desktop` Linux
 workflow. A successful run is required evidence, not an implicit support claim.
 Recorded macOS evidence now also includes the bounded Intel startup/native
-checks from 2026-10-25. The separate `make test-applications` gate adds eight
-local PTY workflows with edited-file assertions and chunk-invariant recordings;
-see [TESTING.md](TESTING.md). Those results do not replace physical desktop or
-SSH qualification, and current Linux execution of the new gates remains open.
+checks from 2026-10-25. The separate `make test-applications` gate now has eleven
+local PTY workflows, and `make test-ssh-applications` has six authenticated
+loopback cases, including combined editor/pager/query sessions. Linux passed all
+cases; macOS passed all six SSH cases and ten local cases, with missing fish
+recorded as a failure. See [results](evidence/2026-10-26-combined-workflows.md) and
+[TESTING.md](TESTING.md). Physical desktop input, representative remote networks
+and remote operating systems remain separate qualification requirements.
 
 ## Current qualification observations
 
