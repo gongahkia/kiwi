@@ -85,20 +85,23 @@ user-visible behavior. A GPU backend alone establishes neither speed nor parity.
 
 ## Scheduler ownership and limits
 
-Each live native window owns one readiness worker watching up to 64 PTYs plus
-one configuration event descriptor. The
-worker polls readable/closed descriptors and posts a host event once per arm.
+Each live native window owns one readiness worker watching up to 64 PTYs,
+64 child-exit descriptors and one configuration event descriptor. The
+worker polls read/close readiness, plus write readiness for buffered input,
+and posts a host event once per arm.
 It never reads terminal bytes, runs Lua, accesses terminal state or touches GPU
 objects. The UI thread rearms it before waiting, drains bounded output, parses
 and renders. Destruction joins the worker before native host termination.
 
 A closed or replaced descriptor can produce a harmless stale wake; the UI
 thread rechecks its current sessions. EOF PTYs are excluded on the next arm.
-The fallback wait remains bounded at 50 ms visible / 250 ms minimized; pending
-writes and system-appearance checks still use these turns. The GTK pump now
-waits on its main context with a timeout source instead of unconditional sleep.
-Further idle-energy reductions require measuring and scheduling those remaining
-polling responsibilities, not removing the fallback blindly.
+Live sessions now wait for events or explicit deadlines, including indefinitely
+when quiet. A child without native exit-watch support retains a 50 ms visible /
+250 ms minimized reaping fallback. Linux GLFW bridges GLib readiness and timers,
+with a 50 ms fallback for unsupported descriptor sets; GTK waits on its main
+context. Quiet-window and indefinite-wait regressions run in CI. This establishes
+event-driven scheduling, not an idle-energy or latency advantage; see
+[ADR 0045](adr/0045-event-driven-host-waits.md) and its recorded limitations.
 
 The native watcher tests cover one-shot behavior, rearming unread output,
 replacement, EOF, invalid bounds and repeated shutdown. The host smoke supplies
