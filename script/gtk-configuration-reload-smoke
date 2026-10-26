@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import os
+from pathlib import Path
+import subprocess
+
+os.chdir(Path(__file__).resolve().parent.parent)
+environment = dict(os.environ, KIWI_HOST="gtk", KIWI_GTK_PRESENTER="gl",
+                   KIWI_LAYOUT_PERSISTENCE="0", KIWI_LAYOUT_RESTORE="0",
+                   LUA_PATH="src/?.lua;src/?/init.lua;;")
+for tabs in ("0", "1"):
+    environment["KIWI_GTK_NATIVE_TABS"] = tabs
+    subprocess.run([os.environ.get("LUAJIT", "luajit"), "src/kiwi/gtk_configuration_reload_smoke.lua"],
+                   env=environment, check=True, timeout=35)

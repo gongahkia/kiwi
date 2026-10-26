@@ -342,6 +342,10 @@ test-file-watch:
 configuration-reload-smoke: native terminfo
 	./script/configuration-reload-smoke
 
+.PHONY: gtk-configuration-reload-smoke
+gtk-configuration-reload-smoke: native gtk-host terminfo
+	LUAJIT="$(LUAJIT)" ./script/gtk-configuration-reload-smoke
+
 pty-wake-smoke: native
 	LUAJIT="$(LUAJIT)" ./script/pty-wake-smoke
 
