@@ -208,9 +208,10 @@ function Hints:append(state, text)
   text = text:lower()
   if not text:match("^[a-z]+$") or #self.prefix + #text > 2 then return false end
   local before = self.prefix
-  self.prefix, self.selected = before .. text, nil
+  self.prefix = before .. text
   local labels = self:labels(state)
   if #labels == 0 then self.prefix = before; return false end
+  self.selected = nil
   if #labels == 1 and labels[1].code == self.prefix then self.selected = labels[1].index end
   self:changed(); return true
 end
