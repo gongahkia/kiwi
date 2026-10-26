@@ -143,5 +143,10 @@ return {
     Assert.equal(Config.parse("primary-selection = true").primary_selection, true)
     Assert.equal(Config.parse("").primary_selection, true)
     Assert.equal(pcall(Config.parse, "primary-selection = maybe"), false)
+    local configured = Config.apply_environment(Config.parse(""), function(name)
+      if name == "KIWI_PRIMARY_SELECTION" then return "false" end
+    end)
+    Assert.equal(configured.primary_selection, false)
+    Assert.equal(Config.equivalent(configured, Config.parse("")), false)
   end,
 }
