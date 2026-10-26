@@ -24,7 +24,7 @@ def binary(name):
 
 
 def main():
-    executables = {name: binary(name) for name in ("sshd", "ssh", "ssh-keygen", "bash", "nvim", "tmux", "luajit")}
+    executables = {name: binary(name) for name in ("sshd", "ssh", "ssh-keygen", "bash", "nvim", "tmux", "luajit", "less")}
     artifacts = Path(os.environ.get("KIWI_INTERACTIVE_ARTIFACTS", ROOT / ".build/ssh-application-evidence")).resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     account = pwd.getpwuid(os.getuid())
@@ -59,8 +59,9 @@ set -eu
 cd {q(str(work))}
 export PS1='KIWI> '
 case "$SSH_ORIGINAL_COMMAND" in
-  shell) exec {q(executables['bash'])} --noprofile --norc -i ;;
+  shell|workflow) exec {q(executables['bash'])} --noprofile --norc -i ;;
   nvim) exec {editor} ;;
+  tmux-workflow) exec {q(executables['tmux'])} -S {q(str(work / 'ssh-tmux.sock'))} -f {q(str(work / 'tmux.conf'))} new-session -s kiwi-ssh {q(executables['bash'])} --noprofile --norc -i ;;
   tmux-nvim) exec {q(executables['tmux'])} -S {q(str(work / 'ssh-tmux.sock'))} -f {q(str(work / 'tmux.conf'))} new-session -s kiwi-ssh {editor} ;;
   hangup) exec {q(binary('python3'))} {q(str(work / 'hangup.py'))} ;;
   *) exit 64 ;;
@@ -127,9 +128,9 @@ ForceCommand /bin/sh {q(str(child))}
                 env = dict(os.environ, KIWI_ROOT=str(ROOT), KIWI_INTERACTIVE_WORK=str(work),
                     KIWI_INTERACTIVE_ARTIFACTS=str(artifacts), KIWI_INTERACTIVE_SSH=str(wrapper),
                     KIWI_INTERACTIVE_SSH_VERSION=(version.stdout + version.stderr).strip(),
-                    KIWI_INTERACTIVE_APPS="ssh-shell,ssh-nvim,ssh-tmux-nvim,ssh-hangup",
+                    KIWI_INTERACTIVE_APPS="ssh-shell,ssh-nvim,ssh-tmux-nvim,ssh-hangup,ssh-workflow,ssh-tmux-workflow",
                     LUA_PATH=str(ROOT / "src/?.lua") + ";" + str(ROOT / "src/?/init.lua") + ";;")
-                result = subprocess.run([executables["luajit"], "src/kiwi/compatibility/interactive.lua"], cwd=ROOT, env=env, timeout=180)
+                result = subprocess.run([executables["luajit"], "src/kiwi/compatibility/interactive.lua"], cwd=ROOT, env=env, timeout=300)
                 if result.returncode:
                     log.seek(0)
                     print("Isolated SSH server diagnostics:\n" + log.read()[-4000:], file=sys.stderr)
