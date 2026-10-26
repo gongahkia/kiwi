@@ -15,6 +15,41 @@ local function signature(bitmap)
 end
 
 return {
+  emoji_faces_load_at_arbitrary_sizes_and_shape_joiners_and_variation_selectors = function()
+    for _, size in ipairs({ 17, 23, 37 }) do
+      local system = System.new({ pixel_height = size })
+      for _, text in ipairs({ "😀", "❤️", "👩‍💻", "🇸🇬", "👍🏽" }) do
+        local codepoints = {}
+        local Utf8 = require("kiwi.terminal.utf8")
+        local decoder = Utf8.Decoder.new(function(codepoint) codepoints[#codepoints + 1] = codepoint end)
+        for index = 1, #text do decoder:feed_byte(text:byte(index)) end
+        for _, flags in ipairs({ 0, 1, 16, 17 }) do
+          local face = assert(system:face_for_cluster(codepoints, flags), text)
+          local shaped = face:shape(text)
+          Assert.equal(#shaped, 1, "emoji sequence should shape as one glyph: " .. text)
+          local bitmap = face:rasterize(shaped[1].glyph_id)
+          Assert.equal(bitmap.pixel_mode, face.native.pixel_mode_bgra)
+          Assert.truthy(bitmap.width > 0 and bitmap.height > 0)
+          Assert.truthy(shaped[1].x_advance / 64 < size * 3)
+          Assert.equal(face.pixel_height, size)
+        end
+      end
+      system:destroy()
+    end
+  end,
+  fallback_retries_a_failed_candidate_without_losing_the_supported_face = function()
+    local system = System.new({ pixel_height = 23 })
+    local good = system.resolver:fallback({ 0x4e2d })
+    system.resolver.fallback = function()
+      local bad = { path = "/kiwi/nonexistent/font.ttf", index = 0 }
+      return bad, { bad, good }
+    end
+    local face = assert(system:face_for_cluster({ 0x4e2d }))
+    Assert.equal(face.path, good.path)
+    Assert.equal(system:face_for_cluster({ 0x4e2d }), face)
+    Assert.equal(#system.faces, 2)
+    system:destroy()
+  end,
   font_styles_choose_real_faces_when_the_family_provides_them = function()
     local family = ffi.os == "OSX" and "Menlo" or "DejaVu Sans Mono"
     local system = System.new({ primary_family = family, pixel_height = 24 })

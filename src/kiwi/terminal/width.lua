@@ -51,6 +51,8 @@ local function emoji_width(codepoints)
   return nil
 end
 
+Width.emoji_presentation = function(codepoints) return emoji_width(codepoints) ~= nil end
+
 function Width.columns(codepoints, policy)
   assert(type(codepoints) == "table" and #codepoints > 0, "terminal width needs a non-empty cluster")
   policy = policy or Width.default_policy

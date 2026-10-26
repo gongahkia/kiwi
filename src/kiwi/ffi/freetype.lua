@@ -29,6 +29,7 @@ typedef void (*FT_Generic_Finalizer)(void* object);
 typedef struct { void* data; FT_Generic_Finalizer finalizer; } FT_Generic;
 typedef struct { FT_Pos xMin; FT_Pos yMin; FT_Pos xMax; FT_Pos yMax; } FT_BBox;
 typedef struct { FT_Pos x; FT_Pos y; } FT_Vector;
+typedef struct { FT_Short height; FT_Short width; FT_Pos size; FT_Pos x_ppem; FT_Pos y_ppem; } FT_Bitmap_Size;
 typedef struct { FT_UShort x_ppem; FT_UShort y_ppem; FT_Fixed x_scale; FT_Fixed y_scale; FT_Pos ascender; FT_Pos descender; FT_Pos height; FT_Pos max_advance; } FT_Size_Metrics;
 typedef struct { FT_Pos width; FT_Pos height; FT_Pos horiBearingX; FT_Pos horiBearingY; FT_Pos horiAdvance; FT_Pos vertBearingX; FT_Pos vertBearingY; FT_Pos vertAdvance; } FT_Glyph_Metrics;
 typedef struct { FT_UInt rows; FT_UInt width; FT_Int pitch; FT_Byte* buffer; FT_UShort num_grays; FT_Byte pixel_mode; FT_Byte palette_mode; void* palette; } FT_Bitmap;
@@ -36,7 +37,7 @@ typedef struct { FT_Short n_contours; FT_Short n_points; FT_Vector* points; FT_B
 typedef struct { void* head; void* tail; } FT_ListRec;
 typedef struct FT_FaceRec_ {
   FT_Long num_faces; FT_Long face_index; FT_Long face_flags; FT_Long style_flags; FT_Long num_glyphs;
-  FT_String* family_name; FT_String* style_name; FT_Int num_fixed_sizes; void* available_sizes;
+  FT_String* family_name; FT_String* style_name; FT_Int num_fixed_sizes; FT_Bitmap_Size* available_sizes;
   FT_Int num_charmaps; FT_CharMap* charmaps; FT_Generic generic; FT_BBox bbox;
   FT_UShort units_per_EM; FT_Short ascender; FT_Short descender; FT_Short height;
   FT_Short max_advance_width; FT_Short max_advance_height; FT_Short underline_position; FT_Short underline_thickness;
@@ -57,6 +58,7 @@ FT_Error FT_New_Face(FT_Library library, const char* filepathname, FT_Long face_
 FT_Error FT_Done_Face(FT_Face face);
 FT_Error FT_Reference_Face(FT_Face face);
 FT_Error FT_Set_Pixel_Sizes(FT_Face face, FT_UInt pixel_width, FT_UInt pixel_height);
+FT_Error FT_Select_Size(FT_Face face, FT_Int strike_index);
 FT_Error FT_Load_Char(FT_Face face, FT_ULong char_code, FT_Int32 load_flags);
 FT_Error FT_Load_Glyph(FT_Face face, FT_UInt glyph_index, FT_Int32 load_flags);
 FT_Error FT_Render_Glyph(FT_GlyphSlot slot, int render_mode);
