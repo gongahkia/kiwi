@@ -29,6 +29,12 @@ static gboolean dispatched(void *userdata) {
   return G_SOURCE_REMOVE;
 }
 
+static gboolean readable_source(gint descriptor, GIOCondition condition, gpointer userdata) {
+  char byte;
+  assert((condition & G_IO_IN) != 0 && read(descriptor, &byte, 1) == 1 && byte == 'x');
+  return dispatched(userdata);
+}
+
 static void *attach_after_delay(void *userdata) {
   Fixture *fixture = userdata;
   struct timespec delay = { .tv_nsec = 50000000 };
@@ -88,6 +94,28 @@ int main(void) {
   g_source_unref(timer);
   kiwi_main_context_watch_dispatch(watch);
   assert(kiwi_main_context_watch_prepare(watch, 2.0) == 2.0);
+
+  int source_pipe[2];
+  assert(pipe(source_pipe) == 0);
+  GSource *input = g_unix_fd_source_new(source_pipe[0], G_IO_IN);
+  g_source_set_callback(input, G_SOURCE_FUNC(readable_source), &fixture, NULL);
+  g_source_attach(input, fixture.context);
+  kiwi_main_context_watch_dispatch(watch);
+  assert(kiwi_main_context_watch_prepare(watch, 2.0) == 2.0);
+  assert(write(source_pipe[1], "x", 1) == 1);
+  await_dispatch(watch, &fixture, events[0], 3);
+  g_source_unref(input);
+  close(source_pipe[0]); close(source_pipe[1]);
+  int quiet = 0;
+  for (int attempt = 0; attempt < 4; ++attempt) {
+    kiwi_main_context_watch_dispatch(watch);
+    assert(kiwi_main_context_watch_prepare(watch, 0.030) == 0.030);
+    int ready = poll(&event, 1, 30);
+    assert(ready >= 0);
+    drain(events[0]);
+    if (ready == 0) { quiet = 1; break; }
+  }
+  assert(quiet); /* Rearming a quiet context must not create its own wake loop. */
 
   /* Installed sources may exceed the fixed descriptor budget. Fall back
    * without truncating the set or leaving an old, constantly-ready watch. */

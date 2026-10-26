@@ -35,7 +35,7 @@ jobs:
       - name: install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
+          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server at-spi2-core dbus-daemon fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
           sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1
@@ -47,7 +47,7 @@ jobs:
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make gtk-host-check
       - name: bound X11 primary selection transfers
-        run: CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-primary-selection
+        run: CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-primary-selection test-main-context-watch
       - name: verify shader output and reloads with software Vulkan
         shell: bash
         run: |
@@ -62,6 +62,7 @@ jobs:
           xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
           KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a make color-glyph-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-wgpu.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl xvfb-run -a make color-glyph-smoke gtk-gl-area-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-gl.log
+          ./script/main-context-wake-smoke 2>&1 | tee .build/appearance-evidence/glib-atspi-readiness.log
           ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log

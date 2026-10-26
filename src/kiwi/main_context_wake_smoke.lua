@@ -33,6 +33,13 @@ local ok, message = xpcall(function()
     window:watch_ptys({})
     child:shutdown(); child = nil
   end
+  local quiet = false
+  for _ = 1, 10 do
+    local started = window:time()
+    window:wait_events(0.1)
+    if window:time() - started >= 0.08 then quiet = true; break end
+  end
+  assert(quiet, "GLib readiness created a self-sustaining idle wake loop")
   print(string.format("GLFW accessibility readiness smoke passed: five native AT-SPI text queries, maximum %.1f ms with a 2000 ms host timeout and no provider polling.", maximum_ms))
 end, debug.traceback)
 if child then child:shutdown() end
