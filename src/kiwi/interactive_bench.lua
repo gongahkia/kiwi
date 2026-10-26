@@ -7,6 +7,7 @@ local Terminal = require("kiwi.session.terminal")
 local Pty = require("kiwi.process.pty")
 local Compositor = require("kiwi.renderer.compositor")
 local gtk = os.getenv("KIWI_HOST") == "gtk"
+local keep_visible = os.getenv("KIWI_INTERACTIVE_BENCH_KEEP_VISIBLE") == "1"
 local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
 local Window = require(gtk and "kiwi.platform.gtk_window" or "kiwi.platform.window")
 assert(Host.presentation_backend ~= "gtk-gl", "interactive benchmark currently requires WGPU presentation")
@@ -27,6 +28,7 @@ local originals = { new_terminal = Terminal.new, write = Terminal.write, read = 
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local failure_state
+local invalid_measurement
 local presentation = { attempts = 0, successful = 0, failures = {} }
 local last_compositor, last_entries
 local deadline = measurement.launched_at + trial_timeout
@@ -35,6 +37,15 @@ assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement require
 Terminal.new = function(...) live = originals.new_terminal(...); return live end
 Window.new = function(_, _, title, options)
   window = originals.new_window(800, 480, title, options)
+  if keep_visible then
+    local ffi = require("ffi")
+    assert(not gtk and ffi.os == "OSX", "floating benchmark requires macOS GLFW")
+    ffi.cdef[[void glfwSetWindowAttrib(GLFWwindow* window, int attrib, int value);]]
+    local glfw = require("kiwi.ffi.glfw")
+    local floating = 0x00020007 -- GLFW_FLOATING, GLFW 3.4 public header.
+    glfw.lib.glfwSetWindowAttrib(window.handle, floating, 1)
+    assert(glfw.lib.glfwGetWindowAttrib(window.handle, floating) == 1, "benchmark window did not become floating")
+  end
   return window
 end
 Pty.read_available = function(self, ...)
@@ -62,6 +73,10 @@ Compositor.render = function(self, entries, ...)
     local label = tostring(reason or "unspecified"):sub(1, 128)
     presentation.failures[label] = (presentation.failures[label] or 0) + 1
     presentation.last_failure_reason, presentation.last_failure_at = label, now
+    if measurement.ready_at and (reason == "surface occluded" or reason == "zero-sized drawable") then
+      invalid_measurement = "visible-window measurement interrupted: " .. reason
+      error(invalid_measurement)
+    end
   end
   if rendered then
     presentation.successful = presentation.successful + 1
@@ -105,6 +120,10 @@ Compositor.render = function(self, entries, ...)
 end
 Host.await_events = function(application, current_window, timeout)
   local now = Metrics.monotonic_seconds()
+  if measurement.ready_at and current_window.minimized then
+    invalid_measurement = "visible-window measurement interrupted: window minimized"
+    error(invalid_measurement)
+  end
   if now >= deadline then
     error(string.format("interactive fixture exceeded its %.0f-second deadline: ready=%s sent=%d completed=%d output=%d title=%s",
       trial_timeout, tostring(measurement.ready_at), measurement.sent, measurement.completed, output_bytes, tostring(Terminal.state(live).title)))
@@ -154,11 +173,13 @@ local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")), requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
-  traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout }
+  traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout,
+  floating_window = keep_visible }
 metadata.methodology = nil -- The enclosing report specifies this fixture's clocks and boundaries.
 metadata.native_adapter = adapter
 local result = { schema_version = 1, metadata = metadata, measurement = report,
-  status = ok and measurement:done() and "complete" or "failed", failure = not ok and tostring(message):sub(1, 4096) or nil }
+  status = invalid_measurement and "invalid" or ok and measurement:done() and "complete" or "failed",
+  failure = invalid_measurement or not ok and tostring(message):sub(1, 4096) or nil }
 result.presentation = presentation
 local encoded = Json.encode(result)
 assert(#encoded <= 128 * 1024, "interactive trial report exceeded 128 KiB")

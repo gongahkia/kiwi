@@ -45,7 +45,10 @@ parser.add_argument("--soak-seconds", type=float, default=0,
 parser.add_argument("--max-rss-growth-mib", type=float, default=64)
 parser.add_argument("--max-heap-growth-mib", type=float, default=16)
 parser.add_argument("--max-rss-mib", type=float, default=1024)
+parser.add_argument("--keep-visible", action="store_true", help="float the owned benchmark window above normal windows (macOS GLFW only)")
 args = parser.parse_args()
+if args.keep_visible and (sys.platform != "darwin" or os.environ.get("KIWI_HOST") == "gtk"):
+    parser.error("--keep-visible requires the macOS GLFW host")
 if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup <= 32
         and 0 <= args.interval_ms <= 1000 and 1 <= args.read_budget <= 1024 * 1024):
     parser.error("counts/interval exceed supported bounds")
@@ -100,13 +103,14 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
                 KIWI_INTERACTIVE_BENCH_INTERVAL=str(interval), KIWI_INTERACTIVE_BENCH_TIMEOUT=str(trial_timeout),
-                KIWI_INTERACTIVE_BENCH_SOAK=str(args.soak_seconds))
+                KIWI_INTERACTIVE_BENCH_SOAK=str(args.soak_seconds), KIWI_INTERACTIVE_BENCH_KEEP_VISIBLE="1" if args.keep_visible else "0")
     for mode in modes:
         for trial in range(1, args.trials + 1):
             output = temporary / "trial.json"
             output.unlink(missing_ok=True)
             environment = dict(base, KIWI_INTERACTIVE_BENCH_MODE=mode, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(output))
             log = logs / f"{mode}-{trial}.log"
+            item = None
             with log.open("w") as stream:
                 environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(time.CLOCK_MONOTONIC))
                 try:
@@ -130,7 +134,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                             assert math.isfinite(growth) and growth <= maximum * 1024, f"{name} growth {growth / 1024:.1f} MiB exceeds {maximum} MiB"
                         assert item["measurement"]["sampled_peak_rss_kib"] <= args.max_rss_mib * 1024, "sampled peak RSS exceeded its budget"
                 except Exception as error:
-                    result["status"] = "failed"
+                    result["status"] = "invalid" if item and item.get("status") == "invalid" else "failed"
                     result["failure"] = dict(mode=mode, trial=trial, log=str(log), reason=str(error)[:1024])
                     write_report(report_path, result)
                     print(f"Interactive trial failed; log: {log}", file=sys.stderr)
