@@ -40,7 +40,8 @@ Host.await_events = function(application, window, timeout)
   await(application, window, timeout)
   local now, state = window:time(), Terminal.state(live)
   started = started or now
-  assert(now - started < 25, "URL hint smoke timed out at stage " .. stage)
+  assert(now - started < 25, string.format("URL hint smoke timed out at stage %d: status=%s matches=%d rendered=%s title=%s",
+    stage, state.hints.status, #state.hints.matches, tostring(renderer.hint_count), tostring(title)))
   maximum = math.max(maximum, state.hints.last_step_work or 0); assert(maximum <= 4096)
   if stage == 0 and state.title == "hints-fixture-ready" then
     flags = state.modes.keyboard_flags
@@ -59,8 +60,10 @@ Host.await_events = function(application, window, timeout)
   elseif stage == 1 then
     ticks = ticks + 1
     if not state:hints_pending() then
-      assert(#state.hints.matches == 3 and renderer.hint_count == 3, "visible labels did not reach rendering")
-      assert(title:find("3 links", 1, true))
+      assert(#state.hints.matches == 3, "visible URL discovery failed: " .. state.hints.status)
+      -- Model work can finish on a tick before the frame limiter permits its
+      -- upload. Wait for the renderer and host title, with the deadline above.
+      if renderer.hint_count ~= 3 or not title:find("3 links", 1, true) then return end
       text(window, "s"); assert(#opened == 0, "typing a label opened it without Enter")
       key(window, keys.key_enter, keys.press); key(window, keys.key_enter, keys.repeat_action); key(window, keys.key_enter, keys.release)
       assert(#opened == 1 and opened[1] == "https://actual.example/target")
@@ -79,7 +82,7 @@ Host.await_events = function(application, window, timeout)
     assert(#opened == 1 and state.hints.status == "output-changed")
     stage = 4
   elseif stage == 4 then
-    assert(title:find("output changed", 1, true))
+    if not title:find("output changed", 1, true) then return end
     key(window, keys.key_escape, keys.press); key(window, keys.key_escape, keys.repeat_action); key(window, keys.key_escape, keys.release)
     live:write("\27[<u")
     if not gtk then
