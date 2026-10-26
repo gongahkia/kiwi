@@ -27,6 +27,7 @@ local ok, message = xpcall(function()
   glyph[0].u1 = 1
   glyph[0].v1 = 1
   glyph[0].fg = 0xffffffff
+  glyph[0].flags = 0x20000000 -- intrinsic RGBA glyph colour
   glyph[0].glyph = 1
   local atlas = ffi.new("uint8_t[4]", { 255, 0, 0, 255 })
   local frame = ffi.new("KiwiFrameUniform[1]")
@@ -87,6 +88,29 @@ local ok, message = xpcall(function()
     "GTK GL renderer did not use a cell subrange upload for the incremental snapshot")
   assert(state.cell_subrange_bytes == subrange_bytes + ffi.sizeof("KiwiGlyphInstance"),
     "GTK GL renderer did not report the expected incremental cell byte count")
+
+  local function color_count(revision, red, green, blue)
+    local deadline = window:time() + 5
+    repeat
+      window:wait_events(0.01)
+      local rendered = assert(window:gl_area_state())
+      if rendered.rendered_revision == revision then
+        local count, status = window:gl_area_count_rgb(red, green, blue, 4)
+        if count then return count end
+        assert(status == "pending", status)
+      end
+    until window:time() >= deadline
+    error("GTK GL atlas replacement readback timed out")
+  end
+  assert(color_count(3, 255, 0, 0) > 100, "initial atlas colour did not reach the framebuffer")
+  local replacement_atlas = ffi.new("uint8_t[4]", { 0, 0, 255, 255 })
+  assert(window:submit_gl_area_snapshot({
+    cell_updates = {}, cell_count = 1, frame = frame, glyph_count = 1, resource_flags = 4,
+    atlas_pixels = replacement_atlas, atlas_bytes = 4, atlas_width = 1, atlas_height = 1,
+    atlas_generation = 0, revision = 4,
+  }))
+  assert(color_count(4, 0, 0, 255) > 100,
+    "replacement font atlas reused the old texture when its generation matched")
 
   local tabbed
   tabbed, reason = window:enable_native_tabs()
