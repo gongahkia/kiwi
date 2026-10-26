@@ -396,6 +396,10 @@ function Actions.new(configured, keymap, platform)
     end
   end
   for _, specification in ipairs(default_specs) do apply(specification, "default") end
+  if platform == "Linux" or platform == "GTK" then
+    apply("shift+insert=paste-primary", "Linux default")
+    apply("ctrl+shift+insert=copy-primary", "Linux default")
+  end
   if platform == "OSX" then
     for _, specification in ipairs({
       "cmd+shift+p=command-palette", "cmd+t=new-tab", "cmd+n=new-window", "cmd+w=close-pane",

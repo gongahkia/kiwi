@@ -86,6 +86,11 @@ function Vi:reveal(state, center)
   elseif row >= top + state.rows then viewport(state, row - state.rows + 1) end
 end
 
+function Vi:selection_completed(state)
+  self.primary_revision = (self.primary_revision or 0) + 1
+  self.primary_generation = state.search_generation
+end
+
 function Vi:update_selection(state, defer)
   self.selection_job = nil
   if not self.visual or not self.anchor then return end
@@ -97,6 +102,7 @@ function Vi:update_selection(state, defer)
     local right = math.max(a.column + width(arow, a.column), b.column + width(brow, b.column))
     a.column, b.column = left, math.min(state.columns, right)
     state.selection:set(self.scope, a, b, document, state.columns, "block")
+    self:selection_completed(state)
     return
   end
   if a.row_index > b.row_index or (a.row_index == b.row_index and a.column > b.column) then a, b, arow, brow = b, a, brow, arow end
@@ -113,6 +119,7 @@ function Vi:update_selection(state, defer)
   end
   b.column = math.min(state.columns, b.column + width(brow, b.column))
   state.selection:set(self.scope, a, b, document, state.columns)
+  self:selection_completed(state)
 end
 
 function Vi:step_selection(state, budget)
@@ -158,6 +165,7 @@ function Vi:step_selection(state, budget)
       else
         self.selection_job, self.status = nil, "normal"
         state.selection:set(self.scope, job.first, job.last, document, state.columns)
+        self:selection_completed(state)
       end
     end
   end

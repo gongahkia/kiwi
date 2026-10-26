@@ -175,7 +175,7 @@ int kiwi_cocoa_key_variants(int scancode, uint32_t *layout_key, uint32_t *shifte
 }
 
 static BOOL kiwi_cocoa_menu_action_is_valid(uint32_t action) {
-  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_ACTION_COPY_URL_HINTS;
+  return action >= KIWI_COCOA_MENU_NEW_TAB && action <= KIWI_ACTION_PASTE_PRIMARY;
 }
 
 static NSValue *kiwi_cocoa_menu_window_key(GLFWwindow *window) {

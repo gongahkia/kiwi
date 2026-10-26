@@ -166,7 +166,7 @@ function Controller.run_native_tabs(window, host, options)
   assert(enabled, "GTK native tabs could not be enabled: " .. tostring(enable_reason))
   local tab_group = GtkNativeTabGroup.new(window)
   local sessions = tab_group.sessions
-  local product_actions = ProductActions.new(configuration.keybindings, host.keymap)
+  local product_actions = ProductActions.new(configuration.keybindings, host.keymap, host.platform)
   local action_dispatcher
   local started_at = window:time()
   local max_seconds = number_from_env("KIWI_MAX_SECONDS", 0)
@@ -235,7 +235,7 @@ function Controller.run_native_tabs(window, host, options)
     perform_terminal_action = function(action)
       local session = action_dispatcher.current_session or sessions[1]
       local changed, reason = Interaction.terminal(action, session.state, session.clipboard,
-        function(bytes) session:_enqueue_input(bytes) end)
+        function(bytes) session:_enqueue_input(bytes) end, session.primary_selection, session.configuration.primary_selection)
       if changed then session:_invalidate("search") end
       return changed, reason
     end,
@@ -409,10 +409,11 @@ function Controller.run(window, host, options)
 
     terminal = new_terminal(columns, rows)
     local state = Terminal.state(terminal)
+    primary_selection:focus(state)
     pty = spawn_child(options.command, columns, rows)
     local clipboard = Clipboard.new(window)
     local modal_input = ModalInput.new()
-    local product_actions = ProductActions.new(configuration.keybindings, glfw)
+    local product_actions = ProductActions.new(configuration.keybindings, glfw, host.platform)
     configuration.host_effects = HostEffects.new(configuration, host, window)
     local hyperlink = Hyperlink.new(window)
     local hyperlink_pointer = HyperlinkPointer.new(hyperlink, glfw)
@@ -570,7 +571,7 @@ function Controller.run(window, host, options)
       if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active or state.hints.active) then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
         if product_action and Interaction.kinds[product_action] == "terminal" then
-          Interaction.terminal(product_action, state, clipboard, enqueue_input)
+          Interaction.terminal(product_action, state, clipboard, enqueue_input, primary_selection, configuration.primary_selection)
           modal_input:claim(key)
           invalidate("search")
           return { handled = true, suppress_text = true }
@@ -627,6 +628,7 @@ function Controller.run(window, host, options)
       end
     end, function(focused)
       window_focused = focused
+      if focused then primary_selection:focus(state) end
       if focused then
         composition:enter()
       else
@@ -792,6 +794,7 @@ function Controller.run(window, host, options)
         state:navigation_step()
         if not state:navigation_pending() then invalidate("search") end
       end
+      if window_focused then primary_selection:sync_keyboard(state, configuration.primary_selection) end
       local title = ModalInput.title(state, state.title or default_title)
       if title ~= last_title then
         window:set_title(title)
