@@ -39,7 +39,10 @@ local function pointer(window, button, action, column, shift)
   end
 end
 Host.await_events = function(application, window, timeout)
-  await(application, window, timeout)
+  -- The test driver polls a private capture file and a separate selection
+  -- requester. Those are not application event sources; give the fixture its
+  -- own bounded tick instead of relying on a production fallback timer.
+  await(application, window, math.min(timeout, 0.01))
   local state, now = Terminal.state(live), window:time()
   started = started or now
   assert(now - started < 25, "primary smoke timed out at stage " .. stage .. ", status=" .. primary.status)
