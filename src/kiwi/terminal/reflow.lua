@@ -85,7 +85,9 @@ local function flush(logical, output, map, membership, old_columns, new_columns,
             segment, column = start_segment(output, segments, logical, new_row, context, length)
           end
           local cell = copy_cell(original)
-          cell.width, cell.continuation, cell.anchor_column = width, nil, nil
+          cell.width = width
+          if cell.continuation ~= nil then cell.continuation = nil end
+          if cell.anchor_column ~= nil then cell.anchor_column = nil end
           segment.row.cells[column] = cell
           if width == 2 and column + 1 < new_columns then
             local continuation = copy_cell(cell)
