@@ -121,6 +121,26 @@ function TextStress.run(options)
     peak_heap = math.max(peak_heap, collectgarbage("count"))
   end
   local recovery_cpu_ms = (os.clock() - recovery_started) * 1000
+  local color_started = os.clock()
+  local color_rounds = options.color_rounds or math.max(256, rounds)
+  for round = 1, color_rounds do
+    -- Exceed the page/entry budget with 64 emoji in four renditions. Reset
+    -- only the bounded lookup cache so negative-cache exhaustion cannot hide
+    -- an atlas recovery failure behind a missing-font placeholder.
+    if (round - 1) % 32 == 0 then system:clear_fallback_cache() end
+    local codepoint = 0x1f600 + (round - 1) % 64
+    parser:feed("\27[2J\27[H" .. rendition[math.floor((round - 1) / 64) % 4 + 1] .. Utf8.encode(codepoint))
+    local glyphs = layout:update(state)
+    assert(#glyphs == 1 and glyphs[1].cache_entry.bitmap.color and not glyphs[1].missing_reason,
+      "colour glyph cache did not recover the requested emoji")
+    local face = assert(system:face_for_cluster({ codepoint }, state:get(0, 0).flags))
+    assert(glyphs[1].glyph_id == face:glyph_index(codepoint), "colour recovery substituted the wrong glyph")
+    assert(system.glyph_cache.atlas:glyph_count() <= atlas_entries, "colour recovery exceeded the entry budget")
+    assert(system.glyph_cache.pixel_bytes == 256 * 256 * 4, "colour recovery grew the atlas allocation")
+    state.damage:clear()
+    peak_heap = math.max(peak_heap, collectgarbage("count"))
+  end
+  local color_cpu_ms = (os.clock() - color_started) * 1000
   local lifetime_glyphs = exercise_lifetimes(lifecycle_iterations)
   collectgarbage("collect")
   local heap_after = collectgarbage("count")
@@ -129,6 +149,8 @@ function TextStress.run(options)
     rounds = rounds,
     recovery_rounds = math.max(95, rounds),
     recovery_cpu_ms = recovery_cpu_ms,
+    color_rounds = color_rounds,
+    color_cpu_ms = color_cpu_ms,
     atlas_entries_limit = atlas_entries,
     atlas_entries = system.glyph_cache.atlas:glyph_count(),
     atlas_occupancy = system.glyph_cache.atlas:occupancy(),

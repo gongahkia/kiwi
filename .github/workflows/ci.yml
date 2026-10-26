@@ -59,7 +59,9 @@ jobs:
             if test -f "$kiwi_lavapipe_icd"; then export VK_ICD_FILENAMES="$kiwi_lavapipe_icd"; break; fi
           done
           test -n "${VK_ICD_FILENAMES:-}"
-          xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
+          xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
+          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a make color-glyph-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-wgpu.log
+          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl xvfb-run -a make color-glyph-smoke gtk-gl-area-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-gl.log
           ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
           KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
           KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
