@@ -70,7 +70,11 @@ Compositor.render = function(self, entries, ...)
       report.sampled_peak_rss_kib = peak_rss
       report.process_cpu_seconds = os.clock()
       if mode == "saturated" then
-        assert(measured_output_bytes > measurement.completed * 4096, "saturated workload produced insufficient background output")
+        -- Reserve more than each acknowledgment's maximum protocol overhead,
+        -- then require an additional 4 KiB of real background traffic. Requiring
+        -- 4 KiB per input would reject a faster acknowledgment on the same load.
+        assert(measured_output_bytes > measurement.completed * 256 + 4096,
+          "saturated workload produced insufficient background output")
       end
       window:request_close()
     end
