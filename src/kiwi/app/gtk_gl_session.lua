@@ -37,8 +37,9 @@ end
 
 local function dimensions(window, font)
   local width, height = window:drawable_size()
-  return math.max(1, math.floor(math.max(1, width) / font.cell_width)),
-    math.max(1, math.floor(math.max(1, height) / font.cell_height))
+  if width <= 0 or height <= 0 then return nil end
+  return math.max(1, math.floor(width / font.cell_width)),
+    math.max(1, math.floor(height / font.cell_height))
 end
 
 local function content_scale(window)
@@ -101,6 +102,7 @@ function Session.new(window, host, configuration, options)
   assert(type(configuration) == "table" and type(options) == "table", "GTK GL session needs configuration and options")
   local self = setmetatable({
     configuration = configuration,
+    configuration_status = options.configuration_status,
     default_title = options.default_title or "Kiwi GTK GL terminal",
     host = host,
     is_selected = options.is_selected,
@@ -110,6 +112,9 @@ function Session.new(window, host, configuration, options)
   self.glfw = host.keymap
   self.font = new_font(window, configuration)
   self.columns, self.rows = dimensions(window, self.font)
+  -- A newly created page may not have a GTK allocation yet. Existing hidden
+  -- pages keep their grid; only a new session needs an initial fallback size.
+  if self.columns == nil then self.columns, self.rows = 80, 24 end
   self.terminal = Terminal.new({
     columns = self.columns,
     rows = self.rows,
@@ -398,6 +403,7 @@ end
 function Session:_resize_if_needed()
   local scale_changed = math.abs(content_scale(self.window) - self.font.content_scale) > 0.001
   local columns, rows = dimensions(self.window, self.font)
+  if columns == nil then return end
   if scale_changed then
     local previous_font = self.font
     local revision = self.consumer.revision
@@ -489,6 +495,7 @@ function Session:tick(now)
   end
   if selected and self.window_focused then self.primary_selection:sync_keyboard(self.state, self.configuration.primary_selection) end
   local title = ModalInput.title(self.state, self.state.title or self.default_title)
+  if self.configuration_status then title = self.configuration_status:title(title) end
   if title ~= self.last_title then self.window:set_title(title); self.last_title = title end
   self:_sync_accessibility(); self:_sync_text_input_caret()
   if selected and not self.window.minimized and self.consumer:needs_render(now) then
