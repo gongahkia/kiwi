@@ -282,8 +282,9 @@ function Pty:flush()
       if error_code == constants.eio then
         -- A PTY master reports EIO when its slave has closed. A terminal
         -- response cannot be delivered after that boundary, so do not turn a
-        -- normally exiting child into an application failure.
-        self.eof = true
+        -- normally exiting child into an application failure. A failed write
+        -- does not prove the read buffer is empty: preserve its final output
+        -- until read_available observes EOF independently.
         self.pending = ""
         self.pending_offset = 1
         return false
