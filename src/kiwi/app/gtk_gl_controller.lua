@@ -826,7 +826,7 @@ function Controller.run(window, host, options)
   if pty then pty:shutdown() end
   if terminal then terminal:close() end
   if font then font:destroy() end
-  primary_selection:cancel()
+  primary_selection:destroy()
   window:destroy()
   if not ok then error(result) end
 end

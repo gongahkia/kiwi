@@ -503,7 +503,7 @@ end
 function Session:shutdown()
   if self.closed then return end
   self.closed = true
-  if self.primary_selection then self.primary_selection:cancel() end
+  if self.primary_selection then self.primary_selection:destroy() end
   if self.accessibility then self.accessibility:destroy(); self.accessibility = nil end
   if self.consumer then self.consumer:destroy(); self.consumer = nil end
   if self.pty then self.pty:shutdown(); self.pty = nil end
