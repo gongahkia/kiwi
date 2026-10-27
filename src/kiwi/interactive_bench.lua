@@ -34,12 +34,14 @@ local heap_measurement = os.getenv("KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT") or
 assert(heap_measurement == "sampled" or (heap_measurement == "retained" and sustained), "invalid heap measurement mode")
 local retained_heap = heap_measurement == "retained" and RetainedHeap.new(Metrics.monotonic_seconds) or nil
 local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available, flush = Pty.flush, prepare = Compositor.update_models,
+  spawn = Pty.spawn, shutdown = Pty.shutdown, request_close = Window.request_close, should_close = Window.should_close,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local failure_state
 local invalid_measurement
 local presentation = { attempts = 0, successful = 0, failures = {} }
+local lifecycle = {}
 local last_compositor, last_entries
 local deadline = measurement.launched_at + trial_timeout
 assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement requires warmup")
@@ -59,6 +61,36 @@ if scroll_mode == "history" then
 end
 
 Terminal.new = function(...) live = originals.new_terminal(...); return live end
+Pty.spawn = function(...)
+  local pty = originals.spawn(...)
+  lifecycle.child = { pid = pty.pid }
+  return pty
+end
+Pty.shutdown = function(self, ...)
+  local child = lifecycle.child
+  if child and self.pid == child.pid and not child.shutdown_at then
+    child.shutdown_at = Metrics.monotonic_seconds()
+    child.eof_before_shutdown = self.eof == true
+    child.status_before_shutdown = self.exit_status
+    local result = originals.shutdown(self, ...)
+    child.status_after_shutdown = self.exit_status
+    child.pty_closed = self.fd == nil
+    return result
+  end
+  return originals.shutdown(self, ...)
+end
+Window.request_close = function(self, ...)
+  if not lifecycle.close_requested then
+    lifecycle.close_requested = { at = Metrics.monotonic_seconds(),
+      measurement_complete = measurement:done(), trace = debug.traceback("window close requested", 2):sub(1, 2048) }
+  end
+  return originals.request_close(self, ...)
+end
+Window.should_close = function(self, ...)
+  local closed = originals.should_close(self, ...)
+  if closed and not lifecycle.close_observed_at then lifecycle.close_observed_at = Metrics.monotonic_seconds() end
+  return closed
+end
 Window.new = function(_, _, title, options)
   window = originals.new_window(800, 480, title, options)
   if keep_visible then
@@ -228,10 +260,15 @@ end
 arg = { "--config", assert(os.getenv("KIWI_INTERACTIVE_BENCH_CONFIG")), "--no-restore-layout", "--no-extensions",
   "--", assert(os.getenv("KIWI_INTERACTIVE_BENCH_PYTHON")), "script/interactive-bench-child", mode }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
+-- An ordinary controller return can still be an incomplete measurement (for
+-- example a native window close). Preserve its reason in JSON, not just stderr.
+if ok and not measurement:done() then ok, message = false, "interactive benchmark closed before completion" end
 local snapshot_ok, jit_snapshot = pcall(require("kiwi.bench.environment").jit_snapshot)
 if not snapshot_ok then jit_snapshot = { unavailable_reason = tostring(jit_snapshot):sub(1, 512) } end
 Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, originals.write, originals.read
 Pty.flush, Compositor.update_models = originals.flush, originals.prepare
+Pty.spawn, Pty.shutdown = originals.spawn, originals.shutdown
+Window.request_close, Window.should_close = originals.request_close, originals.should_close
 Scrollback.push = originals.history_push
 Window.new, Compositor.render, Host.await_events = originals.new_window, originals.render, originals.await
 if not ok or not report then
@@ -261,6 +298,7 @@ local result = { schema_version = 1, metadata = metadata, measurement = report,
   status = invalid_measurement and "invalid" or ok and measurement:done() and "complete" or "failed",
   failure = invalid_measurement or not ok and tostring(message):sub(1, 4096) or nil }
 result.presentation = presentation
+result.lifecycle = lifecycle
 result.jit_snapshot = jit_snapshot
 local encoded = Json.encode(result)
 assert(#encoded <= 128 * 1024, "interactive trial report exceeded 128 KiB")

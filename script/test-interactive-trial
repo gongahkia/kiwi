@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Exercise the real trial reporter with a controlled host and real PTY cleanup.
+
+No display or GPU is needed. This tests lifecycle reporting, not native window
+behaviour; native qualification must still run the unmodified application.
+"""
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+import sys
+
+root = Path(__file__).resolve().parent.parent
+driver_source = r'''
+local scenario = arg[1]
+local Terminal = require("kiwi.session.terminal")
+local Pty = require("kiwi.process.pty")
+local Metrics = require("kiwi.bench.process_metrics")
+local ffi = require("ffi")
+local Window = {}
+Window.__index = Window
+function Window.new() return setmetatable({}, Window) end
+function Window:request_close() self.closed = true end
+function Window:should_close() return self.closed == true end
+local Compositor = { update_models = function() end }
+function Compositor:render()
+  if self.occluded then return false, "surface occluded" end
+  return true
+end
+local Host = { await_events = function() end }
+package.loaded["kiwi.platform.window"] = Window
+package.loaded["kiwi.app.glfw_host"] = Host
+package.loaded["kiwi.renderer.compositor"] = Compositor
+local originals = { spawn = Pty.spawn, shutdown = Pty.shutdown,
+  request_close = Window.request_close, should_close = Window.should_close }
+package.preload["kiwi.app.main"] = function()
+  local window = Window.new()
+  local terminal = Terminal.new({ columns = 80, rows = 24 })
+  local child = Pty.spawn({ "/bin/sh", "-c", scenario == "child-exit" and "printf child-ready; exit 7"
+    or "printf child-ready; exec sleep 30" }, 80, 24)
+  local ok, message = xpcall(function()
+    local deadline, output = Metrics.monotonic_seconds() + 5, ""
+    repeat
+      output = output .. child:read_available(4096)
+      child:poll_exit()
+      assert(Metrics.monotonic_seconds() < deadline, "fixture child did not start")
+      ffi.C.usleep(1000)
+    until output == "child-ready" and (scenario ~= "child-exit" or child.exit_status and child.eof)
+    if scenario == "requested" or scenario == "child-exit" then
+      window:request_close()
+      assert(window:should_close())
+    elseif scenario == "native" then
+      window.closed = true -- Native close bypasses Lua request_close.
+      assert(window:should_close())
+    elseif scenario == "exception" then error("controlled application failure")
+    else
+      local state = Terminal.state(terminal)
+      local compositor = setmetatable({ context = { adapter_info = {} } }, { __index = Compositor })
+      local entries = {{ model = state, renderer = { font = { font_path = "fixture" } } }}
+      terminal:write("\27]2;kiwi-bench-ready\7READY0000")
+      assert(compositor:render(entries))
+      if scenario == "occluded" then
+        compositor.occluded = true
+        compositor:render(entries)
+      else
+        assert(scenario == "complete")
+        window.on_text = function() terminal:write("\27]2;kiwi-bench-ack:1\7\27[HACK0001  ") end
+        Host.await_events({}, window, 0)
+        assert(compositor:render(entries))
+        assert(window:should_close())
+      end
+    end
+  end, debug.traceback)
+  child:shutdown()
+  terminal:close()
+  assert(ok, message)
+end
+local ok, message = pcall(dofile, "src/kiwi/interactive_bench.lua")
+assert(Pty.spawn == originals.spawn and Pty.shutdown == originals.shutdown, "PTY hooks were not restored")
+assert(Window.request_close == originals.request_close and Window.should_close == originals.should_close,
+  "window hooks were not restored")
+assert(ok, message)
+'''
+clock_name = "CLOCK_MONOTONIC_RAW" if sys.platform == "darwin" else "CLOCK_MONOTONIC"
+base = {k: v for k, v in os.environ.items() if not k.startswith("KIWI_")}
+base.update(KIWI_ROOT=str(root), LUA_PATH=str(root / "src/?.lua") + ";" + str(root / "src/?/init.lua") + ";;",
+            KIWI_INTERACTIVE_BENCH_CLOCK=clock_name, KIWI_INTERACTIVE_BENCH_MODE="idle",
+            KIWI_INTERACTIVE_BENCH_SAMPLES="1", KIWI_INTERACTIVE_BENCH_WARMUP="0",
+            KIWI_INTERACTIVE_BENCH_INTERVAL="0", KIWI_INTERACTIVE_BENCH_CONFIG="unused-controlled-host",
+            KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable)
+with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
+    directory = Path(directory)
+    driver = directory / "driver.lua"
+    driver.write_text(driver_source)
+    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "complete"):
+        report = directory / (scenario + ".json")
+        environment = dict(base, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(report),
+                           KIWI_INTERACTIVE_BENCH_LAUNCHED_AT=str(time.clock_gettime(getattr(time, clock_name))))
+        process = subprocess.run([os.environ.get("LUAJIT", "luajit"), str(driver), scenario], cwd=root,
+                                 env=environment, capture_output=True, text=True, timeout=15)
+        assert report.is_file(), (scenario, process.stderr)
+        result = json.loads(report.read_text())
+        expected = "complete" if scenario == "complete" else "invalid" if scenario == "occluded" else "failed"
+        assert result["status"] == expected, (scenario, result)
+        assert (process.returncode == 0) == (expected == "complete"), (scenario, process.stderr)
+        assert "hooks were not restored" not in process.stderr
+        if scenario in ("requested", "native", "child-exit"):
+            assert result["failure"] == "interactive benchmark closed before completion"
+            assert result["measurement"]["samples"] == 0
+            assert "close_observed_at" in result["lifecycle"]
+        elif scenario == "exception":
+            assert "controlled application failure" in result["failure"]
+        elif scenario == "occluded":
+            assert "surface occluded" in result["failure"]
+            assert result["presentation"]["successful"] == 1
+        else:
+            assert result["measurement"]["samples"] == 1 and "failure" not in result
+        lifecycle = result["lifecycle"]
+        if scenario in ("requested", "child-exit", "complete"):
+            assert lifecycle["close_requested"]["measurement_complete"] == (scenario == "complete")
+            assert "stack traceback:" in lifecycle["close_requested"]["trace"]
+        else:
+            assert "close_requested" not in lifecycle
+        child = lifecycle["child"]
+        assert child["pty_closed"] is True
+        if scenario == "child-exit":
+            assert child["status_before_shutdown"] == child["status_after_shutdown"] == {"kind": "exit", "code": 7}
+            assert child["eof_before_shutdown"] is True
+        else:
+            assert "status_before_shutdown" not in child
+            assert child["status_after_shutdown"]["kind"] == "signal"
+        try:
+            os.kill(child["pid"], 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError((scenario, "fixture child survived cleanup"))
+print("Interactive trial passed: requested/native close, child exit, exception, occlusion and success preserve reports and reap real PTY children.")
