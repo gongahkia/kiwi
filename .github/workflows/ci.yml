@@ -38,7 +38,7 @@ jobs:
           sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server at-spi2-core dbus-daemon fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
             libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
-          sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1 sway wl-clipboard wtype ibus ibus-gtk4 ibus-libpinyin libdbus-1-dev python3-gi gir1.2-atspi-2.0
+          sudo apt-get install --yes xvfb xauth mesa-vulkan-drivers libvulkan1 sway wl-clipboard wtype ibus ibus-gtk4 ibus-libpinyin libdbus-1-dev python3-gi gir1.2-atspi-2.0 orca openbox xdotool
           sudo install -d -m 0755 /run/sshd
       - name: build required GLFW with X11 and Wayland
         run: |
@@ -88,6 +88,8 @@ jobs:
           ./script/desktop-transition-smoke --presenter gl --report .build/appearance-evidence/transitions-gl.json
           ./script/gtk-atspi-smoke --report .build/appearance-evidence/atspi-wgpu.json
           ./script/gtk-atspi-smoke --presenter gl --report .build/appearance-evidence/atspi-gl.json
+          ./script/gtk-atspi-smoke --backend x11 --orca --report .build/appearance-evidence/orca-wgpu.json
+          ./script/gtk-atspi-smoke --backend x11 --orca --presenter gl --report .build/appearance-evidence/orca-gl.json
           # Only Kiwi loads the fixed client library. Daemon, GTK module and
           # libpinyin remain Ubuntu packages; no user desktop is involved.
           for kiwi_presenter in wgpu gl; do
