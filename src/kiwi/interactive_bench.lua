@@ -35,11 +35,17 @@ assert(heap_measurement == "sampled" or (heap_measurement == "retained" and sust
 local retained_heap = heap_measurement == "retained" and RetainedHeap.new(Metrics.monotonic_seconds) or nil
 local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available, flush = Pty.flush, prepare = Compositor.update_models,
   spawn = Pty.spawn, shutdown = Pty.shutdown, request_close = Window.request_close, should_close = Window.should_close,
+  set_input_handlers = Window.set_input_handlers,
+  enable_text_input = Host.enable_text_input,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local failure_state
 local invalid_measurement
+local injecting_input = false
+local function interrupted_input(kind)
+  invalid_measurement = invalid_measurement or "visible-window measurement interrupted: external " .. kind .. " input"
+end
 local presentation = { attempts = 0, successful = 0, failures = {} }
 local lifecycle = {}
 local last_compositor, last_entries
@@ -61,6 +67,28 @@ if scroll_mode == "history" then
 end
 
 Terminal.new = function(...) live = originals.new_terminal(...); return live end
+-- Physical input can arrive in the owned window while the desktop is in use.
+-- Reject it without recording its contents or throwing across a native callback.
+-- In particular, an external 'x' must not masquerade as a timed acknowledgment.
+Window.set_input_handlers = function(self, on_text, on_key, on_pointer, on_focus)
+  return originals.set_input_handlers(self, on_text and function(...)
+    if injecting_input then return on_text(...) end
+    interrupted_input("text")
+  end, on_key and function()
+    interrupted_input("key")
+    return { handled = true, suppress_text = true }
+  end, on_pointer and function(event)
+    if event.kind == "move" then return end
+    interrupted_input("pointer")
+  end, on_focus)
+end
+if originals.enable_text_input then
+  Host.enable_text_input = function(current_window)
+    return originals.enable_text_input(current_window,
+      function(text) if #text > 0 then interrupted_input("preedit") end end,
+      function(text) if #text > 0 then interrupted_input("commit") end end)
+  end
+end
 Pty.spawn = function(...)
   local pty = originals.spawn(...)
   lifecycle.child = { pid = pty.pid }
@@ -216,6 +244,7 @@ Compositor.render = function(self, entries, ...)
   return rendered, reason
 end
 Host.await_events = function(application, current_window, timeout)
+  if invalid_measurement then error(invalid_measurement) end
   local now = Metrics.monotonic_seconds()
   if measurement.ready_at and current_window.minimized then
     invalid_measurement = "visible-window measurement interrupted: window minimized"
@@ -245,7 +274,9 @@ Host.await_events = function(application, current_window, timeout)
     if now >= next_input then
       measurement:input(now)
       assert(type(current_window.on_text) == "function")
+      injecting_input = true
       current_window.on_text({ string.byte("x") })
+      injecting_input = false
       -- Input was enqueued after the normal scheduler armed its PTY watch.
       -- Return immediately so the controller can flush/rearm it.
       timeout = 0
@@ -254,6 +285,7 @@ Host.await_events = function(application, current_window, timeout)
   local started, cpu, work_pending = begin_work()
   local result = originals.await(application, current_window, math.min(timeout, deadline - now))
   end_work("wait", started, cpu, work_pending)
+  if invalid_measurement then error(invalid_measurement) end
   return result
 end
 
@@ -269,6 +301,8 @@ Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, origi
 Pty.flush, Compositor.update_models = originals.flush, originals.prepare
 Pty.spawn, Pty.shutdown = originals.spawn, originals.shutdown
 Window.request_close, Window.should_close = originals.request_close, originals.should_close
+Window.set_input_handlers = originals.set_input_handlers
+Host.enable_text_input = originals.enable_text_input
 Scrollback.push = originals.history_push
 Window.new, Compositor.render, Host.await_events = originals.new_window, originals.render, originals.await
 if not ok or not report then
@@ -285,6 +319,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
+  external_input_guard = true,
   clock = Metrics.clock_name(),
   heap_measurement = heap_measurement,
   requested_window_points = { width = 800, height = 480 },

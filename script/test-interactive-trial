@@ -24,16 +24,24 @@ Window.__index = Window
 function Window.new() return setmetatable({}, Window) end
 function Window:request_close() self.closed = true end
 function Window:should_close() return self.closed == true end
+function Window:set_input_handlers(text, key, pointer, focus)
+  self.on_text, self.on_key, self.on_pointer, self.on_focus = text, key, pointer, focus
+end
 local Compositor = { update_models = function() end }
 function Compositor:render()
   if self.occluded then return false, "surface occluded" end
   return true
 end
 local Host = { await_events = function() end }
+function Host.enable_text_input(window, preedit, commit)
+  window.on_preedit, window.on_commit = preedit, commit
+  return true
+end
 package.loaded["kiwi.platform.window"] = Window
 package.loaded["kiwi.app.glfw_host"] = Host
 package.loaded["kiwi.renderer.compositor"] = Compositor
-local originals = { spawn = Pty.spawn, shutdown = Pty.shutdown,
+local originals = { spawn = Pty.spawn, shutdown = Pty.shutdown, set_input_handlers = Window.set_input_handlers,
+  enable_text_input = Host.enable_text_input,
   request_close = Window.request_close, should_close = Window.should_close }
 package.preload["kiwi.app.main"] = function()
   local window = Window.new()
@@ -55,6 +63,18 @@ package.preload["kiwi.app.main"] = function()
       window.closed = true -- Native close bypasses Lua request_close.
       assert(window:should_close())
     elseif scenario == "exception" then error("controlled application failure")
+    elseif scenario:match("^external") then
+      window:set_input_handlers(function() error("external text reached the child") end,
+        function() error("external key reached the controller") end,
+        function() error("external pointer changed the viewport") end)
+      if scenario == "external-text" then window.on_text({ string.byte("x") })
+      elseif scenario == "external-key" then assert(window.on_key(65, 1, 0).suppress_text)
+      elseif scenario == "external-preedit" or scenario == "external-commit" then
+        assert(Host.enable_text_input(window, function() error("external preedit reached the controller") end,
+          function() error("external commit reached the child") end))
+        if scenario == "external-preedit" then window.on_preedit("x", 0, 1) else window.on_commit("x") end
+      else window.on_pointer({ kind = "move" }); window.on_pointer({ kind = "wheel" }) end
+      Host.await_events({}, window, 0)
     else
       local state = Terminal.state(terminal)
       local compositor = setmetatable({ context = { adapter_info = {} } }, { __index = Compositor })
@@ -66,7 +86,7 @@ package.preload["kiwi.app.main"] = function()
         compositor:render(entries)
       else
         assert(scenario == "complete")
-        window.on_text = function() terminal:write("\27]2;kiwi-bench-ack:1\7\27[HACK0001  ") end
+        window:set_input_handlers(function() terminal:write("\27]2;kiwi-bench-ack:1\7\27[HACK0001  ") end)
         Host.await_events({}, window, 0)
         assert(compositor:render(entries))
         assert(window:should_close())
@@ -81,6 +101,8 @@ local ok, message = pcall(dofile, "src/kiwi/interactive_bench.lua")
 assert(Pty.spawn == originals.spawn and Pty.shutdown == originals.shutdown, "PTY hooks were not restored")
 assert(Window.request_close == originals.request_close and Window.should_close == originals.should_close,
   "window hooks were not restored")
+assert(Window.set_input_handlers == originals.set_input_handlers, "input hooks were not restored")
+assert(Host.enable_text_input == originals.enable_text_input, "IME hooks were not restored")
 assert(ok, message)
 '''
 clock_name = "CLOCK_MONOTONIC_RAW" if sys.platform == "darwin" else "CLOCK_MONOTONIC"
@@ -94,7 +116,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
     directory = Path(directory)
     driver = directory / "driver.lua"
     driver.write_text(driver_source)
-    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "complete"):
+    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "external-text", "external-key", "external-pointer", "external-preedit", "external-commit", "complete"):
         report = directory / (scenario + ".json")
         environment = dict(base, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(report),
                            KIWI_INTERACTIVE_BENCH_LAUNCHED_AT=str(time.clock_gettime(getattr(time, clock_name))))
@@ -102,7 +124,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
                                  env=environment, capture_output=True, text=True, timeout=15)
         assert report.is_file(), (scenario, process.stderr)
         result = json.loads(report.read_text())
-        expected = "complete" if scenario == "complete" else "invalid" if scenario == "occluded" else "failed"
+        expected = "complete" if scenario == "complete" else "invalid" if scenario == "occluded" or scenario.startswith("external") else "failed"
         assert result["status"] == expected, (scenario, result)
         assert (process.returncode == 0) == (expected == "complete"), (scenario, process.stderr)
         assert "hooks were not restored" not in process.stderr
@@ -115,6 +137,10 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
         elif scenario == "occluded":
             assert "surface occluded" in result["failure"]
             assert result["presentation"]["successful"] == 1
+        elif scenario.startswith("external"):
+            assert "external " + scenario.split("-")[1] + " input" in result["failure"]
+            assert result["measurement"]["samples"] == 0
+            assert "reached the" not in process.stderr and "changed the viewport" not in process.stderr
         else:
             assert result["measurement"]["samples"] == 1 and "failure" not in result
         lifecycle = result["lifecycle"]
@@ -137,4 +163,4 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
             pass
         else:
             raise AssertionError((scenario, "fixture child survived cleanup"))
-print("Interactive trial passed: requested/native close, child exit, exception, occlusion and success preserve reports and reap real PTY children.")
+print("Interactive trial passed: close, child exit, exception, occlusion, external input and success preserve reports and reap real PTY children.")
