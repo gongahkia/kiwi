@@ -62,7 +62,7 @@ model's unit tests cover Unicode anchors, wide cells, combining text,
 selection, resize, history viewports, and bounded scrollback export; they are
 not a screen-reader test.
 
-## Native Linux boundary
+## Native Linux GLFW boundary
 
 `native/accessibility.c` is a GIO/D-Bus server compiled into the existing
 native bridge. On startup, unless `KIWI_ACCESSIBILITY=0`, it obtains the
@@ -97,6 +97,45 @@ The provider is optional: inability to contact the session or accessibility bus
 does not stop Kiwi. Set `KIWI_ACCESSIBILITY_DIAGNOSTICS=1` to report that
 fallback. The installed `atspi-2` client library is not used for provider
 registration; GIO owns the exported objects and their lifecycle.
+
+## Native GTK boundary
+
+GTK exposes a `GtkAccessibleText` terminal widget through its own AT-SPI bridge.
+It uses the same bounded Unicode-scalar projection, including wide-character
+continuation removal, caret and selection offsets. The terminal widget reports
+read-only, multiline text; typing goes through the PTY rather than editing the
+accessible projection. Attribute queries return empty lists. Word queries retain
+combining marks with their base letters, but do not provide locale-aware word or
+sentence segmentation. Text-change events describe a viewport replacement only
+when text changes; focus, caret and selection-only updates do not report a text
+replacement. Per-character geometry and editable caret/selection operations
+remain unavailable.
+
+`script/gtk-atspi-smoke --report report.json` starts private D-Bus and headless
+Sway sessions, opens the actual GTK application with a raw PTY child, and queries
+it from a separate Python AT-SPI client. It checks Unicode text/count/ranges,
+caret, attributes, read-only/multiline/focus states, absence of unchanged-text
+event churn, the default command-palette shortcut, palette query exposure,
+Escape dismissal and focus restoration, and vi selection through real virtual
+keyboard input. It executes a palette action and verifies its effect and focus
+restoration. It also requires new text/caret/selection events after the
+corresponding actions. `--presenter gl` runs the single-session GL path. That
+controller's palette lists its supported terminal actions and configuration
+reload; it does not add splits or window management to that prototype.
+
+The fixture requires Sway, wtype, Python PyGObject, the AT-SPI typelib and registry
+(Ubuntu packages `python3-gi gir1.2-atspi-2.0 at-spi2-core`), plus Kiwi's normal
+GTK and rendering dependencies. CI runs both presenters and retains reports and
+logs on failure. It does not change the user's desktop or accessibility settings.
+This is external protocol and keyboard-workflow qualification, not evidence of
+Orca speech, braille, magnifier positioning or daily screen-reader usability.
+
+GTK 4.14's native editable-text bridge clamps negative end offsets to zero in
+`GetText`, so the palette test fetches its explicit character count before
+requesting text. Kiwi's terminal widget additionally tests the `-1` end-of-text
+convention. See GTK's
+[AT-SPI text implementation](https://github.com/GNOME/gtk/blob/4.14.5/gtk/a11y/gtkatspitext.c)
+and [accessible property definitions](https://docs.gtk.org/gtk4/enum.AccessibleProperty.html).
 
 ## Native macOS boundary
 
