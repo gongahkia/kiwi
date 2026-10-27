@@ -1,0 +1,1549 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 20,
+          "maximum": 461.481443,
+          "mean": 115.672997,
+          "minimum": 11.531819,
+          "p50": 51.532827,
+          "p95": 417.80084,
+          "p99": 452.745322,
+          "total": 2313.45995,
+          "values": [
+            124.832049,
+            415.501861,
+            461.481443,
+            93.5569301,
+            219.632012,
+            197.938626,
+            37.7734699,
+            33.187938,
+            41.352586,
+            34.716237,
+            77.5230459,
+            159.356647,
+            35.654373,
+            11.531819,
+            30.142419,
+            59.824299,
+            40.95649,
+            156.90259,
+            43.241355,
+            38.3537561
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 20,
+          "maximum": 543.739182,
+          "mean": 149.322242,
+          "minimum": 26.81801,
+          "p50": 89.851437,
+          "p95": 501.977137,
+          "p99": 535.386773,
+          "total": 2986.44483,
+          "values": [
+            159.806716,
+            499.779135,
+            543.739182,
+            123.40653,
+            292.154532,
+            222.628352,
+            61.4509729,
+            55.424848,
+            58.550991,
+            55.4162629,
+            95.1435369,
+            206.793917,
+            51.353141,
+            26.81801,
+            52.0672081,
+            84.559337,
+            58.6617809,
+            186.312446,
+            96.989709,
+            55.3882241
+          ]
+        },
+        "completed": 26,
+        "history": {
+          "evicted": 106201,
+          "limit": 10000,
+          "peak_retained": 10000,
+          "pushed": 116201,
+          "retained": 10000
+        },
+        "launch_to_child_ready_present_return_ms": 8940.88726,
+        "launch_to_first_present_return_ms": 8940.88726,
+        "output_bytes_after_ready": 14061568,
+        "output_bytes_observed": 14061625,
+        "parse_to_present_return_ms": {
+          "count": 20,
+          "maximum": 84.2772741,
+          "mean": 33.6492443,
+          "minimum": 15.286191,
+          "p50": 24.1836145,
+          "p95": 82.3587158,
+          "p99": 83.8935624,
+          "total": 672.984886,
+          "values": [
+            34.974667,
+            84.2772741,
+            82.257739,
+            29.8495999,
+            72.52252,
+            24.6897259,
+            23.677503,
+            22.23691,
+            17.198405,
+            20.700026,
+            17.620491,
+            47.4372699,
+            15.698768,
+            15.286191,
+            21.9247891,
+            24.7350381,
+            17.7052909,
+            29.4098561,
+            53.748354,
+            17.034468
+          ]
+        },
+        "process_cpu_seconds": 131.967991,
+        "ready_to_last_present_seconds": 86.3391535,
+        "requested_samples": 20,
+        "sampled_peak_rss_kib": 654436,
+        "samples": 20,
+        "sent": 26,
+        "slowest_acknowledgment": {
+          "callback_to_parse_ms": 461.481443,
+          "callback_to_present_return_ms": 543.739182,
+          "callback_to_write_ms": 0.478102942,
+          "input_at": 545990.4,
+          "last_present_at": 545990.944,
+          "parse_to_present_return_ms": 82.257739,
+          "parsed_at": 545990.862,
+          "presented_at": 545990.944,
+          "sequence": 9,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 8,
+              "cpu_ms": 0.104,
+              "maximum_wall_ms": 0.055022072,
+              "wall_ms": 0.108486041
+            },
+            "parse": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 192.596,
+              "maximum_wall_ms": 55.373612,
+              "wall_ms": 192.590894
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 259.862,
+              "maximum_wall_ms": 74.458965,
+              "wall_ms": 259.946442
+            },
+            "read": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 0.931,
+              "maximum_wall_ms": 0.383770908,
+              "wall_ms": 0.923229847
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 148.302,
+              "maximum_wall_ms": 21.468248,
+              "wall_ms": 64.0100939
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 2.817,
+              "maximum_wall_ms": 1.13318395,
+              "wall_ms": 2.37282994
+            }
+          },
+          "written_at": 545990.401
+        },
+        "sustained": {
+          "cpu_percent": 148.943395,
+          "cpu_seconds": 99.33818,
+          "duration_seconds": 66.6952567,
+          "heap_kib": {
+            "final_median": 242153.176,
+            "growth": 6149.49219,
+            "initial_median": 236003.684,
+            "peak": 365056.77
+          },
+          "rss_kib": {
+            "final_median": 654424,
+            "growth": 70860,
+            "initial_median": 583564,
+            "peak": 654436
+          },
+          "samples": [
+            {
+              "cpu_seconds": 0,
+              "elapsed_seconds": 0,
+              "heap_kib": 112549.742,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 6700,
+                "retained": 6700
+              },
+              "rss_kib": 458040
+            },
+            {
+              "cpu_seconds": 1.041149,
+              "elapsed_seconds": 0.664495636,
+              "heap_kib": 167505.992,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 7479,
+                "retained": 7479
+              },
+              "rss_kib": 458052
+            },
+            {
+              "cpu_seconds": 1.978817,
+              "elapsed_seconds": 1.3602559,
+              "heap_kib": 200770.27,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 7953,
+                "retained": 7953
+              },
+              "rss_kib": 467784
+            },
+            {
+              "cpu_seconds": 2.792453,
+              "elapsed_seconds": 2.02332647,
+              "heap_kib": 218303.941,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 8156,
+                "retained": 8156
+              },
+              "rss_kib": 486428
+            },
+            {
+              "cpu_seconds": 3.614065,
+              "elapsed_seconds": 2.6932127,
+              "heap_kib": 236003.684,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 8359,
+                "retained": 8359
+              },
+              "rss_kib": 505240
+            },
+            {
+              "cpu_seconds": 4.474848,
+              "elapsed_seconds": 3.35801576,
+              "heap_kib": 144767.359,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 8731,
+                "retained": 8731
+              },
+              "rss_kib": 514036
+            },
+            {
+              "cpu_seconds": 5.526166,
+              "elapsed_seconds": 4.0060548,
+              "heap_kib": 223827.094,
+              "history": {
+                "evicted": 0,
+                "limit": 10000,
+                "pushed": 9983,
+                "retained": 9983
+              },
+              "rss_kib": 514044
+            },
+            {
+              "cpu_seconds": 6.420787,
+              "elapsed_seconds": 4.68891944,
+              "heap_kib": 258495.598,
+              "history": {
+                "evicted": 491,
+                "limit": 10000,
+                "pushed": 10491,
+                "retained": 10000
+              },
+              "rss_kib": 529292
+            },
+            {
+              "cpu_seconds": 7.318632,
+              "elapsed_seconds": 5.42119852,
+              "heap_kib": 278939.629,
+              "history": {
+                "evicted": 728,
+                "limit": 10000,
+                "pushed": 10728,
+                "retained": 10000
+              },
+              "rss_kib": 551028
+            },
+            {
+              "cpu_seconds": 8.146761,
+              "elapsed_seconds": 6.14038771,
+              "heap_kib": 293510.359,
+              "history": {
+                "evicted": 897,
+                "limit": 10000,
+                "pushed": 10897,
+                "retained": 10000
+              },
+              "rss_kib": 566520
+            },
+            {
+              "cpu_seconds": 9.046494,
+              "elapsed_seconds": 6.87945375,
+              "heap_kib": 187153.539,
+              "history": {
+                "evicted": 1134,
+                "limit": 10000,
+                "pushed": 11134,
+                "retained": 10000
+              },
+              "rss_kib": 583560
+            },
+            {
+              "cpu_seconds": 9.958819,
+              "elapsed_seconds": 7.5176037,
+              "heap_kib": 199512.898,
+              "history": {
+                "evicted": 1709,
+                "limit": 10000,
+                "pushed": 11709,
+                "retained": 10000
+              },
+              "rss_kib": 583564
+            },
+            {
+              "cpu_seconds": 11.020182,
+              "elapsed_seconds": 8.16310803,
+              "heap_kib": 272859.344,
+              "history": {
+                "evicted": 2860,
+                "limit": 10000,
+                "pushed": 12860,
+                "retained": 10000
+              },
+              "rss_kib": 583564
+            },
+            {
+              "cpu_seconds": 12.18066,
+              "elapsed_seconds": 8.99852591,
+              "heap_kib": 317685.793,
+              "history": {
+                "evicted": 3503,
+                "limit": 10000,
+                "pushed": 13503,
+                "retained": 10000
+              },
+              "rss_kib": 592412
+            },
+            {
+              "cpu_seconds": 13.081926,
+              "elapsed_seconds": 9.77448921,
+              "heap_kib": 332301.355,
+              "history": {
+                "evicted": 3673,
+                "limit": 10000,
+                "pushed": 13673,
+                "retained": 10000
+              },
+              "rss_kib": 607948
+            },
+            {
+              "cpu_seconds": 13.960235,
+              "elapsed_seconds": 10.5305999,
+              "heap_kib": 346907.258,
+              "history": {
+                "evicted": 3842,
+                "limit": 10000,
+                "pushed": 13842,
+                "retained": 10000
+              },
+              "rss_kib": 623480
+            },
+            {
+              "cpu_seconds": 14.817073,
+              "elapsed_seconds": 11.2719538,
+              "heap_kib": 364408.438,
+              "history": {
+                "evicted": 4045,
+                "limit": 10000,
+                "pushed": 14045,
+                "retained": 10000
+              },
+              "rss_kib": 642088
+            },
+            {
+              "cpu_seconds": 15.645787,
+              "elapsed_seconds": 11.9121697,
+              "heap_kib": 177860.348,
+              "history": {
+                "evicted": 4417,
+                "limit": 10000,
+                "pushed": 14417,
+                "retained": 10000
+              },
+              "rss_kib": 645672
+            },
+            {
+              "cpu_seconds": 16.644738,
+              "elapsed_seconds": 12.5472213,
+              "heap_kib": 265286.031,
+              "history": {
+                "evicted": 5839,
+                "limit": 10000,
+                "pushed": 15839,
+                "retained": 10000
+              },
+              "rss_kib": 645672
+            },
+            {
+              "cpu_seconds": 17.678382,
+              "elapsed_seconds": 13.2029211,
+              "heap_kib": 341606.379,
+              "history": {
+                "evicted": 7024,
+                "limit": 10000,
+                "pushed": 17024,
+                "retained": 10000
+              },
+              "rss_kib": 645800
+            },
+            {
+              "cpu_seconds": 18.537326,
+              "elapsed_seconds": 13.8517275,
+              "heap_kib": 204213.648,
+              "history": {
+                "evicted": 7497,
+                "limit": 10000,
+                "pushed": 17497,
+                "retained": 10000
+              },
+              "rss_kib": 647080
+            },
+            {
+              "cpu_seconds": 19.444976,
+              "elapsed_seconds": 14.511237,
+              "heap_kib": 207753.023,
+              "history": {
+                "evicted": 8140,
+                "limit": 10000,
+                "pushed": 18140,
+                "retained": 10000
+              },
+              "rss_kib": 647096
+            },
+            {
+              "cpu_seconds": 20.524907,
+              "elapsed_seconds": 15.1511861,
+              "heap_kib": 300906.098,
+              "history": {
+                "evicted": 9664,
+                "limit": 10000,
+                "pushed": 19664,
+                "retained": 10000
+              },
+              "rss_kib": 647100
+            },
+            {
+              "cpu_seconds": 21.496681,
+              "elapsed_seconds": 15.800514,
+              "heap_kib": 345960.91,
+              "history": {
+                "evicted": 10239,
+                "limit": 10000,
+                "pushed": 20239,
+                "retained": 10000
+              },
+              "rss_kib": 647104
+            },
+            {
+              "cpu_seconds": 22.501767,
+              "elapsed_seconds": 16.5907007,
+              "heap_kib": 221380.453,
+              "history": {
+                "evicted": 10679,
+                "limit": 10000,
+                "pushed": 20679,
+                "retained": 10000
+              },
+              "rss_kib": 650944
+            },
+            {
+              "cpu_seconds": 23.31488,
+              "elapsed_seconds": 17.2256808,
+              "heap_kib": 190802.16,
+              "history": {
+                "evicted": 11085,
+                "limit": 10000,
+                "pushed": 21085,
+                "retained": 10000
+              },
+              "rss_kib": 650944
+            },
+            {
+              "cpu_seconds": 24.183381,
+              "elapsed_seconds": 17.8855129,
+              "heap_kib": 224260.965,
+              "history": {
+                "evicted": 11525,
+                "limit": 10000,
+                "pushed": 21525,
+                "retained": 10000
+              },
+              "rss_kib": 650960
+            },
+            {
+              "cpu_seconds": 25.017142,
+              "elapsed_seconds": 18.519072,
+              "heap_kib": 256169.109,
+              "history": {
+                "evicted": 11965,
+                "limit": 10000,
+                "pushed": 21965,
+                "retained": 10000
+              },
+              "rss_kib": 650960
+            },
+            {
+              "cpu_seconds": 25.908525,
+              "elapsed_seconds": 19.1722618,
+              "heap_kib": 289416.582,
+              "history": {
+                "evicted": 12439,
+                "limit": 10000,
+                "pushed": 22439,
+                "retained": 10000
+              },
+              "rss_kib": 650960
+            },
+            {
+              "cpu_seconds": 26.818017,
+              "elapsed_seconds": 19.7991329,
+              "heap_kib": 327121.027,
+              "history": {
+                "evicted": 12947,
+                "limit": 10000,
+                "pushed": 22947,
+                "retained": 10000
+              },
+              "rss_kib": 650960
+            },
+            {
+              "cpu_seconds": 27.83227,
+              "elapsed_seconds": 20.4453165,
+              "heap_kib": 303354.18,
+              "history": {
+                "evicted": 13556,
+                "limit": 10000,
+                "pushed": 23556,
+                "retained": 10000
+              },
+              "rss_kib": 650964
+            },
+            {
+              "cpu_seconds": 28.666213,
+              "elapsed_seconds": 21.0973404,
+              "heap_kib": 186565.926,
+              "history": {
+                "evicted": 13996,
+                "limit": 10000,
+                "pushed": 23996,
+                "retained": 10000
+              },
+              "rss_kib": 650984
+            },
+            {
+              "cpu_seconds": 29.688013,
+              "elapsed_seconds": 21.7600031,
+              "heap_kib": 241628.59,
+              "history": {
+                "evicted": 14741,
+                "limit": 10000,
+                "pushed": 24741,
+                "retained": 10000
+              },
+              "rss_kib": 650984
+            },
+            {
+              "cpu_seconds": 30.770698,
+              "elapsed_seconds": 22.4011741,
+              "heap_kib": 327795.402,
+              "history": {
+                "evicted": 16128,
+                "limit": 10000,
+                "pushed": 26128,
+                "retained": 10000
+              },
+              "rss_kib": 651004
+            },
+            {
+              "cpu_seconds": 31.747573,
+              "elapsed_seconds": 23.103958,
+              "heap_kib": 203484.07,
+              "history": {
+                "evicted": 16839,
+                "limit": 10000,
+                "pushed": 26839,
+                "retained": 10000
+              },
+              "rss_kib": 651008
+            },
+            {
+              "cpu_seconds": 32.774846,
+              "elapsed_seconds": 23.7472824,
+              "heap_kib": 239731.938,
+              "history": {
+                "evicted": 18024,
+                "limit": 10000,
+                "pushed": 28024,
+                "retained": 10000
+              },
+              "rss_kib": 651012
+            },
+            {
+              "cpu_seconds": 33.886158,
+              "elapsed_seconds": 24.3879439,
+              "heap_kib": 344355.602,
+              "history": {
+                "evicted": 19750,
+                "limit": 10000,
+                "pushed": 29750,
+                "retained": 10000
+              },
+              "rss_kib": 651020
+            },
+            {
+              "cpu_seconds": 34.796165,
+              "elapsed_seconds": 25.0926296,
+              "heap_kib": 190349.414,
+              "history": {
+                "evicted": 20326,
+                "limit": 10000,
+                "pushed": 30326,
+                "retained": 10000
+              },
+              "rss_kib": 652172
+            },
+            {
+              "cpu_seconds": 35.869378,
+              "elapsed_seconds": 25.7376702,
+              "heap_kib": 275127.648,
+              "history": {
+                "evicted": 22154,
+                "limit": 10000,
+                "pushed": 32154,
+                "retained": 10000
+              },
+              "rss_kib": 652172
+            },
+            {
+              "cpu_seconds": 36.988192,
+              "elapsed_seconds": 26.4278368,
+              "heap_kib": 292691.16,
+              "history": {
+                "evicted": 23812,
+                "limit": 10000,
+                "pushed": 33812,
+                "retained": 10000
+              },
+              "rss_kib": 653200
+            },
+            {
+              "cpu_seconds": 37.870725,
+              "elapsed_seconds": 27.0687635,
+              "heap_kib": 208006.047,
+              "history": {
+                "evicted": 24557,
+                "limit": 10000,
+                "pushed": 34557,
+                "retained": 10000
+              },
+              "rss_kib": 653200
+            },
+            {
+              "cpu_seconds": 38.963301,
+              "elapsed_seconds": 27.7139716,
+              "heap_kib": 316862.613,
+              "history": {
+                "evicted": 26385,
+                "limit": 10000,
+                "pushed": 36385,
+                "retained": 10000
+              },
+              "rss_kib": 653348
+            },
+            {
+              "cpu_seconds": 39.999662,
+              "elapsed_seconds": 28.4458819,
+              "heap_kib": 209613.113,
+              "history": {
+                "evicted": 27366,
+                "limit": 10000,
+                "pushed": 37366,
+                "retained": 10000
+              },
+              "rss_kib": 653348
+            },
+            {
+              "cpu_seconds": 40.943504,
+              "elapsed_seconds": 29.0750622,
+              "heap_kib": 230399.004,
+              "history": {
+                "evicted": 28416,
+                "limit": 10000,
+                "pushed": 38416,
+                "retained": 10000
+              },
+              "rss_kib": 653348
+            },
+            {
+              "cpu_seconds": 42.043097,
+              "elapsed_seconds": 29.7131506,
+              "heap_kib": 330634.078,
+              "history": {
+                "evicted": 30074,
+                "limit": 10000,
+                "pushed": 40074,
+                "retained": 10000
+              },
+              "rss_kib": 653348
+            },
+            {
+              "cpu_seconds": 42.997115,
+              "elapsed_seconds": 30.3778245,
+              "heap_kib": 208407.449,
+              "history": {
+                "evicted": 30819,
+                "limit": 10000,
+                "pushed": 40819,
+                "retained": 10000
+              },
+              "rss_kib": 653604
+            },
+            {
+              "cpu_seconds": 44.016657,
+              "elapsed_seconds": 31.0243757,
+              "heap_kib": 256130.703,
+              "history": {
+                "evicted": 32376,
+                "limit": 10000,
+                "pushed": 42376,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 45.086737,
+              "elapsed_seconds": 31.6733739,
+              "heap_kib": 365056.77,
+              "history": {
+                "evicted": 34170,
+                "limit": 10000,
+                "pushed": 44170,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 45.931748,
+              "elapsed_seconds": 32.3100535,
+              "heap_kib": 185030.051,
+              "history": {
+                "evicted": 34712,
+                "limit": 10000,
+                "pushed": 44712,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 47.058405,
+              "elapsed_seconds": 32.9527371,
+              "heap_kib": 320543.383,
+              "history": {
+                "evicted": 37081,
+                "limit": 10000,
+                "pushed": 47081,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 48.049374,
+              "elapsed_seconds": 33.6370357,
+              "heap_kib": 211689.105,
+              "history": {
+                "evicted": 38029,
+                "limit": 10000,
+                "pushed": 48029,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 49.05185,
+              "elapsed_seconds": 34.2691679,
+              "heap_kib": 260822.41,
+              "history": {
+                "evicted": 39654,
+                "limit": 10000,
+                "pushed": 49654,
+                "retained": 10000
+              },
+              "rss_kib": 653608
+            },
+            {
+              "cpu_seconds": 50.208982,
+              "elapsed_seconds": 34.967132,
+              "heap_kib": 305953.164,
+              "history": {
+                "evicted": 41583,
+                "limit": 10000,
+                "pushed": 51583,
+                "retained": 10000
+              },
+              "rss_kib": 653844
+            },
+            {
+              "cpu_seconds": 51.00989,
+              "elapsed_seconds": 35.5980109,
+              "heap_kib": 187817.563,
+              "history": {
+                "evicted": 41989,
+                "limit": 10000,
+                "pushed": 51989,
+                "retained": 10000
+              },
+              "rss_kib": 653844
+            },
+            {
+              "cpu_seconds": 52.099207,
+              "elapsed_seconds": 36.2324223,
+              "heap_kib": 306446.961,
+              "history": {
+                "evicted": 44020,
+                "limit": 10000,
+                "pushed": 54020,
+                "retained": 10000
+              },
+              "rss_kib": 653844
+            },
+            {
+              "cpu_seconds": 53.12586,
+              "elapsed_seconds": 36.9212174,
+              "heap_kib": 227283.109,
+              "history": {
+                "evicted": 45171,
+                "limit": 10000,
+                "pushed": 55171,
+                "retained": 10000
+              },
+              "rss_kib": 653924
+            },
+            {
+              "cpu_seconds": 54.067611,
+              "elapsed_seconds": 37.5571216,
+              "heap_kib": 226455.395,
+              "history": {
+                "evicted": 46186,
+                "limit": 10000,
+                "pushed": 56186,
+                "retained": 10000
+              },
+              "rss_kib": 653936
+            },
+            {
+              "cpu_seconds": 55.152319,
+              "elapsed_seconds": 38.1941987,
+              "heap_kib": 340965.652,
+              "history": {
+                "evicted": 48116,
+                "limit": 10000,
+                "pushed": 58116,
+                "retained": 10000
+              },
+              "rss_kib": 653940
+            },
+            {
+              "cpu_seconds": 56.070229,
+              "elapsed_seconds": 38.875441,
+              "heap_kib": 169230.727,
+              "history": {
+                "evicted": 48793,
+                "limit": 10000,
+                "pushed": 58793,
+                "retained": 10000
+              },
+              "rss_kib": 653940
+            },
+            {
+              "cpu_seconds": 57.16095,
+              "elapsed_seconds": 39.5106047,
+              "heap_kib": 283634.445,
+              "history": {
+                "evicted": 50723,
+                "limit": 10000,
+                "pushed": 60723,
+                "retained": 10000
+              },
+              "rss_kib": 653944
+            },
+            {
+              "cpu_seconds": 58.299635,
+              "elapsed_seconds": 40.2254172,
+              "heap_kib": 301751.313,
+              "history": {
+                "evicted": 52212,
+                "limit": 10000,
+                "pushed": 62212,
+                "retained": 10000
+              },
+              "rss_kib": 653944
+            },
+            {
+              "cpu_seconds": 59.175208,
+              "elapsed_seconds": 40.8524589,
+              "heap_kib": 213163.113,
+              "history": {
+                "evicted": 53058,
+                "limit": 10000,
+                "pushed": 63058,
+                "retained": 10000
+              },
+              "rss_kib": 653944
+            },
+            {
+              "cpu_seconds": 60.243116,
+              "elapsed_seconds": 41.4950219,
+              "heap_kib": 336054.824,
+              "history": {
+                "evicted": 55157,
+                "limit": 10000,
+                "pushed": 65157,
+                "retained": 10000
+              },
+              "rss_kib": 653944
+            },
+            {
+              "cpu_seconds": 61.141327,
+              "elapsed_seconds": 42.1588128,
+              "heap_kib": 187214.383,
+              "history": {
+                "evicted": 55868,
+                "limit": 10000,
+                "pushed": 65868,
+                "retained": 10000
+              },
+              "rss_kib": 654116
+            },
+            {
+              "cpu_seconds": 62.209988,
+              "elapsed_seconds": 42.7880039,
+              "heap_kib": 281003.961,
+              "history": {
+                "evicted": 57831,
+                "limit": 10000,
+                "pushed": 67831,
+                "retained": 10000
+              },
+              "rss_kib": 654124
+            },
+            {
+              "cpu_seconds": 63.252044,
+              "elapsed_seconds": 43.4270493,
+              "heap_kib": 299872.965,
+              "history": {
+                "evicted": 59388,
+                "limit": 10000,
+                "pushed": 69388,
+                "retained": 10000
+              },
+              "rss_kib": 654320
+            },
+            {
+              "cpu_seconds": 64.140861,
+              "elapsed_seconds": 44.057267,
+              "heap_kib": 217957.883,
+              "history": {
+                "evicted": 60336,
+                "limit": 10000,
+                "pushed": 70336,
+                "retained": 10000
+              },
+              "rss_kib": 654320
+            },
+            {
+              "cpu_seconds": 65.237661,
+              "elapsed_seconds": 44.6940301,
+              "heap_kib": 347947.316,
+              "history": {
+                "evicted": 62570,
+                "limit": 10000,
+                "pushed": 72570,
+                "retained": 10000
+              },
+              "rss_kib": 654320
+            },
+            {
+              "cpu_seconds": 66.105952,
+              "elapsed_seconds": 45.3387755,
+              "heap_kib": 171659.27,
+              "history": {
+                "evicted": 63179,
+                "limit": 10000,
+                "pushed": 73179,
+                "retained": 10000
+              },
+              "rss_kib": 654320
+            },
+            {
+              "cpu_seconds": 67.220459,
+              "elapsed_seconds": 45.9839586,
+              "heap_kib": 308703.602,
+              "history": {
+                "evicted": 65582,
+                "limit": 10000,
+                "pushed": 75582,
+                "retained": 10000
+              },
+              "rss_kib": 654320
+            },
+            {
+              "cpu_seconds": 68.306175,
+              "elapsed_seconds": 46.7183332,
+              "heap_kib": 211316.719,
+              "history": {
+                "evicted": 66700,
+                "limit": 10000,
+                "pushed": 76700,
+                "retained": 10000
+              },
+              "rss_kib": 654324
+            },
+            {
+              "cpu_seconds": 69.325794,
+              "elapsed_seconds": 47.3511546,
+              "heap_kib": 265429.758,
+              "history": {
+                "evicted": 68426,
+                "limit": 10000,
+                "pushed": 78426,
+                "retained": 10000
+              },
+              "rss_kib": 654328
+            },
+            {
+              "cpu_seconds": 70.446576,
+              "elapsed_seconds": 48.0274994,
+              "heap_kib": 315857.629,
+              "history": {
+                "evicted": 70254,
+                "limit": 10000,
+                "pushed": 80254,
+                "retained": 10000
+              },
+              "rss_kib": 654328
+            },
+            {
+              "cpu_seconds": 71.357386,
+              "elapsed_seconds": 48.6734955,
+              "heap_kib": 217366.027,
+              "history": {
+                "evicted": 71201,
+                "limit": 10000,
+                "pushed": 81201,
+                "retained": 10000
+              },
+              "rss_kib": 654328
+            },
+            {
+              "cpu_seconds": 72.476504,
+              "elapsed_seconds": 49.3147272,
+              "heap_kib": 348716.527,
+              "history": {
+                "evicted": 73469,
+                "limit": 10000,
+                "pushed": 83469,
+                "retained": 10000
+              },
+              "rss_kib": 654328
+            },
+            {
+              "cpu_seconds": 73.352166,
+              "elapsed_seconds": 49.9607211,
+              "heap_kib": 170944.094,
+              "history": {
+                "evicted": 74045,
+                "limit": 10000,
+                "pushed": 84045,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 74.433237,
+              "elapsed_seconds": 50.5887339,
+              "heap_kib": 302213.445,
+              "history": {
+                "evicted": 76346,
+                "limit": 10000,
+                "pushed": 86346,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 75.453723,
+              "elapsed_seconds": 51.2439425,
+              "heap_kib": 327177.309,
+              "history": {
+                "evicted": 77430,
+                "limit": 10000,
+                "pushed": 87430,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 76.271216,
+              "elapsed_seconds": 51.874402,
+              "heap_kib": 187697.496,
+              "history": {
+                "evicted": 77836,
+                "limit": 10000,
+                "pushed": 87836,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 77.339391,
+              "elapsed_seconds": 52.5040633,
+              "heap_kib": 300602.98,
+              "history": {
+                "evicted": 79765,
+                "limit": 10000,
+                "pushed": 89765,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 78.376103,
+              "elapsed_seconds": 53.1747076,
+              "heap_kib": 225779.781,
+              "history": {
+                "evicted": 80984,
+                "limit": 10000,
+                "pushed": 90984,
+                "retained": 10000
+              },
+              "rss_kib": 654420
+            },
+            {
+              "cpu_seconds": 79.35805,
+              "elapsed_seconds": 53.8167035,
+              "heap_kib": 236299.195,
+              "history": {
+                "evicted": 82202,
+                "limit": 10000,
+                "pushed": 92202,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 80.492123,
+              "elapsed_seconds": 54.4663805,
+              "heap_kib": 357825.5,
+              "history": {
+                "evicted": 84267,
+                "limit": 10000,
+                "pushed": 94267,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 81.369309,
+              "elapsed_seconds": 55.1075074,
+              "heap_kib": 181938.926,
+              "history": {
+                "evicted": 84877,
+                "limit": 10000,
+                "pushed": 94877,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 82.478126,
+              "elapsed_seconds": 55.7362984,
+              "heap_kib": 303298.414,
+              "history": {
+                "evicted": 86975,
+                "limit": 10000,
+                "pushed": 96975,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 83.610705,
+              "elapsed_seconds": 56.4860134,
+              "heap_kib": 209558.328,
+              "history": {
+                "evicted": 88194,
+                "limit": 10000,
+                "pushed": 98194,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 84.619706,
+              "elapsed_seconds": 57.1279908,
+              "heap_kib": 241731.84,
+              "history": {
+                "evicted": 89480,
+                "limit": 10000,
+                "pushed": 99480,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 85.696807,
+              "elapsed_seconds": 57.773724,
+              "heap_kib": 350434.121,
+              "history": {
+                "evicted": 91308,
+                "limit": 10000,
+                "pushed": 101308,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 86.569295,
+              "elapsed_seconds": 58.4275163,
+              "heap_kib": 172951.043,
+              "history": {
+                "evicted": 91883,
+                "limit": 10000,
+                "pushed": 101883,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 87.635896,
+              "elapsed_seconds": 59.0573515,
+              "heap_kib": 288624.957,
+              "history": {
+                "evicted": 93881,
+                "limit": 10000,
+                "pushed": 103881,
+                "retained": 10000
+              },
+              "rss_kib": 654424
+            },
+            {
+              "cpu_seconds": 88.72113,
+              "elapsed_seconds": 59.7356718,
+              "heap_kib": 285589.68,
+              "history": {
+                "evicted": 95302,
+                "limit": 10000,
+                "pushed": 105302,
+                "retained": 10000
+              },
+              "rss_kib": 654428
+            },
+            {
+              "cpu_seconds": 89.583294,
+              "elapsed_seconds": 60.3680591,
+              "heap_kib": 202910.398,
+              "history": {
+                "evicted": 95945,
+                "limit": 10000,
+                "pushed": 105945,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 90.707415,
+              "elapsed_seconds": 61.0151906,
+              "heap_kib": 320067.484,
+              "history": {
+                "evicted": 97942,
+                "limit": 10000,
+                "pushed": 107942,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 91.640733,
+              "elapsed_seconds": 61.6561128,
+              "heap_kib": 242153.176,
+              "history": {
+                "evicted": 98823,
+                "limit": 10000,
+                "pushed": 108823,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 92.549938,
+              "elapsed_seconds": 62.2849111,
+              "heap_kib": 222507.25,
+              "history": {
+                "evicted": 99804,
+                "limit": 10000,
+                "pushed": 109804,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 93.624919,
+              "elapsed_seconds": 62.9137329,
+              "heap_kib": 315648.324,
+              "history": {
+                "evicted": 101328,
+                "limit": 10000,
+                "pushed": 111328,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 94.59366,
+              "elapsed_seconds": 63.5589703,
+              "heap_kib": 257514.32,
+              "history": {
+                "evicted": 102241,
+                "limit": 10000,
+                "pushed": 112241,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 95.367085,
+              "elapsed_seconds": 64.1863129,
+              "heap_kib": 180179.34,
+              "history": {
+                "evicted": 102512,
+                "limit": 10000,
+                "pushed": 112512,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 96.444533,
+              "elapsed_seconds": 64.838011,
+              "heap_kib": 256394.695,
+              "history": {
+                "evicted": 103697,
+                "limit": 10000,
+                "pushed": 113697,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 97.555652,
+              "elapsed_seconds": 65.495866,
+              "heap_kib": 328553.762,
+              "history": {
+                "evicted": 104780,
+                "limit": 10000,
+                "pushed": 114780,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 98.514332,
+              "elapsed_seconds": 66.1296407,
+              "heap_kib": 239664.566,
+              "history": {
+                "evicted": 105457,
+                "limit": 10000,
+                "pushed": 115457,
+                "retained": 10000
+              },
+              "rss_kib": 654432
+            },
+            {
+              "cpu_seconds": 99.33818,
+              "elapsed_seconds": 66.6952567,
+              "heap_kib": 208834.504,
+              "history": {
+                "evicted": 106201,
+                "limit": 10000,
+                "pushed": 116201,
+                "retained": 10000
+              },
+              "rss_kib": 654436
+            }
+          ],
+          "window_samples": 25
+        },
+        "warmup": 6
+      },
+      "metadata": {
+        "configuration": {
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "gtk",
+          "interval_seconds": 3.15789474,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "scroll_mode": "history",
+          "scrollback_limit": 10000,
+          "soak_seconds": 60,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 159,
+          "warmup_inputs": 6,
+          "workload": "saturated"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "4ca2add3f24428f8994588433299202122a2ca8d",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T034238Z"
+      },
+      "presentation": {
+        "attempts": 1714,
+        "failures": {},
+        "last_attempt_at": 546046.824,
+        "successful": 1714
+      },
+      "schema_version": 1,
+      "status": "complete",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 159,
+  "soak_policy": {
+    "minimum_seconds": 60.0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "failure": {
+    "mode": "saturated",
+    "trial": 1,
+    "log": "/work/bench/results/history-gtk-10000-no-rep-allocation-logs/saturated-1.log",
+    "reason": "rss_kib growth 69.2 MiB exceeds 64 MiB"
+  }
+}
