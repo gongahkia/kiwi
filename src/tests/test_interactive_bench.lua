@@ -3,6 +3,22 @@ local Interactive = require("kiwi.bench.interactive")
 local Terminal = require("kiwi.session.terminal")
 
 return {
+  acknowledged_clock_failure_keeps_precise_delta_without_accepting_a_sample = function()
+    local recorder = Interactive.new({ launched_at = 945000, samples = 1, warmup = 0 })
+    recorder:present(945001, 0)
+    local earlier = 945001 - 0.000001
+    local ok, failure = pcall(recorder.present, recorder, earlier, 0)
+    Assert.equal(ok, false)
+    Assert.truthy(failure:find("presentation clock moved backwards", 1, true))
+    Assert.equal(recorder.last_present, 945001)
+    local report = recorder:observations()
+    Assert.equal(report.samples, 0)
+    Assert.equal(report.clock_failure.observed_seconds, earlier)
+    Assert.equal(report.clock_failure.previous_seconds, 945001)
+    Assert.equal(report.clock_failure.delta_seconds, earlier - 945001)
+    report.clock_failure.delta_seconds = 0
+    Assert.truthy(recorder:observations().clock_failure.delta_seconds < 0)
+  end,
   post_workload_jit_snapshot_counts_sparse_traces_without_changing_jit_mode = function()
     local Environment = require("kiwi.bench.environment")
     local util = require("jit.util")

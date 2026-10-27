@@ -1,5 +1,6 @@
 -- Test-process instrumentation of the real WGPU controller and presentation.
 local Metrics = require("kiwi.bench.process_metrics")
+assert(Metrics.clock_name() == os.getenv("KIWI_INTERACTIVE_BENCH_CLOCK"), "parent/native benchmark clock mismatch")
 local Interactive = require("kiwi.bench.interactive")
 local Json = require("kiwi.bench.json")
 local Sustained = require("kiwi.bench.sustained")
@@ -247,6 +248,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
+  clock = Metrics.clock_name(),
   heap_measurement = heap_measurement,
   requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,

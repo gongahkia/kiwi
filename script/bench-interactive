@@ -92,9 +92,11 @@ report_path.parent.mkdir(parents=True, exist_ok=True)
 logs = report_path.parent / (report_path.stem + "-logs")
 logs.mkdir(exist_ok=True)
 modes = ("idle", "saturated") if args.mode == "both" else (args.mode,)
+clock_name = "CLOCK_MONOTONIC_RAW" if sys.platform == "darwin" else "CLOCK_MONOTONIC"
+clock_id = getattr(time, clock_name)
 result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged interactive application timing", "trials": [],
           "methodology": {
-              "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+              "clock": clock_name + " in parent and native process metrics; launch timestamp immediately before subprocess creation",
               "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
               "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
               "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
@@ -130,6 +132,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic, KIWI_INTERACTIVE_BENCH_SCROLL_MODE=args.scroll_mode,
                 KIWI_INTERACTIVE_BENCH_SCROLLBACK_LIMIT=str(args.scrollback_limit),
                 KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT=args.heap_measurement,
+                KIWI_INTERACTIVE_BENCH_CLOCK=clock_name,
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
                 KIWI_INTERACTIVE_BENCH_INTERVAL=str(interval), KIWI_INTERACTIVE_BENCH_TIMEOUT=str(trial_timeout),
@@ -142,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
             log = logs / f"{mode}-{trial}.log"
             item = None
             with log.open("w") as stream:
-                environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(time.CLOCK_MONOTONIC))
+                environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(clock_id))
                 try:
                     process = subprocess.run([base.get("LUAJIT", "luajit"), "src/kiwi/interactive_bench.lua"], cwd=root,
                                              env=environment, stdout=stream, stderr=subprocess.STDOUT, timeout=trial_timeout + 10)

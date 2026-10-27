@@ -2,6 +2,7 @@ local ffi = require("ffi")
 ffi.cdef[[
 uint64_t kiwi_process_resident_bytes(void);
 double kiwi_process_monotonic_seconds(void);
+const char *kiwi_process_monotonic_clock(void);
 ]]
 local Metrics = {}
 local native
@@ -28,6 +29,12 @@ function Metrics.monotonic_seconds()
   local value = api.kiwi_process_monotonic_seconds()
   assert(value >= 0, "could not read monotonic clock")
   return value
+end
+
+function Metrics.clock_name()
+  local api = library()
+  assert(api, "native process metrics unavailable; run make native")
+  return ffi.string(api.kiwi_process_monotonic_clock())
 end
 
 return Metrics
