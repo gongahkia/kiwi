@@ -1,0 +1,2733 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "jit_snapshot": {
+        "ir_instructions": 101521,
+        "machine_code_bytes": 1496787,
+        "maximum_trace": 846,
+        "observation": "after workload exit",
+        "scan_limit": 65535,
+        "traces": 846
+      },
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 120,
+          "maximum": 414.055989,
+          "mean": 109.820634,
+          "minimum": 8.72985006,
+          "p50": 108.555977,
+          "p95": 233.580668,
+          "p99": 280.467305,
+          "total": 13178.4761,
+          "values": [
+            208.290317,
+            220.303094,
+            137.848881,
+            129.450892,
+            122.615313,
+            30.444223,
+            29.2936199,
+            9.11098509,
+            9.37457103,
+            28.866305,
+            141.2058,
+            31.60762,
+            414.055989,
+            37.616916,
+            221.302472,
+            30.806671,
+            36.901399,
+            27.674593,
+            10.9671759,
+            31.263285,
+            39.5506941,
+            174.864566,
+            216.232399,
+            234.618569,
+            203.142335,
+            233.526042,
+            138.86586,
+            150.271727,
+            163.447088,
+            168.733752,
+            73.326415,
+            159.753064,
+            146.01686,
+            163.432762,
+            216.005291,
+            151.770362,
+            142.571645,
+            222.931453,
+            166.758358,
+            230.119009,
+            150.649109,
+            154.353248,
+            219.829084,
+            156.268526,
+            230.661848,
+            29.131872,
+            31.811962,
+            29.840554,
+            36.232706,
+            62.838629,
+            11.91401,
+            27.6555161,
+            116.366452,
+            40.199945,
+            38.09938,
+            68.9321499,
+            37.616269,
+            38.58163,
+            88.765902,
+            172.04577,
+            75.84579,
+            30.650927,
+            26.03748,
+            133.134129,
+            198.394503,
+            160.384057,
+            142.305283,
+            135.035365,
+            218.886165,
+            214.85595,
+            212.68967,
+            215.735494,
+            247.379588,
+            29.8965579,
+            10.729624,
+            27.4108009,
+            11.3352529,
+            32.10706,
+            48.237065,
+            166.249667,
+            218.345722,
+            145.554218,
+            147.571371,
+            279.254341,
+            223.180215,
+            213.949223,
+            88.924457,
+            9.63544706,
+            29.803623,
+            27.721437,
+            27.161702,
+            27.6409311,
+            13.426572,
+            10.886716,
+            11.368988,
+            28.6290559,
+            142.502962,
+            60.727475,
+            27.0512049,
+            27.45857,
+            28.882209,
+            29.453219,
+            220.090463,
+            280.751827,
+            260.169961,
+            30.626562,
+            11.609982,
+            10.1925619,
+            30.899336,
+            28.248611,
+            8.72985006,
+            52.646472,
+            150.990531,
+            110.176533,
+            142.951322,
+            117.827074,
+            140.455409,
+            106.935421,
+            167.901431,
+            104.10973
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 120,
+          "maximum": 485.933277,
+          "mean": 134.306922,
+          "minimum": 20.654788,
+          "p50": 126.141562,
+          "p95": 267.726062,
+          "p99": 332.540616,
+          "total": 16116.8306,
+          "values": [
+            265.878621,
+            235.870189,
+            185.756198,
+            189.091852,
+            162.151349,
+            49.229705,
+            48.687523,
+            25.5914951,
+            22.086798,
+            45.4379361,
+            154.907742,
+            55.556459,
+            485.933277,
+            95.877895,
+            254.589154,
+            63.750681,
+            50.12715,
+            48.146971,
+            24.366561,
+            43.470609,
+            53.05837,
+            227.587347,
+            233.665675,
+            252.563198,
+            223.13485,
+            247.706535,
+            154.929393,
+            167.281226,
+            182.945801,
+            187.25553,
+            89.983255,
+            174.245284,
+            158.915066,
+            213.973814,
+            234.997371,
+            168.566195,
+            159.039746,
+            236.831768,
+            184.921208,
+            243.950935,
+            230.70786,
+            206.066732,
+            239.168516,
+            170.354352,
+            249.42298,
+            47.456349,
+            49.071383,
+            47.0337421,
+            52.895888,
+            84.1476361,
+            23.941469,
+            47.733008,
+            159.07803,
+            63.6136939,
+            56.3223059,
+            85.7517769,
+            63.197176,
+            57.0037779,
+            101.380373,
+            188.602152,
+            97.585681,
+            50.8136579,
+            44.356935,
+            182.145578,
+            249.932164,
+            182.326239,
+            162.377979,
+            154.941627,
+            236.790582,
+            268.009416,
+            229.145671,
+            267.711149,
+            292.68705,
+            74.0285759,
+            23.434532,
+            47.2331359,
+            23.622316,
+            49.0829659,
+            61.4841001,
+            186.496497,
+            261.619755,
+            162.49321,
+            164.125056,
+            324.347528,
+            235.661903,
+            255.377418,
+            110.240565,
+            23.438227,
+            46.2998961,
+            46.709862,
+            48.022673,
+            48.2288681,
+            30.005308,
+            23.654109,
+            25.28878,
+            48.5876299,
+            193.799362,
+            96.5733939,
+            45.377341,
+            46.74771,
+            53.66917,
+            49.714196,
+            244.742347,
+            296.353716,
+            334.462451,
+            71.447306,
+            24.049873,
+            22.3821329,
+            48.006958,
+            48.2126659,
+            20.654788,
+            68.172325,
+            168.094308,
+            126.032876,
+            159.446942,
+            134.800931,
+            160.023184,
+            126.250248,
+            191.608738,
+            122.891074
+          ]
+        },
+        "completed": 126,
+        "history": {
+          "evicted": 2416351,
+          "limit": 10000,
+          "peak_retained": 10000,
+          "pushed": 2426351,
+          "retained": 10000
+        },
+        "launch_to_child_ready_present_return_ms": 1293.93744,
+        "launch_to_first_present_return_ms": 1293.93744,
+        "output_bytes_after_ready": 293594221,
+        "output_bytes_observed": 293594278,
+        "parse_to_present_return_ms": {
+          "count": 120,
+          "maximum": 80.0587509,
+          "mean": 24.4862876,
+          "minimum": 11.9249379,
+          "p50": 18.641455,
+          "p95": 53.375208,
+          "p99": 73.8336017,
+          "total": 2938.35451,
+          "values": [
+            57.588304,
+            15.5670949,
+            47.9073171,
+            59.6409601,
+            39.5360361,
+            18.785482,
+            19.3939031,
+            16.48051,
+            12.7122269,
+            16.5716311,
+            13.7019419,
+            23.9488391,
+            71.8772881,
+            58.260979,
+            33.286682,
+            32.94401,
+            13.225751,
+            20.472378,
+            13.399385,
+            12.207324,
+            13.507676,
+            52.722781,
+            17.4332759,
+            17.944629,
+            19.992515,
+            14.180493,
+            16.063533,
+            17.009499,
+            19.4987131,
+            18.5217781,
+            16.65684,
+            14.49222,
+            12.898206,
+            50.541052,
+            18.99208,
+            16.795833,
+            16.4681009,
+            13.900315,
+            18.1628499,
+            13.831926,
+            80.0587509,
+            51.713484,
+            19.339432,
+            14.085826,
+            18.7611319,
+            18.324477,
+            17.2594209,
+            17.1931881,
+            16.6631819,
+            21.3090071,
+            12.027459,
+            20.077492,
+            42.711578,
+            23.4137489,
+            18.222926,
+            16.819627,
+            25.580907,
+            18.422148,
+            12.614471,
+            16.5563821,
+            21.739891,
+            20.1627309,
+            18.319455,
+            49.011449,
+            51.537661,
+            21.942182,
+            20.0726959,
+            19.9062619,
+            17.904417,
+            53.1534661,
+            16.456001,
+            51.975655,
+            45.307462,
+            44.132018,
+            12.704908,
+            19.822335,
+            12.2870631,
+            16.975906,
+            13.2470351,
+            20.2468301,
+            43.274033,
+            16.938992,
+            16.553685,
+            45.093187,
+            12.4816879,
+            41.428195,
+            21.3161081,
+            13.80278,
+            16.4962731,
+            18.9884249,
+            20.860971,
+            20.587937,
+            16.578736,
+            12.767393,
+            13.919792,
+            19.958574,
+            51.2964,
+            35.8459189,
+            18.3261361,
+            19.28914,
+            24.786961,
+            20.260977,
+            24.651884,
+            15.6018891,
+            74.29249,
+            40.820744,
+            12.439891,
+            12.189571,
+            17.107622,
+            19.9640549,
+            11.9249379,
+            15.525853,
+            17.103777,
+            15.856343,
+            16.4956199,
+            16.973857,
+            19.567775,
+            19.314827,
+            23.7073069,
+            18.7813441
+          ]
+        },
+        "process_cpu_seconds": 1097.32181,
+        "ready_to_last_present_seconds": 649.98773,
+        "requested_samples": 120,
+        "sampled_peak_rss_kib": 684776,
+        "samples": 120,
+        "sent": 126,
+        "slowest_acknowledgment": {
+          "callback_to_parse_ms": 414.055989,
+          "callback_to_present_return_ms": 485.933277,
+          "callback_to_write_ms": 2.33095302,
+          "input_at": 552175.543,
+          "last_present_at": 552176.029,
+          "parse_to_present_return_ms": 71.8772881,
+          "parsed_at": 552175.957,
+          "presented_at": 552176.029,
+          "sequence": 19,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 10,
+              "cpu_ms": 0.126,
+              "maximum_wall_ms": 0.0586719252,
+              "wall_ms": 0.133389956
+            },
+            "parse": {
+              "bytes": 20480,
+              "calls": 5,
+              "cpu_ms": 151.847,
+              "maximum_wall_ms": 48.49639,
+              "wall_ms": 151.826707
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 214.883,
+              "maximum_wall_ms": 53.781685,
+              "wall_ms": 214.893301
+            },
+            "read": {
+              "bytes": 20480,
+              "calls": 5,
+              "cpu_ms": 1.697,
+              "maximum_wall_ms": 0.51432394,
+              "wall_ms": 1.87761185
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 248.814,
+              "maximum_wall_ms": 25.208381,
+              "wall_ms": 92.5212319
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 5.684,
+              "maximum_wall_ms": 2.21116701,
+              "wall_ms": 6.45341491
+            }
+          },
+          "written_at": 552175.546
+        },
+        "sustained": {
+          "cpu_percent": 168.695689,
+          "cpu_seconds": 1052.55044,
+          "duration_seconds": 623.934403,
+          "heap_kib": {
+            "final_median": 310215.319,
+            "growth": 54633.082,
+            "initial_median": 255582.237,
+            "peak": 366738.839
+          },
+          "rss_kib": {
+            "final_median": 684480,
+            "growth": 40856,
+            "initial_median": 643624,
+            "peak": 684776
+          },
+          "samples": [
+            {
+              "cpu_seconds": 0,
+              "elapsed_seconds": 0,
+              "heap_kib": 168239.171,
+              "history": {
+                "evicted": 82682,
+                "limit": 10000,
+                "pushed": 92682,
+                "retained": 10000
+              },
+              "rss_kib": 642888
+            },
+            {
+              "cpu_seconds": 6.056481,
+              "elapsed_seconds": 3.60114242,
+              "heap_kib": 175390.019,
+              "history": {
+                "evicted": 96880,
+                "limit": 10000,
+                "pushed": 106880,
+                "retained": 10000
+              },
+              "rss_kib": 642896
+            },
+            {
+              "cpu_seconds": 12.11337,
+              "elapsed_seconds": 7.20342214,
+              "heap_kib": 176575.159,
+              "history": {
+                "evicted": 110759,
+                "limit": 10000,
+                "pushed": 120759,
+                "retained": 10000
+              },
+              "rss_kib": 642904
+            },
+            {
+              "cpu_seconds": 18.232256,
+              "elapsed_seconds": 10.8152168,
+              "heap_kib": 192730.214,
+              "history": {
+                "evicted": 125247,
+                "limit": 10000,
+                "pushed": 135247,
+                "retained": 10000
+              },
+              "rss_kib": 642908
+            },
+            {
+              "cpu_seconds": 24.272798,
+              "elapsed_seconds": 14.4111892,
+              "heap_kib": 187991.397,
+              "history": {
+                "evicted": 138923,
+                "limit": 10000,
+                "pushed": 148923,
+                "retained": 10000
+              },
+              "rss_kib": 642912
+            },
+            {
+              "cpu_seconds": 30.407051,
+              "elapsed_seconds": 18.0202999,
+              "heap_kib": 203564.155,
+              "history": {
+                "evicted": 153411,
+                "limit": 10000,
+                "pushed": 163411,
+                "retained": 10000
+              },
+              "rss_kib": 642912
+            },
+            {
+              "cpu_seconds": 36.530191,
+              "elapsed_seconds": 21.6277236,
+              "heap_kib": 219056.979,
+              "history": {
+                "evicted": 167933,
+                "limit": 10000,
+                "pushed": 177933,
+                "retained": 10000
+              },
+              "rss_kib": 642924
+            },
+            {
+              "cpu_seconds": 42.616877,
+              "elapsed_seconds": 25.2145664,
+              "heap_kib": 227315.647,
+              "history": {
+                "evicted": 182082,
+                "limit": 10000,
+                "pushed": 192082,
+                "retained": 10000
+              },
+              "rss_kib": 642924
+            },
+            {
+              "cpu_seconds": 48.735724,
+              "elapsed_seconds": 28.8222958,
+              "heap_kib": 239776.011,
+              "history": {
+                "evicted": 196367,
+                "limit": 10000,
+                "pushed": 206367,
+                "retained": 10000
+              },
+              "rss_kib": 642948
+            },
+            {
+              "cpu_seconds": 54.846766,
+              "elapsed_seconds": 32.419989,
+              "heap_kib": 255582.237,
+              "history": {
+                "evicted": 210855,
+                "limit": 10000,
+                "pushed": 220855,
+                "retained": 10000
+              },
+              "rss_kib": 643596
+            },
+            {
+              "cpu_seconds": 60.980405,
+              "elapsed_seconds": 36.0267945,
+              "heap_kib": 258792.815,
+              "history": {
+                "evicted": 224768,
+                "limit": 10000,
+                "pushed": 234768,
+                "retained": 10000
+              },
+              "rss_kib": 643596
+            },
+            {
+              "cpu_seconds": 67.050475,
+              "elapsed_seconds": 39.6357302,
+              "heap_kib": 259203.905,
+              "history": {
+                "evicted": 238680,
+                "limit": 10000,
+                "pushed": 248680,
+                "retained": 10000
+              },
+              "rss_kib": 643600
+            },
+            {
+              "cpu_seconds": 73.177484,
+              "elapsed_seconds": 43.2327797,
+              "heap_kib": 284177.839,
+              "history": {
+                "evicted": 253507,
+                "limit": 10000,
+                "pushed": 263507,
+                "retained": 10000
+              },
+              "rss_kib": 643608
+            },
+            {
+              "cpu_seconds": 79.284078,
+              "elapsed_seconds": 46.8305149,
+              "heap_kib": 299645.022,
+              "history": {
+                "evicted": 268029,
+                "limit": 10000,
+                "pushed": 278029,
+                "retained": 10000
+              },
+              "rss_kib": 643612
+            },
+            {
+              "cpu_seconds": 85.164596,
+              "elapsed_seconds": 50.4262961,
+              "heap_kib": 279983.71,
+              "history": {
+                "evicted": 281061,
+                "limit": 10000,
+                "pushed": 291061,
+                "retained": 10000
+              },
+              "rss_kib": 643612
+            },
+            {
+              "cpu_seconds": 91.229035,
+              "elapsed_seconds": 54.0191849,
+              "heap_kib": 277783.585,
+              "history": {
+                "evicted": 294805,
+                "limit": 10000,
+                "pushed": 304805,
+                "retained": 10000
+              },
+              "rss_kib": 643616
+            },
+            {
+              "cpu_seconds": 97.316112,
+              "elapsed_seconds": 57.6168192,
+              "heap_kib": 225795.788,
+              "history": {
+                "evicted": 306246,
+                "limit": 10000,
+                "pushed": 316246,
+                "retained": 10000
+              },
+              "rss_kib": 643616
+            },
+            {
+              "cpu_seconds": 103.675234,
+              "elapsed_seconds": 61.3246414,
+              "heap_kib": 273955.241,
+              "history": {
+                "evicted": 316943,
+                "limit": 10000,
+                "pushed": 326943,
+                "retained": 10000
+              },
+              "rss_kib": 643616
+            },
+            {
+              "cpu_seconds": 109.709322,
+              "elapsed_seconds": 64.9536576,
+              "heap_kib": 212561.612,
+              "history": {
+                "evicted": 324458,
+                "limit": 10000,
+                "pushed": 334458,
+                "retained": 10000
+              },
+              "rss_kib": 643616
+            },
+            {
+              "cpu_seconds": 115.947359,
+              "elapsed_seconds": 68.5578063,
+              "heap_kib": 210413.784,
+              "history": {
+                "evicted": 329907,
+                "limit": 10000,
+                "pushed": 339907,
+                "retained": 10000
+              },
+              "rss_kib": 643620
+            },
+            {
+              "cpu_seconds": 122.27932,
+              "elapsed_seconds": 72.173133,
+              "heap_kib": 236296.905,
+              "history": {
+                "evicted": 336034,
+                "limit": 10000,
+                "pushed": 346034,
+                "retained": 10000
+              },
+              "rss_kib": 643620
+            },
+            {
+              "cpu_seconds": 128.635461,
+              "elapsed_seconds": 75.7767087,
+              "heap_kib": 358478.468,
+              "history": {
+                "evicted": 345817,
+                "limit": 10000,
+                "pushed": 355817,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 134.730495,
+              "elapsed_seconds": 79.3680235,
+              "heap_kib": 329977.136,
+              "history": {
+                "evicted": 357935,
+                "limit": 10000,
+                "pushed": 367935,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 140.763269,
+              "elapsed_seconds": 82.95642,
+              "heap_kib": 323960.526,
+              "history": {
+                "evicted": 371341,
+                "limit": 10000,
+                "pushed": 381341,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 146.794026,
+              "elapsed_seconds": 86.553484,
+              "heap_kib": 328826.491,
+              "history": {
+                "evicted": 385355,
+                "limit": 10000,
+                "pushed": 395355,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 152.831226,
+              "elapsed_seconds": 90.1401626,
+              "heap_kib": 331345.858,
+              "history": {
+                "evicted": 399165,
+                "limit": 10000,
+                "pushed": 409165,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 158.8646,
+              "elapsed_seconds": 93.7550945,
+              "heap_kib": 280643.347,
+              "history": {
+                "evicted": 410844,
+                "limit": 10000,
+                "pushed": 420844,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 164.873271,
+              "elapsed_seconds": 97.4040804,
+              "heap_kib": 205477.378,
+              "history": {
+                "evicted": 419713,
+                "limit": 10000,
+                "pushed": 429713,
+                "retained": 10000
+              },
+              "rss_kib": 643624
+            },
+            {
+              "cpu_seconds": 171.189403,
+              "elapsed_seconds": 100.999238,
+              "heap_kib": 346183.882,
+              "history": {
+                "evicted": 432034,
+                "limit": 10000,
+                "pushed": 442034,
+                "retained": 10000
+              },
+              "rss_kib": 643628
+            },
+            {
+              "cpu_seconds": 177.16856,
+              "elapsed_seconds": 104.601994,
+              "heap_kib": 316526.546,
+              "history": {
+                "evicted": 444322,
+                "limit": 10000,
+                "pushed": 454322,
+                "retained": 10000
+              },
+              "rss_kib": 643628
+            },
+            {
+              "cpu_seconds": 183.252619,
+              "elapsed_seconds": 108.211658,
+              "heap_kib": 340974.726,
+              "history": {
+                "evicted": 459047,
+                "limit": 10000,
+                "pushed": 469047,
+                "retained": 10000
+              },
+              "rss_kib": 643756
+            },
+            {
+              "cpu_seconds": 189.34393,
+              "elapsed_seconds": 111.809103,
+              "heap_kib": 354346.101,
+              "history": {
+                "evicted": 473400,
+                "limit": 10000,
+                "pushed": 483400,
+                "retained": 10000
+              },
+              "rss_kib": 643756
+            },
+            {
+              "cpu_seconds": 195.345952,
+              "elapsed_seconds": 115.406811,
+              "heap_kib": 348936.351,
+              "history": {
+                "evicted": 487109,
+                "limit": 10000,
+                "pushed": 497109,
+                "retained": 10000
+              },
+              "rss_kib": 644140
+            },
+            {
+              "cpu_seconds": 201.453548,
+              "elapsed_seconds": 119.003988,
+              "heap_kib": 363577.741,
+              "history": {
+                "evicted": 501462,
+                "limit": 10000,
+                "pushed": 511462,
+                "retained": 10000
+              },
+              "rss_kib": 644140
+            },
+            {
+              "cpu_seconds": 207.567479,
+              "elapsed_seconds": 122.617261,
+              "heap_kib": 307009.038,
+              "history": {
+                "evicted": 515578,
+                "limit": 10000,
+                "pushed": 525578,
+                "retained": 10000
+              },
+              "rss_kib": 644144
+            },
+            {
+              "cpu_seconds": 213.6833,
+              "elapsed_seconds": 126.243455,
+              "heap_kib": 266941.069,
+              "history": {
+                "evicted": 529524,
+                "limit": 10000,
+                "pushed": 539524,
+                "retained": 10000
+              },
+              "rss_kib": 644148
+            },
+            {
+              "cpu_seconds": 219.73865,
+              "elapsed_seconds": 129.838103,
+              "heap_kib": 242459.632,
+              "history": {
+                "evicted": 543505,
+                "limit": 10000,
+                "pushed": 553505,
+                "retained": 10000
+              },
+              "rss_kib": 644148
+            },
+            {
+              "cpu_seconds": 225.877043,
+              "elapsed_seconds": 133.476291,
+              "heap_kib": 164490.827,
+              "history": {
+                "evicted": 557519,
+                "limit": 10000,
+                "pushed": 567519,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 231.952031,
+              "elapsed_seconds": 137.068047,
+              "heap_kib": 165916.624,
+              "history": {
+                "evicted": 571465,
+                "limit": 10000,
+                "pushed": 581465,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 238.062777,
+              "elapsed_seconds": 140.663926,
+              "heap_kib": 184796.956,
+              "history": {
+                "evicted": 586054,
+                "limit": 10000,
+                "pushed": 596054,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 244.151685,
+              "elapsed_seconds": 144.267824,
+              "heap_kib": 199181.515,
+              "history": {
+                "evicted": 600577,
+                "limit": 10000,
+                "pushed": 610577,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 250.179839,
+              "elapsed_seconds": 147.857984,
+              "heap_kib": 204249.05,
+              "history": {
+                "evicted": 614726,
+                "limit": 10000,
+                "pushed": 624726,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 256.287811,
+              "elapsed_seconds": 151.449755,
+              "heap_kib": 227495.241,
+              "history": {
+                "evicted": 629553,
+                "limit": 10000,
+                "pushed": 639553,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 262.382438,
+              "elapsed_seconds": 155.045614,
+              "heap_kib": 242156.476,
+              "history": {
+                "evicted": 644075,
+                "limit": 10000,
+                "pushed": 654075,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 268.505554,
+              "elapsed_seconds": 158.652874,
+              "heap_kib": 264489.765,
+              "history": {
+                "evicted": 658800,
+                "limit": 10000,
+                "pushed": 668800,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 274.589342,
+              "elapsed_seconds": 162.247943,
+              "heap_kib": 283048.073,
+              "history": {
+                "evicted": 673525,
+                "limit": 10000,
+                "pushed": 683525,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 280.672113,
+              "elapsed_seconds": 165.837763,
+              "heap_kib": 292749.253,
+              "history": {
+                "evicted": 687776,
+                "limit": 10000,
+                "pushed": 697776,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 286.731633,
+              "elapsed_seconds": 169.425863,
+              "heap_kib": 307764.077,
+              "history": {
+                "evicted": 702230,
+                "limit": 10000,
+                "pushed": 712230,
+                "retained": 10000
+              },
+              "rss_kib": 644152
+            },
+            {
+              "cpu_seconds": 292.792034,
+              "elapsed_seconds": 173.013341,
+              "heap_kib": 324257.038,
+              "history": {
+                "evicted": 716887,
+                "limit": 10000,
+                "pushed": 726887,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 298.862873,
+              "elapsed_seconds": 176.613153,
+              "heap_kib": 329783.804,
+              "history": {
+                "evicted": 730902,
+                "limit": 10000,
+                "pushed": 740902,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 304.939481,
+              "elapsed_seconds": 180.211081,
+              "heap_kib": 342254.655,
+              "history": {
+                "evicted": 745288,
+                "limit": 10000,
+                "pushed": 755288,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 310.987432,
+              "elapsed_seconds": 183.816686,
+              "heap_kib": 357403.972,
+              "history": {
+                "evicted": 759878,
+                "limit": 10000,
+                "pushed": 769878,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 317.064594,
+              "elapsed_seconds": 187.420103,
+              "heap_kib": 365808.909,
+              "history": {
+                "evicted": 774061,
+                "limit": 10000,
+                "pushed": 784061,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 323.157576,
+              "elapsed_seconds": 191.03863,
+              "heap_kib": 302386.589,
+              "history": {
+                "evicted": 788177,
+                "limit": 10000,
+                "pushed": 798177,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 329.194773,
+              "elapsed_seconds": 194.643124,
+              "heap_kib": 271816.851,
+              "history": {
+                "evicted": 802191,
+                "limit": 10000,
+                "pushed": 812191,
+                "retained": 10000
+              },
+              "rss_kib": 644288
+            },
+            {
+              "cpu_seconds": 335.264582,
+              "elapsed_seconds": 198.268518,
+              "heap_kib": 233356.628,
+              "history": {
+                "evicted": 816273,
+                "limit": 10000,
+                "pushed": 826273,
+                "retained": 10000
+              },
+              "rss_kib": 644416
+            },
+            {
+              "cpu_seconds": 341.301479,
+              "elapsed_seconds": 201.857755,
+              "heap_kib": 169914.96,
+              "history": {
+                "evicted": 830219,
+                "limit": 10000,
+                "pushed": 840219,
+                "retained": 10000
+              },
+              "rss_kib": 644416
+            },
+            {
+              "cpu_seconds": 347.360112,
+              "elapsed_seconds": 205.451527,
+              "heap_kib": 168085.14,
+              "history": {
+                "evicted": 844166,
+                "limit": 10000,
+                "pushed": 854166,
+                "retained": 10000
+              },
+              "rss_kib": 644416
+            },
+            {
+              "cpu_seconds": 353.464369,
+              "elapsed_seconds": 209.056599,
+              "heap_kib": 178676.448,
+              "history": {
+                "evicted": 858518,
+                "limit": 10000,
+                "pushed": 868518,
+                "retained": 10000
+              },
+              "rss_kib": 654816
+            },
+            {
+              "cpu_seconds": 359.565777,
+              "elapsed_seconds": 212.662285,
+              "heap_kib": 189891.007,
+              "history": {
+                "evicted": 872803,
+                "limit": 10000,
+                "pushed": 882803,
+                "retained": 10000
+              },
+              "rss_kib": 654816
+            },
+            {
+              "cpu_seconds": 365.64848,
+              "elapsed_seconds": 216.259367,
+              "heap_kib": 198006.788,
+              "history": {
+                "evicted": 887054,
+                "limit": 10000,
+                "pushed": 897054,
+                "retained": 10000
+              },
+              "rss_kib": 654816
+            },
+            {
+              "cpu_seconds": 371.695843,
+              "elapsed_seconds": 219.84789,
+              "heap_kib": 209451.64,
+              "history": {
+                "evicted": 901475,
+                "limit": 10000,
+                "pushed": 911475,
+                "retained": 10000
+              },
+              "rss_kib": 664476
+            },
+            {
+              "cpu_seconds": 377.772289,
+              "elapsed_seconds": 223.436592,
+              "heap_kib": 227222.96,
+              "history": {
+                "evicted": 916166,
+                "limit": 10000,
+                "pushed": 926166,
+                "retained": 10000
+              },
+              "rss_kib": 664476
+            },
+            {
+              "cpu_seconds": 383.838979,
+              "elapsed_seconds": 227.040064,
+              "heap_kib": 231238.007,
+              "history": {
+                "evicted": 930214,
+                "limit": 10000,
+                "pushed": 940214,
+                "retained": 10000
+              },
+              "rss_kib": 664476
+            },
+            {
+              "cpu_seconds": 389.966035,
+              "elapsed_seconds": 230.629816,
+              "heap_kib": 244497.741,
+              "history": {
+                "evicted": 944634,
+                "limit": 10000,
+                "pushed": 954634,
+                "retained": 10000
+              },
+              "rss_kib": 677148
+            },
+            {
+              "cpu_seconds": 396.068844,
+              "elapsed_seconds": 234.229136,
+              "heap_kib": 256681.647,
+              "history": {
+                "evicted": 958987,
+                "limit": 10000,
+                "pushed": 968987,
+                "retained": 10000
+              },
+              "rss_kib": 677148
+            },
+            {
+              "cpu_seconds": 402.110707,
+              "elapsed_seconds": 237.817232,
+              "heap_kib": 258684.362,
+              "history": {
+                "evicted": 973035,
+                "limit": 10000,
+                "pushed": 983035,
+                "retained": 10000
+              },
+              "rss_kib": 677148
+            },
+            {
+              "cpu_seconds": 407.849375,
+              "elapsed_seconds": 241.41594,
+              "heap_kib": 208367.253,
+              "history": {
+                "evicted": 984881,
+                "limit": 10000,
+                "pushed": 994881,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 413.920442,
+              "elapsed_seconds": 245.003059,
+              "heap_kib": 217539.464,
+              "history": {
+                "evicted": 999065,
+                "limit": 10000,
+                "pushed": 1009065,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 420.012147,
+              "elapsed_seconds": 248.601709,
+              "heap_kib": 229838.937,
+              "history": {
+                "evicted": 1013384,
+                "limit": 10000,
+                "pushed": 1023384,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 425.96497,
+              "elapsed_seconds": 252.189685,
+              "heap_kib": 197458.562,
+              "history": {
+                "evicted": 1026044,
+                "limit": 10000,
+                "pushed": 1036044,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 431.816971,
+              "elapsed_seconds": 255.788846,
+              "heap_kib": 243029.683,
+              "history": {
+                "evicted": 1033559,
+                "limit": 10000,
+                "pushed": 1043559,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 438.062723,
+              "elapsed_seconds": 259.414179,
+              "heap_kib": 163028.862,
+              "history": {
+                "evicted": 1043680,
+                "limit": 10000,
+                "pushed": 1053680,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 444.371059,
+              "elapsed_seconds": 263.015066,
+              "heap_kib": 330167.011,
+              "history": {
+                "evicted": 1055290,
+                "limit": 10000,
+                "pushed": 1065290,
+                "retained": 10000
+              },
+              "rss_kib": 684112
+            },
+            {
+              "cpu_seconds": 450.450628,
+              "elapsed_seconds": 266.623325,
+              "heap_kib": 322991.538,
+              "history": {
+                "evicted": 1068424,
+                "limit": 10000,
+                "pushed": 1078424,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 456.538057,
+              "elapsed_seconds": 270.230627,
+              "heap_kib": 339734.214,
+              "history": {
+                "evicted": 1082879,
+                "limit": 10000,
+                "pushed": 1092879,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 462.67709,
+              "elapsed_seconds": 273.830574,
+              "heap_kib": 335944.526,
+              "history": {
+                "evicted": 1096453,
+                "limit": 10000,
+                "pushed": 1106453,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 468.514952,
+              "elapsed_seconds": 277.423855,
+              "heap_kib": 294121.128,
+              "history": {
+                "evicted": 1108469,
+                "limit": 10000,
+                "pushed": 1118469,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 474.609251,
+              "elapsed_seconds": 281.0201,
+              "heap_kib": 230904.956,
+              "history": {
+                "evicted": 1119607,
+                "limit": 10000,
+                "pushed": 1129607,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 480.777139,
+              "elapsed_seconds": 284.623319,
+              "heap_kib": 336717.179,
+              "history": {
+                "evicted": 1128915,
+                "limit": 10000,
+                "pushed": 1138915,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 486.838307,
+              "elapsed_seconds": 288.218292,
+              "heap_kib": 220041.167,
+              "history": {
+                "evicted": 1137784,
+                "limit": 10000,
+                "pushed": 1147784,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 493.10387,
+              "elapsed_seconds": 291.805903,
+              "heap_kib": 336682.405,
+              "history": {
+                "evicted": 1147431,
+                "limit": 10000,
+                "pushed": 1157431,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 499.126402,
+              "elapsed_seconds": 295.403711,
+              "heap_kib": 209416.183,
+              "history": {
+                "evicted": 1155928,
+                "limit": 10000,
+                "pushed": 1165928,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 505.208,
+              "elapsed_seconds": 299.010209,
+              "heap_kib": 333097.647,
+              "history": {
+                "evicted": 1165947,
+                "limit": 10000,
+                "pushed": 1175947,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 510.927593,
+              "elapsed_seconds": 302.700958,
+              "heap_kib": 250383.14,
+              "history": {
+                "evicted": 1172853,
+                "limit": 10000,
+                "pushed": 1182853,
+                "retained": 10000
+              },
+              "rss_kib": 683728
+            },
+            {
+              "cpu_seconds": 517.026342,
+              "elapsed_seconds": 306.289602,
+              "heap_kib": 302804.976,
+              "history": {
+                "evicted": 1183651,
+                "limit": 10000,
+                "pushed": 1193651,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 523.08092,
+              "elapsed_seconds": 309.887207,
+              "heap_kib": 313196.308,
+              "history": {
+                "evicted": 1197665,
+                "limit": 10000,
+                "pushed": 1207665,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 529.194838,
+              "elapsed_seconds": 313.492507,
+              "heap_kib": 314392.632,
+              "history": {
+                "evicted": 1211510,
+                "limit": 10000,
+                "pushed": 1221510,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 535.303664,
+              "elapsed_seconds": 317.108438,
+              "heap_kib": 308233.077,
+              "history": {
+                "evicted": 1225118,
+                "limit": 10000,
+                "pushed": 1235118,
+                "retained": 10000
+              },
+              "rss_kib": 684116
+            },
+            {
+              "cpu_seconds": 541.299565,
+              "elapsed_seconds": 320.695105,
+              "heap_kib": 287809.093,
+              "history": {
+                "evicted": 1238151,
+                "limit": 10000,
+                "pushed": 1248151,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 547.26916,
+              "elapsed_seconds": 324.307214,
+              "heap_kib": 244886.229,
+              "history": {
+                "evicted": 1250370,
+                "limit": 10000,
+                "pushed": 1260370,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 553.24566,
+              "elapsed_seconds": 327.90653,
+              "heap_kib": 191623.706,
+              "history": {
+                "evicted": 1261913,
+                "limit": 10000,
+                "pushed": 1271913,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 559.152625,
+              "elapsed_seconds": 331.517158,
+              "heap_kib": 184401.187,
+              "history": {
+                "evicted": 1275386,
+                "limit": 10000,
+                "pushed": 1285386,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 565.201272,
+              "elapsed_seconds": 335.114453,
+              "heap_kib": 193055.401,
+              "history": {
+                "evicted": 1289434,
+                "limit": 10000,
+                "pushed": 1299434,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 571.272273,
+              "elapsed_seconds": 338.718981,
+              "heap_kib": 212085.374,
+              "history": {
+                "evicted": 1303820,
+                "limit": 10000,
+                "pushed": 1313820,
+                "retained": 10000
+              },
+              "rss_kib": 684120
+            },
+            {
+              "cpu_seconds": 577.354673,
+              "elapsed_seconds": 342.311036,
+              "heap_kib": 238896.784,
+              "history": {
+                "evicted": 1318783,
+                "limit": 10000,
+                "pushed": 1328783,
+                "retained": 10000
+              },
+              "rss_kib": 684272
+            },
+            {
+              "cpu_seconds": 583.445017,
+              "elapsed_seconds": 345.909238,
+              "heap_kib": 252076.378,
+              "history": {
+                "evicted": 1333203,
+                "limit": 10000,
+                "pushed": 1343203,
+                "retained": 10000
+              },
+              "rss_kib": 684272
+            },
+            {
+              "cpu_seconds": 589.52061,
+              "elapsed_seconds": 349.507665,
+              "heap_kib": 267720.843,
+              "history": {
+                "evicted": 1347793,
+                "limit": 10000,
+                "pushed": 1357793,
+                "retained": 10000
+              },
+              "rss_kib": 684272
+            },
+            {
+              "cpu_seconds": 595.635142,
+              "elapsed_seconds": 353.095715,
+              "heap_kib": 285723.702,
+              "history": {
+                "evicted": 1362484,
+                "limit": 10000,
+                "pushed": 1372484,
+                "retained": 10000
+              },
+              "rss_kib": 684344
+            },
+            {
+              "cpu_seconds": 601.708603,
+              "elapsed_seconds": 356.702618,
+              "heap_kib": 298075.546,
+              "history": {
+                "evicted": 1376836,
+                "limit": 10000,
+                "pushed": 1386836,
+                "retained": 10000
+              },
+              "rss_kib": 684344
+            },
+            {
+              "cpu_seconds": 607.797499,
+              "elapsed_seconds": 360.292212,
+              "heap_kib": 308394.515,
+              "history": {
+                "evicted": 1391189,
+                "limit": 10000,
+                "pushed": 1401189,
+                "retained": 10000
+              },
+              "rss_kib": 684344
+            },
+            {
+              "cpu_seconds": 613.869841,
+              "elapsed_seconds": 363.883418,
+              "heap_kib": 306780.409,
+              "history": {
+                "evicted": 1405034,
+                "limit": 10000,
+                "pushed": 1415034,
+                "retained": 10000
+              },
+              "rss_kib": 684344
+            },
+            {
+              "cpu_seconds": 619.951334,
+              "elapsed_seconds": 367.488365,
+              "heap_kib": 316052.882,
+              "history": {
+                "evicted": 1419251,
+                "limit": 10000,
+                "pushed": 1429251,
+                "retained": 10000
+              },
+              "rss_kib": 684344
+            },
+            {
+              "cpu_seconds": 626.00614,
+              "elapsed_seconds": 371.076813,
+              "heap_kib": 323739.804,
+              "history": {
+                "evicted": 1433570,
+                "limit": 10000,
+                "pushed": 1443570,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 632.09208,
+              "elapsed_seconds": 374.668604,
+              "heap_kib": 321898.144,
+              "history": {
+                "evicted": 1447314,
+                "limit": 10000,
+                "pushed": 1457314,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 638.177107,
+              "elapsed_seconds": 378.265182,
+              "heap_kib": 324483.241,
+              "history": {
+                "evicted": 1461260,
+                "limit": 10000,
+                "pushed": 1471260,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 644.278181,
+              "elapsed_seconds": 381.86058,
+              "heap_kib": 333609.616,
+              "history": {
+                "evicted": 1475443,
+                "limit": 10000,
+                "pushed": 1485443,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 650.057153,
+              "elapsed_seconds": 385.464275,
+              "heap_kib": 273686.116,
+              "history": {
+                "evicted": 1487088,
+                "limit": 10000,
+                "pushed": 1497088,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 656.108,
+              "elapsed_seconds": 389.055598,
+              "heap_kib": 282382.577,
+              "history": {
+                "evicted": 1501339,
+                "limit": 10000,
+                "pushed": 1511339,
+                "retained": 10000
+              },
+              "rss_kib": 684348
+            },
+            {
+              "cpu_seconds": 662.204908,
+              "elapsed_seconds": 392.644517,
+              "heap_kib": 301416.21,
+              "history": {
+                "evicted": 1515962,
+                "limit": 10000,
+                "pushed": 1525962,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 668.266997,
+              "elapsed_seconds": 396.23762,
+              "heap_kib": 309320.444,
+              "history": {
+                "evicted": 1530213,
+                "limit": 10000,
+                "pushed": 1540213,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 674.431898,
+              "elapsed_seconds": 399.843928,
+              "heap_kib": 322066.433,
+              "history": {
+                "evicted": 1544499,
+                "limit": 10000,
+                "pushed": 1554499,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 680.517761,
+              "elapsed_seconds": 403.440016,
+              "heap_kib": 321417.831,
+              "history": {
+                "evicted": 1558411,
+                "limit": 10000,
+                "pushed": 1568411,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 686.525714,
+              "elapsed_seconds": 407.029183,
+              "heap_kib": 321971.417,
+              "history": {
+                "evicted": 1572289,
+                "limit": 10000,
+                "pushed": 1582289,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 692.599426,
+              "elapsed_seconds": 410.61665,
+              "heap_kib": 330246.702,
+              "history": {
+                "evicted": 1586540,
+                "limit": 10000,
+                "pushed": 1596540,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 698.67856,
+              "elapsed_seconds": 414.218415,
+              "heap_kib": 338089.772,
+              "history": {
+                "evicted": 1600825,
+                "limit": 10000,
+                "pushed": 1610825,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 704.713733,
+              "elapsed_seconds": 417.820632,
+              "heap_kib": 342465.03,
+              "history": {
+                "evicted": 1614839,
+                "limit": 10000,
+                "pushed": 1624839,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 710.808227,
+              "elapsed_seconds": 421.411592,
+              "heap_kib": 354242.081,
+              "history": {
+                "evicted": 1629226,
+                "limit": 10000,
+                "pushed": 1639226,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 716.912602,
+              "elapsed_seconds": 425.010852,
+              "heap_kib": 364788.304,
+              "history": {
+                "evicted": 1643545,
+                "limit": 10000,
+                "pushed": 1653545,
+                "retained": 10000
+              },
+              "rss_kib": 684352
+            },
+            {
+              "cpu_seconds": 723.002654,
+              "elapsed_seconds": 428.611864,
+              "heap_kib": 315926.479,
+              "history": {
+                "evicted": 1657694,
+                "limit": 10000,
+                "pushed": 1667694,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 729.056762,
+              "elapsed_seconds": 432.198546,
+              "heap_kib": 267431.55,
+              "history": {
+                "evicted": 1671810,
+                "limit": 10000,
+                "pushed": 1681810,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 735.12584,
+              "elapsed_seconds": 435.814577,
+              "heap_kib": 242742.265,
+              "history": {
+                "evicted": 1685790,
+                "limit": 10000,
+                "pushed": 1695790,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 741.192472,
+              "elapsed_seconds": 439.470914,
+              "heap_kib": 242261.05,
+              "history": {
+                "evicted": 1699635,
+                "limit": 10000,
+                "pushed": 1709635,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 747.364165,
+              "elapsed_seconds": 443.134782,
+              "heap_kib": 168232.323,
+              "history": {
+                "evicted": 1713616,
+                "limit": 10000,
+                "pushed": 1723616,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 753.415856,
+              "elapsed_seconds": 446.742887,
+              "heap_kib": 169438.827,
+              "history": {
+                "evicted": 1727664,
+                "limit": 10000,
+                "pushed": 1737664,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 759.544405,
+              "elapsed_seconds": 450.350843,
+              "heap_kib": 191569.729,
+              "history": {
+                "evicted": 1742490,
+                "limit": 10000,
+                "pushed": 1752490,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 765.6416,
+              "elapsed_seconds": 453.940505,
+              "heap_kib": 206550.839,
+              "history": {
+                "evicted": 1757012,
+                "limit": 10000,
+                "pushed": 1767012,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 771.740072,
+              "elapsed_seconds": 457.540574,
+              "heap_kib": 202881.327,
+              "history": {
+                "evicted": 1770857,
+                "limit": 10000,
+                "pushed": 1780857,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 777.912445,
+              "elapsed_seconds": 461.15036,
+              "heap_kib": 200976.179,
+              "history": {
+                "evicted": 1784600,
+                "limit": 10000,
+                "pushed": 1794600,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 784.012205,
+              "elapsed_seconds": 464.753758,
+              "heap_kib": 223972.995,
+              "history": {
+                "evicted": 1799461,
+                "limit": 10000,
+                "pushed": 1809461,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 790.145654,
+              "elapsed_seconds": 468.360573,
+              "heap_kib": 234950.073,
+              "history": {
+                "evicted": 1813814,
+                "limit": 10000,
+                "pushed": 1823814,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 796.270508,
+              "elapsed_seconds": 471.964616,
+              "heap_kib": 260356.147,
+              "history": {
+                "evicted": 1828809,
+                "limit": 10000,
+                "pushed": 1838809,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 802.315827,
+              "elapsed_seconds": 475.556385,
+              "heap_kib": 271541.28,
+              "history": {
+                "evicted": 1843196,
+                "limit": 10000,
+                "pushed": 1853196,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 808.449325,
+              "elapsed_seconds": 479.165987,
+              "heap_kib": 291503.351,
+              "history": {
+                "evicted": 1857853,
+                "limit": 10000,
+                "pushed": 1867853,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 814.53401,
+              "elapsed_seconds": 482.764065,
+              "heap_kib": 310215.319,
+              "history": {
+                "evicted": 1872544,
+                "limit": 10000,
+                "pushed": 1882544,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 820.595941,
+              "elapsed_seconds": 486.355188,
+              "heap_kib": 320269.585,
+              "history": {
+                "evicted": 1886863,
+                "limit": 10000,
+                "pushed": 1896863,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 826.712482,
+              "elapsed_seconds": 489.963613,
+              "heap_kib": 338259.987,
+              "history": {
+                "evicted": 1901453,
+                "limit": 10000,
+                "pushed": 1911453,
+                "retained": 10000
+              },
+              "rss_kib": 684476
+            },
+            {
+              "cpu_seconds": 832.801095,
+              "elapsed_seconds": 493.568858,
+              "heap_kib": 344684.819,
+              "history": {
+                "evicted": 1915569,
+                "limit": 10000,
+                "pushed": 1925569,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 838.885545,
+              "elapsed_seconds": 497.171042,
+              "heap_kib": 353532.772,
+              "history": {
+                "evicted": 1929819,
+                "limit": 10000,
+                "pushed": 1939819,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 844.945449,
+              "elapsed_seconds": 500.776155,
+              "heap_kib": 341485.358,
+              "history": {
+                "evicted": 1944375,
+                "limit": 10000,
+                "pushed": 1954375,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 850.880594,
+              "elapsed_seconds": 504.364869,
+              "heap_kib": 349167.327,
+              "history": {
+                "evicted": 1957509,
+                "limit": 10000,
+                "pushed": 1967509,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 856.971867,
+              "elapsed_seconds": 507.9649,
+              "heap_kib": 355271.175,
+              "history": {
+                "evicted": 1971557,
+                "limit": 10000,
+                "pushed": 1981557,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 863.054904,
+              "elapsed_seconds": 511.562115,
+              "heap_kib": 346339.901,
+              "history": {
+                "evicted": 1984928,
+                "limit": 10000,
+                "pushed": 1994928,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 869.142659,
+              "elapsed_seconds": 515.163127,
+              "heap_kib": 306278.78,
+              "history": {
+                "evicted": 1996911,
+                "limit": 10000,
+                "pushed": 2006911,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 875.26373,
+              "elapsed_seconds": 518.766894,
+              "heap_kib": 256593.292,
+              "history": {
+                "evicted": 2008454,
+                "limit": 10000,
+                "pushed": 2018454,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 881.134953,
+              "elapsed_seconds": 522.363218,
+              "heap_kib": 235501.589,
+              "history": {
+                "evicted": 2018508,
+                "limit": 10000,
+                "pushed": 2028508,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 887.211524,
+              "elapsed_seconds": 525.95839,
+              "heap_kib": 312312.218,
+              "history": {
+                "evicted": 2029577,
+                "limit": 10000,
+                "pushed": 2039577,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 893.329228,
+              "elapsed_seconds": 529.546455,
+              "heap_kib": 326734.722,
+              "history": {
+                "evicted": 2043964,
+                "limit": 10000,
+                "pushed": 2053964,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 899.456152,
+              "elapsed_seconds": 533.151962,
+              "heap_kib": 340149.343,
+              "history": {
+                "evicted": 2058418,
+                "limit": 10000,
+                "pushed": 2068418,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 905.480185,
+              "elapsed_seconds": 536.743265,
+              "heap_kib": 323977.765,
+              "history": {
+                "evicted": 2071687,
+                "limit": 10000,
+                "pushed": 2081687,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 911.513276,
+              "elapsed_seconds": 540.333145,
+              "heap_kib": 330047.858,
+              "history": {
+                "evicted": 2085868,
+                "limit": 10000,
+                "pushed": 2095868,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 917.609735,
+              "elapsed_seconds": 543.926961,
+              "heap_kib": 339357.362,
+              "history": {
+                "evicted": 2100119,
+                "limit": 10000,
+                "pushed": 2110119,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 923.604207,
+              "elapsed_seconds": 547.541571,
+              "heap_kib": 296905.21,
+              "history": {
+                "evicted": 2112373,
+                "limit": 10000,
+                "pushed": 2122373,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 929.558503,
+              "elapsed_seconds": 551.140746,
+              "heap_kib": 263991.632,
+              "history": {
+                "evicted": 2125033,
+                "limit": 10000,
+                "pushed": 2135033,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 935.6621,
+              "elapsed_seconds": 554.750231,
+              "heap_kib": 279961.761,
+              "history": {
+                "evicted": 2139555,
+                "limit": 10000,
+                "pushed": 2149555,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 941.798417,
+              "elapsed_seconds": 558.357707,
+              "heap_kib": 296233.866,
+              "history": {
+                "evicted": 2154043,
+                "limit": 10000,
+                "pushed": 2164043,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 947.887605,
+              "elapsed_seconds": 561.948583,
+              "heap_kib": 312833.827,
+              "history": {
+                "evicted": 2168666,
+                "limit": 10000,
+                "pushed": 2178666,
+                "retained": 10000
+              },
+              "rss_kib": 684480
+            },
+            {
+              "cpu_seconds": 953.958512,
+              "elapsed_seconds": 565.541146,
+              "heap_kib": 325473.183,
+              "history": {
+                "evicted": 2183121,
+                "limit": 10000,
+                "pushed": 2193121,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 960.044731,
+              "elapsed_seconds": 569.136053,
+              "heap_kib": 338609.198,
+              "history": {
+                "evicted": 2197541,
+                "limit": 10000,
+                "pushed": 2207541,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 966.124471,
+              "elapsed_seconds": 572.744863,
+              "heap_kib": 349294.241,
+              "history": {
+                "evicted": 2211792,
+                "limit": 10000,
+                "pushed": 2221792,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 972.138106,
+              "elapsed_seconds": 576.341662,
+              "heap_kib": 348211.593,
+              "history": {
+                "evicted": 2225806,
+                "limit": 10000,
+                "pushed": 2235806,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 978.287412,
+              "elapsed_seconds": 579.943874,
+              "heap_kib": 366738.839,
+              "history": {
+                "evicted": 2240396,
+                "limit": 10000,
+                "pushed": 2250396,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 984.324207,
+              "elapsed_seconds": 583.54568,
+              "heap_kib": 308771.546,
+              "history": {
+                "evicted": 2254579,
+                "limit": 10000,
+                "pushed": 2264579,
+                "retained": 10000
+              },
+              "rss_kib": 684484
+            },
+            {
+              "cpu_seconds": 990.443237,
+              "elapsed_seconds": 587.182312,
+              "heap_kib": 244163.315,
+              "history": {
+                "evicted": 2268661,
+                "limit": 10000,
+                "pushed": 2278661,
+                "retained": 10000
+              },
+              "rss_kib": 684496
+            },
+            {
+              "cpu_seconds": 996.479654,
+              "elapsed_seconds": 590.776218,
+              "heap_kib": 177790.147,
+              "history": {
+                "evicted": 2282777,
+                "limit": 10000,
+                "pushed": 2292777,
+                "retained": 10000
+              },
+              "rss_kib": 684496
+            },
+            {
+              "cpu_seconds": 1002.56913,
+              "elapsed_seconds": 594.368239,
+              "heap_kib": 175979.214,
+              "history": {
+                "evicted": 2297197,
+                "limit": 10000,
+                "pushed": 2307197,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1008.65429,
+              "elapsed_seconds": 597.958853,
+              "heap_kib": 189173.401,
+              "history": {
+                "evicted": 2311651,
+                "limit": 10000,
+                "pushed": 2321651,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1014.73437,
+              "elapsed_seconds": 601.568664,
+              "heap_kib": 211583.847,
+              "history": {
+                "evicted": 2326512,
+                "limit": 10000,
+                "pushed": 2336512,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1020.85956,
+              "elapsed_seconds": 605.177816,
+              "heap_kib": 228719.19,
+              "history": {
+                "evicted": 2341135,
+                "limit": 10000,
+                "pushed": 2351135,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1027.00875,
+              "elapsed_seconds": 608.786828,
+              "heap_kib": 248033.335,
+              "history": {
+                "evicted": 2355691,
+                "limit": 10000,
+                "pushed": 2365691,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1033.13432,
+              "elapsed_seconds": 612.388293,
+              "heap_kib": 272371.312,
+              "history": {
+                "evicted": 2370653,
+                "limit": 10000,
+                "pushed": 2380653,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1039.19173,
+              "elapsed_seconds": 615.985104,
+              "heap_kib": 285733.394,
+              "history": {
+                "evicted": 2385141,
+                "limit": 10000,
+                "pushed": 2395141,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1045.27537,
+              "elapsed_seconds": 619.588321,
+              "heap_kib": 302489.034,
+              "history": {
+                "evicted": 2399798,
+                "limit": 10000,
+                "pushed": 2409798,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1051.37067,
+              "elapsed_seconds": 623.182612,
+              "heap_kib": 321573.464,
+              "history": {
+                "evicted": 2414524,
+                "limit": 10000,
+                "pushed": 2424524,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            },
+            {
+              "cpu_seconds": 1052.55044,
+              "elapsed_seconds": 623.934403,
+              "heap_kib": 170533.913,
+              "history": {
+                "evicted": 2416351,
+                "limit": 10000,
+                "pushed": 2426351,
+                "retained": 10000
+              },
+              "rss_kib": 684776
+            }
+          ],
+          "window_samples": 43
+        },
+        "warmup": 6
+      },
+      "metadata": {
+        "configuration": {
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "gtk",
+          "interval_seconds": 5.04201681,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 120,
+          "scroll_mode": "history",
+          "scrollback_limit": 10000,
+          "soak_seconds": 600,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 911,
+          "warmup_inputs": 6,
+          "workload": "saturated"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "73f18bb9d2c74f9bf02c1baf77b4993f14e20d15",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T053403Z"
+      },
+      "presentation": {
+        "attempts": 23142,
+        "failures": {},
+        "last_attempt_at": 552732.242,
+        "successful": 23142
+      },
+      "schema_version": 1,
+      "status": "complete",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 911,
+  "soak_policy": {
+    "minimum_seconds": 600.0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "failure": {
+    "mode": "saturated",
+    "trial": 1,
+    "log": "/work/bench/results/history-gtk-10000-shape-cache-600-logs/saturated-1.log",
+    "reason": "heap_kib growth 53.4 MiB exceeds 16 MiB"
+  }
+}
