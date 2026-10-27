@@ -68,3 +68,42 @@ readiness, regex, terminfo, CLI and syntax checks. Bash/Zsh/fish/Nushell were
 required. The three targeted retention/sustained/input-measurement suites also
 passed all 16 tests with the JIT disabled. The final numeric-parser adjustment
 was followed by another successful interactive-harness run.
+
+## Explicit retained-mode ten-minute qualification
+
+The [native 600-second report](2026-10-27-native-retained-heap-600.json) at clean
+`34d4bed` used `--heap-measurement retained` directly, without the external
+launcher, profiler or trace callbacks. The runner, GTK/WGPU, software Vulkan
+adapter, grid, styled-Unicode traffic and 10,000-row history were otherwise the
+same as above. No other Kiwi workload ran concurrently. Linux's three targeted
+suites passed all 16 tests, and both interactive harness checks passed before
+this trial.
+
+All 120 measured inputs and six warmups completed. Retained checkpoints span
+624.31 seconds excluding the initial collection, with 10,000 rows present at
+both endpoints. History evicted 2,567,758 rows in total. Results:
+
+| Gate/observation | Result | Limit |
+| --- | ---: | ---: |
+| Callback-to-present-return p95 | 231.01 ms | diagnostic |
+| Maximum measured response | 263.21 ms | 2,000 ms |
+| Live Lua heap, initial → final | 130,891.695 → 131,495.578 KiB | — |
+| Retained Lua heap growth | 603.883 KiB (0.59 MiB) | 16 MiB |
+| Sampled RSS median growth | 41,068 KiB (40.11 MiB) | 64 MiB |
+| Sampled peak RSS | 685,148 KiB (669.09 MiB) | 1 GiB |
+| Initial / final full collection | 291.98 / 354.34 ms | outside input timing |
+
+Startup-ready presentation was 502.41 ms. The slowest input reached the PTY in
+1.44 ms; pending work included 72.81 ms parsing, 119.26 ms preparation and
+54.70 ms rendering. Process CPU averaged 168.27%. Post-exit JIT inspection found
+905 traces and 1,665,381 emitted machine-code bytes.
+
+The report is complete under its **explicit retained-mode contract**. The raw
+allocated-heap quarter medians still grew 39,503.73 KiB (38.58 MiB), which would
+fail the unchanged sampled-mode heap gate. That statistic remains in the report.
+The earlier ordinary sampled failure is not relabelled. Together, the ordinary
+run's completed latency samples and this live-retention measurement provide
+stronger evidence than treating collection-phase medians as proof of a leak.
+They do not establish repeatable timing, hardware-GPU behavior, physical input
+latency or a speed advantage over another terminal. macOS long visible-window
+qualification and a fixed-runner regression baseline remain separate work.
