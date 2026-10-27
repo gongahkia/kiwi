@@ -1,0 +1,633 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "jit_snapshot": {
+        "ir_instructions": 15282,
+        "machine_code_bytes": 224317,
+        "maximum_trace": 164,
+        "observation": "after workload exit",
+        "scan_limit": 65535,
+        "traces": 164
+      },
+      "lifecycle": {
+        "child": {
+          "eof_before_shutdown": false,
+          "pid": 17851,
+          "pty_closed": true,
+          "shutdown_at": 556654.189,
+          "status_after_shutdown": {
+            "kind": "signal",
+            "signal": 1
+          }
+        },
+        "close_observed_at": 556654.183,
+        "close_requested": {
+          "at": 556654.183,
+          "measurement_complete": true,
+          "trace": "window close requested\nstack traceback:\n\tsrc/kiwi/interactive_bench.lua:246: in function <src/kiwi/interactive_bench.lua:184>\n\tsrc/kiwi/app/host_controller.lua:1631: in function <src/kiwi/app/host_controller.lua:216>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/app/host_controller.lua:216: in function 'run_window'\n\tsrc/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>"
+        }
+      },
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 4,
+          "maximum": 6.22867793,
+          "mean": 4.81215573,
+          "minimum": 3.10368999,
+          "p50": 4.95812751,
+          "p95": 6.11052384,
+          "p99": 6.20504711,
+          "total": 19.2486229,
+          "values": [
+            4.47527098,
+            6.22867793,
+            5.44098404,
+            3.10368999
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 4,
+          "maximum": 38.9680939,
+          "mean": 32.1419515,
+          "minimum": 22.9998729,
+          "p50": 33.2999195,
+          "p95": 38.8347763,
+          "p99": 38.9414304,
+          "total": 128.567806,
+          "values": [
+            38.9680939,
+            38.07931,
+            28.520529,
+            22.9998729
+          ]
+        },
+        "completed": 5,
+        "launch_to_child_ready_present_return_ms": 7914.1065,
+        "launch_to_first_present_return_ms": 7914.1065,
+        "output_bytes_after_ready": 217,
+        "output_bytes_observed": 276,
+        "parse_to_present_return_ms": {
+          "count": 4,
+          "maximum": 34.4928229,
+          "mean": 27.3297957,
+          "minimum": 19.8961829,
+          "p50": 27.4650885,
+          "p95": 34.0964943,
+          "p99": 34.4135572,
+          "total": 109.319183,
+          "values": [
+            34.4928229,
+            31.850632,
+            23.079545,
+            19.8961829
+          ]
+        },
+        "process_cpu_seconds": 8.906279,
+        "ready_to_last_present_seconds": 0.416315528,
+        "requested_samples": 4,
+        "sampled_peak_rss_kib": 259880,
+        "samples": 4,
+        "sent": 5,
+        "slowest_acknowledgment": {
+          "callback_to_parse_ms": 4.47527098,
+          "callback_to_present_return_ms": 38.9680939,
+          "callback_to_write_ms": 0.382240978,
+          "input_at": 556653.943,
+          "last_present_at": 556653.982,
+          "parse_to_present_return_ms": 34.4928229,
+          "parsed_at": 556653.948,
+          "presented_at": 556653.982,
+          "sequence": 2,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 4,
+              "cpu_ms": 0.188,
+              "maximum_wall_ms": 0.157542061,
+              "wall_ms": 0.197702204
+            },
+            "parse": {
+              "bytes": 42,
+              "calls": 1,
+              "cpu_ms": 1.246,
+              "maximum_wall_ms": 1.24375301,
+              "wall_ms": 1.24375301
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 1,
+              "cpu_ms": 3.568,
+              "maximum_wall_ms": 3.56872799,
+              "wall_ms": 3.56872799
+            },
+            "read": {
+              "bytes": 42,
+              "calls": 2,
+              "cpu_ms": 0.06,
+              "maximum_wall_ms": 0.0333999051,
+              "wall_ms": 0.0598378247
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 1,
+              "cpu_ms": 58.779,
+              "maximum_wall_ms": 25.7103359,
+              "wall_ms": 25.7103359
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 2,
+              "cpu_ms": 0.422,
+              "maximum_wall_ms": 0.259272987,
+              "wall_ms": 0.357511919
+            }
+          },
+          "written_at": 556653.944
+        },
+        "warmup": 1
+      },
+      "metadata": {
+        "configuration": {
+          "clock": "CLOCK_MONOTONIC",
+          "external_input_guard": true,
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "heap_measurement": "sampled",
+          "host": "gtk",
+          "initial_focus_requested": true,
+          "interval_seconds": 0.02,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 4,
+          "scroll_mode": "region",
+          "scrollback_limit": 2000,
+          "soak_seconds": 0,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 30,
+          "warmup_inputs": 1,
+          "workload": "idle"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "520894bbb61af08184208c82df219457f640edd2",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T063925Z"
+      },
+      "presentation": {
+        "attempts": 6,
+        "failures": {},
+        "last_attempt_at": 556654.181,
+        "successful": 6
+      },
+      "schema_version": 1,
+      "status": "complete",
+      "trial": 1,
+      "mode": "idle"
+    },
+    {
+      "jit_snapshot": {
+        "ir_instructions": 73907,
+        "machine_code_bytes": 1099493,
+        "maximum_trace": 542,
+        "observation": "after workload exit",
+        "scan_limit": 65535,
+        "traces": 542
+      },
+      "lifecycle": {
+        "child": {
+          "eof_before_shutdown": false,
+          "pid": 17982,
+          "pty_closed": true,
+          "shutdown_at": 556657.374,
+          "status_after_shutdown": {
+            "kind": "signal",
+            "signal": 1
+          }
+        },
+        "close_observed_at": 556657.372,
+        "close_requested": {
+          "at": 556657.372,
+          "measurement_complete": true,
+          "trace": "window close requested\nstack traceback:\n\tsrc/kiwi/interactive_bench.lua:246: in function <src/kiwi/interactive_bench.lua:184>\n\tsrc/kiwi/app/host_controller.lua:1631: in function <src/kiwi/app/host_controller.lua:216>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/app/host_controller.lua:216: in function 'run_window'\n\tsrc/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>"
+        }
+      },
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 4,
+          "maximum": 284.907451,
+          "mean": 144.717352,
+          "minimum": 43.8709429,
+          "p50": 125.045507,
+          "p95": 265.989997,
+          "p99": 281.12396,
+          "total": 578.869407,
+          "values": [
+            284.907451,
+            91.299923,
+            43.8709429,
+            158.79109
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 4,
+          "maximum": 308.294848,
+          "mean": 172.377733,
+          "minimum": 78.100218,
+          "p50": 151.557933,
+          "p95": 290.150286,
+          "p99": 304.665936,
+          "total": 689.510933,
+          "values": [
+            308.294848,
+            115.784766,
+            78.100218,
+            187.331101
+          ]
+        },
+        "completed": 5,
+        "launch_to_child_ready_present_return_ms": 1419.2225,
+        "launch_to_first_present_return_ms": 1419.2225,
+        "output_bytes_after_ready": 118784,
+        "output_bytes_observed": 118843,
+        "parse_to_present_return_ms": {
+          "count": 4,
+          "maximum": 34.2292751,
+          "mean": 27.6603815,
+          "minimum": 23.3873969,
+          "p50": 26.512427,
+          "p95": 33.3758854,
+          "p99": 34.0585971,
+          "total": 110.641526,
+          "values": [
+            23.3873969,
+            24.484843,
+            34.2292751,
+            28.5400109
+          ]
+        },
+        "process_cpu_seconds": 3.117093,
+        "ready_to_last_present_seconds": 1.14881647,
+        "requested_samples": 4,
+        "sampled_peak_rss_kib": 283652,
+        "samples": 4,
+        "sent": 5,
+        "slowest_acknowledgment": {
+          "callback_to_parse_ms": 284.907451,
+          "callback_to_present_return_ms": 308.294848,
+          "callback_to_write_ms": 24.410557,
+          "input_at": 556656.58,
+          "last_present_at": 556656.888,
+          "parse_to_present_return_ms": 23.3873969,
+          "parsed_at": 556656.865,
+          "presented_at": 556656.888,
+          "sequence": 2,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 8,
+              "cpu_ms": 0.153,
+              "maximum_wall_ms": 0.0848879572,
+              "wall_ms": 0.157414004
+            },
+            "parse": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 63.641,
+              "maximum_wall_ms": 22.685824,
+              "wall_ms": 63.6256989
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 95.122,
+              "maximum_wall_ms": 30.379813,
+              "wall_ms": 95.118859
+            },
+            "read": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 1.713,
+              "maximum_wall_ms": 0.926075038,
+              "wall_ms": 1.76508306
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 152.189,
+              "maximum_wall_ms": 20.104376,
+              "wall_ms": 62.1992481
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 77.871,
+              "maximum_wall_ms": 24.217517,
+              "wall_ms": 75.1981739
+            }
+          },
+          "written_at": 556656.604
+        },
+        "warmup": 1
+      },
+      "metadata": {
+        "configuration": {
+          "clock": "CLOCK_MONOTONIC",
+          "external_input_guard": true,
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "heap_measurement": "sampled",
+          "host": "gtk",
+          "initial_focus_requested": true,
+          "interval_seconds": 0.02,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 4,
+          "scroll_mode": "region",
+          "scrollback_limit": 2000,
+          "soak_seconds": 0,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 30,
+          "warmup_inputs": 1,
+          "workload": "saturated"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "520894bbb61af08184208c82df219457f640edd2",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T063928Z"
+      },
+      "presentation": {
+        "attempts": 19,
+        "failures": {},
+        "last_attempt_at": 556657.372,
+        "successful": 19
+      },
+      "schema_version": 1,
+      "status": "complete",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 30,
+  "soak_policy": {
+    "minimum_seconds": 0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "heap_measurement": "sampled",
+    "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+    "collection": "no forced collection",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "summary": {
+    "idle": {
+      "launch_to_first_present_return_ms": {
+        "count": 1,
+        "minimum": 7914.1065,
+        "maximum": 7914.1065,
+        "mean": 7914.1065,
+        "p50": 7914.1065,
+        "p95": 7914.1065,
+        "p99": 7914.1065
+      },
+      "launch_to_child_ready_present_return_ms": {
+        "count": 1,
+        "minimum": 7914.1065,
+        "maximum": 7914.1065,
+        "mean": 7914.1065,
+        "p50": 7914.1065,
+        "p95": 7914.1065,
+        "p99": 7914.1065
+      },
+      "sampled_peak_rss_kib": {
+        "count": 1,
+        "minimum": 259880,
+        "maximum": 259880,
+        "mean": 259880,
+        "p50": 259880.0,
+        "p95": 259880.0,
+        "p99": 259880.0
+      },
+      "callback_to_parse_ms": {
+        "count": 4,
+        "minimum": 3.10368999,
+        "maximum": 6.22867793,
+        "mean": 4.812155735,
+        "p50": 4.958127510000001,
+        "p95": 6.1105238465,
+        "p99": 6.2050471133
+      },
+      "parse_to_present_return_ms": {
+        "count": 4,
+        "minimum": 19.8961829,
+        "maximum": 34.4928229,
+        "mean": 27.3297957,
+        "p50": 27.4650885,
+        "p95": 34.096494265,
+        "p99": 34.413557173
+      },
+      "callback_to_present_return_ms": {
+        "count": 4,
+        "minimum": 22.9998729,
+        "maximum": 38.9680939,
+        "mean": 32.14195145,
+        "p50": 33.2999195,
+        "p95": 38.834776315,
+        "p99": 38.941430383
+      }
+    },
+    "saturated": {
+      "launch_to_first_present_return_ms": {
+        "count": 1,
+        "minimum": 1419.2225,
+        "maximum": 1419.2225,
+        "mean": 1419.2225,
+        "p50": 1419.2225,
+        "p95": 1419.2225,
+        "p99": 1419.2225
+      },
+      "launch_to_child_ready_present_return_ms": {
+        "count": 1,
+        "minimum": 1419.2225,
+        "maximum": 1419.2225,
+        "mean": 1419.2225,
+        "p50": 1419.2225,
+        "p95": 1419.2225,
+        "p99": 1419.2225
+      },
+      "sampled_peak_rss_kib": {
+        "count": 1,
+        "minimum": 283652,
+        "maximum": 283652,
+        "mean": 283652,
+        "p50": 283652.0,
+        "p95": 283652.0,
+        "p99": 283652.0
+      },
+      "callback_to_parse_ms": {
+        "count": 4,
+        "minimum": 43.8709429,
+        "maximum": 284.907451,
+        "mean": 144.717351725,
+        "p50": 125.0455065,
+        "p95": 265.98999684999995,
+        "p99": 281.1239601699999
+      },
+      "parse_to_present_return_ms": {
+        "count": 4,
+        "minimum": 23.3873969,
+        "maximum": 34.2292751,
+        "mean": 27.660381475,
+        "p50": 26.51242695,
+        "p95": 33.37588547,
+        "p99": 34.058597174
+      },
+      "callback_to_present_return_ms": {
+        "count": 4,
+        "minimum": 78.100218,
+        "maximum": 308.294848,
+        "mean": 172.37773325,
+        "p50": 151.5579335,
+        "p95": 290.15028594999995,
+        "p99": 304.66593559
+      }
+    }
+  }
+}
