@@ -98,3 +98,31 @@ as a controlled native speed comparison. Large-history qualification remains
 incomplete. Subsequent fixture instrumentation records retained rows, pushes and
 evictions at resource-sample times to distinguish initial filling from growth
 after saturation; it does not alter the memory gates or force garbage collection.
+
+## Longer packed-history run: stable partial memory, late acknowledgment
+
+The [requested ten-minute GLFW run](2026-10-27-history-linux-glfw-10000-packed-600.json)
+used clean revision `13753a4`, 120 requested measured inputs and six warmup inputs.
+It failed the same two-second response ceiling after 103 measured inputs. Its
+post-warmup resource observations cover 569.86 seconds; this is **not** a
+completed soak or a passing qualification.
+
+The new occupancy samples show 9,510 retained rows at the first resource
+observation and the full 10,000 rows 3.90 seconds later. The final counters show
+235,462 pushes and 225,462 evictions, with exactly 10,000 retained rows. Across
+157 observations, RSS quarter-median growth was 5,276 KiB and Lua-heap growth
+1,886 KiB. Peak sampled RSS was 583,004 KiB (569.3 MiB). These partial memory
+measurements are within the normal growth/peak ceilings after more than 22 full
+history replacements, but do not override the failed responsiveness gate or
+complete the missing duration and inputs.
+
+All 6,958 presentation attempts succeeded. The failure occurred when a matching
+acknowledgment was presented after its deadline. The retained `failure_state`
+was the preceding event-loop observation, before the final parse/present, so its
+`parsed=false` field cannot establish that the acknowledgment never reached the
+parser. The recorder now preserves the failing input's actual parse and matching
+presentation timestamps separately from valid samples; deterministic tests cover
+both slow-parse and slow-presentation cases. That diagnostic was added after this
+run and is not retroactively available in the raw report. No resource or response
+threshold was relaxed. The remaining load investigation concerns occasional late
+input acknowledgments; large-history native qualification remains incomplete.
