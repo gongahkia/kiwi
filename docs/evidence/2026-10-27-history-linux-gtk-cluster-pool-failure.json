@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "failure": "src/kiwi/app/window_manager.lua:422: src/kiwi/app/host_controller.lua:1735: src/kiwi/interactive_bench.lua:198: acknowledgment exceeded the two-second responsiveness ceiling\nstack traceback:\n\t[C]: in function 'error'\n\tsrc/kiwi/interactive_bench.lua:198: in function <src/kiwi/interactive_bench.lua:176>\n\tsrc/kiwi/app/host_controller.lua:1403: in function <src/kiwi/app/host_controller.lua:216>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/app/host_controller.lua:216: in function 'run_window'\n\tsrc/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>\nstack traceback:\n\t[C]: in function 'error'\n\tsrc/kiwi/app/window_manager.lua:422: in function 'run'\n\tsrc/kiwi/app/main.lua:56: in main chunk\n\t[C]: in function 'require'\n\tsrc/kiwi/interactive_bench.lua:220: in function <src/kiwi/interactive_bench.lua:220>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/interactive_bench.lua:220: in main chunk\n\t[C]: at 0x55f0540b7120",
+      "jit_snapshot": {
+        "ir_instructions": 92295,
+        "machine_code_bytes": 1372876,
+        "maximum_trace": 791,
+        "observation": "after workload exit",
+        "scan_limit": 65535,
+        "traces": 791
+      },
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 7,
+          "maximum": 518.997127,
+          "mean": 101.566443,
+          "minimum": 29.419513,
+          "p50": 32.135649,
+          "p95": 373.514561,
+          "p99": 489.900614,
+          "total": 710.965099,
+          "values": [
+            29.419513,
+            31.1969371,
+            33.439739,
+            32.135649,
+            34.0552391,
+            31.720895,
+            518.997127
+          ]
+        },
+        "callback_to_present_return_ms": {
+          "count": 7,
+          "maximum": 601.941706,
+          "mean": 131.174108,
+          "minimum": 50.113632,
+          "p50": 53.074087,
+          "p95": 438.281273,
+          "p99": 569.209619,
+          "total": 918.218759,
+          "values": [
+            50.911405,
+            56.406929,
+            51.6673811,
+            50.113632,
+            53.074087,
+            54.1036191,
+            601.941706
+          ]
+        },
+        "completed": 13,
+        "failure_state": {
+          "can_present": true,
+          "elapsed_seconds": 2.04789015,
+          "minimized": false,
+          "needs_render": false,
+          "output_bytes": 20070456,
+          "parsed": false,
+          "present_age_seconds": 0.000448893057,
+          "sequence": 14
+        },
+        "history": {
+          "evicted": 155866,
+          "limit": 10000,
+          "peak_retained": 10000,
+          "pushed": 165866,
+          "retained": 10000
+        },
+        "launch_to_child_ready_present_return_ms": 1574.71823,
+        "launch_to_first_present_return_ms": 1574.71823,
+        "output_bytes_observed": 20070456,
+        "parse_to_present_return_ms": {
+          "count": 7,
+          "maximum": 82.9445791,
+          "mean": 29.6076657,
+          "minimum": 17.977983,
+          "p50": 21.4918921,
+          "p95": 65.6242029,
+          "p99": 79.4805038,
+          "total": 207.25366,
+          "values": [
+            21.4918921,
+            25.209992,
+            18.2276421,
+            17.977983,
+            19.018848,
+            22.3827241,
+            82.9445791
+          ]
+        },
+        "pending_acknowledgment": {
+          "callback_to_write_ms": 2.9970801,
+          "input_at": 550286.419,
+          "last_present_at": 550288.466,
+          "sequence": 14,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 10,
+              "cpu_ms": 0.238,
+              "maximum_wall_ms": 0.221417053,
+              "wall_ms": 0.484540942
+            },
+            "parse": {
+              "bytes": 20480,
+              "calls": 5,
+              "cpu_ms": 620.62,
+              "maximum_wall_ms": 505.889941,
+              "wall_ms": 643.979987
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 1194.411,
+              "maximum_wall_ms": 718.596702,
+              "wall_ms": 1238.87829
+            },
+            "read": {
+              "bytes": 20480,
+              "calls": 5,
+              "cpu_ms": 1.98,
+              "maximum_wall_ms": 1.38430693,
+              "wall_ms": 3.68163094
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 209.765,
+              "maximum_wall_ms": 21.9558501,
+              "wall_ms": 97.5434352
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 5,
+              "cpu_ms": 7.265,
+              "maximum_wall_ms": 4.92873904,
+              "wall_ms": 13.80494
+            }
+          },
+          "written_at": 550286.422
+        },
+        "requested_samples": 120,
+        "sampled_peak_rss_kib": 638700,
+        "samples": 7,
+        "sent": 14,
+        "slowest_acknowledgment": {
+          "callback_to_parse_ms": 518.997127,
+          "callback_to_present_return_ms": 601.941706,
+          "callback_to_write_ms": 1.75619998,
+          "input_at": 550280.759,
+          "last_present_at": 550281.361,
+          "parse_to_present_return_ms": 82.9445791,
+          "parsed_at": 550281.278,
+          "presented_at": 550281.361,
+          "sequence": 13,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 8,
+              "cpu_ms": 0.366,
+              "maximum_wall_ms": 0.250322046,
+              "wall_ms": 0.380537007
+            },
+            "parse": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 133.647,
+              "maximum_wall_ms": 57.3631431,
+              "wall_ms": 133.598923
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 276.806,
+              "maximum_wall_ms": 81.326582,
+              "wall_ms": 276.855028
+            },
+            "read": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 1.666,
+              "maximum_wall_ms": 0.650351052,
+              "wall_ms": 1.65763602
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 287.469,
+              "maximum_wall_ms": 55.804316,
+              "wall_ms": 159.440784
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 3.796,
+              "maximum_wall_ms": 1.56200491,
+              "wall_ms": 3.51588486
+            }
+          },
+          "written_at": 550280.761
+        },
+        "sustained": {
+          "cpu_percent": 152.867553,
+          "cpu_seconds": 66.926634,
+          "duration_seconds": 43.7807976,
+          "heap_kib": {
+            "final_median": 264833.601,
+            "growth": 22645.1289,
+            "initial_median": 242188.472,
+            "peak": 337453.495
+          },
+          "rss_kib": {
+            "final_median": 638700,
+            "growth": 88,
+            "initial_median": 638612,
+            "peak": 638700
+          },
+          "samples": [
+            {
+              "cpu_seconds": 0,
+              "elapsed_seconds": 0,
+              "heap_kib": 275898.081,
+              "history": {
+                "evicted": 58715,
+                "limit": 10000,
+                "pushed": 68715,
+                "retained": 10000
+              },
+              "rss_kib": 638600
+            },
+            {
+              "cpu_seconds": 5.93561,
+              "elapsed_seconds": 3.59234455,
+              "heap_kib": 242188.472,
+              "history": {
+                "evicted": 69209,
+                "limit": 10000,
+                "pushed": 79209,
+                "retained": 10000
+              },
+              "rss_kib": 638612
+            },
+            {
+              "cpu_seconds": 11.877395,
+              "elapsed_seconds": 7.20445624,
+              "heap_kib": 212649.726,
+              "history": {
+                "evicted": 79804,
+                "limit": 10000,
+                "pushed": 89804,
+                "retained": 10000
+              },
+              "rss_kib": 638616
+            },
+            {
+              "cpu_seconds": 17.755942,
+              "elapsed_seconds": 10.7994561,
+              "heap_kib": 181125.925,
+              "history": {
+                "evicted": 90433,
+                "limit": 10000,
+                "pushed": 100433,
+                "retained": 10000
+              },
+              "rss_kib": 638628
+            },
+            {
+              "cpu_seconds": 23.672088,
+              "elapsed_seconds": 14.3980142,
+              "heap_kib": 192650.976,
+              "history": {
+                "evicted": 101401,
+                "limit": 10000,
+                "pushed": 111401,
+                "retained": 10000
+              },
+              "rss_kib": 638628
+            },
+            {
+              "cpu_seconds": 29.677508,
+              "elapsed_seconds": 18.00489,
+              "heap_kib": 282080.132,
+              "history": {
+                "evicted": 112707,
+                "limit": 10000,
+                "pushed": 122707,
+                "retained": 10000
+              },
+              "rss_kib": 638636
+            },
+            {
+              "cpu_seconds": 35.605603,
+              "elapsed_seconds": 21.6128393,
+              "heap_kib": 337453.495,
+              "history": {
+                "evicted": 123404,
+                "limit": 10000,
+                "pushed": 133404,
+                "retained": 10000
+              },
+              "rss_kib": 638640
+            },
+            {
+              "cpu_seconds": 41.487334,
+              "elapsed_seconds": 25.2158529,
+              "heap_kib": 308109.655,
+              "history": {
+                "evicted": 133931,
+                "limit": 10000,
+                "pushed": 143931,
+                "retained": 10000
+              },
+              "rss_kib": 638640
+            },
+            {
+              "cpu_seconds": 47.372896,
+              "elapsed_seconds": 28.8079001,
+              "heap_kib": 292214.026,
+              "history": {
+                "evicted": 145068,
+                "limit": 10000,
+                "pushed": 155068,
+                "retained": 10000
+              },
+              "rss_kib": 638664
+            },
+            {
+              "cpu_seconds": 53.089351,
+              "elapsed_seconds": 32.4300831,
+              "heap_kib": 181834.101,
+              "history": {
+                "evicted": 153023,
+                "limit": 10000,
+                "pushed": 163023,
+                "retained": 10000
+              },
+              "rss_kib": 638688
+            },
+            {
+              "cpu_seconds": 58.064124,
+              "elapsed_seconds": 36.0715101,
+              "heap_kib": 264833.601,
+              "history": {
+                "evicted": 154377,
+                "limit": 10000,
+                "pushed": 164377,
+                "retained": 10000
+              },
+              "rss_kib": 638688
+            },
+            {
+              "cpu_seconds": 62.420353,
+              "elapsed_seconds": 39.6698856,
+              "heap_kib": 324975.565,
+              "history": {
+                "evicted": 155324,
+                "limit": 10000,
+                "pushed": 165324,
+                "retained": 10000
+              },
+              "rss_kib": 638700
+            },
+            {
+              "cpu_seconds": 66.926634,
+              "elapsed_seconds": 43.7807976,
+              "heap_kib": 239958.847,
+              "history": {
+                "evicted": 155866,
+                "limit": 10000,
+                "pushed": 165866,
+                "retained": 10000
+              },
+              "rss_kib": 638700
+            }
+          ],
+          "window_samples": 3
+        },
+        "warmup": 6
+      },
+      "metadata": {
+        "configuration": {
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "gtk",
+          "interval_seconds": 5.04201681,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 120,
+          "scroll_mode": "history",
+          "scrollback_limit": 10000,
+          "soak_seconds": 600,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 911,
+          "warmup_inputs": 6,
+          "workload": "saturated"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "9895f15916f16c7c8e9e1cb73b6d4b7ec156dddf",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T045319Z"
+      },
+      "presentation": {
+        "attempts": 1936,
+        "failures": {},
+        "last_attempt_at": 550288.466,
+        "successful": 1936
+      },
+      "schema_version": 1,
+      "status": "failed",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 911,
+  "soak_policy": {
+    "minimum_seconds": 600.0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "failure": {
+    "mode": "saturated",
+    "trial": 1,
+    "log": "/work/bench/results/history-gtk-10000-cluster-pool-600-logs/saturated-1.log",
+    "reason": "Command '['luajit', 'src/kiwi/interactive_bench.lua']' returned non-zero exit status 1."
+  }
+}
