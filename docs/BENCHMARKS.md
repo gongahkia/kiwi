@@ -624,6 +624,15 @@ usable baseline. Defaults produce three independent startup observations and
 correlated within processes, not 60 independent process-level observations.
 Do not infer statistical confidence or competitor performance from them.
 
+After the application exits, each trial records `jit_snapshot`: retained trace
+count, highest trace number, IR instruction count and emitted machine-code bytes.
+The interpreted inspection scans all 16-bit trace identifiers, including holes,
+and installs no profiler or trace-event callbacks during the workload. It runs
+after timing and resource samples, and does not change execution mode. These
+are surviving traces after application cleanup, not historical compilation or
+flush counts; a small snapshot cannot establish whether a cache flushed earlier.
+Diagnostic failure is reported separately and cannot replace the trial failure.
+
 Every acknowledgment, including warmup, must complete within two seconds.
 Trials also have 30-second internal and 40-second external watchdogs. These
 are gross failure gates, not latency targets or a relative performance-regression

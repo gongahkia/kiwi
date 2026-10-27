@@ -218,6 +218,8 @@ end
 arg = { "--config", assert(os.getenv("KIWI_INTERACTIVE_BENCH_CONFIG")), "--no-restore-layout", "--no-extensions",
   "--", assert(os.getenv("KIWI_INTERACTIVE_BENCH_PYTHON")), "script/interactive-bench-child", mode }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
+local snapshot_ok, jit_snapshot = pcall(require("kiwi.bench.environment").jit_snapshot)
+if not snapshot_ok then jit_snapshot = { unavailable_reason = tostring(jit_snapshot):sub(1, 512) } end
 Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, originals.write, originals.read
 Pty.flush, Compositor.update_models = originals.flush, originals.prepare
 Scrollback.push = originals.history_push
@@ -246,6 +248,7 @@ local result = { schema_version = 1, metadata = metadata, measurement = report,
   status = invalid_measurement and "invalid" or ok and measurement:done() and "complete" or "failed",
   failure = invalid_measurement or not ok and tostring(message):sub(1, 4096) or nil }
 result.presentation = presentation
+result.jit_snapshot = jit_snapshot
 local encoded = Json.encode(result)
 assert(#encoded <= 128 * 1024, "interactive trial report exceeded 128 KiB")
 local file = assert(io.open(assert(os.getenv("KIWI_INTERACTIVE_BENCH_TRIAL_REPORT")), "wb"))
