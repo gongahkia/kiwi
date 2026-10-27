@@ -640,6 +640,15 @@ usable baseline. Defaults produce three independent startup observations and
 correlated within processes, not 60 independent process-level observations.
 Do not infer statistical confidence or competitor performance from them.
 
+Each trial also retains bounded lifecycle diagnostics: the first Lua window-close
+request and its call stack, the first observed close flag, and the child's status
+before and after PTY shutdown. A signal sent during cleanup is therefore distinct
+from a child that exited during the workload. A normal application return before
+all measurements finish is a failed trial with an explicit JSON reason.
+`make test-interactive-trial` exercises these paths with a controlled headless
+host and real PTY children, including exception and occlusion failures; it does
+not qualify native window behaviour.
+
 After the application exits, each trial records `jit_snapshot`: retained trace
 count, highest trace number, IR instruction count and emitted machine-code bytes.
 The interpreted inspection scans all 16-bit trace identifiers, including holes,
