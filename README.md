@@ -361,9 +361,10 @@ their limits are documented in [NATIVE_HOSTS.md](docs/NATIVE_HOSTS.md) and
 [ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
 
 Kiwi exposes a bounded semantic accessibility model, a Linux AT-SPI bridge, and a macOS NSAccessibility element
-for the active pane. The native provider is registry/query tested, but no
-end-to-end screen-reader session has been validated; Windows UI Automation is
-unimplemented. The contract, limits, and smoke
+for the active pane. External AT-SPI queries and [Orca reading-command workflows](docs/evidence/2026-10-27-orca.md)
+pass on both GTK presenters in isolated Linux desktops. Those reader checks
+verify generated speech; audible output, braille, flat review, VoiceOver and daily
+usability remain unqualified. Windows UI Automation is unimplemented. The contract, limits, and smoke
 commands are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
 Kiwi supports Linux x86_64 and, on a verified source path, macOS arm64. Windows DX12/ConPTY feasibility was
