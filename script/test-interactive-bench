@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check report lifecycle/CLI bounds without starting a graphical host."""
 import json
+import copy
 import os
 import fcntl
 import pty
@@ -33,6 +34,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
                       ["--soak-seconds", "59"], ["--soak-seconds", "1801"], ["--soak-seconds", "nan"],
                       ["--soak-seconds", "60", "--samples", "19"], ["--max-rss-growth-mib", "nan"],
                       ["--max-heap-growth-mib", "-1"], ["--max-rss-mib", "4097"],
+                      ["--heap-measurement", "invalid"], ["--heap-measurement", "retained"],
                       ["--scroll-mode", "invalid"], ["--scrollback-limit", "-1"], ["--scrollback-limit", "100001"],
                       ["--scroll-mode", "history"], ["--scroll-mode", "history", "--mode", "saturated"],
                       ["--scroll-mode", "history", "--mode", "saturated", "--soak-seconds", "60", "--scrollback-limit", "0"]):
@@ -48,7 +50,8 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
 from pathlib import Path
 item = json.loads(Path(os.environ["TEST_BENCH_PAYLOAD"]).read_text())
 item["test_environment"] = {"timeout": float(os.environ["KIWI_INTERACTIVE_BENCH_TIMEOUT"]),
-                            "interval": float(os.environ["KIWI_INTERACTIVE_BENCH_INTERVAL"])}
+                            "interval": float(os.environ["KIWI_INTERACTIVE_BENCH_INTERVAL"]),
+                            "heap_measurement": os.environ["KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT"]}
 Path(os.environ["KIWI_INTERACTIVE_BENCH_TRIAL_REPORT"]).write_text(json.dumps(item))
 raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
 ''')
@@ -72,11 +75,55 @@ raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
         evidence = json.loads(report.read_text())
         assert failed.returncode != 0 and evidence["status"] == "failed"
         assert len(evidence["trials"]) == 1, "budget failure discarded measured evidence"
+    retained = {"initial": {"started_at": 1, "finished_at": 1.25, "collection_seconds": .25,
+                            "before_kib": 200000, "after_kib": 100000},
+                "final": {"started_at": 62, "finished_at": 62.25, "collection_seconds": .25,
+                          "before_kib": 180000, "after_kib": 100100},
+                "duration_seconds": 60.75, "growth_kib": 100}
+    retained_timing = copy.deepcopy(timing)
+    retained_timing["sustained"]["heap_kib"]["growth"] = 80 * 1024
+    retained_timing["retained_heap"] = retained
+    payload.write_text(json.dumps({"measurement": retained_timing}))
+    failed = subprocess.run(soak_command, env=environment, capture_output=True, timeout=5)
+    assert failed.returncode != 0, "sampled mode ignored its original heap budget"
+    retained_command = soak_command + ["--heap-measurement", "retained"]
+    passed = subprocess.run(retained_command, env=environment, capture_output=True, timeout=5)
+    assert passed.returncode == 0, passed.stderr
+    evidence = json.loads(report.read_text())
+    assert evidence["soak_policy"]["heap_measurement"] == "retained"
+    assert evidence["trials"][0]["test_environment"]["heap_measurement"] == "retained"
+    assert evidence["trials"][0]["measurement"]["sustained"]["heap_kib"]["growth"] == 80 * 1024
+    for variation in ("growth", "missing", "duration", "clock", "nonfinite", "summary", "rss"):
+        changed = copy.deepcopy(retained_timing)
+        current = changed["retained_heap"]
+        if variation == "growth":
+            current["final"]["after_kib"] = current["initial"]["after_kib"] + 16 * 1024 + 1
+            current["growth_kib"] = 16 * 1024 + 1
+        elif variation == "missing": del current["initial"]
+        elif variation == "duration": current["duration_seconds"] = 59
+        elif variation == "clock": current["final"]["started_at"] = 30
+        elif variation == "nonfinite": current["final"]["after_kib"] = float("nan")
+        elif variation == "summary": current["growth_kib"] = 0
+        elif variation == "rss": changed["sustained"]["rss_kib"]["growth"] = 65 * 1024
+        payload.write_text(json.dumps({"measurement": changed}))
+        rejected = subprocess.run(retained_command, env=environment, capture_output=True, timeout=5)
+        evidence = json.loads(report.read_text())
+        assert rejected.returncode != 0 and evidence["status"] == "failed", variation
+        assert len(evidence["trials"]) == (0 if variation == "nonfinite" else 1)
     timing["history"] = {"limit": 2000, "retained": 2000, "peak_retained": 2000, "pushed": 4000, "evicted": 2000}
     payload.write_text(json.dumps({"measurement": timing}))
     history_command = soak_command + ["--scroll-mode", "history"]
     passed = subprocess.run(history_command, env=environment, capture_output=True, timeout=5)
     assert passed.returncode == 0, passed.stderr
+    for checkpoint in (retained["initial"], retained["final"]): checkpoint["history"] = copy.deepcopy(timing["history"])
+    retained_timing["history"] = copy.deepcopy(timing["history"])
+    payload.write_text(json.dumps({"measurement": retained_timing}))
+    passed = subprocess.run(history_command + ["--heap-measurement", "retained"], env=environment, capture_output=True, timeout=5)
+    assert passed.returncode == 0, passed.stderr
+    retained["initial"]["history"]["retained"] = 1999
+    payload.write_text(json.dumps({"measurement": retained_timing}))
+    rejected = subprocess.run(history_command + ["--heap-measurement", "retained"], env=environment, capture_output=True, timeout=5)
+    assert rejected.returncode != 0 and "full history" in json.loads(report.read_text())["failure"]["reason"]
     for key, value in (("limit", 1999), ("retained", 1999), ("peak_retained", 2001), ("pushed", 3999), ("evicted", 1999)):
         original = timing["history"][key]
         timing["history"][key] = value

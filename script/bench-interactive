@@ -30,6 +30,17 @@ def write_report(path, result):
     temporary.replace(path)
 
 
+def reject_nonfinite(value):
+    raise ValueError("trial report contains non-finite JSON value: " + value)
+
+
+def finite_float(value):
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        reject_nonfinite(value)
+    return parsed
+
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
 parser.add_argument("--report", type=Path, required=True)
@@ -46,9 +57,13 @@ parser.add_argument("--soak-seconds", type=float, default=0,
                     help="60–1800 seconds between first/last measured inputs; overrides --interval-ms")
 parser.add_argument("--max-rss-growth-mib", type=float, default=64)
 parser.add_argument("--max-heap-growth-mib", type=float, default=16)
+parser.add_argument("--heap-measurement", choices=("sampled", "retained"), default="sampled",
+                    help="sampled quarter medians (default), or full-GC endpoints outside timed inputs")
 parser.add_argument("--max-rss-mib", type=float, default=1024)
 parser.add_argument("--keep-visible", action="store_true", help="float the owned benchmark window above normal windows (macOS GLFW only)")
 args = parser.parse_args()
+if args.heap_measurement == "retained" and not args.soak_seconds:
+    parser.error("retained heap measurement requires a sustained duration")
 if args.keep_visible and (sys.platform != "darwin" or os.environ.get("KIWI_HOST") == "gtk"):
     parser.error("--keep-visible requires the macOS GLFW host")
 if not (1 <= args.trials <= 10 and 1 <= args.samples <= 256 and 0 <= args.warmup <= 32
@@ -94,7 +109,12 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
           "trial_timeout_seconds": trial_timeout,
           "soak_policy": {"minimum_seconds": args.soak_seconds, "max_rss_growth_mib": args.max_rss_growth_mib,
                           "max_heap_growth_mib": args.max_heap_growth_mib, "max_rss_mib": args.max_rss_mib,
-                          "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+                          "heap_measurement": args.heap_measurement,
+                          "growth": ("RSS: last-quarter minus first-quarter median; Lua heap: post-collection final minus initial while app is live"
+                                     if args.heap_measurement == "retained" else
+                                     "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC"),
+                          "collection": ("one full collection after warmup and one after the final timed input, before teardown; normal GC during interval"
+                                         if args.heap_measurement == "retained" else "no forced collection"),
                           "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
                           "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"}}
 write_report(report_path, result)
@@ -109,6 +129,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                 KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET=str(args.read_budget),
                 KIWI_INTERACTIVE_BENCH_TRAFFIC=args.traffic, KIWI_INTERACTIVE_BENCH_SCROLL_MODE=args.scroll_mode,
                 KIWI_INTERACTIVE_BENCH_SCROLLBACK_LIMIT=str(args.scrollback_limit),
+                KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT=args.heap_measurement,
                 KIWI_INTERACTIVE_BENCH_CONFIG=str(config), KIWI_INTERACTIVE_BENCH_PYTHON=sys.executable,
                 KIWI_INTERACTIVE_BENCH_SAMPLES=str(args.samples), KIWI_INTERACTIVE_BENCH_WARMUP=str(args.warmup),
                 KIWI_INTERACTIVE_BENCH_INTERVAL=str(interval), KIWI_INTERACTIVE_BENCH_TIMEOUT=str(trial_timeout),
@@ -128,7 +149,8 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                     if not output.exists():
                         process.check_returncode()
                         raise RuntimeError("trial produced no report")
-                    item = json.loads(output.read_text())
+                    assert output.stat().st_size <= 128 * 1024, "trial report exceeds size limit"
+                    item = json.loads(output.read_text(), parse_constant=reject_nonfinite, parse_float=finite_float)
                     item["trial"], item["mode"] = trial, mode
                     result["trials"].append(item)
                     process.check_returncode()
@@ -146,6 +168,19 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                         assert len(sustained["samples"]) >= 5, "insufficient resource observations"
                         for name, maximum in (("rss_kib", args.max_rss_growth_mib), ("heap_kib", args.max_heap_growth_mib)):
                             growth = sustained[name]["growth"]
+                            if name == "heap_kib" and args.heap_measurement == "retained":
+                                retained = item["measurement"]["retained_heap"]
+                                assert retained["duration_seconds"] >= args.soak_seconds, "retained interval was shorter than requested"
+                                initial, final = retained["initial"], retained["final"]
+                                for checkpoint in (initial, final):
+                                    assert all(math.isfinite(checkpoint[key]) and checkpoint[key] >= 0
+                                               for key in ("before_kib", "after_kib", "collection_seconds", "started_at", "finished_at")), "invalid retained heap checkpoint"
+                                    assert checkpoint["finished_at"] >= checkpoint["started_at"], "retention clock moved backwards"
+                                    if args.scroll_mode == "history":
+                                        assert checkpoint["history"]["retained"] == checkpoint["history"]["limit"] == args.scrollback_limit, "retention checkpoint did not have full history"
+                                assert final["started_at"] - initial["finished_at"] >= args.soak_seconds, "retention checkpoint interval was shorter than requested"
+                                growth = final["after_kib"] - initial["after_kib"]
+                                assert math.isclose(growth, retained["growth_kib"], rel_tol=1e-7, abs_tol=0.01), "retained growth differs from checkpoints"
                             assert math.isfinite(growth) and growth <= maximum * 1024, f"{name} growth {growth / 1024:.1f} MiB exceeds {maximum} MiB"
                         assert item["measurement"]["sampled_peak_rss_kib"] <= args.max_rss_mib * 1024, "sampled peak RSS exceeded its budget"
                 except Exception as error:

@@ -52,6 +52,9 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-budget-") as temporary
     changed["trials"][1]["metadata"]["system"]["cgroup_cpu_limit"] = "100000 100000"
     check(changed, 2)
     changed = copy.deepcopy(report); changed["status"] = "failed"; check(changed, 2)
+    changed = copy.deepcopy(report)
+    for item in changed["trials"]: item["metadata"]["configuration"]["heap_measurement"] = "retained"
+    check(changed, 2) # Endpoint collection changes execution conditions.
     changed = copy.deepcopy(report); changed["trials"][0]["status"] = "failed"; check(changed, 2)
     changed = copy.deepcopy(report); changed["benchmark"] = "different benchmark"; check(changed, 2)
     changed = copy.deepcopy(report); changed["trials"][0]["trial"] = 1.5; check(changed, 2)
