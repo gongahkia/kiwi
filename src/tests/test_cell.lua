@@ -1,6 +1,8 @@
 local Assert = require("tests.assert")
 local Cell = require("kiwi.terminal.cell")
 local Snapshot = require("kiwi.terminal.snapshot")
+local Screen = require("kiwi.terminal.screen")
+local State = require("kiwi.terminal.state")
 local StateTransaction = require("kiwi.terminal.state_transaction")
 local Terminal = require("kiwi.session.terminal")
 
@@ -8,6 +10,89 @@ local fields = { "glyph", "fg", "bg", "fg_slot", "bg_slot", "flags", "codepoints
   "underline_style", "underline_color", "underline_slot", "continuation", "anchor_column", "display_text", "hyperlink_id" }
 
 return {
+  scrolling_reuses_storage_without_changing_history_or_transaction_sources = function()
+    local terminal = Terminal.new({ columns = 8, rows = 3, state_options = { scrollback_limit = 2 } })
+    terminal:write("\27]8;;https://example.com\7\27[1;4:3;58:2::1:2:3m界é")
+    local state = Terminal.state(terminal)
+    state:scroll_up(1)
+    local history = state.scrollback:get(1)
+    Assert.equal(history.cells[0].glyph, "界")
+    Assert.equal(history.cells[1].continuation, true)
+    Assert.equal(history.cells[2].glyph, "é")
+    for column = 0, 7 do
+      local blank = state:blank_cell()
+      for _, key in ipairs(fields) do Assert.equal(state:get(column, 2)[key], blank[key], key) end
+    end
+    terminal:write("\27[3;1H\27[0m\27]8;;\7NEW")
+    Assert.equal(history.cells[0].glyph, "界")
+    Assert.equal(history.cells[2].glyph, "é")
+    Assert.truthy(history.cells[0].hyperlink_id ~= nil)
+    Assert.equal(history.cells[0].underline_style, 3)
+    local before = Snapshot.encode(state)
+    local staged = StateTransaction.new(state)
+    for _ = 1, 8 do staged.state:scroll_up(1) end
+    Assert.equal(Snapshot.encode(state), before)
+    -- Even evicted history references must not become mutable screen storage.
+    for _ = 1, 8 do state:scroll_up(1) end
+    terminal:write("\27[3;1HZ")
+    Assert.equal(history.cells[0].glyph, "界")
+    Assert.equal(history.cells[2].glyph, "é")
+    terminal:close()
+  end,
+  discarded_scroll_rows_clear_renditions_and_metadata_in_both_directions = function()
+    local sequence = 0
+    local blank = { glyph = " ", fg = 1, bg = 2, flags = 0, width = 1 }
+    local screen = Screen.new(3, 3, function() return Cell.expand(blank) end,
+      function() sequence = sequence + 1; return sequence end)
+    local function decorate(row)
+      row.wrapped, row.command_regions_truncated = true, true
+      row.command_region_ids, row.kitty_placement_ids = { 3 }, { 4 }
+      Cell.copy_into(row.cells[0], { glyph = "界", fg = 4, bg = 5, flags = 7, width = 0,
+        codepoints = { 0x754c }, underline_style = 3, underline_color = 6,
+        underline_slot = 2, continuation = true, anchor_column = 0,
+        display_text = "custom", hyperlink_id = 9 })
+    end
+    local discarded
+    local function release(row) discarded = row.line_id end
+    local function check(row)
+      Assert.truthy(row.line_id > discarded)
+      Assert.equal(row.wrapped, false)
+      Assert.equal(row.command_regions_truncated, false)
+      Assert.equal(row.command_region_ids, nil)
+      Assert.equal(row.kitty_placement_ids, nil)
+      for column = 0, 2 do
+        for _, key in ipairs(fields) do Assert.equal(row.cells[column][key], blank[key], key) end
+      end
+    end
+    decorate(screen.rows[0])
+    local outside = screen.rows[2]
+    screen:scroll_up(0, 1, 1, nil, release)
+    Assert.equal(screen.rows[2], outside)
+    check(screen.rows[1])
+    decorate(screen.rows[2])
+    outside = screen.rows[0]
+    screen:scroll_down(1, 2, 1, release)
+    Assert.equal(screen.rows[0], outside)
+    check(screen.rows[1])
+  end,
+  scrolling_bounds_transient_allocation_with_and_without_history = function()
+    for _, limit in ipairs({ 0, 256 }) do
+      local state = State.new(80, 24, { scrollback_limit = limit })
+      for _ = 1, 500 do state:scroll_up(1) end
+      collectgarbage("collect")
+      collectgarbage("stop")
+      local before = collectgarbage("count")
+      local ok, message = xpcall(function()
+        for _ = 1, 1000 do state:scroll_up(1) end
+        local allocated = collectgarbage("count") - before
+        local budget = limit == 0 and 2 * 1024 or 16 * 1024
+        Assert.truthy(allocated < budget, "scrolling allocated " .. allocated .. " KiB")
+        Assert.equal(state.scrollback:size(), limit)
+      end, debug.traceback)
+      collectgarbage("restart")
+      assert(ok, message)
+    end
+  end,
   packed_history_preserves_style_and_transaction_isolation = function()
     collectgarbage("collect")
     local baseline = collectgarbage("count")

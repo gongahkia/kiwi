@@ -4,10 +4,13 @@ Screen.__index = Screen
 
 local copy_cell = Cell.copy_into
 
-local function new_row(columns, blank_cell, line_id_factory, owner)
-  local cells = {}
-  for column = 0, columns - 1 do
-    cells[column] = blank_cell(owner)
+local function new_row(columns, blank_cell, line_id_factory, owner, cells)
+  if cells then
+    local blank = blank_cell(owner)
+    for column = 0, columns - 1 do copy_cell(cells[column], blank) end
+  else
+    cells = {}
+    for column = 0, columns - 1 do cells[column] = blank_cell(owner) end
   end
   return { cells = cells, command_region_ids = nil, command_regions_truncated = false, line_id = line_id_factory and line_id_factory(owner) or nil, wrapped = false }
 end
@@ -37,8 +40,8 @@ function Screen.new(columns, rows, blank_cell, line_id_factory, owner)
   return self
 end
 
-function Screen:new_row()
-  return new_row(self.columns, self.blank_cell, self.line_id_factory, self.owner)
+function Screen:new_row(cells)
+  return new_row(self.columns, self.blank_cell, self.line_id_factory, self.owner, cells)
 end
 
 -- Reflow fills text first and allocates only the remaining blank cells.
@@ -106,25 +109,30 @@ end
 function Screen:scroll_up(top, bottom, count, preserve_row, discard_row)
   for _ = 1, count do
     local outgoing = self.rows[top]
+    local cells
     if preserve_row then
-      preserve_row(outgoing)
-    elseif discard_row then
-      discard_row(outgoing)
+      -- The preserver may return a detached cell array. A nil return retains
+      -- the original ownership contract and allocates a fresh screen row.
+      cells = preserve_row(outgoing)
+    else
+      if discard_row then discard_row(outgoing) end
+      cells = outgoing.cells
     end
     for row = top, bottom - 1 do
       self.rows[row] = self.rows[row + 1]
     end
-    self.rows[bottom] = self:new_row()
+    self.rows[bottom] = self:new_row(cells)
   end
 end
 
 function Screen:scroll_down(top, bottom, count, discard_row)
   for _ = 1, count do
-    if discard_row then discard_row(self.rows[bottom]) end
+    local outgoing = self.rows[bottom]
+    if discard_row then discard_row(outgoing) end
     for row = bottom, top + 1, -1 do
       self.rows[row] = self.rows[row - 1]
     end
-    self.rows[top] = self:new_row()
+    self.rows[top] = self:new_row(outgoing.cells)
   end
 end
 
