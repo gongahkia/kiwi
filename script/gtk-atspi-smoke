@@ -71,7 +71,11 @@ report["revision"] = version(["git", "rev-parse", "HEAD"])
 report["source_state"] = "clean" if version(["git", "status", "--porcelain"]) == "" else "unverified or dirty"
 report["versions"] = {name: version(["pkg-config", "--modversion", name]) for name in ("gtk4", "atspi-2")}
 if report["versions"]["atspi-2"] == "unavailable":
-    report["versions"]["atspi-2"] = version(["dpkg-query", "-W", "-f=${Version}", "libatspi2.0-0"])
+    for package in ("libatspi2.0-0t64", "libatspi2.0-0"):
+        candidate = version(["dpkg-query", "-W", "-f=${Version}", package])
+        if candidate and candidate != "unavailable":
+            report["versions"]["atspi-2"] = candidate
+            break
 
 
 def save():
