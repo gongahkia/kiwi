@@ -65,3 +65,22 @@ and all [six loopback SSH workflows](2026-10-27-row-reuse-ssh.json). These inclu
 the combined shell/editor/pager and tmux workflows, resize, saved-file assertions
 and chunk-invariant replay. They establish PTY/parser/state behavior, not native
 presentation performance.
+
+## Ordinary native follow-up
+
+The [requested 600-second run](2026-10-27-history-linux-gtk-row-reuse-warmup-failure.json)
+at clean `0c3cf81` used the ordinary interpreter invocation with neither the
+profiler nor trace callbacks. It failed during warmup sequence 6, after
+2,263.52 ms, before any measured input samples. The input reached the PTY after
+20.75 ms; two 4 KiB reads used 625.41 ms parsing, 784.70 ms preparing frames and
+317.72 ms rendering. Parsing used 544.29 ms process CPU, preparation 783.31 ms
+and rendering 679.95 ms (including worker threads). The acknowledgment had
+not yet been parsed when the deadline check fired. Startup was 5.71 seconds.
+
+History retained 10,000 rows after 7,499 evictions. Sampled peak RSS was
+637,356 KiB, but there is no post-warmup memory-growth evidence. The allocation
+fix therefore does **not** qualify sustained responsiveness. Both the earlier
+trace-counter and profiler runs completed; ordinary runs have failed. These
+separate shared-host trials do not prove instrumentation causes the difference,
+or establish whether this failure involved a trace-cache flush. Further runtime
+diagnostics are required; no latency or memory threshold was changed.
