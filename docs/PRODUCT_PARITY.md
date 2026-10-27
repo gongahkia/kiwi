@@ -15,6 +15,14 @@ verification, and desktop qualification are separate claims. The
 [daily-driver ledger](DAILY_DRIVER_COMPATIBILITY.md) remains the release contract.
 This change set improves the application; it does not establish complete parity.
 
+Work is paused at the user's request as of 2026-10-27, after committing the
+current implementation and automated checks. The deferred work is real macOS
+IME qualification, VoiceOver usability, physical monitor/scaling and system
+sleep/resume checks, the macOS endurance run, and the default Linux Wayland IME
+gap. Windows implementation and macOS signing remain deferred too. Existing
+limitations and future product work below remain documented, not marked complete.
+The latest completed increment is [external Cocoa text accessibility qualification](evidence/2026-10-27-cocoa-accessibility.md).
+
 ## What the reference products establish
 
 [Ghostty's action reference](https://ghostty.org/docs/config/keybind/reference)

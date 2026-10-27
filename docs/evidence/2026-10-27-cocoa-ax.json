@@ -1,0 +1,45 @@
+{
+  "status": "complete",
+  "scope": "external Cocoa accessibility queries and notifications with real PTY output; excludes VoiceOver speech, navigation, braille and text geometry",
+  "timestamp_utc": "2026-10-27T07:12:16Z",
+  "system": {
+    "os": "Darwin",
+    "architecture": "x86_64",
+    "version": "15.7.7"
+  },
+  "visibility": "owned foreground window requests the active Space; no desktop settings changed",
+  "revision": "d99b9bf59324339fc7775c2a4c4869c3e248f3cc",
+  "source_state": "clean",
+  "application_pid": 15160,
+  "client": {
+    "status": "complete",
+    "events": {
+      "value": 1,
+      "selection": 1,
+      "focus": 0
+    },
+    "scope": "external AX text/range queries and notifications; not VoiceOver speech or navigation",
+    "unchanged_notifications": "passed",
+    "text_queries": "passed",
+    "utf16_characters": 1751,
+    "write_attempts": {
+      "AXValue": {
+        "error": 0,
+        "text_unchanged": true,
+        "selection_unchanged": true
+      },
+      "AXSelectedText": {
+        "error": 0,
+        "text_unchanged": true,
+        "selection_unchanged": true
+      },
+      "AXSelectedTextRange": {
+        "error": 0,
+        "text_unchanged": true,
+        "selection_unchanged": true
+      }
+    }
+  },
+  "application_exit": 0,
+  "child_reaped": true
+}
