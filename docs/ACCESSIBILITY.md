@@ -127,8 +127,28 @@ The fixture requires Sway, wtype, Python PyGObject, the AT-SPI typelib and regis
 (Ubuntu packages `python3-gi gir1.2-atspi-2.0 at-spi2-core`), plus Kiwi's normal
 GTK and rendering dependencies. CI runs both presenters and retains reports and
 logs on failure. It does not change the user's desktop or accessibility settings.
-This is external protocol and keyboard-workflow qualification, not evidence of
-Orca speech, braille, magnifier positioning or daily screen-reader usability.
+The default route is external protocol and keyboard-workflow qualification,
+not evidence of Orca speech, braille, magnifier positioning or daily usability.
+
+`script/gtk-atspi-smoke --backend x11 --orca --report report.json` additionally
+starts the actual Orca reader on private Xvfb/Openbox. It sends Orca's `KP Enter`
+Where Am I command and requires the generated Unicode line, then verifies palette
+focus speech and `Insert+Shift+Up` announcing exactly the vi selection. The log
+must show Orca consuming each reading command, and the selection must remain
+unchanged. Both WGPU and GL are covered by CI; configuration alone does not
+establish a remote pass. Orca 46's X11 keyboard setup prevents using this route
+as Wayland screen-reader qualification.
+
+This mode requires `orca openbox xdotool xvfb xauth` in addition to the AT-SPI
+dependencies. It uses a private Orca preference directory. Its only customization
+makes the debug file line buffered so utterances can be observed before exit;
+event handling, scripts and speech generation are unmodified. Speech-server
+autospawn is disabled, so these assertions qualify generated speech rather than
+audible synthesis. Logs and reports contain only the synthetic fixture. The
+owned session has a 180-second outer deadline (90 seconds without Orca), and
+retained diagnostic logs are bounded at 8 MiB. Orca uses the fixed `C.UTF-8`
+locale for reproducible speech assertions. Flat review, braille, magnifier geometry,
+VoiceOver and daily screen-reader usability still require separate evidence.
 
 GTK 4.14's native editable-text bridge clamps negative end offsets to zero in
 `GetText`, so the palette test fetches its explicit character count before
