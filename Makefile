@@ -198,6 +198,10 @@ test-interactive-trial: native
 test-cocoa-accessibility:
 	./script/test-cocoa-accessibility
 
+.PHONY: cocoa-accessibility-smoke
+cocoa-accessibility-smoke: native terminfo
+	./script/cocoa-accessibility-smoke --report bench/results/cocoa-accessibility.json
+
 .PHONY: test-interactive-budget
 test-interactive-budget:
 	./script/test-interactive-budget

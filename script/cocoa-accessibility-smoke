@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""Query one foreground Kiwi test window through external macOS accessibility APIs.
+
+Requires existing accessibility-client permission; never changes settings or
+starts VoiceOver. Only the owned test window is raised onto the active desktop.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import platform
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--report', type=Path, required=True)
+args = parser.parse_args()
+root = Path(__file__).resolve().parent.parent
+report_path = args.report.resolve()
+report_path.parent.mkdir(parents=True, exist_ok=True)
+logs = report_path.parent / (report_path.stem + '-logs')
+logs.mkdir(exist_ok=True)
+report = dict(status='running', scope='external Cocoa accessibility queries and notifications with real PTY output; excludes VoiceOver speech, navigation, braille and text geometry',
+              timestamp_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+              system=dict(os=platform.system(), architecture=platform.machine()),
+              visibility='owned foreground window requests the active Space; no desktop settings changed')
+
+
+def save():
+    temporary = report_path.with_suffix('.new')
+    temporary.write_text(json.dumps(report, indent=2) + '\n')
+    temporary.replace(report_path)
+
+
+def output(arguments):
+    return subprocess.check_output(arguments, cwd=root, text=True, timeout=10).strip()
+
+
+save()
+app = None
+try:
+    assert sys.platform == 'darwin', 'macOS is required'
+    report['revision'] = output(['git', 'rev-parse', 'HEAD'])
+    report['source_state'] = 'clean' if not output(['git', 'status', '--porcelain']) else 'dirty'
+    report['system']['version'] = output(['sw_vers', '-productVersion'])
+    with tempfile.TemporaryDirectory(prefix='kiwi-cocoa-accessibility-') as directory:
+        directory = Path(directory)
+        client = directory / 'ax-client'
+        library = directory / 'ax-window.dylib'
+        compiler = shlex.split(os.environ.get('CC', 'cc'))
+        with (logs / 'build.log').open('w') as build_log:
+            subprocess.run([*compiler, '-fobjc-arc', '-Wall', '-Wextra', '-Werror',
+                            'src/tests/fixtures/cocoa_accessibility_client.m', '-framework', 'Foundation',
+                            '-framework', 'ApplicationServices', '-o', str(client)],
+                           cwd=root, stdout=build_log, stderr=subprocess.STDOUT, check=True, timeout=30)
+            subprocess.run([*compiler, '-dynamiclib', '-Wall', '-Wextra', '-Werror',
+                            *shlex.split(output(['pkg-config', '--cflags', 'glfw3'])),
+                            'src/tests/fixtures/cocoa_accessibility_window.m',
+                            *shlex.split(output(['pkg-config', '--libs', 'glfw3'])),
+                            '-framework', 'AppKit', '-o', str(library)],
+                           cwd=root, stdout=build_log, stderr=subprocess.STDOUT, check=True, timeout=30)
+        trusted = subprocess.run([str(client), '--check-trust'], timeout=5)
+        assert trusted.returncode == 0, 'accessibility client permission unavailable; no settings were changed'
+        control = directory / 'request'
+        config = directory / 'config'
+        config.write_text('live-config-reload = false\nfont-size = 18\n')
+        environment = {k: v for k, v in os.environ.items() if not k.startswith('KIWI_')}
+        environment.update(KIWI_ROOT=str(root), LUA_PATH='src/?.lua;src/?/init.lua;;', KIWI_HOST='glfw',
+                           KIWI_LAYOUT_PERSISTENCE='0', KIWI_MAX_SECONDS='45', KIWI_MAX_FRAMES='0',
+                           KIWI_AX_FIXTURE_LIB=str(library), KIWI_ACCESSIBILITY_DIAGNOSTICS='1', HOME=str(directory))
+        with (logs / 'application.log').open('w') as app_log:
+            app = subprocess.Popen([os.environ.get('LUAJIT', 'luajit'), 'src/tests/fixtures/cocoa_accessibility_host.lua',
+                                    '--config', str(config), '--no-restore-layout', '--no-extensions', '--',
+                                    sys.executable, 'src/tests/fixtures/cocoa_accessibility_child.py', str(control)],
+                                   cwd=root, env=environment, stdin=subprocess.DEVNULL, stdout=app_log, stderr=subprocess.STDOUT)
+            report['application_pid'] = app.pid
+            save()
+            try:
+                result = subprocess.run([str(client), str(app.pid), str(control)], capture_output=True,
+                                        text=True, timeout=25)
+                (logs / 'client.log').write_text(result.stdout + result.stderr)
+                assert len(result.stdout) < 128 * 1024, 'client report exceeds its bound'
+                report['client'] = json.loads(result.stdout)
+                assert result.returncode == 0 and report['client']['status'] == 'complete', report['client'].get('failure', 'AX client failed')
+            finally:
+                control.write_text('stop')
+                try:
+                    report['application_exit'] = app.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    app.terminate()
+                    try:
+                        app.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        app.kill()
+                        app.wait(timeout=5)
+                    raise AssertionError('application did not close after the fixture child stopped')
+            assert report['application_exit'] == 0, 'application exited unsuccessfully'
+            child_pid = int((directory / 'child.pid').read_text())
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                report['child_reaped'] = True
+            else:
+                raise AssertionError('owned PTY child survived application cleanup')
+    report['status'] = 'complete'
+except Exception as error:
+    report.update(status='failed', failure=str(error)[:4096])
+finally:
+    save()
+if report['status'] != 'complete':
+    print('Cocoa accessibility failed: ' + report['failure'] + '; logs: ' + str(logs), file=sys.stderr)
+    raise SystemExit(1)
+print('Cocoa accessibility passed: external Unicode text/ranges, read-only state, quiet unchanged updates and real PTY change notifications. Report: ' + str(report_path))
