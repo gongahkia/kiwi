@@ -97,3 +97,29 @@ latency trial on this shared software-rendering runner also does not establish
 repeatable responsiveness or a causal before/after speedup.
 
 Linux's three targeted shaping/font suites passed all 35 tests before this run.
+
+## Component retention diagnostic
+
+A separate [Linux parser/layout probe](2026-10-27-shape-retention-probe.lua)
+used the same styled line, a 72×22 state, 10,000 history capacity, real fonts
+and one layout update per 32 input lines. It ran after the native trial ended,
+at the same container code revision. Normal collection remained enabled inside
+intervals; explicit complete collections occurred only at the four diagnostic
+checkpoints. This is intentionally **not** a native latency or soak qualification.
+
+The [raw checkpoint output](2026-10-27-shape-retention-linux.jsonl) records:
+
+| Lines processed | Retained history rows | Heap before collection, KiB | Heap after collection, KiB |
+| ---: | ---: | ---: | ---: |
+| 10,016 | 9,995 | 160,580.158 | 122,280.975 |
+| 20,000 | 10,000 | 293,664.385 | 122,470.006 |
+| 40,000 | 10,000 | 246,522.385 | 122,601.881 |
+| 80,000 | 10,000 | 148,883.775 | 122,602.451 |
+
+The first checkpoint was five rows short of capacity, so the steady-state
+comparison starts at 20,000 lines. Retained heap then grew 132.445 KiB across
+60,000 further lines and stabilized between the last two checkpoints. The raw
+shape cache held nine entries / 28 glyph records / 49 text bytes throughout.
+This narrows the investigation but excludes native GPU resources, the window
+controller, accessibility and benchmark state. It does not establish retained
+heap stability for the full application. The native trial remains failed.
