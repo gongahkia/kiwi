@@ -3,6 +3,29 @@ local Interactive = require("kiwi.bench.interactive")
 local Terminal = require("kiwi.session.terminal")
 
 return {
+  acknowledged_work_diagnostics_are_bounded_and_detached = function()
+    local recorder = Interactive.new({ launched_at = 0, samples = 1, warmup = 0 })
+    recorder:work("parse", 1, 0.5, 4096) -- No outstanding input: retain nothing.
+    recorder:present(1, 0); recorder:input(2)
+    recorder:written(2.1, 0)
+    Assert.equal(recorder.pending.written_at, nil)
+    recorder:written(2.2, 1); recorder:written(2.4, 1)
+    for _ = 1, 1000 do recorder:work("parse", 0.001, 0.0005, 4) end
+    recorder:work("render", 0.1, 0.15)
+    local pending = recorder:observations().pending_acknowledgment
+    Assert.near(pending.callback_to_write_ms, 200, 0.001)
+    Assert.equal(pending.work.parse.calls, 1000)
+    Assert.near(pending.work.parse.wall_ms, 1000, 0.001)
+    Assert.near(pending.work.parse.cpu_ms, 500, 0.001)
+    Assert.equal(pending.work.parse.maximum_wall_ms, 1)
+    Assert.equal(pending.work.parse.bytes, 4000)
+    Assert.equal(pending.work.render.calls, 1)
+    pending.work.parse.calls = 9999
+    Assert.equal(recorder:observations().pending_acknowledgment.work.parse.calls, 1000)
+    Assert.equal(pcall(recorder.work, recorder, "unbounded phase", 0, 0), false)
+    Assert.equal(pcall(recorder.work, recorder, "read", -1, 0), false)
+    Assert.equal(pcall(recorder.work, recorder, "read", 0, 0, -1), false)
+  end,
   acknowledged_timeout_retains_actual_parse_and_matching_present_times = function()
     for _, parsed_at in ipairs({ 3.1, 5.1 }) do
       local recorder = Interactive.new({ launched_at = 1, samples = 1, warmup = 0 })
@@ -49,6 +72,9 @@ return {
     Assert.near(result.parse_to_present_return_ms.mean, 100, 0.001)
     Assert.near(result.callback_to_present_return_ms.maximum, 400, 0.001)
     Assert.equal(result.callback_to_present_return_ms.count, 1)
+    Assert.equal(result.slowest_acknowledgment.sequence, 2)
+    Assert.near(result.slowest_acknowledgment.callback_to_present_return_ms, 400, 0.001)
+    Assert.equal(result.pending_acknowledgment, nil)
     Assert.equal(pcall(recorder.input, recorder, 12), false)
   end,
   acknowledged_timing_rejects_false_associations_and_unbounded_or_incomplete_runs = function()
