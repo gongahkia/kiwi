@@ -23,6 +23,8 @@ from gi.repository import Atspi, GLib
 root = Path(__file__).resolve().parent.parent
 args.report = args.report.resolve()
 args.report.parent.mkdir(parents=True, exist_ok=True)
+log_directory = args.report.parent / (args.report.stem + "-logs")
+log_directory.mkdir(exist_ok=True)
 report = {"status": "running", "presenter": args.presenter, "steps": [], "events": [],
           "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
           "scope": "external AT-SPI consumer and real PTY on isolated headless Wayland; not an Orca usability qualification"}
@@ -300,7 +302,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
         for name, stream in logs:
             stream.seek(0, 2); stream.seek(max(0, stream.tell() - 16000))
             text = stream.read().decode("utf-8", errors="replace")
-            args.report.with_name(args.report.stem + "-" + name + ".log").write_text(text)
+            (log_directory / (name + ".log")).write_text(text)
             if report["status"] != "passed":
                 print(name + ":\n" + text, file=sys.stderr)
             stream.close()
