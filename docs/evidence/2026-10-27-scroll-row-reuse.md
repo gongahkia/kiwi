@@ -58,3 +58,10 @@ follow-up must retain the original latency and memory gates.
 across 132 suites, 19 PTY integration tests, native watcher/metrics fixtures,
 interactive benchmark and budget checks, regex oracle, terminfo, CLI and syntax
 checks. The targeted cell suite also passed with JIT disabled.
+
+At clean `0c3cf81`, Linux passed 442 core tests across 74 suites with native
+loading disabled, all [11 local application workflows](2026-10-27-row-reuse-applications.json)
+and all [six loopback SSH workflows](2026-10-27-row-reuse-ssh.json). These include
+the combined shell/editor/pager and tmux workflows, resize, saved-file assertions
+and chunk-invariant replay. They establish PTY/parser/state behavior, not native
+presentation performance.
