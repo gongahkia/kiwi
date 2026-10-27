@@ -598,6 +598,27 @@ function Controller.run(window, host, options)
       end
     end
 
+    local function terminal_product_action(action)
+      if action == "reload-config" then
+        configuration_runtime:request()
+      else
+        Interaction.terminal(action, state, clipboard, enqueue_input, primary_selection, configuration.primary_selection)
+        invalidate("search")
+      end
+    end
+
+    local function show_terminal_palette()
+      local entries = {}
+      for _, entry in ipairs(ProductActions.palette_entries(configuration.command_palette_entries)) do
+        -- The single-session GL controller exposes only actions it can execute.
+        if entry.action == "reload-config" or Interaction.kinds[entry.action] == "terminal" then
+          entries[#entries + 1] = entry
+        end
+      end
+      local opened, reason = host.show_command_palette(window, entries, terminal_product_action)
+      if not opened then io.stderr:write("Kiwi command palette unavailable: ", tostring(reason), "\n") end
+    end
+
     window:set_input_handlers(function(codepoints, key_event)
       local captured, status = ModalInput.text(state, codepoints, clipboard, hyperlink)
       if captured then
@@ -622,14 +643,13 @@ function Controller.run(window, host, options)
     end, function(key, action, modifiers, variants)
       if action == glfw.press and (bit.band(state.modes.keyboard_flags, 8) == 0 or state.vi.active or state.hints.active) then
         local product_action, status = product_actions:lookup(key, modifiers, window:time())
-        if product_action == "reload-config" then
-          configuration_runtime:request()
+        if product_action == "command-palette" then
+          show_terminal_palette()
           modal_input:claim(key)
           return { handled = true, suppress_text = true }
-        elseif product_action and Interaction.kinds[product_action] == "terminal" then
-          Interaction.terminal(product_action, state, clipboard, enqueue_input, primary_selection, configuration.primary_selection)
+        elseif product_action == "reload-config" or (product_action and Interaction.kinds[product_action] == "terminal") then
+          terminal_product_action(product_action)
           modal_input:claim(key)
-          invalidate("search")
           return { handled = true, suppress_text = true }
         elseif status == "pending" then
           modal_input:claim(key)
