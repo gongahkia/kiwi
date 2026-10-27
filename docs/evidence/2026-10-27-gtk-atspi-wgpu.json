@@ -1,0 +1,314 @@
+{
+  "status": "passed",
+  "presenter": "wgpu",
+  "steps": [
+    {
+      "name": "initial",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 99,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "focus-restored",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 99,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "updated",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \nupdated ✓                                                                                   \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 195,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "selected",
+      "accessible_name": "Kiwi [Visual character]  — i exits; v selects; y copies",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \nupdated ✓                                                                                   \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 195,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 1
+    },
+    {
+      "name": "palette-action",
+      "accessible_name": "Kiwi [Vi]  — i exits; v selects; y copies",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \nupdated ✓                                                                                   \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 195,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    }
+  ],
+  "events": [
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-caret-moved",
+      "detail1": 99,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-caret-moved",
+      "detail1": 195,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    }
+  ],
+  "timestamp_utc": "2026-10-27T01:57:35Z",
+  "scope": "external AT-SPI consumer and real PTY on isolated headless Wayland; not an Orca usability qualification",
+  "revision": "732de848b2edd8225de55556bc1a9ab2c80ec503",
+  "source_state": "clean",
+  "versions": {
+    "gtk4": "4.14.5",
+    "atspi-2": ""
+  },
+  "app_pid": 5044,
+  "last_tree": [
+    {
+      "name": "main",
+      "role": "desktop frame",
+      "pid": 5046,
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ]
+    },
+    {
+      "name": "Unnamed",
+      "role": "application",
+      "pid": 5044,
+      "interfaces": [
+        "Accessible"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "frame",
+      "pid": 5044,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "",
+      "role": "panel",
+      "pid": 5044,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "text",
+      "pid": 5044,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component",
+        "Text"
+      ],
+      "text": "                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            "
+    }
+  ],
+  "palette_window": {
+    "id": 6,
+    "name": "Command Palette",
+    "pid": 5044,
+    "app_id": "GTK Application",
+    "visible": true
+  },
+  "palette_text": "copy",
+  "palette_entry_states": [
+    "editable",
+    "focusable",
+    "focused",
+    "sensitive",
+    "showing",
+    "visible",
+    "has-popup"
+  ],
+  "palette": {
+    "query": "copy",
+    "role": "entry"
+  }
+}

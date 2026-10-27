@@ -1,0 +1,189 @@
+{
+  "status": "failed",
+  "presenter": "wgpu",
+  "steps": [
+    {
+      "name": "initial",
+      "text": "alpha 界                                                                                    \nbeta é                                                                                      \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            ",
+      "role": "text",
+      "characters": 3254,
+      "caret": 99,
+      "states": [
+        "editable",
+        "focusable",
+        "focused",
+        "sensitive",
+        "showing",
+        "visible"
+      ],
+      "selections": 0
+    }
+  ],
+  "events": [
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-caret-moved",
+      "detail1": 99,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 3254
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 3254
+    }
+  ],
+  "scope": "external AT-SPI consumer and real PTY on isolated headless Wayland; not an Orca usability qualification",
+  "revision": "2ab1fedf6caa6a35b924993b9d743d2c0da72c9c",
+  "source_state": "unverified or dirty",
+  "versions": {
+    "gtk4": "4.14.5",
+    "atspi-2": "unavailable"
+  },
+  "app_pid": 1393,
+  "last_tree": [
+    {
+      "name": "main",
+      "role": "desktop frame",
+      "pid": 1403,
+      "interfaces": [
+        "Accessible",
+        "Component"
+      ]
+    },
+    {
+      "name": "Unnamed",
+      "role": "application",
+      "pid": 1393,
+      "interfaces": [
+        "Accessible"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "frame",
+      "pid": 1393,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "",
+      "role": "panel",
+      "pid": 1393,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "text",
+      "pid": 1393,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component",
+        "Text"
+      ],
+      "text": "                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            \n                                                                                            "
+    }
+  ],
+  "failure": "{'name': 'initial', 'text': 'alpha 界                                                                                    \\nbeta é                                                                                      \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            \\n                                                                                            ', 'role': 'text', 'characters': 3254, 'caret': 99, 'states': ['editable', 'focusable', 'focused', 'sensitive', 'showing', 'visible'], 'selections': 0}"
+}
