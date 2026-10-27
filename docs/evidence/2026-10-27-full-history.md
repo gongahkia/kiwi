@@ -40,3 +40,15 @@ collection cycles; these values do not establish an unbounded leak. Nevertheless
 roughly 891 MiB peak RSS is a substantial cost, and this is not a qualified
 ten-minute run. No budget was relaxed. Further memory reduction and renewed
 native load qualification remain open.
+
+## Follow-up after compact Unicode storage
+
+A [60-second GLFW probe](2026-10-27-history-linux-glfw-10000-compact.json) at clean
+revision `2ab1fed` completed all 20 inputs but failed the unchanged memory-growth
+gate. Its post-warmup duration was 72.28 seconds, with 36,346 pushes, 26,346
+evictions and exactly 10,000 retained rows. Peak RSS was 905,304 KiB; RSS
+quarter-median growth was 350,622 KiB and heap growth 177,707 KiB. This shorter
+probe does not establish an input-latency improvement over the interrupted
+ten-minute run. It confirms that removing redundant Unicode cell storage is
+insufficient to qualify large-history native load. Further investigation must
+distinguish retained cell cost, transient allocations and collection timing.
