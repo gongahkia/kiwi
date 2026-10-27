@@ -65,3 +65,19 @@ loading disabled, all [11 local application workflows](2026-10-27-cluster-pool-a
 and all [six loopback SSH workflows](2026-10-27-cluster-pool-ssh.json). These
 retain the existing combined editor/pager/tmux, resize, saved-file and replay
 checks; they do not establish native latency.
+
+## Native follow-up
+
+The [ordinary 600-second attempt](2026-10-27-history-linux-gtk-cluster-pool-failure.json)
+at clean `9895f15` failed on sequence 14 after seven measured inputs. The
+unparsed acknowledgment had been pending 2,047.89 ms and reached the PTY after
+3.00 ms. Five 4 KiB reads used 643.98 ms wall / 620.62 ms process CPU parsing
+and 1,238.88 ms wall / 1,194.41 ms CPU preparing frames. Rendering used 97.54 ms
+wall / 209.77 ms process CPU. Startup was 1.57 seconds. The final JIT snapshot
+retained 791 traces and 1,372,876 emitted machine-code bytes.
+
+History retained 10,000 rows after 155,866 evictions. Post-warmup observations
+cover only 43.78 seconds; sampled peak RSS was 638,700 KiB. These are partial
+observations, not a completed soak or a controlled speed/memory comparison.
+The storage improvement has therefore **not resolved native sustained latency**.
+No thresholds or runtime limits were relaxed.
