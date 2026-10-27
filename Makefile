@@ -194,6 +194,10 @@ test-interactive-bench:
 test-interactive-trial: native
 	LUAJIT="$(LUAJIT)" ./script/test-interactive-trial
 
+.PHONY: test-cocoa-accessibility
+test-cocoa-accessibility:
+	./script/test-cocoa-accessibility
+
 .PHONY: test-interactive-budget
 test-interactive-budget:
 	./script/test-interactive-budget
@@ -384,7 +388,7 @@ pty-wake-smoke: native
 idle-wake-smoke: native terminfo
 	LUAJIT="$(LUAJIT)" ./script/idle-wake-smoke
 
-check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-interactive-trial test-interactive-budget test-burst-bench test-regex-oracle terminfo
+check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-interactive-trial test-interactive-budget test-burst-bench test-cocoa-accessibility test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 

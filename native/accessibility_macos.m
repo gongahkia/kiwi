@@ -10,6 +10,58 @@
 
 enum { KIWI_A11Y_MAX_TEXT_BYTES = 1024 * 1024, KIWI_A11Y_MAX_TITLE_BYTES = 4096 };
 
+@interface KiwiTerminalAccessibilityElement : NSAccessibilityElement
+@end
+
+@implementation KiwiTerminalAccessibilityElement
+- (NSString *)accessibilityStringForRange:(NSRange)range {
+  NSString *value = self.accessibilityValue;
+  if (range.location > value.length || range.length > value.length - range.location) return nil;
+  // AX ranges use UTF-16 offsets. Do not export an isolated surrogate when a
+  // malformed request cuts a supplementary character in half.
+  const NSUInteger end = range.location + range.length;
+  if ((range.location > 0 && range.location < value.length
+       && CFStringIsSurrogateLowCharacter([value characterAtIndex:range.location])
+       && CFStringIsSurrogateHighCharacter([value characterAtIndex:range.location - 1]))
+      || (end > 0 && end < value.length
+       && CFStringIsSurrogateHighCharacter([value characterAtIndex:end - 1])
+       && CFStringIsSurrogateLowCharacter([value characterAtIndex:end]))) return nil;
+  return [value substringWithRange:range];
+}
+- (NSAttributedString *)accessibilityAttributedStringForRange:(NSRange)range {
+  NSString *value = [self accessibilityStringForRange:range];
+  return value == nil ? nil : [[[NSAttributedString alloc] initWithString:value] autorelease];
+}
+- (NSInteger)accessibilityLineForIndex:(NSInteger)index {
+  NSString *value = self.accessibilityValue;
+  if (index < 0 || (NSUInteger)index > value.length) return NSNotFound;
+  NSInteger line = 0;
+  for (NSUInteger offset = 0; offset < (NSUInteger)index; ++offset) {
+    if ([value characterAtIndex:offset] == '\n') line += 1;
+  }
+  return line;
+}
+- (NSRange)accessibilityRangeForLine:(NSInteger)line {
+  if (line < 0) return NSMakeRange(NSNotFound, 0);
+  NSString *value = self.accessibilityValue;
+  NSUInteger start = 0;
+  NSInteger current = 0;
+  for (NSUInteger offset = 0; offset < value.length; ++offset) {
+    if ([value characterAtIndex:offset] != '\n') continue;
+    if (current == line) return NSMakeRange(start, offset + 1 - start);
+    current += 1;
+    start = offset + 1;
+  }
+  return current == line ? NSMakeRange(start, value.length - start) : NSMakeRange(NSNotFound, 0);
+}
+- (NSRange)accessibilityRangeForIndex:(NSInteger)index {
+  NSString *value = self.accessibilityValue;
+  if (index < 0 || (NSUInteger)index > value.length) return NSMakeRange(NSNotFound, 0);
+  if ((NSUInteger)index == value.length) return NSMakeRange(value.length, 0);
+  return [value rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)index];
+}
+@end
+
 typedef struct KiwiAccessibility {
   NSView *view;
   NSArray *previous_children;
@@ -59,7 +111,7 @@ KiwiAccessibility *kiwi_accessibility_new(void *opaque_window) {
   }
   adapter->view = [view retain];
   adapter->previous_children = [[view accessibilityChildren] copy];
-  adapter->terminal = [[NSAccessibilityElement accessibilityElementWithRole:NSAccessibilityTextAreaRole
+  adapter->terminal = [[KiwiTerminalAccessibilityElement accessibilityElementWithRole:NSAccessibilityTextAreaRole
                                                                         frame:view.bounds
                                                                         label:@"Kiwi terminal"
                                                                        parent:view] retain];
@@ -104,7 +156,8 @@ int kiwi_accessibility_update(KiwiAccessibility *adapter, const char *text, size
   const NSInteger utf16_caret = kiwi_utf16_index_for_scalar_offset(value, caret_offset);
   const NSInteger utf16_selection_start = kiwi_utf16_index_for_scalar_offset(value, selection_start);
   const NSInteger utf16_selection_end = kiwi_utf16_index_for_scalar_offset(value, selection_end);
-  if (utf16_character_count == NSNotFound || (caret_offset >= 0 && utf16_caret == NSNotFound)
+  if (utf16_character_count == NSNotFound || (NSUInteger)utf16_character_count != value.length
+      || (caret_offset >= 0 && utf16_caret == NSNotFound)
       || (selection_start >= 0 && (utf16_selection_start == NSNotFound || utf16_selection_end == NSNotFound))) {
     kiwi_a11y_set_error("Cocoa accessibility projection offsets do not match bounded UTF-8 text");
     return 0;
@@ -125,6 +178,11 @@ int kiwi_accessibility_update(KiwiAccessibility *adapter, const char *text, size
       if ([value characterAtIndex:index] == '\n') insertion_line += 1;
     }
   }
+  const BOOL text_changed = ![adapter->terminal.accessibilityValue isEqualToString:value];
+  const BOOL selection_changed = !NSEqualRanges(adapter->terminal.accessibilitySelectedTextRange, selected_range)
+    || !((adapter->terminal.accessibilitySelectedText == nil && selected_text == nil)
+         || [adapter->terminal.accessibilitySelectedText isEqualToString:selected_text]);
+  const BOOL focus_changed = adapter->terminal.accessibilityFocused != (focused != 0);
   adapter->terminal.accessibilityFrameInParentSpace = adapter->view.bounds;
   adapter->terminal.accessibilityLabel = label;
   adapter->terminal.accessibilityValue = value;
@@ -136,9 +194,9 @@ int kiwi_accessibility_update(KiwiAccessibility *adapter, const char *text, size
   adapter->terminal.accessibilityVisibleCharacterRange = NSMakeRange(0, (NSUInteger)utf16_character_count);
   adapter->terminal.accessibilityFocused = focused != 0;
   adapter->selected_range = selected_range;
-  NSAccessibilityPostNotification(adapter->terminal, NSAccessibilityValueChangedNotification);
-  NSAccessibilityPostNotification(adapter->terminal, NSAccessibilitySelectedTextChangedNotification);
-  if (focused != 0) NSAccessibilityPostNotification(adapter->terminal, NSAccessibilityFocusedUIElementChangedNotification);
+  if (text_changed) NSAccessibilityPostNotification(adapter->terminal, NSAccessibilityValueChangedNotification);
+  if (selection_changed) NSAccessibilityPostNotification(adapter->terminal, NSAccessibilitySelectedTextChangedNotification);
+  if (focus_changed && focused != 0) NSAccessibilityPostNotification(adapter->terminal, NSAccessibilityFocusedUIElementChangedNotification);
   return 1;
 }
 

@@ -168,15 +168,26 @@ the active Kiwi pane. The element uses the safe terminal title as its label and
 the current bounded viewport text as its value. It maps the platform-neutral
 Unicode-scalar caret/selection offsets into NSString's UTF-16 offset space,
 exposes visible, selected, and insertion ranges, and emits value, selected-text,
-and focus notifications after updates. It is removed again when Kiwi destroys
+and focus notifications when those properties change. Unchanged projections do
+not repeat those notifications. It is removed again when Kiwi destroys
 the window. The adapter does not expose editable terminal text, styled
 attributes, geometry for individual terminal cells, or multiple panes as
-separate accessibility elements.
+separate accessibility elements. Substring and plain attributed-string queries
+use checked UTF-16 ranges; requests that split surrogate pairs are rejected.
+Line queries use physical viewport LF separators and include the terminating LF
+when present. Character-range queries return AppKit composed-character ranges,
+including combining sequences and supplementary characters. End-of-text is an
+empty range; invalid indices return no range. The native boundary also verifies
+that the supplied Unicode-scalar count matches the entire UTF-8 projection.
 
 `make cocoa-smoke` creates this adapter and checks its text-area role,
 identifier, label, UTF-8 value, visible/selected ranges, focus state, and
 teardown restoration on a real Cocoa view. `make voiceover-validation` runs
-that adapter contract explicitly. `make accessibility-smoke` runs the
+that adapter contract explicitly. `make test-cocoa-accessibility`, also part of
+`make check`, tests the production text element and update function without a
+visible window or accessibility permission. It covers Unicode ranges, malformed
+offsets and counts, bounds, empty text, and change-only notification scheduling.
+`make accessibility-smoke` runs the
 deterministic semantic checks and reports this macOS boundary.
 `make accessibility-provider-smoke` is intentionally an AT-SPI-only test and
 reports a skip on macOS. No automated check can establish spoken output or
@@ -212,3 +223,5 @@ macOS needs a manual VoiceOver result; Windows still needs its native adapter.
 - [AT-SPI Application provider contract](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Application.html)
 - [AT-SPI registry `Socket.Embed` handshake](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Socket.html)
 - [AT-SPI Text interface](https://gnome.pages.gitlab.gnome.org/at-spi2-core/devel-docs/doc-org.a11y.atspi.Text.html)
+
+The macOS text-query contract follows Apple’s [NSAccessibility protocol](https://developer.apple.com/documentation/appkit/nsaccessibilityprotocol) and [physical line-range API](https://developer.apple.com/documentation/appkit/nsaccessibilityprotocol/accessibilityrange%28forline%3A%29).
