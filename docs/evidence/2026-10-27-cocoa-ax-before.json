@@ -1,0 +1,76 @@
+{
+  "AXFocused": true,
+  "AXRangeForIndex": {
+    "error": -25213,
+    "value": null
+  },
+  "AXValueSettable": [
+    0,
+    0
+  ],
+  "parameters": [
+    "AXReplaceRangeWithText"
+  ],
+  "AXStringForRange": {
+    "error": -25213,
+    "value": null
+  },
+  "AXInsertionPointLineNumber": 2,
+  "AXIdentifierSettable": [
+    0,
+    0
+  ],
+  "AXRoleSettable": [
+    0,
+    0
+  ],
+  "AXRangeForLine": {
+    "error": -25213,
+    "value": null
+  },
+  "parameter_names_error": 0,
+  "AXNumberOfCharacters": 1751,
+  "AXNumberOfCharactersSettable": [
+    0,
+    0
+  ],
+  "AXLineForIndex": {
+    "error": -25213,
+    "value": null
+  },
+  "AXAttributedStringForRange": {
+    "error": -25213,
+    "value": null
+  },
+  "AXSelectedTextRange": [
+    157,
+    0
+  ],
+  "AXFocusedSettable": [
+    0,
+    0
+  ],
+  "AXSelectedTextRangeSettable": [
+    0,
+    0
+  ],
+  "AXSelectedTextSettable": [
+    0,
+    0
+  ],
+  "AXRole": "AXTextArea",
+  "AXInsertionPointLineNumberSettable": [
+    0,
+    0
+  ],
+  "AXVisibleCharacterRange": [
+    0,
+    1751
+  ],
+  "AXIdentifier": "kiwi.terminal",
+  "AXVisibleCharacterRangeSettable": [
+    0,
+    0
+  ],
+  "scope": "external AX query before text-range implementation; visible text omitted because the diagnostic child had terminal echo enabled"
+}
