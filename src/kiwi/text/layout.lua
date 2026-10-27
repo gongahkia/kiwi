@@ -3,6 +3,7 @@ local Grapheme = require("kiwi.unicode.grapheme")
 local Width = require("kiwi.terminal.width")
 local bit = require("bit")
 local Decoration = require("kiwi.text.decoration")
+local ShapeCache = require("kiwi.text.shape_cache")
 
 local Layout = {}
 Layout.__index = Layout
@@ -37,6 +38,7 @@ function Layout.new(font_system)
     rows = {},
     generation = 0,
     stats = {},
+    shape_cache = ShapeCache.new(),
   }, Layout)
 end
 
@@ -47,12 +49,14 @@ end
 function Layout:set_font_system(font_system)
   self.font_system.glyph_cache:retain(self, {})
   self.font_system = assert(font_system, "text layout needs a font system")
+  self.shape_cache:clear()
   self:invalidate_all()
 end
 
 function Layout:destroy()
   if self.font_system.glyph_cache then self.font_system.glyph_cache:retain(self, {}) end
   self.rows = {}
+  self.shape_cache:clear()
 end
 
 function Layout:begin_frame()
@@ -61,6 +65,7 @@ function Layout:begin_frame()
     rows_reshaped = 0,
     runs_reshaped = 0,
     runs_built = 0,
+    run_cache_hits = 0,
     clusters_examined = 0,
     codepoints_shaped = 0,
     glyphs_produced = 0,
@@ -135,10 +140,14 @@ end
 
 function Layout:shape_run(state, run, row, output)
   local started = os.clock()
-  local shaped = run.face:shape(run.text, self.font_system.shape_options)
+  local shaped, hit = self.shape_cache:shape(run.face, run.text, self.font_system.shape_options)
   self.stats.shaping_cpu_ms = self.stats.shaping_cpu_ms + (os.clock() - started) * 1000
-  self.stats.runs_reshaped = self.stats.runs_reshaped + 1
-  self.stats.codepoints_shaped = self.stats.codepoints_shaped + #run.codepoints
+  if hit then
+    self.stats.run_cache_hits = self.stats.run_cache_hits + 1
+  else
+    self.stats.runs_reshaped = self.stats.runs_reshaped + 1
+    self.stats.codepoints_shaped = self.stats.codepoints_shaped + #run.codepoints
+  end
   self.stats.glyphs_produced = self.stats.glyphs_produced + #shaped
   local pen_x = run.column * self.font_system.metrics.cell_width
   local previous_column
@@ -283,6 +292,10 @@ end
 
 function Layout:update(state)
   self:begin_frame()
+  if self.shape_generation ~= self.font_system.text_generation then
+    self.shape_cache:clear()
+    self.shape_generation = self.font_system.text_generation
+  end
   local cache = self.font_system.glyph_cache
   local dirty, retained = {}, {}
   for row = 0, state.rows - 1 do
@@ -298,14 +311,14 @@ function Layout:update(state)
     if dirty[row] then
       self.stats.rows_invalidated = self.stats.rows_invalidated + 1
       self.stats.cache_misses = self.stats.cache_misses + 1
-      local runs_before = self.stats.runs_reshaped
+      local runs_before = self.stats.runs_built
       local failures_before = cache.stats.capacity_failures
       local glyphs = self:shape_row(state, row)
       self.rows[row] = {
         generation = self.generation,
         text_generation = self.font_system.text_generation,
         glyphs = glyphs,
-        runs = self.stats.runs_reshaped - runs_before,
+        runs = self.stats.runs_built - runs_before,
         capacity_limited = cache.stats.capacity_failures > failures_before,
         availability_generation = cache.availability_generation,
       }

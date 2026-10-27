@@ -3,6 +3,7 @@ local suites = {
   "tests.test_configuration_retention",
   "tests.test_cell",
   "tests.test_cluster_pool",
+  "tests.test_shape_cache",
   "tests.test_interactive_bench",
   "tests.test_sustained",
   "tests.test_damage",
@@ -138,7 +139,7 @@ local suites = {
 -- These suites exercise the product model without loading graphics, fonts or
 -- the native PTY bridge. Keep the full suite as the release gate.
 local core_names = [[
-damage paths library config cell cluster_pool interactive_bench sustained configuration_retention configuration_reload gtk_configuration_reload configuration_watch configuration_runtime app_options interaction_actions product_action_dispatcher
+damage paths library config cell cluster_pool shape_cache interactive_bench sustained configuration_retention configuration_reload gtk_configuration_reload configuration_watch configuration_runtime app_options interaction_actions product_action_dispatcher
 host_effects compatibility workspace window_manager layout_store terminal utf8
 unicode state terminal_session text_state text_fixtures parser reflow
 fuzz poll_schedule output_service input_correlation mouse scrollback_wheel scrollbar

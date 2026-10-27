@@ -255,6 +255,7 @@ function PreparedFrame:prepare_model(model)
       glyphs_produced = self.layout.stats.glyphs_produced,
       rows_reshaped = self.layout.stats.rows_reshaped,
       runs_reshaped = self.layout.stats.runs_reshaped,
+      run_shape_cache_hits = self.layout.stats.run_cache_hits,
       shape_cache_hits = self.layout.stats.cache_hits,
       shape_cache_misses = self.layout.stats.cache_misses,
       shaping_cpu_ms = self.layout.stats.shaping_cpu_ms,
