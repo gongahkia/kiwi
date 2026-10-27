@@ -66,6 +66,7 @@ return {
     resizable = 0x00020003,
     transparent_framebuffer = 0x0002000A,
     visible = 0x00020004,
+    focused = 0x00020001,
     scale_framebuffer = 0x0002200D,
     yes = 1,
     no = 0,

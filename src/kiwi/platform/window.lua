@@ -130,6 +130,7 @@ local glfw_pointer_shapes = {
 function Window.new(width, height, title, options)
   options = options or {}
   assert(options.visible == nil or type(options.visible) == "boolean", "window visibility must be a boolean")
+  assert(options.focused == nil or type(options.focused) == "boolean", "window focus must be a boolean")
   if live_windows == 0 and glfw.lib.glfwInit() == 0 then
     error("Unable to initialize GLFW: " .. glfw_error())
   end
@@ -137,6 +138,7 @@ function Window.new(width, height, title, options)
   glfw.lib.glfwWindowHint(glfw.constants.client_api, glfw.constants.no_api)
   glfw.lib.glfwWindowHint(glfw.constants.resizable, glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.visible, options.visible == false and glfw.constants.no or glfw.constants.yes)
+  glfw.lib.glfwWindowHint(glfw.constants.focused, options.focused == false and glfw.constants.no or glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.scale_framebuffer, glfw.constants.yes)
   glfw.lib.glfwWindowHint(glfw.constants.transparent_framebuffer, glfw.constants.yes)
   local handle = glfw.lib.glfwCreateWindow(width, height, title, nil, nil)
