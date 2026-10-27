@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "jit_snapshot": {
+        "ir_instructions": 9979,
+        "machine_code_bytes": 143989,
+        "maximum_trace": 119,
+        "observation": "after workload exit",
+        "scan_limit": 65535,
+        "traces": 119
+      },
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "callback_to_present_return_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "completed": 0,
+        "history": {
+          "evicted": 0,
+          "peak_retained": 0,
+          "pushed": 0
+        },
+        "output_bytes_observed": 57,
+        "parse_to_present_return_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "requested_samples": 120,
+        "retained_heap": {
+          "method": "full collection at initial/final boundaries while application remains live"
+        },
+        "sampled_peak_rss_kib": 0,
+        "samples": 0,
+        "sent": 0,
+        "warmup": 6
+      },
+      "metadata": {
+        "configuration": {
+          "clock": "CLOCK_MONOTONIC_RAW",
+          "floating_window": true,
+          "heap_measurement": "retained",
+          "host": "glfw",
+          "interval_seconds": 5.04201681,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 120,
+          "scroll_mode": "history",
+          "scrollback_limit": 10000,
+          "soak_seconds": 600,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 911,
+          "warmup_inputs": 6,
+          "workload": "saturated"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "d4607f5653259010fa20ff5eac45004af2ddb350",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1785763465",
+          "machine_code_limit_kib": 4096
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "not applicable",
+          "cgroup_memory_limit": "not applicable",
+          "cpu_affinity": "unavailable",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Darwin 24.6.0 x86_64",
+          "operating_system": "OSX",
+          "vulkan_gpu0": "unavailable",
+          "vulkan_gpu0_driver": "unavailable"
+        },
+        "timestamp_utc": "20261027T061944Z"
+      },
+      "presentation": {
+        "attempts": 1,
+        "failures": {
+          "surface occluded": 1
+        },
+        "last_attempt_at": 946068.732,
+        "last_failure_at": 946068.732,
+        "last_failure_reason": "surface occluded",
+        "successful": 0
+      },
+      "schema_version": 1,
+      "status": "failed",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC_RAW in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 911,
+  "soak_policy": {
+    "minimum_seconds": 600.0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "heap_measurement": "retained",
+    "growth": "RSS: last-quarter minus first-quarter median; Lua heap: post-collection final minus initial while app is live",
+    "collection": "one full collection after warmup and one after the final timed input, before teardown; normal GC during interval",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "failure": {
+    "mode": "saturated",
+    "trial": 1,
+    "log": "/private/tmp/kiwi-macos-raw-retained-heap-600-logs/saturated-1.log",
+    "reason": "Command '['luajit', 'src/kiwi/interactive_bench.lua']' returned non-zero exit status 1."
+  }
+}
