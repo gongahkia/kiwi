@@ -112,6 +112,15 @@ normal scroll inside full primary screen
   -> damage marks the affected rectangle
 ```
 
+Retained history cells use dense array storage behind named field access. Active
+screen cells remain ordinary tables to avoid adding metamethod overhead to each
+parser mutation. `terminal/cell.lua` owns packing, expansion and copying; code
+must not use `pairs` or `rawget` to inspect a history cell's named fields. Reflow
+expands cells before choosing the new visible rows, then packs retained history.
+Configuration transactions preserve the representation and copy mutable cells
+while sharing immutable codepoint arrays. Snapshot/replay formats remain named
+records independent of this internal storage.
+
 This supersedes the M0 synthetic scrolling object's per-cell reconstruction without changing the M0 benchmark, which deliberately continues measuring its old synthetic workload.
 
 ## Resize and presentation

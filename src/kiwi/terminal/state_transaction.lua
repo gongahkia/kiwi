@@ -11,7 +11,7 @@ Transaction.__index = Transaction
 local function copy(value, seen)
   if type(value) ~= "table" then return value end
   if seen[value] then return seen[value] end
-  if rawget(value, "glyph") ~= nil and rawget(value, "fg") ~= nil and rawget(value, "flags") ~= nil then
+  if Cell.is_compact(value) or (rawget(value, "glyph") ~= nil and rawget(value, "fg") ~= nil and rawget(value, "flags") ~= nil) then
     -- Cluster arrays are immutable; optional fields stay absent on plain cells.
     local cell = Cell.clone(value)
     seen[value] = cell

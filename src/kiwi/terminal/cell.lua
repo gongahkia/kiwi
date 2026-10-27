@@ -1,7 +1,26 @@
 local Cell = {}
 
--- Plain cells fit in eight hash slots. Assigning an absent optional key even
--- to nil can grow a LuaJIT table, so clear only fields that actually exist.
+-- History cells store values in array slots rather than one hash node per
+-- property. The frequently mutated screen keeps ordinary tables. Named access
+-- remains available to history consumers, including palette resolution. Use
+-- Cell.clone for copies: pairs/rawget expose storage, not the named schema.
+local slots = {
+  glyph = 1, fg = 2, bg = 3, fg_slot = 4, bg_slot = 5, flags = 6,
+  codepoints = 7, width = 8, underline_style = 9, underline_color = 10,
+  underline_slot = 11, continuation = 12, anchor_column = 13,
+  display_text = 14, hyperlink_id = 15,
+}
+local cell_metatable = {
+  __index = function(cell, key) return rawget(cell, slots[key] or key) end,
+  __newindex = function(cell, key, value) rawset(cell, slots[key] or key, value) end,
+}
+
+function Cell.is_compact(value)
+  return getmetatable(value) == cell_metatable
+end
+
+-- Optional slots are allocated only when used; do not grow plain cells just
+-- to write nil. Codepoint arrays are immutable and shared by copies.
 local function copy_optional(destination, source)
   if destination.underline_style ~= nil or source.underline_style ~= nil then destination.underline_style = source.underline_style end
   if destination.underline_color ~= nil or source.underline_color ~= nil then destination.underline_color = source.underline_color end
@@ -24,7 +43,22 @@ function Cell.copy_into(destination, source)
   copy_optional(destination, source)
 end
 
-function Cell.clone(source)
+function Cell.pack(source)
+  if source.underline_style ~= nil or source.underline_color ~= nil or source.underline_slot ~= nil
+      or source.continuation ~= nil or source.anchor_column ~= nil
+      or source.display_text ~= nil or source.hyperlink_id ~= nil then
+    -- Allocate the complete optional array together. Inserting sparse high
+    -- indices individually would reserve hash nodes instead of array storage.
+    return setmetatable({ source.glyph, source.fg, source.bg, source.fg_slot,
+      source.bg_slot, source.flags, source.codepoints, source.width,
+      source.underline_style, source.underline_color, source.underline_slot,
+      source.continuation, source.anchor_column, source.display_text, source.hyperlink_id }, cell_metatable)
+  end
+  return setmetatable({ source.glyph, source.fg, source.bg, source.fg_slot,
+    source.bg_slot, source.flags, source.codepoints, source.width }, cell_metatable)
+end
+
+function Cell.expand(source)
   local cell = {
     glyph = source.glyph, fg = source.fg, bg = source.bg,
     fg_slot = source.fg_slot, bg_slot = source.bg_slot, flags = source.flags,
@@ -32,6 +66,17 @@ function Cell.clone(source)
   }
   copy_optional(cell, source)
   return cell
+end
+
+function Cell.clone(source)
+  if Cell.is_compact(source) then return Cell.pack(source) end
+  return Cell.expand(source)
+end
+
+function Cell.pack_row(row)
+  for column, cell in pairs(row.cells) do
+    if not Cell.is_compact(cell) then row.cells[column] = Cell.pack(cell) end
+  end
 end
 
 return Cell
