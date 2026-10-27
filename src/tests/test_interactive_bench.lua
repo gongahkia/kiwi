@@ -3,6 +3,27 @@ local Interactive = require("kiwi.bench.interactive")
 local Terminal = require("kiwi.session.terminal")
 
 return {
+  acknowledged_timeout_retains_actual_parse_and_matching_present_times = function()
+    for _, parsed_at in ipairs({ 3.1, 5.1 }) do
+      local recorder = Interactive.new({ launched_at = 1, samples = 1, warmup = 0 })
+      recorder:present(2, 0); recorder:input(3)
+      local waiting = recorder:observations().pending_acknowledgment
+      Assert.equal(waiting.sequence, 1)
+      Assert.equal(waiting.parsed_at, nil)
+      Assert.equal(waiting.presented_at, nil)
+      recorder:parsed(1, parsed_at)
+      Assert.equal(pcall(recorder.present, recorder, 5.2, 1), false)
+      local report = recorder:observations()
+      Assert.equal(report.samples, 0)
+      Assert.equal(report.completed, 0)
+      Assert.equal(pcall(recorder.snapshot, recorder), false)
+      Assert.near(report.pending_acknowledgment.callback_to_present_return_ms, 2200, 0.001)
+      Assert.near(report.pending_acknowledgment.callback_to_parse_ms, (parsed_at - 3) * 1000, 0.001)
+      Assert.near(report.pending_acknowledgment.parse_to_present_return_ms, (5.2 - parsed_at) * 1000, 0.001)
+      report.pending_acknowledgment.input_at = 100
+      Assert.equal(recorder:observations().pending_acknowledgment.input_at, 3)
+    end
+  end,
   acknowledged_timing_excludes_warmup_and_unrelated_frames = function()
     local recorder = Interactive.new({ launched_at = 10, samples = 1, warmup = 1 })
     recorder:present(10.1)
