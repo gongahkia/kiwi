@@ -60,6 +60,7 @@ local suites = {
   "tests.test_longrun",
   "tests.test_pacing",
   "tests.test_poll_schedule",
+  "tests.test_output_service",
   "tests.test_pacing_budget",
   "tests.test_power",
   "tests.test_device_soak",
@@ -138,7 +139,7 @@ local core_names = [[
 damage paths library config cell interactive_bench sustained configuration_retention configuration_reload gtk_configuration_reload configuration_watch configuration_runtime app_options interaction_actions product_action_dispatcher
 host_effects compatibility workspace window_manager layout_store terminal utf8
 unicode state terminal_session text_state text_fixtures parser reflow
-fuzz poll_schedule input_correlation mouse scrollback_wheel scrollbar
+fuzz poll_schedule output_service input_correlation mouse scrollback_wheel scrollbar
 selection history_actions selection_pointer clipboard primary_selection shell_integration
 command_regions command_region_retention compositor command_region_navigation
 search search_input vi vi_input hints hints_input regex packing render_model gtk_native_tab_group pass_registry pass_api

@@ -15,6 +15,7 @@ local Mouse = require("kiwi.input.mouse")
 local ScrollbarPointer = require("kiwi.input.scrollbar_pointer")
 local ScrollbackWheel = require("kiwi.input.scrollback_wheel")
 local Pty = require("kiwi.process.pty")
+local OutputService = require("kiwi.process.output_service")
 local GtkGLConsumer = require("kiwi.renderer.gtk_gl_consumer")
 local SelectionPointer = require("kiwi.input.selection_pointer")
 local ShellIntegration = require("kiwi.process.shell_integration")
@@ -166,7 +167,9 @@ function Session.new(window, host, configuration, options)
   self.last_title = self.default_title
   self.window_focused = true
   self.max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
-  self.read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+  self.read_budget = number_from_env("KIWI_PTY_READ_BUDGET", OutputService.default_max_bytes)
+  self.output_service = OutputService.new({ max_bytes = self.read_budget, clock = function() return self.window:time() end })
+  self.output_sessions = { self }
   self.render_timeout = positive_number_from_env("KIWI_GTK_GL_RENDER_TIMEOUT", 3)
   self.consumer = GtkGLConsumer.new(window, self.font, self.state, consumer_options(configuration))
   self.accessibility = host.accessibility_new and host.accessibility_new(window) or nil
@@ -426,8 +429,10 @@ end
 
 function Session:_drain_terminal(now, focused)
   self.pty:flush()
-  local output = self.pty:read_available(self.read_budget)
-  if #output > 0 then self.terminal:write(output); self:_invalidate("terminal") end
+  self.output_service:drain(self.output_sessions, function(_, output)
+    self.terminal:write(output)
+    self:_invalidate("terminal")
+  end)
   local responses = self.terminal:pop_responses()
   if #responses > 0 then self.pty:enqueue(table.concat(responses)) end
   for _, effect in ipairs(self.terminal:pop_effects()) do

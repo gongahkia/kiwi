@@ -1,6 +1,7 @@
 local Assert = require("tests.assert")
 local Controller = require("kiwi.app.gtk_gl_controller")
 local Session = require("kiwi.app.gtk_gl_session")
+local OutputService = require("kiwi.process.output_service")
 
 return {
   gtk_gl_processes_child_acknowledgment_after_delivering_queued_input = function()
@@ -23,6 +24,8 @@ return {
       },
       _invalidate = function() end,
     }
+    session.output_service = OutputService.new({ max_bytes = session.read_budget, clock = function() return 0 end })
+    session.output_sessions = { session }
     Session._drain_terminal(session, 0, true)
     Assert.equal(parsed, "ack")
     Assert.equal(delivered, "keyreply")

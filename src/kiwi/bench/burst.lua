@@ -3,6 +3,7 @@ local Environment = require("kiwi.bench.environment")
 local Json = require("kiwi.bench.json")
 local Parser = require("kiwi.terminal.parser")
 local Pty = require("kiwi.process.pty")
+local OutputService = require("kiwi.process.output_service")
 local Snapshot = require("kiwi.terminal.snapshot")
 local State = require("kiwi.terminal.state")
 local Stats = require("kiwi.bench.stats")
@@ -61,16 +62,19 @@ local function run_case(case, read_budget, max_service_ms, max_heap_kib)
   local next_frame_deadline = started
   local deadline = started + 90
   local status
+  local output_service = OutputService.new({ max_bytes = read_budget, clock = monotonic_seconds })
+  local sessions = { { pty = pty } }
+  local function consume(_, output)
+    bytes = bytes + #output
+    parser:feed(output)
+  end
 
   while true do
     local service_started = monotonic_seconds()
-    local output = pty:read_available(read_budget)
-    assert(#output <= read_budget, "PTY read exceeded its configured budget")
-    if #output > 0 then
-      bytes = bytes + #output
-      parser:feed(output)
-      active_service_iterations = active_service_iterations + 1
-    end
+    pty:flush()
+    local output_bytes = output_service:drain(sessions, consume)
+    assert(output_bytes <= read_budget, "PTY service exceeded its configured budget")
+    if output_bytes > 0 then active_service_iterations = active_service_iterations + 1 end
     local responses = state:pop_responses()
     if #responses > 0 then
       pty:enqueue(table.concat(responses))
@@ -82,7 +86,7 @@ local function run_case(case, read_budget, max_service_ms, max_heap_kib)
     local service_ms = (service_finished - service_started) * 1000
     service_samples[#service_samples + 1] = service_ms
     max_service = math.max(max_service, service_ms)
-    if #output > 0 then
+    if output_bytes > 0 then
       while service_finished >= next_frame_deadline do
         frame_deadline_slots = frame_deadline_slots + 1
         next_frame_deadline = next_frame_deadline + 1 / 30
@@ -172,7 +176,7 @@ if os.getenv("KIWI_BURST_10MB") == "1" then
   }
 end
 
-local read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+local read_budget = number_from_env("KIWI_PTY_READ_BUDGET", OutputService.default_max_bytes)
 local max_service_ms = number_from_env("KIWI_BURST_MAX_SERVICE_MS", 250)
 local max_heap_kib = number_from_env("KIWI_BURST_MAX_HEAP_KIB", 64 * 1024)
 local results = {}
@@ -219,6 +223,8 @@ file:write(Json.encode({
     max_heap_kib = max_heap_kib,
     max_service_ms = max_service_ms,
     read_budget_bytes = read_budget,
+    read_chunk_bytes = OutputService.chunk_bytes,
+    output_service_target_seconds = OutputService.max_seconds,
   },
   results = results,
 }), "\n")

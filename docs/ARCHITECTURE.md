@@ -112,6 +112,15 @@ normal scroll inside full primary screen
   -> damage marks the affected rectangle
 ```
 
+Ordinary PTY output is serviced cooperatively before rendering. A window shares
+one byte allowance (16 KiB by default) across its panes, using chunks of at most
+4 KiB and checking an 8 ms elapsed-time target after each parse. The next deferred
+PTY retains priority across pane reordering; a closed PTY does not leave a stale
+array cursor. Input flushes precede output parsing, and deferred output requests
+an immediate next event-loop turn. The time target cannot preempt a single parser
+chunk. GTK GL pages use the same service within their existing per-page lifecycle.
+Kitty image transfers retain their separate bounded fast path.
+
 Retained history cells use dense array storage behind named field access. Active
 screen cells remain ordinary tables to avoid adding metamethod overhead to each
 parser mutation. `terminal/cell.lua` owns packing, expansion and copying; code

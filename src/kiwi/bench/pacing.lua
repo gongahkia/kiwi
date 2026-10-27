@@ -1,6 +1,7 @@
 local Environment = require("kiwi.bench.environment")
 local Json = require("kiwi.bench.json")
 local Stats = require("kiwi.bench.stats")
+local OutputService = require("kiwi.process.output_service")
 
 local Pacing = {}
 Pacing.__index = Pacing
@@ -46,7 +47,7 @@ function Pacing.new(options)
   options = options or {}
   local sample_limit = options.sample_limit or 240
   local warmup_frames = options.warmup_frames or 30
-  local pty_read_budget = options.pty_read_budget or 4 * 1024
+  local pty_read_budget = options.pty_read_budget or OutputService.default_max_bytes
   assert(type(sample_limit) == "number" and sample_limit >= 1 and sample_limit % 1 == 0, "pacing sample_limit must be a positive integer")
   assert(type(warmup_frames) == "number" and warmup_frames >= 0 and warmup_frames % 1 == 0, "pacing warmup_frames must be a non-negative integer")
   assert(type(pty_read_budget) == "number" and pty_read_budget >= 1 and pty_read_budget % 1 == 0, "pacing pty_read_budget must be a positive integer")

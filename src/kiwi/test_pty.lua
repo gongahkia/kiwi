@@ -3,6 +3,8 @@ local Assert = require("tests.assert")
 local Parser = require("kiwi.terminal.parser")
 local Pty = require("kiwi.process.pty")
 local State = require("kiwi.terminal.state")
+local OutputService = require("kiwi.process.output_service")
+local Metrics = require("kiwi.bench.process_metrics")
 
 local function pump(command, columns, rows, on_responses, environment, options)
   local pty = Pty.spawn(command, columns, rows, environment or { TERM = "xterm-kiwi", COLORTERM = "truecolor" }, options)
@@ -311,6 +313,51 @@ test("pty_sessions_keep_input_output_and_lifecycle_isolated", function()
   Assert.truthy(second_output:find("first:alpha", 1, true) == nil)
   Assert.equal(first_status.kind, "exit")
   Assert.equal(second_status.kind, "exit")
+end)
+
+test("pty_cooperative_service_preserves_flood_output_and_another_child_reply", function()
+  local sessions = {}
+  local ok, message = xpcall(function()
+    for _, command in ipairs({
+      "head -c 131072 /dev/zero | tr '\\000' A; printf FLOODDONE",
+      "stty -echo -icanon min 1 time 0; printf READY; dd bs=1 count=1 2>/dev/null; printf ACK",
+    }) do
+      sessions[#sessions + 1] = { pty = Pty.spawn({ "/bin/sh", "-c", command }, 80, 24,
+        { TERM = "xterm-kiwi" }), chunks = {}, count = 0 }
+    end
+    local service = OutputService.new({ clock = Metrics.monotonic_seconds })
+    local deadline, input_sent = Metrics.monotonic_seconds() + 10, false
+    local function consume(target, output)
+      target.chunks[#target.chunks + 1] = output
+      target.count = target.count + #output
+      if target == sessions[2] and not input_sent and table.concat(target.chunks):find("READY", 1, true) then
+        target.pty:enqueue("x")
+        input_sent = true
+      end
+    end
+    while Metrics.monotonic_seconds() < deadline do
+      for _, target in ipairs(sessions) do target.pty:flush() end
+      local bytes = service:drain(sessions, consume)
+      Assert.truthy(bytes <= OutputService.default_max_bytes)
+      local finished = true
+      for _, target in ipairs(sessions) do
+        target.status = target.pty:poll_exit()
+        if not target.status or not target.pty.eof then finished = false end
+      end
+      if finished then break end
+      ffi.C.usleep(1000)
+    end
+    Assert.truthy(input_sent, "second child did not become ready")
+    Assert.equal(table.concat(sessions[1].chunks), string.rep("A", 131072) .. "FLOODDONE")
+    Assert.equal(table.concat(sessions[2].chunks), "READYxACK")
+    for _, target in ipairs(sessions) do
+      Assert.truthy(target.status, "cooperative output fixture timed out")
+      Assert.equal(target.status.kind, "exit")
+      Assert.equal(target.status.code, 0)
+    end
+  end, debug.traceback)
+  for _, target in ipairs(sessions) do target.pty:shutdown() end
+  assert(ok, message)
 end)
 
 io.stdout:write(string.format("%d deterministic PTY integration tests passed.\n", total))

@@ -219,6 +219,7 @@ function Controller.run(window, host, options)
     local Power = require("kiwi.bench.power")
     local TextInspector = require("kiwi.diagnostics.text_inspector")
     local PollSchedule = require("kiwi.app.poll_schedule")
+    local OutputService = require("kiwi.process.output_service")
     local context_options = {
       background_opacity = configuration.background_opacity,
       custom_shader_source = configuration.custom_shader_source,
@@ -351,7 +352,8 @@ function Controller.run(window, host, options)
     local simulated_device_loss = false
     local soak_seconds = number_from_env("KIWI_DEVICE_SOAK_SECONDS", 0)
     local soak = soak_seconds > 0 and DeviceSoak.Lifecycle.new(window, { seconds = soak_seconds }) or nil
-    local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+    local pty_read_budget = number_from_env("KIWI_PTY_READ_BUDGET", OutputService.default_max_bytes)
+    local output_service = OutputService.new({ max_bytes = pty_read_budget, clock = function() return window:time() end })
     local kitty_transfer_read_budget = number_from_env("KIWI_KITTY_TRANSFER_READ_BUDGET", 256 * 1024)
     local kitty_graphics_report = os.getenv("KIWI_KITTY_GRAPHICS_REPORT") == "1"
     local kitty_transfer_started_at
@@ -1370,7 +1372,7 @@ function Controller.run(window, host, options)
       if max_seconds > 0 and now - started_at >= max_seconds then break end
       local deadline = compositor:next_render_deadline(pane_entries)
       if compositor:can_present(pane_entries) and compositor:needs_render(pane_entries, now) then deadline = now end
-      local budget_exhausted = false
+      local budget_exhausted = output_service.pending
       local watched_ptys, pending_navigation = {}, {}
       for _, pane in pairs(workspace.panes) do
         watched_ptys[#watched_ptys + 1] = pane.session.pty
@@ -1486,20 +1488,15 @@ function Controller.run(window, host, options)
         end
       end
 
-      local panes = {}
-      for _, pane in pairs(workspace.panes) do panes[#panes + 1] = pane end
+      local sessions = {}
+      for _, pane in pairs(workspace.panes) do sessions[#sessions + 1] = pane.session end
       -- Deliver keyboard/paste input before spending this turn on child output.
       -- Protocol responses produced below are flushed after parsing as usual.
-      for _, pane in ipairs(panes) do pane.session.pty:flush() end
-      local per_session_read_budget = math.max(1, math.floor(pty_read_budget / math.max(1, #panes)))
-      for _, pane in ipairs(panes) do
-        local session = pane.session
-        consume_session_output(session, session.pty:read_available(per_session_read_budget))
-      end
+      for _, session in ipairs(sessions) do session.pty:flush() end
+      output_service:drain(sessions, consume_session_output)
 
-      local per_session_kitty_transfer_budget = math.max(1, math.floor(kitty_transfer_read_budget / math.max(1, #panes)))
-      for _, pane in ipairs(panes) do
-        local session = pane.session
+      local per_session_kitty_transfer_budget = math.max(1, math.floor(kitty_transfer_read_budget / math.max(1, #sessions)))
+      for _, session in ipairs(sessions) do
         if Terminal.state(session.terminal).kitty_graphics.transfer ~= nil then
           consume_session_output(session, session.pty:read_available(per_session_kitty_transfer_budget))
         end
