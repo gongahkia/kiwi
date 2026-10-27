@@ -52,3 +52,49 @@ probe does not establish an input-latency improvement over the interrupted
 ten-minute run. It confirms that removing redundant Unicode cell storage is
 insufficient to qualify large-history native load. Further investigation must
 distinguish retained cell cost, transient allocations and collection timing.
+
+## Follow-up after packing retained history cells
+
+Revision `46da986` packs history cell values into arrays while leaving active
+screen cells as ordinary tables. Reflow expands copied cells before placing them
+on the screen; staged configuration copies preserve the representation and keep
+mutable cell objects separate. Palette resolution can still update named fields.
+A new styled-history memory test fails against `933d8c7` and passes after packing.
+Both representations are tested for style removal, Unicode clusters and copy
+isolation. `make check` passed 668 Lua tests across 131 suites and its integration
+checks. All [11 real local application cases](2026-10-27-packed-history-applications.json)
+and [six SSH cases](2026-10-27-packed-history-ssh.json) passed at clean `46da986`.
+
+An [exploratory model comparison](2026-10-27-packed-history-model.json) used
+three alternating baseline/candidate processes on Intel macOS. Median retained
+Lua heap fell from 252,221 to 142,326 KiB (43.6%); median sampled peak fell from
+563,704 to 396,653 KiB. Median CPU time was 4.71 versus 4.48 seconds. This is not
+a native latency qualification or an approved performance baseline. The first
+baseline process briefly overlapped the tail of a small cell-test process;
+workstation load was otherwise uncontrolled. The candidate was uncommitted at
+measurement time, as recorded in the JSON. The [probe source](2026-10-27-history-storage-probe.lua)
+can be run with `LUA_PATH='src/?.lua;src/?/init.lua;;' luajit docs/evidence/2026-10-27-history-storage-probe.lua`.
+The baseline comparison prepended copies of `cell.lua`, `state.lua`,
+`state_transaction.lua` and `reflow.lua` from `933d8c7` to the module path.
+
+Two native GLFW runs used clean `46da986`, the same 10,000-row capacity,
+requested 60 seconds, 20 measured inputs, six warmup inputs and unchanged gates:
+
+| Run | Measured inputs | History pushes / evictions | Peak RSS | Result |
+| --- | ---: | ---: | ---: | --- |
+| [Initial attempt](2026-10-27-history-linux-glfw-10000-packed-warmup-failure.json) | 0/20 | 709 / 0 | 195,016 KiB | Response ceiling exceeded during warmup |
+| [Repeat](2026-10-27-history-linux-glfw-10000-packed.json) | 20/20 | 20,944 / 10,944 | 571,460 KiB | Memory-growth gate failed |
+
+The initial run also took 4.14 seconds to reach child readiness. After it exited,
+the workstation reported load averages of 29.05, 21.50 and 36.43. This suggests
+contention as a possible contributor, but does not establish the failure's cause.
+The failed report is retained. The repeat ran after application regression checks
+finished, with no concurrent Kiwi build/test. Its observed post-warmup duration
+was 77.57 seconds and input p95 1006.36 ms. It retained exactly 10,000 rows after
+more than a full replacement. RSS quarter-median growth was 227,090 KiB and heap
+growth 139,645 KiB, both above the existing limits. Peak RSS was lower than the
+previous 905,304 KiB run, but differing load and throughput prevent treating this
+as a controlled native speed comparison. Large-history qualification remains
+incomplete. Subsequent fixture instrumentation records retained rows, pushes and
+evictions at resource-sample times to distinguish initial filling from growth
+after saturation; it does not alter the memory gates or force garbage collection.
