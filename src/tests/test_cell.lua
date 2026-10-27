@@ -31,10 +31,14 @@ return {
     Assert.equal(Snapshot.value(state).rows[1].cells[1].cluster, nil)
     terminal:write("\204\129") -- Extend the compact ASCII anchor with U+0301.
     Assert.equal(state:get(0, 0).glyph, "Á")
-    Assert.equal(state:get(0, 0).display_text, "Á")
+    Assert.equal(state:get(0, 0).display_text, nil)
+    Assert.equal(state:get(0, 0).display_text or state:get(0, 0).glyph, "Á")
     Assert.equal(#Snapshot.value(state).rows[1].cells[1].cluster.codepoints, 2)
     terminal:write("\r\ń") -- A leading combining mark still displays a dotted circle.
     Assert.equal(state:get(0, 1).display_text, "◌́")
+    terminal:write("\204\128") -- Extending it preserves the distinct visual prefix.
+    Assert.equal(state:get(0, 1).glyph, "́̀")
+    Assert.equal(state:get(0, 1).display_text, "◌́̀")
     terminal:write("\r\27]8;;https://example.com\7\27[4:3;58:2::1:2:3m界")
     terminal:write("\r\27]8;;\7\27[0mB")
     local replaced = state:get(0, 1)
@@ -45,6 +49,40 @@ return {
     Assert.equal(replaced.underline_style, nil)
     Assert.equal(state:get(1, 1).glyph, " ")
     Assert.truthy(not state:get(1, 1).continuation)
+    terminal:close()
+  end,
+  unicode_history_stays_compact_without_sharing_mutable_clusters = function()
+    collectgarbage("collect")
+    local baseline = collectgarbage("count")
+    local terminal = Terminal.new({ columns = 80, rows = 24, state_options = { scrollback_limit = 512 } })
+    local line = string.rep("é", 32) .. string.rep("é", 32) .. "\r\n"
+    for _ = 1, 536 do terminal:write(line) end
+    local state = Terminal.state(terminal)
+    collectgarbage("collect")
+    -- Include immutable codepoint arrays, state, rows, and JIT overhead. Repeating
+    -- display_text in every anchor doubles its hash capacity and exceeds this.
+    local limit = 80 * (512 + 24) * 400 / 1024 + 512
+    Assert.truthy(collectgarbage("count") - baseline < limit, "Unicode history exceeded its Lua heap budget")
+    Assert.equal(state.scrollback:size(), 512)
+    local history = state.scrollback:get(1)
+    Assert.equal(history.cells[0].glyph, "é")
+    Assert.equal(history.cells[32].glyph, "é")
+    Assert.equal(history.cells[32].display_text, nil)
+    Assert.equal(#history.cells[32].codepoints, 2)
+    local transaction = StateTransaction.new(state, { columns = 72, rows = 21 })
+    local staged = transaction.state.scrollback:get(1).cells[32]
+    Assert.equal(staged.glyph, "é")
+    staged.glyph = "changed"
+    Assert.equal(history.cells[32].glyph, "é")
+    -- Extending a live anchor replaces the codepoint array; it must not mutate
+    -- an earlier clone or a transactional snapshot that still references it.
+    terminal:write("\27[Hé")
+    local saved = Cell.clone(state:get(0, 0))
+    terminal:write("\204\129")
+    Assert.equal(saved.glyph, "é")
+    Assert.equal(#saved.codepoints, 1)
+    Assert.equal(state:get(0, 0).glyph, "é́")
+    Assert.equal(#state:get(0, 0).codepoints, 2)
     terminal:close()
   end,
   plain_history_and_staged_reflow_remain_within_cell_memory_budget = function()

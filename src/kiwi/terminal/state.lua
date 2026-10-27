@@ -281,23 +281,26 @@ function State:cell_from_attributes(glyph, metadata)
   metadata = metadata or {}
   local hyperlink_id = self.active_screen.hyperlink_id
   if hyperlink_id ~= nil then flags = flags + Attributes.flags.hyperlink end
-  return {
+  local cell = {
     glyph = glyph,
     fg = foreground,
     bg = background,
     fg_slot = foreground_slot,
     bg_slot = background_slot,
-    underline_style = underline_style,
-    underline_color = underline_color,
-    underline_slot = underline_slot,
     flags = flags,
     codepoints = metadata.codepoints,
     width = metadata.width or 1,
-    continuation = metadata.continuation,
-    anchor_column = metadata.anchor_column,
-    display_text = metadata.display_text,
-    hyperlink_id = hyperlink_id,
   }
+  -- Keep ordinary Unicode anchors in the same eight slots as ASCII cells.
+  -- Even absent fields in a table constructor reserve hash storage in LuaJIT.
+  if underline_style ~= nil then cell.underline_style = underline_style end
+  if underline_color ~= nil then cell.underline_color = underline_color end
+  if underline_slot ~= nil then cell.underline_slot = underline_slot end
+  if metadata.continuation ~= nil then cell.continuation = metadata.continuation end
+  if metadata.anchor_column ~= nil then cell.anchor_column = metadata.anchor_column end
+  if metadata.display_text ~= nil and metadata.display_text ~= glyph then cell.display_text = metadata.display_text end
+  if hyperlink_id ~= nil then cell.hyperlink_id = hyperlink_id end
+  return cell
 end
 
 function State:ascii_cell(glyph, codepoints)
@@ -1321,21 +1324,10 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     counters.width_policy_calls = (counters.width_policy_calls or 0) + 1
     counters.clusters_extended = (counters.clusters_extended or 0) + 1
   end
-  local updated = {
-    glyph = cell.glyph .. glyph,
-    fg = cell.fg,
-    bg = cell.bg,
-    fg_slot = cell.fg_slot,
-    bg_slot = cell.bg_slot,
-    underline_style = cell.underline_style,
-    underline_color = cell.underline_color,
-    underline_slot = cell.underline_slot,
-    flags = cell.flags,
-    codepoints = codepoints,
-    width = old_width,
-    display_text = (cell.display_text or cell.glyph) .. glyph,
-    hyperlink_id = cell.hyperlink_id,
-  }
+  local updated = Cell.clone(cell)
+  updated.glyph = cell.glyph .. glyph
+  updated.codepoints = codepoints
+  if cell.display_text ~= nil then updated.display_text = cell.display_text .. glyph end
   local column, row = context.column, context.row
   local cursor = self.active_screen.cursor
   if old_width == 1 and new_width == 2 then
