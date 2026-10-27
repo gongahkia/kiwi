@@ -742,7 +742,8 @@ history ring and row eviction under native rendering, use:
 ```sh
 ./script/bench-interactive --mode saturated --traffic styled-unicode \
   --scroll-mode history --scrollback-limit 10000 --trials 1 \
-  --samples 120 --warmup 6 --soak-seconds 600 --report /tmp/kiwi-history.json
+  --samples 120 --warmup 6 --soak-seconds 600 --heap-measurement retained \
+  --report /tmp/kiwi-history.json
 ```
 
 History mode scrolls the full primary screen from the bottom, then repaints the
@@ -752,7 +753,9 @@ can observe it. Retained rows include the marker in the final nine columns
 alongside the background text; this is controlled fixture output. It requires saturated mode, a sustained duration and a
 positive history capacity. The benchmark accepts capacities up to 100,000 rows;
 this is an experiment bound, not the product configuration maximum. CI's
-one-minute soaks use the default 2,000-row history capacity on each host.
+one-minute soaks use the default 2,000-row history capacity and explicitly select
+`--heap-measurement retained` on each host. Short timing trials retain sampled
+mode. Workflow configuration is not evidence of a remote CI pass.
 
 Test-process instrumentation counts actual history pushes, returned evictions
 and peak retained rows. Completion requires exactly the configured retained
