@@ -17,6 +17,59 @@ local function text_system()
 end
 
 return {
+  cached_runs_match_uncached_layout_across_scroll_colour_and_font_changes = function()
+    local system = text_system()
+    local cached, reference = Layout.new(system), Layout.new(system)
+    reference.shape_cache.shape = function(_, face, text, options) return face:shape(text, options), false end
+    local state, other = State.new(32, 3), State.new(32, 3)
+    local parser, other_parser = Parser.new(state), Parser.new(other)
+    local function compare()
+      local actual, expected = cached:update(state), reference:update(other)
+      Assert.equal(#actual, #expected)
+      for index, glyph in ipairs(expected) do
+        for field, value in pairs(glyph) do
+          Assert.equal(actual[index][field], value, "cached glyph differs: " .. index .. "." .. field)
+        end
+      end
+      Assert.equal(cached.stats.visible_runs, reference.stats.visible_runs)
+      return actual
+    end
+    local function feed(text) parser:feed(text); other_parser:feed(text) end
+    feed("\27[31mfi é 中\r\n\27[32mfi é 中")
+    local original = compare()
+    local saved_x, saved_y, saved_fg = original[1].x, original[1].y, original[1].fg
+    Assert.truthy(cached.stats.run_cache_hits > 0)
+    for _ = 1, 10 do
+      feed("\r\n\27[34mfi é 中")
+      compare()
+      Assert.equal(cached.stats.runs_reshaped, 0)
+      Assert.truthy(cached.stats.run_cache_hits > 0)
+    end
+    Assert.equal(original[1].x, saved_x)
+    Assert.equal(original[1].y, saved_y)
+    Assert.equal(original[1].fg, saved_fg)
+    system:set_shape_options({ ligatures = true, contextual_alternates = true })
+    compare()
+    Assert.truthy(cached.stats.runs_reshaped > 0)
+    system:clear_fallback_cache()
+    compare()
+    Assert.truthy(cached.stats.runs_reshaped > 0)
+    state:resize(20, 4); other:resize(20, 4)
+    compare()
+    feed("\27[?1049h\27[1;3mfi é 中")
+    compare()
+    feed("\27[?1049l")
+    compare()
+    local replacement = System.new({ pixel_height = 22 })
+    cached:set_font_system(replacement); reference:set_font_system(replacement)
+    Assert.equal(cached.shape_cache.count, 0)
+    system:destroy()
+    compare()
+    Assert.truthy(cached.stats.runs_reshaped > 0)
+    cached:destroy(); reference:destroy()
+    Assert.equal(cached.shape_cache.count, 0)
+    replacement:destroy()
+  end,
   harfbuzz_shapes_real_freetype_faces_with_monotone_grapheme_clusters = function()
     local system = text_system()
     local glyphs = system.primary:shape("e" .. Utf8.encode(0x0301), { ligatures = false, contextual_alternates = false })

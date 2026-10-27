@@ -162,7 +162,9 @@ return {
     Parser.new(state):feed("H\27[1mH\27[22;3mH\27[1mH\27[0mH")
     local glyphs = layout:update(state)
     Assert.equal(#glyphs, 5)
-    Assert.equal(layout.stats.runs_reshaped, 5)
+    Assert.equal(layout.stats.runs_built, 5)
+    Assert.equal(layout.stats.runs_reshaped, 4)
+    Assert.equal(layout.stats.run_cache_hits, 1)
     for index, glyph in ipairs(glyphs) do
       Assert.equal(glyph.cluster_column, index - 1)
       Assert.equal(state:get(index - 1, 0).width, 1)

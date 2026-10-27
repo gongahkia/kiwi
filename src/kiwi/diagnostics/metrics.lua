@@ -78,6 +78,7 @@ function Metrics:snapshot()
     shaping_rows_invalidated = renderer.shaping_rows_invalidated or 0,
     rows_reshaped = renderer.rows_reshaped or 0,
     runs_reshaped = renderer.runs_reshaped or 0,
+    run_shape_cache_hits = renderer.run_shape_cache_hits or 0,
     glyphs_produced = renderer.glyphs_produced or 0,
     visible_shaped_runs = renderer.visible_shaped_runs or 0,
     visible_shaped_glyphs = renderer.visible_shaped_glyphs or 0,
