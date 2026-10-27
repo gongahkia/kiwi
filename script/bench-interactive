@@ -143,6 +143,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
             output.unlink(missing_ok=True)
             environment = dict(base, KIWI_INTERACTIVE_BENCH_MODE=mode, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(output))
             log = logs / f"{mode}-{trial}.log"
+            environment["KIWI_INTERACTIVE_BENCH_CHILD_LOG"] = str(logs / f"{mode}-{trial}-child.log")
             item = None
             with log.open("w") as stream:
                 environment["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"] = str(time.clock_gettime(clock_id))
