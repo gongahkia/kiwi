@@ -1,0 +1,5 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/usr/bin/python3 grid=72x22 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+KIWI_RETENTION_DIAGNOSTIC {"at":553061.129,"checkpoint":"initial","collection_seconds":0.475039562,"heap_after_kib":130864.084,"heap_before_kib":351293.279,"history":{"evicted":70763,"limit":10000,"peak_retained":10000,"pushed":80763,"retained":10000},"rss_after_kib":639484,"rss_before_kib":639484}
+KIWI_RETENTION_DIAGNOSTIC {"at":553249.541,"checkpoint":"final","collection_seconds":0.410021581,"heap_after_kib":131250.658,"heap_before_kib":297040.229,"history":{"evicted":682371,"limit":10000,"peak_retained":10000,"pushed":692371,"retained":10000},"rss_after_kib":681844,"rss_before_kib":681844}
