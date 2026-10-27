@@ -149,6 +149,9 @@ owned session has a 180-second outer deadline (90 seconds without Orca), and
 retained diagnostic logs are bounded at 8 MiB. Orca uses the fixed `C.UTF-8`
 locale for reproducible speech assertions. Flat review, braille, magnifier geometry,
 VoiceOver and daily screen-reader usability still require separate evidence.
+Both presenter workflows passed with Orca 46.1 at clean `9192e9a`; the
+[retained reports](evidence/2026-10-27-orca.md) describe the exact assertions,
+instrumentation and remaining boundaries.
 
 GTK 4.14's native editable-text bridge clamps negative end offsets to zero in
 `GetText`, so the palette test fetches its explicit character count before
