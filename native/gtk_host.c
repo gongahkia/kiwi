@@ -294,7 +294,7 @@ static GBytes *kiwi_gtk_terminal_contents(GtkAccessibleText *accessible,
 }
 
 static gboolean kiwi_gtk_terminal_word_character(gunichar character) {
-  return g_unichar_isalnum(character) || character == '_';
+  return g_unichar_isalnum(character) || g_unichar_ismark(character) || character == '_';
 }
 
 static GBytes *kiwi_gtk_terminal_contents_at(GtkAccessibleText *accessible,
@@ -388,8 +388,8 @@ static gboolean kiwi_gtk_terminal_attributes(GtkAccessibleText *accessible,
   (void)offset;
   if (n_ranges != NULL) *n_ranges = 0;
   if (ranges != NULL) *ranges = NULL;
-  if (attribute_names != NULL) *attribute_names = NULL;
-  if (attribute_values != NULL) *attribute_values = NULL;
+  if (attribute_names != NULL) *attribute_names = g_new0(char *, 1);
+  if (attribute_values != NULL) *attribute_values = g_new0(char *, 1);
   return FALSE;
 }
 
@@ -397,8 +397,8 @@ static void kiwi_gtk_terminal_default_attributes(GtkAccessibleText *accessible,
                                                  char ***attribute_names,
                                                  char ***attribute_values) {
   (void)accessible;
-  if (attribute_names != NULL) *attribute_names = NULL;
-  if (attribute_values != NULL) *attribute_values = NULL;
+  if (attribute_names != NULL) *attribute_names = g_new0(char *, 1);
+  if (attribute_values != NULL) *attribute_values = g_new0(char *, 1);
 }
 
 #if GTK_CHECK_VERSION(4, 16, 0)
@@ -465,6 +465,11 @@ static void kiwi_gtk_terminal_class_init(KiwiGtkTerminalClass *klass) {
 static void kiwi_gtk_terminal_init(KiwiGtkTerminal *terminal) {
   terminal->text = g_strdup("");
   gtk_widget_set_focusable(GTK_WIDGET(terminal), TRUE);
+  /* The projected terminal grid is multiline output. Keyboard input goes to
+   * the PTY; clients cannot edit this projection as an ordinary text entry. */
+  gtk_accessible_update_property(GTK_ACCESSIBLE(terminal),
+                                GTK_ACCESSIBLE_PROPERTY_READ_ONLY, TRUE,
+                                GTK_ACCESSIBLE_PROPERTY_MULTI_LINE, TRUE, -1);
 }
 
 static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
@@ -488,13 +493,17 @@ static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
   guint previous_caret = terminal->caret_offset;
   guint previous_selection_start = terminal->selection_start;
   guint previous_selection_end = terminal->selection_end;
-  if (old_count > 0) {
+  gboolean text_changed = strlen(terminal->text) != text_bytes ||
+                          memcmp(terminal->text, text, text_bytes) != 0;
+  if (text_changed && old_count > 0) {
     gtk_accessible_text_update_contents(GTK_ACCESSIBLE_TEXT(terminal),
                                         GTK_ACCESSIBLE_TEXT_CONTENT_CHANGE_REMOVE,
                                         0, old_count);
   }
-  g_free(terminal->text);
-  terminal->text = g_strndup(text, text_bytes);
+  if (text_changed) {
+    g_free(terminal->text);
+    terminal->text = g_strndup(text, text_bytes);
+  }
   terminal->character_count = character_count;
   terminal->caret_offset = caret_offset < 0 ? character_count : (guint)caret_offset;
   terminal->selection_start = selection_start < 0 ? terminal->caret_offset
@@ -503,7 +512,7 @@ static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
                                                : (guint)selection_end;
   gtk_accessible_update_property(GTK_ACCESSIBLE(terminal), GTK_ACCESSIBLE_PROPERTY_LABEL,
                                  title == NULL ? "Kiwi terminal" : title, -1);
-  if (character_count > 0) {
+  if (text_changed && character_count > 0) {
     gtk_accessible_text_update_contents(GTK_ACCESSIBLE_TEXT(terminal),
                                         GTK_ACCESSIBLE_TEXT_CONTENT_CHANGE_INSERT,
                                         0, character_count);
@@ -511,8 +520,10 @@ static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
   if (previous_caret != terminal->caret_offset) {
     gtk_accessible_text_update_caret_position(GTK_ACCESSIBLE_TEXT(terminal));
   }
-  if (previous_selection_start != terminal->selection_start ||
-      previous_selection_end != terminal->selection_end) {
+  if ((previous_selection_start != previous_selection_end ||
+       terminal->selection_start != terminal->selection_end) &&
+      (previous_selection_start != terminal->selection_start ||
+       previous_selection_end != terminal->selection_end)) {
     gtk_accessible_text_update_selection_bound(GTK_ACCESSIBLE_TEXT(terminal));
   }
   return 1;
@@ -745,6 +756,8 @@ int kiwi_gtk_host_command_palette_show(KiwiGtkHost *host,
   gtk_window_set_child(GTK_WINDOW(palette->dialog), content);
   gtk_window_set_default_widget(GTK_WINDOW(palette->dialog), run);
   GtkEventController *key = gtk_event_controller_key_new();
+  /* Escape dismisses the palette even when its search entry has a query. */
+  gtk_event_controller_set_propagation_phase(key, GTK_PHASE_CAPTURE);
   g_signal_connect(key, "key-pressed", G_CALLBACK(kiwi_gtk_command_palette_key_pressed), palette);
   gtk_widget_add_controller(palette->dialog, key);
   g_signal_connect(palette->search, "changed", G_CALLBACK(kiwi_gtk_command_palette_query_changed), palette);
@@ -1099,8 +1112,9 @@ static void kiwi_gtk_key_pressed(KiwiGtkTerminalPresentation *presentation, GdkE
     g_hash_table_remove(presentation->reported_keys, GUINT_TO_POINTER(keycode));
   }
   if (presentation->filtered_commit->len != 0 && presentation->callbacks.text != NULL &&
-      (!report_key || (result & KIWI_GTK_INPUT_HANDLED) == 0 ||
-       (result & KIWI_GTK_INPUT_DEFER_TEXT) != 0)) {
+      (!report_key || (result & KIWI_GTK_INPUT_SUPPRESS_TEXT) == 0)) {
+    /* A modal handler can own the physical key while still accepting its
+     * text (vi commands and Find queries). Only explicit suppression drops it. */
     presentation->callbacks.text(presentation->callbacks.userdata,
         presentation->filtered_commit->str, presentation->filtered_commit->len);
   }

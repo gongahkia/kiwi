@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+"""Query a live GTK terminal through an external AT-SPI client on private Sway."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import time
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--report", type=Path, required=True)
+parser.add_argument("--presenter", choices=("wgpu", "gl"), default="wgpu")
+args = parser.parse_args()
+if os.environ.get("KIWI_ATSPI_PRIVATE_BUS") != "1":
+    raise SystemExit(subprocess.call(["dbus-run-session", "--", sys.executable, __file__, *sys.argv[1:]],
+                                    env=dict(os.environ, KIWI_ATSPI_PRIVATE_BUS="1")))
+import gi
+gi.require_version("Atspi", "2.0")
+from gi.repository import Atspi, GLib
+
+root = Path(__file__).resolve().parent.parent
+args.report = args.report.resolve()
+args.report.parent.mkdir(parents=True, exist_ok=True)
+report = {"status": "running", "presenter": args.presenter, "steps": [], "events": [],
+          "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+          "scope": "external AT-SPI consumer and real PTY on isolated headless Wayland; not an Orca usability qualification"}
+
+
+def version(command):
+    try:
+        result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=5)
+    except FileNotFoundError:
+        return "unavailable"
+    return result.stdout.strip() if result.returncode == 0 else "unavailable"
+
+
+report["revision"] = version(["git", "rev-parse", "HEAD"])
+report["source_state"] = "clean" if version(["git", "status", "--porcelain"]) == "" else "unverified or dirty"
+report["versions"] = {name: version(["pkg-config", "--modversion", name]) for name in ("gtk4", "atspi-2")}
+if report["versions"]["atspi-2"] == "unavailable":
+    report["versions"]["atspi-2"] = version(["dpkg-query", "-W", "-f=${Version}", "libatspi2.0-0"])
+
+
+def save():
+    temporary = args.report.with_suffix(".new")
+    temporary.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+    temporary.replace(args.report)
+
+
+save()
+with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
+    directory = Path(directory)
+    runtime, home = directory / "runtime", directory / "home"
+    runtime.mkdir(mode=0o700); home.mkdir(mode=0o700)
+    config = directory / "sway.conf"
+    config.write_text("xwayland disable\nseat seat0 fallback true\noutput HEADLESS-1 mode 1024x768\n")
+    kiwi_config = directory / "kiwi.conf"
+    kiwi_config.write_text("live-config-reload = false\nfont-size = 18\n")
+    env = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_")}
+    env.update(HOME=str(home), XDG_CONFIG_HOME=str(home), XDG_CACHE_HOME=str(home / "cache"),
+               XDG_DATA_HOME=str(home / "data"), XDG_RUNTIME_DIR=str(runtime),
+               WLR_BACKENDS="headless", WLR_HEADLESS_OUTPUTS="1", WLR_RENDERER="pixman", WLR_LIBINPUT_NO_DEVICES="1",
+               GDK_BACKEND="wayland", GSK_RENDERER="cairo", GTK_A11Y="atspi", GTK_IM_MODULE="simple",
+               KIWI_HOST="gtk", KIWI_GTK_PRESENTER=args.presenter, KIWI_LAYOUT_RESTORE="0", KIWI_LAYOUT_PERSISTENCE="0",
+               KIWI_MAX_FRAMES="0", KIWI_MAX_SECONDS="0", KIWI_ACCESSIBILITY_DIAGNOSTICS="1", LUA_PATH="src/?.lua;src/?/init.lua;;")
+    for key in ("DISPLAY", "WAYLAND_DISPLAY", "SWAYSOCK", "AT_SPI_BUS_ADDRESS"):
+        env.pop(key, None)
+    processes, logs = [], []
+    app = terminal = listener = None
+
+    def start(command, name):
+        stream = (directory / (name + ".log")).open("w+b")
+        logs.append((name, stream))
+        process = subprocess.Popen(command, cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT)
+        processes.append(process)
+        return process
+
+    def pump():
+        context = GLib.MainContext.default()
+        for _ in range(256):
+            if not context.pending():
+                break
+            context.iteration(False)
+        assert not report.get("events_overflow"), "accessibility events exceeded the fixture bound"
+
+    def wait_for(predicate, description):
+        deadline = time.monotonic() + 10
+        while True:
+            pump()
+            exited = [(p.args[0], p.returncode) for p in processes if p.poll() is not None]
+            assert not exited, "fixture process exited: " + description + ": " + repr(exited)
+            result = predicate()
+            if result:
+                return result
+            assert time.monotonic() < deadline, "timed out: " + description
+            time.sleep(.02)
+
+    def keys(*values):
+        subprocess.run(["wtype", "-d", "20", *values], env=env, check=True, timeout=5)
+
+    def focused_window():
+        reply = subprocess.run(["swaymsg", "-r", "-t", "get_tree"], env=env, capture_output=True, check=True, timeout=5)
+        pending = [json.loads(reply.stdout)]
+        while pending:
+            node = pending.pop()
+            if node.get("focused"):
+                return {key: node.get(key) for key in ("id", "name", "pid", "app_id", "visible")}
+            pending.extend(node.get("nodes", []) + node.get("floating_nodes", []))
+
+    def find_terminal():
+        desktop = Atspi.get_desktop(0)
+        pending = [desktop]
+        report["last_tree"] = []
+        for _ in range(256):
+            if not pending:
+                return None
+            node = pending.pop()
+            report["last_tree"].append({"name": node.get_name(), "role": node.get_role_name(),
+                                       "pid": node.get_process_id(), "interfaces": node.get_interfaces()})
+            if node.get_process_id() == app.pid and "Text" in node.get_interfaces():
+                interface = node.get_text_iface()
+                text = Atspi.Text.get_text(interface, 0, -1)
+                report["last_tree"][-1]["text"] = text
+                if node.get_name() == "kiwi-atspi-ready":
+                    return node
+            pending.extend(node.get_child_at_index(i) for i in range(min(node.get_child_count(), 128)))
+        raise AssertionError("accessibility tree exceeded fixture bound")
+
+    def contents():
+        return Atspi.Text.get_text(terminal.get_text_iface(), 0, -1)
+
+    def focused_entry():
+        pending = [Atspi.get_desktop(0)]
+        for _ in range(256):
+            if not pending:
+                return None
+            node = pending.pop()
+            if node != terminal and node.get_process_id() == app.pid and "Text" in node.get_interfaces():
+                if node.get_state_set().contains(Atspi.StateType.FOCUSED):
+                    return node
+            pending.extend(node.get_child_at_index(i) for i in range(min(node.get_child_count(), 128)))
+        raise AssertionError("palette accessibility tree exceeded fixture bound")
+
+    def text_nodes():
+        pending, found = [Atspi.get_desktop(0)], []
+        for _ in range(256):
+            if not pending:
+                break
+            node = pending.pop()
+            if node.get_process_id() == app.pid and "Text" in node.get_interfaces():
+                interface = node.get_text_iface()
+                found.append({"name": node.get_name(), "role": node.get_role_name(),
+                              "text": Atspi.Text.get_text(interface, 0, min(128, Atspi.Text.get_character_count(interface)))})
+            pending.extend(node.get_child_at_index(i) for i in range(min(node.get_child_count(), 128)))
+        return found
+
+    def snapshot(name):
+        text = contents()
+        interface = terminal.get_text_iface()
+        states = terminal.get_state_set()
+        value = {"name": name, "accessible_name": terminal.get_name(), "text": text, "role": terminal.get_role_name(),
+                 "characters": Atspi.Text.get_character_count(interface), "caret": Atspi.Text.get_caret_offset(interface),
+                 "states": [state.value_nick for state in states.get_states()],
+                 "selections": Atspi.Text.get_n_selections(interface)}
+        assert value["characters"] == len(text), "AT-SPI offsets must count Unicode characters, not bytes or terminal cells"
+        report["steps"].append(value); save()
+        return value
+
+    def event_received(event, *_):
+        if terminal is not None and event.source == terminal:
+            if len(report["events"]) >= 256:
+                report["events_overflow"] = True
+            else:
+                report["events"].append({"type": event.type, "detail1": event.detail1, "detail2": event.detail2})
+
+    def saw_event(kind, after=0):
+        return any(item["type"].startswith(kind) for item in report["events"][after:])
+
+    def settle():
+        deadline = time.monotonic() + .25
+        while time.monotonic() < deadline:
+            pump()
+            time.sleep(.01)
+
+    try:
+        start(["sway", "--unsupported-gpu", "-c", str(config)], "sway")
+        wait_for(lambda: any(path.is_socket() for path in runtime.glob("wayland-*")) and list(runtime.glob("sway-ipc*.sock")), "private Wayland and compositor sockets")
+        env["WAYLAND_DISPLAY"] = next(path.name for path in runtime.glob("wayland-*") if path.is_socket())
+        env["SWAYSOCK"] = str(next(runtime.glob("sway-ipc*.sock")))
+        start(["wtype", "-s", "90000"], "keyboard")
+        app = start([env.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(kiwi_config),
+                     "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/atspi_child.py"], "kiwi")
+        report["app_pid"] = app.pid
+        terminal = wait_for(find_terminal, "registered terminal with real PTY text")
+        listener = Atspi.EventListener.new(event_received)
+        for kind in ("object:text-changed", "object:text-caret-moved", "object:text-selection-changed", "object:state-changed:focused"):
+            assert listener.register(kind), "could not subscribe to " + kind
+        # Initial PTY output can precede the compositor's first allocation.
+        # Ask the child to draw the multiline fixture after registration.
+        keys("r")
+        wait_for(lambda: "alpha 界" in contents() and "beta é" in contents(), "multiline fixture after allocation")
+        initial = snapshot("initial")
+        assert "beta é" in initial["text"]
+        assert initial["caret"] == initial["text"].index("beta é") + len("beta é"), initial
+        assert "focusable" in initial["states"] and "focused" in initial["states"], initial
+        assert "read-only" in initial["states"] and "multi-line" in initial["states"], initial
+        assert "editable" not in initial["states"] and "single-line" not in initial["states"], initial
+        settle()
+        text_events = sum(item["type"].startswith("object:text-changed") for item in report["events"])
+        for _ in range(4):
+            assert contents() == initial["text"]
+        settle()
+        assert sum(item["type"].startswith("object:text-changed") for item in report["events"]) == text_events, "unchanged text queries generated change events"
+        for needle, granularity, expected in (("界", Atspi.TextGranularity.CHAR, "界"),
+                                              ("beta", Atspi.TextGranularity.WORD, "beta"),
+                                              ("é", Atspi.TextGranularity.WORD, "é"),
+                                              ("beta", Atspi.TextGranularity.LINE, None)):
+            offset = initial["text"].index(needle)
+            span = Atspi.Text.get_string_at_offset(terminal.get_text_iface(), offset, granularity)
+            assert span.content == initial["text"][span.start_offset:span.end_offset]
+            assert span.start_offset <= offset < span.end_offset
+            if expected is not None:
+                assert span.content == expected, span.content
+            else:
+                assert span.content.startswith("beta é"), span.content
+        # PyGObject maps libatspi's empty attribute table to None on Ubuntu 24.04.
+        assert Atspi.Text.get_default_attributes(terminal.get_text_iface()) in (None, {})
+        assert Atspi.Text.get_text_attribute_value(terminal.get_text_iface(), 0, "weight") in (None, "")
+        assert Atspi.Text.get_text_attributes(terminal.get_text_iface(), 0)[0] in (None, {})
+        keys("-M", "ctrl", "-M", "shift", "-k", "P", "-m", "shift", "-m", "ctrl")
+        entry = wait_for(focused_entry, "accessible palette entry focus")
+        wait_for(lambda: not terminal.get_state_set().contains(Atspi.StateType.FOCUSED), "terminal focus leaves for palette")
+        report["palette_window"] = focused_window()
+        keys("copy")
+        def palette_query():
+            interface = entry.get_text_iface()
+            # GTK 4.14's GtkEditable bridge clamps a negative end offset to zero.
+            # Use its reported character count for native entry queries.
+            report["palette_text"] = Atspi.Text.get_text(interface, 0, Atspi.Text.get_character_count(interface))
+            report["palette_entry_states"] = [state.value_nick for state in entry.get_state_set().get_states()]
+            return report["palette_text"] == "copy"
+        wait_for(palette_query, "palette query exposed to AT-SPI")
+        report["palette"] = {"query": "copy", "role": entry.get_role_name()}
+        keys("-k", "Escape")
+        wait_for(lambda: terminal.get_state_set().contains(Atspi.StateType.FOCUSED), "terminal focus restored after palette")
+        snapshot("focus-restored")
+        update_events = len(report["events"])
+        keys("x")
+        wait_for(lambda: "updated ✓" in contents(), "keyboard to PTY to accessible text")
+        wait_for(lambda: saw_event("object:text-changed", update_events) and saw_event("object:text-caret-moved", update_events), "text and caret events")
+        changed = snapshot("updated")
+        assert changed["caret"] == changed["text"].index("updated ✓") + len("updated ✓")
+        settle()
+        text_events = sum(item["type"].startswith("object:text-changed") for item in report["events"])
+        keys("-M", "ctrl", "-M", "shift", "-k", "space", "-m", "shift", "-m", "ctrl")
+        wait_for(lambda: "[Vi]" in terminal.get_name(), "vi mode shortcut")
+        keys("0vll")
+        wait_for(lambda: Atspi.Text.get_n_selections(terminal.get_text_iface()) == 1, "vi selection")
+        def selected_text():
+            selection = Atspi.Text.get_selection(terminal.get_text_iface(), 0)
+            return contents()[selection.start_offset:selection.end_offset]
+        wait_for(lambda: selected_text() == "upd", "vi selection through the final motion")
+        wait_for(lambda: saw_event("object:text-selection-changed"), "selection event")
+        snapshot("selected")
+        assert sum(item["type"].startswith("object:text-changed") for item in report["events"]) == text_events, "selection-only navigation generated text-change events"
+        keys("i")
+        wait_for(lambda: Atspi.Text.get_n_selections(terminal.get_text_iface()) == 0, "selection cleared on vi exit")
+        keys("-M", "ctrl", "-M", "shift", "-k", "P", "-m", "shift", "-m", "ctrl")
+        entry = wait_for(focused_entry, "palette reopened for action dispatch")
+        keys("Toggle Vi Mode")
+        wait_for(lambda: Atspi.Text.get_text(entry.get_text_iface(), 0,
+                 Atspi.Text.get_character_count(entry.get_text_iface())) == "Toggle Vi Mode", "palette action query")
+        keys("-k", "Return")
+        wait_for(lambda: "[Vi]" in terminal.get_name() and terminal.get_state_set().contains(Atspi.StateType.FOCUSED), "palette action executes and restores focus")
+        snapshot("palette-action")
+        keys("i")
+        wait_for(lambda: terminal.get_name() == "kiwi-atspi-ready", "vi exit after palette activation")
+        keys("q")
+        assert app.wait(timeout=5) == 0
+        report["status"] = "passed"
+    except Exception as error:
+        report["status"], report["failure"] = "failed", str(error)
+        report["app_exit_status"] = app.poll() if app is not None else None
+        if env.get("SWAYSOCK") and processes[0].poll() is None:
+            report["focused_window"] = focused_window()
+        if terminal is not None and app.poll() is None:
+            snapshot("failure")
+            report["text_nodes"] = text_nodes()
+        raise
+    finally:
+        for process in reversed(processes):
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill(); process.wait(timeout=5)
+        for name, stream in logs:
+            stream.seek(0, 2); stream.seek(max(0, stream.tell() - 16000))
+            text = stream.read().decode("utf-8", errors="replace")
+            args.report.with_name(args.report.stem + "-" + name + ".log").write_text(text)
+            if report["status"] != "passed":
+                print(name + ":\n" + text, file=sys.stderr)
+            stream.close()
+        save()
+print("External GTK AT-SPI checks passed:", args.report)
