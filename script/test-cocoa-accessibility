@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+if [ "$(uname -s)" != Darwin ]; then
+  echo 'SKIP Cocoa accessibility contract: macOS is required.'
+  exit 0
+fi
+test_directory=$(mktemp -d)
+trap 'rm -rf "$test_directory"' EXIT HUP INT TERM
+${CC:-cc} -Wall -Wextra -Werror $(pkg-config --cflags glfw3) \
+  src/tests/fixtures/cocoa_accessibility_test.m $(pkg-config --libs glfw3) \
+  -framework AppKit -o "$test_directory/cocoa-accessibility-test"
+"$test_directory/cocoa-accessibility-test"
