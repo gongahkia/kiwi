@@ -28,7 +28,7 @@ local soak_seconds = tonumber(os.getenv("KIWI_INTERACTIVE_BENCH_SOAK")) or 0
 assert(trial_timeout >= 30 and trial_timeout <= 3600 and interval >= 0 and interval <= 120)
 assert((measurement.samples + measurement.warmup - 1) * interval <= trial_timeout - 10, "interactive intervals exceed the trial budget")
 local sustained = soak_seconds > 0 and Sustained.new(trial_timeout) or nil
-local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available,
+local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available, flush = Pty.flush, prepare = Compositor.update_models,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
@@ -67,8 +67,27 @@ Window.new = function(_, _, title, options)
   end
   return window
 end
+local function begin_work()
+  if measurement.pending then return Metrics.monotonic_seconds(), os.clock(), measurement.pending end
+end
+local function end_work(phase, started, cpu, pending, bytes)
+  if pending and pending == measurement.pending then
+    measurement:work(phase, Metrics.monotonic_seconds() - started, os.clock() - cpu, bytes)
+  end
+end
+Pty.flush = function(self, ...)
+  local started, cpu, pending = begin_work()
+  local before = self.bytes_written
+  local result = originals.flush(self, ...)
+  local written = self.bytes_written - before
+  if pending and pending == measurement.pending then measurement:written(Metrics.monotonic_seconds(), written) end
+  end_work("input_flush", started, cpu, pending, written)
+  return result
+end
 Pty.read_available = function(self, ...)
+  local started, cpu, pending = begin_work()
   local bytes = originals.read(self, ...)
+  end_work("read", started, cpu, pending, #bytes)
   output_bytes = output_bytes + #bytes
   if measurement.ready_at then measured_output_bytes = measured_output_bytes + #bytes end
   return bytes
@@ -79,15 +98,25 @@ local function sequence(state)
   return Interactive.visible_sequence(state, scroll_mode == "history" and state.columns - 9 or 0)
 end
 Terminal.write = function(self, bytes)
+  local started, cpu, pending = begin_work()
   local result = originals.write(self, bytes)
+  end_work("parse", started, cpu, pending, #bytes)
   local acknowledged = sequence(Terminal.state(self))
   if acknowledged and acknowledged > 0 then measurement:parsed(acknowledged, Metrics.monotonic_seconds()) end
+  return result
+end
+Compositor.update_models = function(self, ...)
+  local started, cpu, pending = begin_work()
+  local result = originals.prepare(self, ...)
+  end_work("prepare", started, cpu, pending)
   return result
 end
 Compositor.render = function(self, entries, ...)
   last_compositor, last_entries = self, entries
   presentation.attempts = presentation.attempts + 1
+  local started, cpu, pending = begin_work()
   local rendered, reason = originals.render(self, entries, ...)
+  end_work("render", started, cpu, pending)
   local now = Metrics.monotonic_seconds()
   presentation.last_attempt_at = now
   if not rendered then
@@ -180,13 +209,17 @@ Host.await_events = function(application, current_window, timeout)
       timeout = 0
     else timeout = math.min(timeout, next_input - now) end
   end
-  return originals.await(application, current_window, math.min(timeout, deadline - now))
+  local started, cpu, work_pending = begin_work()
+  local result = originals.await(application, current_window, math.min(timeout, deadline - now))
+  end_work("wait", started, cpu, work_pending)
+  return result
 end
 
 arg = { "--config", assert(os.getenv("KIWI_INTERACTIVE_BENCH_CONFIG")), "--no-restore-layout", "--no-extensions",
   "--", assert(os.getenv("KIWI_INTERACTIVE_BENCH_PYTHON")), "script/interactive-bench-child", mode }
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Terminal.write, Pty.read_available = originals.new_terminal, originals.write, originals.read
+Pty.flush, Compositor.update_models = originals.flush, originals.prepare
 Scrollback.push = originals.history_push
 Window.new, Compositor.render, Host.await_events = originals.new_window, originals.render, originals.await
 if not ok or not report then
@@ -201,6 +234,7 @@ local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
+  phase_diagnostics = true,
   requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
   traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout,
