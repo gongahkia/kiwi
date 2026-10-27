@@ -4,6 +4,9 @@ local Atspi = {}
 Atspi.__index = Atspi
 
 local function codepoint_count(value)
+  -- ASCII cells (including viewport padding) need no pattern iterator. A full
+  -- projection otherwise allocates one iterator for almost every visible cell.
+  if #value <= 1 then return #value end
   local count = 0
   -- Terminal cells contain validated UTF-8 glyphs.  Match one non-continuation
   -- byte followed by its continuation bytes; Lua patterns cannot express the
