@@ -6,6 +6,7 @@ local Sustained = require("kiwi.bench.sustained")
 local Terminal = require("kiwi.session.terminal")
 local Scrollback = require("kiwi.terminal.scrollback")
 local Pty = require("kiwi.process.pty")
+local OutputService = require("kiwi.process.output_service")
 local Compositor = require("kiwi.renderer.compositor")
 local gtk = os.getenv("KIWI_HOST") == "gtk"
 local scroll_mode = os.getenv("KIWI_INTERACTIVE_BENCH_SCROLL_MODE") or "region"
@@ -198,7 +199,9 @@ end
 if scroll_mode == "history" then report.history = history end
 local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M%SZ"), measurement.samples, measurement.warmup)
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
-  pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")), requested_window_points = { width = 800, height = 480 },
+  pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
+  pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
+  requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
   traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout,
   floating_window = keep_visible, scroll_mode = scroll_mode,

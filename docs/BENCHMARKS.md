@@ -504,10 +504,13 @@ The same run measured real full-screen scroll at 0.0336 ms mean for 80x24 and 0.
 
 The checked limits are exact defaults, overrideable only for deliberately different test environments:
 
-- `KIWI_PTY_READ_BUDGET=4096`: no one ordinary live-loop turn reads more than 4 KiB; an already-open Kitty graphics transfer may additionally use the fairly divided `KIWI_KITTY_TRANSFER_READ_BUDGET=262144` fast path;
+- `KIWI_PTY_READ_BUDGET=16384`: ordinary output service reads at most 16 KiB per window turn, in chunks no larger than 4 KiB. It checks an 8 ms wall-time target after each read/parse chunk and yields when spent. One chunk cannot be preempted. Hot panes share the byte ceiling and rotate priority after a time-limited turn. An already-open Kitty graphics transfer retains its separately divided `KIWI_KITTY_TRANSFER_READ_BUDGET=262144` fast path;
 - `KIWI_BURST_MAX_SERVICE_MS=250`: a service turn above 250 ms fails the run;
 - `KIWI_BURST_MAX_HEAP_KIB=65536`: retained Lua heap growth above 64 MiB fails the run.
 
+The burst harness uses the same ordinary-output service as the native controllers.
+The 8 ms target is checked between chunks; the existing 250 ms service gate
+continues to catch unusually expensive individual chunks or delayed turns.
 The harness measures elapsed and per-service-turn time with `clock_gettime(CLOCK_MONOTONIC)`, using the platform ABI value for Linux or macOS. Its JSON metadata explicitly identifies this as monotonic wall time; it is not the `os.clock` CPU timer used by the in-memory component suite. The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
 
 On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
@@ -599,14 +602,14 @@ Reports preserve per-process startup samples, raw bounded input distributions,
 parser/presentation phase splits, sampled peak RSS, output-byte counts, actual
 cell/grid/font geometry and environment/revision metadata. Geometry changes
 invalidate a trial. The window requests 800×480 logical points, uses 18-pixel
-font settings and a 4 KiB PTY read budget; actual metrics depend on host scale
+font settings and a 16 KiB cooperative PTY read ceiling; actual metrics depend on host scale
 and installed fonts and are recorded. The 20 ms inter-input interval is test
 scheduling, not a production timer. Initial source/OS startup, input encoding,
 child scheduling, PTY transit and rendering CPU work are included within their
 named boundaries. Physical input delivery, IME, GPU completion, compositor
 feedback and panel scan-out are not measured.
 
-Use `--read-budget BYTES` (1–1048576, default 4096) for controlled output
+Use `--read-budget BYTES` (1–1048576, default 16384) for controlled output
 scheduling experiments, and `--traffic styled-unicode` for coloured, bold,
 italic, underlined, combining and wide-character output. ASCII is the default.
 The chosen traffic and byte budget are recorded in each trial's configuration;

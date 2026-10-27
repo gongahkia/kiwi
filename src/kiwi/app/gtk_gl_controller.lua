@@ -1,5 +1,6 @@
 -- Experimental single-terminal controller for GtkGLArea presentation.
 local PollSchedule = require("kiwi.app.poll_schedule")
+local OutputService = require("kiwi.process.output_service")
 --
 -- It deliberately reuses Kiwi's VT, PTY, input, clipboard, and host-effect
 -- boundaries. Workspace composition remains owned by the WGPU controller until
@@ -337,7 +338,7 @@ function Controller.run_native_tabs(window, host, options)
       for _, session in ipairs(sessions) do
         watched_ptys[#watched_ptys + 1] = session.pty
         local deadline = session:next_deadline()
-        timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted, window.minimized))
+        timeout = math.min(timeout, PollSchedule.timeout(now, deadline, session.pty.read_budget_exhausted or session.output_service.pending, window.minimized))
       end
       timeout = math.min(timeout, PollSchedule.child_timeout(watched_ptys, window.minimized))
       configuration_runtime:append_watch(watched_ptys)
@@ -454,7 +455,9 @@ function Controller.run(window, host, options)
     local max_frames = number_from_env("KIWI_MAX_FRAMES", 0)
     local max_seconds = number_from_env("KIWI_MAX_SECONDS", 0)
     local started_at = window:time()
-    local read_budget = number_from_env("KIWI_PTY_READ_BUDGET", 4 * 1024)
+    local read_budget = number_from_env("KIWI_PTY_READ_BUDGET", OutputService.default_max_bytes)
+    local output_service = OutputService.new({ max_bytes = read_budget, clock = function() return window:time() end })
+    local output_sessions = { { pty = pty } }
     local render_timeout = positive_number_from_env("KIWI_GTK_GL_RENDER_TIMEOUT", 3)
     local render_target_deadline
     local render_target_revision
@@ -793,7 +796,7 @@ function Controller.run(window, host, options)
       local can_present = not window.minimized and not state.modes.synchronized_output
       if not can_present then deadline = nil
       elseif consumer:needs_render(now) then deadline = now end
-      local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted, window.minimized)
+      local requested_wait = PollSchedule.timeout(now, deadline, pty.read_budget_exhausted or output_service.pending, window.minimized)
       requested_wait = math.min(requested_wait, PollSchedule.child_timeout({ pty }, window.minimized))
       if max_seconds > 0 then requested_wait = math.min(requested_wait, math.max(0, started_at + max_seconds - now)) end
       if render_target_revision ~= nil then requested_wait = math.min(requested_wait, 0.01) end
@@ -847,11 +850,10 @@ function Controller.run(window, host, options)
       if grid ~= nil and await_rendered_target(window:time()) then break end
 
       pty:flush()
-      local output = pty:read_available(read_budget)
-      if #output > 0 then
+      output_service:drain(output_sessions, function(_, output)
         terminal:write(output)
         invalidate("terminal")
-      end
+      end)
       local responses = terminal:pop_responses()
       if #responses > 0 then pty:enqueue(table.concat(responses)) end
       for _, effect in ipairs(terminal:pop_effects()) do
