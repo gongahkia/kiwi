@@ -1,3 +1,4 @@
+require("kiwi.runtime")
 local Build = require("kiwi.build")
 local Options = require("kiwi.app.options")
 local Replay = require("kiwi.terminal.replay")

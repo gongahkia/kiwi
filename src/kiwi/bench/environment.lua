@@ -1,4 +1,5 @@
 local jit = require("jit")
+local Runtime = require("kiwi.runtime")
 
 local Environment = {}
 
@@ -76,7 +77,8 @@ function Environment.collect(timestamp, iterations, warmup)
       vulkan_gpu0_driver = command_output("vulkaninfo --summary 2>/dev/null | sed -n 's/^[[:space:]]*driverInfo[[:space:]]*=[[:space:]]*//p' | head -n 1"),
     },
     runtime = {
-      compiler_flags = os.getenv("CFLAGS") or "not provided; LuaJIT default JIT configuration",
+      compiler_flags = os.getenv("CFLAGS") or "not provided",
+      machine_code_limit_kib = Runtime.machine_code_limit_kib,
       jit = jit_features(),
       luajit_version = jit.version,
       lua_version = _VERSION,

@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "benchmark": "acknowledged interactive application timing",
+  "trials": [
+    {
+      "failure": "src/kiwi/app/window_manager.lua:422: src/kiwi/app/host_controller.lua:1735: src/kiwi/bench/interactive.lua:94: acknowledgment exceeded the responsiveness ceiling\nstack traceback:\n\t[C]: in function 'assert'\n\tsrc/kiwi/bench/interactive.lua:94: in function 'present'\n\tsrc/kiwi/interactive_bench.lua:140: in function <src/kiwi/interactive_bench.lua:114>\n\tsrc/kiwi/app/host_controller.lua:1631: in function <src/kiwi/app/host_controller.lua:216>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/app/host_controller.lua:216: in function 'run_window'\n\tsrc/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>\nstack traceback:\n\t[C]: in function 'error'\n\tsrc/kiwi/app/window_manager.lua:422: in function 'run'\n\tsrc/kiwi/app/main.lua:55: in main chunk\n\t[C]: in function 'require'\n\tsrc/kiwi/interactive_bench.lua:220: in function <src/kiwi/interactive_bench.lua:220>\n\t[C]: in function 'xpcall'\n\tsrc/kiwi/interactive_bench.lua:220: in main chunk\n\t[C]: at 0x5634c5a6b120",
+      "measurement": {
+        "callback_to_parse_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "callback_to_present_return_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "completed": 1,
+        "failure_state": {
+          "elapsed_seconds": 1.81187521,
+          "minimized": false,
+          "output_bytes": 53305,
+          "parsed": false,
+          "present_age_seconds": 0.00123717298,
+          "sequence": 2,
+          "visible_sequence": 1
+        },
+        "history": {
+          "evicted": 0,
+          "limit": 10000,
+          "peak_retained": 473,
+          "pushed": 473,
+          "retained": 473
+        },
+        "launch_to_child_ready_present_return_ms": 28916.1045,
+        "launch_to_first_present_return_ms": 28916.1045,
+        "output_bytes_observed": 57401,
+        "parse_to_present_return_ms": {
+          "count": 0,
+          "values": {}
+        },
+        "pending_acknowledgment": {
+          "callback_to_parse_ms": 2197.49312,
+          "callback_to_present_return_ms": 2429.94469,
+          "callback_to_write_ms": 134.903656,
+          "input_at": 545114.02,
+          "last_present_at": 545116.45,
+          "parse_to_present_return_ms": 232.451568,
+          "parsed_at": 545116.218,
+          "presented_at": 545116.45,
+          "sequence": 2,
+          "work": {
+            "input_flush": {
+              "bytes": 1,
+              "calls": 8,
+              "cpu_ms": 0.913,
+              "maximum_wall_ms": 0.717056915,
+              "wall_ms": 0.924264896
+            },
+            "parse": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 415.833,
+              "maximum_wall_ms": 344.66784,
+              "wall_ms": 500.993289
+            },
+            "prepare": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 668.225,
+              "maximum_wall_ms": 481.534022,
+              "wall_ms": 669.068273
+            },
+            "read": {
+              "bytes": 16384,
+              "calls": 4,
+              "cpu_ms": 114.852,
+              "maximum_wall_ms": 99.5756161,
+              "wall_ms": 114.468
+            },
+            "render": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 377.318,
+              "maximum_wall_ms": 200.695231,
+              "wall_ms": 351.444452
+            },
+            "wait": {
+              "bytes": 0,
+              "calls": 4,
+              "cpu_ms": 577.231,
+              "maximum_wall_ms": 303.093356,
+              "wall_ms": 754.888558
+            }
+          },
+          "written_at": 545114.155
+        },
+        "requested_samples": 20,
+        "sampled_peak_rss_kib": 288808,
+        "samples": 0,
+        "sent": 2,
+        "warmup": 6
+      },
+      "metadata": {
+        "configuration": {
+          "floating_window": false,
+          "geometry": {
+            "cell_height": 21,
+            "cell_width": 11,
+            "columns": 72,
+            "rows": 22
+          },
+          "host": "gtk",
+          "interval_seconds": 3.15789474,
+          "output_service_target_seconds": 0.008,
+          "phase_diagnostics": true,
+          "presenter": "wgpu",
+          "primary_font_path": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+          "pty_read_budget": 16384,
+          "pty_read_chunk_bytes": 4096,
+          "requested_window_points": {
+            "height": 480,
+            "width": 800
+          },
+          "samples": 20,
+          "scroll_mode": "history",
+          "scrollback_limit": 10000,
+          "soak_seconds": 60,
+          "traffic": "styled-unicode",
+          "trial_timeout_seconds": 159,
+          "warmup_inputs": 6,
+          "workload": "saturated"
+        },
+        "native_adapter": {
+          "backend": 6,
+          "backend_name": "Vulkan",
+          "description": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)",
+          "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vendor": "llvmpipe"
+        },
+        "revision": {
+          "branch": "main",
+          "commit": "a00a1b8d0b292754c7b07c2b5ed3e26bce9badca",
+          "dirty": false,
+          "source": "git"
+        },
+        "runtime": {
+          "compiler_flags": "not provided; LuaJIT default JIT configuration",
+          "jit": {
+            "enabled": true,
+            "features": [
+              "SSE3",
+              "SSE4.1",
+              "BMI2",
+              "fold",
+              "cse",
+              "dce",
+              "fwd",
+              "dse",
+              "narrow",
+              "loop",
+              "abc",
+              "sink",
+              "fuse"
+            ]
+          },
+          "lua_version": "Lua 5.1",
+          "luajit_version": "LuaJIT 2.1.1703358377"
+        },
+        "system": {
+          "architecture": "x64",
+          "cgroup_cpu_limit": "200000 100000",
+          "cgroup_memory_limit": "4294967296",
+          "cpu_affinity": "0-7",
+          "cpu_governor": "unavailable",
+          "cpu_model": "Intel(R) Core(TM) i5-8279U CPU @ 2.40GHz",
+          "gl_renderer": "unavailable",
+          "gl_version": "unavailable",
+          "kernel": "Linux 7.0.12-linuxkit x86_64",
+          "operating_system": "Linux",
+          "vulkan_gpu0": "llvmpipe (LLVM 20.1.2, 256 bits)",
+          "vulkan_gpu0_driver": "Mesa 25.2.8-0ubuntu0.24.04.4 (LLVM 20.1.2)"
+        },
+        "timestamp_utc": "20261027T032708Z"
+      },
+      "presentation": {
+        "attempts": 15,
+        "failures": {},
+        "last_attempt_at": 545116.45,
+        "successful": 15
+      },
+      "schema_version": 1,
+      "status": "failed",
+      "trial": 1,
+      "mode": "saturated"
+    }
+  ],
+  "methodology": {
+    "clock": "CLOCK_MONOTONIC in parent and native process metrics; launch timestamp immediately before subprocess creation",
+    "startup": "fresh process with normal filesystem/driver caches; includes interpreter, host/font/GPU setup and controlled Python child; not a cold-cache or login-shell benchmark",
+    "first_present": "return from the first successful WGPU compositor presentation, possibly before child output",
+    "ready_present": "successful presentation return after parsing child readiness and verifying matching visible model text",
+    "input": "synthetic text callback through real input encoding, PTY delivery, numbered child acknowledgment, parsing and successful WGPU presentation return",
+    "association": "one outstanding sequence; unrelated output or frames cannot complete an input sample",
+    "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
+    "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
+    "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+    "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
+    "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
+    "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"
+  },
+  "trial_timeout_seconds": 159,
+  "soak_policy": {
+    "minimum_seconds": 60.0,
+    "max_rss_growth_mib": 64,
+    "max_heap_growth_mib": 16,
+    "max_rss_mib": 1024,
+    "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+    "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
+    "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"
+  },
+  "failure": {
+    "mode": "saturated",
+    "trial": 1,
+    "log": "/work/bench/results/history-gtk-10000-4m-logs/saturated-1.log",
+    "reason": "Command '['/tmp/kiwi-jit-4m-launch', 'src/kiwi/interactive_bench.lua']' returned non-zero exit status 1."
+  }
+}
