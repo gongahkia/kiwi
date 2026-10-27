@@ -21,7 +21,10 @@ local Metrics = require("kiwi.bench.process_metrics")
 local ffi = require("ffi")
 local Window = {}
 Window.__index = Window
-function Window.new() return setmetatable({}, Window) end
+function Window.new(_, _, _, options)
+  assert(options.focused == false, "benchmark requested keyboard focus")
+  return setmetatable({}, Window)
+end
 function Window:request_close() self.closed = true end
 function Window:should_close() return self.closed == true end
 function Window:set_input_handlers(text, key, pointer, focus)

@@ -652,6 +652,9 @@ recording their contents. Only the fixture's timed text callback may send input;
 an unrelated typed `x` cannot satisfy a pending acknowledgment. Pointer movement
 and empty composition resets are harmless and do not invalidate a run. This is
 benchmark instrumentation, not a change to application input behaviour.
+GLFW benchmark windows request creation without keyboard focus; normal application
+windows retain their default focus behaviour. The request is recorded in the
+configuration and is subject to the window manager. Input guards remain necessary.
 `make test-interactive-trial` exercises these paths with a controlled headless
 host and real PTY children, including exception and occlusion failures; it does
 not qualify native window behaviour.

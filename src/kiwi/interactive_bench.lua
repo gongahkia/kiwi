@@ -120,7 +120,12 @@ Window.should_close = function(self, ...)
   return closed
 end
 Window.new = function(_, _, title, options)
-  window = originals.new_window(800, 480, title, options)
+  local benchmark_options = {}
+  for key, value in pairs(options or {}) do benchmark_options[key] = value end
+  -- Callback timing does not need keyboard focus. Keep the visible test window
+  -- from taking the user's keystrokes when GLFW honors this creation hint.
+  if not gtk then benchmark_options.focused = false end
+  window = originals.new_window(800, 480, title, benchmark_options)
   if keep_visible then
     local ffi = require("ffi")
     assert(not gtk and ffi.os == "OSX", "floating benchmark requires macOS GLFW")
@@ -320,6 +325,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
   external_input_guard = true,
+  initial_focus_requested = gtk,
   clock = Metrics.clock_name(),
   heap_measurement = heap_measurement,
   requested_window_points = { width = 800, height = 480 },
