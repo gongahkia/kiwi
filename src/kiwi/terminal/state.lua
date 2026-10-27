@@ -2,6 +2,7 @@ local Attributes = require("kiwi.terminal.attributes")
 local Base64 = require("kiwi.terminal.base64")
 local bit = require("bit")
 local Cell = require("kiwi.terminal.cell")
+local ClusterPool = require("kiwi.terminal.cluster_pool")
 local CommandRegions = require("kiwi.terminal.command_regions")
 local Damage = require("kiwi.terminal.damage")
 local Grapheme = require("kiwi.unicode.grapheme")
@@ -35,6 +36,7 @@ State.reflow = Reflow
 local GCB = Properties.grapheme_break
 local ascii_codepoints = {}
 for codepoint = 0x20, 0x7e do ascii_codepoints[codepoint] = { codepoint } end
+local unicode_clusters = ClusterPool.new()
 
 local dec_special_graphics = {
   ["_"] = " ", ["`"] = "◆", ["a"] = "▒", ["b"] = "␉", ["c"] = "␌", ["d"] = "␍", ["e"] = "␊",
@@ -1193,15 +1195,6 @@ function State:back_tab(count)
   end
 end
 
-local function copied_codepoints(codepoints, extra)
-  local result = {}
-  for index, codepoint in ipairs(codepoints or {}) do
-    result[index] = codepoint
-  end
-  if extra then result[#result + 1] = extra end
-  return result
-end
-
 function State:current_grapheme_cluster()
   local context = self.grapheme_context
   if context == nil or context.screen ~= self.active_screen then return nil end
@@ -1270,7 +1263,7 @@ end
 
 function State:write_new_cluster(glyph, codepoint)
   self:clear_grapheme_context()
-  local codepoints = { codepoint }
+  local codepoints = unicode_clusters:intern(glyph, nil, codepoint)
   local gcb = Properties.gcb(codepoint)
   local counters = self.text_counters
   if counters then
@@ -1319,7 +1312,8 @@ function State:write_new_cluster(glyph, codepoint)
 end
 
 function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
-  local codepoints = copied_codepoints(context.codepoints, codepoint)
+  local text = cell.glyph .. glyph
+  local codepoints = unicode_clusters:intern(text, context.codepoints, codepoint)
   local old_width = cell.width
   local new_width = Width.columns(codepoints, self.width_policy)
   local counters = self.text_counters
@@ -1329,7 +1323,7 @@ function State:extend_grapheme_cluster(cell, context, glyph, codepoint)
     counters.clusters_extended = (counters.clusters_extended or 0) + 1
   end
   local updated = Cell.clone(cell)
-  updated.glyph = cell.glyph .. glyph
+  updated.glyph = text
   updated.codepoints = codepoints
   if cell.display_text ~= nil then updated.display_text = cell.display_text .. glyph end
   local column, row = context.column, context.row
