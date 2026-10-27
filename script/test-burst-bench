@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""Exercise burst failure reports and cleanup with real, bounded PTY children."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+root = Path(__file__).resolve().parent.parent
+driver_source = r'''
+local Burst = require("kiwi.bench.burst")
+local path, scenario = arg[1], arg[2]
+local case = { name = scenario, command = { "/bin/sh", "-c", "printf hello" }, minimum_bytes = 5 }
+local options = { report_path = path, read_budget = 4096, max_service_ms = 10000, max_heap_kib = 65536, cases = { case } }
+if scenario == "pass" then case.reference_input = "hello"
+elseif scenario == "service" then options.max_service_ms = 0
+elseif scenario == "heap" then options.max_heap_kib = 0
+elseif scenario == "exit" then case.command[3] = "printf hello; exit 7"
+elseif scenario == "truncated" then case.minimum_bytes = 100
+elseif scenario == "snapshot" then case.reference_input = "world"
+elseif scenario == "response" then case.expect_responses = true
+elseif scenario == "timeout" then
+  case.command[3] = "printf READY; exec sleep 30"
+  case.timeout_seconds = 0.2
+elseif scenario == "parser" then
+  case.command[3] = "printf hello; exec sleep 30"
+  local Parser = require("kiwi.terminal.parser")
+  local feed = Parser.feed
+  Parser.feed = function(self, bytes) feed(self, bytes); error("controlled parser failure") end
+elseif scenario == "setup" then case.command = {}
+else error("unknown fixture scenario") end
+if scenario ~= "pass" and scenario ~= "service" and scenario ~= "heap" and scenario ~= "parser" then
+  table.insert(options.cases, 1, { name = "initial-pass", command = { "/bin/sh", "-c", "printf first" }, minimum_bytes = 5 })
+end
+if scenario ~= "pass" then
+  options.cases[#options.cases + 1] = { name = "must-not-run", command = { "/bin/sh", "-c", "exit 0" }, minimum_bytes = 0 }
+end
+local report = Burst.main(options)
+assert(report.status == "complete", report.failure)
+'''
+
+failures = {
+    "pass": None, "service": "service turn", "heap": "retained Lua heap",
+    "exit": "child did not exit successfully", "truncated": "output was truncated",
+    "snapshot": "canonical snapshot diverged", "response": "terminal response was starved",
+    "timeout": "PTY burst timed out", "parser": "controlled parser failure",
+    "setup": "PTY command must contain an executable",
+}
+environment = dict(os.environ, LUA_PATH=str(root / "src/?.lua") + ";" + str(root / "src/?/init.lua") + ";;", KIWI_ROOT=str(root))
+with tempfile.TemporaryDirectory(prefix="kiwi-burst-fixture-") as temporary:
+    temporary = Path(temporary)
+    driver = temporary / "driver.lua"
+    driver.write_text(driver_source)
+    for scenario, failure in failures.items():
+        report = temporary / (scenario + ".json")
+        report.write_text('{"status":"complete","stale":true}')
+        process = subprocess.run([os.environ.get("LUAJIT", "luajit"), str(driver), str(report), scenario],
+                                 cwd=root, env=environment, capture_output=True, text=True, timeout=30)
+        value = json.loads(report.read_text())
+        assert "stale" not in value and not report.with_suffix(".json.new").exists()
+        assert value["schema_version"] == 4
+        assert value["status"] == ("failed" if failure else "complete"), (scenario, value)
+        assert (process.returncode != 0) == bool(failure), (scenario, process.stderr)
+        expected_count = 1 if scenario in ("pass", "service", "heap", "parser") else 2
+        assert len(value["results"]) == expected_count, (scenario, value)
+        for previous in value["results"][:-1]:
+            assert previous["status"] == "passed"
+        result = value["results"][-1]
+        assert result["name"] == scenario
+        if failure:
+            assert failure in value["failure"] and failure in result["failure"], (scenario, value)
+        if scenario == "setup":
+            continue
+        assert result["pty_closed"] is True
+        assert result["child_status"]["kind"] in ("exit", "signal")
+        for key in ("bytes_read", "parser", "memory", "service_ms", "elapsed_wall_ms", "final_snapshot"):
+            assert key in result, (scenario, key)
+        if scenario != "timeout":
+            assert result["bytes_read"] == result["parser"]["bytes"] == 5
+        if scenario == "exit":
+            assert result["child_status"] == {"kind": "exit", "code": 7}
+        try:
+            os.kill(result["child_pid"], 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError((scenario, "burst child survived cleanup", result["child_pid"]))
+print("Burst benchmark passed: real PTY success, service/heap gates, child/setup/parser failures, timeout cleanup and retained atomic reports.")

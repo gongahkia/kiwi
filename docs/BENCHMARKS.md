@@ -511,6 +511,16 @@ The checked limits are exact defaults, overrideable only for deliberately differ
 The burst harness uses the same ordinary-output service as the native controllers.
 The 8 ms target is checked between chunks; the existing 250 ms service gate
 continues to catch unusually expensive individual chunks or delayed turns.
+Reports are atomically replaced before testing and after each case, with a
+top-level `running`, `failed` or `complete` status. The first failure stops later
+cases while retaining earlier results and the failing case's available counters,
+memory, snapshot and child status. Parser errors and deadlines trigger bounded
+PTY shutdown before reporting; cleanup/snapshot errors are retained separately.
+The CLI exits unsuccessfully after saving a failed report. `KIWI_BURST_REPORT`
+selects an explicit report path; its parent directory must already exist.
+`make test-burst-bench` exercises these paths with real PTY children, including
+service/heap rejection, truncated output, snapshot/response failures, nonzero
+child exit, parser/setup errors and timeout cleanup. It is part of `make check`.
 The harness measures elapsed and per-service-turn time with `clock_gettime(CLOCK_MONOTONIC)`, using the platform ABI value for Linux or macOS. Its JSON metadata explicitly identifies this as monotonic wall time; it is not the `os.clock` CPU timer used by the in-memory component suite. The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
 
 On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
