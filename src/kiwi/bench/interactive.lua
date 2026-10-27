@@ -64,6 +64,7 @@ function Interactive:present(now, sequence)
   local pending = self.pending
   if not pending or sequence < pending.sequence then return false end
   assert(pending.parsed_at and now >= pending.parsed_at, "presented acknowledgment was not parsed")
+  pending.presented_at = now
   assert(now - pending.input_at < Interactive.maximum_response_seconds, "acknowledgment exceeded the responsiveness ceiling")
   self.completed = self.completed + 1
   if self.completed > self.warmup then
@@ -83,6 +84,19 @@ function Interactive:observations()
     warmup = self.warmup, completed = self.completed, sent = self.sent,
     launch_to_first_present_return_ms = self.first_present_at and (self.first_present_at - self.launched_at) * 1000,
     launch_to_child_ready_present_return_ms = self.ready_at and (self.ready_at - self.launched_at) * 1000 }
+  if self.pending then
+    local pending = self.pending
+    -- Retain the failing acknowledgment without counting it as a valid sample.
+    -- The host's last event-loop observation may predate this parse/present.
+    result.pending_acknowledgment = {
+      sequence = pending.sequence, input_at = pending.input_at,
+      parsed_at = pending.parsed_at, presented_at = pending.presented_at,
+      last_present_at = self.last_present,
+      callback_to_parse_ms = pending.parsed_at and (pending.parsed_at - pending.input_at) * 1000,
+      callback_to_present_return_ms = pending.presented_at and (pending.presented_at - pending.input_at) * 1000,
+      parse_to_present_return_ms = pending.presented_at and (pending.presented_at - pending.parsed_at) * 1000,
+    }
+  end
   for _, name in ipairs({ "callback_to_parse_ms", "parse_to_present_return_ms", "callback_to_present_return_ms" }) do
     local values = self[name]
     local value = #values > 0 and Stats.summary(values) or { count = 0 }
