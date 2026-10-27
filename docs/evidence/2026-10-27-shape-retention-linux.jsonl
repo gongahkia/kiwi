@@ -1,0 +1,4 @@
+{"before_collection_kib":160580.158,"history":9995,"interval_cpu_seconds":3.125051,"lines":10016,"retained_heap_kib":122280.975,"shape_entries":9,"shape_glyphs":28,"shape_text_bytes":49}
+{"before_collection_kib":293664.385,"history":10000,"interval_cpu_seconds":2.230319,"lines":20000,"retained_heap_kib":122470.006,"shape_entries":9,"shape_glyphs":28,"shape_text_bytes":49}
+{"before_collection_kib":246522.385,"history":10000,"interval_cpu_seconds":5.441206,"lines":40000,"retained_heap_kib":122601.881,"shape_entries":9,"shape_glyphs":28,"shape_text_bytes":49}
+{"before_collection_kib":148883.775,"history":10000,"interval_cpu_seconds":9.834736,"lines":80000,"retained_heap_kib":122602.451,"shape_entries":9,"shape_glyphs":28,"shape_text_bytes":49}
