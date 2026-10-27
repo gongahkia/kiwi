@@ -59,3 +59,9 @@ After the change, Intel macOS `make check` passed 690 deterministic Lua tests
 across 133 suites, 19 PTY tests and the associated native, CLI, benchmark and
 syntax checks. `make test-unicode` passed the pinned Unicode 17 extended-grapheme
 conformance corpus and version check.
+
+At clean `9895f15`, Linux passed 448 core tests across 75 suites with native
+loading disabled, all [11 local application workflows](2026-10-27-cluster-pool-applications.json)
+and all [six loopback SSH workflows](2026-10-27-cluster-pool-ssh.json). These
+retain the existing combined editor/pager/tmux, resize, saved-file and replay
+checks; they do not establish native latency.
