@@ -14,8 +14,18 @@ parser.add_argument("--report", type=Path, required=True)
 parser.add_argument("--presenter", choices=("wgpu", "gl"), default="wgpu")
 args = parser.parse_args()
 if os.environ.get("KIWI_ATSPI_PRIVATE_BUS") != "1":
-    raise SystemExit(subprocess.call(["dbus-run-session", "--", sys.executable, __file__, *sys.argv[1:]],
-                                    env=dict(os.environ, KIWI_ATSPI_PRIVATE_BUS="1")))
+    # D-Bus activation inherits the launcher's environment, not the GTK child's.
+    # Isolate it too: at-spi-bus-launcher uses a socket beneath XDG_CACHE_HOME.
+    with tempfile.TemporaryDirectory(prefix="kiwi-atspi-session-") as session:
+        session = Path(session)
+        home, runtime = session / "home", session / "runtime"
+        home.mkdir(mode=0o700); runtime.mkdir(mode=0o700)
+        environment = dict(os.environ, KIWI_ATSPI_PRIVATE_BUS="1", HOME=str(home),
+                           XDG_CONFIG_HOME=str(home / "config"), XDG_CACHE_HOME=str(home / "cache"),
+                           XDG_DATA_HOME=str(home / "data"), XDG_RUNTIME_DIR=str(runtime))
+        environment.pop("AT_SPI_BUS_ADDRESS", None)
+        raise SystemExit(subprocess.call(["dbus-run-session", "--", sys.executable, __file__, *sys.argv[1:]],
+                                        env=environment))
 import gi
 gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi, GLib
