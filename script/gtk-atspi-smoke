@@ -111,7 +111,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                 return {key: node.get(key) for key in ("id", "name", "pid", "app_id", "visible")}
             pending.extend(node.get("nodes", []) + node.get("floating_nodes", []))
 
-    def find_terminal():
+    def terminal_tree():
         desktop = Atspi.get_desktop(0)
         pending = [desktop]
         report["last_tree"] = []
@@ -129,6 +129,18 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                     return node
             pending.extend(node.get_child_at_index(i) for i in range(min(node.get_child_count(), 128)))
         raise AssertionError("accessibility tree exceeded fixture bound")
+
+    def find_terminal():
+        try:
+            return terminal_tree()
+        except GLib.Error as error:
+            # A registered GTK root can precede a responsive application during
+            # native startup. Keep polling that process within the existing
+            # discovery deadline; established-terminal queries stay strict.
+            errors = report.setdefault("discovery_errors", [])
+            if len(errors) < 8:
+                errors.append(str(error))
+            return None
 
     def contents():
         return Atspi.Text.get_text(terminal.get_text_iface(), 0, -1)
