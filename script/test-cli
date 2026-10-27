@@ -7,6 +7,17 @@ trap 'rm -f "$log"' EXIT HUP INT TERM
 # Missing native libraries and an invalid host must not prevent informational
 # commands or argument errors from working on headless machines.
 export KIWI_HOST=invalid KIWI_SURFACE_LIB=/kiwi-missing-native-library
+# Runtime initialization must preserve an explicit interpreter-only request
+# and the existing optimization flags in either execution mode.
+for mode in -jon -joff; do
+  "${LUAJIT:-luajit}" "$mode" -e '
+    local before = { jit.status() }
+    require("kiwi.runtime")
+    local after = { jit.status() }
+    assert(#before == #after)
+    for index = 1, #before do assert(before[index] == after[index]) end
+  '
+done
 "${LUAJIT:-luajit}" src/kiwi/app/main.lua --help >"$log"
 grep -q '^Usage: kiwi' "$log"
 "${LUAJIT:-luajit}" src/kiwi/app/main.lua --version >"$log"
@@ -20,4 +31,4 @@ status=0
 "${LUAJIT:-luajit}" src/kiwi/app/main.lua -- >"$log" 2>&1 || status=$?
 test "$status" = 2
 grep -q -- '-- needs a command' "$log"
-echo 'CLI tests passed: help, version, argument validation without native loading.'
+echo 'CLI tests passed: runtime execution modes, help, version, argument validation without native loading.'

@@ -1,0 +1,33 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/usr/bin/python3 grid=72x22 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+KIWI_JIT_STATS {"abort":6942,"abort_reasons":{"JIT compilation disabled for function":1,"NYI: bytecode %d":2138,"NYI: return to lower frame":675,"bad argument type":10,"call unroll limit reached":3,"down-recursion, restarting":6,"failed to allocate mcode memory":55,"inner loop in root trace":1106,"leaving loop in root trace":1200,"loop unroll limit reached":274,"persistent type instability":23,"symbol not in cache":2,"too many PHIs":1,"too many snapshots":3,"too many spill slots":41,"trace too long":1404},"flush":55,"maximum_trace":343,"start":20194,"stop":13252}
+luajit: /tmp/kiwi-jitstats.lua:16: src/kiwi/interactive_bench.lua:253: src/kiwi/app/window_manager.lua:422: src/kiwi/app/host_controller.lua:1735: src/kiwi/interactive_bench.lua:198: acknowledgment exceeded the two-second responsiveness ceiling
+stack traceback:
+	[C]: in function 'error'
+	src/kiwi/interactive_bench.lua:198: in function <src/kiwi/interactive_bench.lua:176>
+	src/kiwi/app/host_controller.lua:1403: in function <src/kiwi/app/host_controller.lua:216>
+	[C]: in function 'xpcall'
+	src/kiwi/app/host_controller.lua:216: in function 'run_window'
+	src/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>
+stack traceback:
+	[C]: in function 'error'
+	src/kiwi/app/window_manager.lua:422: in function 'run'
+	src/kiwi/app/main.lua:55: in main chunk
+	[C]: in function 'require'
+	src/kiwi/interactive_bench.lua:220: in function <src/kiwi/interactive_bench.lua:220>
+	[C]: in function 'xpcall'
+	src/kiwi/interactive_bench.lua:220: in main chunk
+	[C]: in function 'xpcall'
+	/tmp/kiwi-jitstats.lua:13: in main chunk
+	[C]: at 0x5650e8eb1120
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/interactive_bench.lua:253: in main chunk
+	[C]: in function 'xpcall'
+	/tmp/kiwi-jitstats.lua:13: in main chunk
+	[C]: at 0x5650e8eb1120
+stack traceback:
+	[C]: in function 'assert'
+	/tmp/kiwi-jitstats.lua:16: in main chunk
+	[C]: at 0x5650e8eb1120

@@ -674,6 +674,13 @@ mode with at least twenty inputs each, then run:
 
 The checker validates raw measurements and requires matching recorded system,
 runtime, actual GPU/driver/backend, container limits, font, geometry and workload.
+The application, benchmarks and deterministic test runner initialize the same
+finite 4 MiB LuaJIT machine-code cache ceiling. Runtime metadata records this
+setting; older reports without it are incompatible for automatic comparison.
+This does not enable an explicitly disabled JIT, change optimization flags or
+increase the trace-count limit. The cache ceiling excludes trace metadata and
+ordinary Lua heap allocations. See the [cache investigation](evidence/2026-10-27-jit-cache.md)
+for both the eliminated flushes and the remaining responsiveness failures.
 It refuses dirty, failed, invalid, incomplete or incompatible evidence. It compares
 medians of independent trial metrics, not pooled inputs. Allowed increases are
 25% or 10 ms for input p95, 25% or 50 ms for ready startup, and 10% or 32 MiB for

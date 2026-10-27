@@ -1,3 +1,4 @@
+require("kiwi.runtime")
 local suites = {
   "tests.test_configuration_retention",
   "tests.test_cell",
