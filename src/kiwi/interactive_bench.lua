@@ -111,7 +111,8 @@ Compositor.render = function(self, entries, ...)
     local rss = assert(Metrics.resident_kib())
     peak_rss = math.max(peak_rss, rss)
     if sustained and measurement.ready_at and measurement.completed >= measurement.warmup then
-      sustained:observe(now, rss, collectgarbage("count"), os.clock(), measurement:done())
+      sustained:observe(now, rss, collectgarbage("count"), os.clock(), measurement:done(),
+        scroll_mode == "history" and history.limit and history or nil)
     end
     geometry = { columns = state.columns, rows = state.rows, cell_width = state.cell_width, cell_height = state.cell_height }
     if measurement.ready_at then
