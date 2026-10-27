@@ -158,8 +158,9 @@ Recorded macOS evidence now also includes the bounded Intel startup/native
 checks from 2026-10-25. The separate `make test-applications` gate now has eleven
 local PTY workflows, and `make test-ssh-applications` has six authenticated
 loopback cases, including combined editor/pager/query sessions. Linux passed all
-cases; macOS passed all six SSH cases and ten local cases, with missing fish
-recorded as a failure. See [results](evidence/2026-10-26-combined-workflows.md) and
+cases. Intel macOS now passes all six SSH cases and the twelve-case extended
+local suite, including fish and Nushell; see the [current qualification](evidence/2026-10-27-macos-applications.md).
+The [earlier results](evidence/2026-10-26-combined-workflows.md) retain the original missing-fish failure. See
 [TESTING.md](TESTING.md). Physical desktop input, representative remote networks
 and remote operating systems remain separate qualification requirements.
 
