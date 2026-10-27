@@ -41,6 +41,12 @@ with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
         result = subprocess.run(args, env=env, capture_output=True, timeout=5)
         assert result.returncode == 0, (args, result.stdout.decode(errors="replace"), result.stderr.decode(errors="replace"))
         return result
+    def send_command(value):
+        # The application polls this path. Publish only the complete command;
+        # opening the live path for writing exposes an empty/truncated request.
+        staging = temporary / "command.new"
+        staging.write_text(value)
+        staging.replace(temporary / "command")
     def wait_for(predicate, message):
         deadline = time.monotonic() + 7
         while True:
@@ -93,7 +99,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
         wait_for(lambda: not snapshot().get("preedit"), "Escape did not cancel preedit")
         assert received() == "你好".encode(), ("Escape leaked into PTY during composition", received())
         print("Escape cancels engine preedit without reaching the PTY.", flush=True)
-        (temporary / "command").write_text("kitty")
+        send_command("kitty")
         wait_for(lambda: snapshot().get("flags") == 31, "Kitty keyboard mode did not activate")
         keyboard = start(["wtype", "-d", "60", "nihao", "-s", "1500", "-k", "space", "-s", "500"], "kitty", False)
         wait_for(lambda: snapshot().get("preedit"), "Kitty mode blocked engine preedit")
@@ -113,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
         expected += b"\x1b[97;1:1;97u\x1b[97;1:3u"
         wait_for(lambda: received() == expected, "plain associated text and release did not reach PTY exactly")
         print("Ordinary typing retains associated text and a matching release after engine switch.", flush=True)
-        (temporary / "command").write_text("legacy")
+        send_command("legacy")
         wait_for(lambda: snapshot().get("flags") == 0, "legacy keyboard mode did not restore")
         run(["wtype", "-M", "ctrl", "-M", "shift", "-k", "F", "-m", "shift", "-m", "ctrl"])
         wait_for(lambda: snapshot().get("editing"), "Find shortcut did not open local search")
@@ -148,7 +154,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
         expected += "你好".encode()
         wait_for(lambda: received() == expected, "composition did not recover after focus return")
         print("Ctrl-C works; focus loss cancels preedit and composition recovers after focus return.", flush=True)
-        (temporary / "command").write_text("quit")
+        send_command("quit")
         app.wait(timeout=5)
         assert app.returncode == 0
         for name, log in logs:
