@@ -302,6 +302,10 @@ bench-burst: native
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/burst.lua
 
+.PHONY: test-burst-bench
+test-burst-bench: native
+	LUAJIT="$(LUAJIT)" ./script/test-burst-bench
+
 bench-text: native
 	mkdir -p bench/results
 	$(LUAJIT) src/kiwi/bench/text.lua
@@ -376,7 +380,7 @@ pty-wake-smoke: native
 idle-wake-smoke: native terminfo
 	LUAJIT="$(LUAJIT)" ./script/idle-wake-smoke
 
-check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-interactive-budget test-regex-oracle terminfo
+check: test test-fuzz test-pty test-pty-watch test-child-watch test-main-context-watch test-file-watch test-process-metrics test-interactive-bench test-interactive-budget test-burst-bench test-regex-oracle terminfo
 	LUAJIT="$(LUAJIT)" ./script/test-cli
 	./script/check
 
