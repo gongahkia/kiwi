@@ -1,0 +1,4 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/usr/bin/python3 grid=72x22 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+KIWI_JIT_STATS {"abort":2849,"abort_reasons":{"JIT compilation disabled for function":2,"NYI: bytecode %d":855,"NYI: register coalescing too complex":24,"NYI: return to lower frame":210,"bad argument type":79,"blacklisted":114,"call unroll limit reached":1,"down-recursion, restarting":1,"inner loop in root trace":730,"leaving loop in root trace":818,"loop unroll limit reached":10,"persistent type instability":1,"trace too long":4},"flush":0,"maximum_trace":833,"start":3693,"stop":844}
