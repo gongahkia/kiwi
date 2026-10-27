@@ -675,6 +675,30 @@ workload scrolls a region below the acknowledgment row and does not qualify
 full scrollback retention. Partial samples, resource observations and surface
 failure diagnostics survive a failed child process.
 
+The default `--heap-measurement sampled` measures allocated Lua heap, including
+reclaimable garbage. Large collection cycles can shift quarter medians even
+when the live heap is stable; a sampled growth failure is not by itself proof
+of a leak. To measure **retained** Lua heap explicitly, add
+`--heap-measurement retained` to a sustained run. This performs one full
+collection after warmup and one after the final timed acknowledgment, both
+while the native application and its history are still live. It never collects
+while an input is outstanding, never changes GC settings, and uses normal
+collection during the measured interval. Full-history runs require full capacity
+at both endpoints; increase warmup if the initial checkpoint is incomplete.
+
+In retained mode, the same 16 MiB heap-growth gate applies to the difference
+between the two post-collection heap counts. The 64 MiB sampled RSS-growth,
+1 GiB peak-RSS, duration, history and two-second response gates remain unchanged.
+Reports preserve all raw sampled heap values and their median growth alongside
+both retained checkpoints, their pre/post heap counts, collection durations and
+history occupancy. Missing endpoints, a short interval or malformed/non-finite
+child evidence fail the run. The collection pauses are outside timed input
+samples, so these runs do not measure the latency of an application-triggered
+full collection. The application itself has no new GC policy. The method is
+recorded in configuration and soak policy; comparisons across sampled and
+retained modes are refused. Earlier sampled failures remain failures under their
+original contract; retained mode is a distinct, explicitly selected measurement.
+
 Visible-window measurements become `invalid` (nonzero exit) when minimized,
 zero-sized or reported occluded by Metal. `--keep-visible` floats only the test
 window on macOS GLFW; it cannot guarantee visibility across spaces, system UI

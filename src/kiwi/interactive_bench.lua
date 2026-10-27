@@ -3,6 +3,7 @@ local Metrics = require("kiwi.bench.process_metrics")
 local Interactive = require("kiwi.bench.interactive")
 local Json = require("kiwi.bench.json")
 local Sustained = require("kiwi.bench.sustained")
+local RetainedHeap = require("kiwi.bench.retained_heap")
 local Terminal = require("kiwi.session.terminal")
 local Scrollback = require("kiwi.terminal.scrollback")
 local Pty = require("kiwi.process.pty")
@@ -28,6 +29,9 @@ local soak_seconds = tonumber(os.getenv("KIWI_INTERACTIVE_BENCH_SOAK")) or 0
 assert(trial_timeout >= 30 and trial_timeout <= 3600 and interval >= 0 and interval <= 120)
 assert((measurement.samples + measurement.warmup - 1) * interval <= trial_timeout - 10, "interactive intervals exceed the trial budget")
 local sustained = soak_seconds > 0 and Sustained.new(trial_timeout) or nil
+local heap_measurement = os.getenv("KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT") or "sampled"
+assert(heap_measurement == "sampled" or (heap_measurement == "retained" and sustained), "invalid heap measurement mode")
+local retained_heap = heap_measurement == "retained" and RetainedHeap.new(Metrics.monotonic_seconds) or nil
 local originals = { history_push = Scrollback.push, new_terminal = Terminal.new, write = Terminal.write, read = Pty.read_available, flush = Pty.flush, prepare = Compositor.update_models,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
@@ -143,6 +147,11 @@ Compositor.render = function(self, entries, ...)
     if sustained and measurement.ready_at and measurement.completed >= measurement.warmup then
       sustained:observe(now, rss, collectgarbage("count"), os.clock(), measurement:done(),
         scroll_mode == "history" and history.limit and history or nil)
+      if retained_heap and (not retained_heap.initial or measurement:done()) then
+        assert(not measurement.pending, "retention collection would interrupt a timed input")
+        retained_heap:capture(retained_heap.initial and "final" or "initial",
+          scroll_mode == "history" and history or nil)
+      end
     end
     geometry = { columns = state.columns, rows = state.rows, cell_width = state.cell_width, cell_height = state.cell_height }
     if measurement.ready_at then
@@ -232,11 +241,13 @@ if not ok or not report then
   if sustained and #sustained.values >= 5 then report.sustained = sustained:snapshot() end
 end
 if scroll_mode == "history" then report.history = history end
+if retained_heap then report.retained_heap = retained_heap:observations() end
 local metadata = require("kiwi.bench.environment").collect(os.date("!%Y%m%dT%H%M%SZ"), measurement.samples, measurement.warmup)
 metadata.configuration = { samples = measurement.samples, warmup_inputs = measurement.warmup, interval_seconds = interval,
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
+  heap_measurement = heap_measurement,
   requested_window_points = { width = 800, height = 480 },
   geometry = geometry, primary_font_path = font_path, host = gtk and "gtk" or "glfw", presenter = "wgpu", workload = mode,
   traffic = os.getenv("KIWI_INTERACTIVE_BENCH_TRAFFIC") or "ascii", soak_seconds = soak_seconds, trial_timeout_seconds = trial_timeout,
