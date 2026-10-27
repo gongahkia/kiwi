@@ -645,6 +645,8 @@ request and its call stack, the first observed close flag, and the child's statu
 before and after PTY shutdown. A signal sent during cleanup is therefore distinct
 from a child that exited during the workload. A normal application return before
 all measurements finish is a failed trial with an explicit JSON reason.
+The protocol child writes exceptions to its own `*-child.log` beside the host
+log, so errors survive a nonblocking PTY or a window that never presented a frame.
 `make test-interactive-trial` exercises these paths with a controlled headless
 host and real PTY children, including exception and occlusion failures; it does
 not qualify native window behaviour.

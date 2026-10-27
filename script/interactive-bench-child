@@ -6,6 +6,13 @@ import signal
 import sys
 import tty
 
+# Keep Python diagnostics out of the nonblocking protocol stream. A startup
+# exception must survive even when no frame has yet displayed the child's text.
+diagnostic_log = os.environ.get("KIWI_INTERACTIVE_BENCH_CHILD_LOG")
+if diagnostic_log:
+    with open(diagnostic_log, "wb") as diagnostics:
+        os.dup2(diagnostics.fileno(), 2)
+
 mode = sys.argv[1]
 assert mode in ("idle", "saturated")
 scroll_mode = os.environ.get("KIWI_INTERACTIVE_BENCH_SCROLL_MODE", "region")
@@ -79,7 +86,7 @@ while True:
                 continue
             if not data:
                 sys.exit(0)
-            assert data == b"x", "benchmark requires exactly one outstanding input"
+            assert data == b"x", f"benchmark requires exactly one outstanding input; received {len(data)} unexpected bytes"
             sequence += 1
             assert sequence <= 288
             if sequence == 1:

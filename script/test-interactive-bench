@@ -27,6 +27,12 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
     assert value["trials"] == [] and "stale" not in value
     assert value["failure"]["mode"] == "idle" and value["failure"]["trial"] == 1
     assert Path(value["failure"]["log"]).is_file()
+    child_log = Path(temporary) / "child-error.log"
+    child_error = subprocess.run([sys.executable, str(root / "script/interactive-bench-child"), "invalid"],
+                                 env=dict(os.environ, KIWI_INTERACTIVE_BENCH_CHILD_LOG=str(child_log)),
+                                 capture_output=True, timeout=5)
+    assert child_error.returncode != 0 and child_error.stderr == b""
+    assert "AssertionError" in child_log.read_text(), "fixture startup exception was lost"
     previous = report.read_bytes()
     for arguments in (["--trials", "0"], ["--samples", "257"], ["--warmup", "0", "--mode", "saturated"],
                       ["--samples", "256", "--interval-ms", "1000"], ["--interval-ms", "nan"],
