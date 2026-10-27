@@ -94,6 +94,7 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
           "soak_policy": {"minimum_seconds": args.soak_seconds, "max_rss_growth_mib": args.max_rss_growth_mib,
                           "max_heap_growth_mib": args.max_heap_growth_mib, "max_rss_mib": args.max_rss_mib,
                           "growth": "last-quarter minus first-quarter median of post-warmup presentation samples; no forced GC",
+                          "history": "resource samples include actual retained rows, pushes and evictions to distinguish capacity filling from steady-state growth; budgets remain unchanged",
                           "sampling": "bounded periodic observations on successful presents; no additional wake timer; CPU percent can exceed 100 on multiple cores"}}
 write_report(report_path, result)
 with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:

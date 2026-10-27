@@ -8,12 +8,23 @@ local function finite(value)
   return type(value) == "number" and value >= 0 and value < math.huge
 end
 
+local function copy_history(history)
+  if history == nil then return nil end
+  assert(type(history) == "table", "invalid history observation")
+  for _, name in ipairs({ "limit", "retained", "pushed", "evicted" }) do
+    assert(finite(history[name]) and history[name] % 1 == 0, "invalid history observation")
+  end
+  assert(history.retained <= history.limit and history.pushed == history.retained + history.evicted,
+    "inconsistent history observation")
+  return { limit = history.limit, retained = history.retained, pushed = history.pushed, evicted = history.evicted }
+end
+
 function Sustained.new(timeout)
   assert(finite(timeout) and timeout >= 30 and timeout <= 3600, "invalid sustained deadline")
   return setmetatable({ interval = timeout / (Sustained.maximum_samples - 2), values = {} }, Sustained)
 end
 
-function Sustained:observe(now, rss, heap, cpu, final)
+function Sustained:observe(now, rss, heap, cpu, final, history)
   assert(finite(now) and finite(rss) and finite(heap) and finite(cpu), "invalid resource observation")
   local previous = self.values[#self.values]
   if previous then
@@ -22,7 +33,8 @@ function Sustained:observe(now, rss, heap, cpu, final)
     if now == previous.at then return false end
   end
   assert(#self.values < Sustained.maximum_samples, "sustained sample limit exceeded")
-  self.values[#self.values + 1] = { at = now, rss_kib = rss, heap_kib = heap, cpu_seconds = cpu }
+  self.values[#self.values + 1] = { at = now, rss_kib = rss, heap_kib = heap, cpu_seconds = cpu,
+    history = copy_history(history) }
   return true
 end
 
@@ -47,7 +59,8 @@ function Sustained:snapshot()
   end
   for index, value in ipairs(self.values) do
     result.samples[index] = { elapsed_seconds = value.at - first.at, rss_kib = value.rss_kib,
-      heap_kib = value.heap_kib, cpu_seconds = value.cpu_seconds - first.cpu_seconds }
+      heap_kib = value.heap_kib, cpu_seconds = value.cpu_seconds - first.cpu_seconds,
+      history = copy_history(value.history) }
   end
   return result
 end
