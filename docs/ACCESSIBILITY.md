@@ -190,9 +190,31 @@ offsets and counts, bounds, empty text, and change-only notification scheduling.
 `make accessibility-smoke` runs the
 deterministic semantic checks and reports this macOS boundary.
 `make accessibility-provider-smoke` is intentionally an AT-SPI-only test and
-reports a skip on macOS. No automated check can establish spoken output or
-real VoiceOver navigation, so focus, selection, resize, and pane-change
-usability still need a manual VoiceOver session.
+reports a skip on macOS.
+
+`make cocoa-accessibility-smoke` opens one foreground Kiwi window with a controlled
+raw PTY child and queries it from a separate AX client. It verifies UTF-16 counts,
+emoji/combining substrings and composed ranges, plain attributed text, physical
+line ranges, visible and caret ranges, read-only state preservation under mutation requests, quiet
+notifications across unchanged PTY turns, and new text/caret notifications after
+actual child output. The child uses raw mode so desktop typing cannot echo into
+the expected text. The fixture requests that its owned window join the active
+Space; it does not change desktop preferences or read other applications.
+
+The client requires existing macOS accessibility permission. The script checks
+permission before opening a window, fails explicitly if it is unavailable, and
+never changes settings or starts VoiceOver. It retains JSON diagnostics
+and logs beneath `bench/results/cocoa-accessibility*`, stops its child and verifies
+application exit and reaping. The native text-contract tests run in `make check`
+and macOS CI; this external smoke needs a permitted graphical session and is not
+a required hosted-CI step. External AX protocol checks do not establish spoken
+output or real VoiceOver navigation. Focus, selection, resize and pane-change
+usability still need a VoiceOver session.
+
+On the tested AppKit version, a write to a non-settable AX text attribute can
+return transport success while leaving text and selection unchanged. The fixture
+records the result and verifies state preservation instead of treating the
+transport return code as proof of editability.
 
 ## M9 smoke evidence
 
