@@ -73,10 +73,15 @@ function Cell.clone(source)
   return Cell.expand(source)
 end
 
-function Cell.pack_row(row)
-  for column, cell in pairs(row.cells) do
-    if not Cell.is_compact(cell) then row.cells[column] = Cell.pack(cell) end
+-- When scrolling, detach the live cell array so the screen can reset and reuse
+-- it after history owns independent packed copies. Reflow only needs packing.
+function Cell.pack_row(row, detach)
+  local previous = row.cells
+  if detach then row.cells = {} end
+  for column, cell in pairs(previous) do
+    if detach or not Cell.is_compact(cell) then row.cells[column] = Cell.pack(cell) end
   end
+  if detach then return previous end
 end
 
 return Cell

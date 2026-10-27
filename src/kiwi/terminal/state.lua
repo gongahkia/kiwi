@@ -1054,12 +1054,13 @@ function State:scroll_up(count)
   end
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
     row.palette_generation = self.palette_generation
-    if self.scrollback.limit > 0 then Cell.pack_row(row) end
+    local cells = self.scrollback.limit > 0 and Cell.pack_row(row, true) or row.cells
     local evicted = self.scrollback:push(row)
     if evicted then
       self:release_command_regions(evicted)
       self:release_kitty_placement_row("primary", evicted)
     end
+    return cells
   end or nil
   local discard = preserve == nil and function(row)
     self:release_command_regions(row)
