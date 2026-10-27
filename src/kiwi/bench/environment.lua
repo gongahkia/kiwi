@@ -3,6 +3,28 @@ local Runtime = require("kiwi.runtime")
 
 local Environment = {}
 
+-- Call only after the timed workload has exited. This observes retained traces,
+-- not historical flushes, and installs no trace/profiler callbacks. Scan across
+-- holes left by collected traces; stored LuaJIT trace numbers are 16-bit.
+function Environment.jit_snapshot()
+  local util = require("jit.util")
+  local result = { traces = 0, maximum_trace = 0, machine_code_bytes = 0,
+    ir_instructions = 0, scan_limit = 65535, observation = "after workload exit" }
+  for number = 1, result.scan_limit do
+    local info = util.traceinfo(number)
+    if info then
+      result.traces = result.traces + 1
+      result.maximum_trace = number
+      result.ir_instructions = result.ir_instructions + info.nins
+      local code = util.tracemc(number)
+      if code then result.machine_code_bytes = result.machine_code_bytes + #code end
+    end
+  end
+  return result
+end
+-- Inspection must not compile its own enumeration loop or alter JIT mode.
+jit.off(Environment.jit_snapshot)
+
 local function file_text(path)
   local file = io.open(path, "r")
   if not file then

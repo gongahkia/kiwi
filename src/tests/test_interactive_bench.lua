@@ -3,6 +3,36 @@ local Interactive = require("kiwi.bench.interactive")
 local Terminal = require("kiwi.session.terminal")
 
 return {
+  post_workload_jit_snapshot_counts_sparse_traces_without_changing_jit_mode = function()
+    local Environment = require("kiwi.bench.environment")
+    local util = require("jit.util")
+    local original_info, original_mc = util.traceinfo, util.tracemc
+    local before = { jit.status() }
+    local visited, code_reads = 0, 0
+    util.traceinfo = function(number)
+      visited = visited + 1
+      if number == 2 or number == 65535 then return { nins = number == 2 and 10 or 20 } end
+    end
+    util.tracemc = function(number)
+      Assert.truthy(number == 2 or number == 65535)
+      code_reads = code_reads + 1
+      return number == 2 and "abc" or "defgh"
+    end
+    local ok, message = xpcall(function()
+      local result = Environment.jit_snapshot()
+      Assert.equal(visited, 65535)
+      Assert.equal(code_reads, 2)
+      Assert.equal(result.traces, 2)
+      Assert.equal(result.maximum_trace, 65535)
+      Assert.equal(result.ir_instructions, 30)
+      Assert.equal(result.machine_code_bytes, 8)
+      local after = { jit.status() }
+      Assert.equal(#after, #before)
+      for index, value in ipairs(before) do Assert.equal(after[index], value) end
+    end, debug.traceback)
+    util.traceinfo, util.tracemc = original_info, original_mc
+    assert(ok, message)
+  end,
   acknowledged_work_diagnostics_are_bounded_and_detached = function()
     local recorder = Interactive.new({ launched_at = 0, samples = 1, warmup = 0 })
     recorder:work("parse", 1, 0.5, 4096) -- No outstanding input: retain nothing.
