@@ -4,7 +4,62 @@ local Snapshot = require("kiwi.terminal.snapshot")
 local StateTransaction = require("kiwi.terminal.state_transaction")
 local Terminal = require("kiwi.session.terminal")
 
+local fields = { "glyph", "fg", "bg", "fg_slot", "bg_slot", "flags", "codepoints", "width",
+  "underline_style", "underline_color", "underline_slot", "continuation", "anchor_column", "display_text", "hyperlink_id" }
+
 return {
+  packed_history_preserves_style_and_transaction_isolation = function()
+    collectgarbage("collect")
+    local baseline = collectgarbage("count")
+    local terminal = Terminal.new({ columns = 80, rows = 24, state_options = { scrollback_limit = 512 } })
+    terminal:write("\27]8;;https://example.com\7\27[1;4:3;58:2::1:2:3m")
+    local line = string.rep("é", 64) .. "\r\n"
+    for _ = 1, 536 do terminal:write(line) end
+    local state = Terminal.state(terminal)
+    collectgarbage("collect")
+    local limit = 80 * (512 + 24) * 320 / 1024 + 512
+    Assert.truthy(collectgarbage("count") - baseline < limit, "styled history exceeded its Lua heap budget")
+    local history = state.scrollback:get(1).cells[0]
+    local live = state:get(0, 0)
+    for _, key in ipairs(fields) do
+      if key ~= "codepoints" then Assert.equal(history[key], live[key], key) end
+    end
+    Assert.equal(history.codepoints[1], 0xe9)
+    local staged = StateTransaction.new(state)
+    local copied = staged.state.scrollback:get(1).cells[0]
+    Assert.truthy(copied ~= history)
+    Assert.equal(copied.codepoints, history.codepoints)
+    copied.fg, copied.underline_color, copied.hyperlink_id = 42, nil, nil
+    Assert.truthy(history.fg ~= 42)
+    Assert.truthy(history.underline_color ~= nil)
+    Assert.truthy(history.hyperlink_id ~= nil)
+    staged:seal()
+    staged:commit()
+    Assert.equal(state.scrollback:get(1).cells[0].fg, 42)
+    terminal:resize(72, 21)
+    terminal:write("\27[H\27[0m\27]8;;\7A\204\129")
+    Assert.equal(state:get(0, 0).glyph, "Á")
+    Assert.equal(state:get(0, 0).underline_color, nil)
+    Assert.equal(state:get(0, 0).hyperlink_id, nil)
+    terminal:close()
+  end,
+  packed_and_plain_cells_copy_all_fields_in_both_directions = function()
+    local styled = { glyph = "界", fg = 12, bg = 34, flags = 56, width = 2, codepoints = { 0x754c },
+      underline_style = 3, underline_color = 78, underline_slot = 0, hyperlink_id = 90,
+      display_text = "display", continuation = false, anchor_column = 0 }
+    local plain = { glyph = "A", fg = 1, bg = 2, fg_slot = 0, bg_slot = 0, flags = 0,
+      width = 1, codepoints = { 65 } }
+    for _, pack in ipairs({ Cell.pack, Cell.expand }) do
+      for _, destination in ipairs({ Cell.pack(styled), Cell.expand(styled) }) do
+        local source = pack(styled)
+        Cell.copy_into(destination, source)
+        for _, key in ipairs(fields) do Assert.equal(destination[key], styled[key], key) end
+        Cell.copy_into(destination, pack(plain))
+        for _, key in ipairs(fields) do Assert.equal(destination[key], plain[key], key) end
+        Assert.equal(source.underline_color, 78)
+      end
+    end
+  end,
   cell_copy_preserves_renditions_and_clears_attributes_when_overwritten = function()
     local styled = { glyph = "界", fg = 12, bg = 34, flags = 56, width = 2, codepoints = { 0x754c },
       underline_style = 3, underline_color = 78, underline_slot = 0, hyperlink_id = 90,
@@ -15,7 +70,7 @@ return {
     local plain = { glyph = "A", fg = 1, bg = 2, fg_slot = 0, bg_slot = 0, flags = 0,
       width = 1, codepoints = { 65 } }
     Cell.copy_into(copy, plain)
-    for key, value in pairs(copy) do Assert.equal(value, plain[key], "stale cell field " .. key) end
+    for _, key in ipairs(fields) do Assert.equal(copy[key], plain[key], "stale cell field " .. key) end
     for key, value in pairs(plain) do Assert.equal(copy[key], value) end
     Assert.equal(styled.underline_color, 78)
   end,
@@ -26,8 +81,7 @@ return {
     local plain = state:get(0, 0)
     Assert.equal(plain.display_text, nil)
     local constructed = state:ascii_cell("A", plain.codepoints)
-    for key, value in pairs(constructed) do Assert.equal(value, plain[key]) end
-    for key, value in pairs(plain) do Assert.equal(value, constructed[key]) end
+    for _, key in ipairs(fields) do Assert.equal(constructed[key], plain[key]) end
     Assert.equal(Snapshot.value(state).rows[1].cells[1].cluster, nil)
     terminal:write("\204\129") -- Extend the compact ASCII anchor with U+0301.
     Assert.equal(state:get(0, 0).glyph, "Á")

@@ -1052,6 +1052,7 @@ function State:scroll_up(count)
   end
   local preserve = screen == self.primary and top == 0 and bottom == self.rows - 1 and function(row)
     row.palette_generation = self.palette_generation
+    if self.scrollback.limit > 0 then Cell.pack_row(row) end
     local evicted = self.scrollback:push(row)
     if evicted then
       self:release_command_regions(evicted)
@@ -2027,7 +2028,7 @@ function State:resize_primary_without_reflow(columns, rows, blank)
   for index = 1, self.scrollback:size() do
     local row = self.scrollback:get(index)
     for column = previous_columns, columns - 1 do
-      if row.cells[column] == nil then row.cells[column] = blank(self) end
+      if row.cells[column] == nil then row.cells[column] = Cell.pack(blank(self)) end
     end
   end
 end
@@ -2112,7 +2113,10 @@ function State:reflow_primary(columns, rows)
 
   local scrollback = Scrollback.new(self.scrollback.limit)
   local first_visible = math.max(1, #reflowed - rows + 1)
-  for index = 1, first_visible - 1 do scrollback:push(reflowed[index]) end
+  for index = 1, first_visible - 1 do
+    if scrollback.limit > 0 then Cell.pack_row(reflowed[index]) end
+    scrollback:push(reflowed[index])
+  end
   local target_row = 0
   for index = first_visible, #reflowed do
     primary.rows[target_row] = reflowed[index]
