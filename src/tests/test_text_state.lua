@@ -47,6 +47,29 @@ local function snapshot_with_chunks(input, chunks)
 end
 
 return {
+  terminal_text_rewriting_identical_unicode_preserves_cluster_extension = function()
+    for _, fixture in ipairs({
+      { "é", Utf8.encode(0x0301), 1 },
+      { Utf8.encode(0x2764), Utf8.encode(0xfe0f), 2 },
+      { Utf8.encode(0x0301), Utf8.encode(0x0300), 1 },
+    }) do
+      local state = State.new(6, 1)
+      local parser = Parser.new(state)
+      parser:feed(fixture[1])
+      local original = state:get(0, 0).codepoints
+      parser:feed("\r" .. fixture[1]) -- Same contents: no cell mutation needed.
+      Assert.equal(state:get(0, 0).codepoints, original)
+      for index = 1, #fixture[2] do parser:feed(fixture[2]:sub(index, index)) end
+      parser:finish()
+      local cell = state:get(0, 0)
+      Assert.equal(cell.glyph, fixture[1] .. fixture[2])
+      Assert.equal(#cell.codepoints, 2)
+      Assert.equal(#original, 1)
+      Assert.equal(cell.width, fixture[3])
+      Assert.equal(state.cursor.column, fixture[3])
+      assert_valid_spans(state, 0)
+    end
+  end,
   terminal_text_extends_a_cluster_across_parser_chunks = function()
     local state = State.new(6, 1)
     local parser = Parser.new(state)
