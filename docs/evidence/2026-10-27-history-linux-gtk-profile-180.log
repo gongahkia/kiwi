@@ -1,0 +1,32 @@
+libEGL warning: DRI3 error: Could not get DRI3 device
+libEGL warning: Ensure your X server supports DRI3 to get accelerated rendering
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/usr/bin/python3 grid=72x22 primary=/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf
+43%  C code
+  -- 90%  context.lua:278
+  --  3%  pump
+32%  Compiled
+  --  7%  pack_row
+  --  6%  has
+  --  6%  harfbuzz.lua:48
+  --  5%  blank_cell
+  --  5%  gcb
+  --  4%  build_runs
+  --  4%  append_glyph
+  --  3%  project
+  --  3%  set_ascii_cell
+19%  Garbage Collector
+  -- 22%  new_row
+  -- 14%  feed
+  -- 13%  shape_run
+  -- 13%  pack_row
+  --  8%  shape
+  --  7%  append
+  --  5%  harfbuzz.lua:48
+  --  3%  has
+ 5%  Interpreted
+  -- 21%  append_decorations
+  -- 13%  shape
+  --  8%  shape_run
+  --  7%  shape_row
+  --  5%  write_new_cluster
+  --  5%  scroll_up
