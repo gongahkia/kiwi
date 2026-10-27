@@ -705,6 +705,9 @@ Test-process instrumentation counts actual history pushes, returned evictions
 and peak retained rows. Completion requires exactly the configured retained
 capacity, at least one full capacity of evictions and consistent push accounting.
 A run with insufficient output fails even if its latency samples completed.
+Resource samples also record retained rows, pushes and evictions at the same
+presentation points. These counts distinguish buffer filling from post-capacity
+growth without changing the sampling schedule, memory gates or garbage collection.
 Counters survive failed trials. The hook adds work to history-mode measurements;
 compare only matching recorded scroll mode/capacity and instrumentation. Existing
 resource-growth, peak-RSS, visibility and two-second response gates still apply.
