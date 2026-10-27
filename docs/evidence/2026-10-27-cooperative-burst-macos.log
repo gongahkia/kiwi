@@ -1,0 +1,10 @@
+luajit: src/kiwi/bench/burst.lua:127: printable-10mib service turn 817.362ms exceeded 250.000ms
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/bench/burst.lua:127: in function 'run_case'
+	src/kiwi/bench/burst.lua:184: in main chunk
+	[C]: at 0x010ef91deb
+burst printable-1mib bytes=1048576 service=759 active=740 max-service=124.285ms p95=15.061ms elapsed=4441.4ms frame-slots=134 response=0 B heap=4259.4 KiB rss=11976.0 KiB parser=1048576 B/1048576 actions/0 errors
+burst mixed-ansi-1mib bytes=1118496 service=1086 active=1079 max-service=174.364ms p95=35.882ms elapsed=11672.5ms frame-slots=351 response=0 B heap=4099.6 KiB rss=2592.0 KiB parser=1118496 B/629154 actions/0 errors
+burst unicode-combining-cjk-emoji-fallback-128kib bytes=135940 service=136 active=132 max-service=44.354ms p95=18.944ms elapsed=1068.8ms frame-slots=33 response=0 B heap=4221.8 KiB rss=160.0 KiB parser=135940 B/72825 actions/0 errors
+burst response-interleaved-128kib bytes=131082 service=120 active=94 max-service=31.302ms p95=12.438ms elapsed=586.1ms frame-slots=18 response=6 B heap=4072.4 KiB rss=40.0 KiB parser=131082 B/131074 actions/0 errors

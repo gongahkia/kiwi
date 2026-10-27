@@ -47,6 +47,45 @@ local function snapshot_with_chunks(input, chunks)
 end
 
 return {
+  terminal_text_ascii_overwrites_do_not_allocate_per_character_records = function()
+    local state = State.new(80, 24, { scrollback_limit = 0 })
+    local function overwrite(count)
+      for _ = 1, count do
+        state:set_cursor(0, 0)
+        state:write_codepoint("A", 65)
+      end
+    end
+    overwrite(2000)
+    collectgarbage("collect")
+    collectgarbage("stop")
+    local before = collectgarbage("count")
+    local ok, message = xpcall(function() overwrite(20000) end, debug.traceback)
+    local allocated = collectgarbage("count") - before
+    collectgarbage("restart")
+    assert(ok, message)
+    -- Exclude scrolling/cell creation to isolate mutation of existing cells.
+    -- The previous REP bookkeeping allocated about 2 MiB in this workload.
+    Assert.truthy(allocated < 128, "ASCII overwrites allocated " .. allocated .. " KiB")
+    Assert.equal(state:get(0, 0).glyph, "A")
+    state:repeat_last_print(2)
+    Assert.equal(state:get(1, 0).glyph, "A")
+    Assert.equal(state:get(2, 0).glyph, "A")
+  end,
+  terminal_text_repeat_remembers_unicode_and_clears_on_resets = function()
+    local state = State.new(12, 2)
+    local parser = Parser.new(state)
+    parser:feed("界\27[2b")
+    for column = 0, 4, 2 do Assert.equal(state:get(column, 0).glyph, "界") end
+    parser:feed("\27[!p")
+    Assert.equal(state:repeat_last_print(1), false)
+    parser:feed("é\27[2b")
+    Assert.equal(state:get(0, 0).glyph, "é́́")
+    parser:feed("\27c")
+    Assert.equal(state:repeat_last_print(1), false)
+    parser:feed("\27#8\27[2b")
+    Assert.equal(state.cursor.column, 2)
+    Assert.equal(state:get(1, 0).glyph, "E")
+  end,
   terminal_text_rewriting_identical_unicode_preserves_cluster_extension = function()
     for _, fixture in ipairs({
       { "é", Utf8.encode(0x0301), 1 },

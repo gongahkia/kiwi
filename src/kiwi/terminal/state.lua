@@ -221,7 +221,9 @@ function State.new(columns, rows, options)
     kitty_graphics = KittyGraphics.new(options.kitty_graphics),
     kitty_placements = KittyPlacements.new(options.kitty_placements),
     next_hyperlink_id = 0,
-    last_print = nil,
+    -- REP needs only the last scalar. Avoid allocating a record per write.
+    last_print_glyph = nil,
+    last_print_codepoint = nil,
     max_repeat = options.max_repeat or 4096,
     character_sets = { g0 = "ascii", g1 = "ascii", gl = "g0" },
     stats = {
@@ -1407,7 +1409,7 @@ function State:write_codepoint(glyph, codepoint)
   local context = self.grapheme_context
   if codepoint >= 0x20 and codepoint <= 0x7e and (context == nil or context.last_gcb ~= GCB.prepend) then
     self:write_ascii_cluster(glyph, codepoint)
-    self.last_print = { codepoint = codepoint, glyph = glyph }
+    self.last_print_glyph, self.last_print_codepoint = glyph, codepoint
     return
   end
   local cell, context = self:current_grapheme_cluster()
@@ -1415,20 +1417,20 @@ function State:write_codepoint(glyph, codepoint)
     if counters then counters.grapheme_boundary_checks = (counters.grapheme_boundary_checks or 0) + 1 end
     if #context.codepoints < self.max_cluster_codepoints then
       self:extend_grapheme_cluster(cell, context, glyph, codepoint)
-      self.last_print = { codepoint = codepoint, glyph = glyph }
+      self.last_print_glyph, self.last_print_codepoint = glyph, codepoint
       return
     end
     self.stats.text.over_limit_clusters = self.stats.text.over_limit_clusters + 1
   end
   self:write_new_cluster(glyph, codepoint)
-  self.last_print = { codepoint = codepoint, glyph = glyph }
+  self.last_print_glyph, self.last_print_codepoint = glyph, codepoint
 end
 
 function State:repeat_last_print(count)
-  local previous = self.last_print
-  if previous == nil then return false end
+  local glyph, codepoint = self.last_print_glyph, self.last_print_codepoint
+  if glyph == nil then return false end
   count = math.min(count or 1, self.max_repeat)
-  for _ = 1, count do self:write_codepoint(previous.glyph, previous.codepoint) end
+  for _ = 1, count do self:write_codepoint(glyph, codepoint) end
   return true
 end
 
@@ -1881,7 +1883,7 @@ function State:reset()
   self.icon_title = nil
   self.title_stacks = { icon = {}, window = {} }
   self:set_pointer_shape("default")
-  self.last_print = nil
+  self.last_print_glyph, self.last_print_codepoint = nil, nil
   self:clear_selection()
   self:clear_search()
   self.history_offset = 0
@@ -1935,7 +1937,7 @@ function State:soft_reset()
   self:set_cursor(0, 0)
   self:sync_keyboard_flags()
   self:sync_cursor_visibility()
-  self.last_print = nil
+  self.last_print_glyph, self.last_print_codepoint = nil, nil
   self.damage:mark_all()
   self.text_damage:mark_all()
 end
@@ -1953,7 +1955,7 @@ function State:screen_alignment_test()
     self.active_screen.rows[row].wrapped = false
   end
   self:set_cursor(0, 0)
-  self.last_print = { codepoint = string.byte("E"), glyph = "E" }
+  self.last_print_glyph, self.last_print_codepoint = "E", string.byte("E")
 end
 
 function State:is_reflow_blank(cell)

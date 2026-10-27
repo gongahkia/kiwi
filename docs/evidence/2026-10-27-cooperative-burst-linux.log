@@ -1,0 +1,7 @@
+luajit: src/kiwi/bench/burst.lua:127: mixed-ansi-1mib service turn 255.056ms exceeded 250.000ms
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/bench/burst.lua:127: in function 'run_case'
+	src/kiwi/bench/burst.lua:184: in main chunk
+	[C]: at 0x55de59ab6120
+burst printable-1mib bytes=1048576 service=120 active=115 max-service=28.911ms p95=25.474ms elapsed=1683.1ms frame-slots=51 response=0 B heap=4247.7 KiB rss=12836.0 KiB parser=1048576 B/1048576 actions/0 errors

@@ -3,6 +3,7 @@ local Config = require("kiwi.config")
 local Reload = require("kiwi.app.configuration_reload")
 local Snapshot = require("kiwi.terminal.snapshot")
 local StateTransaction = require("kiwi.terminal.state_transaction")
+local State = require("kiwi.terminal.state")
 local Terminal = require("kiwi.session.terminal")
 local Workspace = require("kiwi.session.workspace")
 
@@ -52,6 +53,18 @@ local function setup()
 end
 
 return {
+  state_transaction_keeps_repeat_character_independent_until_activation = function()
+    local state = State.new(8, 2)
+    state:write_codepoint("A")
+    local transaction = StateTransaction.new(state)
+    transaction.state:write_codepoint("B")
+    state:repeat_last_print(1)
+    Assert.equal(state:get(1, 0).glyph, "A")
+    transaction:seal()
+    transaction:commit()
+    state:repeat_last_print(1)
+    Assert.equal(state:get(2, 0).glyph, "B")
+  end,
   palette_staging_copies_only_accessed_history_and_retains_selection = function()
     local terminal = Terminal.new({ columns = 8, rows = 2, state_options = { scrollback_limit = 32 } })
     for line = 1, 48 do terminal:write(string.format("%04d界\r\n", line)) end
