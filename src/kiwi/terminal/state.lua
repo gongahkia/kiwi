@@ -1297,7 +1297,9 @@ function State:write_new_cluster(glyph, codepoint)
   context.screen = self.active_screen
   context.row = row
   context.column = column
-  context.codepoints = codepoints
+  -- set_cell keeps the existing array when repainting identical contents.
+  -- Track that stored array so a following combining mark can still extend it.
+  context.codepoints = self.active_screen:get(column, row).codepoints
   context.last_gcb = gcb
   self.grapheme_context = context
   local right = self:write_right_boundary(cursor)
