@@ -9,24 +9,9 @@ local State = require("kiwi.terminal.state")
 local Stats = require("kiwi.bench.stats")
 local Utf8 = require("kiwi.terminal.utf8")
 local Burst = {}
-
-ffi.cdef[[
-struct timespec { long tv_sec; long tv_nsec; };
-int clock_gettime(int clock_id, struct timespec *tp);
-]]
-
-local clock_ids = {
-  Linux = 1,
-  OSX = 6,
-}
-local clock_monotonic = assert(clock_ids[ffi.os], "real-PTY burst benchmark requires a supported monotonic clock")
-local clock_description = "clock_gettime(CLOCK_MONOTONIC) monotonic wall time"
-
-local function monotonic_seconds()
-  local value = ffi.new("struct timespec[1]")
-  assert(ffi.C.clock_gettime(clock_monotonic, value) == 0, "clock_gettime(CLOCK_MONOTONIC) failed")
-  return tonumber(value[0].tv_sec) + tonumber(value[0].tv_nsec) / 1000000000
-end
+local Metrics = require("kiwi.bench.process_metrics")
+local monotonic_seconds = Metrics.monotonic_seconds
+local clock_description = "clock_gettime(" .. Metrics.clock_name() .. ") monotonic wall time"
 
 local function number_from_env(name, fallback)
   local value = tonumber(os.getenv(name))

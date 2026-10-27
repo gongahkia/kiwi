@@ -46,11 +46,16 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-report-test-") as temp
     # soak: a controlled child supplies complete, deliberately varied evidence.
     fake = Path(temporary) / "fake-luajit"
     payload = Path(temporary) / "payload.json"
-    fake.write_text("#!" + sys.executable + "\n" + '''import json, os
+    fake.write_text("#!" + sys.executable + "\n" + '''import json, os, sys, time
 from pathlib import Path
+clock = os.environ["KIWI_INTERACTIVE_BENCH_CLOCK"]
+assert clock == ("CLOCK_MONOTONIC_RAW" if sys.platform == "darwin" else "CLOCK_MONOTONIC")
+elapsed = time.clock_gettime(getattr(time, clock)) - float(os.environ["KIWI_INTERACTIVE_BENCH_LAUNCHED_AT"])
+assert 0 <= elapsed < 10, "parent/child clock domains differ"
 item = json.loads(Path(os.environ["TEST_BENCH_PAYLOAD"]).read_text())
 item["test_environment"] = {"timeout": float(os.environ["KIWI_INTERACTIVE_BENCH_TIMEOUT"]),
                             "interval": float(os.environ["KIWI_INTERACTIVE_BENCH_INTERVAL"]),
+                            "clock": clock,
                             "heap_measurement": os.environ["KIWI_INTERACTIVE_BENCH_HEAP_MEASUREMENT"]}
 Path(os.environ["KIWI_INTERACTIVE_BENCH_TRIAL_REPORT"]).write_text(json.dumps(item))
 raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
@@ -70,6 +75,7 @@ raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
     evidence = json.loads(report.read_text())
     assert evidence["status"] == "complete" and evidence["trial_timeout_seconds"] > 60
     assert evidence["trials"][0]["test_environment"]["interval"] == 60 / 19
+    assert evidence["methodology"]["clock"].startswith(evidence["trials"][0]["test_environment"]["clock"] + " in parent")
     for arguments in (["--max-rss-growth-mib", "1"], ["--max-heap-growth-mib", "0"], ["--max-rss-mib", "64"]):
         failed = subprocess.run(soak_command + arguments, env=environment, capture_output=True, timeout=5)
         evidence = json.loads(report.read_text())

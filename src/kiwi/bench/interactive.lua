@@ -81,7 +81,12 @@ function Interactive:parsed(sequence, now)
 end
 
 function Interactive:present(now, sequence)
-  assert(time(now) >= self.launched_at and (not self.last_present or now >= self.last_present), "presentation clock moved backwards")
+  time(now)
+  local previous = math.max(self.launched_at, self.last_present or self.launched_at)
+  if now < previous then
+    self.clock_failure = { observed_seconds = now, previous_seconds = previous, delta_seconds = now - previous }
+    error(string.format("presentation clock moved backwards: %.17g < %.17g (delta %.9g seconds)", now, previous, now - previous))
+  end
   self.first_present_at = self.first_present_at or now
   self.last_present = now
   if sequence == 0 then self.ready_at = self.ready_at or now; return false end
@@ -138,6 +143,10 @@ function Interactive:observations()
     warmup = self.warmup, completed = self.completed, sent = self.sent,
     launch_to_first_present_return_ms = self.first_present_at and (self.first_present_at - self.launched_at) * 1000,
     launch_to_child_ready_present_return_ms = self.ready_at and (self.ready_at - self.launched_at) * 1000 }
+  if self.clock_failure then
+    result.clock_failure = {}
+    for name, value in pairs(self.clock_failure) do result.clock_failure[name] = value end
+  end
   result.pending_acknowledgment = pending_observation(self.pending, self.last_present)
   result.slowest_acknowledgment = pending_observation(self.slowest_acknowledgment,
     self.slowest_acknowledgment and self.slowest_acknowledgment.presented_at)

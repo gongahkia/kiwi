@@ -1,3 +1,6 @@
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE 1
+#endif
 #define _POSIX_C_SOURCE 200809L
 #include <stdint.h>
 #include <stdio.h>
@@ -28,6 +31,20 @@ uint64_t kiwi_process_resident_bytes(void) {
 
 double kiwi_process_monotonic_seconds(void) {
   struct timespec value;
+#ifdef __APPLE__
+  /* Darwin CLOCK_MONOTONIC is calendar/boot-time based and microsecond-grained.
+   * The raw continuous clock is unadjusted and includes system sleep. */
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &value) != 0) return -1;
+#else
   if (clock_gettime(CLOCK_MONOTONIC, &value) != 0) return -1;
+#endif
   return (double)value.tv_sec + (double)value.tv_nsec / 1000000000.0;
+}
+
+const char *kiwi_process_monotonic_clock(void) {
+#ifdef __APPLE__
+  return "CLOCK_MONOTONIC_RAW";
+#else
+  return "CLOCK_MONOTONIC";
+#endif
 }

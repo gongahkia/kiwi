@@ -521,7 +521,7 @@ selects an explicit report path; its parent directory must already exist.
 `make test-burst-bench` exercises these paths with real PTY children, including
 service/heap rejection, truncated output, snapshot/response failures, nonzero
 child exit, parser/setup errors and timeout cleanup. It is part of `make check`.
-The harness measures elapsed and per-service-turn time with `clock_gettime(CLOCK_MONOTONIC)`, using the platform ABI value for Linux or macOS. Its JSON metadata explicitly identifies this as monotonic wall time; it is not the `os.clock` CPU timer used by the in-memory component suite. The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
+The harness measures elapsed and per-service-turn time through the native process clock: `CLOCK_MONOTONIC` on Linux and `CLOCK_MONOTONIC_RAW` on macOS. Its JSON metadata explicitly identifies this as monotonic wall time; it is not the `os.clock` CPU timer used by the in-memory component suite. The harness records a service-time distribution, maximum turn, output count, parser counters, retained Lua heap/RSS deltas, and canonical final snapshots for the printable and mixed streams. It also proves that a terminal-generated response was written while output was active. `frame_deadline_slots_serviced_while_output_active` is a headless 30 Hz scheduling proxy, not a presented-frame count; presentation is not measurable without creating a native window.
 
 On the representative host, the 4 KiB-bounded 10 MiB printable run completed in 15.463 s with a 13.479 ms p95 service turn, a 30.208 ms maximum, and 4.158 MiB retained Lua heap growth. The 1 MiB ANSI-mixed stream had a 20.054 ms p95 and 35.103 ms maximum. These observations are not threshold values; the explicit limits above are the regression checks.
 
@@ -586,8 +586,14 @@ KIWI_HOST=gtk xvfb-run -a ./script/bench-interactive --report bench/results/inte
 make test-interactive-bench
 ```
 
-The parent records `CLOCK_MONOTONIC` immediately before creating each process.
-The child-side native clock uses the same clock domain. Startup ends at the
+The parent records `CLOCK_MONOTONIC` on Linux or `CLOCK_MONOTONIC_RAW` on macOS
+immediately before creating each process. The child checks that its native
+clock name matches the parent. Darwin's raw continuous clock includes sleep
+and avoids its calendar/boot-time-based, microsecond-resolution
+`CLOCK_MONOTONIC` path; see [Apple's implementation](https://github.com/apple-oss-distributions/Libc/blob/main/gen/clock_gettime.c).
+Reports record the clock in configuration, and relative comparison refuses
+mixed clock domains. Backwards timestamps still fail; diagnostics retain the
+negative delta and report precise observed/reference values in the error. Startup ends at the
 first successful presentation return; a second marker requires the controlled
 child's readiness text in the visible model. This measures a fresh application
 process with normal filesystem/driver caches and a fixed Python child, not a
