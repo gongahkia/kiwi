@@ -1061,7 +1061,20 @@ h1 .ascii-wordmark {
   }
 }
 
-.maker-credit { margin: 0; line-height: 44px; }
-.maker-credit a { display: inline-block; min-height: 44px; color: var(--ink); }
-.copyright-line { margin: 0; }
-@media (max-width: 760px) { .booth-intro h1 { margin-bottom: 20px; } }
+.maker-credit {
+  margin: 0;
+  line-height: 44px;
+}
+.maker-credit a {
+  display: inline-block;
+  min-height: 44px;
+  color: var(--ink);
+}
+.copyright-line {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .booth-intro h1 {
+    margin-bottom: 20px;
+  }
+}
