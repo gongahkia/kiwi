@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -126,9 +126,20 @@ try {
   await page.getByRole("link", { name: "Save photo 1 as PNG" }).click();
   const download = await downloadEvent;
   assert.match(download.suggestedFilename(), /strok-photo-001\.png/);
+  const png = await readFile(await download.path());
+  assert.equal(png.subarray(1, 4).toString(), "PNG");
+  assert.equal(
+    png.readUInt32BE(16),
+    1200,
+    "PNG is redrawn at export resolution",
+  );
   const textDownloadEvent = page.waitForEvent("download");
   await page.getByRole("link", { name: "Save photo 1 as text" }).click();
-  assert.match((await textDownloadEvent).suggestedFilename(), /\.txt$/);
+  const textDownload = await textDownloadEvent;
+  assert.match(textDownload.suggestedFilename(), /\.txt$/);
+  const text = await readFile(await textDownload.path(), "utf8");
+  assert.equal(text.split("\n").length, 36);
+  assert.ok(text.split("\n").every((line) => [...line].length === 96));
   await page.locator("#capture-format").click();
   await page.locator("#shutter").click();
   await page.waitForFunction(
@@ -210,23 +221,19 @@ try {
     }),
     "base64",
   );
-  await page
-    .locator("#file")
-    .setInputFiles({
-      name: "portrait.png",
-      mimeType: "image/png",
-      buffer: pngBuffer,
-    });
+  await page.locator("#file").setInputFiles({
+    name: "portrait.png",
+    mimeType: "image/png",
+    buffer: pngBuffer,
+  });
   await page.waitForFunction(
     () => document.querySelector("#source-label").textContent === "YOUR PHOTO",
   );
-  await page
-    .locator("#file")
-    .setInputFiles({
-      name: "broken.png",
-      mimeType: "image/png",
-      buffer: Buffer.from("not an image"),
-    });
+  await page.locator("#file").setInputFiles({
+    name: "broken.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("not an image"),
+  });
   await page.waitForFunction(() =>
     document.querySelector("#notice").textContent.includes("couldn’t open"),
   );
@@ -275,6 +282,36 @@ try {
     "DEMO STUDIO",
   );
   await denied.close();
+
+  const lateCamera = await browser.newContext({ permissions: ["camera"] });
+  await lateCamera.addInitScript(() => {
+    window.__testStreams = [];
+    const original = navigator.mediaDevices.getUserMedia.bind(
+      navigator.mediaDevices,
+    );
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await original(constraints);
+      window.__testStreams.push(stream);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return stream;
+    };
+  });
+  const latePage = await open(lateCamera);
+  await latePage.locator("#camera").click();
+  await latePage.locator("#demo").click();
+  await latePage.waitForFunction(
+    () =>
+      window.__testStreams.length > 0 &&
+      window.__testStreams.every((stream) =>
+        stream.getTracks().every((track) => track.readyState === "ended"),
+      ),
+  );
+  assert.equal(
+    await latePage.locator("#source-label").textContent(),
+    "DEMO STUDIO",
+    "late camera approval cannot replace a newer source",
+  );
+  await lateCamera.close();
 
   const failure = await browser.newContext();
   const failurePage = await failure.newPage();
@@ -332,7 +369,10 @@ try {
   await browser.close();
   browser = null;
 
-  browser = await webkit.launch({ headless: true });
+  browser = await webkit.launch({
+    headless: true,
+    executablePath: process.env.WEBKIT_EXECUTABLE_PATH || undefined,
+  });
   const safari = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,

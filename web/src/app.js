@@ -751,7 +751,9 @@ async function initialize() {
   );
   try {
     const fontReady = document.fonts.load('16px "Strok Mono"').catch(() => {
-      fatal("The character font could not load. Check your connection and reload the booth.");
+      fatal(
+        "The character font could not load. Check your connection and reload the booth.",
+      );
     });
     worker = new Worker(new URL("./worker.js", import.meta.url), {
       type: "module",

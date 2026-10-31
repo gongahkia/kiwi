@@ -1,0 +1,95 @@
+name: Photobooth / GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "src/**"
+      - "include/**"
+      - "cmake/StrokCoreSources.cmake"
+      - "share/strok/charsets/**"
+      - "share/strok/noise/**"
+      - ".github/workflows/photobooth.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - "src/**"
+      - "include/**"
+      - "cmake/StrokCoreSources.cmake"
+      - "share/strok/charsets/**"
+      - "share/strok/noise/**"
+      - ".github/workflows/photobooth.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      EMSCRIPTEN_VERSION: "4.0.23"
+      EM_CACHE: ${{ github.workspace }}/.cache/emscripten-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Cache Emscripten ports
+        uses: actions/cache@v4
+        with:
+          path: .cache/emscripten-cache
+          key: emscripten-${{ runner.os }}-4.0.23-freetype-v1
+      - name: Install pinned WebAssembly toolchain
+        run: |
+          git clone --depth 1 --branch "$EMSCRIPTEN_VERSION" https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install "$EMSCRIPTEN_VERSION"
+          "$RUNNER_TEMP/emsdk/emsdk" activate "$EMSCRIPTEN_VERSION"
+          echo "EMSDK=$RUNNER_TEMP/emsdk" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/emsdk/upstream/emscripten" >> "$GITHUB_PATH"
+      - name: Install browser test dependencies
+        run: npm ci --prefix web
+      - name: Build the C++ renderer and static website
+        run: npm run build --prefix web
+      - name: Check renderer and browser model
+        run: npm test --prefix web
+      - name: Install Chromium and WebKit
+        working-directory: web
+        run: npx playwright install --with-deps chromium webkit
+      - name: Exercise desktop and mobile photobooth
+        run: npm run test:browser --prefix web
+      - name: Retain browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photobooth-browser-checks
+          path: web/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Package GitHub Pages website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: photobooth-pages
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy the verified website
+        id: deployment
+        uses: actions/deploy-pages@v4
