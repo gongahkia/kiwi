@@ -107,41 +107,7 @@ endif()
 # The CPU reconstruction seam is ColorImageView/Frame -> CellBuffer. Keep this list free of
 # media acquisition, playback, terminal lifecycle, and output emitters so it
 # can become an independently linked core target without moving source files.
-set(STROK_RENDERER_CORE_SOURCES
-  src/candidate_scoring.cpp
-  src/block_sad.cpp
-  src/braille_renderer.cpp
-  src/ansi_transition_cost.cpp
-  src/crosshatch.cpp
-  src/etf.cpp
-  src/frame_sampling.cpp
-  src/glyph_font.cpp
-  src/glyph_hog.cpp
-  src/glyph_kdtree.cpp
-  src/glyph_ramp.cpp
-  src/glyph_sdf.cpp
-  src/glyph_shape.cpp
-  src/gpu_backend.cpp
-  src/halfblock_renderer.cpp
-  src/hysteresis.cpp
-  src/kuwahara.cpp
-  src/lic.cpp
-  src/line_ligatures.cpp
-  src/luminance.cpp
-  src/octant_renderer.cpp
-  src/optical_flow.cpp
-  src/posterize.cpp
-  src/render_api.cpp
-  src/render_graph.cpp
-  src/render_layout.cpp
-  src/renderer.cpp
-  src/sextant_renderer.cpp
-  src/stipple.cpp
-  src/structure_edges.cpp
-  src/structure_overlay.cpp
-  src/structure_sampling.cpp
-  src/warp_history.cpp
-)
+include(cmake/StrokCoreSources.cmake)
 
 set(STROK_GPU_ACCELERATION_SOURCES
   ${STROK_GPU_SOBEL_SOURCE}

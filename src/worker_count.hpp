@@ -20,11 +20,18 @@ inline std::optional<int> configuredWorkerLimit() {
 }
 
 inline int boundedWorkerCount(int fallback) {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+  // The browser frontend already runs in a dedicated Web Worker. A serial core
+  // needs no SharedArrayBuffer or cross-origin isolation headers on static hosts.
+  (void)fallback;
+  return 1;
+#else
   const std::optional<int> configured = configuredWorkerLimit();
   if (!configured.has_value()) {
     return fallback;
   }
   return std::max(1, std::min(fallback, *configured));
+#endif
 }
 
 }  // namespace strok
