@@ -1,4 +1,4 @@
-name: Photobooth / GitHub Pages
+name: Strok Photobooth GitHub Pages Deploy
 
 on:
   push:
