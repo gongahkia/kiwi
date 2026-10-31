@@ -112,6 +112,7 @@ try {
   }
   await changedFrame(page, () => page.locator("#detail").fill("144"));
   assert.match(await page.locator("#render-label").textContent(), /144 × 54/);
+  await changedFrame(page, () => page.locator('[data-effect="0"]').click());
   await page.locator("summary").click();
   await changedFrame(page, () => page.locator("#edge").fill("80"));
   await changedFrame(page, () => page.locator("#contrast").fill("25"));

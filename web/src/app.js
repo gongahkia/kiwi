@@ -88,6 +88,10 @@ function updateButtons() {
     ".controls fieldset button, .controls fieldset input, #mirror, #demo",
   ))
     element.disabled = !ready || capturing;
+  const structural = options.effect === 0 || options.effect === 2;
+  $("edge").disabled = !ready || capturing || !structural;
+  $("contrast").disabled = !ready || capturing || !structural;
+  $("stable").disabled = !ready || capturing || options.effect !== 0;
   $("shutter-label").textContent = capturing
     ? "Cancel"
     : strip
@@ -746,7 +750,9 @@ async function initialize() {
     45000,
   );
   try {
-    const fontReady = document.fonts.load('16px "Strok Mono"');
+    const fontReady = document.fonts.load('16px "Strok Mono"').catch(() => {
+      fatal("The character font could not load. Check your connection and reload the booth.");
+    });
     worker = new Worker(new URL("./worker.js", import.meta.url), {
       type: "module",
     });

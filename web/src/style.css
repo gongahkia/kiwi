@@ -8,7 +8,7 @@
 :root {
   --paper: #f4f2ec;
   --ink: #242720;
-  --muted: #6a6c62;
+  --muted: #606359;
   --rule: #d7d7cd;
   --accent: #c54c32;
   --mono: "Strok Mono", monospace;
@@ -44,7 +44,7 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.45;
 }
 button {
