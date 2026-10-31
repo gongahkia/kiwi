@@ -158,6 +158,24 @@ int main() {
   expect(custom_charset.succeeded(), "custom charset construction");
   expect(custom_charset.renderer->render(whiteFrame()).succeeded() && custom_charset.renderer->cells().at(0, 0).glyph == U'1', "custom charset render");
 
+  for (const char* style : {"hatch", "flow"}) {
+    for (const double stickiness : {0.0, 0.05}) {
+      strok::RendererConfig styled_config;
+      styled_config.mode = "structure";
+      styled_config.style = style;
+      styled_config.glyph_stickiness = stickiness;
+      auto styled = strok::Renderer::create(styled_config, structure_grid);
+      expect(styled.succeeded(), "styled persistent renderer construction");
+      for (int frame_index = 0; frame_index < 2; ++frame_index) {
+        const auto result = styled.renderer->render(structure_frame);
+        expect(result.succeeded() && result.stats.graph_topology_reuses == 1,
+               "styled temporal callbacks match the persistent graph topology");
+      }
+      styled.renderer->reset();
+      expect(styled.renderer->render(structure_frame).succeeded(), "styled renderer reset");
+    }
+  }
+
   if (const std::optional<std::filesystem::path> font_path = firstExistingFont(); font_path.has_value()) {
     const strok::Renderer::CreateResult font_renderer = strok::Renderer::create(strok::RendererConfig{
                                                                                    .cell_aspect = 1.0,

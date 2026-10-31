@@ -1366,7 +1366,10 @@ RenderResult renderFrame(const RenderInput& input, std::u32string_view ramp, con
         }
       },
     });
-    if (glyph_hysteresis_enabled || motion_flow_enabled) {
+    // Hatch replaces the shape/flow overlay and never consumes optical flow.
+    // Keep callbacks aligned with the immutable schedule built at creation.
+    if ((glyph_hysteresis_enabled && !hatch_enabled && !flow_enabled) ||
+        (motion_flow_enabled && !hatch_enabled)) {
       passes->push_back(Pass{
         .id = "optical-flow",
         .inputs = {renderPort("structure-luminance", BufferKind::LuminanceField)},
