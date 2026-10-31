@@ -65,17 +65,17 @@ configuration is needed.
 
 ## Visitor experience
 
-- The initial generated still life demonstrates the actual C++ renderer without
+- The initial generated solar-system demo demonstrates the actual C++ renderer without
   requesting a camera or downloading any photo.
 - Start/stop the camera, switch front/rear cameras when available, and mirror
   the preview. Camera permission is requested only after the visitor clicks.
 - Upload a local image. It stays on the device. Uploads are fitted to 4:3,
   preserving the whole image; camera previews fill the viewfinder.
 - Choose structure, classic luminance, crosshatch, Braille, half blocks, or
-  stipple. Pick original colors, paper, amber, phosphor green, or pink/plum.
+  stipple. Pick original colors, paper, amber, phosphor green, pink/plum, or a custom color from the dropper.
 - Set character density, edge sensitivity and contrast. Temporal glyph
-  stabilization can be disabled. Freeze the preview or reset the look.
-- Capture a single photo or a three-frame strip with a 0/3/5/10-second timer.
+  stabilization can be disabled. Reset the look at any time.
+- Capture a single photo or a two-, three-, or four-frame strip with a 0/3/5/10-second timer.
   Further strip frames have at least a one-second gap. Click Cancel or press
   Escape during a countdown to discard the incomplete capture.
 - Save a framed PNG or the Unicode character grid as `.txt`. Share the PNG on
@@ -110,7 +110,7 @@ allocating native input memory every frame. The worker returns a packed copy of
 the output cells. Canvas painting and palette choices live in the frontend.
 
 Analysis resolution is bounded to 288×216, character grids to 144×54. Single
-photo PNGs are 1200 pixels wide; three-photo strips are 720 pixels wide. Export
+photo PNGs are 1200 pixels wide; photo strips are 720 pixels wide. Export
 redraws the captured cells rather than upscaling a viewfinder screenshot. The
 actual preview rate depends on the device, effect and density; no fixed mobile
 frame rate is promised.
@@ -136,7 +136,7 @@ effects with embedded assets, invalid inputs, temporal reset and repeated
 renderer lifecycles.
 
 Browser tests cover all six textures, palettes, density/advanced controls,
-freeze, shutter/strip/cancellation, PNG and text downloads, camera switching and
+shutter/strip/cancellation, PNG and text downloads, camera switching and
 track release with Chromium's fake camera, valid/invalid uploads, camera denial,
 missing WASM recovery, reduced motion, WCAG AA checks, and 320/390/768-pixel
 layouts. A WebKit mobile viewport also exercises rendering and capture. Tests
@@ -164,3 +164,74 @@ cmake --build build/core-check --parallel --target \
 ctest --test-dir build/core-check --output-on-failure \
   -R '^(core_consumer|renderer_lifecycle|renderer_isolation|renderer_config|c_api_lifecycle|reconstruction_baseline|temporal_stability)$'
 ```
+
+## Interface
+
+The booth uses a compact control column beside the character preview on desktop,
+with Blocks, original colors and maximum character density (144 columns) as the defaults. The block-character Strok
+wordmark scales to the control column width. Bracketed texture selections and
+monospaced labels carry the character art into the interface. Color palettes
+remain available without changing the surrounding interface. On phones, camera
+controls appear before the viewfinder, with texture and color choices below it.
+The page has no navigation header, footer, promotional copy or freeze/demo controls.
+The browser tab is titled Strok and uses an empty favicon.
+
+Interface typography uses Cozette Vector v1.30.0, the browser-compatible outline
+of the Cozette bitmap font. It is bundled locally under the MIT license; its
+copyright and license are in `web/assets/Cozette-LICENSE.txt`. Source:
+https://github.com/the-moonwitch/Cozette/releases/tag/v.1.30.0.
+Source Code Pro remains the renderer/canvas glyph font so native shape matching
+and painted character shapes continue to agree. The interface background and
+paper palette use warm off-white (`#f4f1e8`).
+
+The generated demo starts at Saturn and cycles through Mercury, Venus, Earth,
+Mars, Jupiter, Uranus and Neptune, spending ten seconds on each planet with a
+1.4-second crossfade. Procedural surfaces rotate under directional lighting;
+Saturn has rings drawn behind and in front of the sphere. These are stylized
+illustrations rather than astronomical textures. Reduced motion holds Saturn
+still. No remote assets are needed. Only the grid dimensions remain overlaid
+at the bottom right; the source and study-number badges are removed.
+
+The dropper after the pink palette opens the browser color picker. A custom
+color tints the character output against a dark background and is saved with
+each capture, including PNG exports. Selecting a preset restores that palette;
+Reset restores Blocks, Original and 144 columns. The capture format button
+cycles Single → Strip ×2 → Strip ×3 → Strip ×4 → Single. Each strip frame uses
+the selected timer, with at least a one-second gap after the first frame.
+
+### Mobile capture flow
+
+At widths up to 760px, timer, shutter and strip count stay in a fixed bottom bar
+with safe-area padding. Page content reserves space below the bar. Tapping the
+shutter returns to the viewfinder before the countdown; strip countdowns show
+the current photo number. A completed capture brings the contact sheet into
+view and focuses the new PNG download. Preview and settings DOM order follows
+the mobile visual order and returns to the desktop order across the breakpoint.
+
+Mobile effect choices use two columns and controls have at least 44px-tall touch
+targets. Saved photos use one column with bounded preview heights and larger
+save/share actions. Landscape hides the large wordmark and constrains the viewfinder height so the preview fits above the shutter dock. Browsers without
+element fullscreen use an expanded viewfinder that closes from its button or
+Escape. The fixed capture bar is below the expanded viewfinder's stacking level.
+
+Browser checks cover fixed-shutter visibility while editing, touch-target
+heights, fullscreen fallback, strip progress/cancellation, capture-to-save focus,
+layout at 320/390/768px and WCAG AA checks. Screenshots additionally inspect
+320×568 portrait and 740×390 landscape. Physical camera permissions, operating
+system sharing sheets, hardware heat and battery behavior still require real
+iOS/Android device testing.
+
+### Capture delivery animation
+
+A completed capture briefly jitters the viewfinder, feeds a receipt from a bottom
+print slot in 24 steps, settles it, and slides it into the new gallery position.
+The sequence takes about two seconds. The PNG and text are saved before motion
+starts; interruption (including Escape or hiding the tab) reveals the saved card
+and removes the temporary paper/slot. Controls cannot start another capture while
+delivery is running. Reduced motion skips this sequence entirely. The mobile
+instruction and strip icon remain visible. Capture success banners, the contact
+sheet label and the gallery's explanatory copy have been removed.
+
+Browser checks cover the four print phases, overlay cleanup, interrupting a print
+without losing the photo, and a full-motion WebKit mobile delivery. The animation
+was also inspected at 10% playback speed in Chromium.

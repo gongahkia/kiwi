@@ -2,6 +2,7 @@ import {
   DEFAULTS,
   EFFECTS,
   PALETTES,
+  resolvePalette,
   normalizeOptions,
   rendererOptions,
   cellsToText,
@@ -10,6 +11,7 @@ import {
 } from "./model.js";
 import { paintCells, makePrint } from "./paint.js";
 import { paintDemo } from "./demo.js";
+import { deliverPrint } from "./print-delivery.js";
 
 const $ = (id) => document.getElementById(id);
 const output = $("output"),
@@ -32,7 +34,8 @@ let epoch = 0,
   frameId = 0,
   lastFrame = null,
   captureController = null,
-  strip = false;
+  frameCount = 1,
+  delivering = false;
 let renderTime = 80,
   loopTimer,
   frameTimeout,
@@ -42,6 +45,27 @@ let renderTime = 80,
 const gallery = [];
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let worker;
+const demoStartedAt = performance.now();
+const mobileLayout = matchMedia("(max-width: 760px)");
+
+// Keep the reading and tab order aligned with the mobile visual order.
+function arrangeMobilePreview() {
+  const finder = document.querySelector(".viewfinder-column");
+  if (mobileLayout.matches)
+    document.querySelector(".effect-field").before(finder);
+  else document.querySelector(".booth-layout").append(finder);
+}
+arrangeMobilePreview();
+mobileLayout.addEventListener("change", arrangeMobilePreview);
+
+function showMobilePreview() {
+  if (
+    mobileLayout.matches &&
+    !$("viewfinder").classList.contains("expanded") &&
+    !document.fullscreenElement
+  )
+    $("viewfinder").scrollIntoView({ block: "start", behavior: "instant" });
+}
 
 function notify(message = "", kind = "info") {
   $("notice").textContent = message;
@@ -50,28 +74,16 @@ function notify(message = "", kind = "info") {
 }
 
 function setSourceLabels() {
-  $("source-label").textContent =
-    source === "camera"
-      ? "LIVE CAMERA"
-      : source === "photo"
-        ? "YOUR PHOTO"
-        : "DEMO STUDIO";
-  $("source-dot").classList.toggle("live", source === "camera");
+  output.dataset.source = source;
   $("camera-label").textContent = cameraPending
     ? "Opening camera…"
     : source === "camera"
       ? "Stop camera"
       : "Start camera";
   $("camera-tools").hidden = source !== "camera";
-  $("preview-info").textContent =
-    source === "camera"
-      ? "Live from your camera. Never leaves this device."
-      : source === "photo"
-        ? "Your photo, processed on this device."
-        : "A generated demo. Your camera is off.";
   output.setAttribute(
     "aria-label",
-    `${EFFECTS[options.effect]} character art preview from ${source === "camera" ? "your camera" : source === "photo" ? "your uploaded photo" : "a generated animated still life"}.`,
+    `${EFFECTS[options.effect]} character art preview from ${source === "camera" ? "your camera" : source === "photo" ? "your uploaded photo" : `a generated ${output.dataset.planet || "Saturn"} demo`}.`,
   );
 }
 
@@ -80,26 +92,23 @@ function updateButtons() {
   $("camera").disabled = !ready || capturing || cameraPending;
   $("upload").disabled = !ready || capturing;
   $("switch-camera").disabled = !ready || capturing || cameraPending;
-  $("pause").disabled = !ready || !lastFrame || capturing;
-  $("shutter").disabled = !ready || !lastFrame;
+  $("shutter").disabled = !ready || !lastFrame || delivering;
+  $("clear-photos").disabled = delivering;
   $("capture-format").disabled = capturing;
   $("timer").disabled = capturing;
   for (const element of document.querySelectorAll(
-    ".controls fieldset button, .controls fieldset input, #mirror, #demo",
+    ".controls fieldset button, .controls fieldset input, #mirror",
   ))
     element.disabled = !ready || capturing;
   const structural = options.effect === 0 || options.effect === 2;
   $("edge").disabled = !ready || capturing || !structural;
   $("contrast").disabled = !ready || capturing || !structural;
   $("stable").disabled = !ready || capturing || options.effect !== 0;
-  $("shutter-label").textContent = capturing
-    ? "Cancel"
-    : strip
-      ? "Take a photo strip"
-      : "Take a photo";
-  $("pause").setAttribute("aria-pressed", String(paused));
-  $("pause-label").textContent = paused ? "Unfreeze" : "Freeze";
-  $("pause-symbol").textContent = paused ? "▷" : "Ⅱ";
+  $("shutter-label").textContent = delivering
+    ? "Printing…"
+    : capturing
+      ? "Cancel"
+      : "Snap a pic";
   setSourceLabels();
 }
 
@@ -278,7 +287,10 @@ function prepareSource() {
     input.height = height;
   }
   if (source === "demo") {
-    paintDemo(input, reducedMotion ? 1.8 : performance.now() / 1000);
+    output.dataset.planet = paintDemo(
+      input,
+      reducedMotion ? 0 : (performance.now() - demoStartedAt) / 1000,
+    );
     return;
   }
   const item = source === "camera" ? video : photo;
@@ -412,9 +424,9 @@ async function awaitCurrentFrame(signal) {
 async function countdown(seconds, signal, shot, total) {
   for (let remaining = seconds; remaining > 0; remaining--) {
     $("countdown").hidden = false;
-    $("countdown").textContent = String(remaining);
-    if (total > 1)
-      $("study-number").textContent = `strip / ${shot} of ${total}`;
+    $("countdown-value").textContent = String(remaining);
+    $("capture-progress").textContent =
+      total > 1 ? `Photo ${shot} of ${total}` : "";
     await delay(1000, signal);
   }
   $("countdown").hidden = true;
@@ -438,9 +450,10 @@ async function capture() {
   if (!ready || !lastFrame) return;
   const controller = new AbortController(),
     { signal } = controller;
+  showMobilePreview();
   captureController = controller;
   const frames = [],
-    total = strip ? 3 : 1,
+    total = frameCount,
     look = { ...options };
   updateButtons();
   notify();
@@ -485,16 +498,27 @@ async function capture() {
       ),
       effect: EFFECTS[look.effect],
       strip: total > 1,
+      frames: total,
       filename: `strok-${total > 1 ? "strip" : "photo"}-${String(number).padStart(3, "0")}.png`,
     };
     gallery.unshift(entry);
     if (gallery.length > 12) releaseEntry(gallery.pop());
     renderGallery();
-    notify(
-      total > 1
-        ? "Three little moments, one photo strip. Your strip is ready below."
-        : "A little more character, captured. Your photo is ready below.",
-    );
+    delivering = true;
+    $("gallery").inert = true;
+    $("gallery").setAttribute("aria-busy", "true");
+    updateButtons();
+    await deliverPrint({
+      url: entry.url,
+      width: canvas.width,
+      height: canvas.height,
+      card: $("gallery").firstElementChild,
+      signal,
+      reducedMotion,
+    });
+    if (mobileLayout.matches) {
+      $("photos").scrollIntoView({ block: "start", behavior: "instant" });
+    }
   } catch (error) {
     if (error.name === "AbortError")
       notify("Capture cancelled. Ready when you are.");
@@ -504,10 +528,14 @@ async function capture() {
         "error",
       );
   } finally {
+    const completedDelivery = delivering;
+    delivering = false;
+    $("gallery").inert = false;
+    $("gallery").removeAttribute("aria-busy");
+    if (completedDelivery && mobileLayout.matches && !document.hidden)
+      $("gallery").querySelector("a")?.focus({ preventScroll: true });
     captureController = null;
     $("countdown").hidden = true;
-    $("study-number").textContent =
-      `study no. ${String(number + 1).padStart(3, "0")}`;
     updateButtons();
   }
 }
@@ -551,7 +579,7 @@ function renderGallery() {
     card.className = "photo-card";
     const image = new Image();
     image.src = entry.url;
-    image.alt = `${entry.effect} character art ${entry.strip ? "three-photo strip" : "photo"}, number ${entry.number}`;
+    image.alt = `${entry.effect} character art ${entry.strip ? `${entry.frames}-photo strip` : "photo"}, number ${entry.number}`;
     const meta = document.createElement("div");
     meta.className = "photo-meta";
     const label = document.createElement("span");
@@ -608,11 +636,6 @@ $("switch-camera").addEventListener("click", () => {
 $("mirror").addEventListener("change", invalidate);
 $("upload").addEventListener("click", () => $("file").click());
 $("file").addEventListener("change", () => loadPhoto($("file").files?.[0]));
-$("demo").addEventListener("click", () => useDemo());
-$("pause").addEventListener("click", () => {
-  paused = !paused;
-  updateButtons();
-});
 $("effects").addEventListener("click", (event) => {
   const button = event.target.closest("[data-effect]");
   if (!button || button.disabled) return;
@@ -631,8 +654,23 @@ $("palettes").addEventListener("click", (event) => {
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", String(active));
   }
-  $("palette-name").textContent = PALETTES[button.dataset.palette].name;
-  setOptions({ palette: button.dataset.palette }, true);
+  const palette =
+    button.dataset.palette === "custom"
+      ? $("custom-color").value
+      : button.dataset.palette;
+  $("palette-name").textContent = resolvePalette(palette).name;
+  setOptions({ palette }, true);
+  if (button.dataset.palette === "custom") $("custom-color").click();
+});
+$("custom-color").addEventListener("input", () => {
+  const palette = $("custom-color").value;
+  for (const button of $("palettes").querySelectorAll("button")) {
+    const active = button.dataset.palette === "custom";
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+  $("palette-name").textContent = resolvePalette(palette).name;
+  setOptions({ palette }, true);
 });
 for (const [id, name] of [
   ["detail", "columns"],
@@ -650,7 +688,7 @@ $("stable").addEventListener("change", () =>
 $("reset").addEventListener("click", () => {
   options = { ...DEFAULTS };
   for (const [id, value] of [
-    ["detail", 96],
+    ["detail", DEFAULTS.columns],
     ["edge", 50],
     ["contrast", 0],
   ]) {
@@ -659,23 +697,28 @@ $("reset").addEventListener("click", () => {
   }
   $("stable").checked = true;
   for (const item of $("effects").querySelectorAll("button")) {
-    const active = item.dataset.effect === "0";
+    const active = Number(item.dataset.effect) === DEFAULTS.effect;
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", String(active));
   }
   for (const item of $("palettes").querySelectorAll("button")) {
-    const active = item.dataset.palette === "original";
+    const active = item.dataset.palette === DEFAULTS.palette;
     item.classList.toggle("active", active);
     item.setAttribute("aria-pressed", String(active));
   }
-  $("palette-name").textContent = PALETTES.original.name;
+  $("palette-name").textContent = PALETTES[DEFAULTS.palette].name;
   invalidate();
 });
 $("shutter").addEventListener("click", capture);
 $("capture-format").addEventListener("click", () => {
-  strip = !strip;
-  $("capture-format").setAttribute("aria-pressed", String(strip));
-  $("format-label").textContent = strip ? "Strip ×3" : "Single";
+  frameCount = (frameCount % 4) + 1;
+  $("capture-format").setAttribute("aria-pressed", String(frameCount > 1));
+  $("format-label").textContent =
+    frameCount > 1 ? `Strip ×${frameCount}` : "Single";
+  $("capture-format").setAttribute(
+    "aria-label",
+    `Capture format: ${frameCount === 1 ? "single photo" : `strip of ${frameCount} photos`}. Click to change.`,
+  );
   updateButtons();
 });
 $("clear-photos").addEventListener("click", () => {
@@ -708,7 +751,12 @@ document.addEventListener("fullscreenchange", () =>
 );
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    const wasExpanded = $("viewfinder").classList.contains("expanded");
     $("viewfinder").classList.remove("expanded");
+    if (wasExpanded) {
+      $("fullscreen").setAttribute("aria-label", "Expand preview");
+      $("fullscreen").focus({ preventScroll: true });
+    }
     cancelCapture();
   }
 });
@@ -750,7 +798,10 @@ async function initialize() {
     45000,
   );
   try {
-    const fontReady = document.fonts.load('16px "Strok Mono"').catch(() => {
+    const fontReady = Promise.all([
+      document.fonts.load('16px "Strok Mono"'),
+      document.fonts.load('13px "Cozette"'),
+    ]).catch(() => {
       fatal(
         "The character font could not load. Check your connection and reload the booth.",
       );
@@ -782,8 +833,7 @@ async function initialize() {
         $("engine-loading").hidden = true;
         output.dataset.frame = String(data.id);
         const config = rendererOptions(options);
-        $("render-label").textContent =
-          `${EFFECTS[options.effect].toUpperCase()} / ${config.columns} × ${config.rows}`;
+        $("render-label").textContent = `${config.columns} × ${config.rows}`;
         updateButtons();
       } else if (data.type === "error") {
         clearTimeout(frameTimeout);

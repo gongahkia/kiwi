@@ -18,11 +18,11 @@ test("browser configuration bounds native work and keeps the grid at 4:3", () =>
     contrast: NaN,
     palette: "__proto__",
   });
-  assert.equal(normalized.columns, 96);
+  assert.equal(normalized.columns, 144);
   assert.equal(normalized.effect, 0);
   assert.equal(normalized.edge, 100);
   assert.equal(normalized.contrast, 0);
-  assert.equal(normalized.palette, "original");
+  assert.equal(normalized.palette, DEFAULTS.palette);
   for (const columns of [48, 60, 96, 132, 144]) {
     const config = rendererOptions({ columns });
     assert.ok(config.columns <= 144 && config.rows <= 54);
@@ -60,4 +60,25 @@ test("camera failures explain actionable recovery", () => {
   assert.match(cameraErrorMessage({ name: "NotReadableError" }), /busy/);
   assert.match(cameraErrorMessage({ name: "SecurityError" }), /HTTPS/);
   assert.match(cameraErrorMessage({}), /upload a photo/);
+});
+
+// Timeline logic is independent of browser frame rate and wraps all eight planets.
+import { PLANETS, PLANET_SECONDS, demoState } from "../src/demo.js";
+test("solar system demo visits every planet and blends continuously at boundaries", () => {
+  assert.equal(new Set(PLANETS.map((p) => p.name)).size, 8);
+  for (let i = 0; i < 8; i++) {
+    assert.equal(demoState(i * PLANET_SECONDS).index, i);
+    assert.equal(demoState(i * PLANET_SECONDS).blend, 0);
+    assert.ok(demoState((i + 1) * PLANET_SECONDS - 0.01).blend > 0.99);
+  }
+  assert.equal(demoState(8 * PLANET_SECONDS).index, 0);
+  assert.equal(demoState(0).index, 0);
+});
+
+import { resolvePalette } from "../src/model.js";
+test("custom colors survive normalization and reject malformed values", () => {
+  assert.equal(normalizeOptions({ palette: "#12abEF" }).palette, "#12abEF");
+  assert.equal(resolvePalette("#12abEF").ink, "#12abEF");
+  for (const palette of ["#123", "#gggggg", "url(example)"])
+    assert.equal(normalizeOptions({ palette }).palette, DEFAULTS.palette);
 });

@@ -1,4 +1,4 @@
-import { PALETTES } from "./model.js";
+import { resolvePalette } from "./model.js";
 
 const colors = new Map();
 function hexRgb(value) {
@@ -11,7 +11,7 @@ function hexRgb(value) {
 function cellColor(color, palette) {
   const key = `${palette}:${color}`;
   if (colors.has(key)) return colors.get(key);
-  const selected = PALETTES[palette] || PALETTES.original;
+  const selected = resolvePalette(palette);
   let result;
   if (!selected.ink) result = `#${color.toString(16).padStart(6, "0")}`;
   else {
@@ -65,7 +65,7 @@ export function paintCells(canvas, frame, palette = "original", width = 960) {
     canvas.height = height;
   }
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = (PALETTES[palette] || PALETTES.original).background;
+  ctx.fillStyle = resolvePalette(palette).background;
   ctx.fillRect(0, 0, width, height);
   ctx.font = `${cellHeight * 0.83}px "Strok Mono", monospace`;
   ctx.textAlign = "center";
@@ -120,7 +120,7 @@ export function makePrint(
   canvas.width = width;
   canvas.height = padding + (frameHeight + padding) * frames.length + footer;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#f4f2ec";
+  ctx.fillStyle = "#f4f1e8";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const image = document.createElement("canvas");
   frames.forEach((frame, index) => {
@@ -134,10 +134,10 @@ export function makePrint(
     );
   });
   const baseline = canvas.height - footer * 0.52;
-  ctx.fillStyle = "#242720";
+  ctx.fillStyle = "#333532";
   ctx.textBaseline = "middle";
-  ctx.font = `bold ${width * 0.037}px Arial, sans-serif`;
-  ctx.fillText("strok*", padding, baseline);
+  ctx.font = `${width * 0.032}px "Strok Mono", monospace`;
+  ctx.fillText("[ strok ]", padding, baseline);
   ctx.font = `${width * 0.012}px "Strok Mono", monospace`;
   ctx.textAlign = "right";
   ctx.fillText(

@@ -8,14 +8,14 @@ export const EFFECTS = [
 ];
 export const PALETTES = {
   original: { name: "Original", background: "#111711" },
-  paper: { name: "Ink on paper", background: "#eee9da", ink: "#2c352c" },
+  paper: { name: "Ink on paper", background: "#f4f1e8", ink: "#333532" },
   amber: { name: "Amber terminal", background: "#201b12", ink: "#f1ba66" },
   green: { name: "Green phosphor", background: "#111a13", ink: "#b4d38b" },
   pink: { name: "Pink & plum", background: "#291c2b", ink: "#f0a9cb" },
 };
 export const DEFAULTS = Object.freeze({
-  effect: 0,
-  columns: 96,
+  effect: 4,
+  columns: 144,
   edge: 50,
   contrast: 0,
   stable: true,
@@ -28,14 +28,18 @@ export function normalizeOptions(options = {}) {
       ? Math.min(max, Math.max(min, Number(value)))
       : fallback;
   return {
-    effect: Math.round(number(options.effect, 0, 0, 5)),
-    columns: Math.round(number(options.columns, 96, 48, 144) / 12) * 12,
+    effect: Math.round(number(options.effect, DEFAULTS.effect, 0, 5)),
+    columns:
+      Math.round(number(options.columns, DEFAULTS.columns, 48, 144) / 12) * 12,
     edge: number(options.edge, 50, 0, 100),
     contrast: number(options.contrast, 0, 0, 100),
     stable: options.stable !== false,
-    palette: Object.hasOwn(PALETTES, options.palette)
-      ? options.palette
-      : "original",
+    palette:
+      (typeof options.palette === "string" &&
+        /^#[0-9a-f]{6}$/i.test(options.palette)) ||
+      Object.hasOwn(PALETTES, options.palette)
+        ? options.palette
+        : DEFAULTS.palette,
   };
 }
 
@@ -106,4 +110,14 @@ export function fitRect(
     width: sourceWidth * scale,
     height: sourceHeight * scale,
   };
+}
+
+export function resolvePalette(palette) {
+  if (typeof palette === "string" && /^#[0-9a-f]{6}$/i.test(palette))
+    return {
+      name: `Custom ${palette.toUpperCase()}`,
+      background: "#111711",
+      ink: palette,
+    };
+  return PALETTES[palette] || PALETTES.original;
 }
