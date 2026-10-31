@@ -1045,23 +1045,7 @@ main.wrap {
   position: relative;
 }
 .booth-intro h1 {
-  margin-bottom: 0;
-}
-.maker-credit {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  margin: 0 0 12px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.maker-credit a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--ink);
+  margin-bottom: 32px;
 }
 
 .booth-intro {
@@ -1071,18 +1055,13 @@ main.wrap {
 h1 .ascii-wordmark {
   font-size: 3.6cqw;
 }
-.maker-credit {
-  writing-mode: horizontal-tb;
-  transform: none;
-  justify-content: flex-start;
-  min-height: 44px;
-  margin: 0 0 12px;
-}
-.maker-credit a {
-  min-width: 0;
-}
 @media (max-width: 760px) and (orientation: landscape) {
   .booth-intro {
     display: none;
   }
 }
+
+.maker-credit { margin: 0; line-height: 44px; }
+.maker-credit a { display: inline-block; min-height: 44px; color: var(--ink); }
+.copyright-line { margin: 0; }
+@media (max-width: 760px) { .booth-intro h1 { margin-bottom: 20px; } }
