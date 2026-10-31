@@ -13,10 +13,10 @@ For the nerds, `Strok` also optionally transforms inputs by adding painterly, ha
 
 ## Stack
 
-* Web: [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 * Scripting: [C++20](https://en.cppreference.com/w/cpp/20), [CMake](https://cmake.org/), [FreeType](https://freetype.org/)
 * Media: [FFmpeg](https://ffmpeg.org/), [zlib](https://zlib.net/), [miniaudio](https://miniaud.io/) 
 * GPU: [Metal](https://developer.apple.com/metal/), [Vulkan](https://www.vulkan.org/) 
+* Web: [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 * Tests: [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html)
 
 ## Features
