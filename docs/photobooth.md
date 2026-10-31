@@ -143,6 +143,12 @@ layouts. A WebKit mobile viewport also exercises rendering and capture. Tests
 reject unexpected external asset requests. Screenshots go to the ignored
 `web/test-results/` directory and CI artifacts.
 
+The camera tests also check delayed permission approval after a source change;
+late camera streams must be stopped rather than replacing the demo. Downloads
+are checked for a valid 1200-pixel PNG and correctly sized Unicode text grids.
+`WEBKIT_EXECUTABLE_PATH` can select a locally provisioned Playwright-compatible
+WebKit launcher; CI uses the standard Ubuntu 24.04 Playwright installation.
+
 These automated checks do not replace testing physical iOS/Android cameras,
 native sharing sheets or temperature/battery behavior on real phones.
 

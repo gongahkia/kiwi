@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       EMSCRIPTEN_VERSION: "4.0.23"
       EM_CACHE: ${{ github.workspace }}/.cache/emscripten-cache
@@ -77,7 +77,7 @@ jobs:
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: photobooth-pages
       cancel-in-progress: false
