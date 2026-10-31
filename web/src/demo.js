@@ -17,10 +17,10 @@ export function paintDemo(canvas, time) {
     centerY + radius * 0.2,
     radius * 1.2,
   );
-  gradient.addColorStop(0, "#f2d6a2");
-  gradient.addColorStop(0.36, "#e19563");
-  gradient.addColorStop(0.74, "#ac5639");
-  gradient.addColorStop(1, "#26291c");
+  gradient.addColorStop(0, "#fffbd2");
+  gradient.addColorStop(0.36, "#ffd99a");
+  gradient.addColorStop(0.74, "#edb87d");
+  gradient.addColorStop(1, "#b47c4b");
   ctx.save();
   ctx.beginPath();
   ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -44,7 +44,7 @@ export function paintDemo(canvas, time) {
   ctx.save();
   ctx.translate(w * 0.51, h * 0.51);
   ctx.rotate(-0.38);
-  ctx.strokeStyle = "#bdc9a0";
+  ctx.strokeStyle = "#ecf0c5";
   ctx.lineWidth = w * 0.012;
   ctx.beginPath();
   ctx.ellipse(0, 0, radius * 1.51, radius * 0.31, 0, 0, Math.PI);
