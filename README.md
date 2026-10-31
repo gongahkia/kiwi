@@ -3,7 +3,7 @@
 
 # `strok` 🎨
 
-A [structure-aware](https://arxiv.org/abs/2609.24616) media renderer entirely in the [CLI](#architecture).
+A [rigorously-benchmarked](./BENCHMARKS.md), [structure-aware](https://arxiv.org/abs/2609.24616) media [renderer](#architecture) applied to [mankind's greatest creation](https://dictionary.cambridge.org/dictionary/english/photo-booth).
 
 ## Rationale
 
