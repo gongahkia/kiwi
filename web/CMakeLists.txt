@@ -33,9 +33,9 @@ target_link_options(strok_web PRIVATE
   -sDISABLE_EXCEPTION_CATCHING=0
   "-sEXPORTED_FUNCTIONS=['_malloc','_free','_strok_web_create','_strok_web_destroy','_strok_web_reset','_strok_web_render','_strok_web_cells','_strok_web_cell_count','_strok_web_error']"
   "-sEXPORTED_RUNTIME_METHODS=['HEAPU8','HEAPU32','UTF8ToString']"
-  --embed-file "${STROK_ROOT}/share/strok/noise@/strok/noise"
-  --embed-file "${STROK_ROOT}/share/strok/charsets@/strok/charsets"
-  --embed-file "${CMAKE_CURRENT_SOURCE_DIR}/assets/SourceCodePro-Regular.otf@/strok/font.otf"
+  "SHELL:--embed-file ${STROK_ROOT}/share/strok/noise@/strok/noise"
+  "SHELL:--embed-file ${STROK_ROOT}/share/strok/charsets@/strok/charsets"
+  "SHELL:--embed-file ${CMAKE_CURRENT_SOURCE_DIR}/assets/SourceCodePro-Regular.otf@/strok/font.otf"
 )
 set_target_properties(strok_web PROPERTIES
   OUTPUT_NAME strok

@@ -44,6 +44,7 @@ WebRenderer* strok_web_create(int cols, int rows, int effect, double edge, doubl
     config.height = rows;
     config.cell_aspect = 0.5;
     config.mode = "structure";
+    config.structure_overlay = "on";
     config.font_path = "/strok/font.otf";
     config.edge_threshold = edge;
     config.contrast = contrast;
@@ -51,11 +52,11 @@ WebRenderer* strok_web_create(int cols, int rows, int effect, double edge, doubl
     config.dog_sigma = 0.0;
     switch (effect) {
       case 0: break;
-      case 1: config.mode = "luminance"; break;
+      case 1: config.mode = "luminance"; config.structure_overlay = "off"; break;
       case 2: config.style = "hatch"; break;
-      case 3: config.mode = "braille"; break;
-      case 4: config.mode = "halfblock"; break;
-      case 5: config.style = "stipple"; break;
+      case 3: config.mode = "braille"; config.structure_overlay = "off"; break;
+      case 4: config.mode = "halfblock"; config.structure_overlay = "off"; break;
+      case 5: config.mode = "luminance"; config.style = "stipple"; config.structure_overlay = "off"; break;
       case 6: config.style = "painterly"; break;
     }
     auto created = strok::Renderer::create(std::move(config), {.cols = cols, .rows = rows});
