@@ -1,5 +1,6 @@
 [![](https://img.shields.io/badge/strok_1.0.0-passing-green)](https://github.com/gongahkia/strok/releases/tag/1.0.0) 
 ![](https://github.com/gongahkia/strok/actions/workflows/ci.yml/badge.svg)
+![](https://github.com/gongahkia/strok/actions/workflows/photobooth.yml/badge.svg)
 
 # `strok` 🎨
 
