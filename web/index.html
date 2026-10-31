@@ -1,71 +1,441 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f4f2ec">
-  <meta name="description" content="A little more character. Turn your camera or a photo into ASCII art with strok's C++ renderer, running privately in your browser.">
-  <meta property="og:title" content="strok — a little more character">
-  <meta property="og:description" content="An experimental photobooth, powered by the strok rendering SDK. Open your camera. Find your character. Take it with you.">
-  <meta property="og:type" content="website">
-  <meta name="color-scheme" content="light">
-  <title>strok — a little more character</title>
-  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="./assets/SourceCodePro-Regular.otf" as="font" type="font/otf" crossorigin>
-  <link rel="stylesheet" href="./src/style.css">
-  <script type="module" src="./src/app.js"></script>
-</head>
-<body>
-  <a class="skip-link" href="#booth">Skip to photobooth</a>
-  <header class="site-header wrap">
-    <a class="wordmark" href="./" aria-label="strok home"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="m3 22 5-16m3 16 5-16m3 16 5-16"/></svg>strok<span class="wordmark-dot">*</span></a>
-    <nav aria-label="Main navigation"><a href="#about">Behind the characters</a><a class="source-link" href="https://github.com/gongahkia/strok">Get the SDK <span aria-hidden="true">↗</span></a></nav>
-  </header>
-  <main class="wrap">
-    <section class="intro" aria-labelledby="page-title">
-      <div><p class="eyebrow"><span class="little-star" aria-hidden="true">✳</span> THE STROK PHOTOBOOTH</p><h1 id="page-title">You, with a little<br>more <em>character.</em></h1></div>
-      <div class="intro-aside"><p>A familiar face.<br>An unfamiliar medium.</p><p>Turn the everyday into character art.<br>All it takes is your camera.</p><a href="#booth">Find your good side <span aria-hidden="true">↙</span></a></div>
-    </section>
-    <section id="booth" class="booth" aria-label="Interactive photobooth">
-      <div class="section-label"><span>01 / MAKE A LITTLE ART</span><span class="privacy-note"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3 7h10v7H3z"/></svg> ON YOUR DEVICE. JUST FOR YOU.</span></div>
-      <div class="booth-layout">
-        <div class="viewfinder-column">
-          <div class="viewfinder" id="viewfinder">
-            <canvas id="output" width="960" height="720" role="img" aria-label="Character art preview. An animated generated demo is shown until you start your camera or upload a photo."></canvas>
-            <div class="viewfinder-top"><span class="source-badge"><i id="source-dot"></i><span id="source-label">DEMO STUDIO</span></span><button class="glass-button" id="fullscreen" type="button" aria-label="Expand preview" title="Expand preview"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m13-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button></div>
-            <div id="engine-loading" class="engine-loading"><span class="loading-mark" aria-hidden="true">@</span><p>Finding our characters…</p></div>
-            <div id="countdown" class="countdown" role="status" aria-live="assertive" hidden></div>
-            <div id="flash" class="flash" aria-hidden="true"></div>
-            <div class="viewfinder-bottom"><span>strok / <span id="study-number">study no. 001</span></span><span id="render-label">LOADING RENDERER</span></div>
-          </div>
-          <div class="preview-toolbar"><span id="preview-info" class="preview-info">A generated demo. Your camera is off.</span><button id="pause" class="text-button" type="button" disabled aria-pressed="false"><span id="pause-symbol" aria-hidden="true">Ⅱ</span> <span id="pause-label">Freeze</span></button></div>
-          <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-          <div class="capture-bar"><div><label class="timer-label" for="timer">TIMER</label><select id="timer" aria-label="Shutter timer"><option value="3">3 seconds</option><option value="0">No timer</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select></div><button id="shutter" class="shutter" type="button" disabled><span class="shutter-icon" aria-hidden="true"></span><span id="shutter-label">Take a photo</span></button><button id="capture-format" class="format-toggle" type="button" aria-pressed="false" title="Switch between a single photo and a three-photo strip"><svg viewBox="0 0 18 22" aria-hidden="true"><rect x="3" y="1" width="12" height="20" rx="1"/><path d="M5 7h8M5 14h8"/></svg><span id="format-label">Single</span></button></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f4f2ec" />
+    <meta
+      name="description"
+      content="A little more character. Turn your camera or a photo into ASCII art with strok's C++ renderer, running privately in your browser."
+    />
+    <meta property="og:title" content="strok — a little more character" />
+    <meta
+      property="og:description"
+      content="An experimental photobooth, powered by the strok rendering SDK. Open your camera. Find your character. Take it with you."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="color-scheme" content="light" />
+    <title>strok — a little more character</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="./assets/SourceCodePro-Regular.otf"
+      as="font"
+      type="font/otf"
+      crossorigin
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+    <script type="module" src="./src/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#booth">Skip to photobooth</a>
+    <header class="site-header wrap">
+      <a class="wordmark" href="./" aria-label="strok home"
+        ><svg viewBox="0 0 28 28" aria-hidden="true">
+          <path d="m3 22 5-16m3 16 5-16m3 16 5-16" /></svg
+        >strok<span class="wordmark-dot">*</span></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="#about">Behind the characters</a
+        ><a class="source-link" href="https://github.com/gongahkia/strok"
+          >Get the SDK <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main class="wrap">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">
+            <span class="little-star" aria-hidden="true">✳</span> THE STROK
+            PHOTOBOOTH
+          </p>
+          <h1 id="page-title">
+            You, with a little<br />more <em>character.</em>
+          </h1>
         </div>
-        <aside class="controls" aria-label="Photobooth controls">
-          <div class="controls-heading"><h2>Make it yours.</h2><span aria-hidden="true">↙</span></div>
-          <div class="source-controls"><button id="camera" class="button button-dark" type="button" disabled><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 5 1-2h6l1 2h3v12H3V5z"/><circle cx="10" cy="10" r="3"/></svg><span id="camera-label">Start camera</span></button><button id="upload" class="button button-outline" type="button" disabled><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3m-4 4 4-4 4 4M3 12v5h14v-5"/></svg>Upload a photo</button><input id="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif" hidden></div>
-          <div class="camera-tools" id="camera-tools" hidden><button id="switch-camera" type="button" class="text-button">↻ Flip camera</button><label class="check-label"><input id="mirror" type="checkbox" checked> Mirror</label></div>
-          <fieldset class="effect-field"><legend class="control-label">01 — PICK YOUR TEXTURE</legend><div class="effects" id="effects">
-            <button type="button" class="effect active" data-effect="0" aria-pressed="true"><span aria-hidden="true">/\_</span><strong>Structure</strong></button>
-            <button type="button" class="effect" data-effect="1" aria-pressed="false"><span aria-hidden="true">@#.</span><strong>Classic</strong></button>
-            <button type="button" class="effect" data-effect="2" aria-pressed="false"><span aria-hidden="true">///</span><strong>Crosshatch</strong></button>
-            <button type="button" class="effect" data-effect="3" aria-pressed="false"><span aria-hidden="true">⠿⠶⠋</span><strong>Braille</strong></button>
-            <button type="button" class="effect" data-effect="4" aria-pressed="false"><span aria-hidden="true">▀▄▀</span><strong>Blocks</strong></button>
-            <button type="button" class="effect" data-effect="5" aria-pressed="false"><span aria-hidden="true">·∴.</span><strong>Stipple</strong></button>
-          </div></fieldset>
-          <fieldset><legend class="control-label">02 — SET THE MOOD</legend><div id="palettes" class="palettes" role="group" aria-label="Color palette"><button type="button" class="palette palette-original active" data-palette="original" aria-label="Original colors" aria-pressed="true"><span></span></button><button type="button" class="palette palette-paper" data-palette="paper" aria-label="Ink on paper" aria-pressed="false"><span></span></button><button type="button" class="palette palette-amber" data-palette="amber" aria-label="Amber terminal" aria-pressed="false"><span></span></button><button type="button" class="palette palette-green" data-palette="green" aria-label="Green phosphor" aria-pressed="false"><span></span></button><button type="button" class="palette palette-pink" data-palette="pink" aria-label="Pink and plum" aria-pressed="false"><span></span></button><span id="palette-name">Original</span></div></fieldset>
-          <fieldset class="detail-field"><legend class="control-label">03 — THE FINER DETAILS</legend><div class="range-heading"><label for="detail">Character density</label><output id="detail-value" for="detail">96</output></div><input id="detail" type="range" min="48" max="144" step="12" value="96"><div class="range-ends"><span>LESS IS MORE</span><span>MORE IS MORE</span></div><details class="advanced"><summary>A little more control <span aria-hidden="true">+</span></summary><div class="advanced-inner"><div class="range-heading"><label for="edge">Edge sensitivity</label><output id="edge-value" for="edge">50</output></div><input id="edge" type="range" min="0" max="100" value="50"><div class="range-heading"><label for="contrast">Contrast</label><output id="contrast-value" for="contrast">0</output></div><input id="contrast" type="range" min="0" max="100" value="0"><label class="check-label"><input id="stable" type="checkbox" checked> Steadier characters</label><button id="reset" class="text-button" type="button">Reset the look ↺</button></div></details></fieldset>
-          <button id="demo" class="text-button demo-button" type="button">↺ Back to the demo</button>
-          <p class="controls-footnote">No uploads. No account. Just a little<br>experiment between you and your camera.</p>
-        </aside>
-      </div>
-    </section>
-    <section id="photos" class="photos" aria-labelledby="photos-title" hidden><div class="section-label"><span>02 / YOUR LITTLE COLLECTION</span><button id="clear-photos" type="button" class="text-button">Clear collection</button></div><div class="photos-heading"><h2 id="photos-title">Keep a character.</h2><p>Save your favorites. These live in this tab only.</p></div><div id="gallery" class="gallery"></div></section>
-    <section id="about" class="about" aria-labelledby="about-title"><div class="about-title"><p class="eyebrow">BUILT FROM SOMETHING BIGGER</p><h2 id="about-title">Small characters.<br>Real structure.</h2><p>This booth runs on <strong>strok</strong>, an open-source C++ rendering SDK. It follows edges, shapes, and direction to find the right character for every little piece of an image.</p><p>The same core powers the terminal renderer, Python and Rust bindings, and this experiment in your browser.</p><a class="button button-dark sdk-button" href="https://github.com/gongahkia/strok">Explore strok on GitHub <span aria-hidden="true">↗</span></a></div><div class="about-details"><div class="ascii-emblem" aria-hidden="true"><pre>      .:+*##*+:.&#10;   .=#@#*+==+*#@#=.&#10;  :#@+.        .+@#:&#10; +@*    /\  /\    *@+&#10;:@#    /  \/  \    #@:&#10;*@+   /        \   +@*&#10;:@#    character   #@:&#10; +@*    matters   *@+&#10;  :#@+.        .+@#:&#10;   .=#@#*+==+*#@#=.&#10;      .:+*##*+:.</pre></div><dl><div><dt>THE ENGINE</dt><dd>C++20 → WebAssembly</dd></div><div><dt>THE CANVAS</dt><dd>Your browser, your device</dd></div><div><dt>THE POSSIBILITY</dt><dd>Build something of your own ↗</dd></div></dl></div></section>
-  </main>
-  <footer class="site-footer wrap"><a class="wordmark" href="./" aria-label="strok home">strok<span class="wordmark-dot">*</span></a><span>A LITTLE LESS LITERAL. A LITTLE MORE YOU.</span><a href="./assets/SourceCodePro-LICENSE.txt">Font license ↗</a></footer>
-  <video id="video" autoplay playsinline muted hidden></video>
-  <noscript><div class="noscript">The photobooth needs JavaScript and WebAssembly. You can still <a href="https://github.com/gongahkia/strok">explore the native strok SDK on GitHub</a>.</div></noscript>
-</body>
+        <div class="intro-aside">
+          <p>A familiar face.<br />An unfamiliar medium.</p>
+          <p>
+            Turn the everyday into character art.<br />All it takes is your
+            camera.
+          </p>
+          <a href="#booth"
+            >Find your good side <span aria-hidden="true">↙</span></a
+          >
+        </div>
+      </section>
+      <section id="booth" class="booth" aria-label="Interactive photobooth">
+        <div class="section-label">
+          <span>01 / MAKE A LITTLE ART</span
+          ><span class="privacy-note"
+            ><svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3 7h10v7H3z" />
+            </svg>
+            ON YOUR DEVICE. JUST FOR YOU.</span
+          >
+        </div>
+        <div class="booth-layout">
+          <div class="viewfinder-column">
+            <div class="viewfinder" id="viewfinder">
+              <canvas
+                id="output"
+                width="960"
+                height="720"
+                role="img"
+                aria-label="Character art preview. An animated generated demo is shown until you start your camera or upload a photo."
+              ></canvas>
+              <div class="viewfinder-top">
+                <span class="source-badge"
+                  ><i id="source-dot"></i
+                  ><span id="source-label">DEMO STUDIO</span></span
+                ><button
+                  class="glass-button"
+                  id="fullscreen"
+                  type="button"
+                  aria-label="Expand preview"
+                  title="Expand preview"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M7 3H3v4m13-4h4v4M3 13v4h4m10-4v4h-4" />
+                  </svg>
+                </button>
+              </div>
+              <div id="engine-loading" class="engine-loading">
+                <span class="loading-mark" aria-hidden="true">@</span>
+                <p>Finding our characters…</p>
+              </div>
+              <div
+                id="countdown"
+                class="countdown"
+                role="status"
+                aria-live="assertive"
+                hidden
+              ></div>
+              <div id="flash" class="flash" aria-hidden="true"></div>
+              <div class="viewfinder-bottom">
+                <span>strok / <span id="study-number">study no. 001</span></span
+                ><span id="render-label">LOADING RENDERER</span>
+              </div>
+            </div>
+            <div class="preview-toolbar">
+              <span id="preview-info" class="preview-info"
+                >A generated demo. Your camera is off.</span
+              ><button
+                id="pause"
+                class="text-button"
+                type="button"
+                disabled
+                aria-pressed="false"
+              >
+                <span id="pause-symbol" aria-hidden="true">Ⅱ</span>
+                <span id="pause-label">Freeze</span>
+              </button>
+            </div>
+            <div
+              id="notice"
+              class="notice"
+              role="status"
+              aria-live="polite"
+              hidden
+            ></div>
+            <div class="capture-bar">
+              <div>
+                <label class="timer-label" for="timer">TIMER</label
+                ><select id="timer" aria-label="Shutter timer">
+                  <option value="3">3 seconds</option>
+                  <option value="0">No timer</option>
+                  <option value="5">5 seconds</option>
+                  <option value="10">10 seconds</option>
+                </select>
+              </div>
+              <button id="shutter" class="shutter" type="button" disabled>
+                <span class="shutter-icon" aria-hidden="true"></span
+                ><span id="shutter-label">Take a photo</span></button
+              ><button
+                id="capture-format"
+                class="format-toggle"
+                type="button"
+                aria-pressed="false"
+                title="Switch between a single photo and a three-photo strip"
+              >
+                <svg viewBox="0 0 18 22" aria-hidden="true">
+                  <rect x="3" y="1" width="12" height="20" rx="1" />
+                  <path d="M5 7h8M5 14h8" /></svg
+                ><span id="format-label">Single</span>
+              </button>
+            </div>
+          </div>
+          <aside class="controls" aria-label="Photobooth controls">
+            <div class="controls-heading">
+              <h2>Make it yours.</h2>
+              <span aria-hidden="true">↙</span>
+            </div>
+            <div class="source-controls">
+              <button
+                id="camera"
+                class="button button-dark"
+                type="button"
+                disabled
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m6 5 1-2h6l1 2h3v12H3V5z" />
+                  <circle cx="10" cy="10" r="3" /></svg
+                ><span id="camera-label">Start camera</span></button
+              ><button
+                id="upload"
+                class="button button-outline"
+                type="button"
+                disabled
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M10 13V3m-4 4 4-4 4 4M3 12v5h14v-5" /></svg
+                >Upload a photo</button
+              ><input
+                id="file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif"
+                hidden
+              />
+            </div>
+            <div class="camera-tools" id="camera-tools" hidden>
+              <button id="switch-camera" type="button" class="text-button">
+                ↻ Flip camera</button
+              ><label class="check-label"
+                ><input id="mirror" type="checkbox" checked /> Mirror</label
+              >
+            </div>
+            <fieldset class="effect-field">
+              <legend class="control-label">01 — PICK YOUR TEXTURE</legend>
+              <div class="effects" id="effects">
+                <button
+                  type="button"
+                  class="effect active"
+                  data-effect="0"
+                  aria-pressed="true"
+                >
+                  <span aria-hidden="true">/\_</span><strong>Structure</strong>
+                </button>
+                <button
+                  type="button"
+                  class="effect"
+                  data-effect="1"
+                  aria-pressed="false"
+                >
+                  <span aria-hidden="true">@#.</span><strong>Classic</strong>
+                </button>
+                <button
+                  type="button"
+                  class="effect"
+                  data-effect="2"
+                  aria-pressed="false"
+                >
+                  <span aria-hidden="true">///</span><strong>Crosshatch</strong>
+                </button>
+                <button
+                  type="button"
+                  class="effect"
+                  data-effect="3"
+                  aria-pressed="false"
+                >
+                  <span aria-hidden="true">⠿⠶⠋</span><strong>Braille</strong>
+                </button>
+                <button
+                  type="button"
+                  class="effect"
+                  data-effect="4"
+                  aria-pressed="false"
+                >
+                  <span aria-hidden="true">▀▄▀</span><strong>Blocks</strong>
+                </button>
+                <button
+                  type="button"
+                  class="effect"
+                  data-effect="5"
+                  aria-pressed="false"
+                >
+                  <span aria-hidden="true">·∴.</span><strong>Stipple</strong>
+                </button>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend class="control-label">02 — SET THE MOOD</legend>
+              <div
+                id="palettes"
+                class="palettes"
+                role="group"
+                aria-label="Color palette"
+              >
+                <button
+                  type="button"
+                  class="palette palette-original active"
+                  data-palette="original"
+                  aria-label="Original colors"
+                  aria-pressed="true"
+                >
+                  <span></span></button
+                ><button
+                  type="button"
+                  class="palette palette-paper"
+                  data-palette="paper"
+                  aria-label="Ink on paper"
+                  aria-pressed="false"
+                >
+                  <span></span></button
+                ><button
+                  type="button"
+                  class="palette palette-amber"
+                  data-palette="amber"
+                  aria-label="Amber terminal"
+                  aria-pressed="false"
+                >
+                  <span></span></button
+                ><button
+                  type="button"
+                  class="palette palette-green"
+                  data-palette="green"
+                  aria-label="Green phosphor"
+                  aria-pressed="false"
+                >
+                  <span></span></button
+                ><button
+                  type="button"
+                  class="palette palette-pink"
+                  data-palette="pink"
+                  aria-label="Pink and plum"
+                  aria-pressed="false"
+                >
+                  <span></span></button
+                ><span id="palette-name">Original</span>
+              </div>
+            </fieldset>
+            <fieldset class="detail-field">
+              <legend class="control-label">03 — THE FINER DETAILS</legend>
+              <div class="range-heading">
+                <label for="detail">Character density</label
+                ><output id="detail-value" for="detail">96</output>
+              </div>
+              <input
+                id="detail"
+                type="range"
+                min="48"
+                max="144"
+                step="12"
+                value="96"
+              />
+              <div class="range-ends">
+                <span>LESS IS MORE</span><span>MORE IS MORE</span>
+              </div>
+              <details class="advanced">
+                <summary>
+                  A little more control <span aria-hidden="true">+</span>
+                </summary>
+                <div class="advanced-inner">
+                  <div class="range-heading">
+                    <label for="edge">Edge sensitivity</label
+                    ><output id="edge-value" for="edge">50</output>
+                  </div>
+                  <input id="edge" type="range" min="0" max="100" value="50" />
+                  <div class="range-heading">
+                    <label for="contrast">Contrast</label
+                    ><output id="contrast-value" for="contrast">0</output>
+                  </div>
+                  <input
+                    id="contrast"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="0"
+                  /><label class="check-label"
+                    ><input id="stable" type="checkbox" checked /> Steadier
+                    characters</label
+                  ><button id="reset" class="text-button" type="button">
+                    Reset the look ↺
+                  </button>
+                </div>
+              </details>
+            </fieldset>
+            <button id="demo" class="text-button demo-button" type="button">
+              ↺ Back to the demo
+            </button>
+            <p class="controls-footnote">
+              No uploads. No account. Just a little<br />experiment between you
+              and your camera.
+            </p>
+          </aside>
+        </div>
+      </section>
+      <section id="photos" class="photos" aria-labelledby="photos-title" hidden>
+        <div class="section-label">
+          <span>02 / YOUR LITTLE COLLECTION</span
+          ><button id="clear-photos" type="button" class="text-button">
+            Clear collection
+          </button>
+        </div>
+        <div class="photos-heading">
+          <h2 id="photos-title">Keep a character.</h2>
+          <p>Save your favorites. These live in this tab only.</p>
+        </div>
+        <div id="gallery" class="gallery"></div>
+      </section>
+      <section id="about" class="about" aria-labelledby="about-title">
+        <div class="about-title">
+          <p class="eyebrow">BUILT FROM SOMETHING BIGGER</p>
+          <h2 id="about-title">Small characters.<br />Real structure.</h2>
+          <p>
+            This booth runs on <strong>strok</strong>, an open-source C++
+            rendering SDK. It follows edges, shapes, and direction to find the
+            right character for every little piece of an image.
+          </p>
+          <p>
+            The same core powers the terminal renderer, Python and Rust
+            bindings, and this experiment in your browser.
+          </p>
+          <a
+            class="button button-dark sdk-button"
+            href="https://github.com/gongahkia/strok"
+            >Explore strok on GitHub <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <div class="about-details">
+          <div class="ascii-emblem" aria-hidden="true">
+            <pre>
+      .:+*##*+:.&#10;   .=#@#*+==+*#@#=.&#10;  :#@+.        .+@#:&#10; +@*    /\  /\    *@+&#10;:@#    /  \/  \    #@:&#10;*@+   /        \   +@*&#10;:@#    character   #@:&#10; +@*    matters   *@+&#10;  :#@+.        .+@#:&#10;   .=#@#*+==+*#@#=.&#10;      .:+*##*+:.</pre
+            >
+          </div>
+          <dl>
+            <div>
+              <dt>THE ENGINE</dt>
+              <dd>C++20 → WebAssembly</dd>
+            </div>
+            <div>
+              <dt>THE CANVAS</dt>
+              <dd>Your browser, your device</dd>
+            </div>
+            <div>
+              <dt>THE POSSIBILITY</dt>
+              <dd>Build something of your own ↗</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a class="wordmark" href="./" aria-label="strok home"
+        >strok<span class="wordmark-dot">*</span></a
+      ><span>A LITTLE LESS LITERAL. A LITTLE MORE YOU.</span
+      ><a href="./assets/SourceCodePro-LICENSE.txt">Font license ↗</a>
+    </footer>
+    <video id="video" autoplay playsinline muted hidden></video>
+    <noscript
+      ><div class="noscript">
+        The photobooth needs JavaScript and WebAssembly. You can still
+        <a href="https://github.com/gongahkia/strok"
+          >explore the native strok SDK on GitHub</a
+        >.
+      </div></noscript
+    >
+  </body>
 </html>
