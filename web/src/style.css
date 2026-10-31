@@ -727,9 +727,6 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
-  .photos-heading {
-    display: block;
-  }
 }
 @media (max-width: 380px) {
   .wrap {
@@ -931,9 +928,6 @@ body:has(.viewfinder.expanded) {
   }
 }
 
-.section-label:has(#clear-photos) {
-  justify-content: flex-end;
-}
 .photo-card.delivering {
   visibility: hidden;
 }
@@ -1007,5 +1001,96 @@ body:has(.viewfinder.expanded) {
 @media (max-width: 760px) and (orientation: landscape) {
   .booth-layout {
     gap: 16px;
+  }
+}
+
+body {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+main.wrap {
+  flex: 1;
+}
+.photos-heading {
+  align-items: center;
+  border-top: 1px dashed var(--rule);
+  padding-top: 16px;
+}
+.photos-heading h2 {
+  line-height: 1.4;
+}
+#clear-photos {
+  flex-shrink: 0;
+}
+.copyright-footer {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  padding-block: 24px 32px;
+}
+@media (max-width: 760px) {
+  main.wrap {
+    padding-bottom: 24px;
+  }
+  .copyright-footer {
+    padding-bottom: calc(116px + env(safe-area-inset-bottom));
+  }
+}
+
+.copyright-footer {
+  text-align: center;
+}
+.booth-intro {
+  position: relative;
+}
+.booth-intro h1 {
+  margin-bottom: 0;
+}
+.maker-credit {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.maker-credit a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink);
+}
+
+.booth-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.booth-intro h1 {
+  min-width: 0;
+}
+h1 .ascii-wordmark {
+  font-size: 3.2cqw;
+}
+.maker-credit {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  justify-self: end;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+.maker-credit a {
+  min-width: 44px;
+  justify-content: center;
+}
+@media (max-width: 760px) and (orientation: landscape) {
+  .booth-intro {
+    display: none;
   }
 }
