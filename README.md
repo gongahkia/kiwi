@@ -4,7 +4,7 @@
 
 # `strok` 🎨
 
-A [rigorously-benchmarked](./BENCHMARKS.md), [structure-aware](https://arxiv.org/abs/2609.24616) media [renderer](#architecture) applied to [mankind's greatest creation](https://dictionary.cambridge.org/dictionary/english/photo-booth).
+A [rigorously-benchmarked](./BENCHMARKS.md), [structure-aware](https://arxiv.org/abs/2609.24616) media [renderer](#architecture) applied to the [greatest creation](https://dictionary.cambridge.org/dictionary/english/photo-booth) of the 20th Century.
 
 ## Rationale
 
@@ -22,6 +22,10 @@ For the nerds, `Strok` also optionally transforms inputs by adding painterly, ha
 
 ## Features
 
+* Handles live camera/RTSP reconnects
+* Syncs audio and video streams 
+* Exposes profiles for live, structure and low-bandwidth outputs
+* Extensibly supports custom ramps and font-backed shape matching
 * Consumes, parses and plays the following input formats
     * [Video](https://aww.media/what-are-the-different-types-of-video-formats/)
     * [Images](https://en.wikipedia.org/wiki/Image_file_format)
@@ -33,18 +37,23 @@ For the nerds, `Strok` also optionally transforms inputs by adding painterly, ha
     * Live Web Camera input
     * Direct [FFmpeg](https://ffmpeg.org/) URLs
     * YouTube URLs
-* Syncs audio and video streams 
-* Handles live camera/RTSP reconnects
-* Exposes profiles for live, structure and low-bandwidth outputs
 * Emits ANSI text by default & optionally supports the below 
     * [Kitty](https://sw.kovidgoyal.net/kitty/) graphics
     * [iTerm2](https://iterm2.com/) inline images
     * [Sixel](https://en.wikipedia.org/wiki/Sixel)
     * [Hybrid](https://www.sciencedirect.com/science/article/abs/pii/S0167865504000224) text/pixel output 
-* Extensibly supports custom ramps and font-backed shape matching
 * Exports to rasterized MP4, PNG stills, ANSI streams & asciinema casts
 
-## GIF
+## Screenshots
+
+<div align="center">
+    <img src="./asset/reference/1.png" width="45%">
+    <img src="./asset/reference/2.png" width="45%">
+</div>
+
+<img src="./asset/reference/3.png" width="90%">
+
+## GIFs
 
 <div align="center">
   <img width="85%" src="docs/v1.0-scene-color-demo.gif" alt="A coloured bundled cube rotating in strok, labelled as normal-map colour with an orbit camera." />
