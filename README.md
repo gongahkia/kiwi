@@ -50,8 +50,9 @@ For the nerds, `Strok` also optionally transforms inputs by adding painterly, ha
     <img src="./asset/reference/1.png" width="45%">
     <img src="./asset/reference/2.png" width="45%">
 </div>
-
-<img src="./asset/reference/3.png" width="90%">
+<div align="center">
+   <img src="./asset/reference/3.png" width="45%">
+</div>
 
 ## GIFs
 
