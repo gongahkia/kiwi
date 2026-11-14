@@ -1,138 +1,54 @@
-name: Linux CI
+name: Journal checks
 
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: journal-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  core:
-    name: headless core and PTY scheduler
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: install minimal test dependencies
-        run: sudo apt-get update && sudo apt-get install --yes luajit build-essential python3
-      - name: test without native graphics libraries
-        run: make test-core test-regex-oracle test-interactive-bench test-interactive-budget
-      - name: check readiness watcher memory and concurrency
-        run: |
-          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-pty-watch test-child-watch
-          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-file-watch
-          CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-process-metrics
-          CFLAGS='-fsanitize=thread -fno-omit-frame-pointer' make test-pty-watch
-
-  check:
-    name: check
-    runs-on: ubuntu-24.04
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.18.0', '24']
     env:
-      KIWI_REQUIRE_SHELLS: bash,zsh,fish
+      TZ: Asia/Singapore
+      CI: 'true'
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish tmux neovim vim less procps python3 openssh-server at-spi2-core dbus-daemon fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
-            libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
-            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
-          sudo apt-get install --yes xvfb xauth x11-utils mesa-vulkan-drivers libvulkan1 sway wl-clipboard wtype ibus ibus-gtk4 ibus-libpinyin libdbus-1-dev python3-gi gir1.2-atspi-2.0 orca openbox xdotool
-          sudo install -d -m 0755 /run/sshd
-      - name: build required GLFW with X11 and Wayland
-        run: |
-          ./script/build-ci-glfw "$RUNNER_TEMP/kiwi-glfw"
-          printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\nLD_LIBRARY_PATH=%s/lib\n' "$RUNNER_TEMP/kiwi-glfw" "$RUNNER_TEMP/kiwi-glfw" >> "$GITHUB_ENV"
-      - name: deterministic checks
-        run: make check test-applications test-ssh-applications && make gtk-host-check
-      - name: build fixed IBus client for real engine qualification
-        run: ./script/build-ci-ibus-client "$RUNNER_TEMP/kiwi-ibus"
-      - name: bound X11 primary selection transfers
-        run: CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-primary-selection test-main-context-watch
-      - name: bound asynchronous GTK primary selection transfers
-        run: ASAN_OPTIONS=detect_leaks=0 CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' make test-gtk-primary
-      - name: verify shader output and reloads with software Vulkan
-        shell: bash
-        run: |
-          mkdir -p .build/appearance-evidence
-          export XDG_RUNTIME_DIR="$RUNNER_TEMP/kiwi-vulkan-runtime"
-          mkdir -p "$XDG_RUNTIME_DIR"
-          chmod 700 "$XDG_RUNTIME_DIR"
-          for kiwi_lavapipe_icd in /usr/share/vulkan/icd.d/lvp_icd*.json; do
-            if test -f "$kiwi_lavapipe_icd"; then export VK_ICD_FILENAMES="$kiwi_lavapipe_icd"; break; fi
-          done
-          test -n "${VK_ICD_FILENAMES:-}"
-          xvfb-run -a make shader-smoke configuration-reload-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke 2>&1 | tee .build/appearance-evidence/software-vulkan.log
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a make color-glyph-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-wgpu.log
-          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl xvfb-run -a make color-glyph-smoke gtk-gl-area-smoke 2>&1 | tee .build/appearance-evidence/color-gtk-gl.log
-          GTK_A11Y=none xvfb-run -a ./script/gtk-configuration-reload-smoke 2>&1 | tee .build/appearance-evidence/configuration-gtk-gl.log
-          ./script/main-context-wake-smoke 2>&1 | tee .build/appearance-evidence/glib-atspi-readiness.log
-          xvfb-run -a ./script/pty-wake-smoke 2>&1 | tee .build/appearance-evidence/readiness-glfw.log
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/pty-wake-smoke 2>&1 | tee .build/appearance-evidence/readiness-gtk.log
-          xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-glfw.json
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/idle-wake-smoke --report .build/appearance-evidence/idle-gtk.json
-          xvfb-run -a ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-glfw.json
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-gtk.json
-          xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-unicode-glfw.json
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 4 --warmup 1 --report .build/appearance-evidence/interactive-unicode-gtk.json
-          # Duration/resource gates, not cross-machine latency comparisons.
-          xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --heap-measurement retained --report .build/appearance-evidence/soak-glfw.json
-          KIWI_HOST=gtk GTK_A11Y=none xvfb-run -a ./script/bench-interactive --mode saturated --traffic styled-unicode --trials 1 --samples 20 --warmup 5 --soak-seconds 60 --scroll-mode history --heap-measurement retained --report .build/appearance-evidence/soak-gtk.json
-          ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-glfw.log
-          KIWI_HOST=gtk GTK_A11Y=none ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk.log
-          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl.log
-          KIWI_HOST=gtk GTK_A11Y=none KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/primary-selection-smoke 2>&1 | tee .build/appearance-evidence/primary-gtk-gl-tabs.log
-          ./script/gtk-primary-wayland-smoke 2>&1 | tee .build/appearance-evidence/primary-wayland.log
-          ./script/desktop-transition-smoke --report .build/appearance-evidence/transitions-wgpu.json
-          ./script/desktop-transition-smoke --presenter gl --report .build/appearance-evidence/transitions-gl.json
-          ./script/gtk-atspi-smoke --report .build/appearance-evidence/atspi-wgpu.json
-          ./script/gtk-atspi-smoke --presenter gl --report .build/appearance-evidence/atspi-gl.json
-          ./script/gtk-atspi-smoke --backend x11 --orca --report .build/appearance-evidence/orca-wgpu.json
-          ./script/gtk-atspi-smoke --backend x11 --orca --presenter gl --report .build/appearance-evidence/orca-gl.json
-          # Only Kiwi loads the fixed client library. Daemon, GTK module and
-          # libpinyin remain Ubuntu packages; no user desktop is involved.
-          for kiwi_presenter in wgpu gl; do
-            KIWI_IME_CLIENT_LIBRARY="$RUNNER_TEMP/kiwi-ibus/lib" IBUS_ENABLE_SYNC_MODE=1 KIWI_GTK_PRESENTER="$kiwi_presenter" ./script/gtk-ime-wayland-smoke 2>&1 | tee ".build/appearance-evidence/ime-$kiwi_presenter.log"
-          done
-          KIWI_IME_CLIENT_LIBRARY="$RUNNER_TEMP/kiwi-ibus/lib" IBUS_ENABLE_SYNC_MODE=1 KIWI_GTK_PRESENTER=gl KIWI_GTK_NATIVE_TABS=1 ./script/gtk-ime-wayland-smoke 2>&1 | tee .build/appearance-evidence/ime-gl-tabs.log
-          # Exercise IBus's nested-loop mode too, including key release order.
-          IBUS_ENABLE_SYNC_MODE=2 ./script/gtk-ime-wayland-smoke 2>&1 | tee .build/appearance-evidence/ime-hybrid.log
-      - name: upload interactive application evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: kiwi-linux-interactive-applications
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium and system libraries
+        run: npx playwright install --with-deps chromium
+      - name: Check unit tests, snapshot tools, production build, browser flows and dependencies
+        run: npm run verify
+      - name: Upload browser failure reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-failures-node-${{ matrix.node }}
           path: |
-            .build/application-evidence
-            .build/ssh-application-evidence
-            .build/appearance-evidence
-          include-hidden-files: true
-          if-no-files-found: warn
-
-  artifact:
-    name: release artifact
-    needs: check
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - name: install packaging dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential cmake curl unzip pkg-config luajit ncurses-bin zsh fish fonts-dejavu-core fonts-noto-cjk fonts-noto-color-emoji \
-            libwayland-dev libxkbcommon-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
-            libgif-dev libglib2.0-dev libglfw3-dev libfreetype-dev libharfbuzz-dev libfontconfig1-dev libpng-dev libgtk-4-dev libadwaita-1-dev libepoxy-dev
-      - name: build required GLFW with X11 and Wayland
-        run: |
-          ./script/build-ci-glfw "$RUNNER_TEMP/kiwi-glfw"
-          printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\nLD_LIBRARY_PATH=%s/lib\n' "$RUNNER_TEMP/kiwi-glfw" "$RUNNER_TEMP/kiwi-glfw" >> "$GITHUB_ENV"
-      - name: build reproducible release-mode artifact
-        run: make release-check && make release
-      - name: upload artifact and checksum metadata
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: kiwi-linux-x86_64
-          path: dist/**
-          if-no-files-found: error
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
