@@ -46,19 +46,33 @@ __kiwi_bash_prompt() {
 }
 
 if [[ $__kiwi_bash_saved_prompt_command == 'declare -a'* ]]; then
-  PROMPT_COMMAND=(__kiwi_bash_prompt "${PROMPT_COMMAND[@]}")
+  # save entries directly because older Bash quotes arrays differently in declare -p.
+  __kiwi_bash_saved_prompt_indices=("${!PROMPT_COMMAND[@]}")
+  __kiwi_bash_saved_prompt_entries=("${PROMPT_COMMAND[@]}")
+  if (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 1) )); then
+    PROMPT_COMMAND=(__kiwi_bash_prompt "${PROMPT_COMMAND[@]}")
+  else
+    # older Bash executes only element zero.
+    PROMPT_COMMAND[0]="__kiwi_bash_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+  fi
 else
   PROMPT_COMMAND="__kiwi_bash_prompt${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 PS0=$'\e]133;B\a\e]133;C\a'"${PS0-}"
 
 kiwi_shell_integration_uninstall() {
+  local index
   unset PROMPT_COMMAND
   if [[ -n $__kiwi_bash_saved_prompt_command ]]; then
-    # declare -p quotes shell data; assignment avoids function-local declare.
     case $__kiwi_bash_saved_prompt_command in
+      'declare -a'*)
+        PROMPT_COMMAND=()
+        for index in "${!__kiwi_bash_saved_prompt_indices[@]}"; do
+          PROMPT_COMMAND[${__kiwi_bash_saved_prompt_indices[index]}]=${__kiwi_bash_saved_prompt_entries[index]}
+        done
+        ;;
+      # declare -p quotes scalar data; assignment avoids function-local declare.
       *=*) eval "${__kiwi_bash_saved_prompt_command#declare -* }" ;;
-      'declare -a'*) PROMPT_COMMAND=() ;;
       *) export PROMPT_COMMAND; export -n PROMPT_COMMAND ;;
     esac
     case ${__kiwi_bash_saved_prompt_command%% PROMPT_COMMAND*} in
@@ -67,5 +81,6 @@ kiwi_shell_integration_uninstall() {
   fi
   if [[ $__kiwi_bash_saved_ps0_set ]]; then PS0=$__kiwi_bash_saved_ps0; else unset PS0; fi
   unset __kiwi_bash_active __kiwi_bash_prompt_seen __kiwi_bash_saved_prompt_command __kiwi_bash_saved_ps0 __kiwi_bash_saved_ps0_set
+  unset __kiwi_bash_saved_prompt_indices __kiwi_bash_saved_prompt_entries
   unset -f __kiwi_bash_marker __kiwi_bash_cwd __kiwi_bash_prompt kiwi_shell_integration_uninstall
 }

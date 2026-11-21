@@ -90,7 +90,7 @@ return {
       "unset PROMPT_COMMAND; PROMPT_COMMAND=('printf first' 'printf second'); export PROMPT_COMMAND; PS0=",
       "unset PROMPT_COMMAND; PROMPT_COMMAND=('printf \"%s\" \"literal \\$(exit 91)\"' 'printf \"quoted\\ntext\"'); PS0=",
     }) do
-      capture_bash(setup .. [=[
+      capture_bash(setup .. "; " .. [=[
         before=$(declare -p PROMPT_COMMAND 2>/dev/null) || before=
         preexec=$(declare -p PS0 2>/dev/null) || preexec=
         source integrations/v1/kiwi.bash
@@ -123,11 +123,20 @@ return {
 
   shell_integration_bash_preserves_array_hook_order_and_failed_command_status = function()
     if not available.bash then return end
-    local commands = [=[PROMPT_COMMAND=('printf "first:%s|" "$?"' 'printf "second|"'); source integrations/v1/kiwi.bash]=]
+    local commands = [=[
+      printf 'bash-version:%s.%s|' "${BASH_VERSINFO[0]}" "${BASH_VERSINFO[1]}"
+      PROMPT_COMMAND=('printf "first:%s|" "$?"' 'printf "second|"')
+      source integrations/v1/kiwi.bash
+    ]=]
     local output = capture("printf '%s\\n' " .. quote(commands) .. " false 'exit 0' | TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -i")
-    Assert.truthy(output:find("\27]133;A\7first:0|second|", 1, true) ~= nil)
+    local major, minor = output:match("bash%-version:(%d+)%.(%d+)|")
+    major, minor = assert(tonumber(major)), assert(tonumber(minor))
+    local native_array = major > 5 or (major == 5 and minor >= 1)
+    local last_hook = native_array and "second|" or ""
+    Assert.truthy(output:find("\27]133;A\7first:0|" .. last_hook, 1, true) ~= nil)
     Assert.truthy(output:find("\27]133;D;1\7", 1, true) ~= nil)
-    Assert.truthy(output:find("\27]133;A\7first:1|second|", 1, true) ~= nil)
+    Assert.truthy(output:find("\27]133;A\7first:1|" .. last_hook, 1, true) ~= nil)
+    if not native_array then Assert.equal(output:find("second|", 1, true), nil) end
   end,
 
   shell_integration_bash_leaves_readonly_prompt_commands_untouched = function()

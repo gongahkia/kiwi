@@ -63,7 +63,9 @@ Every script independently requires an interactive shell, `TERM=xterm-kiwi`, and
 `KIWI_SHELL_INTEGRATION=1`; otherwise it returns without output or prompt
 changes. The Bash script prepends its hook to scalar or indexed-array
 `PROMPT_COMMAND` values, preserving the existing hook order and the failed
-command status seen by the first existing hook. Read-only and other unsupported
+command status seen by the first existing hook. Bash 5.1 and later execute all
+array entries. Earlier Bash versions execute only index zero, and Kiwi prepends
+its hook within that entry. Read-only and other unsupported
 variable types leave integration inactive. The Nushell script retains
 the pre-existing `pre_prompt` and `pre_execution` hooks and is safe to source
 again after activation.
@@ -73,9 +75,9 @@ again after activation.
 At the first prompt each script emits a bounded `OSC 7;file://… BEL` record
 followed by `OSC 133;A BEL`. Before each command it emits `OSC 133;B BEL` and
 `OSC 133;C BEL`; after it finishes it emits `OSC 133;D;<status> BEL`, then the
-next prompt emits current-directory and `A` again. Bash uses `PS0` plus
-`PROMPT_COMMAND`; Zsh, fish, and Nushell use their native pre-command and
-prompt hooks. Nushell's `pre_prompt` hook reads the bounded `LAST_EXIT_CODE`
+next prompt emits current-directory and `A` again. Bash uses `PROMPT_COMMAND`
+at the prompt and `PS0` before commands on Bash 4.4 and later. Zsh, fish, and
+Nushell use their native pre-command and prompt hooks. Nushell's `pre_prompt` hook reads the bounded `LAST_EXIT_CODE`
 value before it writes the next prompt lifecycle record.
 
 The current directory is URI-percent-encoded and emitted only when it is an
