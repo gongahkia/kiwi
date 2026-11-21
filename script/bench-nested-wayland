@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Run the interactive benchmark in an owned nested Sway desktop."""
+"""Run the interactive benchmark in an owned nested or headless Sway desktop."""
+import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -11,28 +13,44 @@ import time
 
 root = Path(__file__).resolve().parent.parent
 benchmark = str(root / "script/bench-interactive")
-if not sys.argv[1:]:
-    raise SystemExit("usage: script/bench-nested-wayland --report PATH [bench-interactive options]")
-if sys.argv[1:] == ["--help"]:
+parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+parser.add_argument("--headless", action="store_true")
+options, arguments = parser.parse_known_args()
+if not arguments:
+    raise SystemExit("usage: script/bench-nested-wayland [--headless] --report PATH [bench-interactive options]")
+if arguments == ["--help"]:
+    print("--headless: use an offscreen GLES2 compositor; requires an accessible WLR_RENDER_DRM_DEVICE.", flush=True)
     raise SystemExit(subprocess.call([benchmark, "--help"]))
-if not os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("XDG_RUNTIME_DIR"):
+if not options.headless and (not os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("XDG_RUNTIME_DIR")):
     raise SystemExit("nested benchmarking requires an existing Wayland desktop")
 if not shutil.which("sway"):
     raise SystemExit("nested benchmarking requires Sway")
-parent_display = Path(os.environ["WAYLAND_DISPLAY"])
-if not parent_display.is_absolute():
-    parent_display = Path(os.environ["XDG_RUNTIME_DIR"]) / parent_display
+parent_display = None
+if options.headless:
+    node = Path(os.environ.get("WLR_RENDER_DRM_DEVICE", ""))
+    if not node.is_char_device() or not os.access(node, os.R_OK | os.W_OK):
+        raise SystemExit("headless GLES2 requires WLR_RENDER_DRM_DEVICE to name an accessible DRM render node")
+else:
+    parent_display = Path(os.environ["WAYLAND_DISPLAY"])
+    if not parent_display.is_absolute():
+        parent_display = Path(os.environ["XDG_RUNTIME_DIR"]) / parent_display
 with tempfile.TemporaryDirectory(prefix="kiwi-nested-bench-") as temporary:
     temporary = Path(temporary)
     runtime = temporary / "runtime"
     runtime.mkdir(mode=0o700)
     config = temporary / "sway.conf"
-    config.write_text('xwayland disable\nseat seat0 fallback true\noutput * mode 1280x720 scale 1\n'
+    config.write_text('xwayland disable\nseat seat0 fallback false\noutput * mode 1280x720 scale 1\n'
                       'for_window [app_id=".*"] floating enable\ndefault_border none\n')
-    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=str(parent_display),
-               WLR_BACKENDS="wayland", WLR_RENDERER="gles2", XDG_CURRENT_DESKTOP="sway",
+    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime),
+               WLR_BACKENDS="headless" if options.headless else "wayland", WLR_HEADLESS_OUTPUTS="1",
+               WLR_RENDERER="gles2", XDG_CURRENT_DESKTOP="sway",
                GIO_USE_VFS="local", GTK_A11Y="none", GDK_BACKEND="wayland",
-               KIWI_BENCH_DISPLAY_SCOPE="nested-wayland-gles2")
+               KIWI_BENCH_INPUT_SCOPE="detached nested input seats",
+               KIWI_BENCH_DISPLAY_SCOPE="headless-wayland-gles2" if options.headless else "nested-wayland-gles2")
+    if parent_display is not None:
+        env["WAYLAND_DISPLAY"] = str(parent_display)
+    else:
+        env.pop("WAYLAND_DISPLAY", None)
     for key in ("DISPLAY", "SWAYSOCK", "GDK_SCALE", "GDK_DPI_SCALE"):
         env.pop(key, None)
     with (temporary / "sway.log").open("w+") as log:
@@ -40,7 +58,8 @@ with tempfile.TemporaryDirectory(prefix="kiwi-nested-bench-") as temporary:
                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             deadline = time.monotonic() + 10
-            while not any(path.is_socket() for path in runtime.glob("wayland-*")):
+            while not (any(path.is_socket() for path in runtime.glob("wayland-*"))
+                       and any(path.is_socket() for path in runtime.glob("sway-ipc*.sock"))):
                 if sway.poll() is not None:
                     log.seek(0)
                     raise RuntimeError("nested compositor exited:\n" + log.read()[-16000:])
@@ -49,7 +68,9 @@ with tempfile.TemporaryDirectory(prefix="kiwi-nested-bench-") as temporary:
                 time.sleep(.02)
             env["WAYLAND_DISPLAY"] = next(path.name for path in runtime.glob("wayland-*") if path.is_socket())
             env["SWAYSOCK"] = str(next(runtime.glob("sway-ipc*.sock")))
-            result = subprocess.run([benchmark, *sys.argv[1:]], cwd=root, env=env)
+            seats = json.loads(subprocess.check_output(["swaymsg", "-r", "-t", "get_seats"], env=env, timeout=5))
+            assert seats and all(not seat["devices"] for seat in seats), "nested measurement seats must have no input devices"
+            result = subprocess.run([benchmark, *arguments], cwd=root, env=env)
             raise SystemExit(result.returncode)
         finally:
             try:

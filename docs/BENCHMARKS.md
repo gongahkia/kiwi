@@ -598,9 +598,27 @@ nested Sway compositor with floating client windows. It requires Sway and a
 working GLES2 renderer, creates no persistent compositor configuration, and
 cleans up its owned process group. It records `display_scope` separately so
 relative comparisons cannot mix direct and nested desktop measurements.
+Its Sway seat has fallback attachment disabled and the launcher verifies that
+no input devices are attached. Laptop keys and clicks cannot become benchmark
+input through that seat; the application's external-input rejection remains
+enabled. Reports record `native_input_scope`, so the comparison checker rejects
+mixing the earlier attached-seat setup with this detached-seat setup.
 Check each report's actual adapter identity before describing a run as hardware
 GPU evidence. This route includes nested compositor scheduling and still
 excludes physical input delivery and display scan-out.
+
+To avoid opening a laptop window, use the same launcher with `--headless` and
+an explicit accessible DRM render node:
+
+```sh
+WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128 ./script/bench-nested-wayland --headless \
+  --trials 5 --samples 40 --report bench/results/headless-baseline.json
+```
+
+This owns an offscreen Sway/GLES2 compositor and records the distinct
+`headless-wayland-gles2` scope. Confirm the actual adapter in the report;
+headless hardware rendering is not physical-desktop or display qualification.
+Run comparisons with matching scopes and input isolation.
 
 The parent records `CLOCK_MONOTONIC` on Linux or `CLOCK_MONOTONIC_RAW` on macOS
 immediately before creating each process. The child checks that its native

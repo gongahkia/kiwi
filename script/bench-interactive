@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
     config = temporary / "config"
     config.write_text(f"theme = kiwi\nfont-size = 18\nscrollback-limit = {args.scrollback_limit}\nlive-config-reload = false\n")
     # Prevent unrelated diagnostic knobs from contaminating a comparison.
-    keep = {"KIWI_HOST", "KIWI_GTK_PRESENTER", "KIWI_SURFACE_LIB", "KIWI_WGPU_LIB", "KIWI_BENCH_DISPLAY_SCOPE"}
+    keep = {"KIWI_HOST", "KIWI_GTK_PRESENTER", "KIWI_SURFACE_LIB", "KIWI_WGPU_LIB", "KIWI_BENCH_DISPLAY_SCOPE", "KIWI_BENCH_INPUT_SCOPE"}
     base = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_") or key in keep}
     base.update(KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;", KIWI_LAYOUT_PERSISTENCE="0",
                 KIWI_LAYOUT_RESTORE="0", KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0", KIWI_PTY_READ_BUDGET=str(args.read_budget),

@@ -340,6 +340,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   phase_diagnostics = true,
   startup_geometry_settle_seconds = geometry_settle_seconds,
   display_scope = os.getenv("KIWI_BENCH_DISPLAY_SCOPE") or "native",
+  native_input_scope = os.getenv("KIWI_BENCH_INPUT_SCOPE") or "host event callbacks guarded",
   history_counter_scope = "first input, with initial retained rows recorded separately",
   external_input_guard = true,
   initial_focus_requested = gtk,
