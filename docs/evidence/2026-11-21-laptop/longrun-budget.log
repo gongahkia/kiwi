@@ -1,0 +1,5 @@
+long-run budget pass=true cpu-p95-regression=25% memory-regression=15%
+history_batch_p95_ms baseline=23.5046 candidate=27.64785 limit=29.38075 status=within-budget
+history_navigation_p95_ms baseline=4.48 candidate=4.6905 limit=5.6000000000000005 status=within-budget
+history_retained_heap_kib baseline=53395.6172 candidate=53451.457 limit=61404.95978 status=within-budget
+text_cache_cpu_ms baseline=3764.482 candidate=2728.659 limit=4705.6025 status=within-budget

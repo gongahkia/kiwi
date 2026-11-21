@@ -1,5 +1,11 @@
 # Kiwi M1.5, M2, and M2.5 benchmarks
 
+The [2026-11-21 Arch laptop baseline](evidence/2026-11-21-laptop/README.md)
+records repeatability gates, real application/desktop checks, hardware history
+soaks and the measured font-reload optimization, with raw reports and limits.
+The shared text corpus is now `kiwi-text-corpus-v2`: it corrects malformed UTF-8
+in the combining scenario. Match corpus versions when comparing text results.
+
 M1.5 measures the real LuaJIT terminal pipeline in layers instead of inferring terminal performance from the older synthetic renderer model. The benchmarks are reproducible CPU measurements, not a claim of end-to-end terminal or GPU latency.
 
 ```sh

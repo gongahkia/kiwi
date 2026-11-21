@@ -1,0 +1,17 @@
+PASS cell_copy_preserves_renditions_and_clears_attributes_when_overwritten
+PASS compact_ascii_keeps_visual_text_graphemes_and_snapshot_semantics
+PASS discarded_scroll_rows_clear_renditions_and_metadata_in_both_directions
+PASS packed_and_plain_cells_copy_all_fields_in_both_directions
+PASS packed_history_preserves_style_and_transaction_isolation
+PASS plain_history_and_staged_reflow_remain_within_cell_memory_budget
+PASS scrolling_bounds_transient_allocation_with_and_without_history
+PASS scrolling_reuses_storage_without_changing_history_or_transaction_sources
+FAIL staged_reflow_bounds_transient_allocations_and_keeps_visible_cells_mutable
+src/tests/test_cell.lua:26: staged reflow exceeded transient allocation budget: 17473.0625 KiB
+stack traceback:
+	[C]: in function 'error'
+	src/tests/assert.lua:11: in function 'truthy'
+	src/tests/test_cell.lua:26: in function <src/tests/test_cell.lua:13>
+	[C]: in function 'xpcall'
+	src/kiwi/test.lua:181: in main chunk
+	[C]: at 0x558e9137ced0

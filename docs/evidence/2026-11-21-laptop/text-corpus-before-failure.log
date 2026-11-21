@@ -1,0 +1,15 @@
+PASS text_benchmark_font_inventory_records_resolved_fallbacks
+PASS text_benchmark_records_the_runtime_text_backend_contract
+PASS text_benchmark_reports_every_native_text_layer
+FAIL text_corpus_manifest_is_small_and_semantically_deterministic
+src/tests/test_text_bench.lua:31: combining contains malformed UTF-8
+stack traceback:
+	[C]: in function 'error'
+	src/tests/assert.lua:5: in function 'equal'
+	src/tests/test_text_bench.lua:31: in function 'emit'
+	src/kiwi/terminal/utf8.lua:34: in function 'emit_replacement'
+	src/kiwi/terminal/utf8.lua:68: in function 'feed_byte'
+	src/tests/test_text_bench.lua:34: in function <src/tests/test_text_bench.lua:22>
+	[C]: in function 'xpcall'
+	src/kiwi/test.lua:181: in main chunk
+	[C]: at 0x561440922ed0

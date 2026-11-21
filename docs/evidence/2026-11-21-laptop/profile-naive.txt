@@ -1,0 +1,23 @@
+62%  Interpreted
+  -- 46%  cell.lua:14
+  --  7%  cell.lua:57
+  --  6%  cell.lua:15
+  --  4%  cell.lua:58
+  --  4%  cell.lua:47
+  --  4%  reflow.lua:82
+  --  3%  cell.lua:49
+  --  3%  cell.lua:48
+  --  3%  reflow.lua:83
+19%  Compiled
+  --  9%  cell.lua:15
+  --  7%  cell.lua:58
+  --  5%  cell.lua:14
+  --  3%  properties.lua:38
+  --  3%  cell.lua:19
+  --  3%  reflow.lua:26
+  --  3%  state.lua:263
+16%  Garbage Collector
+  -- 55%  configuration_reload.lua:111
+  -- 17%  configuration_reload.lua:61
+  -- 17%  configuration_reload.lua:98
+  --  7%  cell.lua:82

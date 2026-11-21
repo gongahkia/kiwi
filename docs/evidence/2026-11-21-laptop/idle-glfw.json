@@ -1,0 +1,107 @@
+{
+  "benchmark": "Kiwi redraw scheduling observation",
+  "measurement": {
+    "deferred": {},
+    "elapsed_seconds": 2.9937931,
+    "extension_animation_frames": 0,
+    "indefinite_waits": 5,
+    "input_events": 0,
+    "output_events": 1,
+    "present_reasons": {
+      "terminal": 1
+    },
+    "presented": 1,
+    "requested_wait_seconds": 0,
+    "state_seconds": {
+      "active": 0,
+      "idle": 2.9937931,
+      "minimized": 0
+    },
+    "state_wakes": {
+      "active": 0,
+      "idle": 6,
+      "minimized": 0
+    },
+    "synthetic_input_events": 0,
+    "wake_frequency_hz": 2.00414651,
+    "wakes": 6
+  },
+  "metadata": {
+    "configuration": {
+      "present_mode": "fifo"
+    },
+    "methodology": {
+      "clock": "GLFW monotonic time; not os.clock",
+      "samples": "bounded aggregate summaries; event payloads are not retained",
+      "scope": "terminal PTY event to successful Renderer:render return; no GPU execution, compositor, or panel latency claim"
+    },
+    "revision": {
+      "branch": "main",
+      "commit": "9bd7a75b362d16e05349303fc092c6fdc43c5b58",
+      "dirty": false,
+      "source": "git"
+    },
+    "runtime": {
+      "compiler_flags": "not provided",
+      "jit": {
+        "enabled": true,
+        "features": [
+          "SSE3",
+          "SSE4.1",
+          "BMI2",
+          "fold",
+          "cse",
+          "dce",
+          "fwd",
+          "dse",
+          "narrow",
+          "loop",
+          "abc",
+          "sink",
+          "fuse"
+        ]
+      },
+      "lua_version": "Lua 5.1",
+      "luajit_version": "LuaJIT 2.1.1792588164",
+      "machine_code_limit_kib": 4096
+    },
+    "system": {
+      "architecture": "x64",
+      "cgroup_cpu_limit": "unavailable",
+      "cgroup_memory_limit": "unavailable",
+      "cpu_affinity": "0-11",
+      "cpu_governor": "powersave",
+      "cpu_model": "13th Gen Intel(R) Core(TM) i7-1355U",
+      "display_refresh_hz": "unavailable",
+      "display_session": "wayland",
+      "gl_renderer": "unavailable",
+      "gl_version": "unavailable",
+      "kernel": "Linux 7.2.15-1-omarchy x86_64",
+      "operating_system": "Linux",
+      "power_profile": "performance",
+      "scheduler_nice": "0",
+      "vulkan_gpu0": "Intel(R) Iris(R) Xe Graphics (RPL-U)",
+      "vulkan_gpu0_driver": "Mesa 26.2.5-arch1.1"
+    },
+    "timestamp_utc": "20261121T145604Z"
+  },
+  "methodology": {
+    "power": "not measured: the report counts Kiwi loop wakeups and successful renderer returns, not battery discharge, package energy, GPU energy, compositor work, or scan-out",
+    "privacy": "counts and reason categories only; no terminal output, input bytes, clipboard, command, window title, or display identifier is retained",
+    "state_time": "time inside host waits, classified immediately before each wait; excludes rendering/parsing CPU time",
+    "wakeup": "a wakeup is one return from Kiwi's GLFW wait loop; it is not an operating-system wakeup attribution",
+    "quiet_interval": "recording starts after a ready presentation with a hidden cursor and 300 ms of stable geometry; a second PTY handshake starts the three-second quiet child interval; subsequent geometry changes fail"
+  },
+  "policy": {
+    "child_exit_fallback_seconds": 0.05,
+    "extension_animation_hz": "bounded by KIWI_EXTENSION_MAX_ANIMATION_HZ from 1/60 through 60",
+    "minimized_child_exit_fallback_seconds": 0.25,
+    "scheduling": "events-and-explicit-deadlines"
+  },
+  "schema_version": 1,
+  "unavailable": {
+    "battery_energy": "unavailable: Kiwi does not query battery or system energy counters",
+    "compositor_occlusion": "unavailable: GLFW exposes iconification but no portable occlusion callback",
+    "gpu_energy": "unavailable: WGPU timing does not provide energy or compositor accounting"
+  }
+}

@@ -1,0 +1,326 @@
+{
+  "status": "passed",
+  "presenter": "wgpu",
+  "backend": "x11",
+  "orca": true,
+  "steps": [
+    {
+      "name": "initial",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                  \nbeta é                                                    \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          ",
+      "role": "text",
+      "characters": 1061,
+      "caret": 65,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "focus-restored",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                  \nbeta é                                                    \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          ",
+      "role": "text",
+      "characters": 1061,
+      "caret": 65,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "updated",
+      "accessible_name": "kiwi-atspi-ready",
+      "text": "alpha 界                                                  \nbeta é                                                    \nupdated ✓                                                 \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          ",
+      "role": "text",
+      "characters": 1061,
+      "caret": 127,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    },
+    {
+      "name": "selected",
+      "accessible_name": "Kiwi [Visual character]  — i exits; v selects; y copies",
+      "text": "alpha 界                                                  \nbeta é                                                    \nupdated ✓                                                 \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          ",
+      "role": "text",
+      "characters": 1061,
+      "caret": 127,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 1
+    },
+    {
+      "name": "palette-action",
+      "accessible_name": "Kiwi [Vi]  — i exits; v selects; y copies",
+      "text": "alpha 界                                                  \nbeta é                                                    \nupdated ✓                                                 \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          ",
+      "role": "text",
+      "characters": 1061,
+      "caret": 127,
+      "states": [
+        "focusable",
+        "focused",
+        "multi-line",
+        "sensitive",
+        "showing",
+        "visible",
+        "read-only"
+      ],
+      "selections": 0
+    }
+  ],
+  "events": [
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 1061
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 1061
+    },
+    {
+      "type": "object:text-caret-moved",
+      "detail1": 65,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-changed:delete",
+      "detail1": 0,
+      "detail2": 1061
+    },
+    {
+      "type": "object:text-changed:insert",
+      "detail1": 0,
+      "detail2": 1061
+    },
+    {
+      "type": "object:text-caret-moved",
+      "detail1": 127,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:text-selection-changed",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 0,
+      "detail2": 0
+    },
+    {
+      "type": "object:state-changed:focused",
+      "detail1": 1,
+      "detail2": 0
+    }
+  ],
+  "timestamp_utc": "2026-11-21T15:00:49Z",
+  "scope": "external AT-SPI consumer and real PTY on an isolated desktop; optional Orca speech-generation checks exclude audio, braille and daily usability",
+  "revision": "1c6c32380ee035332988187c2f573f96544dfe2f",
+  "source_state": "clean",
+  "versions": {
+    "gtk4": "4.24.1",
+    "atspi-2": "2.62.1",
+    "orca": "Orca version 51.1 (rev 244bdadd9), AT-SPI2 version: 2.62.1, Session: x11 Hyprland"
+  },
+  "orca_locale": "C.UTF-8",
+  "orca_instrumentation": "native line-buffered debug logging; speech enabled and braille disabled in an isolated profile; speech server autospawn disabled; event handling and speech generation are unmodified",
+  "accessibility_status_properties": [
+    "IsEnabled"
+  ],
+  "app_pid": 336500,
+  "last_tree": [
+    {
+      "name": "main",
+      "role": "desktop frame",
+      "pid": 336426,
+      "interfaces": [
+        "Accessible",
+        "Application",
+        "Component"
+      ]
+    },
+    {
+      "name": "Unnamed",
+      "role": "application",
+      "pid": 336500,
+      "interfaces": [
+        "Accessible",
+        "Application"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "frame",
+      "pid": 336500,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "",
+      "role": "panel",
+      "pid": 336500,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component"
+      ]
+    },
+    {
+      "name": "kiwi-atspi-ready",
+      "role": "text",
+      "pid": 336500,
+      "interfaces": [
+        "Accessible",
+        "Action",
+        "Component",
+        "Text"
+      ],
+      "text": "                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          \n                                                          "
+    }
+  ],
+  "orca_checks": [
+    {
+      "name": "Where Am I reads the current terminal line",
+      "expected": "beta é",
+      "utterances": [
+        "beta é"
+      ]
+    },
+    {
+      "name": "palette focus",
+      "expected": "Command Palette",
+      "utterances": [
+        "Command Palette"
+      ]
+    },
+    {
+      "name": "read selected terminal text",
+      "expected": "Selected text is: upd",
+      "utterances": [
+        "Selected text is:  upd"
+      ]
+    }
+  ],
+  "palette_window": {
+    "id": "10485781",
+    "name": "Command Palette",
+    "pid": "336500"
+  },
+  "palette_text": "copy",
+  "palette_entry_states": [
+    "editable",
+    "focusable",
+    "focused",
+    "sensitive",
+    "showing",
+    "visible"
+  ],
+  "palette": {
+    "query": "copy",
+    "role": "entry"
+  },
+  "orca_speech": [
+    "Screen reader on.",
+    "kiwi-atspi-ready",
+    "r",
+    "enter",
+    "kiwi-atspi-ready read only text",
+    "beta é",
+    "left control",
+    "Command Palette",
+    "entry",
+    "c",
+    "o",
+    "p",
+    "y",
+    "escape",
+    "x",
+    "kiwi-atspi-ready frame",
+    "left control",
+    "0",
+    "v",
+    "l",
+    "l",
+    "Kiwi [Visual character]  — i exits; v selects; y copies read only text",
+    "updated ✓",
+    "insert",
+    "Selected text is:  upd",
+    "i",
+    "left control",
+    "Command Palette",
+    "entry",
+    "left shift",
+    "T",
+    "o",
+    "g",
+    "g",
+    "l",
+    "e",
+    "space",
+    "left shift",
+    "V",
+    "i",
+    "space",
+    "left shift",
+    "M",
+    "o",
+    "d",
+    "e",
+    "return",
+    "i",
+    "q",
+    "Screen reader off."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "status": "failed",
+  "host": "glfw",
+  "scope": "physical laptop; successful WGPU present and fixed real PTY reply, excluding panel readback and external monitors",
+  "timestamp_utc": "2026-11-21T14:46:40Z",
+  "revision": "657cc67a03ac7247af847e645aaa597bedaec1f8",
+  "source_state": "dirty",
+  "before": {
+    "child_columns": 47,
+    "child_rows": 15,
+    "columns": 47,
+    "drawable_height": 552,
+    "drawable_width": 756,
+    "font_scale": 1.5,
+    "frames": 5,
+    "rows": 15,
+    "scale": 1.5,
+    "surface_height": 552,
+    "surface_width": 756,
+    "token": "before"
+  },
+  "error": "Kiwi closed while awaiting suspend"
+}

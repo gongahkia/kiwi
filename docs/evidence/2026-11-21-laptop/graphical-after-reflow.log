@@ -1,0 +1,51 @@
+./script/bootstrap
+wgpu-native v29.0.1.1 is already available at /home/gongahkia/coding/projects/kiwi/.deps/wgpu-native-v29.0.1.1
+./script/build-native
+Built /home/gongahkia/coding/projects/kiwi/.build/native/libkiwi_surface.so
+./script/build-terminfo
+Kiwi terminfo contract passed: indexed/RGB colours, styled/coloured underlines and italic reach terminal state.
+Built project-local Kiwi terminfo at /home/gongahkia/coding/projects/kiwi/.build/terminfo
+
+(luajit:316036): atspi-WARNING **: 22:49:21.066: Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: Connection refused
+Kiwi configuration rollback smoke passed: second-pane GPU failure retained all live sessions.
+Kiwi interaction smoke passed: native actions changed live pane geometry, focus, font size, and search.
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/usr/bin/yes grid=21x14 primary=/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf
+./script/configuration-reload-smoke
+
+(luajit:316131): atspi-WARNING **: 22:49:22.745: Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: Connection refused
+Kiwi configuration reload rejected: src/kiwi/config.lua:187: configuration line 1 has an out-of-range integer
+Kiwi configuration reload rejected: src/kiwi/config.lua:365: could not open theme file: /tmp/lua_fBAWIO
+Kiwi configuration reload rejected: src/kiwi/renderer/postprocess.lua:36: shader module surface-effect for pass surface-effect from /home/gongahkia/coding/projects/kiwi/src/kiwi/renderer/postprocess.wgsl compilation failed: wgpu error 2: Validation Error
+
+Caused by:
+  In wgpuDeviceCreateShaderModule
+    
+Shader '' parsing error: expected global item (`struct`, `const`, `var`, `alias`, `fn`, `diagnostic`, `enable`, `requires`, `;`) or the end of the file, found "invalid"
+   ┌─ wgsl:26:1
+   │
+26 │ invalid WGSL
+   │ ^^^^^^^ expected global item (`struct`, `const`, `var`, `alias`, `fn`, `diagnostic`, `enable`, `requires`, `;`) or the end of the file
+
+
+
+Kiwi configuration reload rejected: src/kiwi/config.lua:699: could not open custom shader /tmp/lua_uhfU3J: /tmp/lua_uhfU3J: No such file or directory
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=/bin/sh grid=21x14 primary=/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Kiwi configuration reloaded: /tmp/lua_npsXhB
+Configuration reload smoke passed: atomic saves, visible errors, missing-theme recovery, theme edits, opt-out, manual retry, recoloured visible PTY history, opacity, shader file edits, invalid/missing shader rollback and recovery.
+luajit src/kiwi/appearance_smoke.lua
+
+(luajit:316190): atspi-WARNING **: 22:49:26.864: Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: Connection refused
+Appearance GPU smoke passed: background alpha 1/0.5/0/1, opaque text, split panes, gutters, custom shader output, invalid-shader recovery, resize and sample effects.
+./script/hints-smoke
+
+(luajit:316229): atspi-WARNING **: 22:49:28.145: Couldn't connect to accessibility bus: Failed to connect to socket /run/user/1000/at-spi/bus_0: Connection refused
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=python3 grid=21x14 primary=/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf
+URL hints smoke passed: default binding, global action, rendered labels, explicit open/copy, actual OSC 8 target, stale cancellation, Kitty flags=27 isolation; 1 scan ticks, max 346 units.

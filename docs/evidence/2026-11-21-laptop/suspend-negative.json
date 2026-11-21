@@ -1,0 +1,23 @@
+{
+  "status": "failed",
+  "host": "glfw",
+  "scope": "physical laptop; successful WGPU present and fixed real PTY reply, excluding panel readback and external monitors",
+  "timestamp_utc": "2026-11-21T14:46:12Z",
+  "revision": "cec01c788b506bafd2dfaa9b56ef41039f93910f",
+  "source_state": "dirty",
+  "before": {
+    "child_columns": 47,
+    "child_rows": 15,
+    "columns": 47,
+    "drawable_height": 552,
+    "drawable_width": 756,
+    "font_scale": 1.5,
+    "frames": 5,
+    "rows": 15,
+    "scale": 1.5,
+    "surface_height": 552,
+    "surface_width": 756,
+    "token": "before"
+  },
+  "error": "no system suspend observed before the deadline"
+}

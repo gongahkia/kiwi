@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "aggregation": "median of independent trial metrics",
+  "checks": [
+    {
+      "mode": "idle",
+      "metric": "input_p95_ms",
+      "baseline": 7.910493049999999,
+      "candidate": 6.07968365,
+      "limit": 17.91049305,
+      "passed": true
+    },
+    {
+      "mode": "idle",
+      "metric": "startup_ready_ms",
+      "baseline": 424.217568,
+      "candidate": 400.582519,
+      "limit": 530.27196,
+      "passed": true
+    },
+    {
+      "mode": "idle",
+      "metric": "peak_rss_kib",
+      "baseline": 115484,
+      "candidate": 115456,
+      "limit": 148252,
+      "passed": true
+    },
+    {
+      "mode": "saturated",
+      "metric": "input_p95_ms",
+      "baseline": 38.220899249999995,
+      "candidate": 37.9404565,
+      "limit": 48.220899249999995,
+      "passed": true
+    },
+    {
+      "mode": "saturated",
+      "metric": "startup_ready_ms",
+      "baseline": 440.45901,
+      "candidate": 395.10926,
+      "limit": 550.5737624999999,
+      "passed": true
+    },
+    {
+      "mode": "saturated",
+      "metric": "peak_rss_kib",
+      "baseline": 121460,
+      "candidate": 121248,
+      "limit": 154228,
+      "passed": true
+    }
+  ]
+}

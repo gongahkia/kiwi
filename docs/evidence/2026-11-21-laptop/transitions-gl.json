@@ -1,0 +1,562 @@
+{
+  "timestamp_utc": "2026-11-21T06:35:08Z",
+  "status": "passed",
+  "presenter": "gl",
+  "scope": "GTK on isolated headless Sway; virtual outputs and process pause, not physical hotplug or system sleep",
+  "steps": [
+    {
+      "name": "ready",
+      "presentation": {
+        "cell_height": 24,
+        "cell_width": 11,
+        "child_columns": 116,
+        "child_rows": 36,
+        "columns": 116,
+        "drawable_height": 872,
+        "drawable_width": 1276,
+        "font_scale": 1,
+        "frames": 1,
+        "logical_height": 872,
+        "logical_width": 1276,
+        "native_rendered_frames": 2,
+        "revision": 2,
+        "rows": 36,
+        "scale": 1,
+        "surface_height": 872,
+        "surface_width": 1276,
+        "token": "ready"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.0,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-1",
+        "rect": {
+          "x": 0,
+          "y": 26,
+          "width": 1280,
+          "height": 874
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "fractional",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 92,
+        "child_rows": 28,
+        "columns": 92,
+        "drawable_height": 1384,
+        "drawable_width": 2040,
+        "font_scale": 2,
+        "frames": 3,
+        "logical_height": 692,
+        "logical_width": 1020,
+        "native_rendered_frames": 4,
+        "revision": 5,
+        "rows": 28,
+        "scale": 2,
+        "surface_height": 1384,
+        "surface_width": 2040,
+        "token": "fractional"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-1",
+        "rect": {
+          "x": 0,
+          "y": 26,
+          "width": 1024,
+          "height": 694
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "doubled",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 72,
+        "child_rows": 19,
+        "columns": 72,
+        "drawable_height": 944,
+        "drawable_width": 1592,
+        "font_scale": 2,
+        "frames": 5,
+        "logical_height": 472,
+        "logical_width": 796,
+        "native_rendered_frames": 7,
+        "revision": 7,
+        "rows": 19,
+        "scale": 2,
+        "surface_height": 944,
+        "surface_width": 1592,
+        "token": "doubled"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-2",
+        "rect": {
+          "x": 1280,
+          "y": 26,
+          "width": 800,
+          "height": 474
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "removed",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 92,
+        "child_rows": 28,
+        "columns": 92,
+        "drawable_height": 1384,
+        "drawable_width": 2040,
+        "font_scale": 2,
+        "frames": 7,
+        "logical_height": 692,
+        "logical_width": 1020,
+        "native_rendered_frames": 10,
+        "revision": 9,
+        "rows": 28,
+        "scale": 2,
+        "surface_height": 1384,
+        "surface_width": 2040,
+        "token": "removed"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": false,
+          "scale": null,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          },
+          "current_mode": null,
+          "power": false
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-1",
+        "rect": {
+          "x": 0,
+          "y": 26,
+          "width": 1024,
+          "height": 694
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "returned",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 72,
+        "child_rows": 19,
+        "columns": 72,
+        "drawable_height": 944,
+        "drawable_width": 1592,
+        "font_scale": 2,
+        "frames": 9,
+        "logical_height": 472,
+        "logical_width": 796,
+        "native_rendered_frames": 13,
+        "revision": 11,
+        "rows": 19,
+        "scale": 2,
+        "surface_height": 944,
+        "surface_width": 1592,
+        "token": "returned"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-2",
+        "rect": {
+          "x": 1280,
+          "y": 26,
+          "width": 800,
+          "height": 474
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "powered",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 72,
+        "child_rows": 19,
+        "columns": 72,
+        "drawable_height": 944,
+        "drawable_width": 1592,
+        "font_scale": 2,
+        "frames": 13,
+        "logical_height": 472,
+        "logical_width": 796,
+        "native_rendered_frames": 17,
+        "revision": 17,
+        "rows": 19,
+        "scale": 2,
+        "surface_height": 944,
+        "surface_width": 1592,
+        "token": "powered"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-2",
+        "rect": {
+          "x": 1280,
+          "y": 26,
+          "width": 800,
+          "height": 474
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "resumed",
+      "presentation": {
+        "cell_height": 48,
+        "cell_width": 22,
+        "child_columns": 72,
+        "child_rows": 19,
+        "columns": 72,
+        "drawable_height": 944,
+        "drawable_width": 1592,
+        "font_scale": 2,
+        "frames": 17,
+        "logical_height": 472,
+        "logical_width": 796,
+        "native_rendered_frames": 21,
+        "revision": 22,
+        "rows": 19,
+        "scale": 2,
+        "surface_height": 944,
+        "surface_width": 1592,
+        "token": "resumed"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.25,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1024,
+            "height": 720
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-2",
+        "rect": {
+          "x": 1280,
+          "y": 26,
+          "width": 800,
+          "height": 474
+        },
+        "focused": true
+      }
+    },
+    {
+      "name": "restored",
+      "presentation": {
+        "cell_height": 24,
+        "cell_width": 11,
+        "child_columns": 116,
+        "child_rows": 36,
+        "columns": 116,
+        "drawable_height": 872,
+        "drawable_width": 1276,
+        "font_scale": 1,
+        "frames": 19,
+        "logical_height": 872,
+        "logical_width": 1276,
+        "native_rendered_frames": 24,
+        "revision": 24,
+        "rows": 36,
+        "scale": 1,
+        "surface_height": 872,
+        "surface_width": 1276,
+        "token": "restored"
+      },
+      "outputs": [
+        {
+          "name": "HEADLESS-1",
+          "active": true,
+          "scale": 1.0,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "current_mode": {
+            "width": 1280,
+            "height": 900,
+            "refresh": 0
+          },
+          "power": true
+        },
+        {
+          "name": "HEADLESS-2",
+          "active": true,
+          "scale": 2.0,
+          "rect": {
+            "x": 1280,
+            "y": 0,
+            "width": 800,
+            "height": 500
+          },
+          "current_mode": {
+            "width": 1600,
+            "height": 1000,
+            "refresh": 0
+          },
+          "power": true
+        }
+      ],
+      "window": {
+        "output": "HEADLESS-1",
+        "rect": {
+          "x": 0,
+          "y": 26,
+          "width": 1280,
+          "height": 874
+        },
+        "focused": true
+      }
+    }
+  ],
+  "revision": "105e184d550970d68155d5ba5fae5c6b38ed740a",
+  "source_state": "dirty",
+  "versions": {
+    "gtk": "4.24.1",
+    "sway": "sway version 1.12"
+  }
+}

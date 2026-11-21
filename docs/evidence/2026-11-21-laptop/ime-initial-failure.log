@@ -1,0 +1,113 @@
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.gtk.vfs.Daemon' requested by ':1.1' (uid=1000 pid=273838 comm="gsettings set org.freedesktop.ibus.general use-sys")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.gtk.vfs.Daemon'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='ca.desrt.dconf' requested by ':1.1' (uid=1000 pid=273838 comm="gsettings set org.freedesktop.ibus.general use-sys")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'ca.desrt.dconf'
+IME qualification: daemon/module=system, client library=system, IBUS_ENABLE_SYNC_MODE=1
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.portal.IBus' requested by ':1.5' (uid=1000 pid=273861 comm="ibus-daemon --panel=disable --emoji-extension=disa")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.portal.IBus'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.portal.Desktop' requested by ':1.11' (uid=1000 pid=273875 comm="luajit src/kiwi/gtk_ime_smoke.lua")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.impl.portal.PermissionStore' requested by ':1.12' (uid=1000 pid=273890 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.PermissionStore'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.portal.Documents' requested by ':1.12' (uid=1000 pid=273890 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.portal.Documents'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.impl.portal.desktop.gtk' requested by ':1.12' (uid=1000 pid=273890 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.16' (uid=1000 pid=273912 comm="/usr/lib/xdg-desktop-portal-gtk")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.18' (uid=1000 pid=273926 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.18' (uid=1000 pid=273926 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[273832]: 
+** (xdg-desktop-portal-gtk:273912): WARNING **: 14:41:25.461: AT-SPI: Could not obtain desktop path or name
+
+[session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.desktop.gtk'
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.18' (uid=1000 pid=273926 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+
+** (xdg-desktop-portal-gtk:273912): WARNING **: 14:41:25.466: atk-bridge: GetRegisteredEvents returned message with unknown signature
+
+** (xdg-desktop-portal-gtk:273912): WARNING **: 14:41:25.466: atk-bridge: get_device_events_reply: unknown signature
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.488: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name is not activatable
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.488: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name is not activatable
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.489: Failed to load RealtimeKit property: GDBus.Error:org.freedesktop.DBus.Error.ServiceUnknown: The name is not activatable
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.511: Failed to connect to PipeWire: Couldn't connect to PipeWire
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.511: Choosing hyprland.portal for org.freedesktop.impl.portal.Screenshot via the deprecated UseIn key
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.511: The preferred method to match portal implementations to desktop environments is to use the portals.conf(5) configuration file
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Activating service name='org.freedesktop.impl.portal.desktop.hyprland' requested by ':1.12' (uid=1000 pid=273890 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.desktop.hyprland'
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.537: Choosing hyprland.portal for org.freedesktop.impl.portal.GlobalShortcuts via the deprecated UseIn key
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.544: Choosing hyprland.portal for org.freedesktop.impl.portal.ScreenCast via the deprecated UseIn key
+
+(/usr/lib/xdg-desktop-portal:273890): xdg-desktop-portal-WARNING **: 14:41:25.547: Choosing hyprland.portal for org.freedesktop.impl.portal.InputCapture via the deprecated UseIn key
+dbus-daemon[273832]: [session uid=1000 pid=273832 pidfd=5] Successfully activated service 'org.freedesktop.portal.Desktop'
+Snapshot: {'commits': {}, 'editing': False, 'flags': 0, 'keys': {}, 'preedit': '', 'preedits': {}, 'query': '', 'row': 'IME fixture          ', 'title': 'ime-fixture-ready'} PTY: b''
+compositor log:
+00:00:00.100 [ERROR] [sway/config/output.c:1219] failed to execute 'swaybg' (background configuration probably not applied): No such file or directory
+
+ibus log:
+
+(ibus-daemon:273861): IBUS-WARNING **: 14:41:25.002: 14:41:25.  2283: Engines exec:/usr/lib/ibus-libpinyin/ibus-engine-libpinyin --xml is failed: 
+
+(ibus-daemon:273861): IBUS-WARNING **: 14:41:25.009: 14:41:25.  9473: Failed to unlink /tmp/kiwi-ime-wayland-9ji9yntn/home/.config/ibus/bus/0db9c3a30fb741e392124f38102e9839-unix-wayland-1: No such file or directory
+cannot open ../lua/base.lua: No such file or directory
+/usr/share/ibus-libpinyin/base.lua:44: attempt to assign to const variable 'ch'
+cannot open /tmp/kiwi-ime-wayland-9ji9yntn/home/.config/ibus/libpinyin/user.lua: No such file or directory
+open /tmp/kiwi-ime-wayland-9ji9yntn/home/.cache/ibus/libpinyin/user.conf failed.
+kiwi log:
+
+(process:273875): Gdk-WARNING **: 14:41:25.728: Cannot get portal org.freedesktop.portal.Inhibit version: GDBus.Error:org.freedesktop.DBus.Error.InvalidArgs: No such interface “org.freedesktop.portal.Inhibit”
+
+(process:273875): IBUS-WARNING **: 14:41:27.453: (null) has no capability of surrounding-text feature
+
+keyboard log:
+
+typing log:
+
+Gdk-Message: 14:41:34.507: Error reading events from display: Broken pipe
+Traceback (most recent call last):
+  File "/home/gongahkia/coding/projects/kiwi/./script/gtk-ime-wayland-smoke", line 90, in <module>
+    wait_for(lambda: snapshot().get("preedit"), "real engine did not produce preedit")
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gongahkia/coding/projects/kiwi/./script/gtk-ime-wayland-smoke", line 57, in wait_for
+    assert time.monotonic() < deadline, message
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: real engine did not produce preedit
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/gongahkia/coding/projects/kiwi/./script/gtk-ime-wayland-smoke", line 16, in <module>
+    with tempfile.TemporaryDirectory(prefix="kiwi-ime-wayland-") as temporary:
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/tempfile.py", line 972, in __exit__
+    self.cleanup()
+    ~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/tempfile.py", line 976, in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/tempfile.py", line 956, in _rmtree
+    _shutil.rmtree(name, onexc=onexc)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 852, in rmtree
+    _rmtree_impl(path, dir_fd, onexc)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 721, in _rmtree_safe_fd
+    _rmtree_safe_fd_step(stack, onexc)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 802, in _rmtree_safe_fd_step
+    onexc(func, path, err)
+    ~~~~~^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/shutil.py", line 753, in _rmtree_safe_fd_step
+    os.rmdir(name, dir_fd=dirfd)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 16] Device or resource busy: '/tmp/kiwi-ime-wayland-9ji9yntn/runtime/gvfs'
+A connection to the bus can't be made
+/bin/sh: line 1: kill: (273937) - No such process

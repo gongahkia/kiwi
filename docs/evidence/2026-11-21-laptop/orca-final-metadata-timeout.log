@@ -1,0 +1,24 @@
+dbus-daemon[360223]: [session uid=1000 pid=360223 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.0' (uid=1000 pid=360544 comm="/usr/bin/python3 /usr/bin/orca --version")
+dbus-daemon[360223]: [session uid=1000 pid=360223 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[360223]: [session uid=1000 pid=360223 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.2' (uid=1000 pid=360715 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[360223]: [session uid=1000 pid=360223 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+Traceback (most recent call last):
+  File "/home/gongahkia/coding/projects/kiwi/.build/laptop-qualification/./script/gtk-atspi-smoke", line 83, in <module>
+    report["versions"]["orca"] = version(["orca", "--version"])
+                                 ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gongahkia/coding/projects/kiwi/.build/laptop-qualification/./script/gtk-atspi-smoke", line 73, in version
+    result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=5)
+  File "/usr/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 2154, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1268, in _check_timeout
+    raise TimeoutExpired(
+    ...<2 lines>...
+            stderr=b''.join(stderr_seq) if stderr_seq else None)
+subprocess.TimeoutExpired: Command '['orca', '--version']' timed out after 5 seconds

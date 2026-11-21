@@ -1,0 +1,10 @@
+MESA-EGL: warning: DRI3 error: Could not get DRI3 device
+MESA-EGL: warning: Ensure your X server supports DRI3 to get accelerated rendering
+MESA: info: vulkan: No DRI3 support detected - required for presentation
+Note: you can probably enable DRI3 in your Xorg config
+MESA: info: vulkan: No DRI3 support detected - required for presentation
+Note: you can probably enable DRI3 in your Xorg config
+MESA: info: vulkan: No DRI3 support detected - required for presentation
+Note: you can probably enable DRI3 in your Xorg config
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=python3 grid=26x9 primary=/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf
+Primary selection host smoke passed: Unicode publication, clipboard isolation, bracketed middle/keyboard paste, native button mapping, mouse capture/Shift override, replacement, focus/window cancellation, bounded retirement and vi publication.

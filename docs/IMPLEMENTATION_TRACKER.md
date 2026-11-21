@@ -44,6 +44,9 @@ do not let signing qualification interrupt progress on these priorities.
 - [x] Implement bounded GTK/Wayland PRIMARY transfers and qualify independent
       clients plus real PTY paste on isolated Sway across WGPU/GL/native tabs.
 - [ ] Qualify IME composition and accessibility with native consumers.
+- [x] Qualify stock IBus/libpinyin on the Arch laptop's GTK WGPU/GL paths and
+      external AT-SPI queries plus Orca terminal-line/palette/selection speech
+      generation; retain audio, braille and everyday use as separate gates.
 - [x] Exercise real IBus/libpinyin composition, cancellation, Kitty keyboard
       reporting, Find and focus changes on isolated GTK/Wayland; record the
       stock IBus 1.5.29 dependency failure separately.
@@ -53,6 +56,13 @@ do not let signing qualification interrupt progress on these priorities.
       retain physical hotplug/system sleep as separate open gates.
 - [ ] Resolve differences between Linux presentation paths; document and test
       the supported application path without claiming prototype equivalence.
+
+The [2026-11-21 laptop record](evidence/2026-11-21-laptop/README.md) distinguishes
+hardware nested/offscreen measurements from software-rendered functional tests,
+records the Arch Bash repair and GPU resize recovery, and preserves failed
+attempts. Physical suspend/recovery was explicitly deferred by the user;
+external monitor hardware is unavailable. Default GLFW/Wayland IME composition
+and PRIMARY support remain open; the qualified GTK paths do not close them.
 
 ## Windows — deferred to the user's Windows laptop
 

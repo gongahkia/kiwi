@@ -1,0 +1,24 @@
+libdecor-gtk-WARNING: Failed to initialize GTK
+Failed to load plugin 'libdecor-gtk.so': failed to init
+luajit: src/kiwi/primary_selection_smoke.lua:201: src/kiwi/app/window_manager.lua:422: src/kiwi/app/host_controller.lua:1735: src/kiwi/primary_selection_smoke.lua:81: assertion failed!
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/primary_selection_smoke.lua:81: in function <src/kiwi/primary_selection_smoke.lua:66>
+	src/kiwi/app/host_controller.lua:1403: in function <src/kiwi/app/host_controller.lua:216>
+	[C]: in function 'xpcall'
+	src/kiwi/app/host_controller.lua:216: in function 'run_window'
+	src/kiwi/app/window_manager.lua:82: in function <src/kiwi/app/window_manager.lua:81>
+stack traceback:
+	[C]: in function 'error'
+	src/kiwi/app/window_manager.lua:422: in function 'run'
+	src/kiwi/app/main.lua:56: in main chunk
+	[C]: in function 'require'
+	src/kiwi/primary_selection_smoke.lua:196: in function <src/kiwi/primary_selection_smoke.lua:196>
+	[C]: in function 'xpcall'
+	src/kiwi/primary_selection_smoke.lua:196: in main chunk
+	[C]: at 0x564c97938ed0
+stack traceback:
+	[C]: in function 'assert'
+	src/kiwi/primary_selection_smoke.lua:201: in main chunk
+	[C]: at 0x564c97938ed0
+Kiwi M2: Unicode=17.0 TERM=xterm-kiwi child=python3 grid=133x36 primary=/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf

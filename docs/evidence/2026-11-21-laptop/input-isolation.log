@@ -1,0 +1,4 @@
+Verified detached seats: [{'name': 'seat0', 'capabilities': 0, 'focus': 4, 'devices': []}]
+saturated trial=1 startup-ready=570.9ms ack-p95=77.30ms rss=115.8MiB
+Report: /home/gongahkia/coding/projects/kiwi/.build/laptop-baseline/detached-seat-key-injection.json; excludes physical keyboard/display latency.
+Parent virtual keyboard injection did not reach the benchmark; native guard remains enabled.

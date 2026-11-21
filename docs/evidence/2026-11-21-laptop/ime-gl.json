@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "presenter": "gl",
+  "scope": "real system IBus/libpinyin and GTK input on a private headless Wayland desktop",
+  "revision": "1c6c32380ee035332988187c2f573f96544dfe2f",
+  "source_state": "clean",
+  "libpinyin_resource": "unmodified system base.lua"
+}
