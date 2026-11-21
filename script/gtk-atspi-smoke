@@ -339,6 +339,14 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                 capture_output=True, text=True, check=True, timeout=5).stdout, "private X11 window manager")
         if args.orca:
             env.update(LANG="C.UTF-8", LC_ALL="C.UTF-8")
+        app = start([env.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(kiwi_config),
+                     "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/atspi_child.py"], "kiwi")
+        report["app_pid"] = app.pid
+        terminal = wait_for(find_terminal, "registered terminal with real PTY text", timeout=30 if args.orca else 10)
+        if args.orca:
+            # GTK 4.14 publishes the root before the registry's Embed reply
+            # supplies its parent. Start Orca only once the registered text
+            # node is available, so it cannot query that incomplete root.
             # Exercise Orca's real event/script/speech-generation path without
             # starting an audio daemon or claiming audible output coverage.
             env["SPEECHD_CMD"] = "/bin/false"
@@ -371,10 +379,6 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                 report["orca_instrumentation"] = "native line-buffered debug logging; speech enabled and braille disabled in an isolated profile; speech server autospawn disabled; event handling and speech generation are unmodified"
             start(command, "orca")
             wait_for(lambda: initialized in debug_text(), "Orca initialization")
-        app = start([env.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(kiwi_config),
-                     "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/atspi_child.py"], "kiwi")
-        report["app_pid"] = app.pid
-        terminal = wait_for(find_terminal, "registered terminal with real PTY text", timeout=30 if args.orca else 10)
         listener = Atspi.EventListener.new(event_received)
         for kind in ("object:text-changed", "object:text-caret-moved", "object:text-selection-changed", "object:state-changed:focused"):
             assert listener.register(kind), "could not subscribe to " + kind
