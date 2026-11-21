@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -27,6 +28,7 @@ if os.environ.get("KIWI_ATSPI_PRIVATE_BUS") != "1":
         home, runtime = session / "home", session / "runtime"
         home.mkdir(mode=0o700); runtime.mkdir(mode=0o700)
         environment = dict(os.environ, KIWI_ATSPI_PRIVATE_BUS="1", HOME=str(home),
+                           GIO_USE_VFS="local",
                            XDG_CONFIG_HOME=str(home / "config"), XDG_CACHE_HOME=str(home / "cache"),
                            XDG_DATA_HOME=str(home / "data"), XDG_RUNTIME_DIR=str(runtime))
         environment.pop("AT_SPI_BUS_ADDRESS", None)
@@ -295,7 +297,13 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
 
     try:
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        for property_name in ("IsEnabled", "ScreenReaderEnabled"):
+        properties = bus.call_sync("org.a11y.Bus", "/org/a11y/bus", "org.freedesktop.DBus.Properties", "GetAll",
+                                   GLib.Variant("(s)", ("org.a11y.Status",)),
+                                   GLib.VariantType.new("(a{sv})"), Gio.DBusCallFlags.NONE, 5000, None).unpack()[0]
+        assert "IsEnabled" in properties, "accessibility bus does not expose its enable state"
+        report["accessibility_status_properties"] = sorted(properties)
+        # newer AT-SPI services no longer expose the deprecated reader property.
+        for property_name in (name for name in ("IsEnabled", "ScreenReaderEnabled") if name in properties):
             bus.call_sync("org.a11y.Bus", "/org/a11y/bus", "org.freedesktop.DBus.Properties", "Set",
                           GLib.Variant("(ssv)", ("org.a11y.Status", property_name, GLib.Variant("b", True))),
                           None, Gio.DBusCallFlags.NONE, 5000, None)
@@ -306,6 +314,11 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
         # Pin both endpoints to the private service; neither may discover a
         # cached accessibility address from a different HOME/runtime directory.
         env["AT_SPI_BUS_ADDRESS"] = os.environ["AT_SPI_BUS_ADDRESS"] = address
+        # own the registry directly; private buses have no systemd user manager.
+        registry = shutil.which("at-spi2-registryd") or next((str(path) for path in (
+            Path("/usr/libexec/at-spi2-registryd"), Path("/usr/lib/at-spi2-registryd")) if path.is_file()), None)
+        assert registry is not None, "AT-SPI registry executable is unavailable"
+        start([registry], "registry")
         if args.backend == "wayland":
             start(["sway", "--unsupported-gpu", "-c", str(config)], "sway")
             wait_for(lambda: any(path.is_socket() for path in runtime.glob("wayland-*")) and list(runtime.glob("sway-ipc*.sock")), "private Wayland and compositor sockets")
