@@ -2,6 +2,40 @@ local Assert = require("tests.assert")
 local Compositor = require("kiwi.renderer.compositor")
 
 return {
+  compositor_aborts_and_retries_when_acquisition_changes_the_surface_size = function()
+    for _, dimensions in ipairs({ { 60, 40 }, { 140, 120 } }) do
+      local frame, aborted, encoded, finished = {}, 0, 0, 0
+      local context = {
+        window = {}, width = 100, height = 80,
+        begin_presentation_frame = function(self)
+          self.width, self.height = dimensions[1], dimensions[2]
+          return frame
+        end,
+        abort_presentation_frame = function(_, value)
+          Assert.equal(value, frame)
+          aborted = aborted + 1
+        end,
+        present_presentation_frame = function() return true end,
+      }
+      local compositor = Compositor.new(context)
+      local entry = { model = {}, viewport = { x = 0, y = 0, width = 100, height = 80 }, renderer = {
+        encode_into = function() encoded = encoded + 1 end,
+        finish_frame = function() finished = finished + 1 end,
+      } }
+      local rendered, reason = compositor:render({ entry }, 1)
+      Assert.equal(rendered, false)
+      Assert.equal(reason, "surface resized")
+      Assert.equal(aborted, 1)
+      Assert.equal(encoded, 0)
+      Assert.equal(finished, 0)
+      Assert.equal(compositor.frame, 0)
+      entry.viewport.width, entry.viewport.height = context.width, context.height
+      Assert.truthy(compositor:render({ entry }, 2))
+      Assert.equal(encoded, 1)
+      Assert.equal(finished, 1)
+    end
+  end,
+
   custom_shader_animation_is_opt_in_and_respects_presentation_gates = function()
     local context = { window = {}, begin_presentation_frame = function() end,
       present_presentation_frame = function() end, abort_presentation_frame = function() end,

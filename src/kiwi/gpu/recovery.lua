@@ -19,6 +19,7 @@ end
 local function classify(reason)
   local text = tostring(reason or "unknown GPU error")
   if text == "zero-sized drawable" or text == "surface occluded" then return "wait" end
+  if text == "surface resized" then return "retry-surface" end
   if text:match("^surface acquire status ") or text:match("^surface present status ") then return "retry-surface" end
   if text:find("wgpu device lost", 1, true) or text:find("simulated device loss", 1, true) then return "device-loss" end
   if text:match("^native GPU error:") then return "fatal-native-error" end

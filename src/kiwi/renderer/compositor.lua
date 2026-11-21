@@ -79,10 +79,16 @@ end
 function Compositor:render(entries, time, debug_dirty, debug_boundaries)
   if self.context.window.minimized then return false, "zero-sized drawable" end
   self:validate(entries)
+  local width, height = self.context.width, self.context.height
   local presentation, presentation_reason = self.context:begin_presentation_frame()
   if presentation == nil then
     if presentation_reason == "surface occluded" or presentation_reason == "zero-sized drawable" then self.retry_at = time + 0.25 end
     return false, presentation_reason
+  end
+  -- acquisition can reconfigure the drawable after pane layout was calculated.
+  if self.context.width ~= width or self.context.height ~= height then
+    self.context:abort_presentation_frame(presentation)
+    return false, "surface resized"
   end
   self.retry_at = nil
   local capture_started = false

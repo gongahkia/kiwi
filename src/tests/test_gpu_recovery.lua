@@ -26,6 +26,7 @@ return {
   gpu_recovery_reconfigures_surface_errors_without_consuming_device_retry = function()
     local recovery = Recovery.new()
     Assert.equal(recovery:decide("surface acquire status 2").action, "retry-surface")
+    Assert.equal(recovery:decide("surface resized").action, "retry-surface")
     Assert.equal(recovery:snapshot().device_retries, 0)
     Assert.equal(recovery:decide("zero-sized drawable").action, "wait")
     Assert.equal(recovery:decide("surface occluded").action, "wait")
