@@ -61,8 +61,10 @@ source "/absolute/path/to/kiwi/integrations/v1/kiwi.nu"
 
 Every script independently requires an interactive shell, `TERM=xterm-kiwi`, and
 `KIWI_SHELL_INTEGRATION=1`; otherwise it returns without output or prompt
-changes. The Bash script declines to activate when `PROMPT_COMMAND` is an
-array, because v1 only preserves the scalar form. The Nushell script retains
+changes. The Bash script prepends its hook to scalar or indexed-array
+`PROMPT_COMMAND` values, preserving the existing hook order and the failed
+command status seen by the first existing hook. Read-only and other unsupported
+variable types leave integration inactive. The Nushell script retains
 the pre-existing `pre_prompt` and `pre_execution` hooks and is safe to source
 again after activation.
 
@@ -98,8 +100,10 @@ kiwi_shell_integration_uninstall
 ```
 
 The helper removes only the hooks installed by v1. In Bash it restores the
-scalar `PROMPT_COMMAND` and `PS0` values present when the script was sourced.
-It does not revert unrelated prompt changes made after activation. Nushell
+`PROMPT_COMMAND` and `PS0` values present when the script was sourced, including
+indexed-array entries and sparse indices, export state, and unset values.
+Changes to those two variables after activation are replaced by the saved values;
+other prompt variables are untouched. Nushell
 restores the complete `hooks` record saved when this asset was sourced, so
 hooks added after activation must be re-added after uninstalling.
 

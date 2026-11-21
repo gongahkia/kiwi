@@ -67,7 +67,80 @@ local function assert_capture(output, expected_path)
   Assert.equal(regions.regions[2].state, "prompt")
 end
 
+local function quote(value)
+  return "'" .. value:gsub("'", "'\\''") .. "'"
+end
+
+local function capture_bash(script)
+  return capture("TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -ic " .. quote(script))
+end
+
 return {
+  shell_integration_bash_restores_scalar_array_empty_unset_and_exported_prompts = function()
+    if not available.bash then return end
+    for _, setup in ipairs({
+      "unset PROMPT_COMMAND PS0",
+      "unset PROMPT_COMMAND; declare PROMPT_COMMAND; unset PS0",
+      "unset PROMPT_COMMAND; export PROMPT_COMMAND; unset PS0",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND=; PS0=",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND=\"printf 'original:%s' \\\"\\$?\\\"\"; PS0='original preexec'",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND=(); PS0=",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND[2]='printf first'; PROMPT_COMMAND[9]='printf second'; PS0='preexec'",
+      "unset PROMPT_COMMAND; export PROMPT_COMMAND='printf exported'; PS0=",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND=('printf first' 'printf second'); export PROMPT_COMMAND; PS0=",
+      "unset PROMPT_COMMAND; PROMPT_COMMAND=('printf \"%s\" \"literal \\$(exit 91)\"' 'printf \"quoted\\ntext\"'); PS0=",
+    }) do
+      capture_bash(setup .. [=[
+        before=$(declare -p PROMPT_COMMAND 2>/dev/null) || before=
+        preexec=$(declare -p PS0 2>/dev/null) || preexec=
+        source integrations/v1/kiwi.bash
+        [[ $__kiwi_bash_active == 1 ]] || exit 10
+        installed=$(declare -p PROMPT_COMMAND)
+        source integrations/v1/kiwi.bash
+        [[ $(declare -p PROMPT_COMMAND) == "$installed" ]] || exit 11
+        kiwi_shell_integration_uninstall
+        after=$(declare -p PROMPT_COMMAND 2>/dev/null) || after=
+        postexec=$(declare -p PS0 2>/dev/null) || postexec=
+        [[ $before == "$after" && $preexec == "$postexec" ]] || exit 12
+        [[ -z ${__kiwi_bash_active+x} && -z $(type -t __kiwi_bash_prompt) ]] || exit 13
+        source integrations/v1/kiwi.bash
+        [[ $__kiwi_bash_active == 1 ]] || exit 14
+        kiwi_shell_integration_uninstall
+      ]=])
+    end
+  end,
+
+  shell_integration_bash_restores_a_declared_unassigned_array_without_running_a_command = function()
+    if not available.bash then return end
+    capture_bash([=[
+      unset PROMPT_COMMAND
+      declare -a PROMPT_COMMAND
+      source integrations/v1/kiwi.bash
+      kiwi_shell_integration_uninstall
+      [[ $(declare -p PROMPT_COMMAND) == 'declare -a '* && ${#PROMPT_COMMAND[@]} == 0 && -z ${PROMPT_COMMAND+x} ]]
+    ]=])
+  end,
+
+  shell_integration_bash_preserves_array_hook_order_and_failed_command_status = function()
+    if not available.bash then return end
+    local commands = [=[PROMPT_COMMAND=('printf "first:%s|" "$?"' 'printf "second|"'); source integrations/v1/kiwi.bash]=]
+    local output = capture("printf '%s\\n' " .. quote(commands) .. " false 'exit 0' | TERM=xterm-kiwi KIWI_SHELL_INTEGRATION=1 bash --noprofile --norc -i")
+    Assert.truthy(output:find("\27]133;A\7first:0|second|", 1, true) ~= nil)
+    Assert.truthy(output:find("\27]133;D;1\7", 1, true) ~= nil)
+    Assert.truthy(output:find("\27]133;A\7first:1|second|", 1, true) ~= nil)
+  end,
+
+  shell_integration_bash_leaves_readonly_prompt_commands_untouched = function()
+    if not available.bash then return end
+    capture_bash([=[
+      unset PROMPT_COMMAND
+      readonly PROMPT_COMMAND='printf original'
+      before=$(declare -p PROMPT_COMMAND)
+      source integrations/v1/kiwi.bash
+      [[ $(declare -p PROMPT_COMMAND) == "$before" && -z ${__kiwi_bash_active+x} ]]
+    ]=])
+  end,
+
   shell_integration_scripts_emit_the_documented_bounded_event_shape = function()
     if available.bash then assert_capture(capture(scripts.bash), "/tmp/kiwi%20work") end
     if available.zsh then assert_capture(capture(scripts.zsh), "/tmp/kiwi%20work") end
