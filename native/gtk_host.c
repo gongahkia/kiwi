@@ -3,6 +3,7 @@
 #ifdef GDK_WINDOWING_WAYLAND
 #include <gdk/wayland/gdkwayland.h>
 #include <viewporter-client-protocol.h>
+#include <fractional-scale-v1-client-protocol.h>
 #endif
 #ifdef GDK_WINDOWING_X11
 #include <gdk/x11/gdkx.h>
@@ -131,6 +132,8 @@ struct KiwiGtkHost {
   struct wl_surface *presentation_surface;
   struct wl_subsurface *presentation_subsurface;
   struct wp_viewport *presentation_viewport;
+  struct wp_fractional_scale_v1 *presentation_fractional_scale;
+  double presentation_scale;
 #endif
   int should_close;
 };
@@ -156,6 +159,14 @@ struct KiwiGtkTerminalPresentation {
   KiwiGtkGlPresentation *gl_presentation;
   AdwTabPage *tab_page;
 };
+
+static double kiwi_gtk_host_render_scale(const KiwiGtkHost *host) {
+  if (host == NULL) return 1.0;
+#ifdef GDK_WINDOWING_WAYLAND
+  if (host->presentation_scale > 0.0) return host->presentation_scale;
+#endif
+  return host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface);
+}
 
 typedef struct KiwiGtkClipboardRead {
   GCancellable *cancellable;
@@ -533,6 +544,7 @@ static int kiwi_gtk_terminal_update(KiwiGtkTerminal *terminal, const char *text,
 typedef struct KiwiGtkWaylandRegistry {
   struct wl_subcompositor *subcompositor;
   struct wp_viewporter *viewporter;
+  struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
 } KiwiGtkWaylandRegistry;
 #endif
 
@@ -881,6 +893,9 @@ static void kiwi_gtk_wayland_registry_global(void *userdata, struct wl_registry 
     uint32_t supported_version = version < 1 ? version : 1;
     state->viewporter = wl_registry_bind(registry, name, &wp_viewporter_interface,
                                          supported_version);
+  } else if (state->fractional_scale_manager == NULL && strcmp(interface, "wp_fractional_scale_manager_v1") == 0) {
+    state->fractional_scale_manager = wl_registry_bind(registry, name,
+        &wp_fractional_scale_manager_v1_interface, 1);
   }
 }
 
@@ -894,6 +909,25 @@ static void kiwi_gtk_wayland_registry_global_remove(void *userdata, struct wl_re
 static const struct wl_registry_listener kiwi_gtk_wayland_registry_listener = {
   .global = kiwi_gtk_wayland_registry_global,
   .global_remove = kiwi_gtk_wayland_registry_global_remove,
+};
+
+static void kiwi_gtk_wayland_preferred_scale(void *userdata,
+                                             struct wp_fractional_scale_v1 *object,
+                                             uint32_t scale) {
+  (void)object;
+  KiwiGtkHost *host = userdata;
+  if (scale == 0) return;
+  host->presentation_scale = (double)scale / 120.0;
+  KiwiGtkTerminalPresentation *terminal = host->primary_presentation;
+  if (terminal != NULL && terminal->callbacks.resize != NULL) {
+    terminal->callbacks.resize(terminal->callbacks.userdata,
+        gtk_widget_get_width(terminal->content), gtk_widget_get_height(terminal->content),
+        host->presentation_scale);
+  }
+}
+
+static const struct wp_fractional_scale_v1_listener kiwi_gtk_fractional_scale_listener = {
+  .preferred_scale = kiwi_gtk_wayland_preferred_scale,
 };
 
 static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
@@ -917,6 +951,7 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
     if (registry != NULL) wl_registry_destroy(registry);
     if (state.subcompositor != NULL) wl_subcompositor_destroy(state.subcompositor);
     if (state.viewporter != NULL) wp_viewporter_destroy(state.viewporter);
+    if (state.fractional_scale_manager != NULL) wp_fractional_scale_manager_v1_destroy(state.fractional_scale_manager);
     kiwi_gtk_set_error("Wayland compositor does not expose wl_subcompositor and wp_viewporter");
     return 0;
   }
@@ -925,6 +960,7 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
   if (host->presentation_surface == NULL) {
     wl_subcompositor_destroy(state.subcompositor);
     wp_viewporter_destroy(state.viewporter);
+    if (state.fractional_scale_manager != NULL) wp_fractional_scale_manager_v1_destroy(state.fractional_scale_manager);
     wl_registry_destroy(registry);
     kiwi_gtk_set_error("could not create Wayland presentation surface");
     return 0;
@@ -933,10 +969,21 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
       state.subcompositor, host->presentation_surface, parent);
   host->presentation_viewport = wp_viewporter_get_viewport(state.viewporter,
                                                             host->presentation_surface);
+  if (state.fractional_scale_manager != NULL) {
+    host->presentation_fractional_scale = wp_fractional_scale_manager_v1_get_fractional_scale(
+        state.fractional_scale_manager, host->presentation_surface);
+    wp_fractional_scale_v1_add_listener(host->presentation_fractional_scale,
+        &kiwi_gtk_fractional_scale_listener, host);
+    wp_fractional_scale_manager_v1_destroy(state.fractional_scale_manager);
+  }
   wl_subcompositor_destroy(state.subcompositor);
   wp_viewporter_destroy(state.viewporter);
   wl_registry_destroy(registry);
   if (host->presentation_subsurface == NULL || host->presentation_viewport == NULL) {
+    if (host->presentation_fractional_scale != NULL) {
+      wp_fractional_scale_v1_destroy(host->presentation_fractional_scale);
+      host->presentation_fractional_scale = NULL;
+    }
     if (host->presentation_viewport != NULL) {
       wp_viewport_destroy(host->presentation_viewport);
       host->presentation_viewport = NULL;
@@ -1080,7 +1127,7 @@ static void kiwi_gtk_resize(GtkWidget *widget, int width, int height, gpointer u
   KiwiGtkHost *host = presentation->host;
   host->surface = gtk_native_get_surface(GTK_NATIVE(host->window));
   if (presentation->callbacks.resize != NULL) {
-    double scale = host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface);
+    double scale = kiwi_gtk_host_render_scale(host);
     presentation->callbacks.resize(presentation->callbacks.userdata, width, height,
                                    scale > 0.0 ? scale : 1.0);
   }
@@ -2012,11 +2059,10 @@ double kiwi_gtk_terminal_presentation_content_scale(
     const KiwiGtkTerminalPresentation *presentation) {
   if (presentation == NULL || presentation->content == NULL) return 1.0;
   /* GtkGLArea's viewport uses the widget's integer buffer scale. WGPU owns
-   * its buffer and viewport and can use GDK's fractional surface scale. */
+   * its buffer and viewport and uses its own Wayland preferred scale. */
   double scale = presentation->gl_presentation != NULL
       ? gtk_widget_get_scale_factor(presentation->content)
-      : presentation->host->surface == NULL ? 1.0
-          : gdk_surface_get_scale(presentation->host->surface);
+      : kiwi_gtk_host_render_scale(presentation->host);
   return scale > 0.0 ? scale : 1.0;
 }
 
@@ -2150,6 +2196,7 @@ void kiwi_gtk_host_destroy(KiwiGtkHost *host) {
     kiwi_gtk_terminal_presentation_dispose(host->primary_presentation);
   }
 #ifdef GDK_WINDOWING_WAYLAND
+  if (host->presentation_fractional_scale != NULL) wp_fractional_scale_v1_destroy(host->presentation_fractional_scale);
   if (host->presentation_viewport != NULL) wp_viewport_destroy(host->presentation_viewport);
   if (host->presentation_subsurface != NULL) wl_subsurface_destroy(host->presentation_subsurface);
   if (host->presentation_surface != NULL) wl_surface_destroy(host->presentation_surface);
@@ -2242,14 +2289,14 @@ void kiwi_gtk_host_request_close(KiwiGtkHost *host) { if (host != NULL) host->sh
 void kiwi_gtk_host_set_title(KiwiGtkHost *host, const char *title) { if (host != NULL && title != NULL) gtk_window_set_title(GTK_WINDOW(host->window), title); }
 
 void kiwi_gtk_host_drawable_size(const KiwiGtkHost *host, int *width, int *height) {
-  double scale = host == NULL || host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface);
+  double scale = kiwi_gtk_host_render_scale(host);
   if (scale <= 0.0) scale = 1.0;
   KiwiGtkTerminalPresentation *terminal = host == NULL ? NULL : host->primary_presentation;
   if (width != NULL) *width = terminal == NULL ? 0 : (int)(gtk_widget_get_width(terminal->content) * scale + 0.5);
   if (height != NULL) *height = terminal == NULL ? 0 : (int)(gtk_widget_get_height(terminal->content) * scale + 0.5);
 }
 
-double kiwi_gtk_host_content_scale(const KiwiGtkHost *host) { return host == NULL || host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface); }
+double kiwi_gtk_host_content_scale(const KiwiGtkHost *host) { return kiwi_gtk_host_render_scale(host); }
 
 void kiwi_gtk_host_set_size(KiwiGtkHost *host, int width, int height) { if (host != NULL && width > 0 && height > 0) gtk_window_set_default_size(GTK_WINDOW(host->window), width, height); }
 

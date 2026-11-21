@@ -1,6 +1,7 @@
 local Dispatcher = require("kiwi.app.product_action_dispatcher")
 local Terminal = require("kiwi.session.terminal")
 local Clipboard = require("kiwi.input.clipboard")
+local Hints = require("kiwi.input.hints")
 local Renderer = require("kiwi.renderer.renderer")
 local gtk = os.getenv("KIWI_HOST") == "gtk"
 local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
@@ -10,6 +11,7 @@ local keys, capture, config = Host.keymap, os.tmpname(), os.tmpname()
 local file = assert(io.open(config, "w")); file:write("live-config-reload = false\n"); file:close()
 local live, dispatcher, renderer, title, copied, last_action
 local opened = {}
+local step_budget = Hints.step_budget
 local terminal_new, dispatcher_new, renderer_new, clipboard_new = Terminal.new, Dispatcher.new, Renderer.new, Clipboard.new
 local set_title, await, open_uri = Window.set_title, Host.await_events, Window.open_uri
 Terminal.new = function(...) live = terminal_new(...); return live end
@@ -36,19 +38,26 @@ local function text(window, value)
   window.on_text(points, { key = string.byte("Q"), action = keys.press, modifiers = 0 })
 end
 local started, stage, flags, ticks, maximum = nil, 0, 0, 0, 0
+local geometry, geometry_at
 Host.await_events = function(application, window, timeout)
-  await(application, window, timeout)
+  await(application, window, math.min(timeout, 0.01))
   local now, state = window:time(), Terminal.state(live)
   started = started or now
+  local width, height = window:drawable_size()
+  local current_geometry = string.format("%d:%d:%d:%d", width, height, state.columns, state.rows)
+  if current_geometry ~= geometry then geometry, geometry_at = current_geometry, now end
   assert(now - started < 25, string.format("URL hint smoke timed out at stage %d: status=%s matches=%d rendered=%s title=%s",
     stage, state.hints.status, #state.hints.matches, tostring(renderer.hint_count), tostring(title)))
-  maximum = math.max(maximum, state.hints.last_step_work or 0); assert(maximum <= 4096)
-  if stage == 0 and state.title == "hints-fixture-ready" then
+  maximum = math.max(maximum, state.hints.last_step_work or 0); assert(maximum <= step_budget)
+  if stage == 0 and state.title == "hints-fixture-ready" and now - geometry_at >= 0.3 then
     flags = state.modes.keyboard_flags
     assert(require("bit").band(flags, 24) == 24)
     state.modes.keyboard_flags = 7
+    -- force the initial scan to yield even on a small tiled viewport.
+    Hints.step_budget = 64
     key(window, string.byte("U"), keys.press, keys.mod_control + keys.mod_shift)
     key(window, string.byte("U"), keys.release, keys.mod_control + keys.mod_shift)
+    Hints.step_budget = step_budget
     assert(state.hints.active and last_action == "open-url-hints")
     assert(state:hints_pending(), "viewport hint scan did not yield")
     maximum = math.max(maximum, state.hints.last_step_work)
@@ -71,9 +80,11 @@ Host.await_events = function(application, window, timeout)
       assert(dispatcher:handle("copy-url-hints")); stage = 2
     end
   elseif stage == 2 and not state:hints_pending() then
+    assert(state.hints.active and #state.hints.matches == 3, "copy hint scan failed: " .. state.hints.status)
     text(window, "a")
+    assert(state.hints.selected == 1, "copy hint label was not selected: " .. state.hints.status .. " prefix=" .. state.hints.prefix)
     key(window, keys.key_enter, keys.press); key(window, keys.key_enter, keys.release)
-    assert(copied == "https://a.example/path(test)")
+    assert(copied == "https://a.example/path(test)", "copied hint target differs: " .. tostring(copied))
     assert(received() == "")
     assert(dispatcher:handle("open-url-hints")); stage = 3
   elseif stage == 3 and not state:hints_pending() then
@@ -99,6 +110,7 @@ arg = { "--config", config, "--no-restore-layout", "--no-extensions", "--", "pyt
 local ok, message = xpcall(function() require("kiwi.app.main") end, debug.traceback)
 Terminal.new, Dispatcher.new, Renderer.new, Clipboard.new = terminal_new, dispatcher_new, renderer_new, clipboard_new
 Window.set_title, Host.await_events, Window.open_uri = set_title, await, open_uri
+Hints.step_budget = step_budget
 os.remove(capture); os.remove(config)
 assert(ok, message); assert(stage == 6, "URL hints fixture ended before completion")
 print(string.format("URL hints smoke passed: default binding, global action, rendered labels, explicit open/copy, actual OSC 8 target, stale cancellation, Kitty flags=%d isolation; %d scan ticks, max %d units.", flags, ticks, maximum))
