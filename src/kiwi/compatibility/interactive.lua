@@ -469,7 +469,16 @@ for name in applications:gmatch("[^,]+") do
       s:command("exit"); s:exited()
     end, function() os.execute("tmux -S " .. quote(socket) .. " kill-server >/dev/null 2>&1") end)
   elseif name == "top" then
-    local command = ffi.os == "OSX" and "exec top -pid $$ -s 1" or "exec top -p $$ -d 0.2"
+    local command = "exec top -p $$ -d 0.2"
+    if ffi.os == "OSX" then
+      -- setuid top's curses omits user-provided terminfo directories.
+      command = [[
+        if [ -u /usr/bin/top ]; then
+          export TERM=xterm-256color
+        fi
+        exec /usr/bin/top -pid $$ -s 1
+      ]]
+    end
     run(name, { "/bin/sh", "-c", command }, function(s)
       s:expect("PID")
       s:resize(100, 30)

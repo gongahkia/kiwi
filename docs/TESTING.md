@@ -78,8 +78,10 @@ KIWI_INTERACTIVE_ARTIFACTS="$PWD/.build/application-trial" ./script/test-applica
 The default eleven workflows exercise Bash/Zsh/fish line editing, Unicode paste,
 resize and foreground-job interruption; Vim/Neovim Unicode insertion and
 saved-file contents; Neovim inside tmux; tmux split/resize/zoom/close; less
-search/page navigation; and system top filtered to its own process. Special
-keys and paste pass through the application's encoders. Readiness is observed
+search/page navigation; and system top filtered to its own process. When
+macOS installs `/usr/bin/top` setuid, that fixture uses `TERM=xterm-256color`
+because privileged curses ignores the project-local terminfo directory.
+Special keys and paste pass through the application's encoders. Readiness is observed
 from terminal output, saved files and foreground process groups, with bounded
 deadlines. Vim runs in normal Vim mode (`-N`) with user configuration disabled.
 Its version must identify Vim: on Linux the runner selects `vim.basic` if the
