@@ -22,15 +22,26 @@ with tempfile.TemporaryDirectory(prefix="kiwi-idle-wake-") as temporary:
     environment = dict(os.environ, KIWI_ROOT=str(root), LUA_PATH="src/?.lua;src/?/init.lua;;",
                        KIWI_LAYOUT_PERSISTENCE="0", KIWI_LAYOUT_RESTORE="0",
                        KIWI_MAX_SECONDS="0", KIWI_MAX_FRAMES="0",
+                       KIWI_IDLE_CONFIG=str(config),
                        KIWI_POWER_REPORT=str(report), KIWI_POWER_SYNTHETIC_INPUT="1")
     # Wait for the host's synthetic input before the quiet interval, excluding
     # font/GPU startup. Hide the cursor so blinking is not a scheduled wake.
-    command = [environment.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(config),
-               "--", "/bin/sh", "-c", "read unused; printf '\\033[?25l'; sleep 3"]
+    settled_fixture = (root / "src/kiwi/idle_wake_smoke.lua").is_file()
+    if settled_fixture:
+        command = [environment.get("LUAJIT", "luajit"), "src/kiwi/idle_wake_smoke.lua"]
+    else:
+        if not args.record_only:
+            parser.error("historical checkout has no settled idle fixture; use --record-only")
+        command = [environment.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(config),
+                   "--", "/bin/sh", "-c", "read unused; printf '\\033[?25l'; sleep 3"]
     started = time.monotonic()
     subprocess.run(command, cwd=root, env=environment, check=True, timeout=30)
     wall_seconds = time.monotonic() - started
     result = json.loads(report.read_text())
+    result["methodology"]["quiet_interval"] = (
+        "recording starts after a ready presentation with a hidden cursor and 300 ms of stable geometry; a second PTY handshake starts the three-second quiet child interval; subsequent geometry changes fail"
+        if settled_fixture else "legacy fixture; startup allocation and its wakeups are included")
+    report.write_text(json.dumps(result, indent=2) + "\n")
     measurement = result["measurement"]
     seconds, wakes = measurement["elapsed_seconds"], measurement["wakes"]
     # Native-wait time excludes rendering CPU time, including the first frame

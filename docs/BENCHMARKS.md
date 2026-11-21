@@ -305,12 +305,18 @@ Extension animation deadlines remain bounded by
 window is minimized.
 
 `make idle-wake-smoke` uses a synthetic-input handshake, hides the cursor and
-keeps the child quiet for three seconds before exit. An external 30-second
+waits for 300 ms of stable presented geometry before starting a second handshake
+and a three-second quiet interval. Test-only 10 ms startup polling stops before
+measurement; subsequent geometry changes fail rather than contaminate the
+quiet interval. Startup counters are discarded at that explicit boundary.
+An external 30-second
 watchdog catches hangs. The gate allows at most 30 host-loop wakes and requires
 an indefinite wait. This is a regression budget for a quiet test desktop, not
 a promise about arbitrary desktop activity. `--report PATH` preserves JSON;
 `--root PATH --record-only` records a historical checkout without enforcing
-the new budget. Current power reports count indefinite waits separately, and
+the new budget. Historical checkouts lacking the settled fixture retain their
+original startup-inclusive scope, explicitly labelled in JSON. Current power
+reports count indefinite waits separately, and
 state durations measure time inside host waits using the state before the wait;
 they exclude parsing/rendering CPU time. Historical reports used intervals
 between observations, so those duration fields are not directly comparable.
