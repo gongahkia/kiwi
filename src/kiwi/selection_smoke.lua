@@ -18,7 +18,7 @@ local ok, message = xpcall(function()
   state.vi:motion(state, "right", 2); state.vi:toggle_selection(state, "block")
   state.vi:motion(state, "down", 2); state.vi:motion(state, "right")
   assert(state:selection_text(100) == "cd\n中d\ncd", "block copy split a wide cell")
-  -- Keep selection, suppress cursor overlay to measure its exact area.
+  -- keep selection, suppress cursor overlay to measure its exact area.
   state.vi.active = false
   renderer = Renderer.new(context, font, state, { selection_color = "#ff0000ff", scrollbar_policy = "never" })
   local compositor = Compositor.new(context)
@@ -27,20 +27,23 @@ local ok, message = xpcall(function()
     local after, deadline = compositor.frame, window:time() + 5
     repeat
       window:poll_events()
+      -- tiling compositors can allocate sizes that are not whole cell multiples.
+      local width = math.floor(context.width / state.columns) * state.columns
+      local height = math.floor(context.height / state.rows) * state.rows
       compositor:render({ { renderer = renderer, model = state,
-        viewport = { x = 0, y = 0, width = context.width, height = context.height } } }, window:time())
+        viewport = { x = 0, y = 0, width = width, height = height } } }, window:time())
       window:wait_events(0.01); context:poll_framebuffer_capture()
       local sample = context.framebuffer_samples[#context.framebuffer_samples]
-      if sample and sample.frame > after then return sample end
+      if sample and sample.frame > after then return sample, width * height / (state.columns * state.rows) end
     until window:time() >= deadline
     error("selection framebuffer readback timed out")
   end
-  local rectangle = capture()
-  local cell_pixels = context.width * context.height / (state.columns * state.rows)
+  local rectangle, cell_pixels = capture()
   assert(rectangle.red_dominant_pixels == 7 * cell_pixels,
     "GPU block coverage differs from whole-cell rectangle: " .. rectangle.red_dominant_pixels)
   state:set_selection(0, 2, 2, 4); renderer:invalidate("selection")
-  assert(capture().red_dominant_pixels == 18 * cell_pixels, "linear selection retained rectangular mode")
+  local linear, linear_cell_pixels = capture()
+  assert(linear.red_dominant_pixels == 18 * linear_cell_pixels, "linear selection retained rectangular mode")
   state:clear_selection(); renderer:invalidate("selection")
   assert(capture().red_dominant_pixels == 0, "cleared selection remained visible")
   print("Selection GPU smoke passed: rectangular wide-cell coverage, linear range and cleared overlay.")
