@@ -2,7 +2,8 @@ local Cell = require("kiwi.terminal.cell")
 local Reflow = {}
 
 local function copy_cell(cell)
-  if Cell.is_compact(cell) then return Cell.expand(cell) end
+  -- keep history compact until its destination is selected for the visible screen.
+  if Cell.is_compact(cell) then return Cell.pack(cell) end
   local copy = {}
   for key, value in pairs(cell) do copy[key] = value end
   return copy

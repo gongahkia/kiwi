@@ -2116,6 +2116,10 @@ function State:reflow_primary(columns, rows)
   end
   local target_row = 0
   for index = first_visible, #reflowed do
+    -- only promoted history needs mutable screen cells; retained rows stay packed.
+    for column, cell in pairs(reflowed[index].cells) do
+      if Cell.is_compact(cell) then reflowed[index].cells[column] = Cell.expand(cell) end
+    end
     primary.rows[target_row] = reflowed[index]
     target_row = target_row + 1
   end

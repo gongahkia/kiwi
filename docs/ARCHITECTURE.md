@@ -125,7 +125,9 @@ Retained history cells use dense array storage behind named field access. Active
 screen cells remain ordinary tables to avoid adding metamethod overhead to each
 parser mutation. `terminal/cell.lua` owns packing, expansion and copying; code
 must not use `pairs` or `rawget` to inspect a history cell's named fields. Reflow
-expands cells before choosing the new visible rows, then packs retained history.
+keeps independent compact copies of history cells while rewrapping, expands
+only the rows selected for the new visible screen, and packs any remaining
+ordinary cells in retained history.
 Configuration transactions preserve the representation and copy mutable cells
 while sharing immutable codepoint arrays. Snapshot/replay formats remain named
 records independent of this internal storage.

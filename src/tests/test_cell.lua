@@ -10,6 +10,35 @@ local fields = { "glyph", "fg", "bg", "fg_slot", "bg_slot", "flags", "codepoints
   "underline_style", "underline_color", "underline_slot", "continuation", "anchor_column", "display_text", "hyperlink_id" }
 
 return {
+  staged_reflow_bounds_transient_allocations_and_keeps_visible_cells_mutable = function()
+    local terminal = Terminal.new({ columns = 80, rows = 24, state_options = { scrollback_limit = 512 } })
+    for _ = 1, 536 do terminal:write(string.rep("x", 64) .. "\r\n") end
+    local state = Terminal.state(terminal)
+    local before = Snapshot.encode(state)
+    collectgarbage("collect")
+    local baseline = collectgarbage("count")
+    collectgarbage("stop")
+    local ok, transaction = pcall(StateTransaction.new, state, { columns = 72, rows = 21 })
+    local allocated = collectgarbage("count") - baseline
+    collectgarbage("restart")
+    assert(ok, transaction)
+    local limit = 80 * (512 + 24) * 320 / 1024 + 512
+    Assert.truthy(allocated < limit, "staged reflow exceeded transient allocation budget: " .. allocated .. " KiB")
+    Assert.equal(Snapshot.encode(state), before)
+    local candidate = transaction.state
+    for row = 0, candidate.rows - 1 do
+      for column = 0, candidate.columns - 1 do
+        Assert.equal(Cell.is_compact(candidate.primary.rows[row].cells[column]), false)
+      end
+    end
+    for index = 1, candidate.scrollback:size() do
+      for _, cell in pairs(candidate.scrollback:peek(index).cells) do Assert.truthy(Cell.is_compact(cell)) end
+    end
+    candidate:write_codepoint("Z", 90)
+    Assert.equal(Snapshot.encode(state), before)
+    terminal:close()
+  end,
+
   scrolling_reuses_storage_without_changing_history_or_transaction_sources = function()
     local terminal = Terminal.new({ columns = 8, rows = 3, state_options = { scrollback_limit = 2 } })
     terminal:write("\27]8;;https://example.com\7\27[1;4:3;58:2::1:2:3m界é")
