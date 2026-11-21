@@ -63,6 +63,11 @@ function Session.new(name, command)
       and detail.private == "" and detail.intermediates == "%" and detail.final == "m"
       and not detail.colon and #detail.parameters == 1 and detail.parameters[1] == 0 then
       negative_probes.csi = negative_probes.csi + 1
+    elseif ffi.os == "OSX" and active_application.name == "top" and family == "csi"
+      and type(detail) == "table" and detail.private == "?" and detail.intermediates == "" and detail.final == "h"
+      and not detail.colon and #detail.parameters == 1 and detail.parameters[1] == 1034 then
+      -- the system xterm entry requests 8-bit Meta mode once at startup.
+      negative_probes.csi = negative_probes.csi + 1
     end
     record_unknown(self, family, detail)
   end
