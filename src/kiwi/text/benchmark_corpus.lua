@@ -1,5 +1,5 @@
 local Corpus = {
-  version = "kiwi-text-corpus-v1",
+  version = "kiwi-text-corpus-v2",
   scenarios = {
     {
       id = "ascii",
@@ -11,7 +11,7 @@ local Corpus = {
     {
       id = "combining",
       category = "combining",
-      text = "Cafe\204\129 e\204\136 a\204\212\204\201",
+      text = "Cafe\204\129 e\204\136 a\204\130\204\129",
       source = "Kiwi-authored arrangement of Unicode 17 code points",
       license = "Unicode License v3 for referenced Unicode data",
     },

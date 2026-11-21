@@ -2,6 +2,7 @@ local Assert = require("tests.assert")
 local TextBench = require("kiwi.bench.text")
 local TextCorpus = require("kiwi.bench.text_corpus")
 local TextStress = require("kiwi.bench.text_stress")
+local Utf8 = require("kiwi.terminal.utf8")
 
 return {
   text_benchmark_reports_every_native_text_layer = function()
@@ -20,11 +21,19 @@ return {
   end,
   text_corpus_manifest_is_small_and_semantically_deterministic = function()
     local manifest = TextCorpus.manifest()
-    Assert.equal(manifest.version, "kiwi-text-corpus-v1")
+    Assert.equal(manifest.version, "kiwi-text-corpus-v2")
     Assert.equal(#manifest.scenarios, 6)
     Assert.equal(manifest.scenarios[5].id, "ligatures")
     Assert.equal(manifest.scenarios[6].id, "dense-ui")
     for _, scenario in ipairs(manifest.scenarios) do
+      local decoded = {}
+      local decoder = Utf8.Decoder.new(function(_, text, invalid)
+        Assert.equal(invalid, false, scenario.id .. " contains malformed UTF-8")
+        decoded[#decoded + 1] = text
+      end)
+      for index = 1, #scenario.text do decoder:feed_byte(scenario.text:byte(index)) end
+      decoder:finish()
+      Assert.equal(table.concat(decoded), scenario.text)
       Assert.truthy(scenario.input_bytes <= 256, scenario.id .. " corpus fixture is not bounded")
       Assert.truthy(scenario.codepoints > 0, scenario.id .. " has no code points")
       Assert.truthy(scenario.clusters > 0, scenario.id .. " has no clusters")
