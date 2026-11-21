@@ -76,7 +76,11 @@ package.preload["kiwi.app.main"] = function()
         assert(Host.enable_text_input(window, function() error("external preedit reached the controller") end,
           function() error("external commit reached the child") end))
         if scenario == "external-preedit" then window.on_preedit("x", 0, 1) else window.on_commit("x") end
-      else window.on_pointer({ kind = "move" }); window.on_pointer({ kind = "wheel" }) end
+      else
+        window.on_pointer({ kind = "move" })
+        window.on_pointer({ kind = "motion" })
+        window.on_pointer({ kind = "wheel" })
+      end
       Host.await_events({}, window, 0)
     else
       local state = Terminal.state(terminal)

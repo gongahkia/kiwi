@@ -79,7 +79,7 @@ Window.set_input_handlers = function(self, on_text, on_key, on_pointer, on_focus
     interrupted_input("key")
     return { handled = true, suppress_text = true }
   end, on_pointer and function(event)
-    if event.kind == "move" then return end
+    if event.kind == "move" or event.kind == "motion" then return end
     interrupted_input("pointer")
   end, on_focus)
 end
