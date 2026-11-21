@@ -44,6 +44,19 @@ function Cell.copy_into(destination, source)
 end
 
 function Cell.pack(source)
+  if Cell.is_compact(source) then
+    -- raw reads avoid the named-field metamethod for absent optional slots.
+    if rawget(source, 9) ~= nil or rawget(source, 10) ~= nil or rawget(source, 11) ~= nil
+        or rawget(source, 12) ~= nil or rawget(source, 13) ~= nil
+        or rawget(source, 14) ~= nil or rawget(source, 15) ~= nil then
+      return setmetatable({ rawget(source, 1), rawget(source, 2), rawget(source, 3), rawget(source, 4),
+        rawget(source, 5), rawget(source, 6), rawget(source, 7), rawget(source, 8),
+        rawget(source, 9), rawget(source, 10), rawget(source, 11), rawget(source, 12),
+        rawget(source, 13), rawget(source, 14), rawget(source, 15) }, cell_metatable)
+    end
+    return setmetatable({ rawget(source, 1), rawget(source, 2), rawget(source, 3), rawget(source, 4),
+      rawget(source, 5), rawget(source, 6), rawget(source, 7), rawget(source, 8) }, cell_metatable)
+  end
   if source.underline_style ~= nil or source.underline_color ~= nil or source.underline_slot ~= nil
       or source.continuation ~= nil or source.anchor_column ~= nil
       or source.display_text ~= nil or source.hyperlink_id ~= nil then

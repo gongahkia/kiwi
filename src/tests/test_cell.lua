@@ -163,6 +163,14 @@ return {
       display_text = "display", continuation = false, anchor_column = 0 }
     local plain = { glyph = "A", fg = 1, bg = 2, fg_slot = 0, bg_slot = 0, flags = 0,
       width = 1, codepoints = { 65 } }
+    for _, value in ipairs({ styled, plain }) do
+      local source = Cell.pack(value)
+      local cloned = Cell.clone(source)
+      Assert.truthy(cloned ~= source and Cell.is_compact(cloned))
+      for _, key in ipairs(fields) do Assert.equal(cloned[key], value[key], key) end
+      cloned.glyph = "Z"
+      Assert.equal(source.glyph, value.glyph)
+    end
     for _, pack in ipairs({ Cell.pack, Cell.expand }) do
       for _, destination in ipairs({ Cell.pack(styled), Cell.expand(styled) }) do
         local source = pack(styled)
