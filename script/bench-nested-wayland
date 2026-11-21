@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Run the interactive benchmark in an owned nested Sway desktop."""
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+root = Path(__file__).resolve().parent.parent
+benchmark = str(root / "script/bench-interactive")
+if not sys.argv[1:]:
+    raise SystemExit("usage: script/bench-nested-wayland --report PATH [bench-interactive options]")
+if sys.argv[1:] == ["--help"]:
+    raise SystemExit(subprocess.call([benchmark, "--help"]))
+if not os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("XDG_RUNTIME_DIR"):
+    raise SystemExit("nested benchmarking requires an existing Wayland desktop")
+if not shutil.which("sway"):
+    raise SystemExit("nested benchmarking requires Sway")
+parent_display = Path(os.environ["WAYLAND_DISPLAY"])
+if not parent_display.is_absolute():
+    parent_display = Path(os.environ["XDG_RUNTIME_DIR"]) / parent_display
+with tempfile.TemporaryDirectory(prefix="kiwi-nested-bench-") as temporary:
+    temporary = Path(temporary)
+    runtime = temporary / "runtime"
+    runtime.mkdir(mode=0o700)
+    config = temporary / "sway.conf"
+    config.write_text('xwayland disable\nseat seat0 fallback true\noutput * mode 1280x720 scale 1\n'
+                      'for_window [app_id=".*"] floating enable\ndefault_border none\n')
+    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=str(parent_display),
+               WLR_BACKENDS="wayland", WLR_RENDERER="gles2", XDG_CURRENT_DESKTOP="sway",
+               GIO_USE_VFS="local", GTK_A11Y="none", GDK_BACKEND="wayland",
+               KIWI_BENCH_DISPLAY_SCOPE="nested-wayland-gles2")
+    for key in ("DISPLAY", "SWAYSOCK", "GDK_SCALE", "GDK_DPI_SCALE"):
+        env.pop(key, None)
+    with (temporary / "sway.log").open("w+") as log:
+        sway = subprocess.Popen(["sway", "--unsupported-gpu", "-c", str(config)], env=env,
+                                stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not any(path.is_socket() for path in runtime.glob("wayland-*")):
+                if sway.poll() is not None:
+                    log.seek(0)
+                    raise RuntimeError("nested compositor exited:\n" + log.read()[-16000:])
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("nested compositor socket timed out")
+                time.sleep(.02)
+            env["WAYLAND_DISPLAY"] = next(path.name for path in runtime.glob("wayland-*") if path.is_socket())
+            env["SWAYSOCK"] = str(next(runtime.glob("sway-ipc*.sock")))
+            result = subprocess.run([benchmark, *sys.argv[1:]], cwd=root, env=env)
+            raise SystemExit(result.returncode)
+        finally:
+            try:
+                os.killpg(sway.pid, signal.SIGTERM)
+                sway.wait(timeout=5)
+            except ProcessLookupError:
+                pass
+            except subprocess.TimeoutExpired:
+                os.killpg(sway.pid, signal.SIGKILL)
+                sway.wait(timeout=5)

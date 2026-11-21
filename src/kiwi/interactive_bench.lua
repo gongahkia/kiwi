@@ -332,6 +332,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
   startup_geometry_settle_seconds = geometry_settle_seconds,
+  display_scope = os.getenv("KIWI_BENCH_DISPLAY_SCOPE") or "native",
   external_input_guard = true,
   initial_focus_requested = gtk,
   clock = Metrics.clock_name(),

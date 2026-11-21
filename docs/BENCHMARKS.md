@@ -586,6 +586,16 @@ KIWI_HOST=gtk xvfb-run -a ./script/bench-interactive --report bench/results/inte
 make test-interactive-bench
 ```
 
+On a Wayland laptop, `./script/bench-nested-wayland --trials 5 --samples 40
+--report bench/results/nested-baseline.json` runs the same fixture in a private
+nested Sway compositor with floating client windows. It requires Sway and a
+working GLES2 renderer, creates no persistent compositor configuration, and
+cleans up its owned process group. It records `display_scope` separately so
+relative comparisons cannot mix direct and nested desktop measurements.
+Check each report's actual adapter identity before describing a run as hardware
+GPU evidence. This route includes nested compositor scheduling and still
+excludes physical input delivery and display scan-out.
+
 The parent records `CLOCK_MONOTONIC` on Linux or `CLOCK_MONOTONIC_RAW` on macOS
 immediately before creating each process. The child checks that its native
 clock name matches the parent. Darwin's raw continuous clock includes sleep
