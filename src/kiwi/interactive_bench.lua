@@ -39,6 +39,7 @@ local originals = { history_push = Scrollback.push, new_terminal = Terminal.new,
   enable_text_input = Host.enable_text_input,
   new_window = Window.new, render = Compositor.render, await = Host.await_events }
 local live, window, geometry, stable_geometry, font_path, adapter, next_input, report
+local geometry_settle_seconds, geometry_settle_deadline = 0.3, nil
 local output_bytes, measured_output_bytes, peak_rss = 0, 0, 0
 local failure_state
 local invalid_measurement
@@ -202,6 +203,18 @@ Compositor.render = function(self, entries, ...)
     presentation.successful = presentation.successful + 1
     assert(#entries == 1, "interactive benchmark requires one pane")
     local state = entries[1].model
+    geometry = { columns = state.columns, rows = state.rows, cell_width = state.cell_width, cell_height = state.cell_height }
+    if measurement.sent > 0 then
+      for name, value in pairs(stable_geometry) do assert(geometry[name] == value, "terminal geometry changed during measurement") end
+    else
+      local changed = stable_geometry == nil
+      for name, value in pairs(geometry) do
+        if stable_geometry == nil or stable_geometry[name] ~= value then changed = true end
+      end
+      if changed then
+        stable_geometry, geometry_settle_deadline = geometry, now + geometry_settle_seconds
+      end
+    end
     if state.history_offset ~= 0 then
       invalid_measurement = "visible-window measurement interrupted: viewport left live output"
       error(invalid_measurement)
@@ -218,12 +231,6 @@ Compositor.render = function(self, entries, ...)
         retained_heap:capture(retained_heap.initial and "final" or "initial",
           scroll_mode == "history" and history or nil)
       end
-    end
-    geometry = { columns = state.columns, rows = state.rows, cell_width = state.cell_width, cell_height = state.cell_height }
-    if measurement.ready_at then
-      if stable_geometry then
-        for name, value in pairs(stable_geometry) do assert(geometry[name] == value, "terminal geometry changed during measurement") end
-      else stable_geometry = geometry end
     end
     font_path = entries[1].renderer.font.font_path
     adapter = self.context.adapter_info
@@ -275,7 +282,7 @@ Host.await_events = function(application, current_window, timeout)
     end
     timeout = math.min(timeout, pending.input_at + Interactive.maximum_response_seconds - now)
   elseif measurement.ready_at and not measurement:done() then
-    next_input = next_input or now
+    next_input = math.max(next_input or now, geometry_settle_deadline)
     if now >= next_input then
       measurement:input(now)
       assert(type(current_window.on_text) == "function")
@@ -324,6 +331,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   pty_read_budget = tonumber(os.getenv("KIWI_PTY_READ_BUDGET")),
   pty_read_chunk_bytes = OutputService.chunk_bytes, output_service_target_seconds = OutputService.max_seconds,
   phase_diagnostics = true,
+  startup_geometry_settle_seconds = geometry_settle_seconds,
   external_input_guard = true,
   initial_focus_requested = gtk,
   clock = Metrics.clock_name(),

@@ -88,9 +88,15 @@ package.preload["kiwi.app.main"] = function()
         compositor.occluded = true
         compositor:render(entries)
       else
-        assert(scenario == "complete")
+        assert(scenario == "complete" or scenario == "startup-resize" or scenario == "measurement-resize")
+        if scenario == "startup-resize" then
+          state:resize(79, 24)
+          assert(compositor:render(entries))
+        end
+        ffi.C.usleep(350000)
         window:set_input_handlers(function() terminal:write("\27]2;kiwi-bench-ack:1\7\27[HACK0001  ") end)
         Host.await_events({}, window, 0)
+        if scenario == "measurement-resize" then state:resize(79, 24) end
         assert(compositor:render(entries))
         assert(window:should_close())
       end
@@ -119,7 +125,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
     directory = Path(directory)
     driver = directory / "driver.lua"
     driver.write_text(driver_source)
-    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "external-text", "external-key", "external-pointer", "external-preedit", "external-commit", "complete"):
+    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "external-text", "external-key", "external-pointer", "external-preedit", "external-commit", "complete", "startup-resize", "measurement-resize"):
         report = directory / (scenario + ".json")
         environment = dict(base, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(report),
                            KIWI_INTERACTIVE_BENCH_LAUNCHED_AT=str(time.clock_gettime(getattr(time, clock_name))))
@@ -127,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
                                  env=environment, capture_output=True, text=True, timeout=15)
         assert report.is_file(), (scenario, process.stderr)
         result = json.loads(report.read_text())
-        expected = "complete" if scenario == "complete" else "invalid" if scenario == "occluded" or scenario.startswith("external") else "failed"
+        expected = "complete" if scenario in ("complete", "startup-resize") else "invalid" if scenario == "occluded" or scenario.startswith("external") else "failed"
         assert result["status"] == expected, (scenario, result)
         assert (process.returncode == 0) == (expected == "complete"), (scenario, process.stderr)
         assert "hooks were not restored" not in process.stderr
@@ -144,11 +150,14 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
             assert "external " + scenario.split("-")[1] + " input" in result["failure"]
             assert result["measurement"]["samples"] == 0
             assert "reached the" not in process.stderr and "changed the viewport" not in process.stderr
+        elif scenario == "measurement-resize":
+            assert "terminal geometry changed during measurement" in result["failure"]
+            assert result["measurement"]["samples"] == 0
         else:
             assert result["measurement"]["samples"] == 1 and "failure" not in result
         lifecycle = result["lifecycle"]
-        if scenario in ("requested", "child-exit", "complete"):
-            assert lifecycle["close_requested"]["measurement_complete"] == (scenario == "complete")
+        if scenario in ("requested", "child-exit", "complete", "startup-resize"):
+            assert lifecycle["close_requested"]["measurement_complete"] == (expected == "complete")
             assert "stack traceback:" in lifecycle["close_requested"]["trace"]
         else:
             assert "close_requested" not in lifecycle

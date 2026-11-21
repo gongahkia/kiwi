@@ -599,6 +599,12 @@ child's readiness text in the visible model. This measures a fresh application
 process with normal filesystem/driver caches and a fixed Python child, not a
 cold-cache launch or the user's login-shell startup.
 
+Before the first warmup input, the fixture waits 300 ms after the last presented
+grid change so native startup allocation can settle. Geometry changes after
+input timing starts still invalidate the trial, before accepting a sample.
+The settling interval is recorded in configuration and excludes startup
+readiness timing, which still ends at the first observed ready presentation.
+
 Only one numbered input may be outstanding. Its acknowledgment requires a
 matching title header and complete visible model text, including across split
 PTY reads. Unrelated output, old acknowledgments and unrelated presentations

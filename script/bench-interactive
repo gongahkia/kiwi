@@ -105,6 +105,7 @@ result = {"schema_version": 1, "status": "running", "benchmark": "acknowledged i
               "phase_diagnostics": "while input is pending, bounded read/parse/prepare/render/wait/flush wall and process-CPU counters are retained for failed and slowest measured acknowledgments; process CPU includes native worker threads and can exceed wall time; instrumentation adds clock reads",
               "load": "bounded nonblocking child output started by first warmup input; region mode scrolls below the acknowledgment row; history mode scrolls the full primary screen and repaints a top-right acknowledgment between lines",
               "sampling": "warmup inputs excluded; startup has one observation per fresh process; pooled input summaries are diagnostic and not independent process-level samples",
+              "startup_geometry": "wait at least 300 ms after the last presented grid change before the first warmup input; later grid changes invalidate the trial",
               "exclusions": "physical input delivery, IME, GPU completion, compositor display feedback and panel scan-out are not measured",
               "memory": "sampled process RSS after successful presentations; not OS high-water RSS",
               "bounds": "explicit internal deadline plus ten seconds for external cleanup; two-second acknowledgment ceiling; at most 256 measured inputs, 32 warmup inputs and 256 resource observations per trial"},
