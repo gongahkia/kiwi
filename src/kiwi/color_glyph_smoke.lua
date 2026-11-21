@@ -44,6 +44,8 @@ local ok, message = xpcall(function()
     local after = compositor and compositor.frame or 0
     if context then
       context.framebuffer_samples = {}
+      -- preserve the probe when acquisition recreates capture buffers on resize.
+      context.framebuffer_expected_rgb = { red = red, green = green, blue = blue, tolerance = 4 }
       assert(context.native.surface.kiwi_framebuffer_capture_set_expected_rgb(context.framebuffer_capture, red, green, blue, 4) ~= 0)
     end
     revision = revision + 1
