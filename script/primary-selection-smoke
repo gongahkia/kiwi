@@ -3,6 +3,9 @@ set -eu
 cd "$(dirname "$0")/.."
 test "$(uname -s)" = Linux || { echo "Primary selection smoke requires Linux/X11." >&2; exit 2; }
 export LUA_PATH='src/?.lua;src/?/init.lua;;'
+# GLFW can otherwise select the inherited Wayland desktop despite Xvfb.
+unset WAYLAND_DISPLAY
+export XDG_SESSION_TYPE=x11
 # Native clipboard writes are confined to this fresh server.
 KIWI_PRIMARY_SMOKE_ISOLATED=1 KIWI_LAYOUT_RESTORE=0 KIWI_LAYOUT_PERSISTENCE=0 \
   GDK_BACKEND=x11 xvfb-run -a "${LUAJIT:-luajit}" src/kiwi/primary_selection_smoke.lua
