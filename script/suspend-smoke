@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Observe user-initiated laptop suspend/resume with a real Kiwi window and PTY."""
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--host", choices=("glfw", "gtk"), default="glfw")
+parser.add_argument("--report", type=Path, required=True)
+parser.add_argument("--wait-seconds", type=float, default=1800)
+args = parser.parse_args()
+if not hasattr(time, "CLOCK_BOOTTIME") or not os.environ.get("WAYLAND_DISPLAY"):
+    parser.error("requires Linux CLOCK_BOOTTIME and the laptop's live Wayland session")
+if not math.isfinite(args.wait_seconds) or args.wait_seconds <= 0:
+    parser.error("--wait-seconds must be finite and positive")
+root = Path(__file__).resolve().parent.parent
+args.report = args.report.resolve()
+args.report.parent.mkdir(parents=True, exist_ok=True)
+report = {"status": "starting", "host": args.host, "scope": "physical laptop; successful WGPU present and fixed real PTY reply, excluding panel readback and external monitors",
+          "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+          "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
+          "source_state": "dirty" if subprocess.check_output(["git", "status", "--porcelain"], cwd=root) else "clean"}
+
+
+def save():
+    staging = args.report.with_suffix(".new")
+    staging.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+    staging.replace(args.report)
+
+
+save()
+with tempfile.TemporaryDirectory(prefix="kiwi-suspend-") as directory:
+    directory = Path(directory)
+    (directory / "kiwi.conf").write_text("live-config-reload = false\nfont-size = 18\n")
+    env = {key: value for key, value in os.environ.items() if not key.startswith("KIWI_")}
+    env.update(KIWI_HOST=args.host, KIWI_GTK_PRESENTER="wgpu", KIWI_LAYOUT_RESTORE="0", KIWI_LAYOUT_PERSISTENCE="0",
+               KIWI_MAX_FRAMES="0", KIWI_MAX_SECONDS="0", KIWI_TRANSITION_DIRECTORY=str(directory),
+               GIO_USE_VFS="local", LUA_PATH="src/?.lua;src/?/init.lua;;")
+    process = None
+
+    def command(value):
+        staging = directory / "command.new"
+        staging.write_text(value)
+        staging.replace(directory / "command")
+
+    def checkpoint(token, timeout=10):
+        deadline = time.monotonic() + timeout
+        while True:
+            assert process.poll() is None, "Kiwi exited before the presentation acknowledgement"
+            path = directory / "snapshot.json"
+            if path.exists():
+                state = json.loads(path.read_text())
+                if (state["token"] == token and state["columns"] == state["child_columns"]
+                        and state["rows"] == state["child_rows"]
+                        and state["surface_width"] == state["drawable_width"]
+                        and state["surface_height"] == state["drawable_height"]
+                        and abs(state["scale"] - state["font_scale"]) < .001):
+                    return state
+            assert time.monotonic() < deadline, "post-resume PTY/frame/geometry handshake timed out"
+            time.sleep(.02)
+
+    with args.report.with_suffix(".log").open("w") as log:
+        try:
+            process = subprocess.Popen([env.get("LUAJIT", "luajit"), "src/kiwi/suspend_smoke.lua"],
+                                       cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT)
+            checkpoint("ready")
+            time.sleep(.5)
+            command("before")
+            report["before"] = checkpoint("before")
+            gap_before = time.clock_gettime(time.CLOCK_BOOTTIME) - time.monotonic()
+            report["status"] = "awaiting_user_suspend"
+            save()
+            print("Ready: suspend this laptop normally, then unlock it after resume. Kiwi sends only a fixed probe token.", flush=True)
+            deadline = time.monotonic() + args.wait_seconds
+            while True:
+                assert process.poll() is None, "Kiwi closed while awaiting suspend"
+                gap = time.clock_gettime(time.CLOCK_BOOTTIME) - time.monotonic() - gap_before
+                if gap >= 1:
+                    break
+                assert time.monotonic() < deadline, "no system suspend observed before the deadline"
+                time.sleep(.1)
+            resumed = time.monotonic()
+            report["suspended_seconds"] = gap
+            command("after")
+            report["after"] = checkpoint("after")
+            report["resume_probe_ms"] = (time.monotonic() - resumed) * 1000
+            assert report["after"]["frames"] > report["before"]["frames"], "no fresh post-resume presentation"
+            assert report["resume_probe_ms"] < 2000, "resume probe exceeded the 2000 ms ceiling"
+            command("quit")
+            process.wait(timeout=5)
+            assert process.returncode == 0, "Kiwi did not exit cleanly after resume"
+            report["status"] = "passed"
+        except BaseException as error:
+            report.update(status="incomplete" if isinstance(error, KeyboardInterrupt) else "failed", error=str(error))
+            raise
+        finally:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill(); process.wait(timeout=3)
+            save()
+print("Physical suspend/resume probe passed:", args.report)
