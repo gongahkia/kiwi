@@ -48,7 +48,7 @@ jobs:
           test "$(uname -m)" = arm64
           test "$GITHUB_REF_NAME" = "v$(tr -d '\n' < VERSION)"
       - name: install build dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses ripgrep
       - name: verify and package
         run: make check && make cocoa-smoke && make release-check && make release
       - name: upload release files

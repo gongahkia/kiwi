@@ -20,7 +20,7 @@ jobs:
       - name: verify runner architecture
         run: test "$(uname -m)" = arm64
       - name: install build dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses fish nushell tmux neovim
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses ripgrep fish nushell tmux neovim
       - name: deterministic checks
         run: make check test-applications test-ssh-applications && make cocoa-smoke && make interaction-smoke pty-wake-smoke underline-framebuffer-smoke configuration-reload-smoke appearance-smoke search-smoke vi-smoke selection-smoke hints-smoke hints-framebuffer-smoke color-glyph-smoke
       - name: exercise acknowledged input while output is saturated
@@ -51,7 +51,7 @@ jobs:
       - name: verify runner architecture
         run: test "$(uname -m)" = x86_64
       - name: install compatibility dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses tmux neovim fish nushell
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses ripgrep tmux neovim fish nushell
       - name: collect bounded Intel compatibility evidence
         run: |
           mkdir -p artifacts
@@ -88,7 +88,7 @@ jobs:
       - name: verify runner architecture
         run: test "$(uname -m)" = arm64
       - name: install packaging dependencies
-        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+        run: brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses ripgrep
       - name: build reproducible release-mode artifact
         run: make release-check && make release
       - name: upload artifact and checksum metadata
