@@ -86,19 +86,31 @@ package.preload["kiwi.app.main"] = function()
       local state = Terminal.state(terminal)
       local compositor = setmetatable({ context = { adapter_info = {} } }, { __index = Compositor })
       local entries = {{ model = state, renderer = { font = { font_path = "fixture" } } }}
-      terminal:write("\27]2;kiwi-bench-ready\7READY0000")
+      local history_mode = scenario == "history-startup-resize"
+      if history_mode then terminal:write("\27[999;1H\r\n\r\n\r\n\r\n") end
+      local function ready()
+        terminal:write("\27]2;kiwi-bench-ready\7\27[1;" .. (history_mode and state.columns - 8 or 1) .. "HREADY0000")
+      end
+      ready()
       assert(compositor:render(entries))
       if scenario == "occluded" then
         compositor.occluded = true
         compositor:render(entries)
       else
-        assert(scenario == "complete" or scenario == "startup-resize" or scenario == "measurement-resize")
+        assert(scenario == "complete" or scenario == "startup-resize" or scenario == "measurement-resize" or history_mode)
         if scenario == "startup-resize" then
           state:resize(79, 24)
           assert(compositor:render(entries))
+        elseif history_mode then
+          state:resize(80, 20)
+          ready()
+          assert(compositor:render(entries))
         end
         ffi.C.usleep(350000)
-        window:set_input_handlers(function() terminal:write("\27]2;kiwi-bench-ack:1\7\27[HACK0001  ") end)
+        window:set_input_handlers(function()
+          if history_mode then terminal:write("\27[999;1H\r\n") end
+          terminal:write("\27]2;kiwi-bench-ack:1\7\27[1;" .. (history_mode and state.columns - 8 or 1) .. "HACK0001  ")
+        end)
         Host.await_events({}, window, 0)
         if scenario == "measurement-resize" then state:resize(79, 24) end
         assert(compositor:render(entries))
@@ -129,15 +141,16 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
     directory = Path(directory)
     driver = directory / "driver.lua"
     driver.write_text(driver_source)
-    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "external-text", "external-key", "external-pointer", "external-preedit", "external-commit", "complete", "startup-resize", "measurement-resize"):
+    for scenario in ("requested", "native", "child-exit", "exception", "occluded", "external-text", "external-key", "external-pointer", "external-preedit", "external-commit", "complete", "startup-resize", "measurement-resize", "history-startup-resize"):
         report = directory / (scenario + ".json")
         environment = dict(base, KIWI_INTERACTIVE_BENCH_TRIAL_REPORT=str(report),
+                           KIWI_INTERACTIVE_BENCH_SCROLL_MODE="history" if scenario == "history-startup-resize" else "region",
                            KIWI_INTERACTIVE_BENCH_LAUNCHED_AT=str(time.clock_gettime(getattr(time, clock_name))))
         process = subprocess.run([os.environ.get("LUAJIT", "luajit"), str(driver), scenario], cwd=root,
                                  env=environment, capture_output=True, text=True, timeout=15)
         assert report.is_file(), (scenario, process.stderr)
         result = json.loads(report.read_text())
-        expected = "complete" if scenario in ("complete", "startup-resize") else "invalid" if scenario == "occluded" or scenario.startswith("external") else "failed"
+        expected = "complete" if scenario in ("complete", "startup-resize", "history-startup-resize") else "invalid" if scenario == "occluded" or scenario.startswith("external") else "failed"
         assert result["status"] == expected, (scenario, result)
         assert (process.returncode == 0) == (expected == "complete"), (scenario, process.stderr)
         assert "hooks were not restored" not in process.stderr
@@ -159,8 +172,12 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-trial-") as directory:
             assert result["measurement"]["samples"] == 0
         else:
             assert result["measurement"]["samples"] == 1 and "failure" not in result
+            if scenario == "history-startup-resize":
+                history = result["measurement"]["history"]
+                assert history["initial_retained"] == 4 and history["pushed"] == 1, history
+                assert history["retained"] == 5 and history["evicted"] == 0
         lifecycle = result["lifecycle"]
-        if scenario in ("requested", "child-exit", "complete", "startup-resize"):
+        if scenario in ("requested", "child-exit", "complete", "startup-resize", "history-startup-resize"):
             assert lifecycle["close_requested"]["measurement_complete"] == (expected == "complete")
             assert "stack traceback:" in lifecycle["close_requested"]["trace"]
         else:

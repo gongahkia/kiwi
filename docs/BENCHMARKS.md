@@ -798,8 +798,13 @@ one-minute soaks use the default 2,000-row history capacity and explicitly selec
 `--heap-measurement retained` on each host. Short timing trials retain sampled
 mode. Workflow configuration is not evidence of a remote CI pass.
 
-Test-process instrumentation counts actual history pushes, returned evictions
-and peak retained rows. Completion requires exactly the configured retained
+Test-process instrumentation starts counting actual history pushes and returned
+evictions at the first input, after startup geometry settles. It separately
+records any rows already retained at that boundary: resize/reflow can populate
+history before the active scrollback ring is observed by the push hook. Each
+observation requires `initial_retained + pushed = retained + evicted`.
+Peak retained rows remain bounded by the configured capacity.
+Completion requires exactly the configured retained
 capacity, at least one full capacity of evictions and consistent push accounting.
 A run with insufficient output fails even if its latency samples completed.
 Resource samples also record retained rows, pushes and evictions at the same

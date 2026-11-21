@@ -2,6 +2,21 @@ local Assert = require("tests.assert")
 local Sustained = require("kiwi.bench.sustained")
 
 return {
+  sustained_history_accounts_for_rows_retained_before_input_timing = function()
+    local recording = Sustained.new(30)
+    local history = { limit = 2, initial_retained = 1, retained = 1, pushed = 0, evicted = 0 }
+    for index = 0, 5 do
+      history.pushed, history.retained, history.evicted = index, math.min(1 + index, 2), math.max(0, index - 1)
+      recording:observe(index, 100, 20, index, false, history)
+    end
+    history.initial_retained = 99
+    local report = recording:snapshot()
+    Assert.equal(report.samples[1].history.initial_retained, 1)
+    Assert.equal(report.samples[1].history.pushed, 0)
+    Assert.equal(report.samples[6].history.evicted, 4)
+    Assert.equal(pcall(recording.observe, recording, 6, 100, 20, 6, false, history), false)
+  end,
+
   sustained_history_samples_distinguish_capacity_fill_from_eviction = function()
     local recording = Sustained.new(30)
     local history = { limit = 2, retained = 0, pushed = 0, evicted = 0 }

@@ -2,6 +2,20 @@ local Assert = require("tests.assert")
 local RetainedHeap = require("kiwi.bench.retained_heap")
 
 return {
+  retained_heap_accounts_for_initial_full_history_without_fabricating_pushes = function()
+    local now = 0
+    local recording = RetainedHeap.new(function() now = now + 1; return now end,
+      function(operation) if operation == "count" then return 100 end end)
+    local history = { limit = 2, initial_retained = 2, retained = 2, pushed = 0, evicted = 0 }
+    recording:capture("initial", history)
+    history.pushed, history.evicted = 4, 4
+    recording:capture("final", history)
+    local report = recording:observations()
+    Assert.equal(report.initial.history.initial_retained, 2)
+    Assert.equal(report.initial.history.pushed, 0)
+    Assert.equal(report.final.history.evicted, 4)
+  end,
+
   retained_heap_measures_live_roots_and_discards_temporary_garbage = function()
     local now = 0
     local recording = RetainedHeap.new(function() now = now + 1; return now end)

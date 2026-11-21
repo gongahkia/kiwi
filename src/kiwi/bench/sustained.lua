@@ -14,9 +14,13 @@ local function copy_history(history)
   for _, name in ipairs({ "limit", "retained", "pushed", "evicted" }) do
     assert(finite(history[name]) and history[name] % 1 == 0, "invalid history observation")
   end
-  assert(history.retained <= history.limit and history.pushed == history.retained + history.evicted,
+  local initial = history.initial_retained
+  if initial == nil then initial = 0 end
+  assert(finite(initial) and initial % 1 == 0 and initial <= history.limit, "invalid initial history observation")
+  assert(history.retained <= history.limit and initial + history.pushed == history.retained + history.evicted,
     "inconsistent history observation")
-  return { limit = history.limit, retained = history.retained, pushed = history.pushed, evicted = history.evicted }
+  return { limit = history.limit, retained = history.retained, pushed = history.pushed, evicted = history.evicted,
+    initial_retained = initial }
 end
 
 function Sustained.new(timeout)

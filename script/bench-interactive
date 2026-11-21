@@ -166,7 +166,9 @@ with tempfile.TemporaryDirectory(prefix="kiwi-interactive-bench-") as temporary:
                         assert history["limit"] == args.scrollback_limit, "history capacity differs from configuration"
                         assert history["retained"] == history["peak_retained"] == args.scrollback_limit, "history did not reach its configured capacity"
                         assert history["evicted"] >= args.scrollback_limit, "history did not replace one complete capacity of rows"
-                        assert history["pushed"] == history["retained"] + history["evicted"], "history retention accounting differs from actual pushes"
+                        initial_retained = history.get("initial_retained", 0)
+                        assert type(initial_retained) is int and 0 <= initial_retained <= history["limit"], "invalid initial history occupancy"
+                        assert initial_retained + history["pushed"] == history["retained"] + history["evicted"], "history retention accounting differs from actual pushes"
                     if args.soak_seconds:
                         sustained = item["measurement"]["sustained"]
                         assert sustained["duration_seconds"] >= args.soak_seconds, "sustained duration was shorter than requested"

@@ -127,6 +127,12 @@ raise SystemExit(1 if item.get("status") in ("failed", "invalid") else 0)
     history_command = soak_command + ["--scroll-mode", "history"]
     passed = subprocess.run(history_command, env=environment, capture_output=True, timeout=5)
     assert passed.returncode == 0, passed.stderr
+    timing["history"].update(initial_retained=6, pushed=3994)
+    payload.write_text(json.dumps({"measurement": timing}))
+    passed = subprocess.run(history_command, env=environment, capture_output=True, timeout=5)
+    assert passed.returncode == 0, passed.stderr
+    timing["history"].pop("initial_retained")
+    timing["history"]["pushed"] = 4000
     for checkpoint in (retained["initial"], retained["final"]): checkpoint["history"] = copy.deepcopy(timing["history"])
     retained_timing["history"] = copy.deepcopy(timing["history"])
     payload.write_text(json.dumps({"measurement": retained_timing}))

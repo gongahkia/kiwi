@@ -14,6 +14,7 @@ local gtk = os.getenv("KIWI_HOST") == "gtk"
 local scroll_mode = os.getenv("KIWI_INTERACTIVE_BENCH_SCROLL_MODE") or "region"
 assert(scroll_mode == "region" or scroll_mode == "history")
 local history = { pushed = 0, evicted = 0, peak_retained = 0 }
+local history_started = false
 local keep_visible = os.getenv("KIWI_INTERACTIVE_BENCH_KEEP_VISIBLE") == "1"
 local Host = require(gtk and "kiwi.app.gtk_host" or "kiwi.app.glfw_host")
 local Window = require(gtk and "kiwi.platform.gtk_window" or "kiwi.platform.window")
@@ -56,7 +57,7 @@ assert(mode == "idle" or measurement.warmup >= 1, "saturated measurement require
 if scroll_mode == "history" then
   Scrollback.push = function(self, row)
     local evicted = originals.history_push(self, row)
-    if live and self == Terminal.state(live).scrollback then
+    if history_started and live and self == Terminal.state(live).scrollback then
       history.pushed = history.pushed + 1
       if evicted then history.evicted = history.evicted + 1 end
       history.limit, history.retained = self.limit, self:size()
@@ -284,6 +285,12 @@ Host.await_events = function(application, current_window, timeout)
   elseif measurement.ready_at and not measurement:done() then
     next_input = math.max(next_input or now, geometry_settle_deadline)
     if now >= next_input then
+      if scroll_mode == "history" and not history_started then
+        local scrollback = Terminal.state(live).scrollback
+        history.limit, history.retained = scrollback.limit, scrollback:size()
+        history.initial_retained, history.peak_retained = history.retained, history.retained
+        history_started = true
+      end
       measurement:input(now)
       assert(type(current_window.on_text) == "function")
       injecting_input = true
@@ -333,6 +340,7 @@ metadata.configuration = { samples = measurement.samples, warmup_inputs = measur
   phase_diagnostics = true,
   startup_geometry_settle_seconds = geometry_settle_seconds,
   display_scope = os.getenv("KIWI_BENCH_DISPLAY_SCOPE") or "native",
+  history_counter_scope = "first input, with initial retained rows recorded separately",
   external_input_guard = true,
   initial_focus_requested = gtk,
   clock = Metrics.clock_name(),

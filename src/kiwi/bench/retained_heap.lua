@@ -17,7 +17,11 @@ local function copy_history(history)
     copy[name] = value
   end
   assert(copy.limit > 0 and copy.retained == copy.limit, "retained-heap baseline requires full history; increase warmup")
-  assert(copy.pushed == copy.retained + copy.evicted, "inconsistent retention history observation")
+  copy.initial_retained = history.initial_retained
+  if copy.initial_retained == nil then copy.initial_retained = 0 end
+  assert(finite(copy.initial_retained) and copy.initial_retained % 1 == 0 and copy.initial_retained <= copy.limit,
+    "invalid initial retention history observation")
+  assert(copy.initial_retained + copy.pushed == copy.retained + copy.evicted, "inconsistent retention history observation")
   return copy
 end
 
