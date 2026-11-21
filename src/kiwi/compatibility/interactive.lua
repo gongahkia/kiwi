@@ -332,7 +332,10 @@ local function shell(session, remote)
     session:command("/bin/sleep 30")
     session:wait("foreground job started", function()
       local group = ffi.C.tcgetpgrp(session.pty.fd)
-      return group > 0 and group ~= session.pty.pid
+      if group <= 0 or group == session.pty.pid then return false end
+      -- Nushell can hand off the foreground group before finishing its title.
+      -- Wait for the complete OSC before sending Ctrl-C, which echoes to the PTY.
+      return session.name ~= "nu" or (session.state.title or ""):match("> /bin/sleep$") ~= nil
     end)
   end
   session:key(string.byte("C"), glfw.mod_control)
@@ -417,7 +420,7 @@ for name in applications:gmatch("[^,]+") do
       "function fish_prompt; printf 'KIWI> '; end; function fish_right_prompt; end; set -g fish_greeting" }, shell)
   elseif name == "nu" then
     run(name, { "nu", "--no-config-file", "--interactive", "--execute",
-      "$env.config.show_banner = false; $env.PROMPT_COMMAND = {|| 'KIWI> '}; $env.PROMPT_COMMAND_RIGHT = {|| ''}; $env.PROMPT_INDICATOR = ''" }, shell)
+      "$env.config.show_banner = false; $env.config.shell_integration.osc2 = true; $env.PROMPT_COMMAND = {|| 'KIWI> '}; $env.PROMPT_COMMAND_RIGHT = {|| ''}; $env.PROMPT_INDICATOR = ''" }, shell)
   elseif name:sub(1, 4) == "ssh-" then
     local client = assert(os.getenv("KIWI_INTERACTIVE_SSH"), "run script/test-ssh-applications for SSH cases")
     run(name, { client, name:sub(5) }, function(s)
