@@ -40,7 +40,8 @@ local function text(window, value)
 end
 local started, stage, flags, steps, maximum = nil, 0, 0, 0, 0
 Host.await_events = function(application, window, timeout)
-  await(application, window, timeout)
+  -- the private capture file cannot wake the native event loop.
+  await(application, window, math.min(timeout, 0.01))
   local now, state = window:time(), Terminal.state(live)
   started = started or now
   assert(now - started < 25, "vi smoke timed out at stage " .. stage)
