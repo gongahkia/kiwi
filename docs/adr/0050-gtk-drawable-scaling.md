@@ -9,7 +9,9 @@ its rendering scale, rounded to the nearest integer.
 
 WGPU owns its Wayland buffer/viewport and uses
 [`gdk_surface_get_scale`](https://docs.gtk.org/gdk4/method.Surface.get_scale.html),
-including fractional values. GtkGLArea renders an integer-scaled framebuffer,
+including fractional values as a fallback. Its child surface's preferred scale
+now takes precedence; see [ADR 0051](0051-wayland-presentation-scale.md).
+GtkGLArea renders an integer-scaled framebuffer,
 so that presenter uses the widget's integer scale for both font and drawable
 pixels. Its fractional-desktop appearance is compositor-resampled; this is not
 a claim that GL and WGPU use identical buffer resolutions.

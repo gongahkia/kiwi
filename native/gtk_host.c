@@ -163,6 +163,7 @@ struct KiwiGtkTerminalPresentation {
 static double kiwi_gtk_host_render_scale(const KiwiGtkHost *host) {
   if (host == NULL) return 1.0;
 #ifdef GDK_WINDOWING_WAYLAND
+  /* the WGPU child can change scale while GTK's parent stays unchanged. */
   if (host->presentation_scale > 0.0) return host->presentation_scale;
 #endif
   return host->surface == NULL ? 1.0 : gdk_surface_get_scale(host->surface);
@@ -972,14 +973,19 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
   if (state.fractional_scale_manager != NULL) {
     host->presentation_fractional_scale = wp_fractional_scale_manager_v1_get_fractional_scale(
         state.fractional_scale_manager, host->presentation_surface);
-    wp_fractional_scale_v1_add_listener(host->presentation_fractional_scale,
-        &kiwi_gtk_fractional_scale_listener, host);
+    if (host->presentation_fractional_scale != NULL &&
+        wp_fractional_scale_v1_add_listener(host->presentation_fractional_scale,
+            &kiwi_gtk_fractional_scale_listener, host) != 0) {
+      wp_fractional_scale_v1_destroy(host->presentation_fractional_scale);
+      host->presentation_fractional_scale = NULL;
+    }
     wp_fractional_scale_manager_v1_destroy(state.fractional_scale_manager);
   }
   wl_subcompositor_destroy(state.subcompositor);
   wp_viewporter_destroy(state.viewporter);
   wl_registry_destroy(registry);
-  if (host->presentation_subsurface == NULL || host->presentation_viewport == NULL) {
+  if (host->presentation_subsurface == NULL || host->presentation_viewport == NULL ||
+      (state.fractional_scale_manager != NULL && host->presentation_fractional_scale == NULL)) {
     if (host->presentation_fractional_scale != NULL) {
       wp_fractional_scale_v1_destroy(host->presentation_fractional_scale);
       host->presentation_fractional_scale = NULL;
@@ -994,7 +1000,7 @@ static int kiwi_gtk_wayland_create_presentation_surface(KiwiGtkHost *host,
     }
     wl_surface_destroy(host->presentation_surface);
     host->presentation_surface = NULL;
-    kiwi_gtk_set_error("could not create Wayland presentation subsurface or viewport");
+    kiwi_gtk_set_error("could not create Wayland presentation subsurface, viewport or scale listener");
     return 0;
   }
   wl_subsurface_set_desync(host->presentation_subsurface);
