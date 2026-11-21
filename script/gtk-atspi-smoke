@@ -283,14 +283,21 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
         return data.decode("utf-8", errors="replace")
 
     def speech_after(after):
-        return re.findall(r"SPEECH OUTPUT: '(.*?)' \{", debug_text(after), re.DOTALL)
+        return re.findall(r"SPEECH OUTPUT: '(.*?)'\s*\{", debug_text(after), re.DOTALL)
 
     def expect_speech(needle, after, name, exact=False, handler=None):
         def match():
-            if handler and "KEYBOARD EVENT: Handler is " + handler not in debug_text(after):
-                return []
+            if handler:
+                markers = {
+                    "Perform the basic Where Am I operation": "WHERE AM I PRESENTER: where_am_i_basic.",
+                    "Speak the current selection": "WHERE AM I PRESENTER: present_selection.",
+                }
+                text = debug_text(after)
+                if "KEYBOARD EVENT: Handler is " + handler not in text and markers.get(handler, handler) not in text:
+                    return []
+            # Orca 51 inserts another space after the fixed selection prefix.
             return [text.strip() for text in speech_after(after)
-                    if (text.strip() == needle if exact else needle in text)]
+                    if (re.sub(r"^(Selected text is:) +", r"\1 ", text.strip()) == needle if exact else needle in text)]
         spoken = wait_for(match, "Orca speech generation: " + name, timeout=20)
         report.setdefault("orca_checks", []).append({"name": name, "expected": needle, "utterances": spoken})
         save()
@@ -349,9 +356,21 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                 "general": {"enableSpeech": True, "enableBraille": False},
                 "profiles": {"default": {"profile": ["Default", "default"]}},
                 "pronunciations": {}, "keybindings": {}}))
-            start(["orca", "--user-prefs", str(preferences), "--debug-file", str(debug_path),
-                   "--enable", "speech", "--disable", "braille"], "orca")
-            wait_for(lambda: "ORCA: Initialized" in debug_text(), "Orca initialization")
+            if "--user-prefs" in version(["orca", "--help"]):
+                command = ["orca", "--user-prefs", str(preferences), "--debug-file", str(debug_path),
+                           "--enable", "speech", "--disable", "braille"]
+                initialized = "ORCA: Initialized"
+            else:
+                for schema, key, value in (("Braille", "enabled", False), ("Speech", "enable", True)):
+                    settings = Gio.Settings.new_with_path("org.gnome.Orca." + schema,
+                                                          "/org/gnome/orca/default/" + schema.lower() + "/")
+                    assert settings.set_boolean(key, value), "could not configure the private Orca profile"
+                Gio.Settings.sync()
+                command = ["orca", "--debug", "--debug-file", str(debug_path)]
+                initialized = "ORCA: Starting Atspi main event loop"
+                report["orca_instrumentation"] = "native line-buffered debug logging; speech enabled and braille disabled in an isolated profile; speech server autospawn disabled; event handling and speech generation are unmodified"
+            start(command, "orca")
+            wait_for(lambda: initialized in debug_text(), "Orca initialization")
         app = start([env.get("LUAJIT", "luajit"), "src/kiwi/app/main.lua", "--config", str(kiwi_config),
                      "--no-restore-layout", "--no-extensions", "--", "python3", "src/tests/fixtures/atspi_child.py"], "kiwi")
         report["app_pid"] = app.pid
@@ -370,6 +389,11 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
         assert "read-only" in initial["states"] and "multi-line" in initial["states"], initial
         assert "editable" not in initial["states"] and "single-line" not in initial["states"], initial
         if args.orca:
+            if initialized != "ORCA: Initialized":
+                def reader_has_terminal_focus():
+                    roles = re.findall(r"FOCUS MANAGER: (?:Changing locus of focus[^\n]* to|Locus of focus is) \[(text|frame):", debug_text())
+                    return roles and roles[-1] == "text"
+                wait_for(reader_has_terminal_focus, "Orca observes terminal focus")
             line_speech_start = debug_path.stat().st_size
             keys("-k", "KP_Enter")
             expect_speech("beta é", line_speech_start, "Where Am I reads the current terminal line",
@@ -439,7 +463,9 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
             # The terminal's selection can precede Orca processing its queued
             # focus/selection events. Require the reader to observe the range
             # before asking it to read that range with its keyboard command.
-            wait_for(lambda: "is 'upd' (" in debug_text(), "Orca observes the terminal selection", timeout=20)
+            wait_for(lambda: "is 'upd' (" in debug_text()
+                     or re.search(r"AXText: Selected text of [^\n]*\]'upd' \(\d+ - \d+\)", debug_text()),
+                     "Orca observes the terminal selection", timeout=20)
             selection_speech_start = debug_path.stat().st_size
             keys("-M", "Insert", "-M", "shift", "-k", "Up", "-m", "shift", "-m", "Insert")
             expect_speech("Selected text is: upd", selection_speech_start, "read selected terminal text",
@@ -494,6 +520,6 @@ with tempfile.TemporaryDirectory(prefix="kiwi-atspi-") as directory:
                 stream.seek(max(0, debug_path.stat().st_size - 8 * 1024 * 1024))
                 tail = stream.read(8 * 1024 * 1024).decode("utf-8", errors="replace")
             (log_directory / "orca-debug.log").write_text(tail)
-            report["orca_speech"] = [text.strip() for text in re.findall(r"SPEECH OUTPUT: '(.*?)' \{", tail, re.DOTALL)][-128:]
+            report["orca_speech"] = [text.strip() for text in re.findall(r"SPEECH OUTPUT: '(.*?)'\s*\{", tail, re.DOTALL)][-128:]
         save()
 print("External GTK AT-SPI checks passed:", args.report)
