@@ -1,96 +1,439 @@
-# `Hot Cross Buns` 🍞
+# Kiwi
 
-A [Markdown browser journal](https://hot-cross-buns.vercel.app) for dated and undated items, with a portable [Planner.md format](./docs/MARKDOWN_FORMAT.md).
+Kiwi is an experimental GPU-accelerated terminal application for Linux and macOS.
+It runs your shell in a native desktop window with tabs, split panes, Unicode
+text, scrollback search, shell integration, and inline images. Its LuaJIT
+terminal engine, HarfBuzz/FreeType text stack, and wgpu-native renderer are
+internal parts of the application.
 
-## Stack
+The product goal is a responsive, dependable everyday terminal. Windows is not
+yet supported, and Kiwi does not claim full VT/xterm or Ghostty parity. See the
+[daily-driver compatibility ledger](docs/DAILY_DRIVER_COMPATIBILITY.md) and
+[product parity assessment](docs/PRODUCT_PARITY.md), [test guide](docs/TESTING.md),
+and [product roadmap](docs/ROADMAP.md) for implementation and qualification limits.
 
-* Frontend: [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [styled-components](https://styled-components.com/), [dnd kit](https://dndkit.com/), [React DayPicker](https://daypicker.dev/), [Lucide](https://lucide.dev/)
-* Storage: [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API), source-preserved UTF-8 Markdown, browser preferences in localStorage
-* Tests: [Node.js test runner](https://nodejs.org/api/test.html), [Playwright](https://playwright.dev/), [Python unittest](https://docs.python.org/3/library/unittest.html)
-* Package: [Node.js](https://nodejs.org/), [npm](https://www.npmjs.com/), [Vite](https://vite.dev/)
-* Optional imports: [Google Calendar API](https://developers.google.com/calendar/api), [Google Tasks API](https://developers.google.com/tasks), [Python](https://www.python.org/)
+## Current scope
 
-## Features
+`make run` opens a native GLFW window backed by Vulkan on Linux or Metal on macOS, then starts `$SHELL` when it is an absolute path, otherwise `/bin/sh`. An explicit child follows `--`:
 
-* Dated journal and undated lists *(details & hashtags; completion for dated items)*
-* Scratchpad with selected-text capture into dated or undated items
-* Time blocks and all-day or multi-day spans
-* Scheduled and after-completion recurrence *(individual, following & all-item edits)*
-* Drag to reorder items and details or move items between dates *(quick Today/Tomorrow choices)*
-* Promote details to items and move items under a parent
-* Palette search by title, detail and hashtag *(All/Open/Done for dated entries)*
-* Undo/redo and completion confirmations
-* Planner.md import doctor, conflict review and download preview
-* Protected Planner.md saving in Nextcloud, Dropbox and Syncthing desktop folders
-* Optional Google Drive file saving with your own Web OAuth client and file picker
-* Durable sync submissions, automatic catch-up, conservative source merging in single-file mode and explicit concurrent-branch review in protected mode
-* Immutable revision history for linked sync folders and new Drive links *(concurrent branches stay available for review)*
-* Hidden history and recovery command *(preview, download or restore a saved version)*
-* Hidden Markdown source editor *(validation, draft recovery & stale-edit checks)*
-* Contextual provider conflict-copy import and a read-only folder verification command
-* Browser popouts sharing the local journal and scratchpad
-* Light/dark themes, date formats, time zone for today's date and optional public holidays *(written item times stay unchanged)*
-* Smooth caret movement while typing and navigating *(respects reduced motion)*
-* Command palette for search, import, download, browser windows and settings *(⌘K / Ctrl+K; ⌘F / Ctrl+F for search)*
-* One-time, read-only Google Calendar and Tasks import through separate scripts
-
-The browser keeps its working copy in IndexedDB under this browser profile and origin. **Import Planner.md** reads a file; **Download Planner.md** exports the journal. For protected file syncing, use **Settings → Syncthing → Link sync folder** and transfer both Planner.md and its `.hot-cross-buns` history through Syncthing. Alternatively, use **Settings → Google Drive**; new links keep companion revision files in My Drive. Both publish immutable snapshots before updating the Markdown projection, with concurrent branches kept for review. Existing individual Markdown file links can upgrade explicitly. One target can be linked at a time. See [revision history and its limits](./docs/REVISION_SYNC.md), [file setup](./docs/FILE_SYNC.md) and [Drive setup](./docs/GOOGLE_DRIVE.md). Single-file mode retains a remaining overwrite window; arbitrary external edits overwritten before observation cannot be recovered. Without a linked target, import and download remain manual. Scratchpad text is included in Planner.md and syncs with the journal; appearance settings stay in the browser. Linked saving runs while a tab is open and visible; local folder linking requires browser file-picker and Web Locks support.
-
-Planner.md is authoritative; structured edits preserve unrelated Markdown source. Rich Markdown rendering, clickable internal-entry navigation and day/week/month calendar views remain planned; the current dated view is a list with day/range selection. Earlier saved TXT workspaces require an explicit archived conversion or a new empty Markdown workspace; there is no permanent TXT file-import mode. See [the Markdown runtime and recovery guide](./docs/MARKDOWN_RUNTIME.md).
-
-Open **Commands** to type a command or search the current journal view. The palette contains tag and completion filters; selecting an entry takes you to it. Escape closes the palette and clears its filters. Journal results show up to 50 entries at a time with the total count; refine the query to narrow them.
-
-Syncthing, Nextcloud and Dropbox each have their own settings section, setup guide and folder-link control. Keep the complete directory available offline. These use the desktop client's folder, without new provider API connections. The app confirms local saving; check the client for cloud upload and device delivery. Actual provider/device delivery remains unverified; browser fault tests simulate transfer. See [provider setup, verification and recovery](./docs/SYNC_FOLDERS.md), including the read-only `npm run sync:check` command.
-
-Type **history**, **recovery** or **versions** in Commands to open saved versions for a protected sync target. This command stays out of the default list. Preview or download a version, review an incoming branch, or confirm a restoration that adds a new revision without removing later history. See [history and recovery](./docs/REVISION_SYNC.md#history-and-recovery).
-
-Type **source** in Commands to edit the complete Markdown source. This command also stays out of the default list; invalid or stale drafts remain recoverable without replacing the saved journal.
-
-## Usage
-
-The below instructions are for building `Hot Cross Buns` locally from source. Use Node.js 22.18 or newer and npm. Python 3 is needed for the optional Google snapshot tools and their tests. [CI](./.github/workflows/ci.yml) checks Node.js 22.18 and 24 with Python 3.13.
-
-1. First execute the below commands to clone `Hot Cross Buns`.
-
-```console
-$ git clone https://github.com/gongahkia/hot-cross-buns && cd hot-cross-buns
+```sh
+make run
+make run ARGS='--working-directory /absolute/path/to/project'
+make run ARGS='-- /usr/bin/printf "\033[31mred\033[0m\n"'
+make run ARGS='--theme dracula --font-size 18 -- /bin/zsh -l'
 ```
 
-2. Then run the below to run `Hot Cross Buns` on your machine.
+The child receives `TERM=xterm-kiwi`, `TERMINFO=$PWD/.build/terminfo`,
+`COLORTERM=truecolor`, `TERM_PROGRAM=Kiwi`, and the project version in
+`TERM_PROGRAM_VERSION`. Kiwi owns the version-controlled
+[terminfo source](terminfo/kiwi.ti); build and inspect it with:
 
-```console
-$ npm ci
-$ npm run dev
+```sh
+make terminfo
+TERMINFO="$PWD/.build/terminfo" infocmp -x xterm-kiwi
 ```
 
-3. Optionally run the below to run `Hot Cross Buns`' [test suite](./tests).
+The standalone entry advertises the implemented 256-colour palette and direct
+RGB SGR through `Tc`, `RGB`, `setrgbf`, and `setrgbb`, alongside cursor
+movement, erasing/editing, scrolling margins, alternate screen, DEC Special
+Graphics line drawing, basic SGR, and application cursor/keypad input. It does
+not inherit an xterm entry or claim unimplemented xterm behavior; see the
+evidence and remaining deployment limits in
+[CONFORMANCE.md](docs/CONFORMANCE.md#truecolour-decision).
 
-```console
-$ npx playwright install chromium
-$ npm run verify
+M1 supports a documented subset of C0/ESC/CSI/OSC, primary/alternate screens, vertical and VT420 left/right margins, deferred autowrap plus xterm reverse-wraparound, bounded primary scrollback, legacy keyboard encoding plus negotiated Kitty keyboard flags 1/2/8/16 (with flag 4 partial on Cocoa and qualifying GTK hosts), PTY resize propagation, DSR/DA plus read-only geometry replies, and title updates. The exact contract and unsupported cases are in [docs/CONFORMANCE.md](docs/CONFORMANCE.md).
+
+The validated launch settings `--theme`, `--theme-file`, `--appearance`,
+`--font-family`, `--font-size`, `--scrollback-limit`, `--scrollbar`, and
+`--shell-integration` override file and environment values for that process.
+See the [user guide](docs/USER_GUIDE.md#configuration) for their precedence,
+reload behavior, and the colour-only external-theme trust boundary.
+
+## Linux prerequisites
+
+The Linux support target is x86_64. On Fedora 43:
+
+```sh
+sudo dnf install luajit gcc make curl unzip pkgconf-pkg-config ncurses \
+  glib2-devel glfw-devel gtk4-devel libadwaita-devel libepoxy-devel freetype-devel harfbuzz-devel giflib libpng-devel mesa-vulkan-drivers vulkan-loader-devel \
+  vulkan-tools fontconfig google-noto-sans-mono-fonts
 ```
 
-`verify` runs unit tests, Python snapshot tests, the production build, Chromium browser tests and the dependency audit. Use `test:unit`, `test:python` or `test:e2e` to run a narrower check. The browser tests use a fixed Singapore time zone and two workers.
+`make bootstrap` validates the local tools, GLFW/FreeType/HarfBuzz/Fontconfig metadata, `tic`/`infocmp`, and the pinned official wgpu-native archive.
 
-4. Run the below to build and preview the production application.
+GLFW **3.4 or newer** is required at build time and runtime. Ubuntu 24.04's
+`libglfw3-dev` is too old. On that distribution, install the normal Linux
+dependencies plus `cmake libwayland-dev libxkbcommon-dev libxrandr-dev
+libxinerama-dev libxcursor-dev libxi-dev`, then build the pinned GLFW release
+in a private prefix:
 
-```console
-$ npm run build
-$ npm run preview
+```sh
+./script/build-ci-glfw "$PWD/.deps/glfw-3.4"
+export PKG_CONFIG_PATH="$PWD/.deps/glfw-3.4/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+export LD_LIBRARY_PATH="$PWD/.deps/glfw-3.4/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+make check
 ```
 
-Vite writes the static application to `dist/`. The included [Vercel configuration](./vercel.json) builds that directory with npm. The journal runs directly in the browser; Google authorization is needed only for optional Google Drive saving or the separate snapshot pull script.
+The helper enables X11 and Wayland and checks the downloaded archive's SHA-256.
+It does not replace the system GLFW. Keep these environment settings when
+running Kiwi, including extracted release archives on the same machine.
 
-## Other docs
+## macOS prerequisites
 
-* [Syncthing and linked Planner.md files](./docs/FILE_SYNC.md)
-* [Nextcloud and Dropbox folders, verification and recovery](./docs/SYNC_FOLDERS.md)
-* [Google Drive setup and saving](./docs/GOOGLE_DRIVE.md)
-* [Sync behavior, recovery and architecture](./docs/SYNC.md)
-* [Immutable revision protocol, migration and retention](./docs/REVISION_SYNC.md)
-* [Planner.md format and planning metadata](./docs/MARKDOWN_FORMAT.md)
-* [Markdown runtime, shared scratchpad and recovery](./docs/MARKDOWN_RUNTIME.md)
-* [Markdown implementation plan and remaining stages](./docs/MARKDOWN_PLANNER_PLAN.md)
-* [Historical TODO.txt semantics and recurrence](./docs/TODO_FORMAT.md)
-* [Import validation and review rules](./docs/TODO_DOCTOR.md)
-* [One-time Google snapshot and conversion](./docs/GOOGLE_SNAPSHOT.md)
+Source builds target Intel and Apple Silicon Macs. The current application pass
+was tested on macOS 15.7.7 Intel; see [the evidence record](docs/TESTING.md).
+Install the source dependencies with Homebrew, then build and run from the checkout:
+
+```sh
+brew install luajit glfw freetype harfbuzz fontconfig giflib libpng pkgconf ncurses
+make check
+make run
+```
+
+Kiwi uses GLFW's Cocoa window, a `CAMetalLayer` WebGPU surface, and Metal; it retains FreeType/HarfBuzz for rasterization and shaping while Fontconfig provides the current font-discovery/fallback implementation. Intel source builds, unit/PTY tests, and bounded Cocoa/Metal interactions have local evidence; broader desktop qualification remains open. See [MACOS.md](docs/MACOS.md) for the supported boundary and verification status.
+
+## Everyday controls and verification
+
+The application now exposes directional pane focus, divider resizing, pane zoom,
+font increase/decrease/reset, select all, clear history, and history navigation
+through shortcuts and the command palette. macOS has Command-based copy/paste,
+search, tab/window, split and font controls. See the
+[shortcut table](docs/USER_GUIDE.md#everyday-pane-and-text-controls).
+
+`make test-core` requires only LuaJIT and standard shell utilities. `make check`
+adds real fonts, native boundaries, PTYs, fuzzing and terminfo checks. On a
+graphical desktop, `make interaction-smoke pty-wake-smoke` exercises the live
+controls and verifies that terminal output wakes the native host. These gates
+and their limits are documented in [TESTING.md](docs/TESTING.md).
+
+## Local release artifact
+
+`make release` creates `dist/kiwi-<version>-<target>.tar.gz` and its
+adjacent SHA-256 file. The archive contains the Lua sources, native surface
+bridge, pinned wgpu-native runtime, compiled `xterm-kiwi` terminfo, a launcher, and
+`metadata.json` with the version, Git revision, source-date epoch, dependency
+identity, and runtime-library requirements. It neither uploads nor publishes
+anything. `make release` refuses a dirty checkout, so a persistent artifact is
+always attributable to its recorded revision. `make release-check` builds twice
+in a disposable directory with normalized archive metadata,
+compares the byte streams, verifies the checksum, extracts the archive, and
+confirms that its launcher reports release mode even when
+`KIWI_DEVELOPMENT=1` is inherited. On macOS, it also launches the extracted
+`Kiwi.app` through LaunchServices and verifies that the packaged terminal
+process starts before it is stopped.
+
+To verify a retained artifact from the checkout root, use its adjacent
+checksum from inside `dist/`:
+
+```sh
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) target=linux-x86_64 ;;
+  Darwin-arm64) target=macos-arm64 ;;
+  Darwin-x86_64) target=macos-x86_64 ;;
+  *) print -u2 "unsupported Kiwi release target"; exit 1 ;;
+esac
+release="kiwi-$(< VERSION)-$target"
+(cd dist && sha256sum --check "$release.tar.gz.sha256")
+tar -xzf "dist/$release.tar.gz"
+./"$release"/bin/kiwi --version
+```
+
+The Linux archive needs a system LuaJIT plus GLib/GIO, GLFW, GTK4, libadwaita, libepoxy, FreeType, HarfBuzz, Fontconfig, giflib, libpng, a Vulkan loader/driver, and a Wayland or X11 runtime. It includes both the default surface bridge and the optional GTK host bridge. The verified macOS arm64 archive needs the corresponding Homebrew runtime dependencies and includes `Kiwi.app` as a convenience launcher. Its executable is deterministically ad-hoc signed so LaunchServices can launch it, but it has no Developer ID signature or notarization. `kiwi --version` reports the artifact version and
+revision without opening a window. A release artifact forces `KIWI_RELEASE=1`:
+development shader hot reload, pass metrics/budgets, GPU timestamp instrumentation,
+renderer inspector settings, and F2–F5 debug shortcuts remain off. It does not
+publish a GitHub release or claim portability beyond the documented Linux and
+macOS environments.
+
+Nix users can build the pinned Linux x86_64 package with `nix build .#kiwi`,
+enter the matching development environment with `nix develop`, and run the
+flake verification subset with `nix flake check`; see [NIX.md](docs/NIX.md) for
+the pinned-input update procedure and driver/display limitations.
+
+Arch/AUR publication is currently deferred pending the first public,
+immutable source release and an authorized AUR maintainer. See
+[RELEASES.md](docs/RELEASES.md) and [AUR.md](docs/AUR.md) for the release and
+packaging contracts.
+
+For the supported source and artifact launch paths, environment-only
+configuration, safe-mode troubleshooting, maintained render-extension examples,
+and support boundaries, see the [user guide](docs/USER_GUIDE.md).
+
+## Commands
+
+```sh
+make bootstrap                         # validate prerequisites and fetch pinned wgpu-native
+make check                             # deterministic LuaJIT, PTY, terminfo, and syntax checks
+make release                           # create a local, checksummed release-mode artifact for the current target
+make release-check                     # rebuild the artifact twice and verify byte identity, metadata, terminfo, and release mode
+make doctor                            # local, privacy-bounded human-readable support report
+make doctor ARGS='--json --bundle kiwi-support.json' # machine-readable report and explicit local bundle
+make test                              # deterministic unit, conformance, replay, and parser-bench tests
+make test-fuzz                         # bounded seed-reproducible parser/state property and hostile-input suite
+make fuzz                              # longer local parser/state fuzz run
+make test-pty                          # deterministic real-PTY integration tests
+make test-applications                 # interactive Bash/Zsh, Vim/Neovim, tmux, less and top workflows with replay evidence
+make test-ssh-applications             # loopback OpenSSH shell/editor/resize/disconnect workflows with temporary keys
+make run                               # launch the default shell
+make gtk-run                           # launch through the partial GTK4 Linux host on x86_64
+make gtk-gl-run                        # experimental GtkGLArea one-terminal default; set KIWI_GTK_NATIVE_TABS=1 for the separately gated multi-PTY tab prototype
+make gtk-gl-renderer-check             # strict native GTK host and OpenGL renderer source check
+make gtk-wayland-smoke                 # bounded GTK Wayland WGPU/PTy smoke (requires a Wayland session)
+make gtk-wayland-multi-window-smoke    # bounded GTK Wayland WGPU multi-window lifecycle smoke
+make gtk-x11-smoke                     # bounded GTK X11 WGPU/PTy smoke (requires an X11 session)
+make gtk-x11-multi-window-smoke        # bounded GTK X11 WGPU multi-window lifecycle smoke
+make gtk-gl-wayland-smoke              # GTK GL terminal/PTY render smoke (requires a Wayland session)
+make gtk-gl-x11-smoke                  # GTK GL terminal/PTY render smoke (requires an X11 session)
+make gtk-gl-native-tabs-wayland-smoke  # opt-in GTK GL multi-PTY native-tab lifecycle smoke (requires Wayland)
+make gtk-gl-native-tabs-x11-smoke      # opt-in GTK GL multi-PTY native-tab lifecycle smoke (requires X11)
+make gtk-gl-native-tabs-close-wayland-smoke # GTK native-tab close/session-teardown smoke (requires Wayland)
+make gtk-gl-native-tabs-close-x11-smoke     # GTK native-tab close/session-teardown smoke (requires X11)
+make gtk-input-smoke                   # GTK preedit/commit and Kitty alternate-key callback smoke (requires a graphical session)
+make gtk-input-wayland-smoke           # force that GTK input smoke through Wayland
+make gtk-input-x11-smoke               # force that GTK input smoke through X11
+make gtk-accessibility-smoke           # GTK accessible-text projection smoke (requires a graphical session)
+make gtk-gl-area-smoke                  # GTK GL native snapshot/render lifecycle probe; separate from the PTY application smokes (requires graphical Linux)
+make demo                              # retain the M0 synthetic renderer mode
+make compatibility                     # machine-readable versioned terminal compatibility manifest
+make daily-driver-compatibility        # bounded cross-platform compatibility evidence; skips unavailable desktop/remote checks
+make daily-driver-compatibility COMPAT_ARGS='--require-desktop --allow-public-clipboard --report artifacts/compatibility.json' # dedicated desktop qualification report
+make daily-driver-compatibility COMPAT_ARGS='--host gtk --require-desktop' # GTK-host rendering/PTY qualification; interactive checks remain manual
+make kiwi-ssh SSH_ARGS='-- user@host'  # install private remote terminfo then open an SSH shell
+make smoke                             # bounded native live-terminal GPU smoke test; skips without Linux display
+make timestamp-probe                   # opt-in timestamp-query capability/readback probe; does not instrument frames
+make gpu-timing-smoke                   # bounded live per-pass GPU timestamp/readback smoke test
+make kitty-graphics-smoke               # bounded native direct-PNG Kitty graphics composition smoke test
+make kitty-animation-smoke              # bounded native GIF/APNG playback and frame-texture update smoke test
+make truecolour-framebuffer-smoke       # bounded native terminal RGB compositor-readback smoke test
+make key-sequence-smoke                 # configured multi-key action through the live controller
+make new-window-smoke                   # bounded native same-process Ctrl+Shift+N window-manager smoke; skips without a display
+make session-move-smoke                 # bounded native Ctrl+Shift+M live-PTY handoff between same-process windows
+make layout-restore-smoke               # save a tab/split topology then restore it with fresh shells
+make cocoa-menu-smoke                   # macOS global-menu New Tab action through the live host tab controller
+make cocoa-toolbar-smoke                # macOS unified titlebar-toolbar action through the live controller
+make cocoa-cwd-smoke                    # macOS active local/remote OSC 7 titlebar proxy-URL lifecycle
+make cocoa-palette-smoke                # macOS searchable native command-palette callback smoke
+make gtk-session-target-smoke           # GTK bounded destination chooser callback smoke
+make cocoa-automation-smoke             # macOS staged-bundle bounded Apple-event action smoke
+make gtk-palette-smoke                  # GTK searchable native command-palette callback smoke; needs graphical Linux
+make accessibility-smoke                # semantic accessibility checks plus platform-native availability report
+make accessibility-provider-smoke       # live Linux AT-SPI registry/query/event smoke; macOS reports its manual boundary
+make cocoa-smoke                        # macOS Cocoa bridges, AppKit tab selection/standalone-window policy, Metal surfaces, and development-app launch smoke
+make budget-smoke                       # live advisory-budget warning smoke test
+make pacing                             # bounded native PTY-output/present-call pacing report; skips without display
+make power-smoke                        # bounded redraw scheduler observation; skips without display
+make device-soak                        # CI-friendly deterministic pass/resource/extension lifecycle soak
+make device-soak-native                 # bounded native resize/minimize/restore + extension-churn soak; skips without display
+make device-loss-sim                    # bounded native device-recreation policy simulation; skips without display
+make bench                             # M1.5 layered CPU pipeline benchmark; retains M0 synthetic data separately
+make bench-burst                       # real-PTY burst, response, latency, and memory regression checks
+make bench-text                        # M2 Unicode, shaping, fallback, glyph-cache, and row-layout CPU measurements
+make text-corpus-review                # M8 deterministic text-corpus manifest with host/driver inventory
+make text-corpus-demo                  # bounded native visual review of that same corpus
+make text-lab                          # M8 atlas-baseline laboratory report; BACKENDS=atlas,msdf adds requested candidates
+make text-lab-demo BACKEND=atlas        # bounded native corpus review through an explicit laboratory backend request
+make slug-feasibility                  # M8 native Slug prerequisite probe; currently exits 2 because libharfbuzz-gpu is unavailable
+make bench-write                       # M2.5 parser/cluster/damage/shaping/atlas write-path attribution
+make bench-text-stress                 # M2 bounded atlas/fallback/grid/memory stress check
+make bench-longrun                     # M9 history, fragmented-update, resize, and text-cache pressure profile
+make profile-text                      # ignored LuaJIT sampling profile; add KIWI_PROFILE_TRACE=1 for -jv traces
+make replay REPLAY=path/session.jsonl  # headless deterministic replay and canonical snapshot
+make vttest                            # launch vttest if installed, in an interactive graphical session
+make conformance-evidence              # audit terminfo, local tmux behavior, and native top when available
+```
+
+Kiwi does not fetch media URLs while parsing terminal output. To explicitly
+load one HTTPS PNG, APNG, or GIF from a source checkout, run this inside a Kiwi shell:
+
+```sh
+./script/kiwi-image https://images.example/kiwi.png
+```
+
+The helper follows HTTPS redirects only, limits downloaded data, validates the
+PNG/APNG or GIF header and dimensions, then emits Kiwi's bounded direct-image
+graphics stream. GIF and APNG frames play through one GPU texture per visible
+image; video remains unsupported. It consumes the placement acknowledgement and
+places the next prompt below the selected rectangle by default;
+`--no-cursor-advance` is reserved for deliberate layered composition. Release
+and Nix installs provide the same command as `kiwi-image`.
+
+During a live session, `F2` toggles dirty-cell highlighting, `F3` cell boundaries, and `F4` the once-per-second diagnostic report. `F6` validates and reloads the active [configuration file](docs/USER_GUIDE.md#configuration); theme, renderer-color, font, and scrollbar-policy changes take effect in the running session, while width-policy and scrollback-limit changes require a new session. macOS `Settings…`, GTK `Settings`, and the palette's `Open Configuration` action open the effective text configuration; if no default file exists, that explicit action creates a comment-only, user-only default without overwriting an existing file. `Shift+PageUp` and `Shift+PageDown` navigate primary-screen history locally. The WGPU and experimental GTK GL presenters draw a slim primary-screen history overlay when retained history exists; click its track or drag its thumb to navigate locally. `scrollbar = never` disables that overlay. It is a renderer overlay, not an OS scrollbar widget or accessibility range/value control. `Ctrl+Shift+F` opens a scrollback-search query in the window title; type the exact UTF-8 query and press `Enter`, then use `Ctrl+Shift+G`/`Ctrl+Shift+R` for forward/backward navigation or `Escape` to clear it. `Ctrl+primary-click` opens a safe OSC 8 link under the pointer and `Ctrl+Shift+O` opens one under the visible cursor; `http`, `https`, and `mailto` are the only allowed schemes. `--inspect` reports text metadata at the final cursor; `--inspect=ROW,COLUMN` selects a zero-based cell and includes shaped-glyph mapping. `--config PATH` selects a configuration file; otherwise Kiwi reads the documented XDG path and preserves environment overrides such as `KIWI_FONT_PX`. Font faces/glyph cache are rebuilt when GLFW content scale changes. Other supported keys encode terminal input; closing the window shuts down the child process group.
+
+User-selected postprocessing shaders and background transparency are available in normal and release builds; see [the configuration guide](docs/USER_GUIDE.md#custom-shaders).
+
+Hot replacement of Kiwi’s internal terminal WGSL is development-only: start Kiwi with `KIWI_DEVELOPMENT=1` and an explicit `KIWI_DEV_SHADER_PATH=/absolute/or/relative/terminal.wgsl`. Kiwi polls only that file at a 250 ms cadence; `F5` forces an immediate reload. It builds replacement modules and pipelines for every affected pass before swapping any active pipeline. Rejected source remains on disk for correction, while the last known-good pipelines stay active and the reason is reported to stderr. Without both settings, `F5` performs no shader compilation and terminal passes continue to use the bundled WGSL. Configured custom postprocessing remains available.
+
+`KIWI_PASS_METRICS=1` enables bounded per-pass CPU preparation and encoding samples in the renderer diagnostics. The default leaves this instrumentation disabled.
+
+`KIWI_PASS_BUDGETS=1` enables advisory rolling-window budgets declared by render passes. A declaration may set `cpu_ms`, `gpu_ticks`, `allocation_bytes`, `cadence_hz`, and `window`; results are plain structured diagnostics and inspector status, never an automatic throttle or pass shutdown. CPU budgets remain usable when GPU timestamps are unavailable. API v1 has no extension-owned GPU allocation capability, so allocation accounting is explicitly unavailable rather than estimated. `KIWI_PASS_BUDGETS_REPORT=1` prints final warnings for development validation.
+
+`KIWI_GPU_TIMESTAMPS=1` requests the optional `TimestampQuery` feature for the renderer device. When enabled on a supporting adapter, Kiwi keeps at most three asynchronous readbacks in flight and reports delayed per-pass GPU tick deltas; it never waits for a result in the present path. Device-feature request failures fall back to the normal device and report the reason in diagnostics. `KIWI_GPU_TIMESTAMPS_REPORT=1` prints the final diagnostic snapshot for development validation.
+
+Optional render extensions are trusted local modules. Set `KIWI_RENDER_EXTENSIONS` to a comma-separated list of module names; each module must return a registration function, or a table with a `register` function. Kiwi has no built-in network discovery or installation. Start with `--no-extensions` to bypass that list entirely, including module loading:
+
+```sh
+KIWI_RENDER_EXTENSIONS='local.frame_observer,local.overlay' make run
+make run ARGS='--no-extensions -- /bin/sh'
+```
+
+Each registration is preflighted independently against the complete built-in pass graph. A rejected registration is discarded and recorded in bounded `renderer.diagnostics.extensions` data. An optional pass that later fails during initialization, encoding, resize, or shutdown is disabled for that renderer lifetime; the built-in background, glyph, and cursor passes continue where the renderer can safely present. This is fault containment for trusted local code, not a sandbox for untrusted Lua or native modules.
+
+Extension limits are enforced before registration or scheduling. `KIWI_EXTENSION_MAX_PASSES` sets the positive-integer optional-pass cap (default `32`); `KIWI_EXTENSION_MAX_ANIMATION_HZ` sets the maximum optional redraw rate from `1/60` through `60` Hz (default `60`). A registration that would exceed the pass cap is discarded as a whole. An animation request with a delay below the configured cadence is rejected without scheduling a redraw. Safe mode bypasses both extension module loading and extension-cap environment parsing.
+
+API v1 permits no extension-owned GPU buffers, textures, shader modules, or GPU-memory accounting: those limits are fixed at zero until a separately versioned capability exists. One callback failure disables its optional pass, while diagnostic history is bounded to 32 records of at most 4,096 bytes each. The full plain-data cap state, including unavailable capability markers, is in `renderer.diagnostics.extensions.limits`.
+
+GPU faults have an explicit bounded policy. A transient surface-acquire or present status requests a surface reconfiguration on the next render attempt. A `wgpu device lost` callback tears down all renderer-owned resources and retries once by recreating the WGPU context and renderer against the existing window, terminal state, PTY, and font. A second device loss, a failed recreation, or another native GPU error exits after printing a bounded diagnostic with backend, vendor, adapter, and last renderer pass/phase. Kiwi does not claim transparent recovery for every driver. `renderer.diagnostics.gpu_recovery` retains at most 16 records with at most 2,048 message bytes each, and contains no terminal, clipboard, command, or display content. `make device-loss-sim` exercises the policy path with a synthetic marker; it is not evidence that a driver delivered the WGPU device-loss callback.
+
+Kiwi coalesces terminal, resize, cursor, selection, search, Kitty-image, configuration, and extension redraw reasons. It only presents when work is pending or a bounded animation deadline is due; successful presentation clears consumed reasons.
+
+Live sessions wait for native events or explicit deadlines, including indefinitely when quiet. PTY readiness, child-exit notifications and configuration watches wake the host; cursor blinking, animations and bounded asynchronous work supply deadlines. A live child without an exit watch retains a 50 ms visible / 250 ms minimized reaping fallback. Linux GLFW also retains a 50 ms fallback for unsupported GLib descriptor sets. See [the readiness policy](docs/adr/0045-event-driven-host-waits.md) for limits.
+
+A minimized window retains pending terminal state, skips surface acquisition/presentation and redraws after restoration. Synchronized output likewise defers presentation. Trusted extension animation requests remain bounded by `KIWI_EXTENSION_MAX_ANIMATION_HZ` (1/60–60 Hz). `make power-smoke` reports loop wakeups, states, rendered frames, deferred presentation, event counts and invalidation reasons. Its synthetic PTY input is labelled separately from physical keyboard input; the report does not measure battery use, GPU energy, compositor work or display scan-out.
+
+DECSCUSR cursor styles and DEC synchronized output are supported as documented
+in [the conformance matrix](docs/CONFORMANCE.md). `CSI ? 2026 h` defers
+intermediate terminal presentation until `CSI ? 2026 l` or RIS; neither mode
+is advertised through terminfo.
+
+X10/normal/button/any mouse tracking (9/1000/1002/1003), X10, UTF-8 (1005),
+URXVT (1015), SGR-cell (1006), and SGR-pixel (1016) coordinate encodings,
+plus focus reporting (1004), are supported with exact scope in the
+[conformance matrix](docs/CONFORMANCE.md). When an application enables mouse
+tracking, a primary-button Shift drag is a configured local-selection override:
+the default respects an XTSHIFTESCAPE (`CSI > Ps s`) application capture
+request, and `mouse-shift-capture` has explicit `true`, `false`, `always`, and
+`never` policies. Selected cells receive a
+pre-glyph alpha highlight; `KIWI_SELECTION_COLOR` accepts `#RRGGBB` or
+`#RRGGBBAA`. The current scrollback-search result receives a second pre-glyph
+alpha highlight; `KIWI_SEARCH_COLOR` has the same format. Neither input
+capability is advertised through terminfo.
+
+When an application has not enabled mouse tracking and Kiwi is on the primary
+screen, vertical-wheel input navigates local scrollback. Fractional host deltas
+accumulate per terminal session and at most 16 history rows move for one host
+event. Mouse-reporting applications and alternate-screen alternate-scroll mode
+retain their existing input ownership.
+
+`Ctrl+Shift+T` opens a tab and `Ctrl+Tab` cycles tabs. On the regular GLFW and
+default GTK host, that is a renderer-workspace tab; on the Cocoa host it is a
+new GLFW/Metal controller in the AppKit tab group. `Ctrl+Shift+Enter` creates
+a vertical split, `Ctrl+Shift+J` creates a horizontal split, and
+`Ctrl+Shift+W` closes the active pane (or its tab when it is the last pane).
+`Ctrl+Shift+N` creates a same-process default-shell window; `Ctrl+Shift+M`
+moves the active live session to a new window, and `Ctrl+Shift+Alt+M` opens a
+bounded chooser for an existing Kiwi window. `Ctrl+Shift+D` and
+`Ctrl+Shift+Alt+D` create fresh default-shell counterparts, with the latter
+also choosing its destination. Each visible pane has its own terminal and
+PTY, is resized to its cell-layout rectangle, and is rendered into a scissored
+viewport in one shared WGPU frame. Primary-clicking a pane focuses it before
+pointer input is routed to that terminal. Inactive tabs continue to service
+their PTYs. `Ctrl+Shift+C` copies a visible selection and `Ctrl+Shift+V` pastes
+through the active host's ordinary platform clipboard bridge. Clipboard
+reads/writes are limited to 1 MiB;
+paste rejects invalid UTF-8 or NUL-containing bridge data and uses bracketed-paste framing only
+when the terminal has enabled DECSET 2004. OSC 52 remains default-denied unless
+`osc52-write = true` explicitly permits bounded writes or `osc52-read = allow`
+explicitly permits bounded query replies; Kiwi has no prompt policy yet.
+
+`Ctrl+Shift+P` opens a searchable native command palette on the Cocoa and GTK4
+hosts. Its twelve default workspace actions and up to 32 total configured
+entries filter by title and description. A configured entry can only invoke an
+existing non-recursive workspace action; it cannot execute text, a shell
+command, or terminal control bytes. These local actions are configurable with
+bounded one- through three-chord `keybind` directives in the configuration
+file; `F6` is the default reload action. `theme = system`,
+bounded colour-only `theme-file` input, and default-denied OSC 9 host-effect
+settings plus the separate default-disabled OSC 133 command-finish notification
+policy are documented in the [user guide](docs/USER_GUIDE.md#configuration).
+The macOS Cocoa and GTK4 host menus route those same actions, including
+Settings/Open Configuration and the command palette, without adding menu
+keyboard equivalents; native product-chrome qualification remains partial.
+`Kiwi.app` also exposes eight fixed AppleScript window/layout/configuration
+actions through the same dispatcher. It has no terminal-input command or
+Ghostty-style scripting object model; external Automation consent and
+interactive AppleScript use remain manual qualification. See
+[MACOS.md](docs/MACOS.md#bounded-applescript-actions).
+
+Kiwi's default GLFW route has a bounded macOS Cocoa preedit/commit adapter;
+GLFW character callbacks otherwise provide committed Unicode text. The default
+GLFW Linux route has no Wayland text-input lifecycle. The separate GTK4 Linux
+host implements bounded `GtkIMMulticontext` preedit and commit handling.
+[Real IBus/libpinyin workflows](docs/evidence/2026-10-26-gtk-ime.md) pass on
+isolated Wayland desktops with both GTK presenters and native tabs, subject to
+the documented IBus client-version limitation. Candidate placement, other input
+methods and physical-desktop use remain unqualified. The host boundaries are documented in [NATIVE_HOSTS.md](docs/NATIVE_HOSTS.md) and
+[ADR 0025](docs/adr/0025-wayland-ime-and-window-stack.md).
+
+Kiwi exposes a bounded semantic accessibility model, a Linux AT-SPI bridge, and a macOS NSAccessibility element
+for the active pane. External AT-SPI queries and [Orca reading-command workflows](docs/evidence/2026-10-27-orca.md)
+pass on both GTK presenters in isolated Linux desktops. Those reader checks
+verify generated speech; audible output, braille, flat review, VoiceOver and daily
+usability remain unqualified. Windows UI Automation is unimplemented. The contract, limits, and smoke
+commands are in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+
+Kiwi supports Linux x86_64 and, on a verified source path, macOS arm64. Windows DX12/ConPTY feasibility was
+researched from a Linux cross-build environment but not run on a Windows host;
+no Windows build or runtime support is claimed. The required native seams and
+validation matrix are in [ADR 0038](docs/adr/0038-windows-native-feasibility.md).
+
+macOS Metal/Cocoa support uses a narrow Objective-C bridge, with historical Apple Silicon evidence and current bounded Intel source/native checks. It includes bounded `NSTextInputClient` preedit/commit handling, an `NSAccessibilityTextArea` adapter, and native AppKit tab containers: on macOS, `New Tab` creates a new GLFW/Cocoa controller that joins the AppKit group, while `New Window` is explicitly separate. Each native tab still renders Kiwi's custom split workspace; this is not native split content. `make cocoa-smoke`, `make cocoa-menu-smoke`, `make cocoa-toolbar-smoke`, `make voiceover-validation`, and `make kitty-framebuffer-smoke` exercise those seams. Broader Intel desktop qualification, real input-source and VoiceOver interaction, interactive native tab behavior, Developer ID signing, and notarization remain open; see [ADR 0039](docs/adr/0039-macos-native-feasibility.md).
+
+## Replay
+
+`--record path.jsonl` records resize, PTY output, and input events at the terminal-kernel boundary. `--replay path.jsonl` performs headless state replay without a PTY or GPU. Records are versioned JSONL with base64 byte payloads; [a small sanitized live-session fixture](src/tests/fixtures/replay/live-color-cr.jsonl) is tested in the deterministic suite.
+
+Kiwi automatically injects its reversible Bash, Zsh, fish, or Nushell integration only
+for its initial default shell; it never edits a dotfile. Set
+`shell-integration = none` in the configuration file, or
+`KIWI_SHELL_INJECTION=none`, to disable injection. Use `make kiwi-ssh
+SSH_ARGS='--ssh-option Port=2222 -- user@host'` for an explicit SSH
+session that installs the compiled `xterm-kiwi` terminfo entry under the remote
+user's private cache before starting the remote shell. Its failure fallback
+uses `TERM=xterm-256color`; see
+[SHELL_INTEGRATION.md](docs/SHELL_INTEGRATION.md) for limits and manual paths.
+
+OSC 7 `file://` current-directory updates and OSC 133 A/B/C/D shell markers are
+parsed into bounded replayable facts and an opaque prompt/command/output
+lifecycle when a cooperative shell emits them. On macOS, the active session's
+empty, `localhost`, or current-host OSC 7 authority also supplies the titlebar
+proxy URL; remote or absent metadata clears it. Kiwi does not stat, resolve, or
+automatically open that URL. The initial default Bash, Zsh, fish, or Nushell
+shell receives Kiwi's reversible versioned asset automatically; manual source
+blocks remain available for switched shells and explicit-command launches,
+where they require `KIWI_SHELL_INTEGRATION=1`. Neither route enables command
+execution, durable cross-session persistence, a renderer resource, or
+diagnostics output. Opaque row associations move through bounded scrollback and
+degrade explicitly when evicted. See [shell integration v1](docs/SHELL_INTEGRATION.md),
+[ADR 0027](docs/adr/0027-bounded-shell-integration-metadata.md),
+[ADR 0028](docs/adr/0028-stable-command-region-lifecycle.md), and
+[ADR 0029](docs/adr/0029-command-region-retention-and-snapshot-boundary.md).
+
+For retained primary history, `Ctrl+Alt+P/C/O` move backward through prompt,
+command, and output boundaries; add Shift to move forward. The bindings are
+local and status-gated during editing search, Kitty keyboard mode, or alternate
+screen use. They only move the history viewport and never send PTY input,
+copy text, execute a command, or expose a command UI. See
+[ADR 0030](docs/adr/0030-command-region-navigation.md).
+
+`KIWI_COMMAND_REGIONS=1` enables an opt-in, subtle separator pass for visible
+command/output boundaries. It receives only a bounded content-free descriptor;
+the same typed resource is available to trusted local extension observers, but
+API v1 grants them no drawing or GPU-allocation capability. See
+[ADR 0032](docs/adr/0032-bounded-command-region-render-resource.md).
+`KIWI_COMMAND_REGION_COLOR` accepts `#RRGGBB` or `#RRGGBBAA` and defaults to
+`#88C0D055`.
+
+Kitty graphics supports a bounded direct-image APC-G transfer/cache for PNG,
+APNG, and GIF, explicit
+terminal-cell placements, and renderer-owned WGPU image composition. Negative
+z-index images render behind selection/text; zero and positive z-index images
+render after glyphs and before the cursor. Its exact parser, lifecycle, limits,
+decoder/cache ownership, fixture, and composition boundary are in
+[KITTY_GRAPHICS.md](docs/KITTY_GRAPHICS.md) and
+[ADR 0033](docs/adr/0033-kitty-graphics-parser-state-foundation.md).
+
+## Deliberate limits
+
+M2 implements Unicode 17 EGCs, deterministic width, combining-mark handling, HarfBuzz shaping, Fontconfig fallback, terminal-local palette/default/cursor colour state with OSC 4/10/11/12/104/110/111/112 plus bounded, transactional Kitty OSC 21 numeric-palette/foreground/background/cursor updates, queries, and resets. OSC 21 deliberately rejects dynamic empty assignments and selection-colour keys. It also implements bounded OSC 22 CSS pointer-name state, primary-screen width reflow, read-only xterm text-area/cell geometry replies, documented classic/UTF-8/URXVT/SGR-cell/SGR-pixel mouse plus focus reporting, and a configured XTSHIFTESCAPE-aware primary-button Shift selection override. GTK maps the declared OSC 22 names through its native cursor theme; GLFW maps each to its available standard cursor set, so diagonal and move shapes are an intentional approximation. M4 adds GLFW/GTK clipboard copy/paste, X11 pointer-primary selection and [GTK Wayland PRIMARY](docs/evidence/2026-10-26-gtk-wayland-primary.md), bounded asynchronous middle-button paste, bounded literal/regex scrollback search, vi navigation/selection, keyboard URL hints with destination previews, safe OSC 8 hyperlinks, and explicit bounded OSC 52 writes plus a static opt-in read-query policy; it has no per-request prompt, GLFW Wayland primary selection, rich formats, automatic synchronization, full-text indexing, fetched-page previews, or file/custom-scheme link activation. M6 currently adds bounded OSC 7/133 metadata, opaque command lifecycles, bounded row associations, primary-history region navigation, current-host OSC 7 working-directory inheritance for fresh sessions, automatic initial-shell injection for Bash/Zsh/fish/Nushell with manual switched-shell assets, an explicit remote-terminfo SSH helper, and bounded PNG/APNG/GIF Kitty image composition. It also has a bounded Linux AT-SPI provider and macOS NSAccessibility element for the active pane, with [bounded Orca reading-command validation](docs/evidence/2026-10-27-orca.md) on GTK/X11; audible speech, braille, flat review and VoiceOver remain unqualified. Kiwi still excludes durable cross-session persistence, path access, execution, command output summarization, arbitrary command-palette execution, and a region UI. Kiwi does not implement bidi, Unicode line breaking, COLRv1/OpenType SVG rendering, a multipage glyph atlas, touch/gesture/locator mouse protocols, arbitrary image transforms or editing, video, exhaustive reset semantics and SGR rendering coverage, or full xterm/VT100 certification. Primary Kitty placement anchors are released on a width reflow because their fixed cell geometry is not yet reflow-aware; decoded image data remains cached. Unsupported OSC/DCS/APC/PM/SOS data is consumed safely rather than rendered as text, except for the documented bounded Kitty APC-G image transfer/cache, cell-placement, and composition subset. OSC 52 remains disabled unless explicitly configured; its policy is in [ADR 0020](docs/adr/0020-clipboard-and-osc52-security-policy.md). Unknown-sequence counts and bounded, structured samples are available through F4 diagnostics. The precise text contract is in [docs/TEXT.md](docs/TEXT.md).
+
+The renderer remains structured: terminal cells and damage feed background, selection, search, hyperlink-aware glyph, and cursor GPU passes; it does not parse escape sequences or render a terminal bitmap. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/BENCHMARKS.md](docs/BENCHMARKS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/adr](docs/adr).
